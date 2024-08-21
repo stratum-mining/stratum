@@ -42,77 +42,77 @@ jobs:
       - name: Publish crate no_serde_sv2_derive_codec
         continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/no-serde-sv2/derive_codec
+          cd stratum-protocols/v2/binary-sv2/no-serde-sv2/derive_codec
           cargo publish
       - name: Publish crate no_serde_sv2_codec
         continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/no-serde-sv2/codec
+          cd stratum-protocols/v2/binary-sv2/no-serde-sv2/codec
           cargo publish
       - name: Publish crate serde_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/serde-sv2
+          cd stratum-protocols/v2/binary-sv2/serde-sv2
           cargo publish
       - name: Publish crate binary_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/binary-sv2
+          cd stratum-protocols/v2/binary-sv2/binary-sv2
           cargo publish
       - name: Publish crate const_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/const-sv2
+          cd stratum-protocols/v2/const-sv2
           cargo publish
       - name: Publish crate framing_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/framing-sv2
+          cd stratum-protocols/v2/framing-sv2
           cargo publish
       - name: Publish crate noise_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/noise-sv2
+          cd stratum-protocols/v2/noise-sv2
           cargo publish
       - name: Publish crate codec_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/codec-sv2
+          cd stratum-protocols/v2/codec-sv2
           cargo publish
       - name: Publish crate common_messages
         continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/common-messages
+          cd stratum-protocols/v2/subprotocols/common-messages
           cargo publish
       - name: Publish crate job_declaration
         continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/job-declaration
+          cd stratum-protocols/v2/subprotocols/job-declaration
           cargo publish
       - name: Publish crate mining
         continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/mining
+          cd stratum-protocols/v2/subprotocols/mining
           cargo publish
       - name: Publish crate template_distribution
         continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/template-distribution
+          cd stratum-protocols/v2/subprotocols/template-distribution
           cargo publish
       - name: Publish crate sv2_ffi
         continue-on-error: true
         run: |
-          cd protocols/v2/sv2-ffi
+          cd stratum-protocols/v2/sv2-ffi
           cargo publish --all-features
       - name: Publish crate roles_logic_sv2
         continue-on-error: true
         run: |
-          cd protocols/v2/roles-logic-sv2
+          cd stratum-protocols/v2/roles-logic-sv2
           cargo publish
       - name: Publish crate v1
         continue-on-error: true
         run: |
-          cd protocols/v1
+          cd stratum-protocols/v1
           cargo publish
       - name: Publish crate bip32-key-derivation
         continue-on-error: true
@@ -132,35 +132,35 @@ jobs:
       - name: Publish crate network_helpers_sv2
         continue-on-error: true
         run: |
-          cd roles/roles-utils/network-helpers
+          cd stratum-roles/roles-utils/network-helpers
           cargo publish
       - name: Publish crate rpc_sv2
         continue-on-error: true
         run: |
-          cd roles/roles-utils/rpc
+          cd stratum-roles/roles-utils/rpc
           cargo publish
       - name: Publish crate jd_client
         continue-on-error: true
         run: |
-          cd roles/jd-client
+          cd stratum-roles/jd-client
           cargo publish
       - name: Publish crate jd_server
         continue-on-error: true
         run: |
-          cd roles/jd-server
+          cd stratum-roles/jd-server
           cargo publish
       - name: Publish crate mining_proxy_sv2
         continue-on-error: true
         run: |
-          cd roles/mining-proxy
+          cd stratum-roles/mining-proxy
           cargo publish
       - name: Publish crate pool_sv2
         continue-on-error: true
         run: |
-          cd roles/pool
+          cd stratum-roles/pool
           cargo publish
       - name: Publish crate translator_sv2
         continue-on-error: true
         run: |
-          cd roles/translator
+          cd stratum-roles/translator
           cargo publish

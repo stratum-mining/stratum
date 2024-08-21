@@ -35,8 +35,8 @@ jobs:
       - name: Run fmt in different workspaces and crates
         run: |
           cargo fmt --all --manifest-path=benches/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=common/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=protocols/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=roles/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=stratum-common/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=stratum-protocols/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=stratum-roles/Cargo.toml -- --check
           cargo fmt --all --manifest-path=utils/Cargo.toml -- --check
           cargo fmt --all --manifest-path=utils/message-generator/Cargo.toml -- --check

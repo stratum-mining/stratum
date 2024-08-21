@@ -35,8 +35,8 @@ jobs:
       - name: Run Clippy on different workspaces and crates
         run: |
           cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=stratum-common/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=stratum-protocols/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=stratum-roles/Cargo.toml -- -D warnings -A dead-code
           cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
           cargo clippy --manifest-path=utils/message-generator/Cargo.toml -- -D warnings -A dead-code

@@ -30,8 +30,8 @@ jobs:
       - name: Build Benches
         run: cargo build --manifest-path=benches/Cargo.toml
       - name: Build Protocols
-        run: cargo build --manifest-path=protocols/Cargo.toml
+        run: cargo build --manifest-path=stratum-protocols/Cargo.toml
       - name: Build Roles
-        run: cargo build --manifest-path=roles/Cargo.toml
+        run: cargo build --manifest-path=stratum-roles/Cargo.toml
       - name: Build Utils
         run: cargo build --manifest-path=utils/Cargo.toml
