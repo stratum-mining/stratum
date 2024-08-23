@@ -58,7 +58,7 @@ pub mod decodable {
 }
 
 pub mod encodable {
-    pub use crate::codec::encodable::{Encodable, EncodableField};
+    pub use crate::codec::encodable::{Encodable, EncodableField, EncodablePrimitive};
 }
 
 #[macro_use]
