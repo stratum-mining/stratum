@@ -11,9 +11,12 @@
 name: Release Libs
 
 on:
+  # Manually run by going to "Actions/Release" in Github and running the workflow
+  workflow_dispatch:
+  # every time a new release tag is created
   push:
-    branches:
-      - main
+    tags:
+      - "v*.*.*"
 
 jobs:
   libs_publish:
