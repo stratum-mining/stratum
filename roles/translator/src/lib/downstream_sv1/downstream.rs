@@ -13,7 +13,7 @@ use async_std::{
 };
 use error_handling::handle_result;
 use futures::FutureExt;
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, task::AbortHandle};
 
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
@@ -110,6 +110,7 @@ impl Downstream {
         host: String,
         difficulty_config: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+        task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
         let stream = std::sync::Arc::new(stream);
 
@@ -150,11 +151,12 @@ impl Downstream {
         let rx_shutdown_clone = rx_shutdown.clone();
         let tx_shutdown_clone = tx_shutdown.clone();
         let tx_status_reader = tx_status.clone();
+        let task_collector_mining_device = task_collector.clone();
         // Task to read from SV1 Mining Device Client socket via `socket_reader`. Depending on the
         // SV1 message received, a message response is sent directly back to the SV1 Downstream
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
-        let _socket_reader_task = task::spawn(async move {
+        let socket_reader_task = tokio::task::spawn(async move {
             let reader = BufReader::new(&*socket_reader);
             let mut messages = FramedRead::new(
                 async_compat::Compat::new(reader),
@@ -205,15 +207,22 @@ impl Downstream {
             kill(&tx_shutdown_clone).await;
             warn!("Downstream: Shutting down sv1 downstream reader");
         });
+        let _ = task_collector_mining_device.safe_lock(|a| {
+            a.push((
+                socket_reader_task.abort_handle(),
+                "socket_reader_task".to_string(),
+            ))
+        });
 
         let rx_shutdown_clone = rx_shutdown.clone();
         let tx_shutdown_clone = tx_shutdown.clone();
         let tx_status_writer = tx_status.clone();
         let host_ = host.clone();
 
+        let task_collector_new_sv1_message_no_transl = task_collector.clone();
         // Task to receive SV1 message responses to SV1 messages that do NOT need translation.
         // These response messages are sent directly to the SV1 Downstream role.
-        let _socket_writer_task = task::spawn(async move {
+        let socket_writer_task = tokio::task::spawn(async move {
             loop {
                 select! {
                     res = receiver_outgoing.recv().fuse() => {
@@ -242,11 +251,18 @@ impl Downstream {
                 &host_
             );
         });
+        let _ = task_collector_new_sv1_message_no_transl.safe_lock(|a| {
+            a.push((
+                socket_writer_task.abort_handle(),
+                "socket_writer_task".to_string(),
+            ))
+        });
 
         let tx_status_notify = tx_status;
         let self_ = downstream.clone();
 
-        let _notify_task = task::spawn(async move {
+        let task_collector_notify_task = task_collector.clone();
+        let notify_task = tokio::task::spawn(async move {
             let timeout_timer = std::time::Instant::now();
             let mut first_sent = false;
             loop {
@@ -329,10 +345,14 @@ impl Downstream {
                 &host
             );
         });
+
+        let _ = task_collector_notify_task
+            .safe_lock(|a| a.push((notify_task.abort_handle(), "notify_task".to_string())));
     }
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
     /// new `Downstream` for each connection.
+    #[allow(clippy::too_many_arguments)]
     pub fn accept_connections(
         downstream_addr: SocketAddr,
         tx_sv1_submit: Sender<DownstreamMessages>,
@@ -341,8 +361,11 @@ impl Downstream {
         bridge: Arc<Mutex<crate::proxy::Bridge>>,
         downstream_difficulty_config: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+        task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
-        task::spawn(async move {
+        let task_collector_downstream = task_collector.clone();
+
+        let accept_connections = tokio::task::spawn(async move {
             let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
             let mut downstream_incoming = downstream_listener.incoming();
 
@@ -369,6 +392,7 @@ impl Downstream {
                             host,
                             downstream_difficulty_config.clone(),
                             upstream_difficulty_config.clone(),
+                            task_collector_downstream.clone(),
                         )
                         .await;
                     }
@@ -377,6 +401,12 @@ impl Downstream {
                     }
                 }
             }
+        });
+        let _ = task_collector.safe_lock(|a| {
+            a.push((
+                accept_connections.abort_handle(),
+                "accept_connections".to_string(),
+            ))
         });
     }
 

@@ -25,14 +25,14 @@ use std::io::{Error as E, ErrorKind};
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    PubKey, Seq0255, Seq064K, ShortTxId, Signature, Str0255, Sv2Option, U32AsRef, B016M, B0255,
-    B032, B064K, U24, U256,
+    PubKey, Seq0255, Seq064K, ShortTxId, Signature, Str0255, Sv2DataType, Sv2Option, U32AsRef,
+    B016M, B0255, B032, B064K, U24, U256,
 };
 
 pub use crate::codec::{
-    decodable::Decodable,
+    decodable::{Decodable, GetMarker},
     encodable::{Encodable, EncodableField},
-    GetSize, SizeHint,
+    Fixed, GetSize, SizeHint,
 };
 
 #[allow(clippy::wrong_self_convention)]
@@ -58,7 +58,7 @@ pub mod decodable {
 }
 
 pub mod encodable {
-    pub use crate::codec::encodable::{Encodable, EncodableField};
+    pub use crate::codec::encodable::{Encodable, EncodableField, EncodablePrimitive};
 }
 
 #[macro_use]

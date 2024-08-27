@@ -47,7 +47,7 @@ pub struct DownstreamMiningNode {
     miner_coinbase_output: Vec<TxOut>,
     // used to retreive the job id of the share that we send upstream
     last_template_id: u64,
-    jd: Option<Arc<Mutex<JobDeclarator>>>,
+    pub jd: Option<Arc<Mutex<JobDeclarator>>>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -376,12 +376,13 @@ impl DownstreamMiningNode {
         let to_send = to_send.into_values();
         for message in to_send {
             let message = if let Mining::NewExtendedMiningJob(job) = message {
-                let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap().unwrap();
-                jd.safe_lock(|jd| jd.coinbase_tx_prefix = job.coinbase_tx_prefix.clone())
+                if let Some(jd) = self_mutex.safe_lock(|s| s.jd.clone()).unwrap() {
+                    jd.safe_lock(|jd| {
+                        jd.coinbase_tx_prefix = job.coinbase_tx_prefix.clone();
+                        jd.coinbase_tx_suffix = job.coinbase_tx_suffix.clone();
+                    })
                     .unwrap();
-                jd.safe_lock(|jd| jd.coinbase_tx_suffix = job.coinbase_tx_suffix.clone())
-                    .unwrap();
-
+                }
                 Mining::NewExtendedMiningJob(job)
             } else {
                 message
@@ -514,7 +515,7 @@ impl
 
     fn handle_update_channel(
         &mut self,
-        _: UpdateChannel,
+        m: UpdateChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
@@ -522,7 +523,16 @@ impl
                 self.status.get_upstream().unwrap(),
             ))
         } else {
-            todo!()
+            let maximum_target =
+                roles_logic_sv2::utils::hash_rate_to_target(m.nominal_hash_rate.into(), 10.0)?;
+            self.status
+                .get_channel()
+                .update_target_for_channel(m.channel_id, maximum_target.clone().into());
+            let set_target = SetTarget {
+                channel_id: m.channel_id,
+                maximum_target,
+            };
+            Ok(SendTo::Respond(Mining::SetTarget(set_target)))
         }
     }
 

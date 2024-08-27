@@ -9,7 +9,7 @@ edition = "2021"
 async-channel = "1.8.0"
 binary_sv2 = { version = "1.0.0", path = "../../protocols/v2/binary-sv2/binary-sv2", features = ["with_serde"] }
 codec_sv2 = { version = "1.0.0", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2","with_buffer_pool","with_serde"] }
-const_sv2 = { version = "1.0.0", path = "../../protocols/v2/const-sv2" }
+const_sv2 = { version = "2.0.0", path = "../../protocols/v2/const-sv2" }
 load_file = "1.0.1"
 network_helpers_sv2 = { version = "2.0.0", path = "../../roles/roles-utils/network-helpers", features = ["with_tokio","with_serde"] }
 roles_logic_sv2 = { version = "1.0.0", path = "../../protocols/v2/roles-logic-sv2", features = ["with_serde"] }

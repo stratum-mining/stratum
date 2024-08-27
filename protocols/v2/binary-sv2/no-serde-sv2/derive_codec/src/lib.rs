@@ -2,6 +2,24 @@ extern crate proc_macro;
 use core::iter::FromIterator;
 use proc_macro::{Group, TokenStream, TokenTree};
 
+fn is_already_sized(item: TokenStream) -> bool {
+    let stream = item.into_iter();
+
+    for next in stream {
+        if let TokenTree::Group(g) = next.clone() {
+            if g.delimiter() == proc_macro::Delimiter::Bracket {
+                for t in g.stream().into_iter() {
+                    if let TokenTree::Ident(i) = t {
+                        if i.to_string() == "already_sized" {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
 fn remove_attributes(item: TokenStream) -> TokenStream {
     let stream = item.into_iter();
     let mut is_attribute = false;
@@ -356,8 +374,9 @@ fn get_static_generics(gen: &str) -> &str {
     }
 }
 
-#[proc_macro_derive(Encodable)]
+#[proc_macro_derive(Encodable, attributes(already_sized))]
 pub fn encodable(item: TokenStream) -> TokenStream {
+    let is_already_sized = is_already_sized(item.clone());
     let parsed_struct = get_struct_properties(item);
     let fields = parsed_struct.fields.clone();
 
@@ -392,6 +411,23 @@ pub fn encodable(item: TokenStream) -> TokenStream {
         "<'decoder>".to_string()
     };
 
+    let get_size = if is_already_sized {
+        String::new()
+    } else {
+        format!(
+            "
+            impl{} GetSize for {}{} {{
+                fn get_size(&self) -> usize {{
+                    let mut size = 0;
+                    {}
+                    size
+                }}
+            }}
+            ",
+            impl_generics, parsed_struct.name, parsed_struct.generics, sizes
+        )
+    };
+
     let result = format!(
         "mod impl_parse_encodable_{} {{
 
@@ -408,14 +444,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
         }}
     }}
 
-
-    impl{} GetSize for {}{} {{
-        fn get_size(&self) -> usize {{
-            let mut size = 0;
-            {}
-            size
-        }}
-    }}
+    {}
 
     }}",
         // imports
@@ -428,16 +457,8 @@ pub fn encodable(item: TokenStream) -> TokenStream {
         parsed_struct.name,
         parsed_struct.generics,
         field_into_decoded_field,
-        // impl Encodable for Struct
-        //impl{} Encodable<'decoder> for {}{} {{}}
-        //impl_generics,
-        //parsed_struct.name,
-        //parsed_struct.generics,
-        // impl GetSize for Struct
-        impl_generics,
-        parsed_struct.name,
-        parsed_struct.generics,
-        sizes,
+        // impl get_size
+        get_size,
     );
     //println!("{}", result);
 
