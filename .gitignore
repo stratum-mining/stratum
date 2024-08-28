@@ -1,6 +1,8 @@
 .idea
 */**/target
 /protocols/guix-example/guix-example.h
+/protocols/Cargo.lock
+/benches/Cargo.lock
 /ignore
 /vendor/ed25519-dalek/target
 /utils/buffer/target
