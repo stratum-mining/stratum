@@ -373,14 +373,14 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "buffer_sv2",
 ]
 
 [[package]]
 name = "binary_sv2"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "derive_codec_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "binary_codec_sv2",
 ]

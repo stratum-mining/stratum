@@ -1,0 +1,30 @@
+name: Lockfiles
+
+# Trigger the workflow on push or pull request events for the dev and main branches
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build with locked dependencies
+        run: |
+          cargo build --manifest-path=roles/Cargo.toml --locked
+          cargo build --manifest-path=utils/Cargo.toml --locked

@@ -66,6 +66,15 @@ pub struct CoinbaseOutput {
     output_script_value: String,
 }
 
+impl CoinbaseOutput {
+    pub fn new(output_script_type: String, output_script_value: String) -> Self {
+        Self {
+            output_script_type,
+            output_script_value,
+        }
+    }
+}
+
 impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
     type Error = Error;
 
@@ -94,6 +103,73 @@ pub struct Configuration {
     pub pool_signature: String,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
+}
+
+pub struct TemplateProviderConfig {
+    address: String,
+    authority_public_key: Option<Secp256k1PublicKey>,
+}
+
+impl TemplateProviderConfig {
+    pub fn new(address: String, authority_public_key: Option<Secp256k1PublicKey>) -> Self {
+        Self {
+            address,
+            authority_public_key,
+        }
+    }
+}
+
+pub struct AuthorityConfig {
+    pub public_key: Secp256k1PublicKey,
+    pub secret_key: Secp256k1SecretKey,
+}
+
+impl AuthorityConfig {
+    pub fn new(public_key: Secp256k1PublicKey, secret_key: Secp256k1SecretKey) -> Self {
+        Self {
+            public_key,
+            secret_key,
+        }
+    }
+}
+
+pub struct ConnectionConfig {
+    listen_address: String,
+    cert_validity_sec: u64,
+    signature: String,
+}
+
+impl ConnectionConfig {
+    pub fn new(listen_address: String, cert_validity_sec: u64, signature: String) -> Self {
+        Self {
+            listen_address,
+            cert_validity_sec,
+            signature,
+        }
+    }
+}
+
+impl Configuration {
+    pub fn new(
+        pool_connection: ConnectionConfig,
+        template_provider: TemplateProviderConfig,
+        authority_config: AuthorityConfig,
+        coinbase_outputs: Vec<CoinbaseOutput>,
+        #[cfg(feature = "test_only_allow_unencrypted")] test_only_listen_adress_plain: String,
+    ) -> Self {
+        Self {
+            listen_address: pool_connection.listen_address,
+            tp_address: template_provider.address,
+            tp_authority_public_key: template_provider.authority_public_key,
+            authority_public_key: authority_config.public_key,
+            authority_secret_key: authority_config.secret_key,
+            cert_validity_sec: pool_connection.cert_validity_sec,
+            coinbase_outputs,
+            pool_signature: pool_connection.signature,
+            #[cfg(feature = "test_only_allow_unencrypted")]
+            test_only_listen_adress_plain,
+        }
+    }
 }
 
 #[derive(Debug)]

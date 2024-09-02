@@ -1,6 +1,8 @@
 .idea
 */**/target
 /protocols/guix-example/guix-example.h
+/protocols/Cargo.lock
+/benches/Cargo.lock
 /ignore
 /vendor/ed25519-dalek/target
 /utils/buffer/target
@@ -15,3 +17,4 @@ lcov.info
 cobertura.xml
 /roles/*/*-config.toml
 /examples/*/Cargo.lock
+/scripts/sv2.h

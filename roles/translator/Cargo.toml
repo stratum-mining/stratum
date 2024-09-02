@@ -10,6 +10,10 @@ repository = "https://github.com/stratum-mining/stratum"
 name = "translator_sv2"
 path = "src/lib/mod.rs"
 
+[[bin]]
+name = "translator_sv2"
+path = "src/main.rs"
+
 [dependencies]
 stratum-common = { version = "1.0.0", path = "../../common" }
 async-channel = "1.5.1"

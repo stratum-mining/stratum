@@ -11,9 +11,12 @@
 name: Release Libs
 
 on:
+  # Manually run by going to "Actions/Release" in Github and running the workflow
+  workflow_dispatch:
+  # every time a new release tag is created
   push:
-    branches:
-      - main
+    tags:
+      - "v*.*.*"
 
 jobs:
   libs_publish:
@@ -138,29 +141,4 @@ jobs:
         continue-on-error: true
         run: |
           cd roles/roles-utils/rpc
-          cargo publish
-      - name: Publish crate jd_client
-        continue-on-error: true
-        run: |
-          cd roles/jd-client
-          cargo publish
-      - name: Publish crate jd_server
-        continue-on-error: true
-        run: |
-          cd roles/jd-server
-          cargo publish
-      - name: Publish crate mining_proxy_sv2
-        continue-on-error: true
-        run: |
-          cd roles/mining-proxy
-          cargo publish
-      - name: Publish crate pool_sv2
-        continue-on-error: true
-        run: |
-          cd roles/pool
-          cargo publish
-      - name: Publish crate translator_sv2
-        continue-on-error: true
-        run: |
-          cd roles/translator
           cargo publish
