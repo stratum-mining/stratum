@@ -3,23 +3,36 @@ pub mod mining_pool;
 pub mod status;
 pub mod template_receiver;
 
+use std::sync::Arc;
+
 use async_channel::{bounded, unbounded};
 
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Configuration, Pool};
+use roles_logic_sv2::utils::Mutex;
 use template_receiver::TemplateRx;
 use tracing::{error, info, warn};
 
 use tokio::select;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum PoolState {
+    Initial,
+    Running,
+}
+
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
     config: Configuration,
+    state: Arc<Mutex<PoolState>>,
 }
 
 impl PoolSv2 {
     pub fn new(config: Configuration) -> PoolSv2 {
-        PoolSv2 { config }
+        PoolSv2 {
+            config,
+            state: Arc::new(Mutex::new(PoolState::Initial)),
+        }
     }
 
     pub async fn start(&self) -> Result<(), PoolError> {
@@ -51,6 +64,8 @@ impl PoolSv2 {
             s_message_recv_signal,
             status::Sender::DownstreamListener(status_tx),
         );
+        // Set the state to running
+        let _ = self.state.safe_lock(|s| *s = PoolState::Running);
 
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
@@ -99,5 +114,9 @@ impl PoolSv2 {
                 }
             }
         }
+    }
+
+    pub async fn state(&self) -> Arc<Mutex<PoolState>> {
+        self.state.clone()
     }
 }
