@@ -12,7 +12,6 @@ Things to take into account while writing a changelog:
  - Breaking changes.
  - Notable changes.
 
-
 ## Release Process
 
 Try to constrain each development cycle to a fixed time period, after which a
@@ -35,18 +34,19 @@ Usually the release process is as follows:
 5. Create a new tag for the release branch.
 6. Publish the release.
 
-
 ## Versioning
 
-Protocol and Utils crates follow SemVer 2.0.0. The version number is stored in
+Crates under `protocols` and `utils` workspaces follow SemVer 2.0.0. The version number is stored in
 the `Cargo.toml` file of each crate. If a breaking change is introduced to one
 of the crates, the version number must be updated accordingly, otherwise a
 SemVer CI check would fail. Note that this does not apply to the `roles` and
 other crates in the repository.
 
-The general SRI version does not follow any SemVer rules. You can track the
-releases on Github Releases in the repository.
-
+The global repository releases follow `X.Y.Z`, which is changed under some subjective criteria:
+- Changes in `roles` are not taken into account. `roles` crates are still in Proof of Concept phase and not production ready. 
+- If a release includes only bug fixes in `protocols` and/or `utils`, then `Z` is bumped.
+- If a release includes breaking and/or non-breaking changes to `protocols` and/or `utils`, then `Y` is bumped.
+- If a release marks a milestone i.e., `protocols` is reaching a new maturity level, then `X` is bumped.
 
 ## Tags and Branches
 
