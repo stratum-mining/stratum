@@ -1361,6 +1361,7 @@ dependencies = [
  "minreq",
  "network_helpers_sv2",
  "once_cell",
+ "pool_sv2",
  "roles_logic_sv2",
  "tar",
  "tokio",
