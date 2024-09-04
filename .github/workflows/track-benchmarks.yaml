@@ -62,9 +62,8 @@ jobs:
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch-start-point main \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
@@ -126,9 +125,8 @@ jobs:
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch-start-point main \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
@@ -190,9 +188,8 @@ jobs:
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch-start-point main \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
@@ -254,9 +251,8 @@ jobs:
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch-start-point main \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
