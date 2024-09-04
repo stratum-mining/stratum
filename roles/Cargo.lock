@@ -1443,6 +1443,7 @@ dependencies = [
  "bitcoind",
  "flate2",
  "minreq",
+ "once_cell",
  "tar",
 ]
 

@@ -1,12 +1,19 @@
 use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};
 use flate2::read::GzDecoder;
+use once_cell::sync::Lazy;
 use std::{
+    collections::HashSet,
     env,
     fs::{create_dir_all, File},
     io::{BufReader, Read},
+    net::{SocketAddr, TcpListener},
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 use tar::Archive;
+
+// prevents get_available_port from ever returning the same port twice
+static UNIQUE_PORTS: Lazy<Mutex<HashSet<u16>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 const VERSION_TP: &str = "0.1.7";
 
@@ -147,4 +154,29 @@ impl TemplateProvider {
             .generate_to_address(n, &mining_address)
             .unwrap();
     }
+}
+
+fn is_port_open(address: SocketAddr) -> bool {
+    TcpListener::bind(address).is_err()
+}
+
+fn get_available_port() -> u16 {
+    let mut unique_ports = UNIQUE_PORTS.lock().unwrap();
+
+    loop {
+        let port = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        if !unique_ports.contains(&port) {
+            unique_ports.insert(port);
+            return port;
+        }
+    }
+}
+
+pub fn get_available_address() -> SocketAddr {
+    let port = get_available_port();
+    SocketAddr::from(([127, 0, 0, 1], port))
 }
