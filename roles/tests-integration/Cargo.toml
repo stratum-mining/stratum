@@ -14,6 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 bitcoind = "0.36.0"
 flate2 = "1.0.32"
 minreq = { version = "2.12.0", features = ["https"] }
+once_cell = "1.19.0"
 tar = "0.4.41"
 
 [lib]
