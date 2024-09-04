@@ -213,7 +213,11 @@ impl TestPoolSv2 {
         template_provider_address: Option<SocketAddr>,
     ) -> Self {
         use pool_sv2::mining_pool::{CoinbaseOutput, Configuration};
-        let pool_port = get_available_port();
+        let pool_port = if let Some(listen_addr) = listening_address {
+            listen_addr.port()
+        } else {
+            get_available_port()
+        };
         let listening_address = listening_address
             .unwrap_or(SocketAddr::from_str(&format!("127.0.0.1:{}", pool_port)).unwrap());
         let is_pool_port_open = is_port_open(listening_address);
@@ -242,8 +246,10 @@ impl TestPoolSv2 {
             cert_validity_sec,
             pool_signature,
         );
-        let template_provider_config =
-            pool_sv2::mining_pool::TemplateProviderConfig::new(tp_address, None);
+        let template_provider_config = pool_sv2::mining_pool::TemplateProviderConfig::new(
+            tp_address,
+            Some(authority_public_key),
+        );
         let authority_config =
             pool_sv2::mining_pool::AuthorityConfig::new(authority_public_key, authority_secret_key);
         let config = Configuration::new(
