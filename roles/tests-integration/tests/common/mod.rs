@@ -13,7 +13,7 @@ const VERSION_TP: &str = "0.1.7";
 fn download_bitcoind_tarball(download_url: &str) -> Vec<u8> {
     let response = minreq::get(download_url)
         .send()
-        .expect(&format!("Cannot reach URL: {}", download_url));
+        .unwrap_or_else(|_| panic!("Cannot reach URL: {}", download_url));
     assert_eq!(
         response.status_code, 200,
         "URL {} didn't return 200",
@@ -65,14 +65,16 @@ pub struct TemplateProvider {
 }
 
 impl TemplateProvider {
-    pub fn start() -> Self {
-        let temp_dir = PathBuf::from("/tmp/.template-provider/");
+    pub fn start(port: u16) -> Self {
+        let path_name = format!("/tmp/.template-provider-{}", port);
+        let temp_dir = PathBuf::from(&path_name);
 
         let mut conf = Conf::default();
+        let port = format!("-sv2port={}", port);
         conf.args.extend(vec![
             "-txindex=1",
             "-sv2",
-            "-sv2port=8442",
+            &port,
             "-debug=sv2",
             "-sv2interval=20",
             "-sv2feedelta=1000",
