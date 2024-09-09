@@ -220,7 +220,7 @@ fn benchmark_submit_serialize_deserialize_handle(c: &mut Criterion, mut client: 
 
 fn main() {
     let mut criterion = Criterion::default()
-        .sample_size(50)
+        .sample_size(100)
         .measurement_time(std::time::Duration::from_secs(5));
     let client = Client::new(90);
     benchmark_get_subscribe(&mut criterion, client.clone());
