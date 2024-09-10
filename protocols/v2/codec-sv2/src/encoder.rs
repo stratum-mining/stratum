@@ -25,6 +25,13 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 
+/// The buffer type for holding intermediate data during encoding.
+///
+/// When the `with_buffer_pool` feature is enabled, `Buffer` is a pool-allocated buffer type
+/// (`BufferPool`), which allows for more efficient memory management. Otherwise, it defaults to
+/// `BufferFromSystemMemory`.
+///
+/// `Buffer` is used for storing both serialized Sv2 frames and encrypted Noise data.
 #[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
@@ -32,6 +39,7 @@ type Buffer = BufferPool<BufferFromSystemMemory>;
 #[cfg(not(feature = "with_buffer_pool"))]
 type Slice = Vec<u8>;
 
+/// Holds the frame's serialized bytes before transmission.
 #[cfg(feature = "with_buffer_pool")]
 type Slice = buffer_sv2::Slice;
 
