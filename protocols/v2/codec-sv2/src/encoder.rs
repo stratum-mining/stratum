@@ -57,6 +57,11 @@ pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
     frame: PhantomData<T>,
 }
 
+/// A Sv2 frame to be encoded and optionally encrypted using the Noise protocol.
+///
+/// `Item` is primarily used in the context of encoding frames before transmission. It is an alias
+/// to a `Frame` that contains a payload of type `T` and uses a `Slice` as the underlying buffer.
+/// This type is used during the encoding process to encapsulate the data being processed.
 #[cfg(feature = "noise_sv2")]
 type Item<T> = Frame<T, Slice>;
 
