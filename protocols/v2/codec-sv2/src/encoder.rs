@@ -62,6 +62,11 @@ type Item<T> = Frame<T, Slice>;
 
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + GetSize> NoiseEncoder<T> {
+    /// Encodes a Noise-encrypted frame.
+    ///
+    /// Encodes the given `item` into a Sv2 frame and then encrypts the frame using the Noise
+    /// protocol. The `state` of the Noise codec determines whether the encoder is in the handshake
+    /// or transport phase. On success, an encrypted frame as a `Slice` is returned.
     #[inline]
     pub fn encode(&mut self, item: Item<T>, state: &mut State) -> Result<Slice> {
         match state {
@@ -114,6 +119,12 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         Ok(self.noise_buffer.get_data_owned())
     }
 
+    /// Processes and encodes Sv2 frames during the handshake phase of the Noise protocol.
+    ///
+    /// Used when the codec is in the handshake phase. It encodes the provided `item` into a
+    /// handshake frame and stores the payload in the `noise_buffer`. This is necessary to
+    /// establish the initial secure communication channel before transitioning to the transport
+    /// phase of the Noise protocol.
     #[inline(never)]
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
         // ENCODE THE SV2 FRAME
@@ -129,6 +140,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         Ok(())
     }
 
+    /// Determines whether the encoder's internal buffers can be safely dropped.
     pub fn droppable(&self) -> bool {
         self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
     }
@@ -136,6 +148,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + binary_sv2::GetSize> NoiseEncoder<T> {
+    /// Creates a new `NoiseEncoder` with default buffer sizes.
     pub fn new() -> Self {
         #[cfg(not(feature = "with_buffer_pool"))]
         let size = 512;

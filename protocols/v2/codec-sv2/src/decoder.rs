@@ -216,11 +216,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
-    /// Processes frames during the handshake phase.
+    /// Processes and decodes frames during the handshake phase of the Noise protocol.
     ///
-    /// Used while the codec is in the handshake phase of the Noise protocol. It processes and
-    /// returns a handshake frame that has been received and encapsulates it in an `Frame`,
-    /// indicating the frame has been processed and is ready to be handled by the codec.
+    /// Used while the codec is in the handshake phase of the Noise protocol. It decodes a received
+    /// handshake frame from the `noise_buffer`, converting it into a `HandShakeFrame`, and then
+    /// encapsulates it a `Frame`, marking it as ready for further processing by the codec.
     fn while_handshaking(&mut self) -> Frame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
@@ -236,7 +236,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         self.noise_buffer.get_writable(self.missing_noise_b)
     }
 
-    /// Checks if the buffers are droppable.
+    /// Determines whether the decoder's internal buffers can be safely dropped.
     pub fn droppable(&self) -> bool {
         self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
     }
