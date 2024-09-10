@@ -87,10 +87,12 @@ pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 /// Decoder for Sv2 frames with Noise protocol support.
 #[cfg(feature = "noise_sv2")]
 pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
-    /// Used to maintain type information for the generic parameter `T` which represents the type
-    /// of frames being decoded. `T` refers to a type that implements the necessary traits for
-    /// serialization (`binary_sv2::Serialize`), deserialization (`binary_sv2::Deserialize`), and
-    /// size calculation (`binary_sv2::GetSize`).
+    /// Used to maintain type information for the generic parameter `T`, which represents the type
+    /// of frames being decoded.
+    ///
+    /// `T` refers to a type that implements the necessary traits for serialization
+    /// (`binary_sv2::Serialize`), deserialization (`binary_sv2::Deserialize`), and size
+    /// calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 
     /// Number of missing bytes needed to complete the Noise header or payload.

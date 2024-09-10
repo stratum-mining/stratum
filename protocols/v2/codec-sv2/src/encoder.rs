@@ -35,10 +35,25 @@ type Slice = Vec<u8>;
 #[cfg(feature = "with_buffer_pool")]
 type Slice = buffer_sv2::Slice;
 
+/// Encoder for Sv2 frames with Noise protocol support.
 #[cfg(feature = "noise_sv2")]
 pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
+    /// Buffer for holding encrypted Noise data.
+    ///
+    /// Stores the encrypted data from the Sv2 frame after it has been processed by the Noise
+    /// protocol and is ready to be transmitted.
     noise_buffer: Buffer,
+
+    /// Buffer for holding serialized Sv2 data.
+    ///
+    /// Stores the data to be encrypted by the Noise protocol after being encoded into a Sv2 frame.
     sv2_buffer: Buffer,
+
+    /// Used to maintain type information for the generic parameter `T`, which represents the type
+    /// of frames being encoded.
+    ///
+    /// `T` refers to a type that implements the necessary traits for serialization
+    /// (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 }
 
