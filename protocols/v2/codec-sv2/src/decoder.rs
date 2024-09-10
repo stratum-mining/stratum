@@ -10,6 +10,9 @@
 //!
 //! ## Types
 //!
+//! * `WithoutNoise`: Decoder for Sv2 frames without Noise protocol support.
+//! * `WithNoise`: Decoder for Sv2 frames with Noise protocol support (requires the `noise_sv2`
+//!   feature).
 //! * `StandardEitherFrame`: Represents an encoded or decoded frame that could be either a regular
 //!   or Noise-protected frame.
 //! * `StandardSv2Frame`: Represents an encoded or decoded Stratum V2 frame.
@@ -18,8 +21,8 @@
 //!
 //! ## Usage
 //!
-//! This module is designed to be used to decode incoming Stratum V2 messages, potentially with
-//! Noise protocol encryption for secure communication.
+//! This module is designed to be used to decode incoming Sv2 messages, with optional Noise
+//! protocol encryption support for secure communication.
 //!
 //! ## Example
 //!
