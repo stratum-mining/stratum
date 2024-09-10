@@ -3,6 +3,10 @@
 //! This crate provides the encoding and decoding functionality for the Stratum V2 protocol,
 //! handling secure communication between clients and servers.
 //!
+//! `codec-sv2` is essential for implementing the Sv2 protocol correctly and securely. It abstracts
+//! the complexity of message encoding, decoding, and encryption, providing a reliable and
+//! consistent foundation for mining software imperative for interoperability.
+//!
 //! ## Features
 //!
 //! * **Encoding/Decoding**: Serialize and deserialize Stratum V2 messages.
