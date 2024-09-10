@@ -10,16 +10,11 @@ jobs:
   rebase-outdated-prs:
     runs-on: ubuntu-latest
     steps:
-      - uses: tibdex/github-app-token@v1
-        id: generate-token
-        with:
-          app_id: ${{ secrets.AUTO_REBASE_APP_ID}}
-          private_key: ${{ secrets.AUTO_REBASE_APP_PRIVATE_KEY }}
 
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.generate-token.outputs.token }}
+          token: ${{ secrets.PAT }}
           fetch-depth: 0  # Fetch full history to have the entire commit history
 
       - name: Fetch open pull requests with label
@@ -27,7 +22,7 @@ jobs:
           gh auth setup-git
           gh pr list --state open --label "ready-to-be-merged" --json number,headRepositoryOwner,headRefName --jq '.[] | "\(.number) \(.headRepositoryOwner.login) \(.headRefName)"' > pr_details.txt
         env:
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
 
       - name: Rebase pull requests
         run: |
@@ -50,8 +45,8 @@ jobs:
             PR_AUTHOR_NAME=$(gh pr view $pr_number --json author --jq '.author.login')
             PR_AUTHOR_EMAIL="${PR_AUTHOR_NAME}@users.noreply.github.com"
 
-            git config user.name "$PR_AUTHOR_NAME"
-            git config user.email "$PR_AUTHOR_EMAIL"
+            git config --global user.name "$PR_AUTHOR_NAME"
+            git config --global user.email "$PR_AUTHOR_EMAIL"
 
             # Rebase the branch on top of the main branch
             git fetch origin main
@@ -79,4 +74,4 @@ jobs:
 
           done < pr_details.txt
         env:
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}

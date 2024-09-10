@@ -56,15 +56,16 @@ jobs:
             let prEvent = JSON.parse(fs.readFileSync(process.env.PR_EVENT, {encoding: 'utf8'}));
             core.exportVariable("PR_HEAD", `${prEvent.number}/merge`);
             core.exportVariable("PR_BASE", prEvent.pull_request.base.ref);
-            core.exportVariable("PR_DEFAULT", prEvent.pull_request.base.repo.default_branch);
+            core.exportVariable("PR_BASE_SHA", prEvent.pull_request.base.sha);
             core.exportVariable("PR_NUMBER", prEvent.number);
       - uses: bencherdev/bencher@main
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch '${{ env.PR_HEAD }}' \
+          --branch-start-point '${{ env.PR_BASE }}' \
+          --branch-start-point-hash '${{ env.PR_BASE_SHA }}' \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
@@ -118,17 +119,18 @@ jobs:
           script: |
             let fs = require('fs');
             let prEvent = JSON.parse(fs.readFileSync(process.env.PR_EVENT, {encoding: 'utf8'}));
-            core.exportVariable("PR_HEAD", prEvent.pull_request.head.ref);
+            core.exportVariable("PR_HEAD", `${prEvent.number}/merge`);
             core.exportVariable("PR_BASE", prEvent.pull_request.base.ref);
-            core.exportVariable("PR_DEFAULT", prEvent.pull_request.base.repo.default_branch);
+            core.exportVariable("PR_BASE_SHA", prEvent.pull_request.base.sha);
             core.exportVariable("PR_NUMBER", prEvent.number);
       - uses: bencherdev/bencher@main
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch '${{ env.PR_HEAD }}' \
+          --branch-start-point '${{ env.PR_BASE }}' \
+          --branch-start-point-hash '${{ env.PR_BASE_SHA }}' \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
@@ -182,17 +184,18 @@ jobs:
           script: |
             let fs = require('fs');
             let prEvent = JSON.parse(fs.readFileSync(process.env.PR_EVENT, {encoding: 'utf8'}));
-            core.exportVariable("PR_HEAD", prEvent.pull_request.head.ref);
+            core.exportVariable("PR_HEAD", `${prEvent.number}/merge`);
             core.exportVariable("PR_BASE", prEvent.pull_request.base.ref);
-            core.exportVariable("PR_DEFAULT", prEvent.pull_request.base.repo.default_branch);
+            core.exportVariable("PR_BASE_SHA", prEvent.pull_request.base.sha);
             core.exportVariable("PR_NUMBER", prEvent.number);
       - uses: bencherdev/bencher@main
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch '${{ env.PR_HEAD }}' \
+          --branch-start-point '${{ env.PR_BASE }}' \
+          --branch-start-point-hash '${{ env.PR_BASE_SHA }}' \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
@@ -246,17 +249,18 @@ jobs:
           script: |
             let fs = require('fs');
             let prEvent = JSON.parse(fs.readFileSync(process.env.PR_EVENT, {encoding: 'utf8'}));
-            core.exportVariable("PR_HEAD", prEvent.pull_request.head.ref);
+            core.exportVariable("PR_HEAD", `${prEvent.number}/merge`);
             core.exportVariable("PR_BASE", prEvent.pull_request.base.ref);
-            core.exportVariable("PR_DEFAULT", prEvent.pull_request.base.repo.default_branch);
+            core.exportVariable("PR_BASE_SHA", prEvent.pull_request.base.sha);
             core.exportVariable("PR_NUMBER", prEvent.number);
       - uses: bencherdev/bencher@main
       - name: Track Benchmarks with Bencher
         run: |
           bencher run \
-          --if-branch '${{ env.PR_HEAD }}' \
-          --else-if-branch '${{ env.PR_BASE }}' \
-          --else-if-branch '${{ env.PR_DEFAULT }}' \
+          --branch '${{ env.PR_HEAD }}' \
+          --branch-start-point '${{ env.PR_BASE }}' \
+          --branch-start-point-hash '${{ env.PR_BASE_SHA }}' \
+          --branch-reset \
           --ci-number '${{ env.PR_NUMBER }}' \
           --github-actions "${{ secrets.GITHUB_TOKEN }}" \
           --token "${{ secrets.BENCHER_API_TOKEN }}" \
