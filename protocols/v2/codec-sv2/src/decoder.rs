@@ -317,9 +317,9 @@ impl<T: Serialize + binary_sv2::GetSize, B: IsBuffer> WithoutNoise<B, T> {
 }
 
 impl<T: Serialize + binary_sv2::GetSize> WithoutNoise<Buffer, T> {
-    /// Creates a new `WithoutNoise` decoder with default buffer sizes.
+    /// Creates a new `WithoutNoise` with a buffer of default size.
     ///
-    /// Initializes the decoder with default buffer sizes and sets the number of missing bytes to
+    /// Initializes the decoder with a default buffer size and sets the number of missing bytes to
     /// the size of the header.
     pub fn new() -> Self {
         Self {

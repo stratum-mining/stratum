@@ -169,13 +169,27 @@ impl<T: Serialize + GetSize> Default for NoiseEncoder<T> {
     }
 }
 
+/// Encoder for Sv2 frames without Noise protocol support.
 #[derive(Debug)]
 pub struct Encoder<T> {
+    /// Buffer for holding data to be encoded.
+    ///
+    /// Stores data to be processed and converted into an Sv2 frame before it is transmitted.
     buffer: Vec<u8>,
+
+    /// Marker for the type of frame being encoded.
+    ///
+    /// Used to maintain type information for the generic parameter `T`, which represents the type
+    /// of frames being encoded. `T` refers to a type that implements the necessary traits for
+    /// serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 }
 
 impl<T: Serialize + GetSize> Encoder<T> {
+    /// Encodes the provided `item` into a Sv2 frame, storing the result in the internal buffer.
+    ///
+    /// The frame of type `T` is serialized and placed in into the buffer, preparing it for
+    /// transmission.
     pub fn encode(
         &mut self,
         item: Sv2Frame<T, Slice>,
@@ -189,6 +203,7 @@ impl<T: Serialize + GetSize> Encoder<T> {
         Ok(&self.buffer[..])
     }
 
+    /// Creates a new `Encoder` with a buffer of default size.
     pub fn new() -> Self {
         Self {
             buffer: Vec::with_capacity(512),
