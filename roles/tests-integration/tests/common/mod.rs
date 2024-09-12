@@ -275,7 +275,10 @@ pub async fn start_template_provider_and_pool() -> Result<(PoolSv2, u16, Templat
         }
     }
     let state = pool.state().await.safe_lock(|s| s.clone()).unwrap();
-    assert_eq!(state, pool_sv2::PoolState::Running);
+    assert_eq!(
+        state,
+        pool_sv2::PoolState::Running(pool_sv2::DroppedDownstreams::new())
+    );
     template_provider.stop();
     Ok((
         pool,
