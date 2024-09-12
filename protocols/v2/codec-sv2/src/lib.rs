@@ -7,12 +7,6 @@
 //! the complexity of message encoding, decoding, and encryption, providing a reliable and
 //! consistent foundation for mining software imperative for interoperability.
 //!
-//! ## Features
-//!
-//! * **Encoding/Decoding**: Serialize and deserialize Stratum V2 messages.
-//! * **Noise Protocol**: Support for secure communication using the Noise protocol framework.
-//! * **Error Handling**: Comprehensive error handling for various stages of communication and
-//!   encryption.
 //!
 //! ## Modules
 //!
@@ -48,12 +42,13 @@
 //! }
 //! ```
 //!
-//! ## Conditional Compilation
+//! # Features
+//! This crate can be built with the following features:
+//! - `with_serde`: builds `binary_sv2` and `buffer_sv2` crates with `serde`-based encoding and decoding.
+//! - `with_buffer_pool`: uses `buffer_sv2` to provide a more efficient allocation method for `non_std` environments. Please refer to `buffer_sv2` crate docs for more context.
+//! - `noise_sv2`: enables encryption via Noise protocol.
 //!
-//! * The crate uses conditional compilation to enable or disable features based on the `noise_sv2`
-//!   feature flag. When enabled, additional functionality related to the Noise protocol is
-//!   available.
-//!
+//! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any other kind of usage. It will likely be fully deprecated in the future.
 
 #![cfg_attr(feature = "no_std", no_std)]
 
