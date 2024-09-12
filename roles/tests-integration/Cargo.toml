@@ -12,6 +12,10 @@ tar = "0.4.41"
 pool_sv2 = { version = "0.1.0", path = "../pool" }
 key-utils = { version = "1.0.0", path = "../../utils/key-utils" }
 tokio = { version = "1.16.1", features = ["full"] }
+mining_device = { version = "0.1.1", path = "../test-utils/mining-device" }
 
 [lib]
 path = "tests/common/mod.rs"
+
+[features]
+mining_device_reject_auth = ["pool_sv2/MG_reject_auth", "mining_device/abort_mining"]

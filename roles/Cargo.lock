@@ -1355,6 +1355,7 @@ dependencies = [
  "bitcoind",
  "flate2",
  "key-utils",
+ "mining_device",
  "minreq",
  "once_cell",
  "pool_sv2",

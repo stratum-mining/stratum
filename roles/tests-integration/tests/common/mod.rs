@@ -287,3 +287,13 @@ pub async fn start_template_provider_and_pool() -> Result<(PoolSv2, u16, Templat
         template_provider_port,
     ))
 }
+
+pub struct TestMiningDevice;
+
+impl TestMiningDevice {
+    pub async fn start(pool_address: SocketAddr) -> Result<(), pool_sv2::error::PoolError> {
+        mining_device::connect(pool_address.to_string(), None, None, None, 0)
+            .await
+            .map_err(|e| e.into())
+    }
+}
