@@ -404,9 +404,9 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
 
     fn handle_open_mining_channel_error(
         &mut self,
-        _: OpenMiningChannelError,
+        e: OpenMiningChannelError,
     ) -> Result<SendTo<()>, Error> {
-        todo!()
+        return Err(Error::MiningChannelError(e.request_id));
     }
 
     fn handle_update_channel_error(&mut self, _: UpdateChannelError) -> Result<SendTo<()>, Error> {
