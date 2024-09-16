@@ -147,8 +147,4 @@ impl TemplateProvider {
             .generate_to_address(n, &mining_address)
             .unwrap();
     }
-
-    pub fn get_block_count(&self) -> u64 {
-        self.bitcoind.client.get_block_count().unwrap()
-    }
 }
