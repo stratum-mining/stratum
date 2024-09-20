@@ -36,7 +36,7 @@ use stratum_common::bitcoin::{
 };
 use tracing::{error, info};
 
-async fn connect(
+pub async fn connect(
     address: String,
     pub_key: Option<Secp256k1PublicKey>,
     device_id: Option<String>,
