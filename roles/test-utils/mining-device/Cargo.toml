@@ -1,10 +1,15 @@
 [package]
-name = "mining-device"
+name = "mining_device"
 version = "0.1.1"
 edition = "2018"
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "mining_device"
+path = "src/lib/mod.rs"
+
 
 [dependencies]
 stratum-common = { version = "1.0.0", path = "../../../common" }
@@ -24,3 +29,4 @@ tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
 sha2 = "0.10.6"
 tokio = "^1.38.0"
+
