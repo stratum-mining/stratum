@@ -21,7 +21,7 @@ if ! command -v sha1sum >/dev/null 2>&1; then
   exit 1
 fi
 
-cargo install  --version 0.20.0 cbindgen
+cargo install  --version 0.21.0 cbindgen --force
 
 set -ex
 # cargo install cbindgen --force bts
