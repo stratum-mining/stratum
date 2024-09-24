@@ -24,7 +24,7 @@ jobs:
 
         with:
           profile: minimal
-          toolchain: 1.65.0
+          toolchain: 1.75.0
           override: true
       - name: Check sv2 header file is up to date with commit
         run: |
