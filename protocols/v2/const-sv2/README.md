@@ -5,7 +5,7 @@
 
 `const_sv2` is a Rust crate that provides essential constants for the SV2 (Stratum V2) protocol. These constants are crucial for message framing, encryption, and protocol-specific identifiers across various SV2 components, including Mining, Job Declaration, and Template Distribution protocols.
 
-## Features
+## Main Components
 
 - **Protocol Constants**: Define key protocol discriminants, message types, and sizes for the SV2 binary protocol.
 - **Encryption Support**: Includes constants for encryption using ChaChaPoly and ElligatorSwift encoding.
