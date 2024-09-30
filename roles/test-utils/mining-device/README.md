@@ -15,7 +15,18 @@ Options:
   -V, --version                      Print version
 ```
 
-Usage example:
+## Example
+1. Start a pool. The hosted example in the [`pool`](https://github.com/stratum-mining/stratum/tree/main/roles/pool)
+   crate can be started with:
+
+```sh
+cd roles/pool
+cargo run -- -c config-examples/pool-config-hosted-tp-example.toml
 ```
-cargo run --release -- --address-pool 127.0.0.1:20000 --id-device device_id::SOLO::bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+
+2. Start the mining-device, making sure the port is the same as the `pool`'s `listen_address` port.
+
+```sh
+cd roles/test-util/mining-device
+cargo run -- --address-pool 127.0.0.1:34254 --id-device device_id::SOLO::bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
 ```
