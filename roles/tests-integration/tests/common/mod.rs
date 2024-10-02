@@ -162,6 +162,12 @@ impl TemplateProvider {
     }
 }
 
+impl Drop for TemplateProvider {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 fn is_port_open(address: SocketAddr) -> bool {
     TcpListener::bind(address).is_err()
 }
