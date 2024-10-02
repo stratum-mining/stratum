@@ -35,13 +35,13 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 
-/// The buffer type for holding intermediate data during encoding.
-///
-/// When the `with_buffer_pool` feature is enabled, `Buffer` is a pool-allocated buffer type
-/// (`BufferPool`), which allows for more efficient memory management. Otherwise, it defaults to
-/// `BufferFromSystemMemory`.
-///
-/// `Buffer` is used for storing both serialized Sv2 frames and encrypted Noise data.
+// The buffer type for holding intermediate data during encoding.
+//
+// When the `with_buffer_pool` feature is enabled, `Buffer` is a pool-allocated buffer type
+// (`BufferPool`), which allows for more efficient memory management. Otherwise, it defaults to
+// `BufferFromSystemMemory`.
+//
+// `Buffer` is used for storing both serialized Sv2 frames and encrypted Noise data.
 #[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
@@ -56,30 +56,30 @@ type Slice = buffer_sv2::Slice;
 /// Encoder for Sv2 frames with Noise protocol support.
 #[cfg(feature = "noise_sv2")]
 pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
-    /// Buffer for holding encrypted Noise data.
-    ///
-    /// Stores the encrypted data from the Sv2 frame after it has been processed by the Noise
-    /// protocol and is ready to be transmitted.
+    // Buffer for holding encrypted Noise data.
+    //
+    // Stores the encrypted data from the Sv2 frame after it has been processed by the Noise
+    // protocol and is ready to be transmitted.
     noise_buffer: Buffer,
 
-    /// Buffer for holding serialized Sv2 data.
-    ///
-    /// Stores the data to be encrypted by the Noise protocol after being encoded into a Sv2 frame.
+    // Buffer for holding serialized Sv2 data.
+    //
+    // Stores the data to be encrypted by the Noise protocol after being encoded into a Sv2 frame.
     sv2_buffer: Buffer,
 
-    /// Used to maintain type information for the generic parameter `T`, which represents the type
-    /// of frames being encoded.
-    ///
-    /// `T` refers to a type that implements the necessary traits for serialization
-    /// (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
+    // Used to maintain type information for the generic parameter `T`, which represents the type
+    // of frames being encoded.
+    //
+    // `T` refers to a type that implements the necessary traits for serialization
+    // (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 }
 
-/// A Sv2 frame to be encoded and optionally encrypted using the Noise protocol.
-///
-/// `Item` is primarily used in the context of encoding frames before transmission. It is an alias
-/// to a `Frame` that contains a payload of type `T` and uses a `Slice` as the underlying buffer.
-/// This type is used during the encoding process to encapsulate the data being processed.
+// A Sv2 frame to be encoded and optionally encrypted using the Noise protocol.
+//
+// `Item` is primarily used in the context of encoding frames before transmission. It is an alias
+// to a `Frame` that contains a payload of type `T` and uses a `Slice` as the underlying buffer.
+// This type is used during the encoding process to encapsulate the data being processed.
 #[cfg(feature = "noise_sv2")]
 type Item<T> = Frame<T, Slice>;
 
@@ -142,12 +142,12 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         Ok(self.noise_buffer.get_data_owned())
     }
 
-    /// Processes and encodes Sv2 frames during the handshake phase of the Noise protocol.
-    ///
-    /// Used when the codec is in the handshake phase. It encodes the provided `item` into a
-    /// handshake frame and stores the payload in the `noise_buffer`. This is necessary to
-    /// establish the initial secure communication channel before transitioning to the transport
-    /// phase of the Noise protocol.
+    // Processes and encodes Sv2 frames during the handshake phase of the Noise protocol.
+    //
+    // Used when the codec is in the handshake phase. It encodes the provided `item` into a
+    // handshake frame and stores the payload in the `noise_buffer`. This is necessary to
+    // establish the initial secure communication channel before transitioning to the transport
+    // phase of the Noise protocol.
     #[inline(never)]
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
         // ENCODE THE SV2 FRAME
@@ -195,16 +195,16 @@ impl<T: Serialize + GetSize> Default for NoiseEncoder<T> {
 /// Encoder for Sv2 frames without Noise protocol support.
 #[derive(Debug)]
 pub struct Encoder<T> {
-    /// Buffer for holding data to be encoded.
-    ///
-    /// Stores data to be processed and converted into an Sv2 frame before it is transmitted.
+    // Buffer for holding data to be encoded.
+    //
+    // Stores data to be processed and converted into an Sv2 frame before it is transmitted.
     buffer: Vec<u8>,
 
-    /// Marker for the type of frame being encoded.
-    ///
-    /// Used to maintain type information for the generic parameter `T`, which represents the type
-    /// of frames being encoded. `T` refers to a type that implements the necessary traits for
-    /// serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
+    // Marker for the type of frame being encoded.
+    //
+    // Used to maintain type information for the generic parameter `T`, which represents the type
+    // of frames being encoded. `T` refers to a type that implements the necessary traits for
+    // serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 }
 

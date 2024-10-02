@@ -60,27 +60,27 @@ pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 /// Decoder for Sv2 frames with Noise protocol support.
 #[cfg(feature = "noise_sv2")]
 pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
-    /// Used to maintain type information for the generic parameter `T`, which represents the type
-    /// of frames being decoded.
-    ///
-    /// `T` refers to a type that implements the necessary traits for serialization
-    /// (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
+    // Used to maintain type information for the generic parameter `T`, which represents the type
+    // of frames being decoded.
+    //
+    // `T` refers to a type that implements the necessary traits for serialization
+    // (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 
-    /// Number of missing bytes needed to complete the Noise header or payload.
-    ///
-    /// Keeps track of how many more bytes are required to fully decode the current Noise frame.
+    // Number of missing bytes needed to complete the Noise header or payload.
+    //
+    // Keeps track of how many more bytes are required to fully decode the current Noise frame.
     missing_noise_b: usize,
 
-    /// Buffer for holding encrypted Noise data.
-    ///
-    /// Stores the incoming encrypted data until it is ready to be decrypted and processed.
+    // Buffer for holding encrypted Noise data.
+    //
+    // Stores the incoming encrypted data until it is ready to be decrypted and processed.
     noise_buffer: B,
 
-    /// Buffer for holding decrypted Sv2 data.
-    ///
-    /// Stores the decrypted data from the Noise protocol until it is ready to be processed and
-    /// concerted into a Sv2 frame.
+    // Buffer for holding decrypted Sv2 data.
+    //
+    // Stores the decrypted data from the Noise protocol until it is ready to be processed and
+    // concerted into a Sv2 frame.
     sv2_buffer: B,
 }
 
@@ -134,11 +134,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
-    /// Decodes a Noise-encrypted frame.
-    ///
-    /// Handles the decryption of Noise-encrypted frames, including both the header and the
-    /// payload. It processes the frame in chunks if necessary, ensuring that all encrypted data is
-    /// properly decrypted and converted into a usable frame.
+    // Decodes a Noise-encrypted frame.
+    //
+    // Handles the decryption of Noise-encrypted frames, including both the header and the payload.
+    // It processes the frame in chunks if necessary, ensuring that all encrypted data is properly
+    // decrypted and converted into a usable frame.
     #[inline]
     fn decode_noise_frame(&mut self, noise_codec: &mut NoiseCodec) -> Result<Frame<T, B::Slice>> {
         match (
@@ -188,11 +188,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
-    /// Processes and decodes frames during the handshake phase of the Noise protocol.
-    ///
-    /// Used while the codec is in the handshake phase of the Noise protocol. It decodes a received
-    /// handshake frame from the `noise_buffer`, converting it into a `HandShakeFrame`, and then
-    /// encapsulates it a `Frame`, marking it as ready for further processing by the codec.
+    // Processes and decodes frames during the handshake phase of the Noise protocol.
+    //
+    // Used while the codec is in the handshake phase of the Noise protocol. It decodes a received
+    // handshake frame from the `noise_buffer`, converting it into a `HandShakeFrame`, and then
+    // encapsulates it a `Frame`, marking it as ready for further processing by the codec.
     fn while_handshaking(&mut self) -> Frame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
@@ -240,22 +240,21 @@ impl<T: Serialize + binary_sv2::GetSize> Default for WithNoise<Buffer, T> {
 /// Decoder for Sv2 frames without Noise protocol support.
 #[derive(Debug)]
 pub struct WithoutNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
-    /// Marker for the type of frame being decoded.
-    ///
-    /// Used to maintain type information for the generic parameter `T` which represents the type
-    /// of frames being decoded. `T` refers to a type that implements the necessary traits for
-    /// serialization (`binary_sv2::Serialize`) and
-    /// size calculation (`binary_sv2::GetSize`).
+    // Marker for the type of frame being decoded.
+    //
+    // Used to maintain type information for the generic parameter `T` which represents the type of
+    // frames being decoded. `T` refers to a type that implements the necessary traits for
+    // serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 
-    /// Number of missing bytes needed to complete the frame.
-    ///
-    /// Keeps track of how many more bytes are required to fully decode the current frame.
+    // Number of missing bytes needed to complete the frame.
+    //
+    // Keeps track of how many more bytes are required to fully decode the current frame.
     missing_b: usize,
 
-    /// Buffer for holding data to be decoded.
-    ///
-    /// Stores incoming data until it is ready to be processed and converted into a Sv2 frame.
+    // Buffer for holding data to be decoded.
+    //
+    // Stores incoming data until it is ready to be processed and converted into a Sv2 frame.
     buffer: B,
 }
 
