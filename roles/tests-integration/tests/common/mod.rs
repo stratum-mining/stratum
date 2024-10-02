@@ -81,7 +81,6 @@ pub struct TemplateProvider {
 impl TemplateProvider {
     pub fn start(port: u16) -> Self {
         let temp_dir = PathBuf::from("/tmp/.template-provider");
-
         let mut conf = Conf::default();
         let staticdir = format!(".bitcoin-{}", port);
         conf.staticdir = Some(temp_dir.join(staticdir));
@@ -144,11 +143,11 @@ impl TemplateProvider {
         TemplateProvider { bitcoind }
     }
 
-    pub fn stop(&self) {
+    fn stop(&self) {
         let _ = self.bitcoind.client.stop().unwrap();
     }
 
-    pub fn generate_blocks(&self, n: u64) {
+    fn generate_blocks(&self, n: u64) {
         let mining_address = self
             .bitcoind
             .client
@@ -266,4 +265,10 @@ pub async fn start_pool(
     // Wait a bit to let the pool exchange initial messages with the TP
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     pool
+}
+
+pub async fn start_template_provider(tp_port: u16) -> TemplateProvider {
+    let template_provider = TemplateProvider::start(tp_port);
+    template_provider.generate_blocks(16);
+    template_provider
 }
