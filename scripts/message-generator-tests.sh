@@ -13,5 +13,5 @@ for entry in `ls $search_dir`; do
 done
 
 cd roles
-RUST_LOG=debug cargo llvm-cov --ignore-filename-regex "utils/message-generator/|experimental/|protocols/" --cobertura --output-path "target/mg_coverage.xml" report
+RUST_LOG=debug cargo +1.75.0 llvm-cov --ignore-filename-regex "utils/message-generator/|experimental/|protocols/" --cobertura --output-path "target/mg_coverage.xml" report
 

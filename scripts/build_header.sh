@@ -1,5 +1,5 @@
 #! /bin/sh
-cargo install --version 0.20.0 cbindgen
+cargo install --version 0.21.0 cbindgen --force
 
 rm -f ./sv2.h
 touch ./sv2.h
