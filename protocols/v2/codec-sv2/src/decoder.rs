@@ -3,40 +3,10 @@
 //! Provides functionality for decoding Stratum V2 messages, including support for
 //! the Noise protocol for secure communication.
 //!
-//! ## Features
-//!
-//! * **Standard Decoder**: Decodes Stratum V2 frames without encryption.
-//! * **Noise Decoder**: Decodes Stratum V2 frames with Noise protocol encryption.
-//!
-//! ## Types
-//!
-//! * `WithoutNoise`: Decoder for Sv2 frames without Noise protocol support.
-//! * `WithNoise`: Decoder for Sv2 frames with Noise protocol support (requires the `noise_sv2`
-//!   feature).
-//! * `StandardEitherFrame`: Represents an encoded or decoded frame that could be either a regular
-//!   or Noise-protected frame.
-//! * `StandardSv2Frame`: Represents an encoded or decoded Stratum V2 frame.
-//! * `StandardNoiseDecoder`: Decoder for Stratum V2 frames with Noise protocol support.
-//! * `StandardDecoder`: Decoder for Stratum V2 frames without Noise protocol support.
-//!
 //! ## Usage
 //!
 //! This module is designed to be used to decode incoming Sv2 messages, with optional Noise
 //! protocol encryption support for secure communication.
-//!
-//! ## Example
-//!
-//! ```ignore
-//! use codec_sv2::decoder::{StandardDecoder, StandardNoiseDecoder};
-//!
-//! // Create a standard decoder
-//! let mut decoder: StandardDecoder<MyFrameType> = StandardDecoder::new();
-//!
-//! // Create a noise decoder (requires the `noise_sv2` feature)
-//! #[cfg(feature = "noise_sv2")]
-//! let mut noise_decoder: StandardNoiseDecoder<MyFrameType> = StandardNoiseDecoder::new();
-//! ```
-//!
 
 #[cfg(feature = "noise_sv2")]
 use binary_sv2::Deserialize;
@@ -94,8 +64,7 @@ pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     /// of frames being decoded.
     ///
     /// `T` refers to a type that implements the necessary traits for serialization
-    /// (`binary_sv2::Serialize`) and size
-    /// calculation (`binary_sv2::GetSize`).
+    /// (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 
     /// Number of missing bytes needed to complete the Noise header or payload.

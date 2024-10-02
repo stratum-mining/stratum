@@ -3,45 +3,11 @@
 //! Provides functionality for encoding Stratum V2 messages, including support for the
 //! Noise protocol for secure communication.
 //!
-//! ## Features
-//!
-//! Two primary encoders are defined:
-//! * **Standard Encoder**:
-//! * **Noise Encoder**:
-//!
-//! ## Types
-//!
-//! * `Encoder`: Encoder for Sv2 frames without Noise protocol support (requires the
-//!   `noise_sv2` feature).
-//! * `NoiseEncoder`: Encoder for Sv2 frames with Noise protocol support.
-//! * `Item<T>`: Represents an SV2 frame that is to be encoded and optionally encrypted using the
-//!   Noise protocol.
-//! * `Buffer`: Holds intermediate data during encoding, which can be either a pool-allocated
-//!   buffer or a system memory buffer depending on the feature flags.
-//! * `Slice`: Stores the serialized SV2 frame data before transmission.
-//!
 //! ## Usage
 //!
 //! This module is designed to be used to encode outgoing Sv2 messages, with optional Noise
 //! protocol encryption support for secure communication.
-//!
-//! ## Example
-//!
-//! ```ignore
-//! use codec_sv2::encoder::{Encoder, NoiseEncoder};
-//! use framing_sv2::framing::Sv2Frame;
-//!
-//! // Create a standard encoder for unencrypted SV2 frames
-//! let mut encoder: Encoder<MyFrameType> = Encoder::new();
-//!
-//! // Encode a frame into a byte slice
-//! let frame = Sv2Frame::new( /* frame details */ );
-//! let encoded_data = encoder.encode(frame).unwrap();
-//!
-//! // Create a Noise encoder for encrypted SV2 frames (requires the `noise_sv2` feature)
-//! #[cfg(feature = "noise_sv2")]
-//! let mut noise_encoder: NoiseEncoder<MyFrameType> = NoiseEncoder::new();
-//! ```
+
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
 #[allow(unused_imports)]

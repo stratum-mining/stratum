@@ -7,48 +7,23 @@
 //! the complexity of message encoding, decoding, and encryption, providing a reliable and
 //! consistent foundation for mining software imperative for interoperability.
 //!
-//!
-//! ## Modules
-//!
-//! * `decoder`: Provides functionality to decode Stratum V2 messages.
-//! * `encoder`: Provides functionality to encode Stratum V2 messages.
-//! * `error`: Defines error types and result aliases used throughout the crate.
-//!
 //! ## Usage
 //!
 //! This crate is designed to be used in mining software that needs to communicate securely
 //! using the Stratum V2 protocol. It supports optional Noise protocol features for encryption
 //! and ensures data integrity and confidentiality.
 //!
-//! ## Example
+//! ## Build Options
 //!
-//! ```ignore
-//! use codec_sv2::{State, HandshakeRole, NoiseCodec};
-//! use noise_sv2::Initiator;
-//!
-//! // Initialize the codec state
-//! let role = HandshakeRole::Initiator(Box::new(Initiator::new()));
-//! let mut state = State::not_initialized(&role);
-//! state = State::initialized(role);
-//!
-//! // Proceed with the handshake steps
-//! match state.step_0() {
-//!     Ok(frame) => {
-//!         // Send the initial handshake frame
-//!     }
-//!     Err(e) => {
-//!         // Handle error
-//!     }
-//! }
-//! ```
-//!
-//! # Features
 //! This crate can be built with the following features:
-//! - `with_serde`: builds `binary_sv2` and `buffer_sv2` crates with `serde`-based encoding and decoding.
-//! - `with_buffer_pool`: uses `buffer_sv2` to provide a more efficient allocation method for `non_std` environments. Please refer to `buffer_sv2` crate docs for more context.
-//! - `noise_sv2`: enables encryption via Noise protocol.
+//! * `with_serde`: builds `binary_sv2` and `buffer_sv2` crates with `serde`-based encoding and
+//!   decoding.
+//! * `with_buffer_pool`: uses `buffer_sv2` to provide a more efficient allocation method for
+//!   `non_std` environments. Please refer to `buffer_sv2` crate docs for more context.
+//! * `noise_sv2`: enables encryption via Noise protocol.
 //!
-//! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any other kind of usage. It will likely be fully deprecated in the future.
+//! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any
+//! other kind of usage. It will likely be fully deprecated in the future.
 
 #![cfg_attr(feature = "no_std", no_std)]
 
