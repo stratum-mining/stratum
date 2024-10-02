@@ -1,6 +1,9 @@
+mod sniffer;
+
 use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
+use sniffer::Sniffer;
 use std::{
     collections::HashSet,
     env,
@@ -179,4 +182,13 @@ fn get_available_port() -> u16 {
 pub fn get_available_address() -> SocketAddr {
     let port = get_available_port();
     SocketAddr::from(([127, 0, 0, 1], port))
+}
+
+pub async fn start_sniffer(listening_address: SocketAddr, upstream: SocketAddr) -> Sniffer {
+    let sniffer = Sniffer::new(listening_address, upstream).await;
+    let sniffer_clone = sniffer.clone();
+    tokio::spawn(async move {
+        sniffer_clone.start().await;
+    });
+    sniffer
 }
