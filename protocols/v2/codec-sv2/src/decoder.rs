@@ -33,6 +33,14 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
 
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
+
+// The buffer type for holding intermediate data during decoding.
+//
+// When the `with_buffer_pool` feature is enabled, `Buffer` is a pool-allocated buffer type
+// (`BufferPool`), which allows for more efficient memory management. Otherwise, it defaults to
+// `BufferFromSystemMemory`.
+//
+// `Buffer` is used for storing both serialized Sv2 frames and encrypted Noise data.
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
 
@@ -203,6 +211,9 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
     }
 
     /// Provides a writable buffer for incoming data.
+    ///
+    /// The buffer must have the correct number of bytes required by the codec to progress to the
+    /// next step.
     #[inline]
     pub fn writable(&mut self) -> &mut [u8] {
         self.noise_buffer.get_writable(self.missing_noise_b)
