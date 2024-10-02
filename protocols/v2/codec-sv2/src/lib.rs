@@ -102,7 +102,7 @@ pub enum State {
     /// The codec is in handshake mode, where it is negotiating cryptographic keys.
     HandShake(HandshakeRole),
 
-    /// The codec is in transport mode, where AEAS encryption and decryption are fully operational.
+    /// The codec is in transport mode, where AEAD encryption and decryption are fully operational.
     /// The `NoiseCodec` object in this variant performs the encryption and decryption.
     Transport(NoiseCodec),
 }

@@ -1,6 +1,6 @@
-//! # Stratum V2 Codec Decoder
+//! # Decoder
 //!
-//! This module provides functionality for decoding Stratum V2 messages, including support for
+//! Provides functionality for decoding Stratum V2 messages, including support for
 //! the Noise protocol for secure communication.
 //!
 //! ## Features
@@ -94,7 +94,7 @@ pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     /// of frames being decoded.
     ///
     /// `T` refers to a type that implements the necessary traits for serialization
-    /// (`binary_sv2::Serialize`), deserialization (`binary_sv2::Deserialize`), and size
+    /// (`binary_sv2::Serialize`) and size
     /// calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 
@@ -275,7 +275,7 @@ pub struct WithoutNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     ///
     /// Used to maintain type information for the generic parameter `T` which represents the type
     /// of frames being decoded. `T` refers to a type that implements the necessary traits for
-    /// serialization (`binary_sv2::Serialize`), deserialization (`binary_sv2::Deserialize`), and
+    /// serialization (`binary_sv2::Serialize`) and
     /// size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
 

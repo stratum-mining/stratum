@@ -1,6 +1,6 @@
-//! # Stratum V2 Codec Encoder
+//! # Encoder
 //!
-//! This module provides functionality for encoding Stratum V2 messages, including support for the
+//! Provides functionality for encoding Stratum V2 messages, including support for the
 //! Noise protocol for secure communication.
 //!
 //! ## Features
@@ -11,9 +11,9 @@
 //!
 //! ## Types
 //!
-//! * `Encoder`: Encoder for Sv2 frames with Noise protocol support.
-//! * `NoiseEncoder`: Encoder for Sv2 frames without Noise protocol support (requires the
+//! * `Encoder`: Encoder for Sv2 frames without Noise protocol support (requires the
 //!   `noise_sv2` feature).
+//! * `NoiseEncoder`: Encoder for Sv2 frames with Noise protocol support.
 //! * `Item<T>`: Represents an SV2 frame that is to be encoded and optionally encrypted using the
 //!   Noise protocol.
 //! * `Buffer`: Holds intermediate data during encoding, which can be either a pool-allocated
