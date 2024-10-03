@@ -24,6 +24,13 @@
 //!
 //! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any
 //! other kind of usage. It will likely be fully deprecated in the future.
+//!
+//! ## Examples
+//!
+//! See the examples for more information:
+//!
+//! * [Unencrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/unencrypted.rs)
+//! * [Encrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/encrypted.rs)
 
 #![cfg_attr(feature = "no_std", no_std)]
 
