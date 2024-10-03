@@ -18,9 +18,11 @@ name: Test Coverage
 
 on:
   push:
-    branches: [ main, dev ]
+    branches:
+      - main
   pull_request:
-    branches: [ main, dev ]
+    branches:
+      - main
 
 jobs:
   tarpaulin-test:
