@@ -402,7 +402,7 @@ impl Pool {
             debug!("New connection from {}", address);
 
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
+                network_helpers_sv2::plain_connection_tokio::PlainConnection::new(stream).await;
 
             handle_result!(
                 status_tx,
