@@ -23,7 +23,8 @@ members = [
     "translator",
     "jd-client",
     "jd-server",
-    "tests-integration",
+    "tests-integration", 
+    "auth-server",
 ]
 
 [profile.dev]
