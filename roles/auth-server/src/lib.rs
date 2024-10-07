@@ -1,10 +1,13 @@
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use log::{info, debug, error};
 
-#[derive(Deserialize, Debug)]
+mod config;
+use config::Config;
+
+#[derive(Deserialize)]
 struct AuthorizeRequest {
     id: u64,
     method: String,
@@ -18,7 +21,7 @@ struct AuthorizeResponse {
     error: Option<Value>,
 }
 
-async fn handle_client(mut socket: TcpStream) {
+async fn handle_client(mut socket: tokio::net::TcpStream) {
     let mut buffer = [0; 1024];
 
     loop {
@@ -59,8 +62,11 @@ async fn handle_client(mut socket: TcpStream) {
 pub async fn run_server() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
 
-    let listener = TcpListener::bind("127.0.0.1:3333").await?;
-    info!("Auth server listening on 127.0.0.1:3333");
+    let config = Config::load().expect("Failed to load configuration");
+    let addr = format!("{}:{}", config.host, config.port);
+
+    let listener = TcpListener::bind(&addr).await?;
+    info!("Auth server listening on {}", addr);
 
     loop {
         let (socket, _) = listener.accept().await?;
