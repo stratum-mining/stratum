@@ -110,7 +110,9 @@ pub struct Upstream {
     tx_status: status::Sender,
     /// Minimum `extranonce2` size. Initially requested in the `jdc-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
+    #[allow(dead_code)]
     pub min_extranonce_size: u16,
+    #[allow(dead_code)]
     pub upstream_extranonce1_size: usize,
     /// String be included in coinbase tx input scriptsig
     pub pool_signature: String,
