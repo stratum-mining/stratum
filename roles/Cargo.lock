@@ -2983,6 +2983,7 @@ dependencies = [
  "framing_sv2",
  "futures",
  "key-utils",
+ "log",
  "network_helpers_sv2",
  "once_cell",
  "rand",

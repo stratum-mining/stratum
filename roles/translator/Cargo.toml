@@ -39,7 +39,7 @@ key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 tokio-util = { version = "0.7.10", features = ["codec"] }
 async-compat = "0.2.1"
 rand = "0.8.4"
-
+log = "0.4"
 
 [dev-dependencies]
 sha2 = "0.10.6"
