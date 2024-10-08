@@ -39,6 +39,14 @@ struct Args {
         help = "User id, used when a new channel is opened, it can be used by the pool to identify the miner"
     )]
     id_user: Option<String>,
+    #[arg(
+        long,
+        help = "This floating point number is used to modify the advertised nominal hashrate when opening a channel with the upstream.\
+         \nIf 0.0 < nominal_hashrate_multiplier < 1.0, the CPU miner will advertise a nominal hashrate that is smaller than its real capacity.\
+         \nIf nominal_hashrate_multiplier > 1.0, the CPU miner will advertise a nominal hashrate that is bigger than its real capacity.\
+         \nIf empty, the CPU miner will simply advertise its real capacity."
+    )]
+    nominal_hashrate_multiplier: Option<f32>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -52,6 +60,7 @@ async fn main() {
         args.id_device,
         args.id_user,
         args.handicap,
+        args.nominal_hashrate_multiplier,
     )
     .await;
 }
