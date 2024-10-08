@@ -42,10 +42,12 @@ async fn handle_client(mut socket: tokio::net::TcpStream) {
                         info!("Authorizing user: {}", request.params[0]);
 
                         let response_json = serde_json::to_string(&response).unwrap();
+                        info!("Sent authorization response: {}", response_json);
                         if let Err(e) = socket.write_all(response_json.as_bytes()).await {
                             error!("Failed to send response: {}", e);
                             break;
                         }
+                        info!("Sent authorization response: {}", response_json);
                     }
                 } else {
                     error!("Failed to parse request");

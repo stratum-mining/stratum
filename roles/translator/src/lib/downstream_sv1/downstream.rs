@@ -1,3 +1,5 @@
+use super::auth_service::{SharedAuthService, new_auth_service};
+
 use crate::{
     downstream_sv1,
     error::ProxyResult,
@@ -63,6 +65,7 @@ pub struct Downstream {
     pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     last_job_id: String, // we usually receive a String on SV1 messages, no need to cast to u32
+    auth_service: Arc<SharedAuthService>,
 }
 
 impl Downstream {
@@ -94,6 +97,7 @@ impl Downstream {
             difficulty_mgmt,
             upstream_difficulty_config,
             last_job_id,
+            auth_service: Arc::new(new_auth_service()),
         }
     }
     /// Instantiate a new `Downstream`.
@@ -136,6 +140,7 @@ impl Downstream {
             difficulty_mgmt: difficulty_config,
             upstream_difficulty_config,
             last_job_id: "".to_string(),
+            auth_service: Arc::new(new_auth_service()),
         }));
         let self_ = downstream.clone();
 
@@ -526,7 +531,13 @@ impl IsServer<'static> for Downstream {
     fn handle_authorize(&self, request: &client_to_server::Authorize) -> bool {
         info!("Down: Authorizing");
         debug!("Down: Handling mining.authorize: {:?}", &request);
-        true
+        
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let service = self.auth_service.lock().await;
+                service.authorize().await
+            })
+        })
     }
 
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
