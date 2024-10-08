@@ -20,7 +20,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// Enumeration of possible errors in the `codec_sv2` module.
 ///
 /// This enum represents various errors that can occur within the `codec_sv2` module, including
-/// errors from related crates like `binary_sv2`, `framing_sv2`, and `noise_sv2`.
+/// errors from related crates like [`binary_sv2`], [`framing_sv2`], and [`noise_sv2`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     /// AEAD (`snow`) error in the Noise protocol.
@@ -121,8 +121,8 @@ impl From<NoiseError> for Error {
 
 /// C-compatible enumeration of possible errors in the `codec_sv2` module.
 ///
-/// This enum mirrors the `Error` enum but is designed to be used in C code through FFI. It
-/// represents the same set of errors as `Error`, making them accessible to C programs.
+/// This enum mirrors the [`Error`] enum but is designed to be used in C code through FFI. It
+/// represents the same set of errors as [`Error`], making them accessible to C programs.
 #[repr(C)]
 #[derive(Debug)]
 pub enum CError {
@@ -157,10 +157,10 @@ pub enum CError {
     UnexpectedNoiseState,
 }
 
-/// Force `cbindgen` to create a header for `CError`.
+/// Force `cbindgen` to create a header for [`CError`].
 ///
-/// It ensures that `CError` is included in the generated C header file. This function is not meant
-/// to be called and will panic if called. Its only purpose is to make `CError` visible to
+/// It ensures that [`CError`] is included in the generated C header file. This function is not meant
+/// to be called and will panic if called. Its only purpose is to make [`CError`] visible to
 /// `cbindgen`.
 #[no_mangle]
 pub extern "C" fn export_cerror() -> CError {

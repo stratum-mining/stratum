@@ -1,12 +1,25 @@
 //! # Encoder
 //!
-//! Provides functionality for encoding Stratum V2 messages, including support for the
-//! Noise protocol for secure communication.
+//! Provides utilities for encoding messages into Sv2 frames, with or without Noise protocol
+//! support.
 //!
 //! ## Usage
 //!
-//! This module is designed to be used to encode outgoing Sv2 messages, with optional Noise
-//! protocol encryption support for secure communication.
+//! All messages passed between Sv2 roles are encoded as Sv2 frames using primitives in this
+//! module. There are two types of encoders for creating these frames: one for regular Sv2 frames
+//! (`Encoder`), and another for Noise-encrypted frames (`NoiseEncoder`). Both encoders manage the
+//! serialization of outgoing data and, when applicable, the encryption of the data before
+//! transmission.
+//!
+//! ### Buffer Management
+//!
+//! The encoders rely on buffers to hold intermediate data during the encoding process.
+//!
+//! - When the `with_buffer_pool` feature is enabled, the internal `Buffer` type is backed by a
+//!   pool-allocated buffer (`binary_sv2::BufferPool`), providing more efficient memory usage,
+//!   particularly in high-throughput scenarios.
+//! - If the feature is not enabled, a system memory buffer (`binary_sv2::BufferFromSystemMemory`)
+//!   is used for simpler applications where memory efficiency is less critical.
 
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
@@ -37,59 +50,91 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 
 // The buffer type for holding intermediate data during encoding.
 //
-// When the `with_buffer_pool` feature is enabled, `Buffer` is a pool-allocated buffer type
-// (`BufferPool`), which allows for more efficient memory management. Otherwise, it defaults to
-// `BufferFromSystemMemory`.
+// When the `with_buffer_pool` feature is enabled, `Buffer` uses a pool-allocated buffer
+// (`BufferPool`), providing more efficient memory management, particularly in high-throughput
+// environments. If the feature is not enabled, it defaults to `BufferFromSystemMemory`, a simpler
+// system memory buffer.
 //
-// `Buffer` is used for storing both serialized Sv2 frames and encrypted Noise data.
+// `Buffer` is utilized for storing both serialized Sv2 frames and encrypted Noise data during the
+// encoding process, ensuring that all frames are correctly handled before transmission.
 #[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
 
+// A simple buffer slice for holding serialized Sv2 frame data before transmission.
+//
+// When the `with_buffer_pool` feature is disabled, `Slice` defaults to a `Vec<u8>`, which serves
+// as a dynamically allocated array to hold the serialized bytes of Sv2 frames. This provides
+// flexibility in managing the encoded data during transmission or further processing, though it
+// may not offer the same memory efficiency as the pool-allocated version (`BufferPool`).
 #[cfg(not(feature = "with_buffer_pool"))]
 type Slice = Vec<u8>;
 
-/// Holds the frame's serialized bytes before transmission.
+// A buffer slice used for holding serialized Sv2 frame data before transmission.
+//
+// When the `with_buffer_pool` feature is enabled, `Slice` defaults to a `buffer_sv2::Slice`, which
+// serves as a slice of the `Buffer` that stores the encoded data. It holds the frame's serialized
+// bytes temporarily, ensuring the data is ready for transmission or encryption, depending on
+// whether Noise protocol support is enabled.
 #[cfg(feature = "with_buffer_pool")]
 type Slice = buffer_sv2::Slice;
 
-/// Encoder for Sv2 frames with Noise protocol support.
+/// Encoder for Sv2 frames with Noise protocol encryption.
+///
+/// Serializes the Sv2 frame into a dedicated buffer. Encrypts this serialized data using the Noise
+/// protocol, storing it into another dedicated buffer. Encodes the serialized and encrypted data,
+/// such that it is ready for transmission.
 #[cfg(feature = "noise_sv2")]
 pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
-    // Buffer for holding encrypted Noise data.
+    // Buffer for holding encrypted Noise data to be transmitted.
     //
-    // Stores the encrypted data from the Sv2 frame after it has been processed by the Noise
-    // protocol and is ready to be transmitted.
+    // Stores the encrypted data after the Sv2 frame has been processed by the Noise protocol
+    // and is ready for transmission. This buffer holds the outgoing encrypted data, ensuring
+    // that the full frame is correctly prepared before being sent.
     noise_buffer: Buffer,
 
-    // Buffer for holding serialized Sv2 data.
+    // Buffer for holding serialized Sv2 data before encryption.
     //
-    // Stores the data to be encrypted by the Noise protocol after being encoded into a Sv2 frame.
+    // Stores the data after it has been serialized into an Sv2 frame but before it is encrypted
+    // by the Noise protocol. The buffer accumulates the frame's serialized bytes before they are
+    // encrypted and then encoded for transmission.
     sv2_buffer: Buffer,
 
-    // Used to maintain type information for the generic parameter `T`, which represents the type
-    // of frames being encoded.
+    // Marker for the type of frame being encoded.
     //
-    // `T` refers to a type that implements the necessary traits for serialization
-    // (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
+    // Used to maintain the generic type information for `T`, which represents the message payload
+    // contained within the Sv2 frame. `T` refers to a type that implements the necessary traits
+    // for serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`),
+    // ensuring that the encoder can handle different message types correctly during the encoding
+    // process.
     frame: PhantomData<T>,
 }
 
-// A Sv2 frame to be encoded and optionally encrypted using the Noise protocol.
+// A Sv2 frame that will be encoded and optionally encrypted using the Noise protocol.
 //
-// `Item` is primarily used in the context of encoding frames before transmission. It is an alias
-// to a `Frame` that contains a payload of type `T` and uses a `Slice` as the underlying buffer.
-// This type is used during the encoding process to encapsulate the data being processed.
+// Represent a Sv2 frame during the encoding process. It encapsulates the frame's generic payload
+// message type (`T`) and is stored in a `Slice` buffer. The `Item` is passed to the encoder, which
+// either processes it for normal transmission or applies Noise encryption, depending on the
+// codec's state.
 #[cfg(feature = "noise_sv2")]
 type Item<T> = Frame<T, Slice>;
 
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + GetSize> NoiseEncoder<T> {
-    /// Encodes a Noise-encrypted frame.
+    /// Encodes an Sv2 frame and encrypts it using the Noise protocol.
     ///
-    /// Encodes the given `item` into a Sv2 frame and then encrypts the frame using the Noise
-    /// protocol. The `state` of the Noise codec determines whether the encoder is in the handshake
-    /// or transport phase. On success, an encrypted frame as a `Slice` is returned.
+    /// Takes an `item`, which is an Sv2 frame containing a payload of type `T`, and encodes it for
+    /// transmission. The frame is encrypted after being serialized. The `state` parameter
+    /// determines whether the encoder is in the handshake or transport phase, guiding the
+    /// appropriate encoding and encryption action.
+    ///
+    /// - In the handshake phase, the initial handshake messages are processed to establish secure
+    ///   communication.
+    /// - In the transport phase, the full frame is serialized, encrypted, and stored in a buffer
+    ///   for transmission.
+    ///
+    /// On success, the method returns an encrypted `Slice` (buffer) ready for transmission.
+    /// Otherwise, errors on an encryption or serialization failure.
     #[inline]
     pub fn encode(&mut self, item: Item<T>, state: &mut State) -> Result<Slice> {
         match state {
@@ -142,12 +187,13 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         Ok(self.noise_buffer.get_data_owned())
     }
 
-    // Processes and encodes Sv2 frames during the handshake phase of the Noise protocol.
+    // Encodes Sv2 frames during the handshake phase of the Noise protocol.
     //
-    // Used when the codec is in the handshake phase. It encodes the provided `item` into a
-    // handshake frame and stores the payload in the `noise_buffer`. This is necessary to
-    // establish the initial secure communication channel before transitioning to the transport
-    // phase of the Noise protocol.
+    // Used when the encoder is in the handshake phase, before secure communication is fully
+    // established. It encodes the provided `item` into a handshake frame, storing the resulting
+    // data in the `noise_buffer`. The handshake phase is necessary to exchange initial messages
+    // and set up the Noise encryption state before transitioning to the transport phase, where
+    // full frames are encrypted and transmitted.
     #[inline(never)]
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
         // ENCODE THE SV2 FRAME
@@ -192,27 +238,36 @@ impl<T: Serialize + GetSize> Default for NoiseEncoder<T> {
     }
 }
 
-/// Encoder for Sv2 frames without Noise protocol support.
+/// Encoder for standard Sv2 frames.
+///
+/// Serializes the Sv2 frame into a dedicated buffer then encodes it, such that it is ready for
+/// transmission.
 #[derive(Debug)]
 pub struct Encoder<T> {
-    // Buffer for holding data to be encoded.
+    // Buffer for holding serialized Sv2 data.
     //
-    // Stores data to be processed and converted into an Sv2 frame before it is transmitted.
+    // Stores the serialized bytes of the Sv2 frame after it has been encoded. Once the frame is
+    // serialized, the resulting bytes are stored in this buffer to be transmitted. The buffer is
+    // dynamically resized to accommodate the size of the encoded frame.
     buffer: Vec<u8>,
 
     // Marker for the type of frame being encoded.
     //
-    // Used to maintain type information for the generic parameter `T`, which represents the type
-    // of frames being encoded. `T` refers to a type that implements the necessary traits for
-    // serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`).
+    // Used to maintain the generic type information for `T`, which represents the message payload
+    // contained within the Sv2 frame. `T` refers to a type that implements the necessary traits
+    // for serialization (`binary_sv2::Serialize`) and size calculation (`binary_sv2::GetSize`),
+    // ensuring that the encoder can handle different message types correctly during the encoding
+    // process.
     frame: PhantomData<T>,
 }
 
 impl<T: Serialize + GetSize> Encoder<T> {
-    /// Encodes the provided `item` into a Sv2 frame, storing the result in the internal buffer.
+    /// Encodes a standard Sv2 frame for transmission.
     ///
-    /// The frame of type `T` is serialized and placed in into the buffer, preparing it for
-    /// transmission.
+    /// Takes a standard Sv2 frame containing a payload of type `T` and serializes it into a byte
+    /// stream. The resulting serialized bytes are stored in the internal `buffer`, preparing the
+    /// frame for transmission. On success, the method returns a reference to the serialized bytes
+    /// stored in the internal buffer. Otherwise, errors on a serialization failure.
     pub fn encode(
         &mut self,
         item: Sv2Frame<T, Slice>,
