@@ -8,6 +8,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    thread::available_parallelism,
     time::Duration,
 };
 use tokio::net::TcpStream;
@@ -211,8 +212,7 @@ fn open_channel(
     let user_identity = device_id.unwrap_or_default().try_into().unwrap();
     let id: u32 = 10;
     info!("Measuring CPU hashrate");
-    let p = std::thread::available_parallelism().unwrap().get() as u32 - 3;
-    let measured_hashrate = measure_hashrate(5, handicap) as f32 * p as f32;
+    let measured_hashrate = measure_hashrate(5, handicap) as f32;
     info!("Measured CPU hashrate is {}", measured_hashrate);
     let nominal_hash_rate = match nominal_hashrate_multiplier {
         Some(m) => measured_hashrate * m,
@@ -652,7 +652,12 @@ fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
     }
 
     let elapsed_secs = start_time.elapsed().as_secs_f64();
-    hashes as f64 / elapsed_secs
+    let hashrate_single_thread = hashes as f64 / elapsed_secs;
+
+    // we just measured for a single thread, need to multiply by the available parallelism
+    let p = available_parallelism().unwrap().get();
+
+    hashrate_single_thread * p as f64
 }
 fn generate_random_32_byte_array() -> [u8; 32] {
     let mut rng = thread_rng();
@@ -669,11 +674,7 @@ fn start_mining_threads(
     tokio::task::spawn(async move {
         let mut killers: Vec<Arc<AtomicBool>> = vec![];
         loop {
-            let available_parallelism = u32::max(
-                2,
-                std::thread::available_parallelism().unwrap().get() as u32,
-            );
-            let p = available_parallelism - 1;
+            let p = available_parallelism().unwrap().get() as u32;
             let unit = u32::MAX / p;
             while have_new_job.recv().await.is_ok() {
                 while let Some(killer) = killers.pop() {
