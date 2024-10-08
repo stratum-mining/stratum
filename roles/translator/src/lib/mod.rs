@@ -276,10 +276,6 @@ impl TranslatorSv2 {
         let _ =
             task_collector.safe_lock(|t| t.push((task.abort_handle(), "init task".to_string())));
     }
-
-    pub fn upstream_address(&self) -> SocketAddr {
-        self.config.upstream_address.clone().parse().unwrap()
-    }
 }
 
 fn kill_tasks(task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>) {
