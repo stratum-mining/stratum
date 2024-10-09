@@ -66,10 +66,11 @@ pub struct TemplateProvider {
 
 impl TemplateProvider {
     pub fn start(port: u16) -> Self {
-        let path_name = format!("/tmp/.template-provider-{}", port);
-        let temp_dir = PathBuf::from(&path_name);
+        let temp_dir = PathBuf::from("/tmp/.template-provider");
 
         let mut conf = Conf::default();
+        let staticdir = format!(".bitcoin-{}", port);
+        conf.staticdir = Some(temp_dir.join(staticdir));
         let port = format!("-sv2port={}", port);
         conf.args.extend(vec![
             "-txindex=1",
@@ -80,7 +81,6 @@ impl TemplateProvider {
             "-sv2feedelta=1000",
             "-loglevel=sv2:trace",
         ]);
-        conf.staticdir = Some(temp_dir.join(".bitcoin"));
 
         let os = env::consts::OS;
         let arch = env::consts::ARCH;

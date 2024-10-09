@@ -1,8 +1,10 @@
 on:
   push:
-    branches: [ main, dev ]
+    branches:
+      - main
   pull_request:
-    branches: [ main, dev ]
+    branches:
+      - main
 
 # Check sv2.h file is up to date with commit
 name: sv2.h Header Check
