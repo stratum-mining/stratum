@@ -43,5 +43,6 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: "./roles/cobertura.xml, ./protocols/cobertura.xml, ./utils/cobertura.xml"
+          flags: "roles, protocols, utils"
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
