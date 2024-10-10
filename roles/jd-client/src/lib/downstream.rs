@@ -39,6 +39,7 @@ pub struct DownstreamMiningNode {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
+    #[allow(dead_code)]
     pub prev_job_id: Option<u32>,
     solution_sender: Sender<SubmitSolution<'static>>,
     withhold: bool,

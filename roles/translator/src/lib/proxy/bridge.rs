@@ -540,6 +540,7 @@ mod test {
     pub mod test_utils {
         use super::*;
 
+        #[allow(dead_code)]
         pub struct BridgeInterface {
             pub tx_sv1_submit: Sender<DownstreamMessages>,
             pub rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,

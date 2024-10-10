@@ -6,6 +6,7 @@ use stratum_common::bitcoin::util::uint::ParseLengthError;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ChannelSendError<'a> {
     SubmitSharesExtended(
@@ -28,6 +29,7 @@ pub enum ChannelSendError<'a> {
 
 #[derive(Debug)]
 pub enum Error<'a> {
+    #[allow(dead_code)]
     VecToSlice32(Vec<u8>),
     /// Errors on bad CLI argument input.
     BadCliArgs,
