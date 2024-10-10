@@ -1,11 +1,15 @@
 [package]
 name = "codec_sv2"
 version = "1.2.1"
-authors = ["fi3 <email@email.org>"]
+authors = ["The Stratum V2 Developers"]
 edition = "2018"
+readme = "README.md"
 description = "Sv2 data format"
-license = "MIT"
+documentation = "https://docs.rs/codec_sv2"
+license = "MIT + Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
+homepage = "https://stratumprotocol.org"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 serde = { version = "1.0.89", default-features = false, optional = true }

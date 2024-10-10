@@ -1,10 +1,16 @@
 [package]
 name = "pool_sv2"
 version = "0.1.1"
+authors = ["The Stratum V2 Developers"]
 edition = "2018"
 description = "SV2 pool role"
-license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/pool_sv2"
+readme = "README.md"
+homepage = "https://stratumprotocol.org"
 repository = "https://github.com/stratum-mining/stratum"
+license = "MIT + Apache-2.0"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
 
 [lib]
 name = "pool_sv2"

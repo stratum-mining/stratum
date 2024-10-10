@@ -1,7 +1,14 @@
 [package]
 name = "integration-test"
 version = "0.1.0"
+authors = ["The Stratum V2 Developers"]
 edition = "2021"
+documentation = "https://github.com/stratum-mining/stratum"
+readme = "README.md"
+homepage = "https://stratumprotocol.org"
+repository = "https://github.com/stratum-mining/stratum"
+license = "MIT + Apache-2.0"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 bitcoind = "0.36.0"

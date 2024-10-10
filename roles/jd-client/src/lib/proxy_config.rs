@@ -37,6 +37,7 @@ pub struct ProxyConfig {
     pub cert_validity_sec: u64,
     pub tp_address: String,
     pub tp_authority_public_key: Option<Secp256k1PublicKey>,
+    #[allow(dead_code)]
     pub retry: u32,
     pub upstreams: Vec<Upstream>,
     #[serde(deserialize_with = "duration_from_toml")]

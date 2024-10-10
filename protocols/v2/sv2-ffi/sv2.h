@@ -4,36 +4,59 @@
 #include <ostream>
 #include <new>
 
+/// Identifier for the extension_type field in the SV2 frame, indicating no
+/// extensions.
 static const uint16_t EXTENSION_TYPE_NO_EXTENSION = 0;
 
+/// Size of the SV2 frame header in bytes.
 static const uintptr_t SV2_FRAME_HEADER_SIZE = 6;
 
 static const uintptr_t SV2_FRAME_HEADER_LEN_OFFSET = 3;
 
 static const uintptr_t SV2_FRAME_HEADER_LEN_END = 3;
 
+/// Maximum size of an SV2 frame chunk in bytes.
 static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65535;
 
+/// Size of the MAC for supported AEAD encryption algorithm (ChaChaPoly).
 static const uintptr_t AEAD_MAC_LEN = 16;
 
+/// Size of the encrypted SV2 frame header, including the MAC.
 static const uintptr_t ENCRYPTED_SV2_FRAME_HEADER_SIZE = (SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN);
 
+/// Size of the Noise protocol frame header in bytes.
 static const uintptr_t NOISE_FRAME_HEADER_SIZE = 2;
 
 static const uintptr_t NOISE_FRAME_HEADER_LEN_OFFSET = 0;
 
+/// Size in bytes of the encoded elliptic curve point using ElligatorSwift
+/// encoding. This encoding produces a 64-byte representation of the
+/// X-coordinate of a secp256k1 curve point.
 static const uintptr_t ELLSWIFT_ENCODING_SIZE = 64;
 
 static const uintptr_t RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE = ELLSWIFT_ENCODING_SIZE;
 
 static const uintptr_t MAC = 16;
 
+/// Size in bytes of the encrypted ElligatorSwift encoded data, which includes
+/// the original ElligatorSwift encoded data and a MAC for integrity
+/// verification.
 static const uintptr_t ENCRYPTED_ELLSWIFT_ENCODING_SIZE = (ELLSWIFT_ENCODING_SIZE + MAC);
 
+/// Size in bytes of the SIGNATURE_NOISE_MESSAGE, which contains information and
+/// a signature for the handshake initiator, formatted according to the Noise
+/// Protocol specifications.
 static const uintptr_t SIGNATURE_NOISE_MESSAGE_SIZE = 74;
 
+/// Size in bytes of the encrypted signature noise message, which includes the
+/// SIGNATURE_NOISE_MESSAGE and a MAC for integrity verification.
 static const uintptr_t ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE = (SIGNATURE_NOISE_MESSAGE_SIZE + MAC);
 
+/// Size in bytes of the handshake message expected by the initiator,
+/// encompassing:
+/// - ElligatorSwift encoded public key
+/// - Encrypted ElligatorSwift encoding
+/// - Encrypted SIGNATURE_NOISE_MESSAGE
 static const uintptr_t INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE = ((ELLSWIFT_ENCODING_SIZE + ENCRYPTED_ELLSWIFT_ENCODING_SIZE) + ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE);
 
 static const uint8_t SV2_MINING_PROTOCOL_DISCRIMINANT = 0;
@@ -50,6 +73,70 @@ static const uint8_t MESSAGE_TYPE_SETUP_CONNECTION_ERROR = 2;
 
 static const uint8_t MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED = 3;
 
+static const uint8_t MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL = 16;
+
+static const uint8_t MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS = 17;
+
+static const uint8_t MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR = 18;
+
+static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL = 19;
+
+static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES = 20;
+
+static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 21;
+
+static const uint8_t MESSAGE_TYPE_UPDATE_CHANNEL = 22;
+
+static const uint8_t MESSAGE_TYPE_UPDATE_CHANNEL_ERROR = 23;
+
+static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
+
+static const uint8_t MESSAGE_TYPE_SET_EXTRANONCE_PREFIX = 25;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_STANDARD = 26;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED = 27;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS = 28;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_ERROR = 29;
+
+static const uint8_t MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB = 31;
+
+static const uint8_t MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH = 32;
+
+static const uint8_t MESSAGE_TYPE_SET_TARGET = 33;
+
+static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB = 34;
+
+static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS = 35;
+
+static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR = 36;
+
+static const uint8_t MESSAGE_TYPE_RECONNECT = 37;
+
+static const uint8_t MESSAGE_TYPE_SET_GROUP_CHANNEL = 38;
+
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN = 80;
+
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS = 81;
+
+static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS = 83;
+
+static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS = 84;
+
+static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS = 85;
+
+static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS = 86;
+
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB = 87;
+
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS = 88;
+
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR = 89;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION_JD = 96;
+
 static const uint8_t MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE = 112;
 
 static const uint8_t MESSAGE_TYPE_NEW_TEMPLATE = 113;
@@ -63,72 +150,6 @@ static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS = 116;
 static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR = 117;
 
 static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION = 118;
-
-static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN = 80;
-
-static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS = 81;
-
-static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB = 87;
-
-static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS = 88;
-
-static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR = 89;
-
-static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS = 83;
-
-static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS = 84;
-
-static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS = 85;
-
-static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS = 86;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION_JD = 96;
-
-static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
-
-/// This has been cahnged before was 0x1e it can be that old Sv2 implementation still use the old
-/// one but this means that old impl are not following Sv2 spec
-static const uint8_t MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB = 31;
-
-static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 21;
-
-static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL = 19;
-
-static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES = 20;
-
-static const uint8_t MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR = 18;
-
-static const uint8_t MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL = 16;
-
-static const uint8_t MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS = 17;
-
-static const uint8_t MESSAGE_TYPE_RECONNECT = 37;
-
-static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB = 34;
-
-static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR = 36;
-
-static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS = 35;
-
-static const uint8_t MESSAGE_TYPE_SET_EXTRANONCE_PREFIX = 25;
-
-static const uint8_t MESSAGE_TYPE_SET_GROUP_CHANNEL = 38;
-
-static const uint8_t MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH = 32;
-
-static const uint8_t MESSAGE_TYPE_SET_TARGET = 33;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_ERROR = 29;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED = 27;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_STANDARD = 26;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS = 28;
-
-static const uint8_t MESSAGE_TYPE_UPDATE_CHANNEL = 22;
-
-static const uint8_t MESSAGE_TYPE_UPDATE_CHANNEL_ERROR = 23;
 
 static const bool CHANNEL_BIT_SETUP_CONNECTION = false;
 
