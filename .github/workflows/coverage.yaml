@@ -1,18 +1,17 @@
 # Performs test coverage of project's libraries using cargo-tarpaulin and generates results using codecov.io.
 # The following flags are set inside `tarpaulin.toml`:
 # `features = "..."`: Includes the code with the listed features. The following features result in a
-#     tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and
-#     with_serde
-# `run-types = [ "Lib" ]`: Only tests the package's library unit tests. Includes protocols, and utils (without the
-#     exclude-files flag, it includes this example because it contains a lib.rs file)
-# `exclude-files = [ "examples/*" ]`: Excludes all projects in examples directory (specifically added to
-#     ignore examples that that contain a lib.rs file like interop-cpp)
-# `timeout = "120s"`: If unresponsive for 120 seconds, action will fail
-# `fail-under = 20`: If code coverage is less than 20%, action will fail
-# `out = ["Xml"]`: Required for codecov.io to generate coverage result
-# All message-generator test flags are in tests in test/message-generator/test
-# This test loops through every test in test/message-generator/test, and runs each one, collecting
-# code coverage data for anything in the roles/ directory that is relevant to SV2(pool, mining-proxy)
+#     tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and with_serde
+# `run-types = [ "Lib" ]`: Only tests the package's library unit tests, including protocols and utils
+#     (without the exclude-files flag, it includes examples that contain a lib.rs file).
+# `exclude-files = [ "examples/*" ]`: Excludes all projects in the examples directory (specifically added to
+#     ignore examples that contain a lib.rs file like interop-cpp).
+# `timeout = "120s"`: If unresponsive for 120 seconds, the action will fail.
+# `fail-under = 20`: If code coverage is less than 20%, the action will fail.
+# `out = ["Xml"]`: Required for codecov.io to generate coverage results.
+# All message-generator test flags are in tests in test/message-generator/test.
+# This test loops through every test in test/message-generator/test, collecting code coverage data for anything
+# in the roles/ directory that is relevant to SV2 (pool, mining-proxy).
 
 name: Test Coverage
 
@@ -40,11 +39,14 @@ jobs:
         run: |
           ./scripts/tarpaulin.sh
 
-      - name: Archive Tarpaulin code coverage results
-        uses: actions/upload-artifact@v4
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v4
         with:
-          name: tarpaulin-report
-          path: |
-            protocols/cobertura.xml
-            roles/cobertura.xml
-            utils/cobertura.xml
+          file: ./roles/cobertura.xml
+          flags: roles
+          file: ./protocols/cobertura.xml
+          flags: protocols
+          file: ./utils/cobertura.xml
+          flags: utils
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
