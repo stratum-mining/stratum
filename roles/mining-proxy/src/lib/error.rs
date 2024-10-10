@@ -9,6 +9,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 #[allow(clippy::enum_variant_names)]
+#[allow(dead_code)]
 pub enum Error {
     SendError(SendError<EitherFrame>),
     UpstreamNotAvailabe(SocketAddr),

@@ -1,10 +1,15 @@
 [package]
 name = "jd_client"
 version = "0.1.1"
+authors = ["The Stratum V2 Developers"]
 edition = "2021"
-description = "TODO"
-license = "MIT OR Apache-2.0"
+description = "Job Declarator Client (JDC) role"
+documentation = "https://docs.rs/jd_client"
+readme = "README.md"
+homepage = "https://stratumprotocol.org"
 repository = "https://github.com/stratum-mining/stratum"
+license = "MIT + Apache-2.0"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [lib]
 name = "jd_client"
