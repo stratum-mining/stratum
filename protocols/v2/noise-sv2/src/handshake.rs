@@ -1,3 +1,32 @@
+// # Noise Protocol Handshake Operations
+//
+// The [`HandshakeOp`] trait defines the essential operations required for executing the Noise
+// protocol handshake, a cryptographic procedure used to establish secure communication channels.
+//
+// ## Overview
+//
+// The trait abstracts away the complexities of key management, encryption, and hashing, ensuring
+// consistent and secure operations across different handshake implementations.
+//
+// The [`HandshakeOp`] trait is central to managing the cryptographic state during the handshake,
+// including the handling of keys, nonces, and encryption tasks necessary to authenticate and
+// secure the communication between parties.
+//
+// ## Usage
+//
+// The [`HandshakeOp`] trait is typically implemented by roles in the Noise protocol handshake,
+// such as the [`crate::Initiator`] and [`crate::Responder`]. These roles leverage the trait to
+// securely manage cryptographic material and perform operations like mixing hashes,
+// encrypting/decrypting messages, and deriving new keys as the handshake progresses.
+//
+// Implementation of [`HandshakeOp`] handles the updating of the handshake hash (`h`), the
+// chaining key (`ck`), and the encryption key (`k`), ensuring that the cryptographic state
+// remains consistent and secure throughout the handshake process.
+//
+// For example, an [`crate::Initiator`] and [`crate::Responder`] would use [`HandshakeOp`]
+// implementations to perform the necessary steps of the handshake, including the encryption and
+// decryption of messages, while maintaining the integrity and confidentiality of the exchange.
+//
 use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROTOCOL_NAME_CHACHA};
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
@@ -6,16 +35,54 @@ use secp256k1::{
     rand, Keypair, Secp256k1, SecretKey, XOnlyPublicKey,
 };
 
+// Represents the operations needed during a Noise protocol handshake.
+//
+// The [`HandshakeOp`] trait defines the necessary functions for managing the state and
+// cryptographic operations required during the Noise protocol handshake. It provides methods for
+// key generation, hash mixing, encryption, decryption, and key derivation, ensuring that the
+// handshake process is secure and consistent.
 pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
+    // Returns the name of the entity implementing the handshake operation.
+    //
+    // Provides a string that identifies the entity (e.g., "Initiator" or "Responder") that is
+    // performing the handshake. It is primarily used for debugging or logging purposes.
+    #[allow(dead_code)]
     fn name(&self) -> String;
+
+    // Retrieves a mutable reference to the handshake hash (`h`).
+    //
+    // The handshake hash accumulates the state of the handshake, incorporating all exchanged
+    // messages to ensure integrity and prevent tampering. This method provides access to the
+    // current state of the handshake hash, allowing it to be updated as the handshake progresses.
     fn get_h(&mut self) -> &mut [u8; 32];
 
+    // Retrieves a mutable reference to the chaining key (`ck`).
+    //
+    // The chaining key is used during the key derivation process to generate new keys throughout
+    // the handshake. This method provides access to the current chaining key, which is updated
+    // as the handshake progresses and new keys are derived.
     fn get_ck(&mut self) -> &mut [u8; 32];
 
+    // Sets the handshake hash (`h`) to the provided value.
+    //
+    // This method allows the handshake hash to be explicitly set, typically after it has been
+    // initialized or updated during the handshake process. The handshake hash ensures the
+    // integrity of the handshake by incorporating all exchanged messages.
     fn set_h(&mut self, data: [u8; 32]);
 
+    // Sets the chaining key (`ck`) to the provided value.
+    //
+    // This method allows the chaining key to be explicitly set, typically after it has been
+    // initialized or updated during the handshake process. The chaining key is crucial for
+    // deriving new keys as the handshake progresses.
     fn set_ck(&mut self, data: [u8; 32]);
 
+    // Mixes the data into the handshake hash (`h`).
+    //
+    // Updates the current handshake hash by combining it with the provided `data`. The result is
+    // a new SHA-256 hash digest that reflects all previous handshake messages, ensuring the
+    // integrity of the handshake process. This method is typically called whenever a new piece of
+    // data (e.g., a public key or ciphertext) needs to be incorporated into the handshake state.
     fn mix_hash(&mut self, data: &[u8]) {
         let h = self.get_h();
         let mut to_hash = Vec::with_capacity(32 + data.len());
@@ -24,6 +91,11 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         *h = Sha256Hash::hash(&to_hash).to_byte_array();
     }
 
+    // Generates a new cryptographic key pair using the [`Secp256k1`] curve.
+    //
+    // Generates a fresh key pair, consisting of a secret key and a corresponding public key,
+    // using the [`Secp256k1`] elliptic curve. If the generated public key does not match the
+    // expected parity, a new key pair is generated to ensure consistency.
     fn generate_key() -> Keypair {
         let secp = Secp256k1::new();
         let (secret_key, _) = secp.generate_keypair(&mut rand::thread_rng());
@@ -35,6 +107,17 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         }
     }
 
+    // Computes an HMAC-SHA256 (Hash-based Message Authentication Code) hash of the provided data
+    // using the given key.
+    //
+    // This method implements the HMAC-SHA256 hashing algorithm, which combines a key and data to
+    // produce a 32-byte hash. It is used during the handshake to securely derive new keys from
+    // existing material, ensuring that the resulting keys are cryptographically strong.
+    //
+    // This method uses a two-step process:
+    // 1. The key is XORed with an inner padding (`ipad`) and hashed with the data.
+    // 2. The result is XORed with the outer padding (`opad`) and hashed again to produce the
+    //    final HMAC.
     fn hmac_hash(key: &[u8; 32], data: &[u8]) -> [u8; 32] {
         #[allow(clippy::identity_op)]
         let mut ipad = [(0 ^ 0x36); 64];
@@ -59,6 +142,21 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         Sha256Hash::hash(&to_hash).to_byte_array()
     }
 
+    // Derives two new keys using the HKDF (HMAC-based Key Derivation Function) process.
+    //
+    // Performs the HKDF key derivation process, which uses an initial chaining key and input key
+    // material to produce two new 32-byte keys. This process is used throughout the handshake to
+    // generate fresh keys for encryption and authentication, ensuring that each step of the
+    // handshake is securely linked.
+    //
+    // This method performs the following steps:
+    // 1. Performs a HMAC hash on the chaining key and input key material to derive a temporary
+    //    key.
+    // 2. Performs a HMAC hash on the temporary key and specific byte sequence (`0x01`) to derive
+    //    the first output.
+    // 3. Performs a HMAC hash on the temporary key and the concatenation of the first output and
+    //    a specific byte sequence (`0x02`).
+    // 4. Returns both outputs.
     fn hkdf_2(chaining_key: &[u8; 32], input_key_material: &[u8]) -> ([u8; 32], [u8; 32]) {
         let temp_key = Self::hmac_hash(chaining_key, input_key_material);
         let out_1 = Self::hmac_hash(&temp_key, &[0x1]);
@@ -77,6 +175,13 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         (out_1, out_2, out_3)
     }
 
+    // Mixes the input key material into the current chaining key (`ck`) and initializes the
+    // handshake cipher with an updated encryption key (`k`).
+    //
+    // Updates the chaining key by incorporating the provided input key material (e.g., the result
+    // of a Diffie-Hellman exchange) and uses the updated chaining key to derive a new encryption
+    // key. The encryption key is then used to initialize the handshake cipher, preparing it for
+    // use in the next step of the handshake.
     fn mix_key(&mut self, input_key_material: &[u8]) {
         let ck = self.get_ck();
         let (ck, temp_k) = Self::hkdf_2(ck, input_key_material);
@@ -84,6 +189,14 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         self.initialize_key(temp_k);
     }
 
+    // Encrypts the provided plaintext and updates the hash `h` value.
+    //
+    // The `encrypt_and_hash` method encrypts the given plaintext using the
+    // current encryption key and then updates `h` with the resulting ciphertext.
+    // If an encryption key is present `k`, the method encrypts the data using
+    // using AEAD, where the associated data is the current hash value. After
+    // encryption, the ciphertext is mixed into the hash to ensure integrity
+    // and authenticity of the messages exchanged during the handshake.
     fn encrypt_and_hash(&mut self, plaintext: &mut Vec<u8>) -> Result<(), aes_gcm::Error> {
         if self.get_k().is_some() {
             #[allow(clippy::clone_on_copy)]
@@ -95,6 +208,14 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         Ok(())
     }
 
+    // Decrypts the provided ciphertext and updates the handshake hash (`h`).
+    //
+    // Decrypts the given ciphertext using the handshake cipher and then mixes the ciphertext
+    // (before decryption) into the handshake hash. If the encryption key (`k`) is present, the
+    // data is decrypted using AEAD, where the associated data is the current handshake hash. This
+    // ensures that each decryption step is securely linked to the previous handshake state,
+    // maintaining the integrity of the
+    // handshake.
     fn decrypt_and_hash(&mut self, ciphertext: &mut Vec<u8>) -> Result<(), aes_gcm::Error> {
         let encrypted = ciphertext.clone();
         if self.get_k().is_some() {
@@ -113,8 +234,12 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         res.secret_bytes()
     }
 
-    /// Prior to starting first round of NX-handshake, both initiator and responder initializes
-    /// handshake variables h (hash output), ck (chaining key) and k (encryption key):
+    // Initializes the handshake state by setting the initial chaining key (`ck`) and handshake
+    // hash (`h`).
+    //
+    // Prepares the handshake state for use by setting the initial chaining key and handshake
+    // hash. The chaining key is typically derived from a protocol name or other agreed-upon
+    // value, and the handshake hash is initialized to reflect this starting state.
     fn initialize_self(&mut self) {
         let ck = NOISE_HASHED_PROTOCOL_NAME_CHACHA;
         let h = Sha256Hash::hash(&ck[..]);
@@ -123,6 +248,11 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         self.set_k(None);
     }
 
+    // Initializes the handshake cipher with the provided encryption key (`k`).
+    //
+    // Resets the nonce (`n`) to 0 and initializes the handshake cipher using the given 32-byte
+    // encryption key. It also updates the internal key storage (`k`) with the new key, preparing
+    // the cipher for encrypting or decrypting subsequent messages in the handshake.
     fn initialize_key(&mut self, key: [u8; 32]) {
         self.set_n(0);
         let cipher = ChaCha20Poly1305::from_key(key);
@@ -143,6 +273,7 @@ mod test {
     use super::*;
     use quickcheck::{Arbitrary, TestResult};
     use quickcheck_macros;
+    use secp256k1::{ecdh::SharedSecret, SecretKey, XOnlyPublicKey};
     use std::convert::TryInto;
 
     struct TestHandShake {
