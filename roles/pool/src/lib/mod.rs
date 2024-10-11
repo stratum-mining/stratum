@@ -5,12 +5,14 @@ pub mod template_receiver;
 
 use async_channel::{bounded, unbounded};
 
+use error::PoolError;
 use mining_pool::{get_coinbase_output, Configuration, Pool};
 use template_receiver::TemplateRx;
 use tracing::{error, info, warn};
 
 use tokio::select;
 
+#[derive(Debug, Clone)]
 pub struct PoolSv2 {
     config: Configuration,
 }
@@ -19,7 +21,8 @@ impl PoolSv2 {
     pub fn new(config: Configuration) -> PoolSv2 {
         PoolSv2 { config }
     }
-    pub async fn start(self) {
+
+    pub async fn start(&self) -> Result<(), PoolError> {
         let config = self.config.clone();
         let (status_tx, status_rx) = unbounded();
         let (s_new_t, r_new_t) = bounded(10);
@@ -27,15 +30,9 @@ impl PoolSv2 {
         let (s_solution, r_solution) = bounded(10);
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
         let coinbase_output_result = get_coinbase_output(&config);
-        let coinbase_output_len = match coinbase_output_result {
-            Ok(coinbase_output) => coinbase_output.len() as u32,
-            Err(err) => {
-                error!("Failed to get Coinbase output: {:?}", err);
-                return;
-            }
-        };
+        let coinbase_output_len = coinbase_output_result?.len() as u32;
         let tp_authority_public_key = config.tp_authority_public_key;
-        let template_rx_res = TemplateRx::connect(
+        TemplateRx::connect(
             config.tp_address.parse().unwrap(),
             s_new_t,
             s_prev_hash,
@@ -45,13 +42,7 @@ impl PoolSv2 {
             coinbase_output_len,
             tp_authority_public_key,
         )
-        .await;
-
-        if let Err(e) = template_rx_res {
-            error!("Could not connect to Template Provider: {}", e);
-            return;
-        }
-
+        .await?;
         let pool = Pool::start(
             config.clone(),
             r_new_t,
@@ -76,7 +67,7 @@ impl PoolSv2 {
                             // we also shut down in case of error
                         },
                     }
-                    break;
+                    break Ok(());
                 }
             };
             let task_status: status::Status = task_status.unwrap();
@@ -88,11 +79,11 @@ impl PoolSv2 {
                         "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
                         err
                     );
-                    break;
+                    break Ok(());
                 }
                 status::State::TemplateProviderShutdown(err) => {
                     error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
-                    break;
+                    break Ok(());
                 }
                 status::State::Healthy(msg) => {
                     info!("HEALTHY message: {}", msg);
@@ -103,7 +94,7 @@ impl PoolSv2 {
                         .safe_lock(|p| p.remove_downstream(downstream_id))
                         .is_err()
                     {
-                        break;
+                        break Ok(());
                     }
                 }
             }

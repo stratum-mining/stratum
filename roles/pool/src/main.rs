@@ -99,5 +99,5 @@ async fn main() {
             return;
         }
     };
-    PoolSv2::new(config).start().await;
+    let _ = PoolSv2::new(config).start().await;
 }
