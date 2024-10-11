@@ -1,14 +1,53 @@
+// # Signature-Based Message Handling
+//
+// Defines the [`SignatureNoiseMessage`] struct, which represents a signed message used in the
+// Noise protocol to authenticate and verify the identity of a party during the handshake.
+//
+// This module provides utilities for creating, signing, and verifying Noise protocol messages
+// using Schnorr signatures over the [`secp256k1`] elliptic curve. It encapsulates signed messages
+// along with versioning and validity timestamps. The following capabilities are supported:
+//
+// - Conversion of raw byte arrays into structured [`SignatureNoiseMessage`] instances.
+// - Message signing using Schnorr signatures and the [`secp256k1`] curve.
+// - Verification of signed messages, ensuring they fall within valid time periods and are signed
+//   by an authorized public key.
+//
+// ## Usage
+//
+// The [`SignatureNoiseMessage`] is used by both the [`crate::Responder`] and [`crate::Initiator`]
+// roles. The [`crate::Responder`] uses the `sign` method to generate a Schnorr signature over the
+// initial message sent by the initiator. The [`crate::Initiator`] uses the `verify` method to
+// check the validity of the signed message from the responder, comparing it against the provided
+// public key and optional authority key, while ensuring the message falls within the specified
+// validity period.
+
 use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1, XOnlyPublicKey};
 use std::{convert::TryInto, time::SystemTime};
 
+/// `SignatureNoiseMessage` represents a signed message used in the Noise NX protocol
+/// for authentication during the handshake process. It encapsulates the necessary
+/// details for signature verification, including protocol versioning, validity periods,
+/// and a Schnorr signature over the message.
+///
+/// This structure ensures that messages are authenticated and valid only within
+/// a specified time window, using Schnorr signatures over the `secp256k1` elliptic curve.
 pub struct SignatureNoiseMessage {
+    // Version of the protocol being used.
     pub version: u16,
+    // Start of the validity period for the message, expressed as a Unix timestamp.
     pub valid_from: u32,
+    // End of the validity period for the message, expressed as a Unix timestamp.
     pub not_valid_after: u32,
+    // 64-byte Schnorr signature that authenticates the message.
     pub signature: [u8; 64],
 }
 
 impl From<[u8; 74]> for SignatureNoiseMessage {
+    // Converts a 74-byte array into a [`SignatureNoiseMessage`].
+    //
+    // Allows a raw 74-byte array to be converted into a [`SignatureNoiseMessage`], extracting the
+    // version, validity periods, and signature from the provided data. Panics if the byte array
+    // cannot be correctly converted into the struct fields.
     fn from(value: [u8; 74]) -> Self {
         let version = u16::from_le_bytes(value[0..2].try_into().unwrap());
         let valid_from = u32::from_le_bytes(value[2..6].try_into().unwrap());
@@ -24,6 +63,13 @@ impl From<[u8; 74]> for SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
+    // Verifies the [`SignatureNoiseMessage`] against the provided public key and an optional
+    // authority public key. The verification checks that the message is currently valid
+    // (i.e., within the `valid_from` and `not_valid_after` time window) and that the signature
+    // is correctly signed by the authority.
+    //
+    // If an authority public key is not provided, the function assumes that the signature
+    // is already valid without further verification.
     pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
         if let Some(authority_pk) = authority_pk {
             let now = SystemTime::now()
@@ -48,6 +94,12 @@ impl SignatureNoiseMessage {
             true
         }
     }
+
+    // Signs a [`SignatureNoiseMessage`] using the provided keypair (`kp`).
+    //
+    // Creates a Schnorr signature for the message, combining the version, validity period, and
+    // the static public key of the server (`static_pk`). The resulting signature is then written
+    // into the provided message buffer (`msg`).
     pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {
         let secp = Secp256k1::signing_only();
         let m = [&msg[0..10], &static_pk.serialize()].concat();
@@ -58,6 +110,12 @@ impl SignatureNoiseMessage {
         }
     }
 
+    // Splits the [`SignatureNoiseMessage`] into its component parts: the message hash and the
+    // signature.
+    //
+    // Separates the message into the first 10 bytes (containing the version and validity period)
+    // and the 64-byte Schnorr signature, returning them in a tuple. Used internally during the
+    // verification process.
     fn split(self) -> ([u8; 10], [u8; 64]) {
         let mut m = [0; 10];
         m[0] = self.version.to_le_bytes()[0];
