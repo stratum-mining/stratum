@@ -451,24 +451,32 @@ void free_submit_solution(CSubmitSolution s);
 #include <ostream>
 #include <new>
 
+/// C-compatible enumeration of possible errors in the `codec_sv2` module.
+///
+/// This enum mirrors the [`Error`] enum but is designed to be used in C code through FFI. It
+/// represents the same set of errors as [`Error`], making them accessible to C programs.
 struct CError {
   enum class Tag {
-    /// Errors from the `binary_sv2` crate
-    BinarySv2Error,
-    /// Errors from the `framing_sv2` crate
-    FramingSv2Error,
-    /// Errors if there are missing bytes in the Noise protocol
-    MissingBytes,
-    /// Errors from the `noise_sv2` crate
-    NoiseSv2Error,
-    /// `snow` errors
+    /// AEAD (`snow`) error in the Noise protocol.
     AeadError,
-    /// Error if Noise protocol state is not as expected
-    UnexpectedNoiseState,
-    InvalidStepForResponder,
-    InvalidStepForInitiator,
-    NotInHandShakeState,
+    /// Binary Sv2 data format error.
+    BinarySv2Error,
+    /// Framing Sv2 error.
     FramingError,
+    /// Framing Sv2 error.
+    FramingSv2Error,
+    /// Invalid step for initiator in the Noise protocol.
+    InvalidStepForInitiator,
+    /// Invalid step for responder in the Noise protocol.
+    InvalidStepForResponder,
+    /// Missing bytes in the Noise protocol.
+    MissingBytes,
+    /// Sv2 Noise protocol error.
+    NoiseSv2Error,
+    /// Noise protocol is not in the expected handshake state.
+    NotInHandShakeState,
+    /// Unexpected state in the Noise protocol.
+    UnexpectedNoiseState,
   };
 
   struct MissingBytes_Body {
@@ -483,7 +491,11 @@ struct CError {
 
 extern "C" {
 
-/// Here only to force cbindgen to create header for CError
+/// Force `cbindgen` to create a header for [`CError`].
+///
+/// It ensures that [`CError`] is included in the generated C header file. This function is not meant
+/// to be called and will panic if called. Its only purpose is to make [`CError`] visible to
+/// `cbindgen`.
 CError export_cerror();
 
 } // extern "C"
