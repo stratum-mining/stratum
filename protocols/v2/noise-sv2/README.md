@@ -21,3 +21,11 @@ To include this crate in your project, run:
 ```bash
 cargo add noise_sv2
 ```
+
+### Examples
+
+This crate provides example on establishing a secure line:
+
+1. **[Noise Handshake Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/noise-sv2/examples/handshake.rs)**:
+   Establish a secure line of communication between an Initiator and Responder via the Noise
+   protocol, allowing for the encryption and decryption of a secret message.
