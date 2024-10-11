@@ -5,7 +5,7 @@
 [![docs.rs](https://docs.rs/const_sv2/badge.svg)](https://docs.rs/const_sv2)
 [![rustc+](https://img.shields.io/badge/rustc-1.75.0%2B-lightgrey.svg)](https://blog.rust-lang.org/2023/12/28/Rust-1.75.0.html)
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/stratum-mining/stratum/blob/main/LICENSE.md)
-[![docs.rs](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://app.codecov.io/gh/stratum-mining/stratum/tree/main/protocols%2Fv2%2Fnoise-sv2)
+[![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg?flag=noise_sv2-coverage)](https://codecov.io/gh/stratum-mining/stratum)
 
 `noise_sv2` is primarily intended to secure communication in the Stratum V2 (Sv2) protocol. It handles the necessary Noise handshakes, encrypts outgoing messages, and decrypts incoming responses, ensuring privacy and integrity across the communication link between Sv2 roles. See the [Protocol Security specification](https://github.com/stratum-mining/sv2-spec/blob/main/04-Protocol-Security.md) for more details.
 
