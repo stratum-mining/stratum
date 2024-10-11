@@ -20,7 +20,8 @@ const_sv2 = { version = "2.0.0", path = "../../../protocols/v2/const-sv2"}
 buffer_sv2 = { version = "1.0.0", path = "../../../utils/buffer"}
 tracing = { version = "0.1"}
 
-
+[dev-dependencies]
+key-utils = { version = "^1.0.0", path = "../../../utils/key-utils" }
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffer_sv2/with_serde"]
