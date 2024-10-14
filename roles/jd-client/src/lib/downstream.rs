@@ -290,14 +290,22 @@ impl DownstreamMiningNode {
                 // pool's job_id. The below return as soon as we have a pairable job id for the
                 // template_id associated with this share.
                 let last_template_id = self_mutex.safe_lock(|s| s.last_template_id).unwrap();
+                // Await the job ID associated with the template, with a timeout
                 let job_id_future =
                     UpstreamMiningNode::get_job_id(&upstream_mutex, last_template_id);
                 let job_id = match timeout(Duration::from_secs(10), job_id_future).await {
                     Ok(job_id) => job_id,
                     Err(_) => {
+                        // Handle timeout or failure to get job ID
+                        warn!(
+                            "Failed to retrieve job_id for last_template_id: {}",
+                            last_template_id
+                        );
                         return;
                     }
                 };
+
+                // Assign the job ID to the share and send it upstream
                 share.job_id = job_id;
                 debug!(
                     "Sending valid block solution upstream, with job_id {}",
