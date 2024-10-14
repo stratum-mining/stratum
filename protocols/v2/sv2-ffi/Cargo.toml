@@ -29,3 +29,5 @@ quickcheck_macros = "1"
 with_serde = []
 prop_test = ["binary_sv2/prop_test", "common_messages_sv2/prop_test", "template_distribution_sv2/prop_test"]
 
+[package.metadata.docs.rs]
+all-features = true

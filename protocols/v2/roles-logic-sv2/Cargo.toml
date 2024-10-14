@@ -44,3 +44,6 @@ with_serde = [ "serde",
 prop_test = ["template_distribution_sv2/prop_test"]
 # Code coverage tools may conflict with the nopanic logic, so we can disable it when needed
 disable_nopanic = []
+
+[package.metadata.docs.rs]
+all-features = true

@@ -20,3 +20,6 @@ const_sv2 = {version = "^2.0.0", path = "../../../../protocols/v2/const-sv2"}
 [features]
 no_std = []
 with_serde = ["binary_sv2/with_serde", "serde"]
+
+[package.metadata.docs.rs]
+all-features = true

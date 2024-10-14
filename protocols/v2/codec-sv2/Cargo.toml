@@ -27,3 +27,6 @@ key-utils = { version = "^1.0.0", path = "../../../utils/key-utils" }
 with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffer_sv2/with_serde"]
 with_buffer_pool = ["framing_sv2/with_buffer_pool"]
 no_std = []
+
+[package.metadata.docs.rs]
+all-features = true
