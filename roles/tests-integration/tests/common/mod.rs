@@ -342,3 +342,41 @@ pub async fn start_jdc(
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     jdc_address
 }
+
+pub async fn start_jds(tp_address: SocketAddr) -> SocketAddr {
+    use jd_server::{CoinbaseOutput, Configuration, CoreRpc, JobDeclaratorServer};
+    let authority_public_key = Secp256k1PublicKey::try_from(
+        "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
+    )
+    .unwrap();
+    let authority_secret_key = Secp256k1SecretKey::try_from(
+        "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
+    )
+    .unwrap();
+    let listen_jd_address = get_available_address();
+    let cert_validity_sec = 3600;
+    let coinbase_outputs = vec![CoinbaseOutput::new(
+        "P2WPKH".to_string(),
+        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+    )];
+    let core_rpc = CoreRpc::new(
+        tp_address.ip().to_string(),
+        tp_address.port(),
+        "tp_username".to_string(),
+        "tp_password".to_string(),
+    );
+    let config = Configuration::new(
+        listen_jd_address.to_string(),
+        authority_public_key,
+        authority_secret_key,
+        cert_validity_sec,
+        coinbase_outputs,
+        core_rpc,
+        std::time::Duration::from_secs(1),
+    );
+    tokio::spawn(async move {
+        JobDeclaratorServer::new(config).start().await;
+    });
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    listen_jd_address
+}
