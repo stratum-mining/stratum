@@ -27,3 +27,6 @@ binary_sv2 = { version = "^1.0.0", path = "../v2/binary-sv2/binary-sv2"}
 [dev-dependencies]
 quickcheck = "1"
 quickcheck_macros = "1"
+
+[package.metadata.docs.rs]
+all-features = true

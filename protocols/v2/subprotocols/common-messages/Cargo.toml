@@ -25,3 +25,6 @@ serde_repr = {version= "0.1.10", optional=true}
 no_std = []
 with_serde = ["binary_sv2/with_serde", "serde", "serde_repr"]
 prop_test = ["quickcheck"]
+
+[package.metadata.docs.rs]
+all-features = true

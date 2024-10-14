@@ -22,3 +22,6 @@ const_sv2 = { version = "^2.0.0", path = "../../../protocols/v2/const-sv2"}
 [dev-dependencies]
 quickcheck = "1.0.3"
 quickcheck_macros = "1"
+
+[package.metadata.docs.rs]
+all-features = true

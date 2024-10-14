@@ -21,3 +21,6 @@ secp256k1 = { version = "0.28.2", default-features = false, features =["hashes",
 
 [features]
 no_std = []
+
+[package.metadata.docs.rs]
+all-features = true

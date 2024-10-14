@@ -22,3 +22,6 @@ no_std = []
 default = ["no_std"]
 prop_test = ["quickcheck"]
 with_buffer_pool = ["buffer_sv2"]
+
+[package.metadata.docs.rs]
+all-features = true
