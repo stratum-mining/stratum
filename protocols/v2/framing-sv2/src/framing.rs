@@ -43,7 +43,7 @@ impl<T, B> From<Sv2Frame<T, B>> for Frame<T, B> {
 pub struct Sv2Frame<T, B> {
     header: Header,
     payload: Option<T>,
-    /// Serialized header + payload
+    // Serialized header + payload
     serialized: Option<B>,
 }
 
@@ -227,7 +227,7 @@ impl HandShakeFrame {
         Self { payload: bytes }
     }
 
-    /// Returns the size of the `HandShakeFrame` payload.
+    // Returns the size of the `HandShakeFrame` payload.
     #[inline]
     fn encoded_length(&self) -> usize {
         self.payload.len()
@@ -255,10 +255,10 @@ pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame 
     }
 }
 
-/// Basically a boolean bit filter for `extension_type`.
-/// Takes an `extension_type` represented as a `u16` and a boolean flag (`channel_msg`).
-/// If `channel_msg` is true, it sets the most significant bit of `extension_type` to 1,
-/// otherwise, it clears the most significant bit to 0.
+// Basically a boolean bit filter for `extension_type`.
+// Takes an `extension_type` represented as a `u16` and a boolean flag (`channel_msg`).
+// If `channel_msg` is true, it sets the most significant bit of `extension_type` to 1,
+// otherwise, it clears the most significant bit to 0.
 fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     if channel_msg {
         let mask = 0b1000_0000_0000_0000;

@@ -17,18 +17,18 @@ pub const NOISE_HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
 /// Abstraction for a SV2 Frame Header.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
-    /// Unique identifier of the extension describing this protocol message.  Most significant bit
-    /// (i.e.bit 15, 0-indexed, aka channel_msg) indicates a message which is specific to a
-    /// channel, whereas if the most significant bit is unset, the message is to be interpreted
-    /// by the immediate receiving device.  Note that the channel_msg bit is ignored in the
-    /// extension lookup, i.e.an extension_type of 0x8ABC is for the same "extension" as
-    /// 0x0ABC.  If the channel_msg bit is set, the first four bytes of the payload field is a
-    /// U32 representing the channel_id this message is destined for. Note that for the Job
-    /// Declaration and Template Distribution Protocols the channel_msg bit is always unset.
+    // Unique identifier of the extension describing this protocol message.  Most significant bit
+    // (i.e.bit 15, 0-indexed, aka channel_msg) indicates a message which is specific to a channel,
+    // whereas if the most significant bit is unset, the message is to be interpreted by the
+    // immediate receiving device.  Note that the channel_msg bit is ignored in the extension
+    // lookup, i.e.an extension_type of 0x8ABC is for the same "extension" as 0x0ABC.  If the
+    // channel_msg bit is set, the first four bytes of the payload field is a U32 representing the
+    // channel_id this message is destined for. Note that for the Job Declaration and Template
+    // Distribution Protocols the channel_msg bit is always unset.
     extension_type: u16, // fix: use U16 type
-    /// Unique identifier of the extension describing this protocol message
+    // Unique identifier of the extension describing this protocol message
     msg_type: u8, // fix: use specific type?
-    /// Length of the protocol message, not including this header
+    // Length of the protocol message, not including this header
     msg_length: U24,
 }
 
@@ -51,7 +51,7 @@ impl Header {
         })
     }
 
-    /// Get the payload length
+    // Get the payload length
     #[allow(clippy::len_without_is_empty)]
     #[inline]
     pub(crate) fn len(&self) -> usize {
@@ -59,7 +59,7 @@ impl Header {
         inner as usize
     }
 
-    /// Construct a `Header` from payload length, type and extension type.
+    // Construct a `Header` from payload length, type and extension type.
     #[inline]
     pub(crate) fn from_len(msg_length: u32, msg_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
