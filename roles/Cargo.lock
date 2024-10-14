@@ -1303,6 +1303,7 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "flate2",
+ "jd_client",
  "key-utils",
  "minreq",
  "network_helpers_sv2",
