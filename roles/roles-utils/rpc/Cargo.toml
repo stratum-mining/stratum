@@ -8,7 +8,7 @@ documentation = "https://docs.rs/rpc_sv2"
 readme = "README.md"
 homepage = "https://stratumprotocol.org"
 repository = "https://github.com/stratum-mining/stratum"
-license = "MIT + Apache-2.0"
+license = "MIT OR Apache-2.0"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 
