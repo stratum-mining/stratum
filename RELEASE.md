@@ -1,13 +1,11 @@
 ## Changelog
 
-The changelog is a file that contains a curated, chronologically ordered list of
-notable changes for each version of a project. It is a way to keep track of the
-project's progress and to communicate the changes to the users and the
-community. The changelog should be updated for each release and is part of the
-release process.
+The changelog is a list of notable changes for each version of a project. 
+It is a way to keep track of the project's progress and to communicate 
+the changes to the users and the community.
 
-Things to take into account while writing a changelog:
-
+The changelog is automatically generated on each release page, and extra contextual
+information is added as needed, such as:
  - General release information.
  - Breaking changes.
  - Notable changes.
@@ -21,18 +19,13 @@ version number, from the `main` branch.  The release branch is used as a
 breaking point and future reference for the release and should include the
 changelog entries for the release and any other release-specific tasks. Any bug
 fixes or changes for the release should be done on the release branch. When the
-release branch is ready, create a Pull Request from release branch to the `main`
-branch.  Once the Pull Request is approved and merged, create a new tag for the
-release branch and initiate any publishing tasks.
+release branch is ready, create a new tag and initiate any publishing tasks.
 
 Usually the release process is as follows:
 
 1. Create a new release branch from the `main` branch.
-2. Amend the changelog with the new release information.
-3. Create a Pull Request with `main` branch as base.
-4. Merge the Pull Request.
-5. Create a new tag for the release branch.
-6. Publish the release.
+2. Create a new tag for the release branch.
+3. Publish the release.
 
 ## Versioning
 
