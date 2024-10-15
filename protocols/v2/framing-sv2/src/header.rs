@@ -1,3 +1,24 @@
+//! # Sv2 Frame Header
+//!
+//! Defines the [`crate::header::Header`] structure used in the framing of Sv2 messages.
+//!
+//! Each [`crate::framing::Sv2Frame`] starts with a 6-byte header with information about the
+//! message payload, including its extension type, if it is associated with a specific mining
+//! channel, the type of message (e.g. `SetupConnection`, `NewMiningJob`, etc.) and the payload
+//! length.
+//!
+//! ## Header Structure
+//!
+//! The Sv2 header includes the following fields:
+//!
+//! - `extension_type`: A `16`-bit field that describes the protocol extension associated with the
+//!   message. It also contains a special bit (the `channel_msg` bit) to indicate if the message is
+//!   tied to a specific channel.
+//! - `msg_type`: An `8`-bit field representing the specific message type within the given
+//!   extension.
+//! - `msg_length`: A `24`-bit field that indicates the length of the message payload, excluding the
+//!   header itself.
+
 use crate::Error;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
@@ -14,7 +35,7 @@ pub const NOISE_HEADER_LEN_OFFSET: usize = const_sv2::NOISE_FRAME_HEADER_LEN_OFF
 // Previously `NoiseHeader::HEADER_SIZE`
 pub const NOISE_HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
 
-/// Abstraction for a SV2 Frame Header.
+/// Abstraction for a Sv2 Frame Header.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
     // Unique identifier of the extension describing this protocol message.  Most significant bit
@@ -26,8 +47,10 @@ pub struct Header {
     // channel_id this message is destined for. Note that for the Job Declaration and Template
     // Distribution Protocols the channel_msg bit is always unset.
     extension_type: u16, // fix: use U16 type
+    //
     // Unique identifier of the extension describing this protocol message
     msg_type: u8, // fix: use specific type?
+
     // Length of the protocol message, not including this header
     msg_length: U24,
 }
@@ -35,7 +58,7 @@ pub struct Header {
 impl Header {
     pub const SIZE: usize = const_sv2::SV2_FRAME_HEADER_SIZE;
 
-    /// Construct a `Header` from raw bytes
+    /// Construct a [`Header`] from raw bytes
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < Self::SIZE {
@@ -59,7 +82,7 @@ impl Header {
         inner as usize
     }
 
-    // Construct a `Header` from payload length, type and extension type.
+    // Construct a [`Header`] from payload length, type and extension type.
     #[inline]
     pub(crate) fn from_len(msg_length: u32, msg_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
@@ -69,17 +92,17 @@ impl Header {
         })
     }
 
-    /// Get the `Header` message type.
+    /// Get the [`Header`] message type.
     pub fn msg_type(&self) -> u8 {
         self.msg_type
     }
 
-    /// Get the `Header` extension type.
+    /// Get the [`Header`[ extension type.
     pub fn ext_type(&self) -> u16 {
         self.extension_type
     }
 
-    /// Check if `Header` represents a channel message
+    /// Check if [`Header`] represents a channel message.
     ///
     /// A header can represent a channel message if the MSB(Most Significant Bit) is set.
     pub fn channel_msg(&self) -> bool {
@@ -87,7 +110,19 @@ impl Header {
         self.extension_type & CHANNEL_MSG_MASK == self.extension_type
     }
 
-    /// Calculate the length of the encrypted `Header`
+    /// Calculates the total length of a chunked message, accounting for MAC overhead.
+    ///
+    /// Determines the total length of the message frame, including the overhead introduced by
+    /// MACs. If the message is split into multiple chunks (due to its size exceeding the maximum
+    /// frame chunk size), each chunk requires a MAC for integrity verification.
+    ///
+    /// This method is particularly relevant when the message is being encrypted using the Noise
+    /// protocol, where the payload is divided into encrypted chunks, and each chunk is appended
+    /// with a MAC. However, it can also be applied to non-encrypted chunked messages to calculate
+    /// their total length.
+    ///
+    /// The calculated length includes the full payload length and any additional space required
+    /// for the MACs.
     pub fn encrypted_len(&self) -> usize {
         let len = self.len();
         let mut chunks = len / (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN);

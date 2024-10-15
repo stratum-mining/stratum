@@ -1,3 +1,20 @@
+//! # Sv2 Frame
+//!
+//! Handles the serializing and deserializing of both Sv2 and Noise handshake messages into frames.
+//!
+//! It handles the serialization and deserialization of frames, ensuring that messages can be
+//! correctly encoded and transmitted and then received and decoded between Sv2 roles.
+//!
+//! # Usage
+//!
+//! Two types of frames are defined. The most common frame is [`crate::framing::Sv2Frame`] and is
+//! used for almost all messages passed between Sv2 roles. It consists of a
+//! [`crate::header::Header`] followed by the serialized message payload. The
+//! [`crate::framing::HandShakeFrame`] is used exclusively during the Noise handshake process,
+//! performed between Sv2 roles at the beginning of their communication. This frame is used until
+//! the handshake state progresses to transport mode. After that, all subsequent messages use
+//! [`crate::framing::Sv2Frame`]. No header is included in the handshake frame.
+
 use crate::{header::Header, Error};
 use alloc::vec::Vec;
 use binary_sv2::{to_writer, GetSize, Serialize};
@@ -9,8 +26,11 @@ type Slice = Vec<u8>;
 #[cfg(feature = "with_buffer_pool")]
 type Slice = buffer_sv2::Slice;
 
-/// A wrapper to be used in a context we need a generic reference to a frame
-/// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
+/// Represents either an Sv2 frame or a handshake frame.
+///
+/// A wrapper used when generic reference to a frame is needed, but the kind of frame ([`Sv2Frame`]
+/// or [`HandShakeFrame`]) does not matter. Note that after the initial handshake is complete
+/// between two Sv2 roles, all further messages are framed with [`Sv2Frame`].
 #[derive(Debug)]
 pub enum Frame<T, B> {
     HandShake(HandShakeFrame),
@@ -38,7 +58,11 @@ impl<T, B> From<Sv2Frame<T, B>> for Frame<T, B> {
     }
 }
 
-/// Abstraction for a SV2 Frame.
+/// Abstraction for a Sv2 frame.
+///
+/// Represents a regular Sv2 frame, used for all communication outside of the Noise protocol
+/// handshake process. It contains a [`Header`] and a message payload, which can be serialized for
+/// encoding and transmission or decoded and deserialized upon receipt.
 #[derive(Debug, Clone)]
 pub struct Sv2Frame<T, B> {
     header: Header,
@@ -48,9 +72,10 @@ pub struct Sv2Frame<T, B> {
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
-    /// Write the serialized `Sv2Frame` into `dst`.
-    /// This operation when called on an already serialized frame is very cheap.
-    /// When called on a non serialized frame, it is not so cheap (because it serializes it).
+    /// Writes the serialized [`Sv2Frame`] into `dst`.
+    ///
+    /// This operation when called on an already serialized frame is very cheap. When called on a
+    /// non serialized frame, it is not so cheap (because it serializes it).
     #[inline]
     pub fn serialize(self, dst: &mut [u8]) -> Result<(), Error> {
         if let Some(mut serialized) = self.serialized {
@@ -73,11 +98,14 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// `self` can be either serialized (`self.serialized` is `Some()`) or
-    /// deserialized (`self.serialized` is `None`, `self.payload` is `Some()`).
-    /// This function is only intended as a fast way to get a reference to an
-    /// already serialized payload. If the frame has not yet been
-    /// serialized, this function should never be used (it will panic).
+    /// Returns the message payload.
+    ///
+    /// `self` can be either serialized (`self.serialized` is `Some()`) or deserialized
+    /// (`self.serialized` is `None`, `self.payload` is `Some()`).
+    ///
+    /// This function is only intended as a fast way to get a reference to an already serialized
+    /// payload. If the frame has not yet been serialized, this function should never be used (it
+    /// will panic).
     pub fn payload(&mut self) -> &mut [u8] {
         if let Some(serialized) = self.serialized.as_mut() {
             &mut serialized.as_mut()[Header::SIZE..]
@@ -87,15 +115,17 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// `Sv2Frame` always returns `Some(self.header)`.
+    /// [`Sv2Frame`] always returns `Some(self.header)`.
     pub fn get_header(&self) -> Option<crate::header::Header> {
         Some(self.header)
     }
 
-    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame`
-    /// frame (`Self.serialized`). Returns a `Sv2Frame` on success, or the number of the bytes
-    /// needed to complete the frame as an error. `Self.serialized` is `Some`, but nothing is
-    /// assumed or checked about the correctness of the payload.
+    /// Tries to build a [`Sv2Frame`] from raw bytes.
+    ///
+    /// It assumes the raw bytes represent a serialized [`Sv2Frame`] frame (`Self.serialized`).
+    /// Returns a [`Sv2Frame`] on success, or the number of the bytes needed to complete the frame
+    /// as an error. `Self.serialized` is [`Some`], but nothing is assumed or checked about the
+    /// correctness of the payload.
     #[inline]
     pub fn from_bytes(mut bytes: B) -> Result<Self, isize> {
         let hint = Self::size_hint(bytes.as_mut());
@@ -107,6 +137,7 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
+    /// Constructs an [`Sv2Frame`] from raw bytes without performing byte content validation.
     #[inline]
     pub fn from_bytes_unchecked(mut bytes: B) -> Self {
         // Unchecked function caller is supposed to already know that the passed bytes are valid
@@ -118,8 +149,8 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// After parsing `bytes` into a `Header`, this function helps to determine if the `msg_length`
-    /// field is correctly representing the size of the frame.
+    /// After parsing `bytes` into a [`Header`], this function helps to determine if the
+    /// `msg_length` field is correctly representing the size of the frame.
     /// - Returns `0` if the byte slice is of the expected size according to the header.
     /// - Returns a negative value if the byte slice is shorter than expected; this value represents
     ///   how many bytes are missing.
@@ -144,8 +175,8 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// If `Sv2Frame` is serialized, returns the length of `self.serialized`,
-    /// otherwise, returns the length of `self.payload`.
+    /// If [`Sv2Frame`] is serialized, returns the length of `self.serialized`, otherwise, returns
+    /// the length of `self.payload`.
     #[inline]
     pub fn encoded_length(&self) -> usize {
         if let Some(serialized) = self.serialized.as_ref() {
@@ -158,8 +189,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// Tries to build a `Sv2Frame` from a non-serialized payload.
-    /// Returns a `Sv2Frame` if the size of the payload fits in the frame, `None` otherwise.
+    /// Tries to build a [`Sv2Frame`] from a non-serialized payload.
+    ///
+    /// Returns a [`Sv2Frame`] if the size of the payload fits in the frame, [`None`] otherwise.
     pub fn from_message(
         message: T,
         message_type: u8,
@@ -177,8 +209,8 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
 }
 
 impl<A, B> Sv2Frame<A, B> {
-    /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`,
-    /// which is assumed to be a closure that converts `A` to `C`
+    /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`, which is assumed to be a
+    /// closure that converts `A` to `C`
     pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
         let serialized = self.serialized;
         let header = self.header;
@@ -202,21 +234,23 @@ impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
     }
 }
 
-/// Abstraction for a Noise Handshake Frame
-/// Contains only a `Slice` payload with a fixed length
-/// Only used during Noise Handshake process
+/// Abstraction for a Noise handshake frame.
+///
+/// Contains only the serialized payload with a fixed length and is only used during Noise
+/// handshake process. Once the handshake is complete, regular Sv2 communication switches to
+/// [`Sv2Frame`] for ongoing communication.
 #[derive(Debug)]
 pub struct HandShakeFrame {
     payload: Slice,
 }
 
 impl HandShakeFrame {
-    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
+    /// Returns payload of [`HandShakeFrame`] as a [`Vec<u8>`].
     pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
         self.payload[0..].to_vec()
     }
 
-    /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the
+    /// Builds a [`HandShakeFrame`] from raw bytes. Nothing is assumed or checked about the
     /// correctness of the payload.
     pub fn from_bytes(bytes: Slice) -> Result<Self, isize> {
         Ok(Self::from_bytes_unchecked(bytes))
@@ -227,7 +261,7 @@ impl HandShakeFrame {
         Self { payload: bytes }
     }
 
-    // Returns the size of the `HandShakeFrame` payload.
+    // Returns the size of the [`HandShakeFrame`] payload.
     #[inline]
     fn encoded_length(&self) -> usize {
         self.payload.len()
@@ -245,7 +279,7 @@ impl<T, B> TryFrom<Frame<T, B>> for HandShakeFrame {
     }
 }
 
-/// Returns a `HandShakeFrame` from a generic byte array
+/// Returns a [`HandShakeFrame`] from a generic byte array.
 #[allow(clippy::useless_conversion)]
 pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
     let mut payload = Vec::new();
@@ -255,10 +289,11 @@ pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame 
     }
 }
 
-// Basically a boolean bit filter for `extension_type`.
-// Takes an `extension_type` represented as a `u16` and a boolean flag (`channel_msg`).
-// If `channel_msg` is true, it sets the most significant bit of `extension_type` to 1,
-// otherwise, it clears the most significant bit to 0.
+// Basically a Boolean bit filter for `extension_type`.
+//
+// Takes an `extension_type` represented as a `u16` and a Boolean flag (`channel_msg`). If
+// `channel_msg` is true, it sets the most significant bit of `extension_type` to `1`, otherwise,
+// it clears the most significant bit to `0`.
 fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     if channel_msg {
         let mask = 0b1000_0000_0000_0000;
