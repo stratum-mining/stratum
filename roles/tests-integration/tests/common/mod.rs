@@ -246,10 +246,8 @@ impl TestPoolSv2 {
             cert_validity_sec,
             pool_signature,
         );
-        let template_provider_config = pool_sv2::mining_pool::TemplateProviderConfig::new(
-            tp_address,
-            Some(authority_public_key),
-        );
+        let template_provider_config =
+            pool_sv2::mining_pool::TemplateProviderConfig::new(tp_address, None);
         let authority_config =
             pool_sv2::mining_pool::AuthorityConfig::new(authority_public_key, authority_secret_key);
         let config = Configuration::new(
