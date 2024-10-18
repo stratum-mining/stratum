@@ -19,6 +19,11 @@ const_sv2 = { version = "^2.0.0", path = "../../../protocols/v2/const-sv2"}
 binary_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { version = "^1.0.0", path = "../../../utils/buffer", optional=true }
 
+[dev-dependencies]
+noise_sv2 = { version = "1.0", path = "../../../protocols/v2/noise-sv2"}
+rand = "0.8.3"
+secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
+
 [features]
 no_std = []
 with_serde = ["binary_sv2/with_serde", "serde", "buffer_sv2/with_serde"]
