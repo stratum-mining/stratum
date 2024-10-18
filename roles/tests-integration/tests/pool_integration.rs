@@ -1,7 +1,11 @@
 mod common;
 
+use std::convert::TryInto;
+
+use common::{InterruptMessage, MessageDirection};
+use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR;
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
+    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     parsers::{CommonMessages, PoolMessages, TemplateDistribution},
 };
 
@@ -15,7 +19,7 @@ async fn success_pool_template_provider_connection() {
     let tp_addr = common::get_available_address();
     let pool_addr = common::get_available_address();
     let _tp = common::start_template_provider(tp_addr.port()).await;
-    let sniffer = common::start_sniffer(sniffer_addr, tp_addr).await;
+    let sniffer = common::start_sniffer(sniffer_addr, tp_addr, None).await;
     let _ = common::start_pool(Some(pool_addr), Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
     // with the correct parameters, protocol, flags, min_version and max_version.  Note that the
@@ -37,4 +41,33 @@ async fn success_pool_template_provider_connection() {
     assert_tp_message!(&sniffer.next_downstream_message(), CoinbaseOutputDataSize);
     assert_tp_message!(&sniffer.next_upstream_message(), NewTemplate);
     assert_tp_message!(sniffer.next_upstream_message(), SetNewPrevHash);
+}
+
+#[tokio::test]
+async fn test_sniffer_interrupter() {
+    let sniffer_addr = common::get_available_address();
+    let tp_addr = common::get_available_address();
+    let pool_addr = common::get_available_address();
+    let _tp = common::start_template_provider(tp_addr.port()).await;
+    use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS;
+    let message =
+        PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
+            flags: 0,
+            error_code: "unsupported-feature-flags"
+                .to_string()
+                .into_bytes()
+                .try_into()
+                .unwrap(),
+        }));
+    let interrupt_msgs = InterruptMessage::new(
+        MessageDirection::ToDownstream,
+        MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        message,
+        MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+        true,
+    );
+    let sniffer = common::start_sniffer(sniffer_addr, tp_addr, Some(vec![interrupt_msgs])).await;
+    let _ = common::start_pool(Some(pool_addr), Some(sniffer_addr)).await;
+    assert_common_message!(&sniffer.next_downstream_message(), SetupConnection);
+    assert_common_message!(&sniffer.next_upstream_message(), SetupConnectionError);
 }

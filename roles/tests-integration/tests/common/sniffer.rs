@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 use codec_sv2::{
-    framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame,
+    framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame, Sv2Frame,
 };
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers_sv2::noise_connection_tokio::Connection;
@@ -13,8 +13,8 @@ use roles_logic_sv2::{
             IdentifyTransactionsSuccess, ProvideMissingTransactions,
             ProvideMissingTransactionsSuccess, SubmitSolution,
         },
-        TemplateDistribution,
-        TemplateDistribution::CoinbaseOutputDataSize,
+        PoolMessages,
+        TemplateDistribution::{self, CoinbaseOutputDataSize},
     },
     utils::Mutex,
 };
@@ -22,6 +22,7 @@ use std::{collections::VecDeque, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{
     net::{TcpListener, TcpStream},
     select,
+    time::sleep,
 };
 type MessageFrame = StandardEitherFrame<AnyMessage<'static>>;
 type MsgType = u8;
@@ -30,6 +31,7 @@ type MsgType = u8;
 enum SnifferError {
     DownstreamClosed,
     UpstreamClosed,
+    MessageInterrupted,
 }
 
 /// Allows to intercept messages sent between two roles.
@@ -50,17 +52,56 @@ pub struct Sniffer {
     upstream_address: SocketAddr,
     downstream_messages: MessagesAggregator,
     upstream_messages: MessagesAggregator,
+    interrupt_messages: Vec<InterruptMessage>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterruptMessage {
+    direction: MessageDirection,
+    expected_message_type: MsgType,
+    response_message: PoolMessages<'static>,
+    response_message_type: MsgType,
+    break_on: bool,
+}
+
+impl InterruptMessage {
+    pub fn new(
+        direction: MessageDirection,
+        expected_message_type: MsgType,
+        response_message: PoolMessages<'static>,
+        response_message_type: MsgType,
+        break_on: bool,
+    ) -> Self {
+        Self {
+            direction,
+            expected_message_type,
+            response_message,
+            response_message_type,
+            break_on,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MessageDirection {
+    ToDownstream,
+    ToUpstream,
 }
 
 impl Sniffer {
     /// Creates a new sniffer that listens on the given listening address and connects to the given
     /// upstream address.
-    pub async fn new(listening_address: SocketAddr, upstream_address: SocketAddr) -> Self {
+    pub async fn new(
+        listening_address: SocketAddr,
+        upstream_address: SocketAddr,
+        interrupt_messages: Option<Vec<InterruptMessage>>,
+    ) -> Self {
         Self {
             listening_address,
             upstream_address,
             downstream_messages: MessagesAggregator::new(),
             upstream_messages: MessagesAggregator::new(),
+            interrupt_messages: interrupt_messages.unwrap_or_default(),
         }
     }
 
@@ -82,10 +123,18 @@ impl Sniffer {
         .expect("Failed to create upstream");
         let downstream_messages = self.downstream_messages.clone();
         let upstream_messages = self.upstream_messages.clone();
+        let interrupt_messages = self.interrupt_messages.clone();
         let _ = select! {
-            r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, downstream_messages) => r,
-            r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, upstream_messages) => r,
+            r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, downstream_messages, interrupt_messages.clone()) => r,
+            r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, upstream_messages, interrupt_messages) => r,
         };
+        // wait a bit so we dont drop the sniffer before the test has finished
+        sleep(std::time::Duration::from_secs(1)).await;
+    }
+
+    pub fn list_all_messages(&self) {
+        println!("Downstream messages: {:?}", self.downstream_messages);
+        println!("Upstream messages: {:?}", self.upstream_messages);
     }
 
     /// Returns the oldest message sent by downstream.
@@ -160,6 +209,7 @@ impl Sniffer {
         recv: Receiver<MessageFrame>,
         send: Sender<MessageFrame>,
         downstream_messages: MessagesAggregator,
+        _interrupt_messages: Vec<InterruptMessage>,
     ) -> Result<(), SnifferError> {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
@@ -175,13 +225,39 @@ impl Sniffer {
         recv: Receiver<MessageFrame>,
         send: Sender<MessageFrame>,
         upstream_messages: MessagesAggregator,
+        interrupt_messages: Vec<InterruptMessage>,
     ) -> Result<(), SnifferError> {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
-            upstream_messages.add_message(msg_type, msg);
+            for interrupt_message in interrupt_messages.iter() {
+                if interrupt_message.direction == MessageDirection::ToDownstream
+                    && interrupt_message.expected_message_type == msg_type
+                {
+                    let extension_type = 0;
+                    let channel_msg = false;
+                    let frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
+                        Sv2Frame::from_message(
+                            interrupt_message.response_message.clone(),
+                            interrupt_message.response_message_type,
+                            extension_type,
+                            channel_msg,
+                        )
+                        .expect("Failed to create the frame"),
+                    );
+                    upstream_messages
+                        .add_message(msg_type, interrupt_message.response_message.clone());
+                    let _ = send.send(frame).await;
+                    if interrupt_message.break_on {
+                        return Err(SnifferError::MessageInterrupted);
+                    } else {
+                        continue;
+                    }
+                }
+            }
             if send.send(frame).await.is_err() {
                 return Err(SnifferError::DownstreamClosed);
             };
+            upstream_messages.add_message(msg_type, msg);
         }
         Err(SnifferError::UpstreamClosed)
     }

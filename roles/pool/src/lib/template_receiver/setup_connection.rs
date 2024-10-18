@@ -85,8 +85,8 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         // let error_code = m.error_code.clone();
         let message = SetupConnectionError {
             flags,
-			// this error code is currently a hack because there is a lifetime problem with
-			// `error_code`.
+            // this error code is currently a hack because there is a lifetime problem with
+            // `error_code`.
             error_code: "unsupported-feature-flags"
                 .to_string()
                 .into_bytes()
