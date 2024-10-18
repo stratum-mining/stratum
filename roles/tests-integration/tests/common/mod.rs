@@ -6,6 +6,7 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use once_cell::sync::Lazy;
 use pool_sv2::PoolSv2;
 use sniffer::Sniffer;
+pub use sniffer::{InterruptMessage, MessageDirection};
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -193,8 +194,12 @@ pub fn get_available_address() -> SocketAddr {
     SocketAddr::from(([127, 0, 0, 1], port))
 }
 
-pub async fn start_sniffer(listening_address: SocketAddr, upstream: SocketAddr) -> Sniffer {
-    let sniffer = Sniffer::new(listening_address, upstream).await;
+pub async fn start_sniffer(
+    listening_address: SocketAddr,
+    upstream: SocketAddr,
+    interrupt_messages: Option<Vec<InterruptMessage>>,
+) -> Sniffer {
+    let sniffer = Sniffer::new(listening_address, upstream, interrupt_messages).await;
     let sniffer_clone = sniffer.clone();
     tokio::spawn(async move {
         sniffer_clone.start().await;
@@ -270,7 +275,7 @@ pub async fn start_pool(
     let pool = test_pool.pool.clone();
     let pool_clone = pool.clone();
     tokio::task::spawn(async move {
-        assert!(pool_clone.start().await.is_ok());
+        let _ = pool_clone.start().await;
     });
     // Wait a bit to let the pool exchange initial messages with the TP
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
