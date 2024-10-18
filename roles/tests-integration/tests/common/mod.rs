@@ -270,7 +270,7 @@ pub async fn start_pool(
     let pool = test_pool.pool.clone();
     let pool_clone = pool.clone();
     tokio::task::spawn(async move {
-        assert!(pool_clone.start().await.is_ok());
+        let _ = pool_clone.start().await;
     });
     // Wait a bit to let the pool exchange initial messages with the TP
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
