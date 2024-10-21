@@ -15,23 +15,39 @@ pub use aes_gcm::aead::Buffer as AeadBuffer;
 pub use buffer_pool::BufferPool;
 pub use slice::Slice;
 
+/// Represents errors that can occur while writing data into a buffer.
 pub enum WriteError {
+    /// No data could be written.
     WriteZero,
 }
 
+/// Interface for writing data into a buffer.
+///
+/// An abstraction over different buffer types ([`Vec<u8>`] or [`BufferPool`]), it provides methods
+/// for writing data from a byte slice into the buffer, with the option to either write a portion
+/// of the data or attempt to write the entire byte slice at once.
 pub trait Write {
+    /// Writes data from a byte slice (`buf`) into the buffer, returning the number of bytes that
+    /// were successfully written.
     fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError>;
 
+    /// Attempts to write the entire byte slice (`buf`) into the buffer. If the buffer cannot
+    /// accept the full length of the data, an error is returned.
     fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError>;
 }
 
 impl Write for Vec<u8> {
+    /// Writes data from a byte slice into a [`Vec<u8>`] buffer by extending the vector with the
+    /// contents of the provided slice.
     #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError> {
         self.extend_from_slice(buf);
         Ok(buf.len())
     }
 
+    /// Attempts to write all the data from a byte slice into a [`Vec<u8>`] buffer by extending the
+    /// vector. Since [`Vec<u8>`] can dynamically resize, this method will always succeed as long
+    /// as there is available memory.
     #[inline]
     fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError> {
         self.extend_from_slice(buf);
@@ -40,6 +56,8 @@ impl Write for Vec<u8> {
 }
 
 impl Write for &mut [u8] {
+    /// Writes data from a byte slice into a mutable byte array (`&mut [u8]`), up to the length of
+    /// the provided buffer.
     #[inline]
     fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
         let amt = core::cmp::min(data.len(), self.len());
@@ -50,6 +68,8 @@ impl Write for &mut [u8] {
         Ok(amt)
     }
 
+    /// Attempts to write all the data from a byte slice into a mutable byte array (`&mut [u8]`).
+    /// If the buffer is not large enough to contain all the data, an error is returned.
     #[inline]
     fn write_all(&mut self, data: &[u8]) -> Result<(), WriteError> {
         if self.write(data)? == data.len() {
@@ -60,30 +80,53 @@ impl Write for &mut [u8] {
     }
 }
 
+/// Interface for working with memory buffers.
+///
+/// An abstraction for buffer management, allowing implementors to handle either owned memory
+/// ([`Slice`] with [`Vec<u8>`]) or externally managed memory in a buffer pool ([`Slice`] with
+/// [`BufferPool`]. Utilities are provided to borrow writable memory, retrieve data from the
+/// buffer, and manage memory slices.
 pub trait Buffer {
+    /// The type of slice that the buffer uses.
     type Slice: AsMut<[u8]> + AsRef<[u8]> + Into<Slice>;
 
-    // Caller need to borrow a buffer to write some date
+    /// Borrows a mutable slice of the buffer, allowing the caller to write data into it. The caller
+    /// specifies the length of the data they need to write.
     fn get_writable(&mut self, len: usize) -> &mut [u8];
 
-    // Caller need to get the previously written buffer and should own it
+    /// Provides ownership of the buffer data that has already been written. This transfers the
+    /// ownership of the buffer’s written data to the caller, and the buffer is considered cleared
+    /// after this operation.
     fn get_data_owned(&mut self) -> Self::Slice;
 
-    // Caller need a view in the written part of the buffer
+    /// Provides a mutable reference to the written portion of the buffer, up to the specified
+    /// length, without transferring ownership of the buffer. This allows the caller to modify the
+    /// buffer’s contents directly without taking ownership.
     fn get_data_by_ref(&mut self, len: usize) -> &mut [u8];
 
-    // Caller need a view in the written part of the buffer
+    /// Provides an immutable reference to the written portion of the buffer, up to the specified
+    /// length, without transferring ownership of the buffer. This allows the caller to inspect the
+    /// buffer’s contents without modifying or taking ownership.
     fn get_data_by_ref_(&self, len: usize) -> &[u8];
 
-    // Return the size of the written part of the buffer that is still owned by the Buffer
+    /// Returns the size of the written portion of the buffer. This is useful for tracking how much
+    /// of the buffer has been filled with data. The number of bytes currently written in the
+    /// buffer is returned.
     fn len(&self) -> usize;
 
-    // Set the first element of the buffer to the element at the given index (here only for
-    // perfomnce do not use unless you are really sure about what it do)
+    /// Modifies the starting point of the buffer, effectively discarding data up to the given
+    /// `index`. This can be useful for performance optimizations in situations where older data
+    /// is no longer needed, but its use can be unsafe unless you understand its implications.
     fn danger_set_start(&mut self, index: usize);
 
+    /// Returns `true` if the buffer is empty, `false` otherwise.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Determines if the buffer is safe to drop. This typically checks if the buffer contains
+    /// essential data that still needs to be processed.
+    ///
+    /// Returns `true` if the buffer can be safely dropped, `false` otherwise.
     fn is_droppable(&self) -> bool;
 }
