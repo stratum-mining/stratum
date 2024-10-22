@@ -17,15 +17,28 @@ pub const POOL_CAPACITY: usize = 8;
 mod pool_back;
 pub use pool_back::PoolBack;
 
+/// Manages the "front" section of the [`BufferPool`].
+///
+/// Handles the allocation of memory slices at the front of the buffer pool. It tracks the number
+/// of slices in use and attempts to free unused slices when necessary to maximize available
+/// memory. The front of the buffer pool is used if the back of the buffer pool is filled up.
 #[derive(Debug, Clone)]
-/// Used by BufferPool to allocate in the front of the inner vector
 pub struct PoolFront {
+    // Starting index of the front section of the buffer pool.
     back_start: usize,
+
+    // Maximum number of bytes that can be allocated in the front section of the buffer pool.
+    //
+    // Helps manage how much memory can be used before triggering memory clearing or switching
+    // [`PoolMode`].
     byte_capacity: usize,
+
+    // Number of allocated slices in the front section of the buffer pool.
     len: usize,
 }
 
 impl PoolFront {
+    /// Initializes a new [`PoolFront`] with the specified byte capacity and back start position.
     #[inline(always)]
     fn new(byte_capacity: usize, back_start: usize) -> Self {
         Self {
@@ -35,8 +48,11 @@ impl PoolFront {
         }
     }
 
+    /// Attempts to clear unused memory slices at the tail of the front section.
+    ///
+    /// Returns `true` if slices were successfully cleared, otherwise `false` if no slices could be
+    /// cleared or memory conditions prevent clearing.
     #[inline(always)]
-    // try to clear the tail of the head :D
     fn try_clear_tail(&mut self, memory: &mut InnerMemory, mut shared_state: u8) -> bool {
         #[cfg(feature = "fuzz")]
         assert!(self.len > 0);
@@ -73,6 +89,13 @@ impl PoolFront {
         }
     }
 
+    /// Clears the front memory slices if conditions allow and checks if the memory pool has
+    /// capacity to allocate `len` bytes in the buffer.
+    ///
+    /// Returns `Ok` if memory was successfully cleared and there is sufficient capacity, otherwise
+    /// an `Err(PoolMode::Back)` if the memory cannot be cleared or lacks capacity. This error
+    /// indicates the [`BufferPool`] should attempt a transition to use the back of the buffer
+    /// pool.
     #[inline(always)]
     fn clear(
         &mut self,
@@ -91,6 +114,13 @@ impl PoolFront {
         }
     }
 
+    /// Attempts to allocate a writable memory region in the front section of the buffer pool,
+    /// returning a writable slice if successful, or transitioning to a new pool mode if necessary.
+    ///
+    /// Returns a pointer to the writable memory (`Ok(*mut u8)`) if successful, otherwise an
+    /// `Err(PoolMode::Back)` if the memory cannot be cleared or lacks capacity. This error
+    /// indicates the [`BufferPool`] should attempt a transition to use the back of the buffer
+    /// pool.
     #[inline(always)]
     fn get_writable(
         &mut self,
