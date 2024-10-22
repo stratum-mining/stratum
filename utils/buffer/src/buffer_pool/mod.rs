@@ -148,11 +148,23 @@ impl PoolFront {
     }
 }
 
+/// Current mode of operation for the [`BufferPool`].
+///
+/// The pool operates in three modes based on memory availability: it first allocates from the back,
+/// then from the front if the back is full, and finally from system memory (with reduced
+/// performance) if both sections are exhausted.
 #[derive(Debug, Clone)]
-/// Internal state of the BufferPool
 pub enum PoolMode {
+    /// The buffer pool is operating in "back" mode, where memory is allocated from the back of the
+    /// buffer pool.
     Back,
+
+    /// The buffer pool is operating in "front" mode, where memory is allocated from the front of
+    /// the buffer pool. Used when the back is full.
     Front(PoolFront),
+
+    /// The pool has exhausted its internal memory, and it is now allocating directly from the
+    /// system memory (heap).
     Alloc,
 }
 
