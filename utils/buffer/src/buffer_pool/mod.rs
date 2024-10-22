@@ -429,19 +429,46 @@ impl InnerMemory {
     }
 }
 
+/// A pool of reusable memory buffers to optimize memory allocation for Sv2 message frames.
+///
+/// Manages memory slices across three modes ([`PoolMode`]): back, front, and system memory. It
+/// reuses preallocated memory slices, minimizing the need for frequent memory allocation. The pool
+/// is thread-safe, using atomic state tracking with [`SharedState`].
+///
+/// Type `T` implements the [`Buffer`] trait, which defines how memory is handled in the buffer
+/// pool. [`BufferFromSystemMemory`] is used as the default system memory allocator.
 #[derive(Debug)]
 pub struct BufferPool<T: Buffer> {
+    // Manages memory allocation from the back section of the buffer pool.
     pool_back: PoolBack,
+
+    /// Tracks the current mode of memory allocation (back, front, or system).
     pub mode: PoolMode,
+
+    /// Tracks the usage state of memory slices using atomic operations, ensuring memory is not
+    /// prematurely reused and allowing safe concurrent access across threads.
     shared_state: SharedState,
+
+    // Core memory area from which slices are allocated and reused. Manages the actual memory
+    // buffer used by the buffer pool.
     inner_memory: InnerMemory,
+
+    // Allocates memory directly from system memory when the buffer pool is full, acting as a
+    // fallback when preallocated memory cannot satisfy buffer requests.
     system_memory: T,
-    // Used only when we need as_ref or as_mut, set the first element to the one with index equal
-    // to start
+
+    // Tracks the starting index for buffer access, determining where data begins to be read or
+    // written in the buffer pool. Primarily used when `as_ref` or `as_mut` is called, ensuring
+    // that the buffer starts at the element specified by `start`.
     start: usize,
 }
 
 impl BufferPool<BufferFromSystemMemory> {
+    /// Creates a new [`BufferPool`] with the specified memory capacity, in bytes.
+    ///
+    /// Initializes the buffer pool with pre-allocated memory (`inner_memory`) and sets the pool
+    /// mode to [`PoolMode::Back`]. The buffer pool uses [`BufferFromSystemMemory`] as a fallback
+    /// when the buffer sections are full.
     pub fn new(capacity: usize) -> Self {
         Self {
             pool_back: PoolBack::new(),
@@ -469,7 +496,13 @@ impl BufferPool<TestBufferFromMemory> {
     }
 }
 
+// Defines methods specific to internal behavior and management of the `BufferPool`.
 impl<T: Buffer> BufferPool<T> {
+    /// Checks if the buffer pool is operating in the front mode.
+    ///
+    /// This mode indicates that the back of the buffer pool has been filled and the system is now
+    /// using the front section for memory allocation. Returns `true` if the pool is in
+    /// [`PoolMode::Front`], otherwise `false`.
     pub fn is_front_mode(&self) -> bool {
         match self.mode {
             PoolMode::Back => false,
@@ -478,6 +511,10 @@ impl<T: Buffer> BufferPool<T> {
         }
     }
 
+    /// Checks if the buffer pool is operating in the back mode.
+    ///
+    /// The back mode is the default state, where the buffer pool first tries to allocate memory.
+    /// Returns `true` if the pool is in [`PoolMode::Back`], otherwise `false`.
     pub fn is_back_mode(&self) -> bool {
         match self.mode {
             PoolMode::Back => true,
@@ -486,6 +523,11 @@ impl<T: Buffer> BufferPool<T> {
         }
     }
 
+    /// Checks if the buffer pool is operating in the system memory allocation mode.
+    ///
+    /// This mode is used when both the back and front sections of the buffer pool are full,
+    /// leading the system to allocate memory from the heap, which has performance trade-offs.
+    /// Returns `true` if the pool is in [`PoolMode::Alloc`], otherwise `false`.
     pub fn is_alloc_mode(&self) -> bool {
         match self.mode {
             PoolMode::Back => false,
@@ -494,6 +536,13 @@ impl<T: Buffer> BufferPool<T> {
         }
     }
 
+    // Resets the buffer pool based on its current mode when the shared state indicates all slices
+    // have been dropped, preparing it for reuse.
+    //
+    // - In `Back` or `Front` mode, the internal memory is moved to the front, and the back is
+    //   reset.
+    // - In `Alloc` mode, system memory is checked and, if smaller than pool capacity, transferred
+    //   back into the pool, switching the mode to `Back`.
     #[inline(always)]
     fn reset(&mut self) {
         #[cfg(feature = "debug")]
@@ -528,6 +577,13 @@ impl<T: Buffer> BufferPool<T> {
         }
     }
 
+    // Allocates writable memory of the specified `len` from the heap when the buffer pool cannot
+    // fulfill the request.
+    //
+    // Determines whether to allocate memory from system memory or try to clear memory from the
+    // back section of the buffer pool. If clearing is unsuccessful, it may switch to `Alloc` mode
+    // or remain in `Back` or `Front` pool modes. When `without_check` is `true`, the function
+    // bypasses memory checks and allocates directly from the heap.
     #[inline(never)]
     fn get_writable_from_system_memory(
         &mut self,
@@ -566,11 +622,19 @@ impl<T: Buffer> BufferPool<T> {
         }
     }
 
+    // Returns ownership of the heap-allocated buffer data by converting it into a `Slice` for
+    // further use or processing.
     #[inline(never)]
     fn get_data_owned_from_sytem_memory(&mut self) -> Slice {
         self.system_memory.get_data_owned().into()
     }
 
+    // Switches the buffer pool to a different mode of operation, adjusting based on the required
+    // memory size (`len`).
+    //
+    // Depending on the current and target modes (`Back`, `Front`, or `Alloc`), this method adjusts
+    // the internal buffer pool's state and memory to ensure a smooth transition while allocating
+    // the necessary buffer space (`len`), ensuring no data is lost.
     #[inline(always)]
     fn change_mode(&mut self, mode: PoolMode, len: usize, shared_state: u8) {
         match (&mut self.mode, &mode) {
@@ -651,6 +715,12 @@ impl<T: Buffer> BufferPool<T> {
         }
     }
 
+    // Recursively attempts to allocate writable memory of the specified `len`, switching modes if
+    // necessary.
+    //
+    // First tries to allocate memory from the current mode (`Back`, `Front`, or `Alloc`),
+    // and if unsuccessful, switches modes and retries, starting with the memory pool before
+    // resorting to system memory.
     #[inline(always)]
     fn get_writable_(&mut self, len: usize, shared_state: u8, without_check: bool) -> &mut [u8] {
         let writable = match &mut self.mode {
@@ -684,18 +754,30 @@ impl<T: Buffer> BufferPool<T> {
 impl<T: Buffer> Buffer for BufferPool<T> {
     type Slice = Slice;
 
+    // Provides a mutable slice of length `len` for writing data into the buffer pool.
+    //
+    // Checks the current `shared_state` to determine if the buffer pool can be reset. If all
+    // slices have been dropped and there are allocated slices in `pool_back`, it resets the buffer
+    // pool to free up memory. It then attempts to allocate writable memory, which may switch
+    // between different modes as needed.
     #[inline(always)]
     fn get_writable(&mut self, len: usize) -> &mut [u8] {
         let shared_state = self.shared_state.load(Ordering::Relaxed);
 
-        // If all the slices have been dropped just reset the pool
+        // If all the slices have been dropped, reset the pool to free up memory
         if shared_state == 0 && self.pool_back.len() != 0 {
             self.reset();
         }
 
+        // Attempt to allocate writable memory, potentially switching pool modes
         self.get_writable_(len, shared_state, false)
     }
 
+    // Transfers ownership of the written data as a `Slice`, handling different pool modes.
+    //
+    // Depending on the current mode (`Back`, `Front`, or `Alloc`), it retrieves the data from the
+    // appropriate memory source. In `Back` or `Front` modes, it updates internal state
+    // accordingly. In `Alloc` mode, it retrieves data from the heap-allocated system memory.
     #[inline(always)]
     fn get_data_owned(&mut self) -> Self::Slice {
         let shared_state = &mut self.shared_state;
@@ -736,12 +818,14 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         #[cfg(not(feature = "debug"))]
         match &mut self.mode {
             PoolMode::Back => {
+                // Retrieve data and update state in Back mode
                 let res = self.inner_memory.get_data_owned(shared_state);
                 self.pool_back
                     .set_len_from_inner_memory(self.inner_memory.len);
                 res
             }
             PoolMode::Front(f) => {
+                // Retrieve data and update state in Front mode
                 let res = self.inner_memory.get_data_owned(shared_state);
                 f.len = self.inner_memory.len;
                 res
@@ -750,6 +834,9 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
+    // Retrieves data differently based on the current buffer pool mode:
+    // - In `Alloc` mode, it delegates to the system memory buffer.
+    // - In other modes, it returns a mutable slice of the internal memory buffer.
     fn get_data_by_ref(&mut self, len: usize) -> &mut [u8] {
         match self.mode {
             PoolMode::Alloc => self.system_memory.get_data_by_ref(len),
@@ -760,6 +847,9 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
+    // Retrieves data differently based on the current pool mode:
+    // - In `Alloc` mode, it delegates to the system memory buffer.
+    // - In other modes, it returns an immutable slice of the internal memory buffer.
     fn get_data_by_ref_(&self, len: usize) -> &[u8] {
         match self.mode {
             PoolMode::Alloc => self.system_memory.get_data_by_ref_(len),
@@ -770,6 +860,11 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
+    // Returns the length of the written data in the buffer.
+    //
+    // The implementation checks the current pool mode to determine where to retrieve the length from:
+    // - In `Back` or `Front` modes, it returns the length from `inner_memory.raw_len`.
+    // - In `Alloc` mode, it returns the length from the system memory buffer.
     fn len(&self) -> usize {
         match self.mode {
             PoolMode::Back => self.inner_memory.raw_len,
@@ -778,10 +873,14 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
+    // Sets the start index for the buffer, adjusting where reads and writes begin. Used to discard
+    // part of the buffer by adjusting the starting point for future operations.
     fn danger_set_start(&mut self, index: usize) {
         self.start = index;
     }
 
+    // Returns `true` if all memory slices have been released (`shared_state` is zero), indicating
+    // that no other threads or components are using the pool's memory.
     #[inline(always)]
     fn is_droppable(&self) -> bool {
         self.shared_state.load(Ordering::Relaxed) == 0
@@ -790,6 +889,8 @@ impl<T: Buffer> Buffer for BufferPool<T> {
 
 #[cfg(not(test))]
 impl<T: Buffer> Drop for BufferPool<T> {
+    // Waits until all slices are released before dropping the `BufferPool`. Will not drop the
+    // buffer pool while slices are still in use.
     fn drop(&mut self) {
         while self.shared_state.load(Ordering::Relaxed) != 0 {
             core::hint::spin_loop();
@@ -797,7 +898,14 @@ impl<T: Buffer> Drop for BufferPool<T> {
     }
 }
 
+// Allows `BufferPool` to be treated as a buffer.
 impl<T: Buffer> BufferPool<T> {
+    /// Determines if the [`BufferPool`] can be safely dropped.
+    ///
+    /// Returns `true` if all memory slices managed by the buffer pool have been released (i.e.,
+    /// the `shared_state` is zero), indicating that no other threads or components are using the
+    /// buffer pool's memory. This check helps prevent dropping the buffer pool while it's still in
+    /// use.
     pub fn droppable(&self) -> bool {
         self.shared_state.load(Ordering::Relaxed) == 0
     }
