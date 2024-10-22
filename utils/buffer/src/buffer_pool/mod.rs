@@ -1,3 +1,35 @@
+// # Buffer Pool
+//
+// A memory-efficient buffer pool that minimizes allocations and deallocations for high-throughput
+// message frame processing in Sv2 roles.
+//
+// Provides primitives for reusing memory buffers, clearing old memory chunks, and switching
+// between different modes (back, front, and alloc) to manage memory effectively and reduce
+// expensive heap allocations. It uses atomic operations and shared state tracking to safely manage
+// memory across multiple threads.
+//
+// Supports different allocation modes to optimize memory usage:
+//
+// - **Back Mode**: Allocates from the back of the buffer pool (default).
+// - **Front Mode**: Allocates from the front when the back is full.
+// - **Alloc Mode**: Falls back to heap allocation when the buffer pool cannot fulfill requests
+//   (with reduced performance).
+//
+// ## Usage
+//
+// When an incoming Sv2 message is received, it needs to be buffered for processing. The pool first
+// checks the back part (`PoolBack`) to see if there is enough memory available. If the back is
+// full, the pool attempts to clear used memory chunks. If clearing fails, it switches to the front
+// (`PoolFront`) and tries again. If both back and front are full and no memory can be cleared, the
+// pool falls back to allocating fresh memory from the heap (`PoolMode::Alloc`). After processing
+// the message, the memory can be cleared, and the buffer pool resets, making the memory available
+// for future messages.
+
+// **Note**: To prevent leaks or deadlocks, ensure that memory slices are properly released after
+// use by allowing them to go out of scope or explicitly dropping them. Avoid holding onto slices
+// longer than necessary or cloning them. After processing, you can obtain ownership of the data
+// using methods like `get_data_owned()` and then let the slice be dropped.
+
 use alloc::{vec, vec::Vec};
 use core::sync::atomic::Ordering;
 
