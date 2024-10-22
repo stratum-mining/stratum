@@ -13,9 +13,17 @@ use std::time::SystemTime;
 
 use aes_gcm::aead::Buffer as AeadBuffer;
 
-pub const POOL_CAPACITY: usize = 8;
 mod pool_back;
 pub use pool_back::PoolBack;
+
+/// Maximum number of memory slices the buffer pool can concurrently manage.
+///
+/// This value limits the number of slices the [`BufferPool`] can track and manage at once. Once
+/// the pool reaches its capacity of `8` slices, it may need to free memory or switch modes (e.g.,
+/// to system memory). The choice of `8` ensures a balance between performance and memory
+/// management. The use of `usize` allows for compatibility with platform-dependent memory
+/// operations.
+pub const POOL_CAPACITY: usize = 8;
 
 /// Manages the "front" section of the [`BufferPool`].
 ///
@@ -148,17 +156,35 @@ pub enum PoolMode {
     Alloc,
 }
 
+/// Internal memory management for the [`BufferPool`].
+///
+/// Handles allocating, tracking, and managing memory slices for manipulating memory offsets,
+/// copying data, and managing capacity. It uses a contiguous block of memory ([`Vec<u8>`]),
+/// tracking its usage through offsets (`raw_offset`, `raw_length`), and manages slice allocations
+/// through `slots`. Used by [`BufferPool`] to optimize memory reused and minimize heap
+/// allocations.
 #[derive(Debug, Clone)]
-/// Internal memory of the BufferPool
 pub struct InnerMemory {
+    // Underlying contiguous block of memory to be managed.
     pool: Vec<u8>,
+
+    // Current offset into the contiguous block of memory where the next write will occur.
     pub(crate) raw_offset: usize,
+
+    // Length of the valid data within the contiguous block of memory, starting from `raw_offset`.
     pub(crate) raw_len: usize,
+
+    // Tracks individual chunks of memory being used in the buffer pool by tracking the start and
+    // length of each allocated memory slice.
     slots: [(usize, usize); POOL_CAPACITY],
+
+    // Number of active slices in use, represented by how many slots are currently occupied.
     len: usize,
 }
 
 impl InnerMemory {
+    // Initializes a new `InnerMemory` with a specified size of the internal memory buffer
+    // (`capacity`), in bytes.
     fn new(capacity: usize) -> Self {
         let pool = vec![0; capacity];
         Self {
@@ -170,6 +196,7 @@ impl InnerMemory {
         }
     }
 
+    // Resets the internal memory pool, clearing all used memory and resetting the slot tracking.
     #[inline(always)]
     fn reset(&mut self) {
         self.raw_len = 0;
@@ -177,12 +204,17 @@ impl InnerMemory {
         self.slots = [(0_usize, 0_usize); POOL_CAPACITY];
     }
 
+    // Resets only the raw memory state, without affecting the slot tracking.
     #[inline(always)]
     fn reset_raw(&mut self) {
         self.raw_len = 0;
         self.raw_offset = 0;
     }
 
+    // Returns the capacity of the front portion of the buffer.
+    //
+    // Used to determine how much space is available in the front of the buffer pool, based on the
+    // `back_start` position.
     #[inline(always)]
     fn get_front_capacity(&self, back_start: usize) -> usize {
         #[cfg(feature = "fuzz")]
@@ -197,6 +229,8 @@ impl InnerMemory {
         self.slots[back_start].0
     }
 
+    // Calculates the offset for the next writable section of memory. Returns the offset based on
+    // the current memory length and slot usage.
     #[inline(always)]
     fn raw_offset(&self) -> usize {
         match self.len {
@@ -217,6 +251,8 @@ impl InnerMemory {
         }
     }
 
+    // Calculates the offset for a specific length of memory. Returns the offset based on the
+    // provided length and the current state of the memory slots.
     #[inline(always)]
     fn raw_offset_from_len(&self, len: usize) -> usize {
         match len {
@@ -237,6 +273,11 @@ impl InnerMemory {
         }
     }
 
+    // Moves the raw data to the front of the memory pool to avoid fragmentation, if necessary.
+    //
+    // Used to compact the raw data by moving all the active slices to the front of the memory
+    // pool, making the pool contiguous again. This process is only performed when needed to free
+    // up space for new allocations without increasing the total memory footprint.
     #[inline(always)]
     fn move_raw_at_front(&mut self) {
         match self.raw_len {
@@ -249,6 +290,8 @@ impl InnerMemory {
         }
     }
 
+    // Tries to update the length and offset of the memory pool and moves the raw offset if there
+    // is enough capacity to accommodate new memory. Returns `true` if successful, otherwise false.
     #[inline(always)]
     fn try_change_len(&mut self, slot_len: usize, raw_len: usize) -> bool {
         let raw_offset = self.raw_offset_from_len(slot_len);
@@ -263,6 +306,11 @@ impl InnerMemory {
         }
     }
 
+    // Moves the raw data to a specific offset within the memory pool to avoid fragmentation, if
+    // necessary.
+    //
+    // Misuse of this function can lead to undefined behavior, such as memory corruption or
+    // crashes, if it operates on out-of-bounds or misaligned memory.
     #[inline(always)]
     fn move_raw_at_offset_unchecked(&mut self, offset: usize) {
         match self.raw_len {
@@ -275,6 +323,7 @@ impl InnerMemory {
         }
     }
 
+    // Inserts raw data at the front of the memory pool, adjusting the raw offset and length.
     #[inline(never)]
     fn prepend_raw_data(&mut self, raw_data: &[u8]) {
         self.raw_offset = 0;
@@ -285,23 +334,31 @@ impl InnerMemory {
         dest.copy_from_slice(raw_data);
     }
 
+    // Copies the internal raw memory into another buffer. Used when transitioning memory between
+    // different pool modes.
     #[inline(never)]
     fn copy_into_buffer(&mut self, buffer: &mut impl Buffer) {
         let writable = buffer.get_writable(self.raw_len);
         writable.copy_from_slice(&self.pool[self.raw_offset..self.raw_offset + self.raw_len]);
     }
 
+    // Checks if there is enough capacity at the tail of the memory pool to accommodate `len`
+    // bytes.
     #[inline(always)]
     fn has_tail_capacity(&self, len: usize) -> bool {
         let end = self.raw_offset + self.raw_len;
         end + len <= self.pool.capacity()
     }
 
+    // Checks if there is enough capacity in the memory pool up to the specified offset to
+    // accommodate `len` bytes.
     #[inline(always)]
     fn has_capacity_until_offset(&self, len: usize, offset: usize) -> bool {
         self.raw_offset + self.raw_len + len <= offset
     }
 
+    // Returns a raw pointer to the writable memory region of the memory pool, marking the section
+    // as used.
     #[inline(always)]
     fn get_writable_raw_unchecked(&mut self, len: usize) -> *mut u8 {
         let writable_offset = self.raw_offset + self.raw_len;
@@ -309,6 +366,15 @@ impl InnerMemory {
         self.pool[writable_offset..writable_offset + len].as_mut_ptr()
     }
 
+    // Transfers ownership of the raw memory slice that has been written into the buffer, returning
+    // it as a `Slice`. This is the main mechanism for passing processed data from the buffer to
+    // the rest of the system.
+    //
+    // After this call, the buffer resets internally, allowing it to write new data into a fresh
+    // portion of memory. This prevents memory duplication and ensures efficient reuse of the
+    // buffer. This method is used when the data in the buffer is ready for processing, sending, or
+    // further manipulation. The returned `Slice` now owns the memory and the buffer no longer has
+    // responsibility for it, allowing the buffer to handle new incoming data.
     #[inline(always)]
     fn get_data_owned(
         &mut self,
