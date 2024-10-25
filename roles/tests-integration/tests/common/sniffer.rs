@@ -37,9 +37,9 @@ enum SnifferError {
 /// The downstream (or client) role connects to the [`Sniffer`] `listening_address` and the
 /// [`Sniffer`] connects to the `upstream` server. This way, the Sniffer can intercept messages sent
 /// between the downstream and upstream roles. The downstream will send its messages to the
-/// [`Sniffer`] which will save those in the `downstream_messages` aggregator and forward them to
-/// the upstream role. When a response is received it is saved in `upstream_messages` and
-/// forwarded to the downstream role. Both `downstream_messages` and `upstream_messages` can be
+/// [`Sniffer`] which will save those in the `messages_from_downstream` aggregator and forward them to
+/// the upstream role. When a response is received it is saved in `messages_from_upstream` and
+/// forwarded to the downstream role. Both `messages_from_downstream` and `messages_from_upstream` can be
 /// accessed as FIFO queues.
 ///
 /// It is useful for testing purposes, as it allows to assert that the roles have sent specific
@@ -48,8 +48,8 @@ enum SnifferError {
 pub struct Sniffer {
     listening_address: SocketAddr,
     upstream_address: SocketAddr,
-    downstream_messages: MessagesAggregator,
-    upstream_messages: MessagesAggregator,
+    messages_from_downstream: MessagesAggregator,
+    messages_from_upstream: MessagesAggregator,
 }
 
 impl Sniffer {
@@ -59,8 +59,8 @@ impl Sniffer {
         Self {
             listening_address,
             upstream_address,
-            downstream_messages: MessagesAggregator::new(),
-            upstream_messages: MessagesAggregator::new(),
+            messages_from_downstream: MessagesAggregator::new(),
+            messages_from_upstream: MessagesAggregator::new(),
         }
     }
 
@@ -80,8 +80,8 @@ impl Sniffer {
         )
         .await
         .expect("Failed to create upstream");
-        let downstream_messages = self.downstream_messages.clone();
-        let upstream_messages = self.upstream_messages.clone();
+        let downstream_messages = self.messages_from_downstream.clone();
+        let upstream_messages = self.messages_from_upstream.clone();
         let _ = select! {
             r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, downstream_messages) => r,
             r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, upstream_messages) => r,
@@ -95,8 +95,8 @@ impl Sniffer {
     /// This can be used to assert that the downstream sent:
     /// - specific message types
     /// - specific message fields
-    pub fn next_downstream_message(&self) -> Option<(MsgType, AnyMessage<'static>)> {
-        self.downstream_messages.next_message()
+    pub fn next_message_from_downstream(&self) -> Option<(MsgType, AnyMessage<'static>)> {
+        self.messages_from_downstream.next_message()
     }
 
     /// Returns the oldest message sent by upstream.
@@ -106,8 +106,8 @@ impl Sniffer {
     /// This can be used to assert that the upstream sent:
     /// - specific message types
     /// - specific message fields
-    pub fn next_upstream_message(&self) -> Option<(MsgType, AnyMessage<'static>)> {
-        self.upstream_messages.next_message()
+    pub fn next_message_from_upstream(&self) -> Option<(MsgType, AnyMessage<'static>)> {
+        self.messages_from_upstream.next_message()
     }
 
     async fn create_downstream(
@@ -433,17 +433,17 @@ impl Drop for Sniffer {
         std::panic::set_hook(Box::new(|_| {
             println!();
         }));
-        if !self.downstream_messages.is_empty() {
+        if !self.messages_from_downstream.is_empty() {
             println!(
                 "You didn't handle all downstream messages: {:?}",
-                self.downstream_messages
+                self.messages_from_downstream
             );
             panic!();
         }
-        if !self.upstream_messages.is_empty() {
+        if !self.messages_from_upstream.is_empty() {
             println!(
                 "You didn't handle all upstream messages: {:?}",
-                self.upstream_messages
+                self.messages_from_upstream
             );
             panic!();
         }
