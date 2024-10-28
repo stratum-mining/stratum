@@ -1,4 +1,4 @@
-//#![cfg_attr(not(feature = "debug"), no_std)]
+#![cfg_attr(not(feature = "debug"), no_std)]
 //#![feature(backtrace)]
 
 mod buffer;
