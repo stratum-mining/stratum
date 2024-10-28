@@ -36,7 +36,7 @@
 //! `channel_id`. In this case, the first 4 bytes of the payload represent the
 //! `channel_id` the message is destined for.
 
-#![cfg_attr(feature = "no_std", no_std)]
+#![no_std]
 
 /// Identifier for the extension_type field in the SV2 frame, indicating no
 /// extensions.
