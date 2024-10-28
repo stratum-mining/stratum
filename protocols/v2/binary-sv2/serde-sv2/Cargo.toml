@@ -18,8 +18,5 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 buffer_sv2 = {version = "^1.0.0",  path = "../../../../utils/buffer"}
 
-[features]
-no_std = []
-
 [package.metadata.docs.rs]
 all-features = true
