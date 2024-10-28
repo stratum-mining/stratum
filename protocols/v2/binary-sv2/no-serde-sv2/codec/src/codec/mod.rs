@@ -11,6 +11,8 @@ mod impls;
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::Slice;
 
+use alloc::vec::Vec;
+
 /// Return the encoded byte size or a `Decodable`
 pub trait SizeHint {
     fn size_hint(data: &[u8], offset: usize) -> Result<usize, Error>;

@@ -6,7 +6,7 @@ use crate::{
     Error,
 };
 use alloc::vec::Vec;
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Cursor, Read};
 

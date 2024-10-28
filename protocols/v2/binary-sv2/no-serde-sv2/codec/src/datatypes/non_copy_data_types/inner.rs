@@ -4,9 +4,9 @@ use crate::{
     datatypes::Sv2DataType,
     Error,
 };
-use core::convert::TryFrom;
-use std::convert::TryInto;
 
+use alloc::vec::Vec;
+use core::convert::{TryFrom, TryInto};
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
 

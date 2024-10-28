@@ -1,5 +1,7 @@
 //! Copy data types
 use crate::{codec::Fixed, datatypes::Sv2DataType, Error};
+
+use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 
 #[cfg(not(feature = "no_std"))]

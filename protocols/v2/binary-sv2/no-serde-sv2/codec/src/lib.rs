@@ -19,6 +19,9 @@
 //! Seq0255  <-> SEQ0_255[T]
 //! Seq064K  <-> SEQ0_64K[T]
 //! ```
+
+#![cfg_attr(feature = "no_std", no_std)]
+
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, ErrorKind};
 
@@ -34,6 +37,8 @@ pub use crate::codec::{
     encodable::{Encodable, EncodableField},
     Fixed, GetSize, SizeHint,
 };
+
+use alloc::vec::Vec;
 
 #[allow(clippy::wrong_self_convention)]
 pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
@@ -281,7 +286,7 @@ impl From<&[u8]> for CVec {
         // the std lib)
         let len = buffer.len();
         let ptr = buffer.as_mut_ptr();
-        std::mem::forget(buffer);
+        core::mem::forget(buffer);
 
         CVec {
             data: ptr,
@@ -296,7 +301,7 @@ impl From<&[u8]> for CVec {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
-    let input = std::slice::from_raw_parts(data, len);
+    let input = core::slice::from_raw_parts(data, len);
 
     let mut buffer: Vec<u8> = vec![0; len];
     buffer.copy_from_slice(input);
@@ -305,7 +310,7 @@ pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
     // cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
     let len = buffer.len();
     let ptr = buffer.as_mut_ptr();
-    std::mem::forget(buffer);
+    core::mem::forget(buffer);
 
     CVec {
         data: ptr,
@@ -360,7 +365,7 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
                 let len = inner.len();
                 let cap = inner.capacity();
                 let ptr = inner.as_mut_ptr();
-                std::mem::forget(inner);
+                core::mem::forget(inner);
 
                 (ptr, len, cap)
             }
@@ -371,7 +376,7 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
                 let len = inner.len();
                 let cap = inner.capacity();
                 let ptr = inner.as_mut_ptr();
-                std::mem::forget(inner);
+                core::mem::forget(inner);
 
                 (ptr, len, cap)
             }
@@ -393,7 +398,7 @@ pub unsafe extern "C" fn init_cvec2() -> CVec2 {
     // cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
     let len = buffer.len();
     let ptr = buffer.as_mut_ptr();
-    std::mem::forget(buffer);
+    core::mem::forget(buffer);
 
     CVec2 {
         data: ptr,
@@ -412,7 +417,7 @@ pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
 
     let len = buffer.len();
     let ptr = buffer.as_mut_ptr();
-    std::mem::forget(buffer);
+    core::mem::forget(buffer);
 
     cvec2.data = ptr;
     cvec2.len = len;
@@ -428,7 +433,7 @@ impl<'a, T: Into<CVec>> From<Seq0255<'a, T>> for CVec2 {
         let len = v.len();
         let capacity = v.capacity();
         let data = v.as_mut_ptr();
-        std::mem::forget(v);
+        core::mem::forget(v);
         Self {
             data,
             len,
@@ -445,7 +450,7 @@ impl<'a, T: Into<CVec>> From<Seq064K<'a, T>> for CVec2 {
         let len = v.len();
         let capacity = v.capacity();
         let data = v.as_mut_ptr();
-        std::mem::forget(v);
+        core::mem::forget(v);
         Self {
             data,
             len,
