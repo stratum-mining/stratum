@@ -1,4 +1,13 @@
+#![no_std]
+
+extern crate alloc;
 extern crate proc_macro;
+
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::iter::FromIterator;
 use proc_macro::{Group, TokenStream, TokenTree};
 
