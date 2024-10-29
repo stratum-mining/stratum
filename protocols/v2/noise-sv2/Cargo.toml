@@ -12,16 +12,21 @@ homepage = "https://stratumprotocol.org"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
-secp256k1 = { version = "0.28.2", default-features = false, features =["hashes", "alloc","rand","rand-std"] }
-rand = {version = "0.8.5", default-features = false, features = ["std","std_rng"] }
+secp256k1 = { version = "0.28.2", default-features = false, features = ["hashes", "alloc", "rand"] }
+rand = {version = "0.8.5", default-features = false }
 aes-gcm = "0.10.2"
 chacha20poly1305 = "0.10.1"
-rand_chacha = "0.3.1"
+rand_chacha = { version = "0.3.1", default-features = false }
 const_sv2 = { version = "^2.0.0", path = "../../../protocols/v2/const-sv2"}
+
+[features]
+default = ["std"]
+std = ["rand/std", "rand/std_rng", "rand_chacha/std", "secp256k1/rand-std"]
 
 [dev-dependencies]
 quickcheck = "1.0.3"
 quickcheck_macros = "1"
+rand = {version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 
 [package.metadata.docs.rs]
 all-features = true
