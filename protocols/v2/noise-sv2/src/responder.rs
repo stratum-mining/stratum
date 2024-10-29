@@ -34,7 +34,7 @@
 // The [`Drop`] trait is implemented to automatically trigger secure erasure when the [`Responder`]
 // instance goes out of scope, preventing potential misuse or leakage of cryptographic material.
 
-use std::{ptr, time::Duration};
+use core::{ptr, time::Duration};
 
 use crate::{
     cipher_state::{Cipher, CipherState, GenericCipher},
@@ -44,6 +44,11 @@ use crate::{
     NoiseCodec,
 };
 use aes_gcm::KeyInit;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use chacha20poly1305::ChaCha20Poly1305;
 use const_sv2::{
     ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
@@ -97,8 +102,8 @@ pub struct Responder {
     cert_validity: u32,
 }
 
-impl std::fmt::Debug for Responder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Responder {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Responder").finish()
     }
 }
@@ -171,15 +176,15 @@ impl Responder {
     /// protocol handshake. It generates ephemeral and static key pairs for the responder and
     /// prepares the handshake state. The authority keypair and certificate validity period are
     /// also configured.
-    pub fn new(a: Keypair, cert_validity: u32) -> Box<Self> {
+    pub fn new<R: rand::Rng + ?Sized>(a: Keypair, cert_validity: u32, rng: &mut R) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
             n: 0,
             ck: [0; 32],
             h: [0; 32],
-            e: Self::generate_key(),
-            s: Self::generate_key(),
+            e: Self::generate_key(rng),
+            s: Self::generate_key(rng),
             a,
             c1: None,
             c2: None,
@@ -195,17 +200,18 @@ impl Responder {
     /// the responder's authority credentials. It verifies that the provided public key matches the
     /// corresponding private key, ensuring the authenticity of the authority key pair. The
     /// certificate validity duration is also set here. Fails if the key pair is mismatched.
-    pub fn from_authority_kp(
+    pub fn from_authority_kp<R: rand::Rng + ?Sized>(
         public: &[u8; 32],
         private: &[u8; 32],
         cert_validity: Duration,
+        rng: &mut R,
     ) -> Result<Box<Self>, Error> {
         let secp = Secp256k1::new();
         let secret = SecretKey::from_slice(private).map_err(|_| Error::InvalidRawPrivateKey)?;
         let kp = Keypair::from_secret_key(&secp, &secret);
         let pub_ = kp.x_only_public_key().0.serialize();
         if public == &pub_[..] {
-            Ok(Self::new(kp, cert_validity.as_secs() as u32))
+            Ok(Self::new(kp, cert_validity.as_secs() as u32, rng))
         } else {
             Err(Error::InvalidRawPublicKey)
         }
@@ -226,9 +232,11 @@ impl Responder {
     ///
     /// On failure, the method returns an error if there is an issue during encryption, decryption,
     /// or any other step of the handshake process.
-    pub fn step_1(
+    pub fn step_1<R: rand::Rng + rand::CryptoRng>(
         &mut self,
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
+        now: u32,
+        rng: &mut R,
     ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseCodec), aes_gcm::Error> {
         // 4.5.1.2 Responder
         Self::mix_hash(self, &elligatorswift_theirs_ephemeral_serialized[..]);
@@ -288,13 +296,9 @@ impl Responder {
         Self::mix_key(self, &ecdh_static[..]);
 
         // 7. appends `EncryptAndHash(SIGNATURE_NOISE_MESSAGE)` to the buffer
-        let valid_from = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let not_valid_after = valid_from as u32 + self.cert_validity;
-        let signature_noise_message =
-            self.get_signature(VERSION, valid_from as u32, not_valid_after);
+        let valid_from = now;
+        let not_valid_after = now + self.cert_validity;
+        let signature_noise_message = self.get_signature(VERSION, valid_from, not_valid_after, rng);
         let mut signature_part = Vec::with_capacity(ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE);
         signature_part.extend_from_slice(&signature_noise_message[..]);
         Self::encrypt_and_hash(self, &mut signature_part)?;
@@ -331,7 +335,13 @@ impl Responder {
     // certificate validity period, and a cryptographic signature. The signature is created using
     // the responder's static public key and authority keypair, ensuring that the responder's
     // identity and certificate validity are cryptographically verifiable.
-    fn get_signature(&self, version: u16, valid_from: u32, not_valid_after: u32) -> [u8; 74] {
+    fn get_signature<R: rand::Rng + rand::CryptoRng>(
+        &self,
+        version: u16,
+        valid_from: u32,
+        not_valid_after: u32,
+        rng: &mut R,
+    ) -> [u8; 74] {
         let mut ret = [0; 74];
         let version = version.to_le_bytes();
         let valid_from = valid_from.to_le_bytes();
@@ -346,7 +356,7 @@ impl Responder {
         ret[7] = not_valid_after[1];
         ret[8] = not_valid_after[2];
         ret[9] = not_valid_after[3];
-        SignatureNoiseMessage::sign(&mut ret, &self.s.x_only_public_key().0, &self.a);
+        SignatureNoiseMessage::sign(&mut ret, &self.s.x_only_public_key().0, &self.a, rng);
         ret
     }
 
