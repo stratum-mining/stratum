@@ -32,6 +32,11 @@
 //! used to authenticate messages and validate the identities of the Sv2 roles, ensuring that
 //! critical messages like job templates and share submissions originate from legitimate sources.
 
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
+
+#[macro_use]
+extern crate alloc;
+
 use aes_gcm::aead::Buffer;
 pub use aes_gcm::aead::Error as AeadError;
 use cipher_state::GenericCipher;
@@ -66,8 +71,8 @@ pub struct NoiseCodec {
     decryptor: GenericCipher,
 }
 
-impl std::fmt::Debug for NoiseCodec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for NoiseCodec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("NoiseCodec").finish()
     }
 }

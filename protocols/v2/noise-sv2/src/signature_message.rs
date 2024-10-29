@@ -21,8 +21,9 @@
 // public key and optional authority key, while ensuring the message falls within the specified
 // validity period.
 
+use core::convert::TryInto;
+
 use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1, XOnlyPublicKey};
-use std::{convert::TryInto, time::SystemTime};
 
 /// `SignatureNoiseMessage` represents a signed message used in the Noise NX protocol
 /// for authentication during the handshake process. It encapsulates the necessary
@@ -70,12 +71,13 @@ impl SignatureNoiseMessage {
     //
     // If an authority public key is not provided, the function assumes that the signature
     // is already valid without further verification.
-    pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
+    pub fn verify(
+        self,
+        pk: &XOnlyPublicKey,
+        authority_pk: &Option<XOnlyPublicKey>,
+        now: u32,
+    ) -> bool {
         if let Some(authority_pk) = authority_pk {
-            let now = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as u32;
             if self.valid_from <= now && self.not_valid_after >= now {
                 let secp = Secp256k1::verification_only();
                 let (m, s) = self.split();
@@ -100,11 +102,16 @@ impl SignatureNoiseMessage {
     // Creates a Schnorr signature for the message, combining the version, validity period, and
     // the static public key of the server (`static_pk`). The resulting signature is then written
     // into the provided message buffer (`msg`).
-    pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {
+    pub fn sign<R: rand::Rng + rand::CryptoRng>(
+        msg: &mut [u8; 74],
+        static_pk: &XOnlyPublicKey,
+        kp: &Keypair,
+        rng: &mut R,
+    ) {
         let secp = Secp256k1::signing_only();
         let m = [&msg[0..10], &static_pk.serialize()].concat();
         let m = Message::from_hashed_data::<sha256::Hash>(&m);
-        let signature = secp.sign_schnorr(&m, kp);
+        let signature = secp.sign_schnorr_with_rng(&m, kp, rng);
         for (i, b) in signature.as_ref().iter().enumerate() {
             msg[10 + i] = *b;
         }

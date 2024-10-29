@@ -34,7 +34,11 @@
 // The [`Drop`] trait is implemented to automatically trigger secure erasure when the [`Initiator`]
 // instance goes out of scope, preventing potential misuse or leakage of cryptographic material.
 
-use std::{convert::TryInto, ptr};
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
+use core::{convert::TryInto, ptr};
 
 use crate::{
     cipher_state::{Cipher, CipherState, GenericCipher},
@@ -93,8 +97,8 @@ pub struct Initiator {
     c2: Option<GenericCipher>,
 }
 
-impl std::fmt::Debug for Initiator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Initiator {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Initiator").finish()
     }
 }
@@ -164,14 +168,14 @@ impl Initiator {
     /// If the responder public key is provided, the initiator uses this key to authenticate the
     /// responder during the handshake. The initial initiator state is instantiated with the
     /// ephemeral key pair and handshake hash.
-    pub fn new(pk: Option<XOnlyPublicKey>) -> Box<Self> {
+    pub fn new<R: rand::Rng + ?Sized>(pk: Option<XOnlyPublicKey>, rng: &mut R) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
             n: 0,
             ck: [0; 32],
             h: [0; 32],
-            e: Self::generate_key(),
+            e: Self::generate_key(rng),
             responder_authority_pk: pk,
             c1: None,
             c2: None,
@@ -187,10 +191,13 @@ impl Initiator {
     /// valid [`XOnlyPublicKey`], an [`Error::InvalidRawPublicKey`] error is returned.
     ///
     /// Typically used when the initiator is aware of the responder's public key in advance.
-    pub fn from_raw_k(key: [u8; 32]) -> Result<Box<Self>, Error> {
+    pub fn from_raw_k<R: rand::Rng + ?Sized>(
+        key: [u8; 32],
+        rng: &mut R,
+    ) -> Result<Box<Self>, Error> {
         let pk =
             secp256k1::XOnlyPublicKey::from_slice(&key).map_err(|_| Error::InvalidRawPublicKey)?;
-        Ok(Self::new(Some(pk)))
+        Ok(Self::new(Some(pk), rng))
     }
 
     /// Creates a new [`Initiator`] without requiring the responder's authority public key.
@@ -198,8 +205,8 @@ impl Initiator {
     /// for use when both the initiator and responder are within the same network. In this case,
     /// the initiator does not validate the responder's static key from a certificate. However,
     /// the connection remains encrypted.
-    pub fn without_pk() -> Result<Box<Self>, Error> {
-        Ok(Self::new(None))
+    pub fn without_pk<R: rand::Rng + ?Sized>(rng: &mut R) -> Result<Box<Self>, Error> {
+        Ok(Self::new(None, rng))
     }
 
     /// Executes the initial step of the Noise NX protocol handshake.
@@ -244,6 +251,7 @@ impl Initiator {
     pub fn step_2(
         &mut self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
+        now: u32,
     ) -> Result<NoiseCodec, Error> {
         // 2. interprets first 64 bytes as ElligatorSwift encoding of x-coordinate of public key
         // from this is derived the 32-bytes remote ephemeral public key `re.public_key`
@@ -308,7 +316,7 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify(&rs_pk_xonly, &self.responder_authority_pk) {
+        if signature_message.verify(&rs_pk_xonly, &self.responder_authority_pk, now) {
             let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
             let c1 = ChaCha20Poly1305::new(&temp_k1.into());
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());

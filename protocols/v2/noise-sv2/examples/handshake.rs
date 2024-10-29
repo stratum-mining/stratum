@@ -25,35 +25,52 @@ const PARITY: Parity = Parity::Even;
 const RESPONDER_CERT_VALIDITY: u32 = 3600;
 
 // Generates a secp256k1 public/private key pair for the responder.
-fn generate_key() -> Keypair {
+fn generate_key<R: rand::Rng + ?Sized>(rng: &mut R) -> Keypair {
     let secp = Secp256k1::new();
-    let (secret_key, _) = secp.generate_keypair(&mut rand::thread_rng());
+    let (secret_key, _) = secp.generate_keypair(rng);
     let kp = Keypair::from_secret_key(&secp, &secret_key);
     if kp.x_only_public_key().1 == PARITY {
         kp
     } else {
-        generate_key()
+        generate_key(rng)
     }
 }
 
 fn main() {
     let mut secret_message = "Ciao, Mondo!".as_bytes().to_vec();
 
-    let responder_key_pair = generate_key();
+    let responder_key_pair = generate_key(&mut rand::thread_rng());
 
-    let mut initiator = Initiator::new(Some(responder_key_pair.public_key().into()));
-    let mut responder = Responder::new(responder_key_pair, RESPONDER_CERT_VALIDITY);
+    let mut initiator = Initiator::new(
+        Some(responder_key_pair.public_key().into()),
+        &mut rand::thread_rng(),
+    );
+    let mut responder = Responder::new(
+        responder_key_pair,
+        RESPONDER_CERT_VALIDITY,
+        &mut rand::thread_rng(),
+    );
 
     let first_message = initiator
         .step_0()
         .expect("Initiator failed first step of handshake");
 
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
+
     let (second_message, mut responder_state) = responder
-        .step_1(first_message)
+        .step_1(first_message, now, &mut rand::thread_rng())
         .expect("Responder failed second step of handshake");
 
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
+
     let mut initiator_state = initiator
-        .step_2(second_message)
+        .step_2(second_message, now)
         .expect("Initiator failed third step of handshake");
 
     initiator_state
