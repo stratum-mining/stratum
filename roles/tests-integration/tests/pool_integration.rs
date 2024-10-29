@@ -22,7 +22,7 @@ async fn success_pool_template_provider_connection() {
     // macro can take any number of arguments after the message argument, but the order is
     // important where a property should be followed by its value.
     assert_common_message!(
-        &sniffer.next_downstream_message(),
+        &sniffer.next_message_from_downstream(),
         SetupConnection,
         protocol,
         Protocol::TemplateDistributionProtocol,
@@ -33,8 +33,14 @@ async fn success_pool_template_provider_connection() {
         max_version,
         2
     );
-    assert_common_message!(&sniffer.next_upstream_message(), SetupConnectionSuccess);
-    assert_tp_message!(&sniffer.next_downstream_message(), CoinbaseOutputDataSize);
-    assert_tp_message!(&sniffer.next_upstream_message(), NewTemplate);
-    assert_tp_message!(sniffer.next_upstream_message(), SetNewPrevHash);
+    assert_common_message!(
+        &sniffer.next_message_from_upstream(),
+        SetupConnectionSuccess
+    );
+    assert_tp_message!(
+        &sniffer.next_message_from_downstream(),
+        CoinbaseOutputDataSize
+    );
+    assert_tp_message!(&sniffer.next_message_from_upstream(), NewTemplate);
+    assert_tp_message!(sniffer.next_message_from_upstream(), SetNewPrevHash);
 }
