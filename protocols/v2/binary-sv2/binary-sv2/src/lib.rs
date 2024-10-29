@@ -39,11 +39,10 @@ pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::vec::Vec;
 
     mod test_struct {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
@@ -74,8 +73,6 @@ mod test {
 
     mod test_f32 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
@@ -106,8 +103,6 @@ mod test {
 
     mod test_b0255 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
@@ -153,8 +148,6 @@ mod test {
 
     mod test_u256 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
@@ -183,8 +176,6 @@ mod test {
 
     mod test_signature {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -213,8 +204,6 @@ mod test {
 
     mod test_b016m {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -263,8 +252,6 @@ mod test {
 
     mod test_b064k {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -296,8 +283,6 @@ mod test {
 
     mod test_seq0255_u256 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -338,8 +323,6 @@ mod test {
 
     mod test_0255_bool {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -366,8 +349,6 @@ mod test {
 
     mod test_seq0255_u16 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -394,8 +375,6 @@ mod test {
 
     mod test_seq_0255_u24 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -428,8 +407,6 @@ mod test {
 
     mod test_seqo255_u32 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -456,8 +433,6 @@ mod test {
 
     mod test_seq0255_signature {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -493,8 +468,6 @@ mod test {
 
     mod test_seq_064_u256 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -535,8 +508,6 @@ mod test {
 
     mod test_064_bool {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -571,8 +542,6 @@ mod test {
 
     mod test_se1o64k_u16 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -599,8 +568,6 @@ mod test {
 
     mod test_seq064k_u24 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -633,8 +600,6 @@ mod test {
 
     mod test_seq064k_u32 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -660,8 +625,6 @@ mod test {
     }
     mod test_seq064k_signature {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -696,8 +659,6 @@ mod test {
     }
     mod test_seq064k_b016m {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -732,7 +693,6 @@ mod test {
     }
     mod test_seq_0255_in_struct {
         use super::*;
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
@@ -759,8 +719,6 @@ mod test {
     }
     mod test_sv2_option_u256 {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
         use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
@@ -796,8 +754,6 @@ mod test {
     }
     mod test_sv2_option_none {
         use super::*;
-        #[cfg(not(feature = "with_serde"))]
-        use alloc::vec::Vec;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
