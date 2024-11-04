@@ -1,3 +1,44 @@
+//! # `buffer_sv2`
+//!
+//! Handles memory management for Stratum V2 (Sv2) roles.
+//!
+//! Provides a memory-efficient buffer pool ([`BufferPool`]) that minimizes allocations and
+//! deallocations for high-throughput message frame processing in Sv2 roles. [`Slice`] helps
+//! minimize memory allocation overhead by reusing large buffers, improving performance and
+//! reducing latency. The [`BufferPool`] tracks the usage of memory slices, using atomic operations
+//! and shared state tracking to safely manage memory across multiple threads.
+//!
+//! ## Memory Structure
+//!
+//! The [`BufferPool`] manages a contiguous block of memory allocated on the heap, divided into
+//! fixed-size slots. Memory allocation within this pool operates in three distinct modes:
+//!
+//! 1. **Back Mode**: By default, memory is allocated sequentially from the back (end) of the buffer
+//!    pool. This mode continues until the back slots are fully occupied.
+//! 2. **Front Mode**: Once the back slots are exhausted, the [`BufferPool`] checks if any slots at
+//!    the front (beginning) have been freed. If available, it switches to front mode, allocating
+//!    memory from the front slots.
+//! 3. **Alloc Mode**: If both back and front slots are occupied, the [`BufferPool`] enters alloc
+//!    mode, where it allocates additional memory directly from the system heap. This mode may
+//!    introduce performance overhead due to dynamic memory allocation.
+//!
+//! [`BufferPool`] dynamically transitions between these modes based on slot availability,
+//! optimizing memory usage and performance.
+//!
+//! ## Usage
+//!
+//! When an incoming Sv2 message is received, it is buffered for processing. The [`BufferPool`]
+//! attempts to allocate memory from its internal slots, starting in back mode. If the back slots
+//! are full, it checks for available front slots to switch to front mode. If no internal slots are
+//! free, it resorts to alloc mode, allocating memory from the system heap.
+//!
+//! For operations requiring dedicated buffers, the [`Slice`] type manages its own memory using
+//! [`Vec<u8>`]. In high-performance scenarios, [`Slice`] can reference externally managed memory
+//! from the [`BufferPool`], reducing dynamic memory allocations and increasing performance.
+//!
+//! ### Debug Mode
+//! Provides additional tracking for debugging memory management issues.
+
 #![cfg_attr(not(feature = "debug"), no_std)]
 //#![feature(backtrace)]
 
@@ -83,20 +124,22 @@ impl Write for &mut [u8] {
 /// Interface for working with memory buffers.
 ///
 /// An abstraction for buffer management, allowing implementors to handle either owned memory
-/// ([`Slice`] with [`Vec<u8>`]) or externally managed memory in a buffer pool ([`Slice`] with
-/// [`BufferPool`]. Utilities are provided to borrow writable memory, retrieve data from the
-/// buffer, and manage memory slices.
+/// ([`Slice`] with [`Vec<u8>`]). Utilities are provided to borrow writable memory, retrieve data
+/// from the buffer, and manage memory slices.
+///
+/// This trait is used during the serialization and deserialization
+/// of message types in the [`binary_sv2` crate](https://crates.io/crates/binary_sv2).
 pub trait Buffer {
     /// The type of slice that the buffer uses.
     type Slice: AsMut<[u8]> + AsRef<[u8]> + Into<Slice>;
 
-    /// Borrows a mutable slice of the buffer, allowing the caller to write data into it. The caller
-    /// specifies the length of the data they need to write.
+    /// Borrows a mutable slice of the buffer, allowing the caller to write data into it. The
+    /// caller specifies the length of the data they need to write.
     fn get_writable(&mut self, len: usize) -> &mut [u8];
 
-    /// Provides ownership of the buffer data that has already been written. This transfers the
-    /// ownership of the buffer’s written data to the caller, and the buffer is considered cleared
-    /// after this operation.
+    /// Provides ownership of a slice in the buffer pool to the caller and updates the buffer
+    /// pool's state by modifying the position in `shared_state` that the slice occupies. The pool
+    /// now points to the next set of uninitialized space.
     fn get_data_owned(&mut self) -> Self::Slice;
 
     /// Provides a mutable reference to the written portion of the buffer, up to the specified
