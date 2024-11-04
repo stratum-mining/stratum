@@ -1,16 +1,16 @@
-//! # Buffer
-//!
-//! Provides memory management for encoding and transmitting message frames between Sv2 roles when
-//! buffer pools have been exhausted.
-//!
-//! [`BufferFromSystemMemory`] serves as a fallback when a [`crate::BufferPool`] is full or unable
-//! to allocate memory fast enough. Instead of relying on pre-allocated memory, it dynamically
-//! allocates memory using a [`Vec<u8>`], ensuring that message frames can still be processed.
-//!
-//! This fallback mechanism allows the buffer to resize dynamically based on data needs, making it
-//! suitable for scenarios where message sizes vary. However, it introduces performance trade-offs
-//! such as slower allocation, increased memory fragmentation, and higher system overhead compared
-//! to using pre-allocated buffers.
+// # Buffer from System Memory
+//
+// Provides memory management for encoding and transmitting message frames between Sv2 roles when
+// buffer pools have been exhausted.
+//
+// `BufferFromSystemMemory` serves as a fallback when a `BufferPool` is full or unable to allocate
+// memory fast enough. Instead of relying on pre-allocated memory, it dynamically allocates memory
+// on the heap using a `Vec<u8>`, ensuring that message frames can still be processed.
+//
+// This fallback mechanism allows the buffer to resize dynamically based on data needs, making it
+// suitable for scenarios where message sizes vary. However, it introduces performance trade-offs
+// such as slower allocation, increased memory fragmentation, and higher system overhead compared
+// to using pre-allocated buffers.
 
 use crate::Buffer;
 use aes_gcm::aead::Buffer as AeadBuffer;
@@ -46,7 +46,7 @@ impl BufferFromSystemMemory {
 }
 
 impl Default for BufferFromSystemMemory {
-    /// Creates a new buffer with no initial data.
+    // Creates a new buffer with no initial data.
     fn default() -> Self {
         Self::new(0)
     }
@@ -55,8 +55,8 @@ impl Default for BufferFromSystemMemory {
 impl Buffer for BufferFromSystemMemory {
     type Slice = Vec<u8>;
 
-    // Dynamically allocates or resizes the internal [`Vec<u8>`] to ensure there is enough space
-    // for writing.
+    // Dynamically allocates or resizes the internal `Vec<u8>` to ensure there is enough space for
+    // writing.
     #[inline]
     fn get_writable(&mut self, len: usize) -> &mut [u8] {
         let cursor = self.cursor;
@@ -75,7 +75,7 @@ impl Buffer for BufferFromSystemMemory {
         &mut self.inner[cursor..len]
     }
 
-    // Splits off the written portion of the buffer, returning it as a new [`Vec<u8>`]. Swaps the
+    // Splits off the written portion of the buffer, returning it as a new `Vec<u8>`. Swaps the
     // internal buffer with a newly allocated empty one, effectively returning ownership of the
     // written data while resetting the internal buffer for future use.
     #[inline]
@@ -121,14 +121,14 @@ impl Buffer for BufferFromSystemMemory {
         self.start = index;
     }
 
-    // Indicates that the buffer is always safe to drop, as [`Vec<u8>`] manages memory internally.
+    // Indicates that the buffer is always safe to drop, as `Vec<u8>` manages memory internally.
     #[inline]
     fn is_droppable(&self) -> bool {
         true
     }
 }
 
-/// Used to test if [`crate::BufferPool`] tries to allocate from system memory.
+// Used to test if `BufferPool` tries to allocate from system memory.
 #[cfg(test)]
 pub struct TestBufferFromMemory(pub Vec<u8>);
 
@@ -147,6 +147,7 @@ impl Buffer for TestBufferFromMemory {
     fn get_data_by_ref(&mut self, _len: usize) -> &mut [u8] {
         &mut self.0[0..0]
     }
+
     fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
         &self.0[0..0]
     }
@@ -154,9 +155,11 @@ impl Buffer for TestBufferFromMemory {
     fn len(&self) -> usize {
         0
     }
+
     fn danger_set_start(&mut self, _index: usize) {
         todo!()
     }
+
     fn is_droppable(&self) -> bool {
         true
     }
