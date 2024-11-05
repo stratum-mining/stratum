@@ -7,8 +7,10 @@
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://app.codecov.io/gh/stratum-mining/stratum/tree/main/protocols%2Fv2%2Fmining_sv2)
 
 `mining_sv2` is a Rust crate that implements a set of  messages defined in the Mining protocol of Stratum V2.
-The Mining protocol enables the distribution of work to mining devices and the submission of
-proof-of-work results.
+The Mining protocol enables:
+- distribution of work to mining devices
+- submission of proof of work from mining devices
+- notification of custom work to pool (in conjunction with Job Declaration Subprotocol) 
 
 For further information about the messages, please refer to [Stratum V2 documentation - Mining](https://stratumprotocol.org/specification/05-Mining-Protocol/).
 
