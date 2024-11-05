@@ -1,7 +1,19 @@
+//! # Stratum V2 Common Messages Crate.
+//!
+//! This crate defines a set of shared messages used across all Stratum V2 subprotocols.
+//!
+//! ## Build Options
+//! This crate can be built with the following features:
+//! - `std`: Enables support for standard library features.
+//! - `serde`: Enables support for serialization and deserialization using Serde.
+//! - `quickcheck`: Enables support for property-based testing using QuickCheck.
+//!
+//! *Note that `serde` feature flag is only used for the Message Generator, and deprecated for any
+//! other kind of usage.  It will likely be fully deprecated in the future.*
+//!
+//! For further information about the messages, please refer to [Stratum V2
+//! documentation - Common Messages](https://stratumprotocol.org/specification/03-Protocol-Overview/#36-common-protocol-messages).
 #![cfg_attr(feature = "no_std", no_std)]
-
-//! Common messages for [stratum v2][Sv2]
-//! The following protocol messages are common across all of the sv2 (sub)protocols.
 extern crate alloc;
 mod channel_endpoint_changed;
 mod setup_connection;
@@ -23,10 +35,12 @@ pub use setup_connection::{CSetupConnection, CSetupConnectionError};
 
 #[cfg(not(feature = "with_serde"))]
 #[no_mangle]
+/// A C-compatible function that exports the [`ChannelEndpointChanged`] struct.
 pub extern "C" fn _c_export_channel_endpoint_changed(_a: ChannelEndpointChanged) {}
 
 #[cfg(not(feature = "with_serde"))]
 #[no_mangle]
+/// A C-compatible function that exports the `SetupConnection` struct.
 pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}
 
 #[cfg(feature = "prop_test")]
