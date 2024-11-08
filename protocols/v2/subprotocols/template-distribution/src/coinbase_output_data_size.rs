@@ -6,25 +6,30 @@ use binary_sv2::{Deserialize, Serialize};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// ## CoinbaseOutputDataSize (Client -> Server)
-/// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
-/// other uses, and thus the Template Provider will need to consider this additional block size
-/// when selecting transactions for inclusion in a block (to not create an invalid, oversized
-/// block). Thus, this message is used to indicate that some additional space in the block/coinbase
-/// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
-/// of available coinbase space).
-/// The Job Declarator MUST discover the maximum serialized size of the additional outputs which
-/// will be added by the pool(s) it intends to use this work. It then MUST communicate the
-/// maximum such size to the Template Provider via this message. The Template Provider MUST
-/// NOT provide NewWork messages which would represent consensus-invalid blocks once this
-/// additional size — along with a maximally-sized (100 byte) coinbase field — is added. Further,
-/// the Template Provider MUST consider the maximum additional bytes required in the output
-/// count variable-length integer in the coinbase transaction when complying with the size limits.
+/// Message used by a downstream to indicate the size of the additional bytes they will need in
+/// coinbase transaction outputs.
+///
+/// As the pool is responsible for adding coinbase transaction outputs for payouts and other uses,
+/// the Template Provider will need to consider this reserved space when selecting transactions for
+/// inclusion in a block(to avoid an invalid, oversized block).  Thus, this message indicates that
+/// additional space in the block/coinbase transaction must be reserved for, assuming they will use
+/// the entirety of this space.
+///
+/// The Job Declarator **must** discover the maximum serialized size of the additional outputs which
+/// will be added by the pools it intends to use this work. It then **must** communicate the sum of
+/// such size to the Template Provider via this message.
+///
+/// The Template Provider **must not** provide [`NewTemplate`] messages which would represent
+/// consensus-invalid blocks once this additional size — along with a maximally-sized (100 byte)
+/// coinbase field — is added. Further, the Template Provider **must** consider the maximum
+/// additional bytes required in the output count variable-length integer in the coinbase
+/// transaction when complying with the size limits.
+///
+/// [`NewTemplate`]: crate::NewTemplate
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct CoinbaseOutputDataSize {
-    /// The maximum additional serialized bytes which the pool will add in
-    /// coinbase transaction outputs.
+    /// Additional serialized bytes needed in coinbase transaction outputs.
     pub coinbase_output_max_additional_size: u32,
 }
 
