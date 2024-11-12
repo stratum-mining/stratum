@@ -145,7 +145,7 @@ impl JobDeclaratorDownstream {
                     .ok_or(Box::new(JdsError::ImpossibleToReconstructBlock(
                         "Txid found in jds mempool but transactions not present".to_string(),
                     )))?;
-                transactions_list.push(tx);
+                transactions_list.push(tx.0);
             } else {
                 return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
                     "Unknown transaction".to_string(),
