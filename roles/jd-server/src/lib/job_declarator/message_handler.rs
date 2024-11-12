@@ -117,7 +117,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .known_transactions
                 .append(&mut known_transactions);
 
-            dbg!(missing_txs.len());
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
                     request_id: message.request_id,
@@ -260,19 +259,19 @@ fn clear_declared_mining_job(
                         Some(Some((_transaction, counter))) => {
                             if *counter > 1 {
                                 *counter -= 1;
-                                info!(
+                                debug!(
                                     "Fat transaction {:?} counter decremented; job id {:?} dropped",
                                     txid, old_mining_job.request_id
                                 );
                             } else {
                                 mempool_.mempool.remove(&txid);
-                                info!(
+                                debug!(
                                     "Fat transaction {:?} with job id {:?} removed from mempool",
                                     txid, old_mining_job.request_id
                                 );
                             }
                         }
-                        Some(None) => info!(
+                        Some(None) => debug!(
                             "Thin transaction {:?} with job id {:?} removed from mempool",
                             txid, old_mining_job.request_id
                         ),
