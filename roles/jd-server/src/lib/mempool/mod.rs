@@ -88,6 +88,8 @@ impl JDsMempool {
                         .and_modify(|entry| {
                             if let Some((_, count)) = entry {
                                 *count += 1;
+                            } else {
+                                *entry = Some((transaction.clone(), 1));
                             }
                         })
                         .or_insert(Some((transaction, 1)));
@@ -97,12 +99,15 @@ impl JDsMempool {
 
         // fill in the mempool the transactions given in input
         for transaction in transactions {
+            dbg!(transaction.txid());
             let _ = self_.safe_lock(|a| {
                 a.mempool
                     .entry(transaction.txid())
                     .and_modify(|entry| {
                         if let Some((_, count)) = entry {
                             *count += 1;
+                        } else {
+                            *entry = Some((transaction.clone(), 1));
                         }
                     })
                     .or_insert(Some((transaction, 1)));
@@ -118,6 +123,9 @@ impl JDsMempool {
 
         let mempool = client.get_raw_mempool().await?;
 
+        dbg!("raw Mempool size");
+        dbg!(mempool.len());
+
         let raw_mempool_txids: Result<Vec<Txid>, _> = mempool
             .into_iter()
             .map(|id| {
@@ -130,10 +138,14 @@ impl JDsMempool {
 
         // Holding the lock till the light mempool updation is complete.
         let is_mempool_empty = self_.safe_lock(|x| {
+            dbg!("Before Update");
+            dbg!(x.mempool.len());
             x.mempool.retain(|_, v| v.is_some());
             raw_mempool_txids.iter().for_each(|txid| {
                 x.mempool.entry(*txid).or_insert(None);
             });
+            dbg!("After Update");
+            dbg!(x.mempool.len());
             x.mempool.is_empty()
         })?;
 
