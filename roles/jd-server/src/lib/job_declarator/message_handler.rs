@@ -7,14 +7,17 @@ use roles_logic_sv2::{
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
+    utils::Mutex,
 };
-use std::{convert::TryInto, io::Cursor};
+use std::{convert::TryInto, io::Cursor, sync::Arc};
 use stratum_common::bitcoin::{Transaction, Txid};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
+use crate::mempool::JDsMempool;
+
 use super::{signed_token, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::info;
+use tracing::{debug, info};
 
 use super::JobDeclaratorDownstream;
 
@@ -61,6 +64,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     }
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
+        if let Some(old_mining_job) = self.declared_mining_job.0.take() {
+            clear_declared_mining_job(old_mining_job, &message, self.mempool.clone())?;
+        }
+
         // the transactions that are present in the mempool are stored here, that is sent to the
         // mempool which use the rpc client to retrieve the whole data for each transaction.
         // The unknown transactions is a vector that contains the transactions that are not in the
@@ -109,6 +116,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .add_txs_to_mempool_inner
                 .known_transactions
                 .append(&mut known_transactions);
+
+            dbg!(missing_txs.len());
 
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
@@ -219,4 +228,67 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
         Ok(SendTo::None(Some(m)))
     }
+}
+
+fn clear_declared_mining_job(
+    old_mining_job: DeclareMiningJob,
+    new_mining_job: &DeclareMiningJob,
+    mempool: Arc<Mutex<JDsMempool>>,
+) -> Result<(), Error> {
+    let old_transactions = old_mining_job.tx_short_hash_list.inner_as_ref();
+    let new_transactions = new_mining_job.tx_short_hash_list.inner_as_ref();
+
+    if old_transactions.is_empty() {
+        info!("No transactions to remove from mempool");
+        return Ok(());
+    }
+
+    let nonce = old_mining_job.tx_short_hash_nonce;
+
+    let result = mempool
+        .safe_lock(|mempool_| -> Result<(), Error> {
+            let short_ids_map = mempool_
+                .to_short_ids(nonce)
+                .ok_or(Error::JDSMissingTransactions)?;
+
+            for short_id in old_transactions
+                .iter()
+                .filter(|&id| !new_transactions.contains(id))
+            {
+                if let Some(transaction_with_hash) = short_ids_map.get(*short_id) {
+                    let txid = transaction_with_hash.id;
+                    match mempool_.mempool.get_mut(&txid) {
+                        Some(Some((_transaction, counter))) => {
+                            if *counter > 1 {
+                                *counter -= 1;
+                                debug!(
+                                    "Fat transaction {:?} counter decremented; job id {:?} dropped",
+                                    txid, old_mining_job.request_id
+                                );
+                            } else {
+                                mempool_.mempool.insert(txid, None);
+                                debug!(
+                                    "Fat transaction {:?} with job id {:?} removed from mempool",
+                                    txid, old_mining_job.request_id
+                                );
+                            }
+                        }
+                        Some(None) => debug!(
+                            "Thin transaction {:?} with job id {:?} removed from mempool",
+                            txid, old_mining_job.request_id
+                        ),
+                        None => {}
+                    }
+                } else {
+                    debug!(
+                        "Transaction with short id {:?} not found in mempool for old jobs",
+                        short_id
+                    );
+                }
+            }
+            Ok(())
+        })
+        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+    result.map_err(|err| Error::PoisonLock(err.to_string()))
 }
