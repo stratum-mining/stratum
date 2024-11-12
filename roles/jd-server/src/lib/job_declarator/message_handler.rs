@@ -117,7 +117,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .known_transactions
                 .append(&mut known_transactions);
 
-
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
                     request_id: message.request_id,

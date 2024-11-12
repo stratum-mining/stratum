@@ -82,15 +82,31 @@ impl JDsMempool {
                     .get_raw_transaction(&txid.to_string(), None)
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
-                let _ = self_
-                    .safe_lock(|a| a.mempool.insert(transaction.txid(), Some((transaction, 1))));
+                let _ = self_.safe_lock(|a| {
+                    a.mempool
+                        .entry(transaction.txid())
+                        .and_modify(|entry| {
+                            if let Some((_, count)) = entry {
+                                *count += 1;
+                            }
+                        })
+                        .or_insert(Some((transaction, 1)));
+                });
             }
         }
 
         // fill in the mempool the transactions given in input
         for transaction in transactions {
-            let _ =
-                self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some((transaction, 1))));
+            let _ = self_.safe_lock(|a| {
+                a.mempool
+                    .entry(transaction.txid())
+                    .and_modify(|entry| {
+                        if let Some((_, count)) = entry {
+                            *count += 1;
+                        }
+                    })
+                    .or_insert(Some((transaction, 1)));
+            });
         }
         Ok(())
     }
