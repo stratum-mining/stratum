@@ -18,8 +18,7 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
-/// Used to convert an extended mining job to a standard mining job. The `extranonce` field must
-/// be exactly 32 bytes.
+/// Used to convert an extended mining job to a standard mining job
 pub fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
     extranonce: &[u8],
@@ -31,6 +30,7 @@ pub fn extended_to_standard_job_for_group_channel<'a>(
         extended.coinbase_tx_suffix.inner_as_ref(),
         extranonce,
         &extended.merkle_path.inner_as_ref(),
+        &[],
     );
 
     Some(NewMiningJob {
@@ -322,7 +322,7 @@ mod tests {
         template.template_id = template.template_id % u64::MAX;
         template.future_template = true;
         let extended_mining_job = jobs_creators
-            .on_new_template(&mut template, false, vec![out], pool_signature)
+            .on_new_template(&mut template, false, vec![out], pool_signature.len() as u8)
             .expect("Failed to create new job");
 
         // create GroupChannelJobDispatcher
@@ -381,6 +381,7 @@ mod tests {
             extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
             extranonce.to_vec().as_slice(),
             &extended_mining_job.merkle_path.inner_as_ref(),
+            &[],
         )
         .unwrap();
         // Assertions

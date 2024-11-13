@@ -49,6 +49,7 @@ impl Job {
             &coinbase_tx_suffix,
             &extranonce,
             &path,
+            &[],
         )
         .unwrap();
         let merkle_root: [u8; 32] = merkle_root.try_into().unwrap();

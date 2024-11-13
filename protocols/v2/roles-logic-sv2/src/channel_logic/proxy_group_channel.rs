@@ -115,6 +115,7 @@ impl GroupChannel {
                 &channel.extranonce.clone().to_vec(),
                 channel.channel_id,
                 None,
+                None,
             )
             .ok_or(Error::ImpossibleToCalculateMerkleRoot)?;
             res.push(Mining::NewMiningJob(standard_job));
@@ -125,6 +126,7 @@ impl GroupChannel {
                 last_valid_job,
                 &channel.extranonce.clone().to_vec(),
                 channel.channel_id,
+                None,
                 None,
             )
             .ok_or(Error::ImpossibleToCalculateMerkleRoot)?;
@@ -191,6 +193,7 @@ impl GroupChannel {
                     m,
                     &downstream.extranonce.clone().to_vec(),
                     downstream.channel_id,
+                    None,
                     None,
                 )
                 .ok_or(Error::ImpossibleToCalculateMerkleRoot)
