@@ -18,7 +18,8 @@
 //! identifier for example in the case when standard “atomic” counter isn’t available.
 //!
 //! ## Notifications
-//! Notifications are like Request, but it does not expect any response and message ID is always null:
+//! Notifications are like Request, but it does not expect any response and message ID is always
+//! null:
 //! * message ID: null
 //! * remote method: unicode string
 //! * parameters: list of parameters
@@ -55,14 +56,12 @@ use utils::{Extranonce, HexU32Be};
 /// TODO: Should update to accommodate miner requesting a difficulty change
 ///
 /// A stratum v1 server represent a single connection with a client
-///
 pub trait IsServer<'a> {
     /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
     /// result.
     ///
     /// [a]: crate::...
     /// [b]:
-    ///
     fn handle_message(
         &mut self,
         msg: json_rpc::Message,
@@ -79,7 +78,6 @@ pub trait IsServer<'a> {
     }
 
     /// Call the right handler according with the called method
-    ///
     fn handle_request(
         &mut self,
         request: methods::Client2Server<'a>,
@@ -168,7 +166,6 @@ pub trait IsServer<'a> {
     /// This function return the first item of the result (2 tuple with name of subscibed ...)
     ///
     /// [a]: crate::methods::server_to_client::Notify
-    ///
     fn handle_subscribe(&self, request: &client_to_server::Subscribe) -> Vec<(String, String)>;
 
     /// You can authorize as many workers as you wish and at any
@@ -176,12 +173,10 @@ pub trait IsServer<'a> {
     /// just by one Stratum connection.
     ///
     /// https://bitcoin.stackexchange.com/questions/29416/how-do-pool-servers-handle-multiple-workers-sharing-one-connection-with-stratum
-    ///
     fn handle_authorize(&self, request: &client_to_server::Authorize) -> bool;
 
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
-    ///
     fn handle_submit(&self, request: &client_to_server::Submit<'a>) -> bool;
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
@@ -238,7 +233,6 @@ pub trait IsClient<'a> {
     ///
     /// [a]: crate::...
     /// [b]:
-    ///
     fn handle_message(
         &mut self,
         msg: json_rpc::Message,
@@ -286,7 +280,6 @@ pub trait IsClient<'a> {
     }
 
     /// Call the right handler according with the called method
-    ///
     fn handle_request(
         &mut self,
         request: methods::Server2Client<'a>,
@@ -329,8 +322,9 @@ pub trait IsClient<'a> {
                 self.set_status(ClientStatus::Configured);
 
                 //in sv1 the mining.configure message should be the first message to come in before
-                // the subscribe - the subscribe response is where the server hands out the extranonce
-                // so it doesnt really matter what the server sets the extranonce to in the mining.configure handler
+                // the subscribe - the subscribe response is where the server hands out the
+                // extranonce so it doesnt really matter what the server sets the
+                // extranonce to in the mining.configure handler
                 debug!("NOTICE: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
                     .subscribe(

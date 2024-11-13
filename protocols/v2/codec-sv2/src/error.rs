@@ -159,8 +159,8 @@ pub enum CError {
 
 /// Force `cbindgen` to create a header for [`CError`].
 ///
-/// It ensures that [`CError`] is included in the generated C header file. This function is not meant
-/// to be called and will panic if called. Its only purpose is to make [`CError`] visible to
+/// It ensures that [`CError`] is included in the generated C header file. This function is not
+/// meant to be called and will panic if called. Its only purpose is to make [`CError`] visible to
 /// `cbindgen`.
 #[no_mangle]
 pub extern "C" fn export_cerror() -> CError {

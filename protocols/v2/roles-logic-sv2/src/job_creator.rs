@@ -241,8 +241,8 @@ fn coinbase_tx_prefix(
     script_prefix_len: usize,
 ) -> Result<B064K<'static>, Error> {
     let encoded = coinbase.serialize();
-    // If script_prefix_len is not 0 we are not in a test environment and the coinbase will have the 0
-    // witness
+    // If script_prefix_len is not 0 we are not in a test environment and the coinbase will have the
+    // 0 witness
     let segwit_bytes = match script_prefix_len {
         0 => 0,
         _ => 2,
@@ -319,8 +319,8 @@ fn get_bip_34_bytes(new_template: &NewTemplate, tx_version: i32) -> Result<Vec<u
     }
 }
 
-/// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node
-/// It assume that NewTemplate.coinbase_tx_outputs == 0
+/// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided
+/// by the node It assume that NewTemplate.coinbase_tx_outputs == 0
 fn coinbase(
     mut bip34_bytes: Vec<u8>,
     version: i32,

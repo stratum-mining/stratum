@@ -9,8 +9,8 @@ use core::convert::TryInto;
 /// ## CoinbaseOutputDataSize (Client -> Server)
 /// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
 /// other uses, and thus the Template Provider will need to consider this additional block size
-/// when selecting transactions for inclusion in a block (to not create an invalid, oversized block).
-/// Thus, this message is used to indicate that some additional space in the block/coinbase
+/// when selecting transactions for inclusion in a block (to not create an invalid, oversized
+/// block). Thus, this message is used to indicate that some additional space in the block/coinbase
 /// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
 /// of available coinbase space).
 /// The Job Declarator MUST discover the maximum serialized size of the additional outputs which

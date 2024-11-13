@@ -569,7 +569,8 @@ impl Miner {
         let prev_hash = Hash::from_inner(prev_hash);
         let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
         let merkle_root = Hash::from_inner(merkle_root);
-        // fields need to be added as BE and the are converted to LE in the background before hashing
+        // fields need to be added as BE and the are converted to LE in the background before
+        // hashing
         let header = BlockHeader {
             version: new_job.version as i32,
             prev_blockhash: BlockHash::from_hash(prev_hash),

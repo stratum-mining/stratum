@@ -38,7 +38,8 @@ pub struct SetDownstreamTarget {
 }
 
 /// This is just a wrapper function to send a message on the Downstream task shutdown channel
-/// it does not matter what message is sent because the receiving ends should shutdown on any message
+/// it does not matter what message is sent because the receiving ends should shutdown on any
+/// message
 pub async fn kill(sender: &async_channel::Sender<bool>) {
     // safe to unwrap since the only way this can fail is if all receiving channels are dropped
     // meaning all tasks have already dropped

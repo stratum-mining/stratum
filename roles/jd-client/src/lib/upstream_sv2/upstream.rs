@@ -187,7 +187,8 @@ impl Upstream {
         Ok(Arc::new(Mutex::new(Self {
             channel_id: None,
             min_extranonce_size,
-            upstream_extranonce1_size: 16, // 16 is the default since that is the only value the pool supports currently
+            upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
+                                            * pool supports currently */
             pool_signature,
             tx_status,
             receiver,
@@ -339,8 +340,8 @@ impl Upstream {
 
                     // Since this is not communicating with an SV2 proxy, but instead a custom SV1
                     // proxy where the routing logic is handled via the `Upstream`'s communication
-                    // channels, we do not use the mining routing logic in the SV2 library and specify
-                    // no mining routing logic here
+                    // channels, we do not use the mining routing logic in the SV2 library and
+                    // specify no mining routing logic here
                     let routing_logic = MiningRoutingLogic::None;
 
                     // Gets the response message for the received SV2 Upstream role message
@@ -367,8 +368,9 @@ impl Upstream {
                         }
                         // No need to handle impossible state just panic cause are impossible and we
                         // will never panic ;-) Verified: handle_message_mining only either panics,
-                        // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
-                        // This is a transparent proxy it will only relay messages as received
+                        // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns
+                        // Err This is a transparent proxy it will only
+                        // relay messages as received
                         Ok(SendTo::None(_)) => (),
                         Ok(_) => unreachable!(),
                         Err(e) => {
@@ -554,8 +556,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// This is a transparent proxy so OpenExtendedMiningChannel is sent as it is downstream.
     /// This message is used also to create a PoolChannelFactory that mock the upstream pool.
     /// this PoolChannelFactory is used by the template provider client in order to check shares
-    /// received by downstream using the right extranonce and seeing the same hash that the downstream
-    /// saw. PoolChannelFactory coinbase pre and suf are setted by the JD client.
+    /// received by downstream using the right extranonce and seeing the same hash that the
+    /// downstream saw. PoolChannelFactory coinbase pre and suf are setted by the JD client.
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,

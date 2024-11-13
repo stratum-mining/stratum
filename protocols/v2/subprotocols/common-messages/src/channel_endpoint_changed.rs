@@ -12,7 +12,6 @@ use core::convert::TryInto;
 /// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
 /// (including version negotiation and the presence of support for a given extension) MUST be
 /// reset and version/presence negotiation must begin again.
-///
 #[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ChannelEndpointChanged {

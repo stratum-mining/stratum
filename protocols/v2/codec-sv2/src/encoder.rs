@@ -18,8 +18,8 @@
 // - When the `with_buffer_pool` feature is enabled, the internal `Buffer` type is backed by a
 //   pool-allocated buffer [`binary_sv2::BufferPool`], providing more efficient memory usage,
 //   particularly in high-throughput scenarios.
-// - If the feature is not enabled, a system memory buffer [`binary_sv2::BufferFromSystemMemory`]
-//   is used for simpler applications where memory efficiency is less critical.
+// - If the feature is not enabled, a system memory buffer [`binary_sv2::BufferFromSystemMemory`] is
+//   used for simpler applications where memory efficiency is less critical.
 
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};

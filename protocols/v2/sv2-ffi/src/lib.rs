@@ -422,7 +422,6 @@ pub extern "C" fn free_decoder(decoder: *mut DecoderWrapper) {
 }
 
 /// # Safety
-///
 #[no_mangle]
 pub unsafe extern "C" fn encode(
     message: &'static mut CSv2Message,

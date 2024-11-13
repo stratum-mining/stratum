@@ -6,7 +6,6 @@
 //! provided as a trusted 3rd party service for mining farms.
 //!
 //! Protocol flow:
-//!
 
 extern crate alloc;
 mod allocate_mining_job_token;

@@ -27,10 +27,10 @@ use chacha20poly1305::{aead::Buffer, AeadInPlace, ChaCha20Poly1305, ChaChaPoly13
 // Defines the interface for AEAD ciphers.
 //
 // The [`AeadCipher`] trait provides a standard interface for initializing AEAD ciphers, and for
-// performing encryption and decryption operations with additional Authenticated Associated Data (AAD). This trait is implemented
-// by either the [`ChaCha20Poly1305`] or [`Aes256Gcm`] specific cipher types, allowing them to be
-// used interchangeably in cryptographic protocols. It is utilized by the
-// [`crate::handshake::HandshakeOp`] trait to secure the handshake process.
+// performing encryption and decryption operations with additional Authenticated Associated Data
+// (AAD). This trait is implemented by either the [`ChaCha20Poly1305`] or [`Aes256Gcm`] specific
+// cipher types, allowing them to be used interchangeably in cryptographic protocols. It is utilized
+// by the [`crate::handshake::HandshakeOp`] trait to secure the handshake process.
 //
 // The `T: Buffer` represents the data buffer to be encrypted or decrypted. The buffer must
 // implement the [`Buffer`] trait, which provides necessary operations for in-place encryption and

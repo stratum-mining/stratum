@@ -24,7 +24,6 @@ pub fn message_from_path(path: &[String]) -> AnyMessage<'static> {
 
 /// This parses a json object that may or may not (and in this case field is None) have a value
 /// with a particular key. While parsing the file below, the mining_message filed is None
-///
 //        {
 //            "common_messages": [
 //                {
@@ -67,7 +66,6 @@ pub struct TestMessageParser<'a> {
 /// This is not the same CommonMessages as the SRI, but the fiel message is. This structure is
 /// needed because we use the id as a key to retrieve the message; this key is not part of the SRI
 /// type CommonMessage<'a>
-///
 //                      {
 //Defines an SRI messag     "message": {
 //                              "type": "SetupConnectionSuccess",

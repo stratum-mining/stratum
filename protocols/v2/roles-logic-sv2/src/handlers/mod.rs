@@ -21,7 +21,6 @@
 //!
 //! A `Result<SendTo_, Error>` is returned and it is the duty of the implementer to send the
 //! message.
-//!
 pub mod common;
 pub mod job_declaration;
 pub mod mining;
@@ -45,8 +44,9 @@ pub enum SendTo_<Message, Remote> {
     /// Is used when we need to relay the same message the we received in order to save an
     /// allocation.
     RelaySameMessageToRemote(Arc<Mutex<Remote>>),
-    /// Used by proxies when Message must be relayed downstream or upstream and we do not want to specify
-    /// specify to which particular downstream or upstream we want to relay the message.
+    /// Used by proxies when Message must be relayed downstream or upstream and we do not want to
+    /// specify specify to which particular downstream or upstream we want to relay the
+    /// message.
     ///
     /// This is used in proxies that do and Sv1 to Sv2 translation. The upstream is connected via
     /// an extended channel that means that
@@ -54,19 +54,19 @@ pub enum SendTo_<Message, Remote> {
     /// Used proxies clients and servers to directly respond to a received message.
     Respond(Message),
     Multiple(Vec<SendTo_<Message, Remote>>),
-    /// Used by proxies, clients, and servers, when Message do not have to be used in any of the above way.
-    /// If Message is still needed to be used in a non conventional way we use SendTo::None(Some(message))
-    /// If we just want to discard it we can use SendTo::None(None)
+    /// Used by proxies, clients, and servers, when Message do not have to be used in any of the
+    /// above way. If Message is still needed to be used in a non conventional way we use
+    /// SendTo::None(Some(message)) If we just want to discard it we can use SendTo::None(None)
     ///
     /// SendTo::None(Some(m)) could be used for example when we do not need to send the message,
     /// but we still need it for successive handling/transformation.
-    /// One of these cases are proxies that are connected to upstream via an extended channel (like the
-    /// Sv1 <-> Sv2 translator). This because extended channel messages are always general for all
-    /// the downstream, where standard channel message can be specific for a particular downstream.
-    /// Another case is when 2 roles are implemented in the same software, like a pool that is
-    /// both TP client and a Mining server, messages received by the TP client must be sent to the
-    /// Mining Server than transformed in Mining messages and sent to the downstream.
-    ///
+    /// One of these cases are proxies that are connected to upstream via an extended channel (like
+    /// the Sv1 <-> Sv2 translator). This because extended channel messages are always general
+    /// for all the downstream, where standard channel message can be specific for a particular
+    /// downstream. Another case is when 2 roles are implemented in the same software, like a
+    /// pool that is both TP client and a Mining server, messages received by the TP client
+    /// must be sent to the Mining Server than transformed in Mining messages and sent to the
+    /// downstream.
     None(Option<Message>),
 }
 

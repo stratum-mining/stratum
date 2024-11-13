@@ -59,16 +59,16 @@ pub struct Mutex<T: ?Sized>(Mutex_<T>);
 
 impl<T> Mutex<T> {
     /// `safe_lock` takes a closure that takes a mutable reference to the inner value, and returns a
-    /// result that either contains the return value of the closure, or a `PoisonError` that contains a
-    /// `MutexGuard` to the inner value. This is used to ensure no async executions while locked. To prevent
-    /// `PoisonLock` errors, unwraps should never be used within the closure. Always return the result and
-    /// handle outside of the safe lock.
+    /// result that either contains the return value of the closure, or a `PoisonError` that
+    /// contains a `MutexGuard` to the inner value. This is used to ensure no async executions
+    /// while locked. To prevent `PoisonLock` errors, unwraps should never be used within the
+    /// closure. Always return the result and handle outside of the safe lock.
     ///
     /// Arguments:
     ///
-    /// * `thunk`: A closure that takes a mutable reference to the value inside the Mutex and returns a
+    /// * `thunk`: A closure that takes a mutable reference to the value inside the Mutex and
+    ///   returns a
     /// value of type Ret.
-    ///
     pub fn safe_lock<F, Ret>(&self, thunk: F) -> Result<Ret, PoisonError<MutexGuard<'_, T>>>
     where
         F: FnOnce(&mut T) -> Ret,

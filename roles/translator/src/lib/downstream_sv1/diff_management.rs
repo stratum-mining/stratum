@@ -9,8 +9,8 @@ use stratum_common::bitcoin::util::uint::Uint256;
 
 impl Downstream {
     /// initializes the timestamp and resets the number of submits for a connection.
-    /// Should only be called once for the lifetime of a connection since `try_update_difficulty_settings()`
-    /// also does this during this update
+    /// Should only be called once for the lifetime of a connection since
+    /// `try_update_difficulty_settings()` also does this during this update
     pub async fn init_difficulty_management(
         self_: Arc<Mutex<Self>>,
         init_target: &[u8],
@@ -50,7 +50,8 @@ impl Downstream {
         Ok(())
     }
 
-    /// Called before a miner disconnects so we can remove the miner's hashrate from the aggregated channel hashrate
+    /// Called before a miner disconnects so we can remove the miner's hashrate from the aggregated
+    /// channel hashrate
     #[allow(clippy::result_large_err)]
     pub fn remove_miner_hashrate_from_channel(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         self_
@@ -70,8 +71,8 @@ impl Downstream {
         Ok(())
     }
 
-    /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
-    /// difficulty to the miner
+    /// if enough shares have been submitted according to the config, this function updates the
+    /// difficulty for the connection and sends the new difficulty to the miner
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
@@ -192,9 +193,13 @@ impl Downstream {
         }
     }
 
-    /// This function updates the miner hashrate and resets difficulty management params. To calculate hashrate it calculates the realized shares per minute from the number of shares submitted
-    /// and the delta time since last update. It then uses the realized shares per minute and the target those shares where mined on to calculate an estimated hashrate during that period with the
-    /// function [`roles_logic_sv2::utils::hash_rate_from_target`]. Lastly, it adjusts the `channel_nominal_hashrate` according to the change in estimated miner hashrate
+    /// This function updates the miner hashrate and resets difficulty management params. To
+    /// calculate hashrate it calculates the realized shares per minute from the number of shares
+    /// submitted and the delta time since last update. It then uses the realized shares per
+    /// minute and the target those shares where mined on to calculate an estimated hashrate during
+    /// that period with the function [`roles_logic_sv2::utils::hash_rate_from_target`]. Lastly,
+    /// it adjusts the `channel_nominal_hashrate` according to the change in estimated miner
+    /// hashrate
     #[allow(clippy::result_large_err)]
     pub fn update_miner_hashrate(
         self_: Arc<Mutex<Self>>,
@@ -343,8 +348,8 @@ mod test {
         }
 
         let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-        // This is the error margin for a confidence of 99.99...% given the expect number of shares per
-        // minute TODO the review the math under it
+        // This is the error margin for a confidence of 99.99...% given the expect number of shares
+        // per minute TODO the review the math under it
         let error_margin = get_error(expected_shares_per_minute);
         let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
         assert!(

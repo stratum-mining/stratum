@@ -216,8 +216,8 @@ impl Arbitrary for NewTemplate<'static> {
             coinbase_tx_input_sequence: u32::arbitrary(g),
             coinbase_tx_value_remaining: u64::arbitrary(g),
             // the belows should be used when node provided outputs are enabled
-            //coinbase_tx_outputs_count: coinbase_tx_outputs.len().checked_div(36).unwrap_or(0) as u32,
-            //coinbase_tx_outputs,
+            //coinbase_tx_outputs_count: coinbase_tx_outputs.len().checked_div(36).unwrap_or(0) as
+            // u32, coinbase_tx_outputs,
             coinbase_tx_outputs_count: 0,
             coinbase_tx_outputs: Vec::new().try_into().unwrap(),
             coinbase_tx_locktime: u32::arbitrary(g),

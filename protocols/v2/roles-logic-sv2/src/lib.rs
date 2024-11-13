@@ -1,9 +1,11 @@
 //! Provides all relevant types, traits and functions to implement a valid SV2 role.
 //!
-//! - For channel and job management, see [`channel_logic`], which utilizes [`job_creator`] and [`job_dispatcher`]
+//! - For channel and job management, see [`channel_logic`], which utilizes [`job_creator`] and
+//!   [`job_dispatcher`]
 //! - For message handling, the traits in [`handlers`] should be implemented
 //! - For basic traits every implementation should use, see [`common_properties`]
-//! - Routers in [`routing_logic`] are used by the traits in `handlers` to decide which downstream/upstream to relay/send by using [`selectors`]
+//! - Routers in [`routing_logic`] are used by the traits in `handlers` to decide which
+//!   downstream/upstream to relay/send by using [`selectors`]
 //! - For serializing/deserializing messages, see [`parsers`]
 //! - see [`utils`] for helpers such as safe locking, target and merkle root calculations
 //!

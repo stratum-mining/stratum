@@ -22,7 +22,6 @@ use quickcheck_macros;
 ///
 /// The result from an authorize request is usually true (successful), or false.
 /// The password may be omitted if the server does not require passwords.
-///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Authorize {
     pub id: u64,
@@ -125,7 +124,8 @@ pub struct Submit<'a> {
     pub version_bits: Option<HexU32Be>,
     pub id: u64,
 }
-//"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"], "id": 2196, "method": "mining.submit"}"
+//"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"],
+//"{"params": "id": 2196, "method": "mining.submit"}"
 
 impl<'a> Submit<'a> {
     pub fn respond(self, is_ok: bool) -> Response {
@@ -265,8 +265,6 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 /// (allowing a resumed connection) even if the subscription id is changed!
 ///
 /// [a]: crate::methods::server_to_client::Notify
-///
-///
 #[derive(Debug, Clone)]
 pub struct Subscribe<'a> {
     pub id: u64,

@@ -7,7 +7,8 @@ use binary_sv2::{Deserialize, Seq064K, Serialize, ShortTxId, Str0255, B0255, B06
 use core::convert::TryInto;
 
 /// ## DeclareMiningJob (Client -> Server)
-/// A request sent by the Job Declarator that proposes a selected set of transactions to the upstream (pool) node.
+/// A request sent by the Job Declarator that proposes a selected set of transactions to the
+/// upstream (pool) node.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct DeclareMiningJob<'decoder> {

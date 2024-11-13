@@ -118,8 +118,8 @@ impl From<super::ChannelKind> for ChannelKind {
 
 /// 1 to 1 connection with a pool
 /// Can be either a mining pool or another proxy
-/// 1 to 1 connection with an upstream node that implement the mining (sub)protocol can be either a a pool or an
-/// upstream proxy.
+/// 1 to 1 connection with an upstream node that implement the mining (sub)protocol can be either a
+/// a pool or an upstream proxy.
 #[derive(Debug, Clone)]
 struct UpstreamMiningConnection {
     receiver: Receiver<EitherFrame>,
@@ -180,10 +180,10 @@ pub struct UpstreamMiningNode {
     #[allow(dead_code)]
     tx_outs: HashMap<Vec<u8>, Vec<TxOut>>,
     // When a future job is received from an extended channel this is transformed to severla std
-    // job for HOM downstream. If the job is future we need to keep track of the original job id and
-    // the new job ids used for the std job and also which downstream received which id. When a set
-    // new prev hash is received if it refer one of these ids we use this map and build the right
-    // set new pre hash for each downstream. TODO who is clearing the map?
+    // job for HOM downstream. If the job is future we need to keep track of the original job id
+    // and the new job ids used for the std job and also which downstream received which id.
+    // When a set new prev hash is received if it refer one of these ids we use this map and
+    // build the right set new pre hash for each downstream. TODO who is clearing the map?
     #[allow(clippy::type_complexity)]
     job_up_to_down_ids:
         HashMap<u32, Vec<(Arc<Mutex<DownstreamMiningNode>>, u32)>, BuildNoHashHasher<u32>>,
@@ -824,8 +824,9 @@ impl UpstreamMiningNode {
                             Ok(message)
                         }
                         Share::Standard(_) => {
-                            // on_submit_shares_standard call check_target that in the case of a Proxy
-                            // and a share that is below the bitcoin target if the share is a standard
+                            // on_submit_shares_standard call check_target that in the case of a
+                            // Proxy and a share that is below the
+                            // bitcoin target if the share is a standard
                             // share call share.into_extended making this branch unreachable.
                             unreachable!()
                         }
@@ -861,13 +862,13 @@ impl UpstreamMiningNode {
     // pub async fn next_faster(&mut self, mut incoming: StdFrame) {
     //     let message_type = incoming.get_header().unwrap().msg_type();
 
-    //     // When a channel is opened we need to setup the channel id in order to relay next messages
-    //     // to the right Downstream
+    //     // When a channel is opened we need to setup the channel id in order to relay next
+    // messages     // to the right Downstream
     //     if todo!() { // check if message_type is channel related
 
-    //         // When a mining message is received (that is not a channel related message) always relay it downstream
-    //     } else if todo!()  { // check if message_type is is a mining message
-    //         // everything here can be just relayed downstream
+    //         // When a mining message is received (that is not a channel related message) always
+    // relay it downstream     } else if todo!()  { // check if message_type is is a mining
+    // message         // everything here can be just relayed downstream
 
     //         // Other sub(protocol) messages
     //     } else {
@@ -916,9 +917,10 @@ impl
                         .unwrap();
                     Ok(SendTo::Multiple(res))
                 } else {
-                    // Here we want to support only the case where downstream is non HOM and want to open
-                    // extended channels with the proxy. Dowstream non HOM that try to open standard
-                    // channel (grouped in groups) do not make much sense so for now is not supported
+                    // Here we want to support only the case where downstream is non HOM and want to
+                    // open extended channels with the proxy. Dowstream non HOM
+                    // that try to open standard channel (grouped in groups) do
+                    // not make much sense so for now is not supported
                     panic!()
                 }
             }

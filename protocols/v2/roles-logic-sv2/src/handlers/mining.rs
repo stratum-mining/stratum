@@ -43,7 +43,8 @@ pub trait ParseDownstreamMiningMessages<
 {
     fn get_channel_type(&self) -> SupportedChannelTypes;
 
-    /// Used to parse and route SV2 mining messages from the downstream based on `message_type` and `payload`
+    /// Used to parse and route SV2 mining messages from the downstream based on `message_type` and
+    /// `payload`
     fn handle_message_mining(
         self_mutex: Arc<Mutex<Self>>,
         message_type: u8,
@@ -313,10 +314,10 @@ pub trait ParseUpstreamMiningMessages<
         None
     }
 
-    /// Used to parse and route SV2 mining messages from the upstream based on `message_type` and `payload`
-    /// The implementor of DownstreamMining needs to pass a RequestIdMapper if needing to change the req id.
-    /// Proxies likely would want to update a downstream req id to a new one as req id must be
-    /// connection-wide unique
+    /// Used to parse and route SV2 mining messages from the upstream based on `message_type` and
+    /// `payload` The implementor of DownstreamMining needs to pass a RequestIdMapper if needing
+    /// to change the req id. Proxies likely would want to update a downstream req id to a new
+    /// one as req id must be connection-wide unique
     fn handle_message_mining(
         self_mutex: Arc<Mutex<Self>>,
         message_type: u8,

@@ -13,7 +13,6 @@ use core::convert::TryInto;
 /// The downstream node has a custom job negotiated by a trusted external Job Declarator. The
 /// mining_job_token provides the information for the pool to authorize the custom job that has
 /// been or will be negotiated between the Job Declarator and Pool.
-///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetCustomMiningJob<'decoder> {
     /// Extended channel identifier.
@@ -62,7 +61,6 @@ pub struct SetCustomMiningJob<'decoder> {
 ///
 /// Response from the server when it accepts the custom mining job. Client can start to mine on
 /// the job immediately (by using the job_id provided within this response).
-///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetCustomMiningJobSuccess {
     /// Extended channel identifier.
@@ -79,8 +77,8 @@ pub struct SetCustomMiningJobSuccess {
 /// Possible errors:
 /// * ‘invalid-channel-id’
 /// * ‘invalid-mining-job-token’
-/// * ‘invalid-job-param-value-{}’ - {} is replaced by a particular field name from SetCustomMiningJob message
-///
+/// * ‘invalid-job-param-value-{}’ - {} is replaced by a particular field name from
+///   SetCustomMiningJob message
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetCustomMiningJobError<'decoder> {
     /// Extended channel identifier.

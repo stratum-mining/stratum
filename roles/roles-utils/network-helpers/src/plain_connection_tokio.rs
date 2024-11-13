@@ -19,8 +19,8 @@ impl PlainConnection {
     ///
     /// # Arguments
     ///
-    /// * `strict` - true - will disconnect a connection that sends a message that can't be translated, false - will ignore messages that can't be translated
-    ///
+    /// * `strict` - true - will disconnect a connection that sends a message that can't be
+    ///   translated, false - will ignore messages that can't be translated
     #[allow(clippy::new_ret_no_self)]
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
@@ -58,7 +58,8 @@ impl PlainConnection {
                                 }
                             }
                             Err(MissingBytes(size)) => {
-                                // Only disconnect if we get noise handshake message - this shouldn't
+                                // Only disconnect if we get noise handshake message - this
+                                // shouldn't
                                 // happen in plain_connection
                                 if size == NOISE_HANDSHAKE_SIZE_HINT {
                                     error!("Got noise message on unencrypted connection - disconnecting");

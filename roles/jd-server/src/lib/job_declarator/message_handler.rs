@@ -160,7 +160,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         match declared_mining_job {
             Some(declared_job) => {
                 let id = declared_job.request_id;
-                // check request_id in order to ignore old ProvideMissingTransactionsSuccess (see issue #860)
+                // check request_id in order to ignore old ProvideMissingTransactionsSuccess (see
+                // issue #860)
                 if id == message.request_id {
                     for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
                         let mut cursor = Cursor::new(tx);

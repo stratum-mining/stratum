@@ -105,7 +105,8 @@ impl Connection {
                             e, &address
                         );
 
-                        //kill thread without a panic - don't need to panic everytime a client disconnects
+                        //kill thread without a panic - don't need to panic everytime a client
+                        // disconnects
                         sender_incoming.close();
                         task::yield_now().await;
                         break;

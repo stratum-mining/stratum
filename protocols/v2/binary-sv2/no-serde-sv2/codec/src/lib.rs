@@ -276,7 +276,9 @@ impl From<&[u8]> for CVec {
         let mut buffer: Vec<u8> = vec![0; v.len()];
         buffer.copy_from_slice(v);
 
-        // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+        // Get the length, first, then the pointer (doing it the other way around **currently**
+        // doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of
+        // the std lib)
         let len = buffer.len();
         let ptr = buffer.as_mut_ptr();
         std::mem::forget(buffer);
@@ -292,7 +294,6 @@ impl From<&[u8]> for CVec {
 /// Given a C allocated buffer return a rust allocated CVec
 ///
 /// # Safety
-///
 #[no_mangle]
 pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
     let input = std::slice::from_raw_parts(data, len);
@@ -300,7 +301,8 @@ pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
     let mut buffer: Vec<u8> = vec![0; len];
     buffer.copy_from_slice(input);
 
-    // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+    // Get the length, first, then the pointer (doing it the other way around **currently** doesn't
+    // cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
     let len = buffer.len();
     let ptr = buffer.as_mut_ptr();
     std::mem::forget(buffer);
@@ -352,7 +354,9 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
                 // cause the owner of the data is going to be dropped by rust
                 let mut inner: Vec<u8> = inner.into();
 
-                // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+                // Get the length, first, then the pointer (doing it the other way around
+                // **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at
+                // least) guarantees of the std lib)
                 let len = inner.len();
                 let cap = inner.capacity();
                 let ptr = inner.as_mut_ptr();
@@ -361,7 +365,9 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
                 (ptr, len, cap)
             }
             datatypes::Inner::Owned(mut inner) => {
-                // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+                // Get the length, first, then the pointer (doing it the other way around
+                // **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at
+                // least) guarantees of the std lib)
                 let len = inner.len();
                 let cap = inner.capacity();
                 let ptr = inner.as_mut_ptr();
@@ -379,12 +385,12 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
 }
 
 /// # Safety
-///
 #[no_mangle]
 pub unsafe extern "C" fn init_cvec2() -> CVec2 {
     let mut buffer = Vec::<CVec>::new();
 
-    // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+    // Get the length, first, then the pointer (doing it the other way around **currently** doesn't
+    // cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
     let len = buffer.len();
     let ptr = buffer.as_mut_ptr();
     std::mem::forget(buffer);
@@ -399,7 +405,6 @@ pub unsafe extern "C" fn init_cvec2() -> CVec2 {
 /// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
 /// as this can lead to double free errors when the message is dropped.
 /// # Safety
-///
 #[no_mangle]
 pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
     let mut buffer: Vec<CVec> = Vec::from_raw_parts(cvec2.data, cvec2.len, cvec2.capacity);
@@ -417,7 +422,9 @@ pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
 impl<'a, T: Into<CVec>> From<Seq0255<'a, T>> for CVec2 {
     fn from(v: Seq0255<'a, T>) -> Self {
         let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
-        // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+        // Get the length, first, then the pointer (doing it the other way around **currently**
+        // doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of
+        // the std lib)
         let len = v.len();
         let capacity = v.capacity();
         let data = v.as_mut_ptr();
@@ -432,7 +439,9 @@ impl<'a, T: Into<CVec>> From<Seq0255<'a, T>> for CVec2 {
 impl<'a, T: Into<CVec>> From<Seq064K<'a, T>> for CVec2 {
     fn from(v: Seq064K<'a, T>) -> Self {
         let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
-        // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+        // Get the length, first, then the pointer (doing it the other way around **currently**
+        // doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of
+        // the std lib)
         let len = v.len();
         let capacity = v.capacity();
         let data = v.as_mut_ptr();

@@ -834,7 +834,8 @@ impl Executor {
         for child in self.process {
             if let Some(mut child) = child {
                 while child.id().is_some() {
-                    // Sends kill signal and waits 1 second before checking to ensure child was killed
+                    // Sends kill signal and waits 1 second before checking to ensure child was
+                    // killed
                     child.kill().await.expect("Failed to kill child process");
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
