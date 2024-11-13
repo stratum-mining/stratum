@@ -88,7 +88,6 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 /// commit a job with upstream we require a new one. Having always a token when needed means that
 /// whenever we want to commit a mining job we can do that without waiting for upstream to provide
 /// a new token.
-///
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();

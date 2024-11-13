@@ -8,8 +8,10 @@ use core::convert::TryInto;
 
 /// # NewMiningJob (Server -> Client)
 ///
-/// The server provides an updated mining job to the client through a standard channel. This MUST be the first message after the channel has been successfully opened. This first message will have min_ntime unset (future job).
-/// If the `min_ntime` field is set, the client MUST start to mine on the new job immediately after receiving this message, and use the value for the initial nTime.
+/// The server provides an updated mining job to the client through a standard channel. This MUST be
+/// the first message after the channel has been successfully opened. This first message will have
+/// min_ntime unset (future job). If the `min_ntime` field is set, the client MUST start to mine on
+/// the new job immediately after receiving this message, and use the value for the initial nTime.
 
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -23,7 +25,8 @@ pub struct NewMiningJob<'decoder> {
     /// this is a future job to be activated once a SetNewPrevHash message is received with a
     /// matching job_id. This SetNewPrevHash message provides the new prev_hash and min_ntime.
     /// If the min_ntime value is set, this mining job is active and miner must start mining on it
-    /// immediately. In this case, the new mining job uses the prev_hash from the last received SetNewPrevHash message.
+    /// immediately. In this case, the new mining job uses the prev_hash from the last received
+    /// SetNewPrevHash message.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Valid version field that reflects the current network consensus. The
@@ -52,19 +55,18 @@ impl<'d> NewMiningJob<'d> {
 ///
 /// (Extended and group channels only)
 /// For an *extended channel*: The whole search space of the job is owned by the specified
-/// channel. If the future_job field is set to *False,* the client MUST start to mine on the new job as
-/// soon as possible after receiving this message.
+/// channel. If the future_job field is set to *False,* the client MUST start to mine on the new job
+/// as soon as possible after receiving this message.
 /// For a *group channel*: This is a broadcast variant of NewMiningJob message with the
 /// merkle_root field replaced by merkle_path and coinbase TX prefix and suffix, for further traffic
 /// optimization. The Merkle root is then defined deterministically for each channel by the
 /// common merkle_path and unique extranonce_prefix serialized into the coinbase. The full
-/// coinbase is then constructed as follows: *coinbase_tx_prefix* + *extranonce_prefix* + *coinbase_tx_suffix*.
-/// The proxy MAY transform this multicast variant for downstream standard channels into
-/// NewMiningJob messages by computing the derived Merkle root for them. A proxy MUST
+/// coinbase is then constructed as follows: *coinbase_tx_prefix* + *extranonce_prefix* +
+/// *coinbase_tx_suffix*. The proxy MAY transform this multicast variant for downstream standard
+/// channels into NewMiningJob messages by computing the derived Merkle root for them. A proxy MUST
 /// translate the message for all downstream channels belonging to the group which don’t signal
 /// that they accept extended mining jobs in the SetupConnection message (intended and
 /// expected behaviour for end mining devices).
-///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewExtendedMiningJob<'decoder> {
     /// For a group channel, the message is broadcasted to all standard
@@ -77,7 +79,8 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// this is a future job to be activated once a SetNewPrevHash message is received with a
     /// matching job_id. This SetNewPrevHash message provides the new prev_hash and min_ntime.
     /// If the min_ntime value is set, this mining job is active and miner must start mining on it
-    /// immediately. In this case, the new mining job uses the prev_hash from the last received SetNewPrevHash message.
+    /// immediately. In this case, the new mining job uses the prev_hash from the last received
+    /// SetNewPrevHash message.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Valid version field that reflects the current network consensus.

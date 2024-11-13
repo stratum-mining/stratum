@@ -5,7 +5,6 @@
 //!
 //! [Sv2]: https://docs.google.com/document/d/1FadCWj-57dvhxsnFM_7X806qyvhR0u3i85607bGHxvg/edit
 //! [tutorial]: https://serde.rs/data-format.html
-//!
 use crate::error::{Error, Result};
 use alloc::vec::Vec;
 use buffer_sv2::Write;

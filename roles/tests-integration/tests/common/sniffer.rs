@@ -37,10 +37,10 @@ enum SnifferError {
 /// The downstream (or client) role connects to the [`Sniffer`] `listening_address` and the
 /// [`Sniffer`] connects to the `upstream` server. This way, the Sniffer can intercept messages sent
 /// between the downstream and upstream roles. The downstream will send its messages to the
-/// [`Sniffer`] which will save those in the `messages_from_downstream` aggregator and forward them to
-/// the upstream role. When a response is received it is saved in `messages_from_upstream` and
-/// forwarded to the downstream role. Both `messages_from_downstream` and `messages_from_upstream` can be
-/// accessed as FIFO queues.
+/// [`Sniffer`] which will save those in the `messages_from_downstream` aggregator and forward them
+/// to the upstream role. When a response is received it is saved in `messages_from_upstream` and
+/// forwarded to the downstream role. Both `messages_from_downstream` and `messages_from_upstream`
+/// can be accessed as FIFO queues.
 ///
 /// It is useful for testing purposes, as it allows to assert that the roles have sent specific
 /// messages in a specific order and to inspect the messages details.
@@ -314,7 +314,8 @@ impl Sniffer {
 // This macro can be called in two ways:
 // 1. If you want to assert the message without any of its properties, you can invoke the macro
 //   with the message group, the nested message group, the message, and the expected message:
-//   `assert_message!(TemplateDistribution, TemplateDistribution, $msg, $expected_message_variant);`.
+//   `assert_message!(TemplateDistribution, TemplateDistribution, $msg,
+// $expected_message_variant);`.
 //
 // 2. If you want to assert the message with its properties, you can invoke the macro with the
 //  message group, the nested message group, the message, the expected message, and the expected

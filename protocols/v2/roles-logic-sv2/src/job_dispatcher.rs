@@ -1,7 +1,7 @@
 //! The Job Dispatcher contains relevant logic to maintain group channels in proxy roles such as:
 //! - converting extended jobs to standard jobs
-//! - handling updates to jobs when new templates and prev hashes arrive,
-//!     as well as cleaning up old jobs
+//! - handling updates to jobs when new templates and prev hashes arrive, as well as cleaning up old
+//!   jobs
 //! - determining if submitted shares correlate to valid jobs
 
 use crate::{
@@ -139,8 +139,8 @@ impl GroupChannelJobDispatcher {
     /// When a downstream opens a connection with a proxy, the proxy uses this function to create a
     /// new mining job from the last valid new extended mining job.
     ///
-    /// When a proxy receives a new extended mining job from upstream it uses this function to create
-    /// the corresponding new mining job for each connected downstream.
+    /// When a proxy receives a new extended mining job from upstream it uses this function to
+    /// create the corresponding new mining job for each connected downstream.
     #[allow(clippy::option_map_unit_fn)]
     pub fn on_new_extended_mining_job(
         &mut self,
@@ -218,8 +218,8 @@ impl GroupChannelJobDispatcher {
         }
     }
 
-    /// takes shares submitted by a group channel miner and determines if the shares correspond to a valid
-    /// job.
+    /// takes shares submitted by a group channel miner and determines if the shares correspond to a
+    /// valid job.
     pub fn on_submit_shares(&self, shares: SubmitSharesStandard) -> SendSharesResponse {
         let id = shares.job_id;
         if let Some(job) = self.jobs.get(&id) {

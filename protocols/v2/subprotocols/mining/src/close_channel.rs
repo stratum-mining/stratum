@@ -17,7 +17,6 @@ use core::convert::TryInto;
 /// receives CloseChannel or connection closure from a downstream connection. In general, proxy
 /// servers MUST keep the upstream node notified about the real state of the downstream
 /// channels.
-///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CloseChannel<'decoder> {
     /// Channel identification.

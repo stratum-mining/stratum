@@ -229,11 +229,10 @@ impl JobDeclaratorDownstream {
                         //    of declared job with the full transaction (with send_tx_to_mempool
                         //    method(), that eventually will ask the transactions to a bitcoin node
                         //    via RPC)
-                        // 2. there are some unknown txids. Just before sending PMT, the JDS
-                        //    mempool is triggered to fill the known txids with the full
-                        //    transactions. When a PMTS arrives, just before sending a DMJS, the
-                        //    unknown full transactions provided by the downstream are added to the
-                        //    JDS mempool
+                        // 2. there are some unknown txids. Just before sending PMT, the JDS mempool
+                        //    is triggered to fill the known txids with the full transactions. When
+                        //    a PMTS arrives, just before sending a DMJS, the unknown full
+                        //    transactions provided by the downstream are added to the JDS mempool
                         match next_message_to_send {
                             Ok(SendTo::Respond(m)) => {
                                 match m {
@@ -494,15 +493,18 @@ impl JobDeclarator {
 
                                 sender.send(sv2_frame.into()).await.unwrap();
 
-                                let jddownstream =
-                                    Arc::new(Mutex::new(JobDeclaratorDownstream::new(
-                                        (setup_connection.flags & 1u32) != 0u32, // this takes a bool instead of u32
+                                let jddownstream = Arc::new(Mutex::new(
+                                    JobDeclaratorDownstream::new(
+                                        (setup_connection.flags & 1u32) != 0u32, /* this takes a
+                                                                                  * bool instead
+                                                                                  * of u32 */
                                         receiver.clone(),
                                         sender.clone(),
                                         &config,
                                         mempool.clone(),
-                                        sender_add_txs_to_mempool.clone(), // each downstream has its own sender (multi producer single consumer)
-                                    )));
+                                        sender_add_txs_to_mempool.clone(), /* each downstream has its own sender (multi producer single consumer) */
+                                    ),
+                                ));
 
                                 JobDeclaratorDownstream::start(
                                     jddownstream,

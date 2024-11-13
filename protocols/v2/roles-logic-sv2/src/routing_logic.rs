@@ -1,4 +1,5 @@
-//! The routing logic code is used by the handler to determine where a message should be relayed or responded to
+//! The routing logic code is used by the handler to determine where a message should be relayed or
+//! responded to
 //!
 //! TODO It seems like a good idea to hide all the traits to the user and export marker traits
 //! check if possible
@@ -8,17 +9,16 @@
 //! - MiningRouter -> implemented by routers used by the mining (sub)protocol
 //!
 //! - CommonRoutingLogic -> enum that define the enum the various routing logic for the common
-//!     (sub)protocol (eg Proxy None ...).
+//!   (sub)protocol (eg Proxy None ...).
 //!
 //! - MiningProxyRoutingLogic -> enum that define the enum the various routing logic for the common
-//!     (sub)protocol (eg Proxy None ...).
+//!   (sub)protocol (eg Proxy None ...).
 //!
-//! - NoRouting -> implement both CommonRouter and MiningRouter used when the routing logic needed is
-//!     only None
+//! - NoRouting -> implement both CommonRouter and MiningRouter used when the routing logic needed
+//!   is only None
 //!
 //! - MiningProxyRoutingLogic -> routing logic valid for a standard Sv2 mining proxy it is both a
-//!     CommonRouter and a MiningRouter
-//!
+//!   CommonRouter and a MiningRouter
 use crate::{
     common_properties::{CommonDownstreamData, IsMiningDownstream, IsMiningUpstream, PairSettings},
     selectors::{
@@ -70,8 +70,9 @@ pub trait MiningRouter<
 }
 
 /// NoRouting Router used when `RoutingLogic::None` and `MiningRoutingLogic::None` are needed.
-/// It implements both `CommonRouter` and `MiningRouter`, and panics if used as an actual router. The
-/// only purpose of `NoRouting` is a marker trait for when `RoutingLogic::None` and `MiningRoutingLogic::None`
+/// It implements both `CommonRouter` and `MiningRouter`, and panics if used as an actual router.
+/// The only purpose of `NoRouting` is a marker trait for when `RoutingLogic::None` and
+/// `MiningRoutingLogic::None`
 #[derive(Debug)]
 pub struct NoRouting();
 
@@ -338,9 +339,9 @@ impl<
         select_upstream(ups)
     }
 
-    /// On setup connection the proxy finds all the upstreams that support the downstream connection,
-    /// creates a downstream message parser that points to all the possible upstreams, and then responds
-    /// with suppported flags.
+    /// On setup connection the proxy finds all the upstreams that support the downstream
+    /// connection, creates a downstream message parser that points to all the possible
+    /// upstreams, and then responds with suppported flags.
     ///
     /// The upstream with min total_hash_rate is selected (TODO a method to let the caller which
     /// upstream select from the possible ones should be added
@@ -374,8 +375,8 @@ impl<
 
     /// On open standard channel request:
     /// 1. an upstream must be selected between the possible upstreams for this downstream. If the
-    ///    downstream* is header only, just one upstream will be there, so the choice is easy, if not
-    ///    (TODO on_open_standard_channel_request_no_standard_job must be used)
+    ///    downstream* is header only, just one upstream will be there, so the choice is easy, if
+    ///    not (TODO on_open_standard_channel_request_no_standard_job must be used)
     /// 2. request_id from downstream is updated to a connection-wide unique request-id for
     ///    upstreams
     ///
@@ -420,8 +421,8 @@ impl<
 }
 
 //pub type NoRoutingLogic<Down, Up> = RoutingLogic<Down, Up, NullDownstreamMiningSelector>;
-//impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D> NoRoutingLogic<Down, Up> {
-//    pub fn new() -> Self
+//impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D>
+// NoRoutingLogic<Down, Up> {    pub fn new() -> Self
 //    where
 //        Self: D,
 //    {
@@ -429,8 +430,8 @@ impl<
 //    }
 //}
 //
-//impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D> Default
-//    for NoRoutingLogic<Down, Up>
+//impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D>
+// Default    for NoRoutingLogic<Down, Up>
 //{
 //    fn default() -> Self {
 //        Self::new()

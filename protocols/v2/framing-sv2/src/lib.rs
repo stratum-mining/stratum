@@ -1,5 +1,6 @@
 //! The SV2 protocol is binary, with fixed message framing.
-//! Each message begins with the extension type, message type, and message length (six bytes in total), followed by a variable length message.
+//! Each message begins with the extension type, message type, and message length (six bytes in
+//! total), followed by a variable length message.
 //!
 //! This crate provides primitives for framing of SV2 binary messages.
 //!
@@ -14,10 +15,13 @@
 //!
 //! # Features
 //! This crate can be built with the following features:
-//! - `with_serde`: builds `binary_sv2` and `buffer_sv2` crates with `serde`-based encoding and decoding.
-//! - `with_buffer_pool`: uses `buffer_sv2` to provide a more efficient allocation method for `non_std` environments. Please refer to `buffer_sv2` crate docs for more context.
+//! - `with_serde`: builds `binary_sv2` and `buffer_sv2` crates with `serde`-based encoding and
+//!   decoding.
+//! - `with_buffer_pool`: uses `buffer_sv2` to provide a more efficient allocation method for
+//!   `non_std` environments. Please refer to `buffer_sv2` crate docs for more context.
 //!
-//! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any other kind of usage. It will likely be fully deprecated in the future.
+//! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any
+//! other kind of usage. It will likely be fully deprecated in the future.
 
 #![cfg_attr(feature = "no_std", no_std)]
 extern crate alloc;

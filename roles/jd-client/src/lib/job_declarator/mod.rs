@@ -395,7 +395,8 @@ impl JobDeclarator {
                     .safe_lock(|s| {
                         if s.set_new_prev_hash_counter > 1
                             && s.last_set_new_prev_hash != Some(set_new_prev_hash.clone())
-                        //it means that a new prev_hash is arrived while the previous hasn't exited the loop yet
+                        //it means that a new prev_hash is arrived while the previous hasn't exited
+                        // the loop yet
                         {
                             s.set_new_prev_hash_counter -= 1;
                             Some(None)

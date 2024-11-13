@@ -748,8 +748,8 @@ mod test {
     //            "./test/config/pool-config-sri-tp.toml",
     //        ],
     //        ExternalCommandConditions::new_with_timer_secs(60)
-    //            .continue_if_std_out_have("Listening for encrypted connection on: 127.0.0.1:34254"),
-    //    )
+    //            .continue_if_std_out_have("Listening for encrypted connection on:
+    // 127.0.0.1:34254"),    )
     //    .await;
 
     //    let setup_connection = CommonMessages::SetupConnection(SetupConnection {
@@ -776,13 +776,13 @@ mod test {
     //    let frame = EitherFrame::Sv2(frame);
 
     //    let pool_address = SocketAddr::new("127.0.0.1".parse().unwrap(), 34254);
-    //    let pub_key: EncodedEd25519PublicKey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-    //        .to_string()
+    //    let pub_key: EncodedEd25519PublicKey =
+    // "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"        .to_string()
     //        .try_into()
     //        .unwrap();
     //    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    //    let (recv_from_pool, send_to_pool) = setup_as_downstream(pool_address, Some(pub_key)).await;
-    //    send_to_pool.send(frame.try_into().unwrap()).await.unwrap();
+    //    let (recv_from_pool, send_to_pool) = setup_as_downstream(pool_address,
+    // Some(pub_key)).await;    send_to_pool.send(frame.try_into().unwrap()).await.unwrap();
     //    match recv_from_pool.recv().await.unwrap() {
     //        EitherFrame::Sv2(a) => {
     //            assert!(true)

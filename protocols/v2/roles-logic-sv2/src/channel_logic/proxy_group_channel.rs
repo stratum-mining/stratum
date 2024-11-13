@@ -35,13 +35,15 @@ impl GroupChannels {
             None => unreachable!(),
         }
     }
-    /// Called when a new prev hash arrives. We loop through all group channels to update state within each group
+    /// Called when a new prev hash arrives. We loop through all group channels to update state
+    /// within each group
     pub fn update_new_prev_hash(&mut self, m: &SetNewPrevHash) {
         for group in self.channels.values_mut() {
             group.update_new_prev_hash(m);
         }
     }
-    /// Called when a new extended job arrives. We loop through all group channels to update state within group
+    /// Called when a new extended job arrives. We loop through all group channels to update state
+    /// within group
     pub fn on_new_extended_mining_job(&mut self, m: &NewExtendedMiningJob) {
         for group in &mut self.channels.values_mut() {
             let cloned = NewExtendedMiningJob {
@@ -93,7 +95,8 @@ impl GroupChannel {
         }
     }
     /// Called when a channel is successfully opened for header only mining on standard channels.
-    /// Here we store the new channel, and update state for jobs and return relevant SV2 messages (NewMiningJob and SNPH)
+    /// Here we store the new channel, and update state for jobs and return relevant SV2 messages
+    /// (NewMiningJob and SNPH)
     fn on_channel_success_for_hom_downtream(
         &mut self,
         m: OpenStandardMiningChannelSuccess,

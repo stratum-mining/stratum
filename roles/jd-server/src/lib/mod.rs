@@ -59,7 +59,8 @@ impl JobDeclaratorServer {
 
         // TODO if the jd-server is launched with core_rpc_url empty, the following flow is never
         // taken. Consequentally new_block_receiver in JDsMempool::on_submit is never read, possibly
-        // reaching the channel bound. The new_block_sender is given as input to JobDeclarator::start()
+        // reaching the channel bound. The new_block_sender is given as input to
+        // JobDeclarator::start()
         if url.contains("http") {
             let sender_update_mempool = sender.clone();
             task::spawn(async move {
@@ -91,7 +92,8 @@ impl JobDeclaratorServer {
                     }
                     tokio::time::sleep(mempool_update_interval).await;
                     // DO NOT REMOVE THIS LINE
-                    //let _transactions = mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
+                    //let _transactions =
+                    // mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
                 }
             });
 

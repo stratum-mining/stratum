@@ -24,7 +24,6 @@ use serde_repr::*;
 /// vendor to a string describing the manufacturer/developer and firmware version and SHOULD
 /// always set hardware_version to a string describing, at least, the particular hardware/software
 /// package in use.
-///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetupConnection<'decoder> {
     /// [`Protocol`]
@@ -71,9 +70,10 @@ impl<'decoder> SetupConnection<'decoder> {
             Protocol::MiningProtocol => {
                 // Evaluates protocol requirements based on flag bits.
                 //
-                // Checks if the current protocol meets the required flags for work selection and version rolling
-                // by reversing the bits of `available_flags` and `required_flags`. It extracts the 30th and 29th
-                // bits to determine if work selection and version rolling are needed.
+                // Checks if the current protocol meets the required flags for work selection and
+                // version rolling by reversing the bits of `available_flags` and
+                // `required_flags`. It extracts the 30th and 29th bits to determine
+                // if work selection and version rolling are needed.
                 //
                 // Returns `true` if:
                 // - The work selection requirement is satisfied or not needed.
@@ -98,10 +98,12 @@ impl<'decoder> SetupConnection<'decoder> {
             Protocol::JobDeclarationProtocol => {
                 // Determines if asynchronous job mining is required based on flag bits.
                 //
-                // Reverses the bits of `available_flags` and `required_flags`, extracts the 31st bit from each,
-                // and evaluates if the condition is met using these bits. Returns `true` or `false` based on:
+                // Reverses the bits of `available_flags` and `required_flags`, extracts the 31st
+                // bit from each, and evaluates if the condition is met using these
+                // bits. Returns `true` or `false` based on:
                 // - True if `requires_async_job_mining_self` is true, or both are true.
-                // - False if `requires_async_job_mining_self` is false and `requires_async_job_mining_passed` is true.
+                // - False if `requires_async_job_mining_self` is false and
+                //   `requires_async_job_mining_passed` is true.
                 // - True otherwise.
                 let available = available_flags.reverse_bits();
                 let required = required_flags.reverse_bits();
@@ -254,13 +256,14 @@ pub struct SetupConnectionSuccess {
 /// When protocol version negotiation fails (or there is another reason why the upstream node
 /// cannot setup the connection) the server sends this message with a particular error code prior
 /// to closing the connection.
-/// In order to allow a client to determine the set of available features for a given server (e.g. for
-/// proxies which dynamically switch between different pools and need to be aware of supported
+/// In order to allow a client to determine the set of available features for a given server (e.g.
+/// for proxies which dynamically switch between different pools and need to be aware of supported
 /// options), clients SHOULD send a SetupConnection message with all flags set and examine the
 /// (potentially) resulting [`SetupConnectionError`] message’s flags field. The Server MUST provide
 /// the full set of flags which it does not support in each [`SetupConnectionError`] message and
 /// MUST consistently support the same set of flags across all servers on the same hostname and
-/// port number. If flags is 0, the error is a result of some condition aside from unsupported flags.
+/// port number. If flags is 0, the error is a result of some condition aside from unsupported
+/// flags.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetupConnectionError<'decoder> {
     /// Flags indicating features causing an error.

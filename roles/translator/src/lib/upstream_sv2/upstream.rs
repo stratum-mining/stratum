@@ -79,9 +79,10 @@ pub struct Upstream {
     /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
     tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
-    /// Sends the extranonce1 and the channel id received in the SV2 `OpenExtendedMiningChannelSuccess` message to be
-    /// used by the `Downstream` and sent to the Downstream role in a SV2 `mining.subscribe`
-    /// response message. Passed to the `Downstream` on connection creation.
+    /// Sends the extranonce1 and the channel id received in the SV2
+    /// `OpenExtendedMiningChannelSuccess` message to be used by the `Downstream` and sent to
+    /// the Downstream role in a SV2 `mining.subscribe` response message. Passed to the
+    /// `Downstream` on connection creation.
     tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
@@ -170,7 +171,8 @@ impl Upstream {
             job_id: None,
             last_job_id: None,
             min_extranonce_size,
-            upstream_extranonce1_size: 16, // 16 is the default since that is the only value the pool supports currently
+            upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
+                                            * pool supports currently */
             tx_sv2_extranonce,
             tx_status,
             target,
@@ -241,7 +243,8 @@ impl Upstream {
             user_identity, // TODO
             nominal_hash_rate,
             max_target: u256_from_int(u64::MAX), // TODO
-            min_extranonce_size: 8, // 8 is the max extranonce2 size the braiins pool supports
+            min_extranonce_size: 8,              /* 8 is the max extranonce2 size the braiins
+                                                  * pool supports */
         });
 
         // reset channel hashrate so downstreams can manage from now on out

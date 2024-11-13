@@ -40,9 +40,9 @@ use tracing::{error, info};
 /// 2. Within the same execution context (template receiver), a Relaxed store followed by an Acquire
 ///    load is sufficient. This is because operations within the same context execute in the order
 ///    they appear in the code.
-/// 3. The combination of Release in downstream and Acquire in template receiver contexts establishes
-///    a happens-before relationship, guaranteeing that we handle the SetNewPrevHash message after
-///    that downstream have finished handling the NewTemplate.
+/// 3. The combination of Release in downstream and Acquire in template receiver contexts
+///    establishes a happens-before relationship, guaranteeing that we handle the SetNewPrevHash
+///    message after that downstream have finished handling the NewTemplate.
 /// 3. SeqCst is overkill we only need to synchronize two contexts, a globally agreed-upon order
 ///    between all the contexts is not necessary.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);

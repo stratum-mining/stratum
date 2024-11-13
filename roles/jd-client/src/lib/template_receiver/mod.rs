@@ -57,7 +57,8 @@ impl TemplateRx {
         test_only_do_not_send_solution_to_tp: bool,
     ) {
         let mut encoded_outputs = vec![];
-        // jd is set to None in initialize_jd_as_solo_miner (in this case we need to take the first output as done by JDS)
+        // jd is set to None in initialize_jd_as_solo_miner (in this case we need to take the first
+        // output as done by JDS)
         if jd.is_none() {
             miner_coinbase_outputs[0]
                 .consensus_encode(&mut encoded_outputs)
@@ -205,8 +206,8 @@ impl TemplateRx {
                     match next_message_to_send {
                         Ok(SendTo::None(m)) => {
                             match m {
-                                // Send the new template along with the token to the JD so that JD can
-                                // declare the mining job
+                                // Send the new template along with the token to the JD so that JD
+                                // can declare the mining job
                                 Some(TemplateDistribution::NewTemplate(m)) => {
                                     // See coment on the definition of the global for memory
                                     // ordering

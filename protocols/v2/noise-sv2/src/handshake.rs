@@ -10,8 +10,8 @@
 // - Elliptic curve Diffie-Hellman (ECDH) key exchange using the [`secp256k1`] curve to establish a
 //   shared secret.
 // - HMAC and HKDF for deriving encryption keys from the shared secret.
-// - AEAD encryption and decryption using either [`ChaCha20Poly1305`] or `AES-GCM` ciphers to
-//   ensure message confidentiality and integrity.
+// - AEAD encryption and decryption using either [`ChaCha20Poly1305`] or `AES-GCM` ciphers to ensure
+//   message confidentiality and integrity.
 // - Chaining key and handshake hash updates to maintain the security of the session.
 //
 // The handshake begins with the exchange of ephemeral key pairs, followed by the derivation of
@@ -119,8 +119,8 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     //
     // This method uses a two-step process:
     // 1. The key is XORed with an inner padding (`ipad`) and hashed with the data.
-    // 2. The result is XORed with the outer padding (`opad`) and hashed again to produce the
-    //    final HMAC.
+    // 2. The result is XORed with the outer padding (`opad`) and hashed again to produce the final
+    //    HMAC.
     fn hmac_hash(key: &[u8; 32], data: &[u8]) -> [u8; 32] {
         #[allow(clippy::identity_op)]
         let mut ipad = [(0 ^ 0x36); 64];
@@ -153,12 +153,11 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     // handshake is securely linked.
     //
     // This method performs the following steps:
-    // 1. Performs a HMAC hash on the chaining key and input key material to derive a temporary
-    //    key.
+    // 1. Performs a HMAC hash on the chaining key and input key material to derive a temporary key.
     // 2. Performs a HMAC hash on the temporary key and specific byte sequence (`0x01`) to derive
     //    the first output.
-    // 3. Performs a HMAC hash on the temporary key and the concatenation of the first output and
-    //    a specific byte sequence (`0x02`).
+    // 3. Performs a HMAC hash on the temporary key and the concatenation of the first output and a
+    //    specific byte sequence (`0x02`).
     // 4. Returns both outputs.
     fn hkdf_2(chaining_key: &[u8; 32], input_key_material: &[u8]) -> ([u8; 32], [u8; 32]) {
         let temp_key = Self::hmac_hash(chaining_key, input_key_material);

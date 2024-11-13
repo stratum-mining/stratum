@@ -141,11 +141,14 @@ impl Downstream {
 
         let host_ = host.clone();
         // The shutdown channel is used local to the `Downstream::new_downstream()` function.
-        // Each task is set broadcast a shutdown message at the end of their lifecycle with `kill()`, and each task has a receiver to listen
-        // for the shutdown message. When a shutdown message is received the task should `break` its loop. For any errors that should shut
-        // a task down, we should `break` out of the loop, so that the `kill` function can send the shutdown broadcast.
-        // EXTRA: The since all downstream tasks rely on receiving messages with a future (either TCP recv or Receiver<_>)
-        // we use the futures::select! macro to merge the receiving end of a task channels into a single loop within the task
+        // Each task is set broadcast a shutdown message at the end of their lifecycle with
+        // `kill()`, and each task has a receiver to listen for the shutdown message. When a
+        // shutdown message is received the task should `break` its loop. For any errors that should
+        // shut a task down, we should `break` out of the loop, so that the `kill` function
+        // can send the shutdown broadcast. EXTRA: The since all downstream tasks rely on
+        // receiving messages with a future (either TCP recv or Receiver<_>) we use the
+        // futures::select! macro to merge the receiving end of a task channels into a single loop
+        // within the task
         let (tx_shutdown, rx_shutdown): (Sender<bool>, Receiver<bool>) = async_channel::bounded(3);
 
         let rx_shutdown_clone = rx_shutdown.clone();
@@ -278,7 +281,8 @@ impl Downstream {
                         tx_status_notify,
                         Self::hash_rate_to_target(downstream.clone())
                     );
-                    // make sure the mining start time is initialized and reset number of shares submitted
+                    // make sure the mining start time is initialized and reset number of shares
+                    // submitted
                     handle_result!(
                         tx_status_notify,
                         Self::init_difficulty_management(downstream.clone(), &target).await
@@ -309,7 +313,8 @@ impl Downstream {
                     }
                     first_sent = true;
                 } else if is_a {
-                    // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
+                    // if hashrate has changed, update difficulty management, and send new
+                    // mining.set_difficulty
                     select! {
                         res = rx_sv1_notify.recv().fuse() => {
                             // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
@@ -327,7 +332,8 @@ impl Downstream {
                             }
                     };
                 } else {
-                    // timeout connection if miner does not send the authorize message after sending a subscribe
+                    // timeout connection if miner does not send the authorize message after sending
+                    // a subscribe
                     if timeout_timer.elapsed().as_secs() > SUBSCRIBE_TIMEOUT_SECS {
                         debug!(
                             "Downstream: miner.subscribe/miner.authorize TIMOUT for {}",

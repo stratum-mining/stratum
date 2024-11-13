@@ -16,9 +16,9 @@ use core::convert::TryInto;
 /// server has a valid signature.
 ///
 /// For security reasons, it is not possible to reconnect to a server with a certificate signed by a
-/// different pool authority key. The message intentionally does *not* contain a **pool public key** and
-/// thus cannot be used to reconnect to a different pool. This ensures that an attacker will not be
-/// able to redirect hashrate to an arbitrary server should the pool server get compromised and
+/// different pool authority key. The message intentionally does *not* contain a **pool public key**
+/// and thus cannot be used to reconnect to a different pool. This ensures that an attacker will not
+/// be able to redirect hashrate to an arbitrary server should the pool server get compromised and
 /// instructed to send reconnects to a new location.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Reconnect<'decoder> {

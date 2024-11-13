@@ -56,8 +56,8 @@ const VERSION: u16 = 0;
 /// Represents the state and operations of the responder in the Noise NX protocol handshake.
 /// It handles cryptographic key exchanges, manages handshake state, and securely establishes
 /// a connection with the initiator. The responder manages key generation, Diffie-Hellman exchanges,
-/// message decryption, and state transitions, ensuring secure communication. Sensitive cryptographic
-/// material is securely erased when no longer needed.
+/// message decryption, and state transitions, ensuring secure communication. Sensitive
+/// cryptographic material is securely erased when no longer needed.
 pub struct Responder {
     // Cipher used for encrypting and decrypting messages during the handshake.
     //
@@ -167,9 +167,10 @@ impl Responder {
     /// Creates a new [`Responder`] instance with the provided authority keypair and certificate
     /// validity.
     ///
-    /// Constructs a new [`Responder`] with the necessary cryptographic state for the Noise NX protocol
-    /// handshake. It generates ephemeral and static key pairs for the responder and prepares the
-    /// handshake state. The authority keypair and certificate validity period are also configured.
+    /// Constructs a new [`Responder`] with the necessary cryptographic state for the Noise NX
+    /// protocol handshake. It generates ephemeral and static key pairs for the responder and
+    /// prepares the handshake state. The authority keypair and certificate validity period are
+    /// also configured.
     pub fn new(a: Keypair, cert_validity: u32) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
@@ -261,7 +262,8 @@ impl Responder {
         .to_secret_bytes();
         Self::mix_key(self, &ecdh_ephemeral);
 
-        // 5. appends `EncryptAndHash(s.public_key)` (64 bytes encrypted elligatorswift  public key, 16 bytes MAC)
+        // 5. appends `EncryptAndHash(s.public_key)` (64 bytes encrypted elligatorswift  public key,
+        //    16 bytes MAC)
         let mut encrypted_static_pub_k = vec![0; ELLSWIFT_ENCODING_SIZE];
         let elligatorswift_ours_static = ElligatorSwift::from_pubkey(self.s.public_key());
         let elligatorswift_ours_static_serialized: [u8; ELLSWIFT_ENCODING_SIZE] =
@@ -301,7 +303,8 @@ impl Responder {
         out[ephemeral_plus_static_encrypted_length..(INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE)]
             .copy_from_slice(&signature_part[..ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE]);
 
-        // 9. return pair of CipherState objects, the first for encrypting transport messages from initiator to responder, and the second for messages in the other direction:
+        // 9. return pair of CipherState objects, the first for encrypting transport messages from
+        //    initiator to responder, and the second for messages in the other direction:
         let ck = Self::get_ck(self);
         let (temp_k1, temp_k2) = Self::hkdf_2(ck, &[]);
         let c1 = ChaCha20Poly1305::new(&temp_k1.into());

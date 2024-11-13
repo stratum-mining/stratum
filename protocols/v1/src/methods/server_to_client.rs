@@ -35,7 +35,6 @@ use crate::{
 /// * Clean Jobs: If true, miners should abort their current work and immediately use the new job.
 ///   If false, they can still use the current job, but should move to the new one after exhausting
 ///   the current nonce range.
-///
 #[derive(Debug, Clone)]
 pub struct Notify<'a> {
     pub job_id: String,
@@ -150,7 +149,6 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
 /// method. The miner should begin enforcing the new difficulty on the next job received. Some pools
 /// may force a new job out when set_difficulty is sent, using clean_jobs to force the miner to
 /// begin using the new difficulty immediately.
-///
 #[derive(Debug, Clone)]
 pub struct SetDifficulty {
     pub value: f64,
@@ -193,7 +191,6 @@ impl TryFrom<Notification> for SetDifficulty {
 ///
 /// check if it is a Notification or a StandardRequest this implementation assume that it is a
 /// Notification
-///
 #[derive(Debug, Clone)]
 pub struct SetExtranonce<'a> {
     pub extra_nonce1: Extranonce<'a>,
@@ -335,10 +332,10 @@ impl Submit {
 
 /// mining.subscribe
 /// mining.subscribe("user agent/version", "extranonce1")
-/// The optional second parameter specifies a mining.notify subscription id the client wishes to resume
-/// working with (possibly due to a dropped connection). If provided, a server MAY (at its option)
-/// issue the connection the same extranonce1. Note that the extranonce1 may be the same (allowing
-/// a resumed connection) even if the subscription id is changed!
+/// The optional second parameter specifies a mining.notify subscription id the client wishes to
+/// resume working with (possibly due to a dropped connection). If provided, a server MAY (at its
+/// option) issue the connection the same extranonce1. Note that the extranonce1 may be the same
+/// (allowing a resumed connection) even if the subscription id is changed!
 ///
 /// The client receives a result:
 ///
@@ -351,7 +348,6 @@ impl Submit {
 ///    generation transactions later.
 ///
 ///    ExtraNonce2_size. - The number of bytes that the miner users for its ExtraNonce2 counter.
-///
 #[derive(Debug, Clone)]
 pub struct Subscribe<'a> {
     pub id: u64,

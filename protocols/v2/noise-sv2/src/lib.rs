@@ -8,8 +8,8 @@
 //! ## Features
 //! - Noise Protocol: Establishes secure communication via the Noise protocol handshake between the
 //!   [`Initiator`] and [`Responder`] roles.
-//! - Diffie-Hellman with [`secp256k1`]: Securely establishes a shared secret between two Sv2
-//!   roles, using the same elliptic curve used in Bitcoin.
+//! - Diffie-Hellman with [`secp256k1`]: Securely establishes a shared secret between two Sv2 roles,
+//!   using the same elliptic curve used in Bitcoin.
 //! - AEAD: Ensures confidentiality and integrity of the data.
 //! - `AES-GCM` and `ChaCha20-Poly1305`: Provides encryption, with hardware-optimized and
 //!   software-optimized options.

@@ -444,7 +444,8 @@ impl Bridge {
                 .safe_lock(|s| s.last_p_hash.clone())
                 .map_err(|_| PoisonLock)?;
 
-            // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
+            // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type
+            // to be handled
             let last_p_hash = last_p_hash_option.ok_or(Error::RolesSv2Logic(
                 RolesLogicError::JobIsNotFutureButPrevHashNotPresent,
             ))?;

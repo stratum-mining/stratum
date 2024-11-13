@@ -39,17 +39,17 @@ use crate::aed_cipher::AeadCipher;
 use aes_gcm::Aes256Gcm;
 use chacha20poly1305::{aead::Buffer, ChaCha20Poly1305};
 
-// The `CipherState` trait manages AEAD ciphers for secure communication, handling the encryption key, nonce,
-// and cipher instance. It supports encryption and decryption with ciphers like [`ChaCha20Poly1305`] and
-// [`Aes256Gcm`], ensuring proper key and nonce management.
+// The `CipherState` trait manages AEAD ciphers for secure communication, handling the encryption
+// key, nonce, and cipher instance. It supports encryption and decryption with ciphers like
+// [`ChaCha20Poly1305`] and [`Aes256Gcm`], ensuring proper key and nonce management.
 //
 // Key responsibilities:
 // - **Key management**: Set and retrieve the 32-byte encryption key.
 // - **Nonce management**: Track unique nonces for encryption operations.
 // - **Cipher handling**: Initialize and manage AEAD ciphers for secure data encryption.
 //
-// Used in protocols like Noise, `CipherState` ensures secure communication by managing cryptographic material
-// during and after handshakes.
+// Used in protocols like Noise, `CipherState` ensures secure communication by managing
+// cryptographic material during and after handshakes.
 pub trait CipherState<Cipher_: AeadCipher>
 where
     Self: Sized,
@@ -162,15 +162,16 @@ where
     }
 }
 
-// The `GenericCipher` enum abstracts the use of two AEAD ciphers: [`ChaCha20Poly1305`] and [`Aes256Gcm`].
-// It provides a unified interface for secure encryption and decryption, allowing flexibility in choosing
-// the cipher while ensuring consistent cryptographic operations.
+// The `GenericCipher` enum abstracts the use of two AEAD ciphers: [`ChaCha20Poly1305`] and
+// [`Aes256Gcm`]. It provides a unified interface for secure encryption and decryption, allowing
+// flexibility in choosing the cipher while ensuring consistent cryptographic operations.
 //
 // Variants:
 // - **ChaCha20Poly1305**: Uses the `ChaCha20Poly1305` cipher for encryption.
 // - **Aes256Gcm**: Uses the `Aes256Gcm` cipher for encryption.
 //
-// `GenericCipher` enables easy switching between ciphers while maintaining secure key and nonce management.
+// `GenericCipher` enables easy switching between ciphers while maintaining secure key and nonce
+// management.
 #[allow(clippy::large_enum_variant)]
 pub enum GenericCipher {
     ChaCha20Poly1305(Cipher<ChaCha20Poly1305>),

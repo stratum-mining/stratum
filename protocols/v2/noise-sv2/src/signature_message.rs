@@ -9,8 +9,8 @@
 //
 // - Conversion of raw byte arrays into structured [`SignatureNoiseMessage`] instances.
 // - Message signing using Schnorr signatures and the [`secp256k1`] curve.
-// - Verification of signed messages, ensuring they fall within valid time periods and are signed
-//   by an authorized public key.
+// - Verification of signed messages, ensuring they fall within valid time periods and are signed by
+//   an authorized public key.
 //
 // ## Usage
 //

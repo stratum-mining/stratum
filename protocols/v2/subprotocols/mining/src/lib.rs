@@ -21,15 +21,16 @@
 //! allowing v1 proxies). Both options have some practical use cases. In either case, proxies
 //! SHOULD aggregate clients’ channels into a smaller number of TCP connections. This saves
 //! network traffic for broadcast messages sent by a server because fewer messages need to be
-//! sent in total, which leads to lower latencies as a result. And it further increases efficiency by
-//! allowing larger packets to be sent.
+//! sent in total, which leads to lower latencies as a result. And it further increases efficiency
+//! by allowing larger packets to be sent.
 //!
-//! The protocol defines three types of channels: **standard channels** , **extended channels** (mining
-//! sessions) and **group channels** (organizational), which are useful for different purposes.
-//! The main difference between standard and extended channels is that standard channels
+//! The protocol defines three types of channels: **standard channels** , **extended channels**
+//! (mining sessions) and **group channels** (organizational), which are useful for different
+//! purposes. The main difference between standard and extended channels is that standard channels
 //! cannot manipulate the coinbase transaction / Merkle path, as they operate solely on provided
 //! Merkle roots. We call this **header-only mining**. Extended channels, on the other hand, are
-//! given extensive control over the search space so that they can implement various advanceduse cases such as translation between v1 and v2 protocols, difficulty aggregation, custom
+//! given extensive control over the search space so that they can implement various advanceduse
+//! cases such as translation between v1 and v2 protocols, difficulty aggregation, custom
 //! search space splitting, etc.
 //!
 //! This separation vastly simplifies the protocol implementation for clients that don’t support
@@ -46,7 +47,8 @@
 //! The protocol dedicates all directly modifiable bits (version, nonce, and nTime) from the block
 //! header to one mining channel. This is the smallest assignable unit of search space by the
 //! protocol. The client which opened the particular channel owns the whole assigned space and
-//! can split it further if necessary (e.g. for multiple hashing boards and for individual chips etc.).
+//! can split it further if necessary (e.g. for multiple hashing boards and for individual chips
+//! etc.).
 //!
 //! ### Extended channels
 //!
@@ -87,20 +89,19 @@
 //!
 //! * Merkle root, deterministically computed from:
 //!   * Coinbase transaction: typically 4-8 bytes, possibly much more.
-//!   * Transaction set: practically unbounded space. All roles in Stratum v2 MUST NOT
-//!     use transaction selection/ordering for additional hash space extension. This
-//!     stems both from the concept that miners/pools should be able to choose their
-//!     transaction set freely without any interference with the protocol, and also to
-//!     enable future protocol modifications to Bitcoin. In other words, any rules
-//!     imposed on transaction selection/ordering by miners not described in the rest of
-//!     this document may result in invalid work/blocks.
+//!   * Transaction set: practically unbounded space. All roles in Stratum v2 MUST NOT use
+//!     transaction selection/ordering for additional hash space extension. This stems both from the
+//!     concept that miners/pools should be able to choose their transaction set freely without any
+//!     interference with the protocol, and also to enable future protocol modifications to Bitcoin.
+//!     In other words, any rules imposed on transaction selection/ordering by miners not described
+//!     in the rest of this document may result in invalid work/blocks.
 //!
 //! Mining servers MUST assign a unique subset of the search space to each connection/channel
 //! (and therefore each mining device) frequently and rapidly enough so that the mining devices
 //! are not running out of search space. Unique jobs can be generated regularly by:
 //! * Putting unique data into the coinbase for each connection/channel, and/or
-//! * Using unique work from a work provider, e.g. a previous work update (note that this is
-//!   likely more difficult to implement, especially in light of the requirement that transaction
+//! * Using unique work from a work provider, e.g. a previous work update (note that this is likely
+//!   more difficult to implement, especially in light of the requirement that transaction
 //!   selection/ordering not be used explicitly for additional hash space distribution).
 //!
 //! This protocol explicitly expects that upstream server software is able to manage the size of
@@ -714,7 +715,8 @@ pub mod tests {
 
         assert!(extranonce.is_some());
 
-        //validate that the extranonce is the concatenation of the upstream part and the downstream part
+        //validate that the extranonce is the concatenation of the upstream part and the downstream
+        // part
         assert_eq!(
             extra_content,
             extranonce.unwrap().extranonce.to_vec()[downstream_len..downstream_len * 2]
@@ -912,8 +914,8 @@ pub mod tests {
                 }
                 None => false,
             },
-            // if .next_standard() method falls in None case, this means that the range_2 is at maximum
-            // value, so every entry must be 255 as u8
+            // if .next_standard() method falls in None case, this means that the range_2 is at
+            // maximum value, so every entry must be 255 as u8
             None => {
                 for b in inner[range_2.start..range_2.end].iter() {
                     if b != &255_u8 {

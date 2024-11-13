@@ -30,7 +30,8 @@ pub enum Error {
     CodecError(CodecError),
     RecvError,
     SendError,
-    // This means that a socket that was supposed to be opened have been closed, likley by the peer
+    // This means that a socket that was supposed to be opened have been closed, likley by the
+    // peer
     SocketClosed,
 }
 

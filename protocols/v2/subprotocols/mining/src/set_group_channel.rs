@@ -21,7 +21,6 @@ use core::convert::TryInto;
 /// within one connection. Channel reinterpretation is not allowed.
 /// This message can be sent only to connections that don’t have REQUIRES_STANDARD_JOBS
 /// flag in SetupConnection.
-///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetGroupChannel<'decoder> {
     /// Identifier of the group where the standard channel belongs.

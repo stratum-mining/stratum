@@ -1,4 +1,5 @@
-//! Serde serializer/deserializer for [stratum v2][Sv2] implemented following [serde tutorial][tutorial]
+//! Serde serializer/deserializer for [stratum v2][Sv2] implemented following [serde
+//! tutorial][tutorial]
 //!
 //! ```txt
 //! SERDE    <-> Sv2
@@ -49,7 +50,8 @@
 //! ### Bytes sequences
 //! Byte sequences can be limited length sequences or unlimited length sequences, the latter are
 //! automatically handled by Serde.
-//! Limited length byte sequences are not implemented as a specific new type of generic sequences cause:
+//! Limited length byte sequences are not implemented as a specific new type of generic sequences
+//! cause:
 //! * For the rust type system a serialized byte array and a deserialized byte array are the same
 //!   thing, that is not true for generic sequences.
 //! * In order to not copy data around generic sequences need to be implemented as struct containing
@@ -62,10 +64,11 @@
 //! seems that the objective of this library could have been readched with less effort and
 //! [better][rkyv2] using rykv instad then serder.
 //!
-//! Btw Serde is like standard for rust code, very safe and stable. The deserialization/serialization
-//! part will be in the code that need to be added to bitcoin core, so it must use the most safe and
-//! stable option. That do not exclude that a serialization/deserialization backend can be implemented
-//! with rykv and then used by the subprotocols crates via a conditional compilation flag!
+//! Btw Serde is like standard for rust code, very safe and stable. The
+//! deserialization/serialization part will be in the code that need to be added to bitcoin core, so
+//! it must use the most safe and stable option. That do not exclude that a
+//! serialization/deserialization backend can be implemented with rykv and then used by the
+//! subprotocols crates via a conditional compilation flag!
 //!
 //! [Sv2]: https://docs.google.com/document/d/1FadCWj-57dvhxsnFM_7X806qyvhR0u3i85607bGHxvg/edit
 //! [tutorial]: https://serde.rs/data-format.html

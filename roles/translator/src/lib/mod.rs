@@ -108,7 +108,8 @@ impl TranslatorSv2 {
                     error!("SHUTDOWN from: {}", err);
 
                     // wait a random amount of time between 0 and 3000ms
-                    // if all the downstreams try to reconnect at the same time, the upstream may fail
+                    // if all the downstreams try to reconnect at the same time, the upstream may
+                    // fail
                     tokio::time::sleep(std::time::Duration::from_millis(wait_time)).await;
 
                     // kill al the tasks
@@ -145,7 +146,8 @@ impl TranslatorSv2 {
 
         // `tx_sv1_bridge` sender is used by `Downstream` to send a `DownstreamMessages` message to
         // `Bridge` via the `rx_sv1_downstream` receiver
-        // (Sender<downstream_sv1::DownstreamMessages>, Receiver<downstream_sv1::DownstreamMessages>)
+        // (Sender<downstream_sv1::DownstreamMessages>,
+        // Receiver<downstream_sv1::DownstreamMessages>)
         let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
 
         // Sender/Receiver to send a SV2 `NewExtendedMiningJob` message from the `Upstream` to the
@@ -153,13 +155,13 @@ impl TranslatorSv2 {
         // (Sender<NewExtendedMiningJob<'static>>, Receiver<NewExtendedMiningJob<'static>>)
         let (tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(10);
 
-        // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to be
-        // passed to the `Downstream` upon a Downstream role connection
+        // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to
+        // be passed to the `Downstream` upon a Downstream role connection
         // (Sender<ExtendedExtranonce>, Receiver<ExtendedExtranonce>)
         let (tx_sv2_extranonce, rx_sv2_extranonce) = bounded(1);
 
-        // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the `Bridge`
-        // (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
+        // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the
+        // `Bridge` (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
         let (tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(10);
 
         // Format `Upstream` connection address
@@ -227,8 +229,8 @@ impl TranslatorSv2 {
                 return;
             }
 
-            // Receive the extranonce information from the Upstream role to send to the Downstream role
-            // once it connects also used to initialize the bridge
+            // Receive the extranonce information from the Upstream role to send to the Downstream
+            // role once it connects also used to initialize the bridge
             let (extended_extranonce, up_id) = rx_sv2_extranonce.recv().await.unwrap();
             loop {
                 let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();

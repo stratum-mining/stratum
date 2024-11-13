@@ -92,9 +92,10 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         Some(self.header)
     }
 
-    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).
-    /// Returns a `Sv2Frame` on success, or the number of the bytes needed to complete the frame
-    /// as an error. `Self.serialized` is `Some`, but nothing is assumed or checked about the correctness of the payload.
+    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame`
+    /// frame (`Self.serialized`). Returns a `Sv2Frame` on success, or the number of the bytes
+    /// needed to complete the frame as an error. `Self.serialized` is `Some`, but nothing is
+    /// assumed or checked about the correctness of the payload.
     #[inline]
     pub fn from_bytes(mut bytes: B) -> Result<Self, isize> {
         let hint = Self::size_hint(bytes.as_mut());
@@ -120,10 +121,10 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     /// After parsing `bytes` into a `Header`, this function helps to determine if the `msg_length`
     /// field is correctly representing the size of the frame.
     /// - Returns `0` if the byte slice is of the expected size according to the header.
-    /// - Returns a negative value if the byte slice is shorter than expected; this value
-    ///   represents how many bytes are missing.
-    /// - Returns a positive value if the byte slice is longer than expected; this value
-    ///   indicates the surplus of bytes beyond the expected size.
+    /// - Returns a negative value if the byte slice is shorter than expected; this value represents
+    ///   how many bytes are missing.
+    /// - Returns a positive value if the byte slice is longer than expected; this value indicates
+    ///   the surplus of bytes beyond the expected size.
     #[inline]
     pub fn size_hint(bytes: &[u8]) -> isize {
         match Header::from_bytes(bytes) {
@@ -215,7 +216,8 @@ impl HandShakeFrame {
         self.payload[0..].to_vec()
     }
 
-    /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the correctness of the payload.
+    /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the
+    /// correctness of the payload.
     pub fn from_bytes(bytes: Slice) -> Result<Self, isize> {
         Ok(Self::from_bytes_unchecked(bytes))
     }
