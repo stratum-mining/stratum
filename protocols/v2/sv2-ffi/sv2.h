@@ -263,17 +263,14 @@ extern "C" {
 /// Given a C allocated buffer return a rust allocated CVec
 ///
 /// # Safety
-///
 CVec cvec_from_buffer(const uint8_t *data, uintptr_t len);
 
 /// # Safety
-///
 CVec2 init_cvec2();
 
 /// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
 /// as this can lead to double free errors when the message is dropped.
 /// # Safety
-///
 void cvec2_push(CVec2 *cvec2, CVec cvec);
 
 void _c_export_u24(U24 _a);
@@ -304,7 +301,6 @@ enum class Protocol : uint8_t {
 /// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
 /// (including version negotiation and the presence of support for a given extension) MUST be
 /// reset and version/presence negotiation must begin again.
-///
 struct ChannelEndpointChanged {
   /// The channel which has changed endpoint.
   uint32_t channel_id;
@@ -361,8 +357,8 @@ void free_setup_connection_error(CSetupConnectionError s);
 /// ## CoinbaseOutputDataSize (Client -> Server)
 /// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
 /// other uses, and thus the Template Provider will need to consider this additional block size
-/// when selecting transactions for inclusion in a block (to not create an invalid, oversized block).
-/// Thus, this message is used to indicate that some additional space in the block/coinbase
+/// when selecting transactions for inclusion in a block (to not create an invalid, oversized
+/// block). Thus, this message is used to indicate that some additional space in the block/coinbase
 /// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
 /// of available coinbase space).
 /// The Job Declarator MUST discover the maximum serialized size of the additional outputs which
@@ -380,8 +376,8 @@ struct CoinbaseOutputDataSize {
 
 /// ## RequestTransactionData (Client -> Server)
 /// A request sent by the Job Declarator to the Template Provider which requests the set of
-/// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
-/// well as any additional data which may be required by the Pool to validate the work.
+/// transaction data for all transactions (excluding the coinbase transaction) included in a block,
+/// as well as any additional data which may be required by the Pool to validate the work.
 struct RequestTransactionData {
   /// The template_id corresponding to a NewTemplate message.
   uint64_t template_id;
@@ -493,8 +489,8 @@ extern "C" {
 
 /// Force `cbindgen` to create a header for [`CError`].
 ///
-/// It ensures that [`CError`] is included in the generated C header file. This function is not meant
-/// to be called and will panic if called. Its only purpose is to make [`CError`] visible to
+/// It ensures that [`CError`] is included in the generated C header file. This function is not
+/// meant to be called and will panic if called. Its only purpose is to make [`CError`] visible to
 /// `cbindgen`.
 CError export_cerror();
 
@@ -655,7 +651,6 @@ void flush_encoder(EncoderWrapper *encoder);
 void free_decoder(DecoderWrapper *decoder);
 
 /// # Safety
-///
 CResult<CVec, Sv2Error> encode(CSv2Message *message, EncoderWrapper *encoder);
 
 DecoderWrapper *new_decoder();
