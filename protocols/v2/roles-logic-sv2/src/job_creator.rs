@@ -428,9 +428,9 @@ impl StrippedCoinbaseTx {
     }
 
     /// the coinbase tx prefix is the LE bytes concatenation of the tx version and all
-    /// of the tx inputs minus the extranonce bytes after the bip34 bytes in the script
+    /// of the tx inputs minus the 32 bytes after the bip34 bytes in the script
     /// and the last input's sequence (used as the first entry in the coinbase tx suffix).
-    /// The last bytes after the bip34 bytes in the script will be used to allow extranonce
+    /// The last 32 bytes after the bip34 bytes in the script will be used to allow extranonce
     /// space for the miner. We remove the bip141 marker and flag since it is only used for
     /// computing the `wtxid` and the legacy `txid` is what is used for computing the merkle root
     // clippy allow because we dont want to consume self
