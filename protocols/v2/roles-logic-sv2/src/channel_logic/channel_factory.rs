@@ -224,15 +224,20 @@ impl ChannelFactory {
         downstream_hash_rate: f32,
         is_header_only: bool,
         id: u32,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<Vec<Mining>, Error> {
         match is_header_only {
-            true => {
-                self.new_standard_channel_for_hom_downstream(request_id, downstream_hash_rate, id)
-            }
+            true => self.new_standard_channel_for_hom_downstream(
+                request_id,
+                downstream_hash_rate,
+                id,
+                additional_coinbase_script_data,
+            ),
             false => self.new_standard_channel_for_non_hom_downstream(
                 request_id,
                 downstream_hash_rate,
                 id,
+                additional_coinbase_script_data,
             ),
         }
     }
@@ -248,6 +253,7 @@ impl ChannelFactory {
         request_id: u32,
         hash_rate: f32,
         min_extranonce_size: u16,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<Vec<Mining<'static>>, Error> {
         let extended_channels_group = 0;
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
@@ -278,7 +284,10 @@ impl ChannelFactory {
                 .next_extended(max_extranonce_size as usize)
                 .unwrap();
             let extranonce_prefix = extranonce
-                .into_prefix(self.extranonces.get_prefix_len())
+                .into_prefix(
+                    self.extranonces.get_prefix_len(),
+                    additional_coinbase_script_data.unwrap_or(&[]),
+                )
                 .unwrap();
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
@@ -344,6 +353,7 @@ impl ChannelFactory {
         request_id: u32,
         downstream_hash_rate: f32,
         id: u32,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<Vec<Mining>, Error> {
         let hom_group_id = 0;
         let mut result = vec![];
@@ -384,7 +394,11 @@ impl ChannelFactory {
                 group_channel_id: hom_group_id,
             },
         ));
-        self.prepare_standard_jobs_and_p_hash(&mut result, channel_id)?;
+        self.prepare_standard_jobs_and_p_hash(
+            &mut result,
+            channel_id,
+            additional_coinbase_script_data,
+        )?;
         self.channel_to_group_id.insert(channel_id, hom_group_id);
         Ok(result)
     }
@@ -396,6 +410,7 @@ impl ChannelFactory {
         request_id: u32,
         downstream_hash_rate: f32,
         group_id: u32,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<Vec<Mining>, Error> {
         let mut result = vec![];
         let channel_id = self
@@ -429,6 +444,14 @@ impl ChannelFactory {
         self.standard_channels_for_non_hom_downstreams
             .insert(complete_id, standard_channel);
 
+        let extranonce = match additional_coinbase_script_data {
+            Some(data) => {
+                let mut data = data.to_vec();
+                data.extend_from_slice(extranonce.as_ref());
+                extranonce
+            }
+            None => extranonce,
+        };
         // First message to be sent is OpenStandardMiningChannelSuccess
         result.push(Mining::OpenStandardMiningChannelSuccess(
             OpenStandardMiningChannelSuccess {
@@ -450,6 +473,7 @@ impl ChannelFactory {
         &mut self,
         result: &mut Vec<Mining>,
         channel_id: u32,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<(), Error> {
         // Safe cause the function is private and we always add the channel before calling this
         // funtion
@@ -466,9 +490,10 @@ impl ChannelFactory {
             .map(|j| {
                 extended_to_standard_job(
                     &j.0,
-                    &standard_channel.extranonce.clone().to_vec()[..],
+                    standard_channel.extranonce.as_ref(),
                     standard_channel.channel_id,
                     Some(job_id),
+                    additional_coinbase_script_data,
                 )
             })
             .collect();
@@ -478,9 +503,10 @@ impl ChannelFactory {
             Some((j, _)) => Some(
                 extended_to_standard_job(
                     j,
-                    &standard_channel.extranonce.clone().to_vec(),
+                    standard_channel.extranonce.as_ref(),
                     standard_channel.channel_id,
                     Some(self.job_ids.next()),
+                    additional_coinbase_script_data,
                 )
                 .ok_or(Error::ImpossibleToCalculateMerkleRoot)?,
             ),
@@ -677,11 +703,16 @@ impl ChannelFactory {
     fn on_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob<'static>,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
         match (m.is_future(), &self.last_prev_hash) {
             (true, _) => {
                 let mut result = HashMap::with_hasher(BuildNoHashHasher::default());
-                self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
+                self.prepare_jobs_for_downstream_on_new_extended(
+                    &mut result,
+                    &m,
+                    additional_coinbase_script_data,
+                )?;
                 let mut ids = vec![];
                 for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
                     let group_id = GroupId::into_group_id(*complete_id);
@@ -694,7 +725,11 @@ impl ChannelFactory {
             }
             (false, Some(_)) => {
                 let mut result = HashMap::with_hasher(BuildNoHashHasher::default());
-                self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
+                self.prepare_jobs_for_downstream_on_new_extended(
+                    &mut result,
+                    &m,
+                    additional_coinbase_script_data,
+                )?;
                 // If job is not future it must always be paired with the last received prev hash
                 let mut ids = vec![];
                 for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
@@ -722,14 +757,16 @@ impl ChannelFactory {
         &mut self,
         result: &mut HashMap<u32, Mining, BuildNoHashHasher<u32>>,
         m: &NewExtendedMiningJob<'static>,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<(), Error> {
         for (id, channel) in &self.standard_channels_for_hom_downstreams {
             let job_id = self.job_ids.next();
             let mut standard_job = extended_to_standard_job(
                 m,
-                &channel.extranonce.clone().to_vec()[..],
+                channel.extranonce.as_ref(),
                 *id,
                 Some(job_id),
+                additional_coinbase_script_data,
             )
             .unwrap();
             standard_job.channel_id = *id;
@@ -769,6 +806,7 @@ impl ChannelFactory {
         coinbase_tx_suffix: &[u8],
         prev_blockhash: hash_types::BlockHash,
         bits: u32,
+        additional_coinbase_script_data: Option<&[u8]>,
     ) -> Result<OnNewShare, Error> {
         debug!("Checking target for share {:?}", m);
         let upstream_target = match &self.kind {
@@ -806,6 +844,7 @@ impl ChannelFactory {
             coinbase_tx_suffix,
             &extranonce[..],
             &merkle_path[..],
+            additional_coinbase_script_data.unwrap_or(&[]),
         )
         .ok_or(Error::InvalidCoinbase)?
         .try_into()
@@ -1029,8 +1068,13 @@ impl PoolChannelFactory {
         is_header_only: bool,
         id: u32,
     ) -> Result<Vec<Mining>, Error> {
-        self.inner
-            .add_standard_channel(request_id, downstream_hash_rate, is_header_only, id)
+        self.inner.add_standard_channel(
+            request_id,
+            downstream_hash_rate,
+            is_header_only,
+            id,
+            Some(&self.additional_coinbase_script_data),
+        )
     }
     /// Calls [`ChannelFactory::new_extended_channel`]
     pub fn new_extended_channel(
@@ -1039,8 +1083,12 @@ impl PoolChannelFactory {
         hash_rate: f32,
         min_extranonce_size: u16,
     ) -> Result<Vec<Mining<'static>>, Error> {
-        self.inner
-            .new_extended_channel(request_id, hash_rate, min_extranonce_size)
+        self.inner.new_extended_channel(
+            request_id,
+            hash_rate,
+            min_extranonce_size,
+            Some(&self.additional_coinbase_script_data),
+        )
     }
     /// Called when we want to replicate a channel already opened by another actor.
     /// is used only in the jd client from the template provider module to mock a pool.
@@ -1085,9 +1133,10 @@ impl PoolChannelFactory {
             m,
             true,
             self.pool_coinbase_outputs.clone(),
-            &self.additional_coinbase_script_data,
+            self.additional_coinbase_script_data.len() as u8,
         )?;
-        self.inner.on_new_extended_mining_job(new_job)
+        self.inner
+            .on_new_extended_mining_job(new_job, Some(&self.additional_coinbase_script_data))
     }
     /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the
     /// shares against the channel's respective target and return `OnNewShare` to let us know if
@@ -1131,6 +1180,7 @@ impl PoolChannelFactory {
                     referenced_job.coinbase_tx_suffix.as_ref(),
                     prev_blockhash,
                     bits,
+                    Some(&self.additional_coinbase_script_data),
                 )
             }
             None => {
@@ -1162,11 +1212,10 @@ impl PoolChannelFactory {
         if self.negotiated_jobs.contains_key(&m.channel_id) {
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
             let merkle_path = referenced_job.merkle_path.to_vec();
-            let additional_coinbase_script_data = self.additional_coinbase_script_data.clone();
             let extended_job = job_creator::extended_job_from_custom_job(
                 referenced_job,
-                additional_coinbase_script_data.as_ref(),
-                32,
+                self.additional_coinbase_script_data.len() as u8,
+                self.inner.extranonces.get_len() as u8,
             )
             .unwrap();
             let prev_blockhash = crate::utils::u256_to_block_hash(referenced_job.prev_hash.clone());
@@ -1181,6 +1230,7 @@ impl PoolChannelFactory {
                 extended_job.coinbase_tx_suffix.as_ref(),
                 prev_blockhash,
                 bits,
+                Some(&self.additional_coinbase_script_data),
             )
         } else {
             let referenced_job = self
@@ -1215,6 +1265,7 @@ impl PoolChannelFactory {
                 referenced_job.coinbase_tx_suffix.as_ref(),
                 prev_blockhash,
                 bits,
+                Some(&self.additional_coinbase_script_data),
             )
         }
     }
@@ -1300,7 +1351,6 @@ pub struct ProxyExtendedChannelFactory {
     inner: ChannelFactory,
     job_creator: Option<JobsCreators>,
     pool_coinbase_outputs: Option<Vec<TxOut>>,
-    additional_coinbase_script_data: String,
     // Id assigned to the extended channel by upstream
     extended_channel_id: u32,
 }
@@ -1314,7 +1364,6 @@ impl ProxyExtendedChannelFactory {
         share_per_min: f32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Option<Vec<TxOut>>,
-        additional_coinbase_script_data: String,
         extended_channel_id: u32,
     ) -> Self {
         match &kind {
@@ -1354,7 +1403,6 @@ impl ProxyExtendedChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
-            additional_coinbase_script_data,
             extended_channel_id,
         }
     }
@@ -1367,7 +1415,7 @@ impl ProxyExtendedChannelFactory {
         id: u32,
     ) -> Result<Vec<Mining>, Error> {
         self.inner
-            .add_standard_channel(request_id, downstream_hash_rate, id_header_only, id)
+            .add_standard_channel(request_id, downstream_hash_rate, id_header_only, id, None)
     }
     /// Calls [`ChannelFactory::new_extended_channel`]
     pub fn new_extended_channel(
@@ -1377,7 +1425,7 @@ impl ProxyExtendedChannelFactory {
         min_extranonce_size: u16,
     ) -> Result<Vec<Mining>, Error> {
         self.inner
-            .new_extended_channel(request_id, hash_rate, min_extranonce_size)
+            .new_extended_channel(request_id, hash_rate, min_extranonce_size, None)
     }
     /// Called only when a new prev hash is received by a Template Provider when job declaration is
     /// used. It matches the message with a `job_id`, creates a new custom job, and calls
@@ -1445,12 +1493,7 @@ impl ProxyExtendedChannelFactory {
             self.job_creator.as_mut(),
             self.pool_coinbase_outputs.as_mut(),
         ) {
-            let new_job = job_creator.on_new_template(
-                m,
-                true,
-                pool_coinbase_outputs.clone(),
-                self.additional_coinbase_script_data.as_ref(),
-            )?;
+            let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone(), 0)?;
             let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
@@ -1473,7 +1516,7 @@ impl ProxyExtendedChannelFactory {
                     future_job: m.future_template,
                 };
                 return Ok((
-                    self.inner.on_new_extended_mining_job(new_job)?,
+                    self.inner.on_new_extended_mining_job(new_job, None)?,
                     Some(custom_mining_job),
                     id,
                 ));
@@ -1482,7 +1525,11 @@ impl ProxyExtendedChannelFactory {
                     .future_templates
                     .insert(new_job.job_id, m.clone());
             }
-            Ok((self.inner.on_new_extended_mining_job(new_job)?, None, id))
+            Ok((
+                self.inner.on_new_extended_mining_job(new_job, None)?,
+                None,
+                id,
+            ))
         } else {
             panic!("Either channel factory has no job creator or pool_coinbase_outputs are not yet set")
         }
@@ -1551,6 +1598,7 @@ impl ProxyExtendedChannelFactory {
                 referenced_job.coinbase_tx_suffix.as_ref(),
                 prev_blockhash,
                 bits,
+                None,
             )
         } else {
             let bitcoin_target = [0; 32];
@@ -1577,6 +1625,7 @@ impl ProxyExtendedChannelFactory {
                 referenced_job.coinbase_tx_suffix.as_ref(),
                 prev_blockhash,
                 bits,
+                None,
             )
         }
     }
@@ -1632,6 +1681,7 @@ impl ProxyExtendedChannelFactory {
                         referenced_job.coinbase_tx_suffix.as_ref(),
                         prev_blockhash,
                         bits,
+                        None,
                     )
                 } else {
                     let bitcoin_target = [0; 32];
@@ -1658,6 +1708,7 @@ impl ProxyExtendedChannelFactory {
                         referenced_job.coinbase_tx_suffix.as_ref(),
                         prev_blockhash,
                         bits,
+                        None,
                     )
                 }
             }
@@ -1690,7 +1741,7 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         m: NewExtendedMiningJob<'static>,
     ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
-        self.inner.on_new_extended_mining_job(m)
+        self.inner.on_new_extended_mining_job(m, None)
     }
     pub fn set_target(&mut self, new_target: &mut Target) {
         self.inner.kind.set_target(new_target);
@@ -1888,7 +1939,7 @@ mod test {
             share_per_min,
             channel_kind,
             vec![out],
-            additional_coinbase_script_data,
+            additional_coinbase_script_data.into_bytes(),
         );
 
         // Build a NewTemplate

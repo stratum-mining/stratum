@@ -142,10 +142,16 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase_tx_suffix: &[u8],
     extranonce: &[u8],
     path: &[T],
+    additional_coinbase_script_data: &[u8],
 ) -> Option<Vec<u8>> {
-    let mut coinbase =
-        Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
+    let mut coinbase = Vec::with_capacity(
+        coinbase_tx_prefix.len()
+            + coinbase_tx_suffix.len()
+            + extranonce.len()
+            + additional_coinbase_script_data.len(),
+    );
     coinbase.extend_from_slice(coinbase_tx_prefix);
+    coinbase.extend_from_slice(additional_coinbase_script_data);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
     let coinbase = match Transaction::deserialize(&coinbase[..]) {
@@ -549,6 +555,7 @@ fn test_merkle_root_from_path() {
         &coinbase_bytes[30..],
         &coinbase_bytes[20..30],
         &path,
+        &[],
     )
     .unwrap();
     assert_eq!(expected_root, root);
@@ -565,13 +572,20 @@ fn test_merkle_root_from_path() {
         &coinbase_bytes[30..],
         &coinbase_bytes[20..30],
         &path,
+        &[],
     )
     .unwrap();
     assert_eq!(coinbase_id, root);
 
     //Target None return path on serialization
     assert_eq!(
-        merkle_root_from_path(&coinbase_bytes, &coinbase_bytes, &coinbase_bytes, &path),
+        merkle_root_from_path(
+            &coinbase_bytes,
+            &coinbase_bytes,
+            &coinbase_bytes,
+            &path,
+            &[]
+        ),
         None
     );
 }
@@ -676,6 +690,7 @@ pub fn get_target(
         coinbase_tx_suffix,
         extranonce,
         &(merkle_path[..]),
+        &[],
     )
     .unwrap()
     .try_into()
@@ -778,9 +793,14 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
             let id = id.as_ref().to_vec();
             path.push(id);
         }
-        let merkle_root =
-            merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
-                .expect("Invalid coinbase");
+        let merkle_root = merkle_root_from_path(
+            &coinbase_pre[..],
+            &coinbase_suf[..],
+            &extranonce[..],
+            &path,
+            &[],
+        )
+        .expect("Invalid coinbase");
         let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
 
         let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
