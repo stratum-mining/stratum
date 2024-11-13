@@ -70,7 +70,7 @@ impl JobsCreators {
         template: &mut NewTemplate,
         version_rolling_allowed: bool,
         mut pool_coinbase_outputs: Vec<TxOut>,
-        pool_signature: String,
+        additional_coinbase_script_data: &[u8],
     ) -> Result<NewExtendedMiningJob<'static>, Error> {
         let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
         let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
@@ -87,7 +87,7 @@ impl JobsCreators {
         new_extended_job(
             template,
             &mut pool_coinbase_outputs,
-            pool_signature,
+            additional_coinbase_script_data,
             next_job_id,
             version_rolling_allowed,
             self.extranonce_len,
@@ -137,7 +137,7 @@ impl JobsCreators {
 
 pub fn extended_job_from_custom_job(
     referenced_job: &mining_sv2::SetCustomMiningJob,
-    pool_signature: String,
+    additional_coinbase_script_data: &[u8],
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     let mut outputs =
@@ -158,7 +158,7 @@ pub fn extended_job_from_custom_job(
     new_extended_job(
         &mut template,
         &mut outputs,
-        pool_signature,
+        additional_coinbase_script_data,
         0,
         true,
         extranonce_len,
@@ -177,7 +177,7 @@ pub fn extended_job_from_custom_job(
 fn new_extended_job(
     new_template: &mut NewTemplate,
     coinbase_outputs: &mut [TxOut],
-    pool_signature: String,
+    additional_coinbase_script_data: &[u8],
     job_id: u32,
     version_rolling_allowed: bool,
     extranonce_len: u8,
@@ -193,7 +193,7 @@ fn new_extended_job(
         .map_err(|_| Error::TxVersionTooBig)?;
 
     let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
-    let script_prefix_len = bip34_bytes.len() + pool_signature.as_bytes().len();
+    let script_prefix_len = bip34_bytes.len() + additional_coinbase_script_data.len();
 
     let coinbase = coinbase(
         bip34_bytes,
@@ -201,7 +201,7 @@ fn new_extended_job(
         new_template.coinbase_tx_locktime,
         new_template.coinbase_tx_input_sequence,
         coinbase_outputs,
-        pool_signature,
+        additional_coinbase_script_data,
         extranonce_len,
     );
 
@@ -327,7 +327,7 @@ fn coinbase(
     lock_time: u32,
     sequence: u32,
     coinbase_outputs: &[TxOut],
-    pool_signature: String,
+    additional_coinbase_script_data: &[u8],
     extranonce_len: u8,
 ) -> Transaction {
     // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
@@ -336,7 +336,7 @@ fn coinbase(
         0 => Witness::from_vec(vec![]),
         _ => Witness::from_vec(vec![vec![0; 32]]),
     };
-    bip34_bytes.extend_from_slice(pool_signature.as_bytes());
+    bip34_bytes.extend_from_slice(additional_coinbase_script_data);
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
