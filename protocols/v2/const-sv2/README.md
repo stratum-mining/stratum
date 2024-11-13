@@ -5,7 +5,7 @@
 [![rustc+](https://img.shields.io/badge/rustc-1.75.0%2B-lightgrey.svg)](https://blog.rust-lang.org/2023/12/28/Rust-1.75.0.html)
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/stratum-mining/stratum/blob/main/LICENSE.md)
 
-`const_sv2` is a Rust crate that provides essential constants for the Sv2 (Stratum V2) protocol. These constants are crucial for message framing, encryption, and protocol-specific identifiers across various Sv2 components, including Mining, Job Declaration, and Template Distribution protocols.
+`const_sv2` is a Rust `no_std` crate that provides essential constants for the Sv2 (Stratum V2) protocol. These constants are crucial for message framing, encryption, and protocol-specific identifiers across various Sv2 components, including Mining, Job Declaration, and Template Distribution protocols.
 
 ## Key Capabilities
 
