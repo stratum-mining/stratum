@@ -492,7 +492,7 @@ impl
                 share_per_min,
                 kind,
                 coinbase_outputs,
-                "SOLO".to_string(),
+                "SOLO".as_bytes().to_vec(),
             );
             self.status.set_channel(channel_factory);
 
