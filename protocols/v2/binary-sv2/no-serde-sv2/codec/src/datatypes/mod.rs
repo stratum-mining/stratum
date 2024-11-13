@@ -12,10 +12,10 @@ pub use non_copy_data_types::{
     B0255, B032, B064K, U256,
 };
 
+use alloc::vec::Vec;
+use core::convert::TryInto;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
-
-use std::convert::TryInto;
 
 pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {

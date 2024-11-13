@@ -18,7 +18,7 @@ serde_sv2 = {version = "^1.0.0", path = "../serde-sv2", optional = true}
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true }
 binary_codec_sv2 = {version = "^1.0.0", path = "../no-serde-sv2/codec", optional = true}
 derive_codec_sv2 = {version = "^1.0.0", path = "../no-serde-sv2/derive_codec", optional = true}
-tracing = {version = "0.1"}
+tracing = { version = "0.1", default-features = false }
 
 [features]
 default = ["core"]

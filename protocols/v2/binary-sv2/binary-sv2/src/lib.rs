@@ -1,5 +1,10 @@
 // TODO unify errors from serde_sv2 and no-serde-sv2
-//
+
+#![no_std]
+
+#[macro_use]
+extern crate alloc;
+
 use core::convert::TryInto;
 
 #[cfg(feature = "with_serde")]
@@ -34,6 +39,7 @@ pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::vec::Vec;
 
     mod test_struct {
         use super::*;
@@ -748,7 +754,6 @@ mod test {
     }
     mod test_sv2_option_none {
         use super::*;
-        use core::convert::TryInto;
 
         #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {

@@ -280,7 +280,7 @@ impl_into_encodable_field_for_seq!(B064K<'a>);
 impl_into_encodable_field_for_seq!(B016M<'a>);
 
 #[cfg(feature = "prop_test")]
-impl<'a, T> std::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
+impl<'a, T> core::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
     type Error = &'static str;
     fn try_from(v: Seq0255<'a, T>) -> Result<Self, Self::Error> {
         if v.0.len() > 255 {
@@ -292,7 +292,7 @@ impl<'a, T> std::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
 }
 
 #[cfg(feature = "prop_test")]
-impl<'a, T> std::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
+impl<'a, T> core::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
     type Error = &'static str;
     fn try_from(v: Seq064K<'a, T>) -> Result<Self, Self::Error> {
         if v.0.len() > 64 {
