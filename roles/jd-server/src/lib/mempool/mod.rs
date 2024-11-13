@@ -12,12 +12,12 @@ use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 #[derive(Clone, Debug)]
 pub struct TransactionWithHash {
     pub id: Txid,
-    pub tx: Option<Transaction>,
+    pub tx: Option<(Transaction, u32)>,
 }
 
 #[derive(Clone, Debug)]
 pub struct JDsMempool {
-    pub mempool: HashMap<Txid, Option<Transaction>>,
+    pub mempool: HashMap<Txid, Option<(Transaction, u32)>>,
     auth: mini_rpc_client::Auth,
     url: String,
     new_block_receiver: Receiver<String>,
@@ -50,7 +50,7 @@ impl JDsMempool {
         new_block_receiver: Receiver<String>,
     ) -> Self {
         let auth = mini_rpc_client::Auth::new(username, password);
-        let empty_mempool: HashMap<Txid, Option<Transaction>> = HashMap::new();
+        let empty_mempool: HashMap<Txid, Option<(Transaction, u32)>> = HashMap::new();
         JDsMempool {
             mempool: empty_mempool,
             auth,
@@ -82,42 +82,67 @@ impl JDsMempool {
                     .get_raw_transaction(&txid.to_string(), None)
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
-                let _ =
-                    self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+                let _ = self_.safe_lock(|a| {
+                    a.mempool
+                        .entry(transaction.txid())
+                        .and_modify(|entry| {
+                            if let Some((_, count)) = entry {
+                                *count += 1;
+                            } else {
+                                *entry = Some((transaction.clone(), 1));
+                            }
+                        })
+                        .or_insert(Some((transaction, 1)));
+                });
             }
         }
 
         // fill in the mempool the transactions given in input
         for transaction in transactions {
-            let _ = self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+            let _ = self_.safe_lock(|a| {
+                a.mempool
+                    .entry(transaction.txid())
+                    .and_modify(|entry| {
+                        if let Some((_, count)) = entry {
+                            *count += 1;
+                        } else {
+                            *entry = Some((transaction.clone(), 1));
+                        }
+                    })
+                    .or_insert(Some((transaction, 1)));
+            });
         }
         Ok(())
     }
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-        let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
-
         let client = self_
             .safe_lock(|x| x.get_client())?
             .ok_or(JdsMempoolError::NoClient)?;
 
-        let mempool: Vec<String> = client.get_raw_mempool().await?;
-        for id in &mempool {
-            let key_id = Txid::from_str(id)
-                .map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string())))?;
+        let mempool = client.get_raw_mempool().await?;
 
-            let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
-                Some(entry) => entry.clone(),
-                None => None,
-            })?;
+        let raw_mempool_txids: Result<Vec<Txid>, _> = mempool
+            .into_iter()
+            .map(|id| {
+                Txid::from_str(&id)
+                    .map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string())))
+            })
+            .collect();
 
-            mempool_ordered.insert(key_id, tx);
-        }
+        let raw_mempool_txids = raw_mempool_txids?;
 
-        if mempool_ordered.is_empty() {
+        // Holding the lock till the light mempool updation is complete.
+        let is_mempool_empty = self_.safe_lock(|x| {
+            raw_mempool_txids.iter().for_each(|txid| {
+                x.mempool.entry(*txid).or_insert(None);
+            });
+            x.mempool.is_empty()
+        })?;
+
+        if is_mempool_empty {
             Err(JdsMempoolError::EmptyMempool)
         } else {
-            let _ = self_.safe_lock(|x| x.mempool = mempool_ordered);
             Ok(())
         }
     }
