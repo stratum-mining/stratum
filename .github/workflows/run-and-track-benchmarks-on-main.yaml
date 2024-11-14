@@ -5,15 +5,18 @@ on:
     branches:
       - main
 
+permissions:
+  checks: write
+
 jobs:
   benchmark_sv1_criterion_with_bencher:
     name: Track sv1 criterion benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum-v2-sri
-        BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-        BENCHER_ADAPTER: rust_criterion
-        BENCHER_TESTBED: sv1
+      BENCHER_PROJECT: stratum-v2-sri
+      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+      BENCHER_ADAPTER: rust_criterion
+      BENCHER_TESTBED: sv1
     steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -21,26 +24,26 @@ jobs:
           profile: minimal
           toolchain: 1.75.0
           override: true
+
       - name: Checkout repository
-        uses: actions/checkout@v2
-            
-      - uses: actions/checkout@v4
+        uses: actions/checkout@v4
+
       - uses: bencherdev/bencher@main
       - name: Benchmark with Bencher
         run: |
-            cd benches 
-            bencher run \
-            --github-actions ${{ secrets.GITHUB_TOKEN }} \
-            "cargo bench --bench criterion_sv1_benchmark"
+          cd benches 
+          bencher run \
+          --github-actions ${{ secrets.GITHUB_TOKEN }} \
+          "cargo bench --bench criterion_sv1_benchmark"
 
   benchmark_sv2_criterion_with_bencher:
     name: Track sv2 criterion benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum-v2-sri
-        BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-        BENCHER_ADAPTER: rust_criterion
-        BENCHER_TESTBED: sv2
+      BENCHER_PROJECT: stratum-v2-sri
+      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+      BENCHER_ADAPTER: rust_criterion
+      BENCHER_TESTBED: sv2
     steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -48,26 +51,26 @@ jobs:
           profile: minimal
           toolchain: 1.75.0
           override: true
+
       - name: Checkout repository
-        uses: actions/checkout@v2
-            
-      - uses: actions/checkout@v4
+        uses: actions/checkout@v4
+
       - uses: bencherdev/bencher@main
       - name: Benchmark with Bencher
         run: |
-            cd benches 
-            bencher run \
-            --github-actions ${{ secrets.GITHUB_TOKEN }} \
-            "cargo bench --bench criterion_sv2_benchmark"
-    
+          cd benches 
+          bencher run \
+          --github-actions ${{ secrets.GITHUB_TOKEN }} \
+          "cargo bench --bench criterion_sv2_benchmark"
+
   benchmark_sv1_iai_with_bencher:
     name: Track sv1 iai benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum-v2-sri
-        BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-        BENCHER_ADAPTER: rust_iai
-        BENCHER_TESTBED: sv1
+      BENCHER_PROJECT: stratum-v2-sri
+      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+      BENCHER_ADAPTER: rust_iai
+      BENCHER_TESTBED: sv1
     steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -75,30 +78,31 @@ jobs:
           profile: minimal
           toolchain: 1.75.0
           override: true
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Install Valgrind
         run: |
-            sudo apt-get update
-            sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2 
-            
-      - uses: actions/checkout@v4
+          sudo apt-get update
+          sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2
+
       - uses: bencherdev/bencher@main
       - name: Benchmark with Bencher
         run: |
-            cd benches 
-            bencher run \
-            --github-actions ${{ secrets.GITHUB_TOKEN }} \
-            "cargo bench --bench iai_sv1_benchmark"
-    
+          cd benches 
+          bencher run \
+          --github-actions ${{ secrets.GITHUB_TOKEN }} \
+          "cargo bench --bench iai_sv1_benchmark"
+
   benchmark_sv2_iai_with_bencher:
     name: Track sv2 iai benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum-v2-sri
-        BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-        BENCHER_ADAPTER: rust_iai
-        BENCHER_TESTBED: sv2
+      BENCHER_PROJECT: stratum-v2-sri
+      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+      BENCHER_ADAPTER: rust_iai
+      BENCHER_TESTBED: sv2
     steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -106,19 +110,19 @@ jobs:
           profile: minimal
           toolchain: 1.75.0
           override: true
+
       - name: Checkout repository
-        uses: actions/checkout@v2
-           
+        uses: actions/checkout@v4
+
       - name: Install Valgrind
         run: |
-            sudo apt-get update
-            sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2 
-            
-      - uses: actions/checkout@v4
+          sudo apt-get update
+          sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2
+
       - uses: bencherdev/bencher@main
       - name: Benchmark with Bencher
         run: |
-            cd benches 
-            bencher run \
-            --github-actions ${{ secrets.GITHUB_TOKEN }} \
-            "cargo bench --bench iai_sv2_benchmark"
+          cd benches 
+          bencher run \
+          --github-actions ${{ secrets.GITHUB_TOKEN }} \
+          "cargo bench --bench iai_sv2_benchmark"
