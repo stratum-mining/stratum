@@ -747,9 +747,8 @@ mod test {
 
     use super::Configuration;
 
-    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested
-    // against in message generator
-    // `stratum/test/message-generator/test/pool-sri-test-extended.json`
+    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
+    // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]
     fn test_coinbase_outputs_from_config() {
         let config_path = "./config-examples/pool-config-local-tp-example.toml";
@@ -843,8 +842,8 @@ mod test {
     // copied from roles-logic-sv2::job_creator
     fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
         let encoded = coinbase.serialize();
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-        // 0 witness
+        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+        // witness
         let segwit_bytes = match script_prefix_len {
             0 => 0,
             _ => 2,
@@ -867,8 +866,8 @@ mod test {
         script_prefix_len: usize,
     ) -> B064K<'static> {
         let encoded = coinbase.serialize();
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-        // 0 witness
+        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+        // witness
         let segwit_bytes = match script_prefix_len {
             0 => 0,
             _ => 2,
