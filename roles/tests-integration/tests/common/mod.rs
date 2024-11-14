@@ -477,3 +477,31 @@ pub async fn start_mining_device_sv1(upstream_addr: SocketAddr) {
     });
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 }
+
+pub async fn start_mining_sv2_proxy(upstream: SocketAddr) -> SocketAddr {
+    use mining_proxy_sv2::{ChannelKind, UpstreamMiningValues};
+    let upstreams = vec![UpstreamMiningValues {
+        address: upstream.ip().to_string(),
+        port: upstream.port(),
+        pub_key: Secp256k1PublicKey::from_str(
+            "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72",
+        )
+        .unwrap(),
+        channel_kind: ChannelKind::Extended,
+    }];
+    let mining_proxy_listening_address = get_available_address();
+    let config = mining_proxy_sv2::Configuration {
+        upstreams,
+        listen_address: mining_proxy_listening_address.ip().to_string(),
+        listen_mining_port: mining_proxy_listening_address.port(),
+        max_supported_version: 2,
+        min_supported_version: 2,
+        downstream_share_per_minute: 1.0,
+        expected_total_downstream_hr: 10_000.0,
+        reconnect: true,
+    };
+    tokio::spawn(async move {
+        mining_proxy_sv2::start_mining_proxy(config).await;
+    });
+    mining_proxy_listening_address
+}
