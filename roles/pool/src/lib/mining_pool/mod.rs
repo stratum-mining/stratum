@@ -597,11 +597,11 @@ impl Pool {
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
     ) -> Arc<Mutex<Self>> {
-        let extranonce_len = 32;
+        let extranonce_len = 16;
         let range_0 = std::ops::Range { start: 0, end: 0 };
-        let range_1 = std::ops::Range { start: 0, end: 16 };
+        let range_1 = std::ops::Range { start: 0, end: 8 };
         let range_2 = std::ops::Range {
-            start: 16,
+            start: 8,
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
