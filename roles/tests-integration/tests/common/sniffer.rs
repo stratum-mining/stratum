@@ -146,6 +146,13 @@ impl Sniffer {
         sleep(std::time::Duration::from_secs(1)).await;
     }
 
+    pub fn print_messages(&self) {
+        println!(
+            "Messages from downstream: {:?}",
+            self.messages_from_downstream
+        );
+    }
+
     /// Returns the oldest message sent by downstream.
     ///
     /// The queue is FIFO and once a message is returned it is removed from the queue.
@@ -462,8 +469,8 @@ macro_rules! assert_message {
 		  }
 		  _ => {
 			panic!(
-			  "Sent wrong message: {:?}",
-			  message
+			  "Sent wrong message: {:?}; {:?}",
+			  message, $msg
 			);
 		  }
 		}
@@ -478,8 +485,8 @@ macro_rules! assert_message {
 		  PoolMessages::$message_group($nested_message_group::$expected_message_variant(_)) => {}
 		  _ => {
 			panic!(
-			  "Sent wrong message: {:?}",
-			  message
+			  "Sent wrong message: {:?}; {:?}",
+			  message, $msg
 			);
 		  }
 		}
@@ -519,7 +526,7 @@ macro_rules! assert_mining_message {
 	assert_message!(Mining, Mining, $msg, $expected_message_variant, $($expected_property, $expected_property_value),*);
   };
   ($msg:expr, $expected_message_variant:ident) => {
-	assert_message!(Mining, Mining, $msg, $expected_message_variant);
+        assert_message!(Mining, Mining, $msg, $expected_message_variant);
   };
 }
 
