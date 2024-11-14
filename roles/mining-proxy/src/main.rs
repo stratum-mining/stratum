@@ -17,16 +17,12 @@
 //! A Downstream that signal the capacity to handle group channels can open more than one channel.
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 #![allow(special_module_name)]
-use std::{net::SocketAddr, sync::Arc};
-
-use tokio::{net::TcpListener, sync::oneshot};
-use tracing::{error, info};
+use tracing::error;
 
 use ext_config::{Config, File, FileFormat};
 use lib::Configuration;
-use roles_logic_sv2::utils::{GroupId, Mutex};
 
-mod lib;
+pub mod lib;
 
 mod args {
     use std::path::PathBuf;
@@ -131,43 +127,5 @@ async fn main() {
         }
     };
 
-    let group_id = Arc::new(Mutex::new(GroupId::new()));
-    lib::ROUTING_LOGIC
-        .set(Mutex::new(
-            lib::initialize_r_logic(&config.upstreams, group_id, config.clone()).await,
-        ))
-        .expect("BUG: Failed to set ROUTING_LOGIC");
-
-    info!("Initializing upstream scanner");
-    lib::initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
-    info!("Initializing downstream listener");
-
-    let socket = SocketAddr::new(
-        config.listen_address.parse().unwrap(),
-        config.listen_mining_port,
-    );
-    let listener = TcpListener::bind(socket).await.unwrap();
-
-    info!("Listening for downstream mining connections on {}", socket);
-
-    let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-    let (_, res) = tokio::join!(
-        // Wait for downstream connection
-        lib::downstream_mining::listen_for_downstream_mining(listener, shutdown_rx),
-        // handle SIGTERM/QUIT / ctrl+c
-        tokio::spawn(async {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("Failed to listen to signals");
-            let _ = shutdown_tx.send(());
-            info!("Interrupt received");
-        })
-    );
-
-    if let Err(e) = res {
-        panic!("Failed to wait for clean exit: {:?}", e);
-    }
-
-    info!("Shutdown done");
+    lib::start_mining_proxy(config).await;
 }

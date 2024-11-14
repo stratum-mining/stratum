@@ -10,6 +10,8 @@ use roles_logic_sv2::{
 };
 use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
+use tokio::{net::TcpListener, sync::oneshot};
+use tracing::info;
 use upstream_mining::UpstreamMiningNode;
 
 type RLogic = MiningProxyRoutingLogic<
@@ -84,10 +86,10 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct UpstreamMiningValues {
-    address: String,
-    port: u16,
-    pub_key: key_utils::Secp256k1PublicKey,
-    channel_kind: ChannelKind,
+    pub address: String,
+    pub port: u16,
+    pub pub_key: key_utils::Secp256k1PublicKey,
+    pub channel_kind: ChannelKind,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -103,9 +105,9 @@ pub struct Configuration {
     pub listen_mining_port: u16,
     pub max_supported_version: u16,
     pub min_supported_version: u16,
-    downstream_share_per_minute: f32,
-    expected_total_downstream_hr: f32,
-    reconnect: bool,
+    pub downstream_share_per_minute: f32,
+    pub expected_total_downstream_hr: f32,
+    pub reconnect: bool,
 }
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
@@ -144,4 +146,46 @@ pub async fn initialize_r_logic(
         downstream_id_generator: Id::new(),
         downstream_to_upstream_map: std::collections::HashMap::new(),
     }
+}
+
+pub async fn start_mining_proxy(config: Configuration) {
+    let group_id = Arc::new(Mutex::new(GroupId::new()));
+    ROUTING_LOGIC
+        .set(Mutex::new(
+            initialize_r_logic(&config.upstreams, group_id, config.clone()).await,
+        ))
+        .expect("BUG: Failed to set ROUTING_LOGIC");
+
+    info!("Initializing upstream scanner");
+    initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
+    info!("Initializing downstream listener");
+
+    let socket = SocketAddr::new(
+        config.listen_address.parse().unwrap(),
+        config.listen_mining_port,
+    );
+    let listener = TcpListener::bind(socket).await.unwrap();
+
+    info!("Listening for downstream mining connections on {}", socket);
+
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
+    let (_, res) = tokio::join!(
+        // Wait for downstream connection
+        downstream_mining::listen_for_downstream_mining(listener, shutdown_rx),
+        // handle SIGTERM/QUIT / ctrl+c
+        tokio::spawn(async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to listen to signals");
+            let _ = shutdown_tx.send(());
+            info!("Interrupt received");
+        })
+    );
+
+    if let Err(e) = res {
+        panic!("Failed to wait for clean exit: {:?}", e);
+    }
+
+    info!("Shutdown done");
 }
