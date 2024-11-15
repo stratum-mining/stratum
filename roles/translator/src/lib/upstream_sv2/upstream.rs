@@ -171,8 +171,7 @@ impl Upstream {
             job_id: None,
             last_job_id: None,
             min_extranonce_size,
-            upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
-                                            * pool supports currently */
+            upstream_extranonce1_size: 8,
             tx_sv2_extranonce,
             tx_status,
             target,

@@ -587,7 +587,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             channel_kind,
             vec![],
             pool_signature,
-        );
+        )
+        .expect("Signature + extranonce lens exceed 32 bytes");
         let extranonce: Extranonce = m
             .extranonce_prefix
             .into_static()
