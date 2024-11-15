@@ -1924,6 +1924,10 @@ impl ProxyExtendedChannelFactory {
     ) -> Option<bool> {
         self.inner.update_target_for_channel(channel_id, new_target)
     }
+
+    pub fn get_extranonce_len(&self) -> usize {
+        self.inner.extranonces.get_len()
+    }
 }
 
 /// Used by proxies for tracking upstream targets.
