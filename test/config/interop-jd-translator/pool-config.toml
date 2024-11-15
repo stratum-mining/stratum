@@ -16,7 +16,7 @@ coinbase_outputs = [
 ]
 # Pool signature (string to be included in coinbase tx) 
 # e.g. "Foundry USA", "Antpool", "/ViaBTC/Mined by gitgab19", etc
-pool_signature = "Stratum v2 SRI Pool - gitgab19"
+pool_signature = "Stratum v2 SRI Pool"
 
 # Template Provider config
 # hosted testnet TP 

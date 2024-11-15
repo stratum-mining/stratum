@@ -16,9 +16,10 @@ pub fn create_notify(
     new_prev_hash: SetNewPrevHash<'static>,
     new_job: NewExtendedMiningJob<'static>,
     clean_jobs: bool,
+    extranonce_len: usize,
 ) -> server_to_client::Notify<'static> {
     // TODO 32 must be changed!
-    let new_job = extended_job_to_non_segwit(new_job, 32)
+    let new_job = extended_job_to_non_segwit(new_job, extranonce_len)
         .expect("failed to convert extended job to non segwit");
     // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
     let job_id = new_job.job_id.to_string();
