@@ -224,7 +224,12 @@ fn new_extended_job(
         version_rolling_allowed,
         merkle_path: new_template.merkle_path.clone().into_static(),
         coinbase_tx_prefix: coinbase_tx_prefix(&coinbase, script_prefix_len)?,
-        coinbase_tx_suffix: coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_len)?,
+        coinbase_tx_suffix: coinbase_tx_suffix(
+            &coinbase,
+            extranonce_len,
+            script_prefix_len,
+            additional_coinbase_script_data_len as usize,
+        )?,
     };
 
     debug!(
@@ -249,10 +254,10 @@ fn coinbase_tx_prefix(
     };
     let index = 4    // tx version
         + segwit_bytes
-        + 1  // number of inputs TODO can be also 3
+        + 1  // number of inputs (always 1)
         + 32 // prev OutPoint
         + 4  // index
-        + 1  // bytes in script TODO can be also 3
+        + 1  // bytes in script (max 100 so always 1 byte)
         + script_prefix_len; // bip34_bytes
     let r = encoded[0..index].to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
@@ -264,6 +269,7 @@ fn coinbase_tx_suffix(
     coinbase: &Transaction,
     extranonce_len: u8,
     script_prefix_len: usize,
+    additional_coinbase_script_data_len: usize,
 ) -> Result<B064K<'static>, Error> {
     let encoded = coinbase.serialize();
     // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
@@ -279,6 +285,7 @@ fn coinbase_tx_suffix(
         + 4  // index
         + 1  // bytes in script TODO can be also 3
         + script_prefix_len  // bip34_bytes
+        + additional_coinbase_script_data_len
         + (extranonce_len as usize)..]
         .to_vec();
     r.try_into().map_err(Error::BinarySv2Error)

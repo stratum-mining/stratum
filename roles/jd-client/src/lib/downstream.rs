@@ -493,7 +493,8 @@ impl
                 kind,
                 coinbase_outputs,
                 "SOLO".as_bytes().to_vec(),
-            );
+            )
+            .expect("Signature + extranonce lens exceed 32 bytes");
             self.status.set_channel(channel_factory);
 
             let request_id = m.request_id;
