@@ -15,7 +15,11 @@ use mining_sv2::{
 };
 
 use nohash_hasher::BuildNoHashHasher;
-use std::{collections::{HashMap, HashSet}, convert::TryInto, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::TryInto,
+    sync::Arc,
+};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
 use tracing::{debug, error, info, trace, warn};
@@ -210,9 +214,9 @@ struct ChannelFactory {
     last_prev_hash: Option<(StagedPhash, Vec<u32>)>,
     last_prev_hash_: Option<hash_types::BlockHash>,
     // (NewExtendedMiningJob,group ids that already received the job)
-    last_valid_jobs: [Option<(NewExtendedMiningJob<'static>, Vec<u32>)>;3],
+    last_valid_jobs: [Option<(NewExtendedMiningJob<'static>, Vec<u32>)>; 3],
     // Index of the last valid job for channel_id ++ job_id
-    id_to_job: HashMap<u32,u8, BuildNoHashHasher<u64>>,
+    id_to_job: HashMap<u32, u8, BuildNoHashHasher<u64>>,
     // Used to understand which is the last added element in last_valid_jobs
     added_elements: usize,
     kind: ExtendedChannelKind,
@@ -224,27 +228,27 @@ struct ChannelFactory {
 impl ChannelFactory {
     fn add_valid_job(&mut self, job: NewExtendedMiningJob<'static>, group_ids: Vec<u32>) {
         match self.last_valid_jobs {
-            [None,None,None] => {
+            [None, None, None] => {
                 self.id_to_job.insert(job.job_id, 0);
-                self.last_valid_jobs[0] = Some((job,group_ids));
+                self.last_valid_jobs[0] = Some((job, group_ids));
                 self.added_elements = 1;
-            },
-            [Some(_),None,None] => {
+            }
+            [Some(_), None, None] => {
                 self.id_to_job.insert(job.job_id, 1);
-                self.last_valid_jobs[1] = Some((job,group_ids));
+                self.last_valid_jobs[1] = Some((job, group_ids));
                 self.added_elements = 2;
-            },
-            [Some(_),Some(_),None] => {
+            }
+            [Some(_), Some(_), None] => {
                 self.id_to_job.insert(job.job_id, 2);
-                self.last_valid_jobs[2] = Some((job,group_ids));
+                self.last_valid_jobs[2] = Some((job, group_ids));
                 self.added_elements = 3;
-            },
-            [Some(_),Some(_),Some(_)] => {
+            }
+            [Some(_), Some(_), Some(_)] => {
                 let to_remove = self.added_elements % 3;
                 self.id_to_job.retain(|_, v| *v != to_remove as u8);
                 self.id_to_job.insert(job.job_id, to_remove as u8);
-                self.last_valid_jobs[to_remove] = Some((job,group_ids));
-            },
+                self.last_valid_jobs[to_remove] = Some((job, group_ids));
+            }
             _ => panic!("Internal error: invalid last_valid_jobs state"),
         }
     }
@@ -262,23 +266,15 @@ impl ChannelFactory {
     }
     fn get_last_valid_job_index(&self) -> Option<u8> {
         match self.last_valid_jobs {
-            [None,None,None] => {
-                None
-            },
-            [Some(_),None,None] => {
-                Some(0)
-            },
-            [Some(_),Some(_),None] => {
-                Some(1)
-            },
-            [Some(_),Some(_),Some(_)] => {
-                Some(2)
-            },
+            [None, None, None] => None,
+            [Some(_), None, None] => Some(0),
+            [Some(_), Some(_), None] => Some(1),
+            [Some(_), Some(_), Some(_)] => Some(2),
             _ => panic!("Internal error: invalid last_valid_jobs state"),
         }
     }
     fn clear_valid_jobs(&mut self) {
-        self.last_valid_jobs = [None,None,None];
+        self.last_valid_jobs = [None, None, None];
         self.id_to_job.clear();
         self.added_elements = 0;
     }
@@ -663,11 +659,7 @@ impl ChannelFactory {
         // But using the pattern match is more clear how each option is handled
         let last_prev_hash = self.last_prev_hash.clone();
         let is_empty = self.future_jobs.is_empty();
-        match (
-            last_prev_hash,
-            self.get_mut_last_valid_job(),
-            is_empty,
-        ) {
+        match (last_prev_hash, self.get_mut_last_valid_job(), is_empty) {
             // If we do not have anything just do nothing
             (None, None, true) => (),
             // If we have only future jobs we need to send them all after the
@@ -1113,7 +1105,11 @@ impl PoolChannelFactory {
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Vec<TxOut>,
         _additional_coinbase_script_data: Vec<u8>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
+        if _additional_coinbase_script_data.len() + extranonces.get_len() > 32 {
+            error!("Additional coinbase script data is too big");
+            return Err(Error::AdditionalCoinbaseScriptDataTooBig);
+        }
         let inner = ChannelFactory {
             ids,
             standard_channels_for_non_hom_downstreams: HashMap::with_hasher(
@@ -1128,7 +1124,7 @@ impl PoolChannelFactory {
             future_jobs: Vec::new(),
             last_prev_hash: None,
             last_prev_hash_: None,
-            last_valid_jobs: [None,None,None],
+            last_valid_jobs: [None, None, None],
             id_to_job: HashMap::with_hasher(BuildNoHashHasher::default()),
             added_elements: 0,
             kind,
@@ -1137,7 +1133,7 @@ impl PoolChannelFactory {
             future_templates: HashMap::with_hasher(BuildNoHashHasher::default()),
         };
 
-        Self {
+        Ok(Self {
             inner,
             job_creator,
             pool_coinbase_outputs,
@@ -1145,7 +1141,7 @@ impl PoolChannelFactory {
             _additional_coinbase_script_data_old: None,
             job_ids_using_old_add_data: HashSet::with_hasher(BuildNoHashHasher::default()),
             negotiated_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
-        }
+        })
     }
     /// Calls [`ChannelFactory::add_standard_channel`]
     pub fn add_standard_channel(
@@ -1222,8 +1218,10 @@ impl PoolChannelFactory {
             self.pool_coinbase_outputs.clone(),
             self.get_last_additional_coinbase_script_data().len() as u8,
         )?;
-        self.inner
-            .on_new_extended_mining_job(new_job, Some(&self.get_last_additional_coinbase_script_data()))
+        self.inner.on_new_extended_mining_job(
+            new_job,
+            Some(&self.get_last_additional_coinbase_script_data()),
+        )
     }
     /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the
     /// shares against the channel's respective target and return `OnNewShare` to let us know if
@@ -1232,7 +1230,8 @@ impl PoolChannelFactory {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<OnNewShare, Error> {
-        let additional_coinbase_script_data = self.get_additional_coinbase_script_data(m.channel_id,m.job_id);
+        let additional_coinbase_script_data =
+            self.get_additional_coinbase_script_data(m.channel_id, m.job_id);
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
                 let referenced_job = self
@@ -1293,7 +1292,8 @@ impl PoolChannelFactory {
         m: SubmitSharesExtended,
     ) -> Result<OnNewShare, Error> {
         let target = self.job_creator.last_target();
-        let additional_coinbase_script_data = self.get_additional_coinbase_script_data(m.channel_id,m.job_id);
+        let additional_coinbase_script_data =
+            self.get_additional_coinbase_script_data(m.channel_id, m.job_id);
         // When downstream set a custom mining job we add the job to the negotiated job
         // hashmap, with the extended channel id as a key. Whenever the pool receive a share must
         // first check if the channel have a negotiated job if so we can not retreive the template
@@ -1440,7 +1440,6 @@ impl PoolChannelFactory {
             (true, Some(additional_coinbase_script_data)) => additional_coinbase_script_data.clone(),
             (false, _) => self._additional_coinbase_script_data.clone(),
             _ => panic!("Internal error: when job_ids_using_old_add_data contains elements _additional_coinbase_script_data_old must be Some")
-            
         }
     }
     // TODO ret can not be larger then 32 bytes maybe use the stack for it?
@@ -1507,7 +1506,7 @@ impl ProxyExtendedChannelFactory {
             future_jobs: Vec::new(),
             last_prev_hash: None,
             last_prev_hash_: None,
-            last_valid_jobs: [None,None,None],
+            last_valid_jobs: [None, None, None],
             id_to_job: HashMap::with_hasher(BuildNoHashHasher::default()),
             added_elements: 0,
             kind,
@@ -1772,7 +1771,12 @@ impl ProxyExtendedChannelFactory {
                 if let Some(job_creator) = self.job_creator.as_mut() {
                     let template_id = job_creator
                         .get_template_id_from_job(
-                            self.inner.get_valid_job(m.job_id).as_ref().unwrap().0.job_id,
+                            self.inner
+                                .get_valid_job(m.job_id)
+                                .as_ref()
+                                .unwrap()
+                                .0
+                                .job_id,
                         )
                         .ok_or(Error::NoTemplateForId)?;
                     let bitcoin_target = job_creator.last_target();
@@ -1863,7 +1867,10 @@ impl ProxyExtendedChannelFactory {
         self.inner.kind.set_target(new_target);
     }
     pub fn last_valid_job_version(&self) -> Option<u32> {
-        self.inner.get_last_valid_job().as_ref().map(|j| j.0.version)
+        self.inner
+            .get_last_valid_job()
+            .as_ref()
+            .map(|j| j.0.version)
     }
     /// Returns the full extranonce, extranonce1 (static for channel) + extranonce2 (miner nonce
     /// space)
