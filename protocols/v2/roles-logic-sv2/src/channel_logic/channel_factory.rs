@@ -10,8 +10,8 @@ use crate::{
 use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
     OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
-    SetCustomMiningJobSuccess, SetNewPrevHash, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, Target,
+    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetNewPrevHash, SubmitSharesError,
+    SubmitSharesExtended, SubmitSharesStandard, Target,
 };
 
 use nohash_hasher::BuildNoHashHasher;
@@ -226,6 +226,17 @@ struct ChannelFactory {
 }
 
 impl ChannelFactory {
+    // TODO channels in groups channel must be handled in a different way
+    // get the group_id construct group_id ++ channel_id and remove it
+    // this will be done in a future PR since no one is using them
+    fn close_channel(&mut self, channel_id: u32) {
+        self.standard_channels_for_hom_downstreams
+            .remove(&channel_id);
+        self.extended_channels.remove(&channel_id);
+    }
+}
+
+impl ChannelFactory {
     fn add_valid_job(&mut self, job: NewExtendedMiningJob<'static>, group_ids: Vec<u32>) {
         match self.last_valid_jobs {
             [None, None, None] => {
@@ -317,7 +328,7 @@ impl ChannelFactory {
         hash_rate: f32,
         min_extranonce_size: u16,
         additional_coinbase_script_data: Option<&[u8]>,
-    ) -> Result<Vec<Mining<'static>>, Error> {
+    ) -> Result<(Vec<Mining<'static>>, Option<u32>), Error> {
         let extended_channels_group = 0;
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
         if min_extranonce_size <= max_extranonce_size {
@@ -378,11 +389,14 @@ impl ChannelFactory {
             for (job, _) in &self.future_jobs {
                 result.push(Mining::NewExtendedMiningJob(job.clone()))
             }
-            Ok(result)
+            Ok((result, Some(channel_id)))
         } else {
-            Ok(vec![Mining::OpenMiningChannelError(
-                OpenMiningChannelError::unsupported_extranonce_size(request_id),
-            )])
+            Ok((
+                vec![Mining::OpenMiningChannelError(
+                    OpenMiningChannelError::unsupported_extranonce_size(request_id),
+                )],
+                None,
+            ))
         }
     }
     /// Called when we want to replicate a channel already opened by another actor.
@@ -831,6 +845,8 @@ impl ChannelFactory {
                 channel.extranonce.as_ref(),
                 *id,
                 Some(job_id),
+                // We dont' care about what we have in the additional data since downstream do not
+                // have to handle extranonces in that case, whatever is ok.
                 additional_coinbase_script_data,
             )
             .unwrap();
@@ -1079,19 +1095,19 @@ pub struct PoolChannelFactory {
     inner: ChannelFactory,
     job_creator: JobsCreators,
     pool_coinbase_outputs: Vec<TxOut>,
+    // Per channel additional data that the pool may want to include in the coinbase input script
+    // as first part of the extranonce. This can be used to put things like the pool signature
+    // or commitments. It is per channel since the pool may want to include different
+    // commitment data based on downstream hash rate.
+    // channel_if -> (additional_coinbase_script_data, old_additional_coinbase_script_data)
+    #[allow(clippy::type_complexity)]
+    channel_to_additional_coinbase_script_data:
+        HashMap<u32, (Vec<u8>, Option<Vec<u8>>), BuildNoHashHasher<u32>>,
     // Additional data that the pool may want to include in the coinbase input script as first part
     // of the extranonce. This can be used to put things like the pool signature.
-    // I prepend with _ cause it means that I don't want to use this value directly.
-    _additional_coinbase_script_data: Vec<u8>,
-    // This is normally set to None. When the pool change the additional_coinbase_script_data we
-    // set it to Some(old value). We need it cause for a short time frame we will have job that are
-    // supposed to use the new one and jobs that are supposed to use the old value. As soon we
-    // have only job that use the new value, this is set to None. We do not support more then 2
-    // additional_coinbase_script_data at time.
-    // I prepend with _ cause it means that I don't want to use this value directly.
-    _additional_coinbase_script_data_old: Option<Vec<u8>>,
+    additional_coinbase_script_data: Vec<u8>,
     // channel_id ++ job_id
-    job_ids_using_old_add_data: HashSet<u64, BuildNoHashHasher<u64>>,
+    job_ids_using_old_add_data: HashSet<u32, BuildNoHashHasher<u32>>,
     // extedned_channel_id -> SetCustomMiningJob
     negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>, BuildNoHashHasher<u32>>,
 }
@@ -1104,9 +1120,9 @@ impl PoolChannelFactory {
         share_per_min: f32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Vec<TxOut>,
-        _additional_coinbase_script_data: Vec<u8>,
+        additional_coinbase_script_data: Vec<u8>,
     ) -> Result<Self, Error> {
-        if _additional_coinbase_script_data.len() + extranonces.get_len() > 32 {
+        if additional_coinbase_script_data.len() + extranonces.get_len() > 32 {
             error!("Additional coinbase script data is too big");
             return Err(Error::AdditionalCoinbaseScriptDataTooBig);
         }
@@ -1137,8 +1153,10 @@ impl PoolChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
-            _additional_coinbase_script_data,
-            _additional_coinbase_script_data_old: None,
+            channel_to_additional_coinbase_script_data: HashMap::with_hasher(
+                BuildNoHashHasher::default(),
+            ),
+            additional_coinbase_script_data,
             job_ids_using_old_add_data: HashSet::with_hasher(BuildNoHashHasher::default()),
             negotiated_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
         })
@@ -1151,12 +1169,14 @@ impl PoolChannelFactory {
         is_header_only: bool,
         id: u32,
     ) -> Result<Vec<Mining>, Error> {
+        self.channel_to_additional_coinbase_script_data
+            .insert(id, (self.additional_coinbase_script_data.clone(), None));
         self.inner.add_standard_channel(
             request_id,
             downstream_hash_rate,
             is_header_only,
             id,
-            Some(&self.get_last_additional_coinbase_script_data()),
+            Some(&self.additional_coinbase_script_data),
         )
     }
     /// Calls [`ChannelFactory::new_extended_channel`]
@@ -1166,12 +1186,25 @@ impl PoolChannelFactory {
         hash_rate: f32,
         min_extranonce_size: u16,
     ) -> Result<Vec<Mining<'static>>, Error> {
-        self.inner.new_extended_channel(
+        match self.inner.new_extended_channel(
             request_id,
             hash_rate,
             min_extranonce_size,
-            Some(&self.get_last_additional_coinbase_script_data()),
-        )
+            Some(&self.additional_coinbase_script_data),
+        ) {
+            // Channel is opened
+            Ok((res, Some(channel_id))) => {
+                self.channel_to_additional_coinbase_script_data.insert(
+                    channel_id,
+                    (self.additional_coinbase_script_data.clone(), None),
+                );
+                Ok(res)
+            }
+            // Channel is not opened and we can return an error downtream
+            Ok((res, None)) => Ok(res),
+            // Channel is not opened and we can not return an error downtream
+            Err(e) => Err(e),
+        }
     }
     /// Called when we want to replicate a channel already opened by another actor.
     /// is used only in the jd client from the template provider module to mock a pool.
@@ -1183,6 +1216,9 @@ impl PoolChannelFactory {
         channel_id: u32,
         extranonce_size: u16,
     ) -> Option<()> {
+        // This initialise a PoolChannelFactory for a JDC that can not have
+        // additional_coinbase_script_data as it is set only by the pool.
+        assert!(self.additional_coinbase_script_data.is_empty());
         self.inner.replicate_upstream_extended_channel_only_jd(
             target,
             extranonce,
@@ -1216,11 +1252,13 @@ impl PoolChannelFactory {
             m,
             true,
             self.pool_coinbase_outputs.clone(),
-            self.get_last_additional_coinbase_script_data().len() as u8,
+            self.additional_coinbase_script_data.len() as u8,
         )?;
         self.inner.on_new_extended_mining_job(
             new_job,
-            Some(&self.get_last_additional_coinbase_script_data()),
+            // Here we can use the data that we used to initialize this channel factory. Since this
+            // value it will be used only to create standard jobs for HOM downstreams.
+            Some(&self.additional_coinbase_script_data),
         )
     }
     /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the
@@ -1309,8 +1347,8 @@ impl PoolChannelFactory {
             .unwrap();
             let prev_blockhash = crate::utils::u256_to_block_hash(referenced_job.prev_hash.clone());
             let bits = referenced_job.nbits;
-            self.inner.check_target(
-                Share::Extended(m.into_static()),
+            match self.inner.check_target(
+                Share::Extended(m.clone().into_static()),
                 target,
                 None,
                 0,
@@ -1320,7 +1358,42 @@ impl PoolChannelFactory {
                 prev_blockhash,
                 bits,
                 Some(&additional_coinbase_script_data),
-            )
+            ) {
+                // Since this is a share for a custom job and there is no way to know if the share
+                // do not met target cause pool sent a new extranonce prefix and the miner is still
+                // using the old one we check also against the old one since we don't want to fail
+                // in that case.
+                Ok(OnNewShare::SendErrorDownstream(m_)) => {
+                    match self.get_old_additional_coinbase_script_data(m.channel_id) {
+                        Some(additional_coinbase_script_data) => {
+                            let target = self.job_creator.last_target();
+                            let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
+                            let merkle_path = referenced_job.merkle_path.to_vec();
+                            let extended_job = job_creator::extended_job_from_custom_job(
+                                referenced_job,
+                                additional_coinbase_script_data.len() as u8,
+                                self.inner.extranonces.get_len() as u8,
+                            )
+                            .unwrap();
+                            self.inner.check_target(
+                                Share::Extended(m.into_static()),
+                                target,
+                                None,
+                                0,
+                                merkle_path,
+                                extended_job.coinbase_tx_prefix.as_ref(),
+                                extended_job.coinbase_tx_suffix.as_ref(),
+                                prev_blockhash,
+                                bits,
+                                Some(&additional_coinbase_script_data),
+                            )
+                        }
+                        None => Ok(OnNewShare::SendErrorDownstream(m_)),
+                    }
+                }
+                Ok(res) => Ok(res),
+                Err(err) => Err(err),
+            }
         } else {
             let referenced_job = self
                 .inner
@@ -1435,25 +1508,90 @@ impl PoolChannelFactory {
     // TODO ret can not be larger then 32 bytes maybe use the stack for it?
     #[inline(always)]
     fn get_additional_coinbase_script_data(&self, channel_id: u32, job_id: u32) -> Vec<u8> {
-        let id = ((channel_id as u64) << 32) | (job_id as u64);
-        match (self.job_ids_using_old_add_data.contains(&id), &self._additional_coinbase_script_data_old) {
-            (true, Some(additional_coinbase_script_data)) => additional_coinbase_script_data.clone(),
-            (false, _) => self._additional_coinbase_script_data.clone(),
-            _ => panic!("Internal error: when job_ids_using_old_add_data contains elements _additional_coinbase_script_data_old must be Some")
+        debug_assert!({
+            let have_old = self.job_ids_using_old_add_data.contains(&job_id);
+            let not_have_old = self
+                .channel_to_additional_coinbase_script_data
+                .get(&channel_id)
+                .unwrap()
+                .1
+                .is_some();
+            if have_old {
+                !not_have_old
+            } else {
+                true
+            }
+        });
+        match self
+            .channel_to_additional_coinbase_script_data
+            .get(&channel_id)
+        {
+            Some((add_data, None)) => add_data.clone(),
+            Some((add_data, Some(old_data))) => {
+                if self.job_ids_using_old_add_data.contains(&job_id) {
+                    old_data.clone()
+                } else {
+                    add_data.clone()
+                }
+            }
+            None => panic!("Internal error: channel not initialized can not get additional data"),
         }
     }
+
     // TODO ret can not be larger then 32 bytes maybe use the stack for it?
     #[inline(always)]
-    fn get_last_additional_coinbase_script_data(&self) -> Vec<u8> {
-        self._additional_coinbase_script_data.clone()
+    fn get_old_additional_coinbase_script_data(&self, channel_id: u32) -> Option<Vec<u8>> {
+        self.channel_to_additional_coinbase_script_data
+            .get(&channel_id)?
+            .1
+            .clone()
     }
 
-    pub fn change_additional_coinbase_script_data(&mut self, new_data: Vec<u8>) {
-        todo!()
+    /// This set a new additional coinbase script data for a particular channel. Think to keep in
+    /// mind before using this function:
+    /// 1. Standard hom channels are not affected by the change
+    /// 2. The new additional data MUST have the exact same len as the additonal data used to
+    ///    initialize the channle factory with PoolChannelFactory::new
+    /// 3. For job provided by the pool, all the non future sent before the new additional data will
+    ///    have the old additional data. All the future jobs and the non future jobs sent after the
+    ///    new additional data will have the new additional data
+    /// 4. Custom jobs will be checked against the new additional data, if the check fail we check
+    ///    against the old additional data if also this check fail we return SubmitShareError
+    pub fn change_additional_coinbase_script_data(
+        &mut self,
+        new_data: Vec<u8>,
+        channel_id: u32,
+    ) -> Result<Mining, Error> {
+        if self.additional_coinbase_script_data.len() == new_data.len() {
+            let mut ids_for_old_data = HashSet::with_hasher(BuildNoHashHasher::default());
+            for id in self.inner.id_to_job.keys() {
+                ids_for_old_data.insert(*id);
+            }
+            self.job_ids_using_old_add_data = ids_for_old_data;
+            match self
+                .channel_to_additional_coinbase_script_data
+                .get_mut(&channel_id)
+            {
+                Some(data) => {
+                    data.1 = Some(data.0.clone());
+                    data.0 = new_data.clone();
+                    let res = SetExtranoncePrefix {
+                        channel_id,
+                        extranonce_prefix: new_data.try_into().expect(""),
+                    };
+                    Ok(Mining::SetExtranoncePrefix(res))
+                }
+                None => Err(Error::NotFoundChannelId),
+            }
+        } else {
+            Err(Error::NewAdditionalCoinbaseDataLenDoNotMatch)
+        }
     }
 
-    fn active_jobs(&self) -> Vec<u64> {
-        todo!()
+    pub fn close_channel(&mut self, channel_id: u32) {
+        self.channel_to_additional_coinbase_script_data
+            .retain(|k, _| k != &channel_id);
+        self.inner.close_channel(channel_id);
     }
 }
 
@@ -1541,6 +1679,7 @@ impl ProxyExtendedChannelFactory {
     ) -> Result<Vec<Mining>, Error> {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size, None)
+            .map(|x| x.0)
     }
     /// Called only when a new prev hash is received by a Template Provider when job declaration is
     /// used. It matches the message with a `job_id`, creates a new custom job, and calls
