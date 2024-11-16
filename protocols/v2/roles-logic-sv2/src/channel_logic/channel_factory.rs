@@ -332,9 +332,9 @@ impl ChannelFactory {
         let extended_channels_group = 0;
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
         if min_extranonce_size <= max_extranonce_size {
-            // SECURITY is very unlikely to finish the ids btw this unwrap could be used by an
-            // attaccher that want to dirsrupt the service maybe we should have a method
-            // to reuse ids that are no longer connected?
+            // SECURITY is very unlikely to finish the ids btw this unwrap could be used by an attaccher that
+            // want to dirsrupt the service maybe we should have a method to reuse ids that are no
+            // longer connected?
             let channel_id = self
                 .ids
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
@@ -1302,9 +1302,9 @@ impl PoolChannelFactory {
             Some(&self.additional_coinbase_script_data),
         )
     }
-    /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the
-    /// shares against the channel's respective target and return `OnNewShare` to let us know if
-    /// and where the shares should be relayed
+    /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the shares
+    /// against the channel's respective target and return `OnNewShare` to let us know if and where the shares should
+    /// be relayed
     pub fn on_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
