@@ -46,6 +46,7 @@ enum SnifferError {
 /// messages in a specific order and to inspect the messages details.
 #[derive(Debug, Clone)]
 pub struct Sniffer {
+    identifier: String,
     listening_address: SocketAddr,
     upstream_address: SocketAddr,
     messages_from_downstream: MessagesAggregator,
@@ -55,8 +56,13 @@ pub struct Sniffer {
 impl Sniffer {
     /// Creates a new sniffer that listens on the given listening address and connects to the given
     /// upstream address.
-    pub async fn new(listening_address: SocketAddr, upstream_address: SocketAddr) -> Self {
+    pub async fn new(
+        identifier: String,
+        listening_address: SocketAddr,
+        upstream_address: SocketAddr,
+    ) -> Self {
         Self {
+            identifier,
             listening_address,
             upstream_address,
             messages_from_downstream: MessagesAggregator::new(),
@@ -436,15 +442,15 @@ impl Drop for Sniffer {
         }));
         if !self.messages_from_downstream.is_empty() {
             println!(
-                "You didn't handle all downstream messages: {:?}",
-                self.messages_from_downstream
+                "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                self.identifier, self.messages_from_downstream
             );
             panic!();
         }
         if !self.messages_from_upstream.is_empty() {
             println!(
-                "You didn't handle all upstream messages: {:?}",
-                self.messages_from_upstream
+                "Sniffer{}: You didn't handle all upstream messages: {:?}",
+                self.identifier, self.messages_from_upstream
             );
             panic!();
         }
