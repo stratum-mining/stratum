@@ -198,8 +198,9 @@ pub async fn start_sniffer(
     identifier: String,
     listening_address: SocketAddr,
     upstream: SocketAddr,
+    check_on_drop: bool,
 ) -> Sniffer {
-    let sniffer = Sniffer::new(identifier, listening_address, upstream).await;
+    let sniffer = Sniffer::new(identifier, listening_address, upstream, check_on_drop).await;
     let sniffer_clone = sniffer.clone();
     tokio::spawn(async move {
         sniffer_clone.start().await;

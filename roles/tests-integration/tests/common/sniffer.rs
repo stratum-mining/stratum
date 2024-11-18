@@ -51,6 +51,7 @@ pub struct Sniffer {
     upstream_address: SocketAddr,
     messages_from_downstream: MessagesAggregator,
     messages_from_upstream: MessagesAggregator,
+    check_on_drop: bool,
 }
 
 impl Sniffer {
@@ -60,6 +61,7 @@ impl Sniffer {
         identifier: String,
         listening_address: SocketAddr,
         upstream_address: SocketAddr,
+        check_on_drop: bool,
     ) -> Self {
         Self {
             identifier,
@@ -67,6 +69,7 @@ impl Sniffer {
             upstream_address,
             messages_from_downstream: MessagesAggregator::new(),
             messages_from_upstream: MessagesAggregator::new(),
+            check_on_drop,
         }
     }
 
@@ -436,23 +439,25 @@ macro_rules! assert_jd_message {
 // This is useful to ensure that the test has checked all exchanged messages between the roles.
 impl Drop for Sniffer {
     fn drop(&mut self) {
-        // Don't print backtrace on panic
-        std::panic::set_hook(Box::new(|_| {
-            println!();
-        }));
-        if !self.messages_from_downstream.is_empty() {
-            println!(
-                "Sniffer {}: You didn't handle all downstream messages: {:?}",
-                self.identifier, self.messages_from_downstream
-            );
-            panic!();
-        }
-        if !self.messages_from_upstream.is_empty() {
-            println!(
-                "Sniffer{}: You didn't handle all upstream messages: {:?}",
-                self.identifier, self.messages_from_upstream
-            );
-            panic!();
+        if self.check_on_drop {
+            // Don't print backtrace on panic
+            std::panic::set_hook(Box::new(|_| {
+                println!();
+            }));
+            if !self.messages_from_downstream.is_empty() {
+                println!(
+                    "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                    self.identifier, self.messages_from_downstream
+                );
+                panic!();
+            }
+            if !self.messages_from_upstream.is_empty() {
+                println!(
+                    "Sniffer{}: You didn't handle all upstream messages: {:?}",
+                    self.identifier, self.messages_from_upstream
+                );
+                panic!();
+            }
         }
     }
 }
