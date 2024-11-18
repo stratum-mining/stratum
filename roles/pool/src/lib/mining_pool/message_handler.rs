@@ -144,7 +144,10 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
                 },
             },
-            Err(_) => todo!(),
+            Err(e) => {
+                dbg!(e);
+                panic!("Internal Error: unexpected message from channel factory");
+            }
         }
     }
 

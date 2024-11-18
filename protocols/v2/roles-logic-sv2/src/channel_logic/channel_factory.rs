@@ -363,6 +363,7 @@ impl ChannelFactory {
                     additional_coinbase_script_data.unwrap_or(&[]),
                 )
                 .unwrap();
+            dbg!(&extranonce_prefix);
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
                 channel_id,
@@ -461,13 +462,22 @@ impl ChannelFactory {
         self.standard_channels_for_hom_downstreams
             .insert(channel_id, standard_channel);
 
+        let extranonce: Vec<u8> = match additional_coinbase_script_data {
+            Some(data) => {
+                let mut data = data.to_vec();
+                data.extend_from_slice(extranonce.as_ref());
+                data
+            }
+            None => extranonce.into(),
+        };
+
         // First message to be sent is OpenStandardMiningChannelSuccess
         result.push(Mining::OpenStandardMiningChannelSuccess(
             OpenStandardMiningChannelSuccess {
                 request_id: request_id.into(),
                 channel_id,
                 target,
-                extranonce_prefix: extranonce.into(),
+                extranonce_prefix: extranonce.try_into().expect("Internal error: On initialization we make sure that extranonce + coinbase script additional data are not > then 32 bytes"),
                 group_channel_id: hom_group_id,
             },
         ));
@@ -521,13 +531,13 @@ impl ChannelFactory {
         self.standard_channels_for_non_hom_downstreams
             .insert(complete_id, standard_channel);
 
-        let extranonce = match additional_coinbase_script_data {
+        let extranonce: Vec<u8> = match additional_coinbase_script_data {
             Some(data) => {
                 let mut data = data.to_vec();
                 data.extend_from_slice(extranonce.as_ref());
-                extranonce
+                data
             }
-            None => extranonce,
+            None => extranonce.into(),
         };
         // First message to be sent is OpenStandardMiningChannelSuccess
         result.push(Mining::OpenStandardMiningChannelSuccess(
@@ -535,7 +545,7 @@ impl ChannelFactory {
                 request_id: request_id.into(),
                 channel_id,
                 target,
-                extranonce_prefix: extranonce.into(),
+                extranonce_prefix: extranonce.try_into().expect(""),
                 group_channel_id: group_id,
             },
         ));
@@ -2092,7 +2102,7 @@ mod test {
     use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
     use bitcoin::{hash_types::WPubkeyHash, PublicKey, TxOut};
-    use mining_sv2::OpenStandardMiningChannel;
+    use mining_sv2::{OpenExtendedMiningChannel, OpenStandardMiningChannel};
 
     const BLOCK_REWARD: u64 = 2_000_000_000;
 
@@ -2206,7 +2216,8 @@ mod test {
             channel_kind,
             vec![out],
             additional_coinbase_script_data.into_bytes(),
-        );
+        )
+        .unwrap();
 
         // Build a NewTemplate
         let new_template = NewTemplate {
@@ -2312,5 +2323,145 @@ mod test {
             OnNewShare::ShareMeetBitcoinTarget(_) => assert!(true),
             OnNewShare::ShareMeetDownstreamTarget => panic!(),
         };
+    }
+    #[test]
+    fn test_extranonce_prefix_in_hom() {
+        let extranonce_prefix1 = [10, 11, 12];
+        let (prefix, _, _) = get_coinbase();
+
+        // Initialize a Channel of type Pool
+        let out = TxOut {value: BLOCK_REWARD, script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
+        let creator = JobsCreators::new(7);
+        let share_per_min = 1.0;
+        let extranonces = ExtendedExtranonce::new(0..0, 0..0, 0..7);
+
+        let ids = Arc::new(Mutex::new(GroupId::new()));
+        let channel_kind = ExtendedChannelKind::Pool;
+        let mut channel = PoolChannelFactory::new(
+            ids,
+            extranonces,
+            creator,
+            share_per_min,
+            channel_kind,
+            vec![out],
+            extranonce_prefix1.clone().into(),
+        )
+        .unwrap();
+
+        // Build a NewTemplate
+        let new_template = NewTemplate {
+            template_id: 10,
+            future_template: true,
+            version: VERSION,
+            coinbase_tx_version: 1,
+            coinbase_prefix: prefix.try_into().unwrap(),
+            coinbase_tx_input_sequence: u32::MAX,
+            coinbase_tx_value_remaining: 5_000_000_000,
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs: get_coinbase_outputs(),
+            coinbase_tx_locktime: 0,
+            merkle_path: get_merkle_path(),
+        };
+
+        // "Send" the NewTemplate to the channel
+        let _ = channel.on_new_template(&mut (new_template.clone()));
+
+        // Build a PrevHash
+        let mut p_hash = decode_hex(PREV_HASH).unwrap();
+        p_hash.reverse();
+        let prev_hash = SetNewPrevHashFromTp {
+            template_id: 10,
+            prev_hash: p_hash.try_into().unwrap(),
+            header_timestamp: PREV_HEADER_TIMESTAMP,
+            n_bits: PREV_HEADER_NBITS,
+            target: nbit_to_target(PREV_HEADER_NBITS),
+        };
+
+        // "Send" the SetNewPrevHash to channel
+        let _ = channel.on_new_prev_hash_from_tp(&prev_hash);
+
+        let result = channel
+            .add_standard_channel(100, 100_000_000_000_000.0, true, 2)
+            .unwrap();
+        let extranonce_prefix = match &result[0] {
+            Mining::OpenStandardMiningChannelSuccess(msg) => msg.extranonce_prefix.clone().to_vec(),
+            _ => panic!(),
+        };
+        assert!(&extranonce_prefix.to_vec()[0..3] == extranonce_prefix1);
+    }
+    #[test]
+    fn test_extranonce_prefix_in_extended() {
+        let extranonce_prefix1 = [10, 11, 12];
+        let extranonce_prefix2 = [14, 11, 12];
+        let (prefix, _, _) = get_coinbase();
+
+        // Initialize a Channel of type Pool
+        let out = TxOut {value: BLOCK_REWARD, script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
+        let creator = JobsCreators::new(16);
+        let share_per_min = 1.0;
+        let extranonces = ExtendedExtranonce::new(0..0, 0..8, 8..16);
+
+        let ids = Arc::new(Mutex::new(GroupId::new()));
+        let channel_kind = ExtendedChannelKind::Pool;
+        let mut channel = PoolChannelFactory::new(
+            ids,
+            extranonces,
+            creator,
+            share_per_min,
+            channel_kind,
+            vec![out],
+            extranonce_prefix1.clone().into(),
+        )
+        .unwrap();
+
+        // Build a NewTemplate
+        let new_template = NewTemplate {
+            template_id: 10,
+            future_template: true,
+            version: VERSION,
+            coinbase_tx_version: 1,
+            coinbase_prefix: prefix.try_into().unwrap(),
+            coinbase_tx_input_sequence: u32::MAX,
+            coinbase_tx_value_remaining: 5_000_000_000,
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs: get_coinbase_outputs(),
+            coinbase_tx_locktime: 0,
+            merkle_path: get_merkle_path(),
+        };
+
+        // "Send" the NewTemplate to the channel
+        let _ = channel.on_new_template(&mut (new_template.clone()));
+
+        // Build a PrevHash
+        let mut p_hash = decode_hex(PREV_HASH).unwrap();
+        p_hash.reverse();
+        let prev_hash = SetNewPrevHashFromTp {
+            template_id: 10,
+            prev_hash: p_hash.try_into().unwrap(),
+            header_timestamp: PREV_HEADER_TIMESTAMP,
+            n_bits: PREV_HEADER_NBITS,
+            target: nbit_to_target(PREV_HEADER_NBITS),
+        };
+
+        let _ = channel.on_new_prev_hash_from_tp(&prev_hash);
+
+        let result = channel
+            .new_extended_channel(100, 100_000_000_000_000.0, 2)
+            .unwrap();
+        let (extranonce_prefix, channel_id) = match &result[0] {
+            Mining::OpenExtendedMiningChannelSuccess(msg) => {
+                (msg.extranonce_prefix.clone().to_vec(), msg.channel_id)
+            }
+            _ => panic!(),
+        };
+        assert!(&extranonce_prefix.to_vec()[0..3] == extranonce_prefix1);
+        match channel
+            .change_additional_coinbase_script_data(extranonce_prefix2.to_vec(), channel_id)
+        {
+            Ok(Mining::SetExtranoncePrefix(msg)) => {
+                assert!(&msg.extranonce_prefix.to_vec()[0..3] == extranonce_prefix2);
+            }
+            _ => panic!(),
+        }
     }
 }

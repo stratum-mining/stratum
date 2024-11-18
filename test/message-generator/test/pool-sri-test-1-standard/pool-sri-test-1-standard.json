@@ -48,7 +48,7 @@
                 "type": "SubmitSharesStandard",
                 "channel_id": 1,
                 "sequence_number": 0,
-                "job_id": 0,
+                "job_id": 1,
                 "nonce": 4035255480,
                 "ntime": 1698941362,
                 "version": 536870912
