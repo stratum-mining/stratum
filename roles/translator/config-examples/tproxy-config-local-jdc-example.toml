@@ -19,8 +19,8 @@ min_supported_version = 2
 # Minimum extranonce2 size for downstream
 # Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
 # Max value for CGminer: 8
-# Min value: 2
-min_extranonce2_size = 8
+# Min value: 5
+min_extranonce2_size = 5
 
 # Difficulty params
 [downstream_difficulty_config]
