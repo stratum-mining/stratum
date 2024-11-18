@@ -363,7 +363,6 @@ impl ChannelFactory {
                     additional_coinbase_script_data.unwrap_or(&[]),
                 )
                 .unwrap();
-            dbg!(&extranonce_prefix);
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
                 channel_id,
