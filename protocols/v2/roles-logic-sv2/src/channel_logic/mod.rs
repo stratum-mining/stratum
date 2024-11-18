@@ -1,3 +1,9 @@
+//! A module for managing channels on applications.
+//!
+//! Divided in two submodules:
+//! - [`channel_factory`]
+//! - [`proxy_group_channel`]
+
 pub mod channel_factory;
 pub mod proxy_group_channel;
 

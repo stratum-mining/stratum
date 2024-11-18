@@ -1,3 +1,5 @@
+//! Contains logic for managing Standard Channels via Group Channels.
+
 use crate::{common_properties::StandardChannel, parsers::Mining, Error};
 
 use mining_sv2::{
@@ -14,6 +16,7 @@ pub struct GroupChannels {
     channels: HashMap<u32, GroupChannel>,
 }
 impl GroupChannels {
+    /// constructor
     pub fn new() -> Self {
         Self {
             channels: HashMap::new(),
@@ -70,6 +73,8 @@ impl GroupChannels {
             None => Err(Error::GroupIdNotFound),
         }
     }
+
+    /// get group channel ids
     pub fn ids(&self) -> Vec<u32> {
         self.channels.keys().copied().collect()
     }
