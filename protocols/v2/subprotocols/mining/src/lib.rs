@@ -328,11 +328,11 @@ impl Extranonce {
             None
         } else {
             let mut prefix = Vec::with_capacity(prefix_len + additional_coinbase_script_data.len());
-            for i in 0..prefix_len {
-                prefix.push(self.extranonce[i]);
-            }
             for b in additional_coinbase_script_data {
                 prefix.push(*b);
+            }
+            for i in 0..prefix_len {
+                prefix.push(self.extranonce[i]);
             }
             // unwrap is sage as prefix_len can not be greater than 32 cause is not possible to
             // contruct Extranonce with the inner vecto greater than 32.

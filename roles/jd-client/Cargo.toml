@@ -24,7 +24,7 @@ buffer_sv2 = { version = "^1.0.0", path = "../../utils/buffer" }
 codec_sv2 = { version = "^1.0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
 framing_sv2 = { version = "^2.0.0", path = "../../protocols/v2/framing-sv2" }
 network_helpers_sv2 = { version = "2.0.0", path = "../roles-utils/network-helpers", features=["with_tokio", "with_buffer_pool"] }
-roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
+roles_logic_sv2 = { version = "^2.0.0", path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 futures = "0.3.25"
 tokio = { version = "1", features = ["full"] }
