@@ -477,21 +477,21 @@ mod tests {
         job_id: u32,
     ) {
         let shares = SubmitSharesStandard {
-            /// Channel identification.
+            // Channel identification.
             channel_id: standard_channel_id,
-            /// Unique sequential identifier of the submit within the channel.
+            // Unique sequential identifier of the submit within the channel.
             sequence_number: 0,
-            /// Identifier of the job as provided by *NewMiningJob* or
-            /// *NewExtendedMiningJob* message.
+            // Identifier of the job as provided by *NewMiningJob* or
+            // *NewExtendedMiningJob* message.
             job_id,
-            /// Nonce leading to the hash being submitted.
+            // Nonce leading to the hash being submitted.
             nonce: 1,
-            /// The nTime field in the block header. This MUST be greater than or equal
-            /// to the header_timestamp field in the latest SetNewPrevHash message
-            /// and lower than or equal to that value plus the number of seconds since
-            /// the receipt of that message.
+            // The nTime field in the block header. This MUST be greater than or equal
+            // to the header_timestamp field in the latest SetNewPrevHash message
+            // and lower than or equal to that value plus the number of seconds since
+            // the receipt of that message.
             ntime: 1,
-            /// Full nVersion field.
+            // Full nVersion field.
             version: 1,
         };
         let mut faulty_shares = shares.clone();
