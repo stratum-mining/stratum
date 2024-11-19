@@ -10,11 +10,38 @@ pub struct Ping<'decoder> {
     message: Str0255<'decoder>,
     id: U24,
 }
-
 #[cfg(feature = "with_serde")]
 impl<'decoder> GetSize for Ping<'decoder> {
     fn get_size(&self) -> usize {
         self.message.get_size() + self.id.get_size()
+    }
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BiggerPing<'decoder> {
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    message: Str0255<'decoder>,
+    id: U24,
+    add_data: Str0255<'decoder>,
+}
+
+#[cfg(feature = "with_serde")]
+impl<'decoder> GetSize for BiggerPing<'decoder> {
+    fn get_size(&self) -> usize {
+        self.message.get_size() + self.id.get_size() + self.add_data.get_size()
+    }
+}
+impl<'decoder> BiggerPing<'decoder> {
+    pub fn new(id: u32) -> Self {
+        let message: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(7)
+            .map(char::from)
+            .collect();
+        Self {
+            message: message.clone().into_bytes().try_into().unwrap(),
+            id: id.try_into().unwrap(),
+            add_data: message.into_bytes().try_into().unwrap(),
+        }
     }
 }
 
@@ -77,6 +104,7 @@ impl<'decoder> Pong<'decoder> {
 pub enum Message<'decoder> {
     Ping(Ping<'decoder>),
     Pong(Pong<'decoder>),
+    BiggerPing(BiggerPing<'decoder>),
 }
 
 #[cfg(feature = "with_serde")]
@@ -88,6 +116,7 @@ impl<'decoder> binary_sv2::Serialize for Message<'decoder> {
         match self {
             Message::Ping(p) => p.serialize(serializer),
             Message::Pong(p) => p.serialize(serializer),
+            Message::BiggerPing(p) => p.serialize(serializer),
         }
     }
 }
@@ -108,6 +137,7 @@ impl<'decoder> From<Message<'decoder>> for binary_sv2::encodable::EncodableField
         match m {
             Message::Ping(p) => p.into(),
             Message::Pong(p) => p.into(),
+            Message::BiggerPing(p) => p.into(),
         }
     }
 }
@@ -129,6 +159,7 @@ impl GetSize for Message<'_> {
         match self {
             Self::Ping(ping) => ping.get_size(),
             Self::Pong(pong) => pong.get_size(),
+            Self::BiggerPing(bp) => bp.get_size(),
         }
     }
 }

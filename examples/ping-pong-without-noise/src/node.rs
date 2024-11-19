@@ -1,4 +1,4 @@
-use crate::messages::{Message, Ping, Pong};
+use crate::messages::{Message, Ping, Pong,BiggerPing};
 use binary_sv2::{from_bytes, U256};
 use rand::Rng;
 
@@ -66,7 +66,7 @@ impl Node {
 
     pub async fn send_ping(&mut self) {
         self.expected = Expected::Pong;
-        let message = Message::Ping(Ping::new(self.last_id));
+        let message = Message::BiggerPing(BiggerPing::new(self.last_id));
         let frame =
             StandardSv2Frame::<Message<'static>>::from_message(message, 0, 0, false).unwrap();
         self.sender.send(frame).await.unwrap();
@@ -87,8 +87,8 @@ impl Node {
     ) -> Message<'static> {
         match self.expected {
             Expected::Ping => {
-                let ping: Result<Ping, _> = from_bytes(frame.payload());
-                match ping {
+                let ping: Result<BiggerPing, _> = from_bytes(frame.payload());
+                match ping.as_ref() {
                     Ok(ping) => {
                         println!("Node {} received:", self.name);
                         println!("{:#?}\n", ping);
@@ -100,9 +100,28 @@ impl Node {
                         }
                         Message::Pong(Pong::new(self.last_id, seq))
                     }
-                    Err(e) => {
-                        println!("{:#?}", e);
-                        todo!()
+                    Err(error) => {
+                        let error = error.clone();
+                        drop(ping);
+                        let ping: Result<Ping, _> = from_bytes(frame.payload());
+                        match ping {
+                            Ok(ping) => {
+                                println!("Node {} received:", self.name);
+                                println!("{:#?}\n", ping);
+                                let mut seq: Vec<U256> = vec![];
+                                for _ in 0..100 {
+                                    let random_bytes = rand::thread_rng().gen::<[u8; 32]>();
+                                    let u256: U256 = random_bytes.into();
+                                    seq.push(u256);
+                                }
+                                Message::Pong(Pong::new(self.last_id, seq))
+                            }
+                            Err(e) => {
+                                println!("Error parsing BiggerPing {:#?}", error);
+                                println!("Error parsing Ping {:#?}", e);
+                                todo!()
+                            }
+                        }
                     }
                 }
             }

@@ -1,4 +1,4 @@
-use crate::messages::{Message, Ping, Pong};
+use crate::messages::{Message, Ping, Pong,BiggerPing};
 use binary_sv2::{from_bytes, GetSize, U256};
 use rand::Rng;
 
@@ -127,7 +127,7 @@ impl Node {
                             pong.get_id(),
                             pong.get_size()
                         );
-                        Message::Ping(Ping::new(self.last_id))
+                        Message::BiggerPing(BiggerPing::new(self.last_id))
                     }
                     Err(_) => panic!(),
                 }
