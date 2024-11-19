@@ -41,6 +41,8 @@ pub fn extended_to_standard_job_for_group_channel<'a>(
         merkle_root: merkle_root?.try_into().ok()?,
     })
 }
+
+// helper struct to easily calculate block hashes from headers
 #[allow(dead_code)]
 struct BlockHeader<'a> {
     version: u32,
@@ -67,34 +69,11 @@ impl<'a> BlockHeader<'a> {
     }
 }
 
-#[allow(dead_code)]
-fn target_from_shares(
-    job: &DownstreamJob,
-    prev_hash: &[u8],
-    nbits: u32,
-    share: &SubmitSharesStandard,
-) -> Target {
-    let header = BlockHeader {
-        version: share.version,
-        prev_hash,
-        merkle_root: &job.merkle_root,
-        timestamp: share.ntime,
-        nbits,
-        nonce: share.nonce,
-    };
-    header.hash()
-}
-
+// helper struct to identify Standard Jobs being managed for downstream
 #[derive(Debug)]
 struct DownstreamJob {
     merkle_root: Vec<u8>,
     extended_job_id: u32,
-}
-
-#[derive(Debug)]
-struct ExtendedJobs {
-    #[allow(dead_code)]
-    upstream_target: Vec<u8>,
 }
 
 /// Used by proxies to keep track of standard jobs in the group channel
@@ -117,6 +96,7 @@ pub struct GroupChannelJobDispatcher {
     nbits: u32,
 }
 
+/// Used to signal if submitted shares correlate to valid jobs
 pub enum SendSharesResponse {
     //ValidAndMeetUpstreamTarget((SubmitSharesStandard,SubmitSharesSuccess)),
     Valid(SubmitSharesStandard),
@@ -124,6 +104,7 @@ pub enum SendSharesResponse {
 }
 
 impl GroupChannelJobDispatcher {
+    /// constructor
     pub fn new(ids: Arc<Mutex<Id>>) -> Self {
         Self {
             target: [0_u8; 32].into(),
@@ -497,21 +478,21 @@ mod tests {
         job_id: u32,
     ) {
         let shares = SubmitSharesStandard {
-            /// Channel identification.
+            // Channel identification.
             channel_id: standard_channel_id,
-            /// Unique sequential identifier of the submit within the channel.
+            // Unique sequential identifier of the submit within the channel.
             sequence_number: 0,
-            /// Identifier of the job as provided by *NewMiningJob* or
-            /// *NewExtendedMiningJob* message.
+            // Identifier of the job as provided by *NewMiningJob* or
+            // *NewExtendedMiningJob* message.
             job_id,
-            /// Nonce leading to the hash being submitted.
+            // Nonce leading to the hash being submitted.
             nonce: 1,
-            /// The nTime field in the block header. This MUST be greater than or equal
-            /// to the header_timestamp field in the latest SetNewPrevHash message
-            /// and lower than or equal to that value plus the number of seconds since
-            /// the receipt of that message.
+            // The nTime field in the block header. This MUST be greater than or equal
+            // to the header_timestamp field in the latest SetNewPrevHash message
+            // and lower than or equal to that value plus the number of seconds since
+            // the receipt of that message.
             ntime: 1,
-            /// Full nVersion field.
+            // Full nVersion field.
             version: 1,
         };
         let mut faulty_shares = shares.clone();
