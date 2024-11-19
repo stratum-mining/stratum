@@ -69,35 +69,11 @@ impl<'a> BlockHeader<'a> {
     }
 }
 
-#[allow(dead_code)]
-fn target_from_shares(
-    job: &DownstreamJob,
-    prev_hash: &[u8],
-    nbits: u32,
-    share: &SubmitSharesStandard,
-) -> Target {
-    let header = BlockHeader {
-        version: share.version,
-        prev_hash,
-        merkle_root: &job.merkle_root,
-        timestamp: share.ntime,
-        nbits,
-        nonce: share.nonce,
-    };
-    header.hash()
-}
-
 // helper struct to identify Standard Jobs being managed for downstream
 #[derive(Debug)]
 struct DownstreamJob {
     merkle_root: Vec<u8>,
     extended_job_id: u32,
-}
-
-#[derive(Debug)]
-struct ExtendedJobs {
-    #[allow(dead_code)]
-    upstream_target: Vec<u8>,
 }
 
 /// Used by proxies to keep track of standard jobs in the group channel
