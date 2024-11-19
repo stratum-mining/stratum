@@ -357,6 +357,18 @@ impl ChannelFactory {
                 .extranonces
                 .next_extended(max_extranonce_size as usize)
                 .unwrap();
+            let extranonce_with_stripped_data = extranonce
+                .into_prefix(self.extranonces.get_prefix_len(), &[])
+                .unwrap();
+            let success_with_stirpped_extranonce_add_data = OpenExtendedMiningChannelSuccess {
+                request_id,
+                channel_id,
+                target: target.clone(),
+                extranonce_size: max_extranonce_size,
+                extranonce_prefix: extranonce_with_stripped_data,
+            };
+            self.extended_channels
+                .insert(channel_id, success_with_stirpped_extranonce_add_data);
             let extranonce_prefix = extranonce
                 .into_prefix(
                     self.extranonces.get_prefix_len(),
@@ -370,7 +382,6 @@ impl ChannelFactory {
                 extranonce_size: max_extranonce_size,
                 extranonce_prefix,
             };
-            self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
             if let Some((job, _)) = &self.get_last_valid_job() {
                 let mut job = job.clone();
@@ -909,9 +920,7 @@ impl ChannelFactory {
             } => upstream_target.clone(),
         };
 
-        let (downstream_target, extranonce) = self
-            .get_channel_specific_mining_info(&m)
-            .ok_or(Error::ShareDoNotMatchAnyChannel)?;
+        let (downstream_target, extranonce) = self.get_channel_specific_mining_info(&m)?;
         let extranonce_1_len = self.extranonces.get_range0_len();
         let extranonce_2 = extranonce[extranonce_1_len..].to_vec();
         match &mut m {
@@ -1037,10 +1046,16 @@ impl ChannelFactory {
         }
     }
     /// Returns the downstream target and extranonce for the channel
-    fn get_channel_specific_mining_info(&self, m: &Share) -> Option<(mining_sv2::Target, Vec<u8>)> {
+    fn get_channel_specific_mining_info(
+        &self,
+        m: &Share,
+    ) -> Result<(mining_sv2::Target, Vec<u8>), Error> {
         match m {
             Share::Extended(share) => {
-                let channel = self.extended_channels.get(&m.get_channel_id())?;
+                let channel = self
+                    .extended_channels
+                    .get(&m.get_channel_id())
+                    .ok_or(Error::ShareDoNotMatchAnyChannel)?;
                 let extranonce_prefix = channel.extranonce_prefix.to_vec();
                 let dowstream_target = channel.target.clone().into();
                 let extranonce = [&extranonce_prefix[..], &share.extranonce.to_vec()[..]]
@@ -1052,8 +1067,9 @@ impl ChannelFactory {
                         self.extranonces.get_len(),
                         extranonce.len()
                     );
+                    return Err(Error::InvalidCoinbase);
                 }
-                Some((dowstream_target, extranonce))
+                Ok((dowstream_target, extranonce))
             }
             Share::Standard((share, group_id)) => match &self.kind {
                 ExtendedChannelKind::Pool => {
@@ -1066,9 +1082,16 @@ impl ChannelFactory {
                             .standard_channels_for_hom_downstreams
                             .get(&share.channel_id);
                     };
-                    Some((
-                        channel?.target.clone(),
-                        channel?.extranonce.clone().to_vec(),
+                    Ok((
+                        channel
+                            .ok_or(Error::ShareDoNotMatchAnyChannel)?
+                            .target
+                            .clone(),
+                        channel
+                            .ok_or(Error::ShareDoNotMatchAnyChannel)?
+                            .extranonce
+                            .clone()
+                            .to_vec(),
                     ))
                 }
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
@@ -1081,9 +1104,16 @@ impl ChannelFactory {
                             .standard_channels_for_hom_downstreams
                             .get(&share.channel_id);
                     };
-                    Some((
-                        channel?.target.clone(),
-                        channel?.extranonce.clone().to_vec(),
+                    Ok((
+                        channel
+                            .ok_or(Error::ShareDoNotMatchAnyChannel)?
+                            .target
+                            .clone(),
+                        channel
+                            .ok_or(Error::ShareDoNotMatchAnyChannel)?
+                            .extranonce
+                            .clone()
+                            .to_vec(),
                     ))
                 }
             },
@@ -1228,6 +1258,10 @@ impl PoolChannelFactory {
         // This initialise a PoolChannelFactory for a JDC that can not have
         // additional_coinbase_script_data as it is set only by the pool.
         assert!(self.additional_coinbase_script_data.is_empty());
+        self.channel_to_additional_coinbase_script_data.insert(
+            channel_id,
+            (self.additional_coinbase_script_data.clone(), None),
+        );
         self.inner.replicate_upstream_extended_channel_only_jd(
             target,
             extranonce,

@@ -22,7 +22,7 @@
             "message": {
                 "id": 0,
                 "method": "mining.submit",
-                "params": ["username", "0", "0000000000000000", "641577b0", "7a600640"]
+                "params": ["username", "0", "0000000000", "641577b0", "7a600640"]
             },
             "id": "mining.submit"
         }
