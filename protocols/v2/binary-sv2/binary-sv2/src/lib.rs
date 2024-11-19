@@ -1,6 +1,6 @@
 // TODO unify errors from serde_sv2 and no-serde-sv2
 
-#![no_std]
+//#![no_std]
 
 #[macro_use]
 extern crate alloc;
@@ -781,6 +781,37 @@ mod test {
             let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
+        }
+    }
+    mod test_decode_when_too_much_data {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        struct Test {
+            a: u32,
+            b: u8,
+            c: U24,
+        }
+
+        #[test]
+        fn test_decode_when_too_much_data() {
+            let expected = Test {
+                a: 456,
+                b: 9,
+                c: 67_u32.try_into().unwrap(),
+            };
+
+            #[cfg(not(feature = "with_serde"))]
+            let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
+            bytes.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0]);
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            assert_eq!(deserialized, expected);
         }
     }
 }
