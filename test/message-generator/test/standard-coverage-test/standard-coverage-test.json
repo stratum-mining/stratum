@@ -54,7 +54,7 @@
                 "type": "SubmitSharesStandard",
                 "channel_id": 1,
                 "sequence_number": 0,
-                "job_id": 0,
+                "job_id": 1,
                 "nonce": 927894720,
                 "ntime": 1671039088,
                 "version": 536870912
@@ -66,8 +66,8 @@
                 "type": "SubmitSharesStandard",
                 "channel_id": 1,
                 "sequence_number": 0,
-                "job_id": 0,
-                "nonce": 1751,
+                "job_id": 1,
+                "nonce": 1752,
                 "ntime": 1671116742,
                 "version": 536870912
             },
