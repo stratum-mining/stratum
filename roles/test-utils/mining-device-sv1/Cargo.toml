@@ -1,8 +1,8 @@
 [package]
-name = "sv1-mining-device"
+name = "mining_device_sv1"
 version = "0.1.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2021"
+edition = "2018"
 publish = false
 documentation = "https://github.com/stratum-mining/stratum"
 readme = "README.md"
@@ -12,6 +12,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "mining_device_sv1"
+path = "src/lib.rs"
 
 [dependencies]
 stratum-common = { path = "../../../common" }

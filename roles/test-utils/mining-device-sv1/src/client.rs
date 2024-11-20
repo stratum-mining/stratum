@@ -1,5 +1,5 @@
 use async_std::net::TcpStream;
-use std::{convert::TryInto, ops::Div};
+use std::{convert::TryInto, net::SocketAddr, ops::Div};
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{io::BufReader, prelude::*, task};
@@ -19,12 +19,10 @@ use v1::{
 
 use crate::{job::Job, miner::Miner};
 
-const ADDR: &str = "127.0.0.1:34255";
-
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
 #[derive(Debug, Clone)]
-pub(crate) struct Client {
+pub struct Client {
     client_id: u32,
     extranonce1: Option<Extranonce<'static>>,
     extranonce2_size: Option<usize>,
@@ -69,8 +67,8 @@ impl Client {
     ///    the information from `sender_share`, it is formatted as a `v1::client_to_server::Submit`
     ///    and then serialized into a json message that is sent to the Upstream via
     ///    `sender_outgoing`.
-    pub(crate) async fn connect(client_id: u32) {
-        let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
+    pub async fn connect(client_id: u32, upstream_addr: SocketAddr) {
+        let stream = std::sync::Arc::new(TcpStream::connect(upstream_addr).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
         // `sender_incoming` listens on socket for incoming messages from the Upstream and sends

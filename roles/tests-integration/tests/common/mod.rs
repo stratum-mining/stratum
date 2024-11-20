@@ -471,3 +471,10 @@ fn measure_hashrate(duration_secs: u64) -> f64 {
 
     hashes as f64 / elapsed_secs
 }
+
+pub async fn start_mining_device_sv1(upstream_addr: SocketAddr) {
+    tokio::spawn(async move {
+        mining_device_sv1::client::Client::connect(80, upstream_addr).await;
+    });
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+}

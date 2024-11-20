@@ -13,7 +13,7 @@ crates=(
   "mining-proxy"
   "pool"
   "test-utils/mining-device"
-  "test-utils/sv1-mining-device"
+  "test-utils/mining-device-sv1"
   "translator"
   "jd-client"
   "jd-server"

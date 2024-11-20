@@ -6,7 +6,7 @@
         "Launch the jd-client",
         "Launch the jd-server",
         "Launch tproxy",
-        "Launch sv1-mining-device",
+        "Launch mining_device_sv1",
         "Found a share"
     ],
     "frame_builders": [
@@ -127,7 +127,7 @@
             "args": [
                         "run",
                         "-p",
-                        "sv1-mining-device"
+                        "mining_device_sv1"
             ],
             "conditions": {
                 "WithConditions": {
@@ -150,7 +150,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "mining-device", "-SIGINT"],
+            "args":  ["-f", "mining_device_sv1", "-SIGINT"],
             "conditions": "None"
         },
         {
