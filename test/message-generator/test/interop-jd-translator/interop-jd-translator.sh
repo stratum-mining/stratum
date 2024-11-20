@@ -3,7 +3,7 @@ cargo llvm-cov --no-report -p pool_sv2
 cargo llvm-cov --no-report -p jd_server
 cargo llvm-cov --no-report -p jd_client
 cargo llvm-cov --no-report -p translator_sv2
-cargo build -p sv1-mining-device
+cargo build -p mining_device_sv1
 
 cd ../utils/message-generator/
 cargo build

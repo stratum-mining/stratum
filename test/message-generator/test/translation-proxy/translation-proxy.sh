@@ -1,6 +1,6 @@
 cd roles
 cargo build -p translator_sv2
-cargo build -p sv1-mining-device 
+cargo build -p mining_device_sv1
 
 cd ../utils/message-generator/
 cargo build

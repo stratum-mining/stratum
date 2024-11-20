@@ -3,7 +3,7 @@
     "doc": [
         "This test does",
         "Runs a translator proxy",
-        "Runs /example/sv1-mining-device",
+        "Runs mining_device_sv1",
         "Waits that receives SetupConnection message",
         "Reply with .Success",
         "Waits that the tproxy sends OpenExtendedMiningChannel",
@@ -186,7 +186,7 @@
            "args": [
                        "run",
                        "-p",
-                       "sv1-mining-device"
+                       "mining_device_sv1"
            ],
            "conditions": "None"
        }
@@ -194,7 +194,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "sv1-mining-device", "-SIGINT"],
+            "args":  ["-f", "mining_device_sv1", "-SIGINT"],
             "conditions": "None"
         },
         {
