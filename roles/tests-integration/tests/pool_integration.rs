@@ -15,7 +15,16 @@ async fn success_pool_template_provider_connection() {
     let tp_addr = common::get_available_address();
     let pool_addr = common::get_available_address();
     let _tp = common::start_template_provider(tp_addr.port()).await;
-    let sniffer = common::start_sniffer(sniffer_addr, tp_addr).await;
+    let sniffer_identifier =
+        "success_pool_template_provider_connection tp_pool sniffer".to_string();
+    let sniffer_check_on_drop = true;
+    let sniffer = common::start_sniffer(
+        sniffer_identifier,
+        sniffer_addr,
+        tp_addr,
+        sniffer_check_on_drop,
+    )
+    .await;
     let _ = common::start_pool(Some(pool_addr), Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
     // with the correct parameters, protocol, flags, min_version and max_version.  Note that the

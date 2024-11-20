@@ -46,21 +46,30 @@ enum SnifferError {
 /// messages in a specific order and to inspect the messages details.
 #[derive(Debug, Clone)]
 pub struct Sniffer {
+    identifier: String,
     listening_address: SocketAddr,
     upstream_address: SocketAddr,
     messages_from_downstream: MessagesAggregator,
     messages_from_upstream: MessagesAggregator,
+    check_on_drop: bool,
 }
 
 impl Sniffer {
     /// Creates a new sniffer that listens on the given listening address and connects to the given
     /// upstream address.
-    pub async fn new(listening_address: SocketAddr, upstream_address: SocketAddr) -> Self {
+    pub async fn new(
+        identifier: String,
+        listening_address: SocketAddr,
+        upstream_address: SocketAddr,
+        check_on_drop: bool,
+    ) -> Self {
         Self {
+            identifier,
             listening_address,
             upstream_address,
             messages_from_downstream: MessagesAggregator::new(),
             messages_from_upstream: MessagesAggregator::new(),
+            check_on_drop,
         }
     }
 
@@ -430,23 +439,25 @@ macro_rules! assert_jd_message {
 // This is useful to ensure that the test has checked all exchanged messages between the roles.
 impl Drop for Sniffer {
     fn drop(&mut self) {
-        // Don't print backtrace on panic
-        std::panic::set_hook(Box::new(|_| {
-            println!();
-        }));
-        if !self.messages_from_downstream.is_empty() {
-            println!(
-                "You didn't handle all downstream messages: {:?}",
-                self.messages_from_downstream
-            );
-            panic!();
-        }
-        if !self.messages_from_upstream.is_empty() {
-            println!(
-                "You didn't handle all upstream messages: {:?}",
-                self.messages_from_upstream
-            );
-            panic!();
+        if self.check_on_drop {
+            // Don't print backtrace on panic
+            std::panic::set_hook(Box::new(|_| {
+                println!();
+            }));
+            if !self.messages_from_downstream.is_empty() {
+                println!(
+                    "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                    self.identifier, self.messages_from_downstream
+                );
+                panic!();
+            }
+            if !self.messages_from_upstream.is_empty() {
+                println!(
+                    "Sniffer{}: You didn't handle all upstream messages: {:?}",
+                    self.identifier, self.messages_from_upstream
+                );
+                panic!();
+            }
         }
     }
 }
