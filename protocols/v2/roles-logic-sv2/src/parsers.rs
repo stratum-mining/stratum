@@ -1,5 +1,7 @@
-//! The parsers modules provides logic to convert raw SV2 message data into rust types
-//! as well as logic to handle conversions among SV2 rust types
+//! The parsers module provides logic to convert raw Sv2 message data into rust types,
+//! as well as logic to handle conversions among Sv2 rust types
+//!
+//! Most of the logic on this module is tightly coupled with the binary_sv2 crate.
 
 use crate::Error;
 
@@ -86,8 +88,12 @@ use mining_sv2::{
 use core::convert::{TryFrom, TryInto};
 use tracing::error;
 
+// todo: fix this, PoolMessages shouldn't be a generic parser
+/// An alias to a generic parser
 pub type AnyMessage<'a> = PoolMessages<'a>;
 
+/// A parser of messages that are common to all Sv2 subprotocols, to be used for parsing raw
+/// messages
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum CommonMessages<'a> {
@@ -99,6 +105,7 @@ pub enum CommonMessages<'a> {
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
+/// A parser of messages of Template Distribution subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum TemplateDistribution<'a> {
@@ -116,6 +123,7 @@ pub enum TemplateDistribution<'a> {
     SubmitSolution(SubmitSolution<'a>),
 }
 
+/// A parser of messages of Job Declaration subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum JobDeclaration<'a> {
@@ -140,6 +148,7 @@ pub enum JobDeclaration<'a> {
     SubmitSolution(SubmitSolutionJd<'a>),
 }
 
+/// A parser of messages of Mining subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum Mining<'a> {
@@ -187,6 +196,7 @@ pub enum Mining<'a> {
 }
 
 impl<'a> Mining<'a> {
+    /// converter into static lifetime
     pub fn into_static(self) -> Mining<'static> {
         match self {
             Mining::CloseChannel(m) => Mining::CloseChannel(m.into_static()),
@@ -225,8 +235,12 @@ impl<'a> Mining<'a> {
     }
 }
 
+/// A trait that every Sv2 message parser must implement.
+/// It helps parsing from Rust types to raw messages.
 pub trait IsSv2Message {
+    /// get message type
     fn message_type(&self) -> u8;
+    /// get channel bit
     fn channel_bit(&self) -> bool;
 }
 
@@ -584,6 +598,7 @@ impl<'decoder> Deserialize<'decoder> for MiningDeviceMessages<'decoder> {
     }
 }
 
+/// A list of 8-bit message type variants that are common to all Sv2 subprotocols
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -634,6 +649,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages<'a> {
     }
 }
 
+/// A list of 8-bit message type variants under Template Distribution subprotocol
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -710,6 +726,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
     }
 }
 
+/// A list of 8-bit message type variants under Job Declaration subprotocol
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -808,6 +825,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
     }
 }
 
+/// A list of 8-bit message type variants under Mining subprotocol
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -976,6 +994,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
     }
 }
 
+/// A parser of messages that a Mining Device could send
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum MiningDeviceMessages<'a> {
@@ -1017,6 +1036,8 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
     }
 }
 
+// todo: fix this, PoolMessages should only contain Mining and Common
+/// A parser of all messages a Pool could send
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum PoolMessages<'a> {
