@@ -1,3 +1,5 @@
+//! A collection of helper primitives
+
 use std::{
     convert::{TryFrom, TryInto},
     ops::{Div, Mul},
@@ -6,10 +8,9 @@ use std::{
 };
 
 use binary_sv2::{Seq064K, ShortTxId, U256};
+use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use siphasher::sip::SipHasher24;
-//compact_target_from_u256
-use bitcoin::Block;
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -29,13 +30,15 @@ use tracing::error;
 
 use crate::errors::Error;
 
-/// Generator of unique ids
+/// Generator of unique ids.
+/// It keeps an internal counter, which is incremented every time a new unique id is requested.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Id {
     state: u32,
 }
 
 impl Id {
+    /// constructor
     pub fn new() -> Self {
         Self { state: 0 }
     }
@@ -53,7 +56,21 @@ impl Default for Id {
     }
 }
 
-/// Safer Mutex wrapper
+/// A custom `Mutex` implementation that provides enhanced safety and ergonomics over
+/// the standard `std::sync::Mutex`.
+///
+/// This `Mutex` offers the following features:
+/// - **Closure-Based Locking:** The `safe_lock` method encapsulates the locking process, ensuring
+///   the lock is automatically released after the closure completes.
+/// - **Error Handling:** `safe_lock` enforces explicit handling of potential `PoisonError`
+///   conditions, reducing the risk of panics caused by poisoned locks.
+/// - **Panic-Safe Option:** The `super_safe_lock` method provides an alternative that unwraps the
+///   result of `safe_lock`, with optional runtime safeguards against panics.
+/// - **Extensibility:** Includes feature-gated functionality to customize behavior, such as
+///   stricter runtime checks using external tools like `no-panic`.
+///
+/// This design minimizes the risk of common concurrency pitfalls and promotes safer
+/// handling of shared mutable state.
 #[derive(Debug)]
 pub struct Mutex<T: ?Sized>(Mutex_<T>);
 
@@ -79,6 +96,7 @@ impl<T> Mutex<T> {
         Ok(return_value)
     }
 
+    /// Mutex super safe lock
     pub fn super_safe_lock<F, Ret>(&self, thunk: F) -> Ret
     where
         F: FnOnce(&mut T) -> Ret,
@@ -111,10 +129,12 @@ impl<T> Mutex<T> {
         //}
     }
 
+    /// Mutex constructor
     pub fn new(v: T) -> Self {
         Mutex(Mutex_::new(v))
     }
 
+    /// remove from Mutex
     pub fn to_remove(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
         self.0.lock()
     }
@@ -163,14 +183,13 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     Some(merkle_root_from_path_(coinbase_id, path).to_vec())
 }
 
-// TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
+/// calculate merkle root from path
 pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     match path.len() {
         0 => coinbase_id,
         _ => reduce_path(coinbase_id, path),
     }
 }
-// TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
 fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
     for node in path {
@@ -183,9 +202,7 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     root
 }
 
-//
-// Coinbase output construction utils
-//
+/// Coinbase output construction utils
 #[derive(Debug, Clone)]
 pub struct CoinbaseOutput {
     pub output_script_type: String,
@@ -252,23 +269,20 @@ impl TryFrom<CoinbaseOutput> for Script {
     }
 }
 
+/// A list of potential errors during conversion between hashrate and target
 #[derive(Debug)]
 pub enum InputError {
     NegativeInput,
     DivisionByZero,
 }
 
-/// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
-/// The following function takes as input a miner hashrate and the shares per minute requested by
-/// the pool. The output t is the target (in big endian) for the miner with that hashrate. The
-/// miner that mines with target t produces the requested number of shares per minute.
+/// Calculates the target (in big endian) given some hashrate and share frequency (per minute).
 ///
-///
-/// If we want a speficic number of shares per minute from a miner of known hashrate,
+/// If we want a specific number of shares per minute from a miner of known hashrate,
 /// how do we set the adequate target?
 ///
-/// According to [1] and [2],  it is possible to model the probability of finding a block with
-/// a random variable X whose distribution is negtive hypergeometric [3].
+/// According to \[1] and \[2], it is possible to model the probability of finding a block with
+/// a random variable X whose distribution is negtive hypergeometric \[3].
 /// Such a variable is characterized as follows. Say that there are n (2^256) elements (possible
 /// hash values), of which t (values <= target) are defined as success and the remaining as
 /// failures. The variable X has codomain the positive integers, and X=k is the event where element
@@ -284,11 +298,11 @@ pub enum InputError {
 /// correctness of our calculations. Thus, if the pool wants on average a share every s
 /// seconds from a miner with hashrate h, then the target t for the miner is t = (2^256-sh)/(sh+1).
 ///
-/// [1] https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3399742
-/// [2] https://www.zora.uzh.ch/id/eprint/173483/1/SSRN-id3399742-2.pdf
-/// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
-/// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
-/// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
+/// \[1] [https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3399742](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3399742)
+///
+/// \[2] [https://www.zora.uzh.ch/id/eprint/173483/1/SSRN-id3399742-2.pdf](https://www.zora.uzh.ch/id/eprint/173483/1/SSRN-id3399742-2.pdf)
+///
+/// \[3] [https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution](https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution)
 pub fn hash_rate_to_target(
     hashrate: f64,
     share_per_min: f64,
@@ -384,6 +398,7 @@ fn from_uint128_to_u128(input: Uint128) -> u128 {
     u128::from_be_bytes(input)
 }
 
+/// helper converter u128 to uint256
 pub fn from_u128_to_uint256(input: u128) -> Uint256 {
     let input: [u8; 16] = input.to_be_bytes();
     let mut be_bytes = [0_u8; 32];
@@ -576,6 +591,7 @@ fn test_merkle_root_from_path() {
     );
 }
 
+/// Converts a u256 to a BlockHash type
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
     let hash = Hash::from_inner(hash);
@@ -659,6 +675,7 @@ pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'
     target.into()
 }
 
+/// todo: remove this, not used anywhere
 #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
 pub fn get_target(
     nonce: u32,
@@ -698,6 +715,8 @@ pub fn get_target(
     hash.reverse();
     hash
 }
+
+/// Returns a tuple with a list of transaction short hashes and the nonce used to generate them
 pub fn hash_lists_tuple(
     tx_data: Vec<Transaction>,
     tx_short_hash_nonce: u64,
@@ -715,6 +734,7 @@ pub fn hash_lists_tuple(
     (tx_short_hash_list, tx_hash_list_hash)
 }
 
+/// Computes SipHash 24 of some transaction id (short hash)
 pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxId<'static> {
     // hash the short hash nonce
     let nonce_hash = sha256::Hash::hash(&tx_short_hash_nonce.to_le_bytes());
@@ -741,12 +761,15 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
     hash.to_vec().try_into().unwrap()
 }
 
+/// Creates a block from a solution submission
 pub struct BlockCreator<'a> {
     last_declare: DeclareMiningJob<'a>,
     tx_list: Vec<bitcoin::Transaction>,
     message: SubmitSolutionJd<'a>,
 }
+
 impl<'a> BlockCreator<'a> {
+    /// Constructor
     pub fn new(
         last_declare: DeclareMiningJob<'a>,
         tx_list: Vec<bitcoin::Transaction>,
@@ -760,9 +783,9 @@ impl<'a> BlockCreator<'a> {
     }
 }
 
-/// TODO write a test for this function that takes an already mined block, and test if the new
-/// block created with the hash of the new block created with the block creator coincides with the
-/// hash of the mined block
+// TODO write a test for this function that takes an already mined block, and test if the new
+// block created with the hash of the new block created with the block creator coincides with the
+// hash of the mined block
 impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
     fn from(block_creator: BlockCreator<'a>) -> bitcoin::Block {
         let last_declare = block_creator.last_declare;
