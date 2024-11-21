@@ -1,4 +1,5 @@
-//! Traits that implements very basic properties that every implementation should use
+//! This module defines traits for properties that every SRI-based application should implement
+
 use crate::selectors::{
     DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
 };
@@ -24,7 +25,7 @@ pub struct PairSettings {
     pub flags: u32,
 }
 
-/// A trait that defines the basic properties of an upstream node.
+/// General properties that every Sv2 compatible upstream node must implement.
 pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized> {
     /// Used to bitcoin protocol version for the channel.
     fn get_version(&self) -> u16;
@@ -75,26 +76,33 @@ pub struct StandardChannel {
     pub extranonce: Extranonce,
 }
 
-/// General properties that every Sv2 compatible mining upstream nodes must implement.
+/// General properties that every Sv2 compatible mining upstream node must implement.
 pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down> + ?Sized>:
     IsUpstream<Down, Sel>
 {
     /// should return total hash rate local to the node
     fn total_hash_rate(&self) -> u64;
+    /// add hashrate to the node
     fn add_hash_rate(&mut self, to_add: u64);
+    /// get open channels on the node
     fn get_opened_channels(&mut self) -> &mut Vec<UpstreamChannel>;
+    /// update channels
     fn update_channels(&mut self, c: UpstreamChannel);
+    /// check if node is limited to hom
     fn is_header_only(&self) -> bool {
         has_requires_std_job(self.get_flags())
     }
 }
 
-/// General properties that every Sv2 compatible mining downstream nodes must implement.
+/// General properties that every Sv2 compatible downstream node must implement.
 pub trait IsDownstream {
+    /// get downstream mining data
     fn get_downstream_mining_data(&self) -> CommonDownstreamData;
 }
 
+/// General properties that every Sv2 compatible mining downstream node must implement.
 pub trait IsMiningDownstream: IsDownstream {
+    /// check if node is doing hom
     fn is_header_only(&self) -> bool {
         self.get_downstream_mining_data().header_only
     }
