@@ -7,6 +7,7 @@ use once_cell::sync::Lazy;
 use pool_sv2::PoolSv2;
 use rand::{thread_rng, Rng};
 use sniffer::Sniffer;
+pub use sniffer::{InterceptMessage, MessageDirection};
 use std::{
     collections::HashSet,
     convert::{TryFrom, TryInto},
@@ -199,8 +200,16 @@ pub async fn start_sniffer(
     listening_address: SocketAddr,
     upstream: SocketAddr,
     check_on_drop: bool,
+    intercept_message: Option<Vec<InterceptMessage>>,
 ) -> Sniffer {
-    let sniffer = Sniffer::new(identifier, listening_address, upstream, check_on_drop).await;
+    let sniffer = Sniffer::new(
+        identifier,
+        listening_address,
+        upstream,
+        check_on_drop,
+        intercept_message,
+    )
+    .await;
     let sniffer_clone = sniffer.clone();
     tokio::spawn(async move {
         sniffer_clone.start().await;
