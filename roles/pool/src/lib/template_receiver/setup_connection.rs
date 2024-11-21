@@ -4,10 +4,10 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
+    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     errors::Error,
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
-    parsers::PoolMessages,
+    parsers::{CommonMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
@@ -79,12 +79,23 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
 
     fn handle_setup_connection_error(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
+        m: SetupConnectionError,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        //return error result
-        todo!()
+        let flags = m.flags;
+        let message = SetupConnectionError {
+            flags,
+            // this error code is currently a hack because there is a lifetime problem with
+            // `error_code`.
+            error_code: "unsupported-feature-flags"
+                .to_string()
+                .into_bytes()
+                .try_into()
+                .unwrap(),
+        };
+        Ok(SendTo::RelayNewMessage(
+            CommonMessages::SetupConnectionError(message),
+        ))
     }
-
     fn handle_channel_endpoint_changed(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
