@@ -8,58 +8,106 @@ use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
-/// No NoPairableUpstreamT(min_v, max_v, all falgs supported))
 pub enum Error {
-    /// Errors if payload size is too big to fit into a frame.
+    /// Payload size is too big to fit into a frame
     BadPayloadSize,
+    /// Expected Length of 32, but received different length
     ExpectedLen32(usize),
+    /// Error serializing/deserializing binary format
     BinarySv2Error(BinarySv2Error),
+    /// Downstream is not connected anymore
     DownstreamDown,
+    /// A channel was attempted to be added to an Upstream, but no groups are specified
     NoGroupsFound,
+    /// Unexpected message received.
     UnexpectedMessage(u8),
+    /// Extended channels do not have group IDs
     NoGroupIdOnExtendedChannel,
-    /// (`min_v`, `max_v`, all flags supported)
+    /// No pairable upstream. Parameters are: (`min_v`, `max_v`, all flags supported)
     NoPairableUpstream((u16, u16, u32)),
+    /// No compatible upstream
     NoCompatibleUpstream(CommonDownstreamData),
     /// Error if the hashmap `future_jobs` field in the `GroupChannelJobDispatcher` is empty.
     NoFutureJobs,
+    /// No Downstreams connected
     NoDownstreamsConnected,
+    /// PrevHash requires non-existent Job Id
     PrevHashRequireNonExistentJobId(u32),
+    /// Request Id not mapped
     RequestIdNotMapped(u32),
+    /// There are no upstream connected
     NoUpstreamsConnected,
+    /// Protocol has not been implemented, but should be
     UnimplementedProtocol,
+    /// Unexpected `PoolMessage` type
     UnexpectedPoolMessage,
+    /// Upstream is answering with a wrong request ID {} or
+    /// `DownstreamMiningSelector::on_open_standard_channel_request` has not been called
+    /// before relaying open channel request to upstream
     UnknownRequestId(u32),
+    /// No more extranonces
     NoMoreExtranonces,
+    /// A non future job always expect a previous new prev hash
     JobIsNotFutureButPrevHashNotPresent,
+    /// If a channel is neither extended or part of a pool,
+    /// the only thing to do when a OpenStandardChannel is received
+    /// is to relay it upstream with and updated request id
     ChannelIsNeitherExtendedNeitherInAPool,
+    /// No more available extranonces for downstream"
     ExtranonceSpaceEnded,
+    /// Impossible to calculate merkle root
     ImpossibleToCalculateMerkleRoot,
+    /// Group Id not found
     GroupIdNotFound,
+    /// A share has been received but no job for it exist
     ShareDoNotMatchAnyJob,
+    /// A share has been recived but no channel for it exist
     ShareDoNotMatchAnyChannel,
+    /// Coinbase prefix + extranonce + coinbase suffix is not a valid coinbase
     InvalidCoinbase,
+    /// Value remaining in coinbase output was not correctly updated (it's equal to 0)
     ValueRemainingNotUpdated,
+    /// Unknown script type in config
     UnknownOutputScriptType,
+    /// Invalid `output_script_value` for script type. It must be a valid public key/script
     InvalidOutputScript,
+    /// Empty coinbase outputs in config
     EmptyCoinbaseOutputs,
+    /// Block header version cannot be bigger than `i32::MAX`
     VersionTooBig,
+    /// Tx version cannot be bigger than `i32::MAX`
     TxVersionTooBig,
+    /// Tx version cannot be lower than 1
     TxVersionTooLow,
+    /// Impossible to decode tx
     TxDecodingError(String),
+    /// No downstream has been registered for this channel id
     NotFoundChannelId,
+    /// Impossible to create a standard job for channel
+    /// because no valid job has been received from upstream yet
     NoValidJob,
+    /// Impossible to create an extended job for channel
+    /// because no valid job has been received from upstream yet
     NoValidTranslatorJob,
+    /// Impossible to retrieve a template for the required job id
     NoTemplateForId,
+    /// Impossible to retrieve a template for the required template id
     NoValidTemplate(String),
+    /// Invalid extranonce size. Params: (required min, requested)
     InvalidExtranonceSize(u16, u16),
+    /// Poison Lock
     PoisonLock(String),
+    /// Invalid BIP34 bytes
     InvalidBip34Bytes(Vec<u8>),
-    // (downstream_job_id, upstream_job_id)
+    /// Channel Factory did not update job. Params: (downstream_job_id, upstream_job_id)
     JobNotUpdated(u32, u32),
+    /// Impossible to get Target
     TargetError(InputError),
+    /// Impossible to get Hashrate
     HashrateError(InputError),
+    /// Message is well formatted but can not be handled
     LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
+    /// JD server cannot propagate the block due to missing transactions
     JDSMissingTransactions,
 }
 
