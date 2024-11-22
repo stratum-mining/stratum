@@ -1,24 +1,50 @@
-//! The routing logic code is used by the handler to determine where a message should be relayed or
-//! responded to
+//! This module contains the routing logic used by handlers to determine where a message should be
+//! relayed or responded to.
 //!
-//! TODO It seems like a good idea to hide all the traits to the user and export marker traits
-//! check if possible
+//! ## Overview
 //!
-//! - CommonRouter -> implemented by routers used by the common (sub)protocol
+//! The routing logic defines a set of traits and structures to manage message routing in Stratum
+//! V2. The following components are included:
 //!
-//! - MiningRouter -> implemented by routers used by the mining (sub)protocol
+//! - **`CommonRouter`**: Trait implemented by routers for the common (sub)protocol.
+//! - **`MiningRouter`**: Trait implemented by routers for the mining (sub)protocol.
+//! - **`CommonRoutingLogic`**: Enum defining the various routing logic for the common protocol
+//!   (e.g., Proxy, None).
+//! - **`MiningRoutingLogic`**: Enum defining the routing logic for the mining protocol (e.g.,
+//!   Proxy, None).
+//! - **`NoRouting`**: Marker router that implements both `CommonRouter` and `MiningRouter` for
+//!   cases where no routing logic is required.
+//! - **`MiningProxyRoutingLogic`**: Routing logic valid for a standard Sv2 mining proxy,
+//!   implementing both `CommonRouter` and `MiningRouter`.
 //!
-//! - CommonRoutingLogic -> enum that define the enum the various routing logic for the common
-//!   (sub)protocol (eg Proxy None ...).
+//! ## Details
 //!
-//! - MiningProxyRoutingLogic -> enum that define the enum the various routing logic for the common
-//!   (sub)protocol (eg Proxy None ...).
+//! ### Traits
 //!
-//! - NoRouting -> implement both CommonRouter and MiningRouter used when the routing logic needed
-//!   is only None
+//! - **`CommonRouter`**: Defines routing behavior for common protocol messages.
+//! - **`MiningRouter`**: Defines routing behavior for mining protocol messages. Requires
+//!   `DownstreamMiningSelector` for downstream selection.
 //!
-//! - MiningProxyRoutingLogic -> routing logic valid for a standard Sv2 mining proxy it is both a
-//!   CommonRouter and a MiningRouter
+//! ### Enums
+//!
+//! - **`CommonRoutingLogic`**: Represents possible routing logics for the common protocol, such as
+//!   proxy-based routing or no routing.
+//! - **`MiningRoutingLogic`**: Represents possible routing logics for the mining protocol,
+//!   supporting additional parameters such as selectors and marker traits.
+//!
+//! ### Structures
+//!
+//! - **`NoRouting`**: A minimal implementation of `CommonRouter` and `MiningRouter` that panics
+//!   when used. Its primary purpose is to serve as a placeholder for cases where no routing logic
+//!   is applied.
+//! - **`MiningProxyRoutingLogic`**: Implements routing logic for a standard Sv2 proxy, including
+//!   upstream selection and message transformation.
+//!
+//! ## Future Work
+//!
+//! - Consider hiding all traits from the public API and exporting only marker traits.
+//! - Improve upstream selection logic to be configurable by the caller.
+
 use crate::{
     common_properties::{CommonDownstreamData, IsMiningDownstream, IsMiningUpstream, PairSettings},
     selectors::{
@@ -34,26 +60,45 @@ use common_messages_sv2::{
 use mining_sv2::{OpenStandardMiningChannel, OpenStandardMiningChannelSuccess};
 use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc};
 
-/// The CommonRouter trait defines a router needed by
-/// [`crate::handlers::common::ParseUpstreamCommonMessages`] and
-/// [`crate::handlers::common::ParseDownstreamCommonMessages`]
+/// Defines routing logic for common protocol messages.
+///
+/// Implemented by handlers (such as [`crate::handlers::common::ParseUpstreamCommonMessages`] and
+/// [`crate::handlers::common::ParseDownstreamCommonMessages`]) to determine the behavior for common
+/// protocol routing.
 pub trait CommonRouter: std::fmt::Debug {
+    /// Handles a `SetupConnection` message for the common protocol.
+    ///
+    /// # Arguments
+    /// - `message`: The `SetupConnection` message received.
+    ///
+    /// # Returns
+    /// - `Result<(CommonDownstreamData, SetupConnectionSuccess), Error>`: The routing result.
     fn on_setup_connection(
         &mut self,
         message: &SetupConnection,
     ) -> Result<(CommonDownstreamData, SetupConnectionSuccess), Error>;
 }
 
-/// The MiningRouter trait defines a router needed by
-/// [`crate::handlers::mining::ParseDownstreamMiningMessages`] and
-/// [`crate::handlers::mining::ParseUpstreamMiningMessages`]
+/// Defines routing logic for mining protocol messages.
+///
+/// Implemented by handlers (such as [`crate::handlers::mining::ParseUpstreamMiningMessages`] and
+/// [`crate::handlers::mining::ParseDownstreamMiningMessages`]) to determine the behavior for mining
+/// protocol routing. This trait extends [`CommonRouter`] to handle mining-specific routing logic.
 pub trait MiningRouter<
     Down: IsMiningDownstream,
     Up: IsMiningUpstream<Down, Sel>,
     Sel: DownstreamMiningSelector<Down>,
 >: CommonRouter
 {
-    #[allow(clippy::result_unit_err)]
+    /// Handles an `OpenStandardMiningChannel` message from a downstream.
+    ///
+    /// # Arguments
+    /// - `downstream`: The downstream mining entity.
+    /// - `request`: The mining channel request message.
+    /// - `downstream_mining_data`: Associated downstream mining data.
+    ///
+    /// # Returns
+    /// - `Result<Arc<Mutex<Up>>, Error>`: The upstream mining entity.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
@@ -61,7 +106,14 @@ pub trait MiningRouter<
         downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, Error>;
 
-    #[allow(clippy::result_unit_err)]
+    /// Handles an `OpenStandardMiningChannelSuccess` message from an upstream.
+    ///
+    /// # Arguments
+    /// - `upstream`: The upstream mining entity.
+    /// - `request`: The successful channel opening message.
+    ///
+    /// # Returns
+    /// - `Result<Arc<Mutex<Down>>, Error>`: The downstream mining entity.
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
@@ -69,10 +121,9 @@ pub trait MiningRouter<
     ) -> Result<Arc<Mutex<Down>>, Error>;
 }
 
-/// NoRouting Router used when `RoutingLogic::None` and `MiningRoutingLogic::None` are needed.
-/// It implements both `CommonRouter` and `MiningRouter`, and panics if used as an actual router.
-/// The only purpose of `NoRouting` is a marker trait for when `RoutingLogic::None` and
-/// `MiningRoutingLogic::None`
+/// A no-operation router for scenarios where no routing logic is needed.
+///
+/// Implements both `CommonRouter` and `MiningRouter` but panics if invoked.
 #[derive(Debug)]
 pub struct NoRouting();
 
@@ -84,6 +135,7 @@ impl CommonRouter for NoRouting {
         unreachable!()
     }
 }
+
 impl<
         Down: IsMiningDownstream + D,
         Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D,
@@ -107,16 +159,16 @@ impl<
     }
 }
 
-/// Enum that contains the possible routing logic is usually contructed before calling
-/// handle_message_..()
+/// Routing logic options for the common protocol.
 #[derive(Debug)]
 pub enum CommonRoutingLogic<Router: 'static + CommonRouter> {
+    /// Proxy routing logic for the common protocol.
     Proxy(&'static Mutex<Router>),
+    /// No routing logic.
     None,
 }
 
-/// Enum that contains the possibles routing logic is usually contructed before calling
-/// handle_message_..()
+/// Routing logic options for the mining protocol.
 #[derive(Debug)]
 pub enum MiningRoutingLogic<
     Down: IsMiningDownstream + D,
@@ -124,8 +176,11 @@ pub enum MiningRoutingLogic<
     Sel: DownstreamMiningSelector<Down> + D,
     Router: 'static + MiningRouter<Down, Up, Sel>,
 > {
+    /// Proxy routing logic for the mining protocol.
     Proxy(&'static Mutex<Router>),
+    /// No routing logic.
     None,
+    /// Marker for the generic parameters.
     _P(PhantomData<(Down, Up, Sel)>),
 }
 
@@ -155,12 +210,39 @@ impl<
     }
 }
 
+/// Routing logic for a standard Sv2 mining proxy.
+#[derive(Debug)]
+pub struct MiningProxyRoutingLogic<
+    Down: IsMiningDownstream + D,
+    Up: IsMiningUpstream<Down, Sel> + D,
+    Sel: DownstreamMiningSelector<Down> + D,
+> {
+    /// Selector for upstream entities.
+    pub upstream_selector: GeneralMiningSelector<Sel, Down, Up>,
+    /// ID generator for downstream entities.
+    pub downstream_id_generator: Id,
+    /// Mapping from downstream to upstream entities.
+    pub downstream_to_upstream_map: HashMap<CommonDownstreamData, Vec<Arc<Mutex<Up>>>>,
+}
+
 impl<
         Down: IsMiningDownstream + D,
         Up: IsMiningUpstream<Down, Sel> + D,
         Sel: DownstreamMiningSelector<Down> + D,
     > CommonRouter for MiningProxyRoutingLogic<Down, Up, Sel>
 {
+    /// Handles the `SetupConnection` message.
+    ///
+    /// This method initializes the connection between a downstream and an upstream by determining
+    /// the appropriate upstream based on the provided protocol, versions, and flags.
+    ///
+    /// # Arguments
+    /// - `message`: A reference to the `SetupConnection` message containing the connection details.
+    ///
+    /// # Returns
+    /// - `Result<(CommonDownstreamData, SetupConnectionSuccess), Error>`: On success, returns the
+    ///   downstream connection data and the corresponding setup success message. Returns an error
+    ///   otherwise.
     fn on_setup_connection(
         &mut self,
         message: &SetupConnection,
@@ -180,7 +262,7 @@ impl<
             (Protocol::MiningProtocol, true) => {
                 self.on_setup_connection_mining_header_only(&pair_settings)
             }
-            // TODO add handler for other protocols
+            // TODO: Add handler for other protocols.
             _ => Err(Error::UnimplementedProtocol),
         }
     }
@@ -192,12 +274,55 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningRouter<Down, Up, Sel> for MiningProxyRoutingLogic<Down, Up, Sel>
 {
-    /// On open standard channel success:
-    /// 1. the downstream that requested the opening of the channel must be selected an put in the
-    ///    right group channel
-    /// 2. request_id from upsteram is replaced with the original request id from downstream
+    /// Handles the `OpenStandardMiningChannel` message.
     ///
-    /// The selected downstream is returned
+    /// This method processes the request to open a standard mining channel. It selects a suitable
+    /// upstream, updates the request ID to ensure uniqueness, and then delegates to
+    /// `on_open_standard_channel_request_header_only` to finalize the process.
+    ///
+    /// # Arguments
+    /// - `downstream`: The downstream requesting the channel opening.
+    /// - `request`: A mutable reference to the `OpenStandardMiningChannel` message.
+    /// - `downstream_mining_data`: Common data about the downstream mining setup.
+    ///
+    /// # Returns
+    /// - `Result<Arc<Mutex<Up>>, Error>`: Returns the selected upstream for the downstream or an
+    ///   error.
+    fn on_open_standard_channel(
+        &mut self,
+        downstream: Arc<Mutex<Down>>,
+        request: &mut OpenStandardMiningChannel,
+        downstream_mining_data: &CommonDownstreamData,
+    ) -> Result<Arc<Mutex<Up>>, Error> {
+        let upstreams = self
+            .downstream_to_upstream_map
+            .get(downstream_mining_data)
+            .ok_or(Error::NoCompatibleUpstream(*downstream_mining_data))?;
+        // If we are here, a list of possible upstreams has already been selected.
+        // TODO: The upstream selection logic should be specified by the caller.
+        let upstream =
+            Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
+        let old_id = request.get_request_id_as_u32();
+        let new_req_id = upstream
+            .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        request.update_id(new_req_id);
+        self.on_open_standard_channel_request_header_only(downstream, request)
+    }
+
+    /// Handles the `OpenStandardMiningChannelSuccess` message.
+    ///
+    /// This method processes the success message received from an upstream when a standard mining
+    /// channel is opened. It maps the request ID back to the original ID from the downstream and
+    /// updates the associated group and channel IDs in the upstream.
+    ///
+    /// # Arguments
+    /// - `upstream`: The upstream involved in the channel opening.
+    /// - `request`: A mutable reference to the `OpenStandardMiningChannelSuccess` message.
+    ///
+    /// # Returns
+    /// - `Result<Arc<Mutex<Down>>, Error>`: Returns the downstream corresponding to the request or
+    ///   an error.
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
@@ -225,48 +350,19 @@ impl<
             })
             .map_err(|e| Error::PoisonLock(e.to_string()))?
     }
-
-    /// At this point the Sv2 connection with downstream is initialized that means that
-    /// routing_logic has already preselected a set of upstreams pairable with downstream.
-    ///
-    /// Updates the request id from downstream to a connection-wide unique request id for
-    /// downstream.
-    fn on_open_standard_channel(
-        &mut self,
-        downstream: Arc<Mutex<Down>>,
-        request: &mut OpenStandardMiningChannel,
-        downstream_mining_data: &CommonDownstreamData,
-    ) -> Result<Arc<Mutex<Up>>, Error> {
-        let upstreams = self
-            .downstream_to_upstream_map
-            .get(downstream_mining_data)
-            .ok_or(Error::NoCompatibleUpstream(*downstream_mining_data))?;
-        // If we are here a list of possible upstreams has been already selected
-        // TODO the upstream selection logic should be specified by the caller
-        let upstream =
-            Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
-        let old_id = request.get_request_id_as_u32();
-        let new_req_id = upstream
-            .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
-            .map_err(|e| Error::PoisonLock(e.to_string()))?;
-        request.update_id(new_req_id);
-        self.on_open_standard_channel_request_header_only(downstream, request)
-    }
 }
 
-/// Routing logic valid for a standard Sv2 proxy
-#[derive(Debug)]
-pub struct MiningProxyRoutingLogic<
-    Down: IsMiningDownstream + D,
-    Up: IsMiningUpstream<Down, Sel> + D,
-    Sel: DownstreamMiningSelector<Down> + D,
-> {
-    pub upstream_selector: GeneralMiningSelector<Sel, Down, Up>,
-    pub downstream_id_generator: Id,
-    pub downstream_to_upstream_map: HashMap<CommonDownstreamData, Vec<Arc<Mutex<Up>>>>,
-    //pub upstream_startegy: MiningUpstreamSelectionStrategy<Up,Down,Sel>,
-}
-
+/// Selects the upstream with the lowest total hash rate.
+///
+/// # Arguments
+/// - `ups`: A mutable slice of upstream mining entities.
+///
+/// # Returns
+/// - `Arc<Mutex<Up>>`: The upstream entity with the lowest total hash rate.
+///
+/// # Panics
+/// This function panics if the slice is empty, as it is internally guaranteed that this function
+/// will only be called with non-empty vectors.
 fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Arc<Mutex<Up>>
 where
     Down: IsMiningDownstream + D,
@@ -275,7 +371,7 @@ where
 {
     ups.iter_mut()
         .reduce(|acc, item| {
-            // Is fine to unwrap a safe_lock result
+            // Safely locks and compares the total hash rate of each upstream.
             if acc.safe_lock(|x| x.total_hash_rate()).unwrap()
                 < item.safe_lock(|x| x.total_hash_rate()).unwrap()
             {
@@ -284,12 +380,17 @@ where
                 item
             }
         })
-        // Internal private function we only call thi function with non void vectors so is safe to
-        // unwrap here
         .unwrap()
-        .clone()
+        .clone() // Unwrap is safe because the function only operates on non-empty vectors.
 }
 
+/// Filters upstream entities that are not configured for header-only mining.
+///
+/// # Arguments
+/// - `ups`: A mutable slice of upstream mining entities.
+///
+/// # Returns
+/// - `Vec<Arc<Mutex<Up>>>`: A vector of upstream entities that are not header-only.
 fn filter_header_only<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Vec<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -307,9 +408,18 @@ where
         .collect()
 }
 
-/// If only one upstream is avaiable return it.
-/// Try to return an upstream that is not header only.
-/// Return the upstream that has less hash rate from downstreams.
+/// Selects the most appropriate upstream entity based on specific criteria.
+///
+/// # Criteria
+/// - If only one upstream is available, it is selected.
+/// - If multiple upstreams exist, preference is given to those not configured as header-only.
+/// - Among the remaining upstreams, the one with the lowest total hash rate is selected.
+///
+/// # Arguments
+/// - `ups`: A mutable slice of upstream mining entities.
+///
+/// # Returns
+/// - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
 fn select_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -333,28 +443,32 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningProxyRoutingLogic<Down, Up, Sel>
 {
-    /// TODO this should stay in a enum UpstreamSelectionLogic that get passed from the caller to
-    /// the several methods
+    /// Selects an upstream entity from a list of available upstreams.
+    ///
+    /// # Arguments
+    /// - `ups`: A mutable slice of upstream mining entities.
+    ///
+    /// # Returns
+    /// - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
     fn select_upstreams(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>> {
         select_upstream(ups)
     }
 
-    /// On setup connection the proxy finds all the upstreams that support the downstream
-    /// connection, creates a downstream message parser that points to all the possible
-    /// upstreams, and then responds with suppported flags.
+    /// Handles the `SetupConnection` process for header-only mining downstreams.
     ///
-    /// The upstream with min total_hash_rate is selected (TODO a method to let the caller which
-    /// upstream select from the possible ones should be added
-    /// on_setup_connection_mining_header_only_2 that return a Vec of possibe upstreams)
+    /// This method selects compatible upstreams, assigns connection flags, and maps the
+    /// downstream to the selected upstreams.
     ///
-    /// This function returns a downstream id that the new created downstream must return via the
-    /// trait function get_id and the flags of the paired upstream
+    /// # Arguments
+    /// - `pair_settings`: The pairing settings for the connection.
+    ///
+    /// # Returns
+    /// - `Result<(CommonDownstreamData, SetupConnectionSuccess), Error>`: The connection result.
     pub fn on_setup_connection_mining_header_only(
         &mut self,
         pair_settings: &PairSettings,
     ) -> Result<(CommonDownstreamData, SetupConnectionSuccess), Error> {
         let mut upstreams = self.upstream_selector.on_setup_connection(pair_settings)?;
-        // TODO the upstream selection logic should be specified by the caller
         let upstream =
             Self::select_upstreams(&mut upstreams.0).ok_or(Error::NoUpstreamsConnected)?;
         let downstream_data = CommonDownstreamData {
@@ -373,21 +487,14 @@ impl<
         Ok((downstream_data, message))
     }
 
-    /// On open standard channel request:
-    /// 1. an upstream must be selected between the possible upstreams for this downstream. If the
-    ///    downstream* is header only, just one upstream will be there, so the choice is easy, if
-    ///    not (TODO on_open_standard_channel_request_no_standard_job must be used)
-    /// 2. request_id from downstream is updated to a connection-wide unique request-id for
-    ///    upstreams
+    /// Handles a standard channel opening request for header-only mining downstreams.
     ///
-    ///    The selected upstream is returned
+    /// # Arguments
+    /// - `downstream`: The downstream mining entity.
+    /// - `request`: The standard mining channel request message.
     ///
-    ///
-    ///    * The downstream that wants to open a channel already connected with the proxy so a
-    ///    valid upstream has already been selected (otherwise downstream can not be connected).
-    ///    If the downstream is header only, only one valid upstream has been selected (cause a
-    ///    header only mining device can be connected only with one pool)
-    #[allow(clippy::result_unit_err)]
+    /// # Returns
+    /// - `Result<Arc<Mutex<Up>>, Error>`: The selected upstream mining entity.
     pub fn on_open_standard_channel_request_header_only(
         &mut self,
         downstream: Arc<Mutex<Down>>,
@@ -396,7 +503,6 @@ impl<
         let downstream_mining_data = downstream
             .safe_lock(|d| d.get_downstream_mining_data())
             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
-        // header only downstream must map to only one upstream
         let upstream = self
             .downstream_to_upstream_map
             .get(&downstream_mining_data)
