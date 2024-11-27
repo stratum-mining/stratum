@@ -171,8 +171,7 @@ impl Upstream {
             job_id: None,
             last_job_id: None,
             min_extranonce_size,
-            upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
-                                            * pool supports currently */
+            upstream_extranonce1_size: 8,
             tx_sv2_extranonce,
             tx_status,
             target,
@@ -186,6 +185,7 @@ impl Upstream {
         self_: Arc<Mutex<Self>>,
         min_version: u16,
         max_version: u16,
+        min_extranonce_size: u16,
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version, false)?;
@@ -242,9 +242,8 @@ impl Upstream {
             request_id: 0, // TODO
             user_identity, // TODO
             nominal_hash_rate,
-            max_target: u256_from_int(u64::MAX), // TODO
-            min_extranonce_size: 8,              /* 8 is the max extranonce2 size the braiins
-                                                  * pool supports */
+            max_target: u256_from_int(u64::MAX),
+            min_extranonce_size,
         });
 
         // reset channel hashrate so downstreams can manage from now on out

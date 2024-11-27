@@ -26,7 +26,7 @@ const_sv2 = { version = "^2.0.0", path = "../../protocols/v2/const-sv2" }
 network_helpers_sv2 = { version = "2.0.0", path = "../roles-utils/network-helpers", features =["with_tokio","with_buffer_pool"] }
 noise_sv2 = { version = "1.1.0", path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
-roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
+roles_logic_sv2 = { version = "^2.0.0", path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 tokio = { version = "1", features = ["full"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }

@@ -206,6 +206,7 @@ impl TranslatorSv2 {
                 upstream.clone(),
                 proxy_config.min_supported_version,
                 proxy_config.max_supported_version,
+                proxy_config.min_extranonce2_size,
             )
             .await
             {

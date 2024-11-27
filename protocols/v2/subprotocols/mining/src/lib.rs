@@ -106,6 +106,7 @@
 //!
 //! This protocol explicitly expects that upstream server software is able to manage the size of
 //! the hashing space correctly for its clients and can provide new jobs quickly enough.
+use alloc::vec::Vec;
 use binary_sv2::{B032, U256};
 use core::{
     cmp::{Ord, PartialOrd},
@@ -278,6 +279,12 @@ impl core::convert::TryFrom<alloc::vec::Vec<u8>> for Extranonce {
     }
 }
 
+impl AsRef<[u8]> for Extranonce {
+    fn as_ref(&self) -> &[u8] {
+        self.extranonce.as_ref()
+    }
+}
+
 impl Extranonce {
     pub fn new(len: usize) -> Option<Self> {
         if len > MAX_EXTRANONCE_LEN {
@@ -312,12 +319,21 @@ impl Extranonce {
 
     /// Return only the prefix part of the extranonce
     /// If the required size is greater than the extranonce len it return None
-    pub fn into_prefix(&self, prefix_len: usize) -> Option<B032<'static>> {
+    pub fn into_prefix(
+        &self,
+        prefix_len: usize,
+        additional_coinbase_script_data: &[u8],
+    ) -> Option<B032<'static>> {
         if prefix_len > self.extranonce.len() {
             None
         } else {
-            let mut prefix = self.extranonce.clone();
-            prefix.resize(prefix_len, 0);
+            let mut prefix = Vec::with_capacity(prefix_len + additional_coinbase_script_data.len());
+            for b in additional_coinbase_script_data {
+                prefix.push(*b);
+            }
+            for i in 0..prefix_len {
+                prefix.push(self.extranonce[i]);
+            }
             // unwrap is sage as prefix_len can not be greater than 32 cause is not possible to
             // contruct Extranonce with the inner vecto greater than 32.
             Some(prefix.try_into().unwrap())
@@ -1103,7 +1119,7 @@ pub mod tests {
     fn test_extranonce_to_prefix() {
         let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         let extranone = Extranonce { extranonce: inner };
-        let prefix = extranone.into_prefix(4).unwrap();
+        let prefix = extranone.into_prefix(4, &[]).unwrap();
         assert!(vec![1, 2, 3, 4] == prefix.to_vec())
     }
 
@@ -1111,7 +1127,7 @@ pub mod tests {
     fn test_extranonce_to_prefix_not_greater_than_inner() {
         let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         let extranone = Extranonce { extranonce: inner };
-        let prefix = extranone.into_prefix(20);
+        let prefix = extranone.into_prefix(20, &[]);
         assert!(prefix.is_none())
     }
 

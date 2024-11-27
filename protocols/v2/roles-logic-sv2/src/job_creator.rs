@@ -70,7 +70,7 @@ impl JobsCreators {
         template: &mut NewTemplate,
         version_rolling_allowed: bool,
         mut pool_coinbase_outputs: Vec<TxOut>,
-        pool_signature: String,
+        additional_coinbase_script_data_len: u8,
     ) -> Result<NewExtendedMiningJob<'static>, Error> {
         let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
         let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
@@ -87,7 +87,7 @@ impl JobsCreators {
         new_extended_job(
             template,
             &mut pool_coinbase_outputs,
-            pool_signature,
+            additional_coinbase_script_data_len,
             next_job_id,
             version_rolling_allowed,
             self.extranonce_len,
@@ -137,7 +137,7 @@ impl JobsCreators {
 
 pub fn extended_job_from_custom_job(
     referenced_job: &mining_sv2::SetCustomMiningJob,
-    pool_signature: String,
+    additional_coinbase_script_data_len: u8,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     let mut outputs =
@@ -158,7 +158,7 @@ pub fn extended_job_from_custom_job(
     new_extended_job(
         &mut template,
         &mut outputs,
-        pool_signature,
+        additional_coinbase_script_data_len,
         0,
         true,
         extranonce_len,
@@ -177,7 +177,7 @@ pub fn extended_job_from_custom_job(
 fn new_extended_job(
     new_template: &mut NewTemplate,
     coinbase_outputs: &mut [TxOut],
-    pool_signature: String,
+    additional_coinbase_script_data_len: u8,
     job_id: u32,
     version_rolling_allowed: bool,
     extranonce_len: u8,
@@ -193,7 +193,7 @@ fn new_extended_job(
         .map_err(|_| Error::TxVersionTooBig)?;
 
     let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
-    let script_prefix_len = bip34_bytes.len() + pool_signature.as_bytes().len();
+    let script_prefix_len = bip34_bytes.len();
 
     let coinbase = coinbase(
         bip34_bytes,
@@ -201,7 +201,7 @@ fn new_extended_job(
         new_template.coinbase_tx_locktime,
         new_template.coinbase_tx_input_sequence,
         coinbase_outputs,
-        pool_signature,
+        additional_coinbase_script_data_len,
         extranonce_len,
     );
 
@@ -224,7 +224,12 @@ fn new_extended_job(
         version_rolling_allowed,
         merkle_path: new_template.merkle_path.clone().into_static(),
         coinbase_tx_prefix: coinbase_tx_prefix(&coinbase, script_prefix_len)?,
-        coinbase_tx_suffix: coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_len)?,
+        coinbase_tx_suffix: coinbase_tx_suffix(
+            &coinbase,
+            extranonce_len,
+            script_prefix_len,
+            additional_coinbase_script_data_len as usize,
+        )?,
     };
 
     debug!(
@@ -249,10 +254,10 @@ fn coinbase_tx_prefix(
     };
     let index = 4    // tx version
         + segwit_bytes
-        + 1  // number of inputs TODO can be also 3
+        + 1  // number of inputs (always 1)
         + 32 // prev OutPoint
         + 4  // index
-        + 1  // bytes in script TODO can be also 3
+        + 1  // bytes in script (max 100 so always 1 byte)
         + script_prefix_len; // bip34_bytes
     let r = encoded[0..index].to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
@@ -264,6 +269,7 @@ fn coinbase_tx_suffix(
     coinbase: &Transaction,
     extranonce_len: u8,
     script_prefix_len: usize,
+    additional_coinbase_script_data_len: usize,
 ) -> Result<B064K<'static>, Error> {
     let encoded = coinbase.serialize();
     // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
@@ -279,6 +285,7 @@ fn coinbase_tx_suffix(
         + 4  // index
         + 1  // bytes in script TODO can be also 3
         + script_prefix_len  // bip34_bytes
+        + additional_coinbase_script_data_len
         + (extranonce_len as usize)..]
         .to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
@@ -327,7 +334,7 @@ fn coinbase(
     lock_time: u32,
     sequence: u32,
     coinbase_outputs: &[TxOut],
-    pool_signature: String,
+    additional_coinbase_script_data_len: u8,
     extranonce_len: u8,
 ) -> Transaction {
     // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
@@ -336,7 +343,7 @@ fn coinbase(
         0 => Witness::from_vec(vec![]),
         _ => Witness::from_vec(vec![vec![0; 32]]),
     };
-    bip34_bytes.extend_from_slice(pool_signature.as_bytes());
+    bip34_bytes.extend_from_slice(&vec![0_u8; additional_coinbase_script_data_len as usize]);
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
@@ -421,9 +428,9 @@ impl StrippedCoinbaseTx {
     }
 
     /// the coinbase tx prefix is the LE bytes concatenation of the tx version and all
-    /// of the tx inputs minus the 32 bytes after the bip34 bytes in the script
+    /// of the tx inputs minus the extranonce bytes after the bip34 bytes in the script
     /// and the last input's sequence (used as the first entry in the coinbase tx suffix).
-    /// The last 32 bytes after the bip34 bytes in the script will be used to allow extranonce
+    /// The last bytes after the bip34 bytes in the script will be used to allow extranonce
     /// space for the miner. We remove the bip141 marker and flag since it is only used for
     /// computing the `wtxid` and the legacy `txid` is what is used for computing the merkle root
     // clippy allow because we dont want to consume self
@@ -557,7 +564,7 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         let job = jobs_creators
-            .on_new_template(template.borrow_mut(), false, vec![out], "".to_string())
+            .on_new_template(template.borrow_mut(), false, vec![out], 0)
             .unwrap();
 
         assert_eq!(
@@ -581,8 +588,7 @@ pub mod tests {
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
-        let _ =
-            jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], "".to_string());
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], 0);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
@@ -616,8 +622,7 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         //Create a template
-        let _ =
-            jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], "".to_string());
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], 0);
         let test_id = template.template_id;
 
         // Create a SetNewPrevHash with matching template_id
@@ -705,7 +710,7 @@ pub mod tests {
         let extranonce = &[0_u8; 32];
         let path: &[binary_sv2::U256] = &[];
         let stripped_merkle_root =
-            merkle_root_from_path(&prefix[..], &suffix[..], extranonce, path).unwrap();
+            merkle_root_from_path(&prefix[..], &suffix[..], extranonce, path, &[]).unwrap();
         let og_merkle_root = coinbase.txid().to_vec();
         assert!(
             stripped_merkle_root == og_merkle_root,
