@@ -54,7 +54,7 @@ struct BlockHeader<'a> {
 }
 
 impl<'a> BlockHeader<'a> {
-    /// calculates the sha256 blockhash of the header
+    // calculates the sha256 blockhash of the header
     #[allow(dead_code)]
     pub fn hash(&self) -> Target {
         let mut engine = sha256d::Hash::engine();
@@ -98,7 +98,7 @@ pub struct GroupChannelJobDispatcher {
 
 /// Used to signal if submitted shares correlate to valid jobs
 pub enum SendSharesResponse {
-    //ValidAndMeetUpstreamTarget((SubmitSharesStandard,SubmitSharesSuccess)),
+    /// ValidAndMeetUpstreamTarget((SubmitSharesStandard,SubmitSharesSuccess)),
     Valid(SubmitSharesStandard),
     Invalid(SubmitSharesError<'static>),
 }

@@ -282,17 +282,17 @@ pub enum InputError {
 /// how do we set the adequate target?
 ///
 /// According to \[1] and \[2], it is possible to model the probability of finding a block with
-/// a random variable X whose distribution is negtive hypergeometric \[3].
+/// a random variable X whose distribution is negative hypergeometric \[3].
 /// Such a variable is characterized as follows. Say that there are n (2^256) elements (possible
 /// hash values), of which t (values <= target) are defined as success and the remaining as
-/// failures. The variable X has codomain the positive integers, and X=k is the event where element
+/// failures. The variable X has co-domain the positive integers, and X=k is the event where element
 /// are drawn one after the other, without replacement, and only the k-th element is successful.
 /// The expected value of this variable is (n-t)/(t+1).
 /// So, on average, a miner has to perform (2^256-t)/(t+1) hashes before finding hash whose value
 /// is below the target t. If the pool wants, on average, a share every s seconds, then, on
 /// average, the miner has to perform h*s hashes before finding one that is smaller than the
 /// target, where h is the miner's hashrate. Therefore, s*h= (2^256-t)/(t+1). If we consider h the
-/// global bitcoin's hashrate, s = 600 seconds and t the bicoin global target, then, for all the
+/// global bitcoin's hashrate, s = 600 seconds and t the bitcoin global target, then, for all the
 /// blocks we tried, the two members of the equations have the same order of magnitude and, most
 /// of the cases, they coincide with the first two digits. We take this as evidence of the
 /// correctness of our calculations. Thus, if the pool wants on average a share every s
@@ -372,7 +372,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let max_target = Uint256::from_be_bytes(max_target);
     let numerator = max_target - (target - Uint256::one());
 
-    // now we calcualte the denominator s(t+1)
+    // now we calculate the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
     let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
     // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
@@ -416,7 +416,7 @@ pub struct GroupId {
 }
 
 impl GroupId {
-    /// New GroupId it starts with groups 0, since 0 is reserved for hom downstreams
+    /// New GroupId it starts with groups 0, since 0 is reserved for hom downstream's
     pub fn new() -> Self {
         Self {
             group_ids: Id::new(),
@@ -429,8 +429,8 @@ impl GroupId {
         self.group_ids.next()
     }
 
-    /// Create a channel for a paricular group and return the channel id
-    /// _group_id is left for a future use of this API where we have an hirearchy of ids so that we
+    /// Create a channel for a particular group and return the channel id
+    /// _group_id is left for a future use of this API where we have an hierarchy of ids so that we
     /// don't break old versions
     pub fn new_channel_id(&mut self, _group_id: u32) -> u32 {
         self.channel_ids.next()
