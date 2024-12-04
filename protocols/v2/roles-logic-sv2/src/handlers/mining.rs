@@ -60,6 +60,7 @@ use const_sv2::*;
 use std::{fmt::Debug as D, sync::Arc};
 use tracing::{debug, error, info, trace};
 
+/// see [`SendTo_`]
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
 
 /// Represents supported channel types in a mining connection.
