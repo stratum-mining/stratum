@@ -7,6 +7,7 @@ use crate::{
 use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
+/// Error enum
 #[derive(Debug)]
 pub enum Error {
     /// Payload size is too big to fit into a frame
@@ -29,7 +30,7 @@ pub enum Error {
     NoCompatibleUpstream(CommonDownstreamData),
     /// Error if the hashmap `future_jobs` field in the `GroupChannelJobDispatcher` is empty.
     NoFutureJobs,
-    /// No Downstreams connected
+    /// No Downstream's connected
     NoDownstreamsConnected,
     /// PrevHash requires non-existent Job Id
     PrevHashRequireNonExistentJobId(u32),
@@ -61,7 +62,7 @@ pub enum Error {
     GroupIdNotFound,
     /// A share has been received but no job for it exist
     ShareDoNotMatchAnyJob,
-    /// A share has been recived but no channel for it exist
+    /// A share has been received but no channel for it exist
     ShareDoNotMatchAnyChannel,
     /// Coinbase prefix + extranonce + coinbase suffix is not a valid coinbase
     InvalidCoinbase,
@@ -124,7 +125,7 @@ impl Display for Error {
             BadPayloadSize => write!(f, "Payload is too big to fit into the frame"),
             BinarySv2Error(v) => write!(
                 f,
-                "BinarySv2Error: error in serializing/deserilizing binary format {:?}",
+                "BinarySv2Error: error in serializing/deserializing binary format {:?}",
                 v
             ),
             DownstreamDown => {
@@ -174,12 +175,12 @@ impl Display for Error {
             },
             NoMoreExtranonces => write!(f, "No more extranonces"),
             JobIsNotFutureButPrevHashNotPresent => write!(f, "A non future job always expect a previous new prev hash"),
-            ChannelIsNeitherExtendedNeitherInAPool => write!(f, "If a channel is neither extended neither is part of a pool the only thing to do when a OpenStandardChannle is received is to relay it upstream with and updated request id"),
-            ExtranonceSpaceEnded => write!(f, "No more avaible extranonces for downstream"),
+            ChannelIsNeitherExtendedNeitherInAPool => write!(f, "If a channel is neither extended neither is part of a pool the only thing to do when a OpenStandardChannel is received is to relay it upstream with and updated request id"),
+            ExtranonceSpaceEnded => write!(f, "No more available extranonces for downstream"),
             ImpossibleToCalculateMerkleRoot => write!(f, "Impossible to calculate merkle root"),
             GroupIdNotFound => write!(f, "Group id not found"),
-            ShareDoNotMatchAnyJob => write!(f, "A share has been recived but no job for it exist"),
-            ShareDoNotMatchAnyChannel => write!(f, "A share has been recived but no channel for it exist"),
+            ShareDoNotMatchAnyJob => write!(f, "A share has been received but no job for it exist"),
+            ShareDoNotMatchAnyChannel => write!(f, "A share has been received but no channel for it exist"),
             InvalidCoinbase => write!(f, "Coinbase prefix + extranonce + coinbase suffix is not a valid coinbase"),
             ValueRemainingNotUpdated => write!(f, "Value remaining in coinbase output was not correctly updated (it's equal to 0)"),
             UnknownOutputScriptType => write!(f, "Unknown script type in config"),
@@ -189,7 +190,7 @@ impl Display for Error {
             TxVersionTooBig => write!(f, "Tx version can not be greater than i32::MAX"),
             TxVersionTooLow => write!(f, "Tx version can not be lower than 1"),
             TxDecodingError(e) => write!(f, "Impossible to decode tx: {:?}", e),
-            NotFoundChannelId => write!(f, "No downstream has been registred for this channel id"),
+            NotFoundChannelId => write!(f, "No downstream has been registered for this channel id"),
             NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
             NoValidTranslatorJob => write!(f, "Impossible to create a extended job for channel cause no valid job has been received from upstream yet"),
             NoTemplateForId => write!(f, "Impossible to retrieve a template for the required job id"),

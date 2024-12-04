@@ -56,7 +56,7 @@ pub enum OnNewShare {
     /// Used when the received is malformed, is for an inexistent channel or do not meet downstream
     /// target.
     SendErrorDownstream(SubmitSharesError<'static>),
-    /// Used when an exteded channel in a proxy receive a share, and the share meet upstream
+    /// Used when an extended channel in a proxy receive a share, and the share meet upstream
     /// target, in this case a new share must be sent upstream. Also an optional template id is
     /// returned, when a job declarator want to send a valid share upstream could use the
     /// template for get the up job id.
@@ -71,7 +71,7 @@ pub enum OnNewShare {
     /// (share, template id, coinbase,complete extranonce)
     ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
-    /// response dowmstream.
+    /// response downstream.
     ShareMeetDownstreamTarget,
 }
 
@@ -256,7 +256,7 @@ impl ChannelFactory {
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
         if min_extranonce_size <= max_extranonce_size {
             // SECURITY is very unlikely to finish the ids btw this unwrap could be used by an
-            // attaccher that want to dirsrupt the service maybe we should have a method
+            // attacker that want to disrupt the service maybe we should have a method
             // to reuse ids that are no longer connected?
             let channel_id = self
                 .ids
@@ -394,7 +394,7 @@ impl ChannelFactory {
     }
 
     /// This function is called when downstream have a group channel
-    /// Shouldnt all standard channel's be non HOM??
+    /// should not all standard channel's be non HOM??
     fn new_standard_channel_for_non_hom_downstream(
         &mut self,
         request_id: u32,
@@ -462,7 +462,7 @@ impl ChannelFactory {
             .get(&channel_id)
             .unwrap();
         // OPTIMIZATION this could be memoized somewhere cause is very likely that we will receive a
-        // lot od OpenStandardMiningChannel requests consequtevely
+        // lot od OpenStandardMiningChannel requests consecutively
         let job_id = self.job_ids.next();
         let future_jobs: Option<Vec<NewMiningJob<'static>>> = self
             .future_jobs
@@ -558,11 +558,11 @@ impl ChannelFactory {
     }
 
     // When a new non HOM downstream opens a channel, we use this function to prepare all the
-    // extended jobs (future and non) and the prev hash that we need to send dowmstream
+    // extended jobs (future and non) and the prev hash that we need to send downstream
     fn prepare_jobs_and_p_hash(&mut self, result: &mut Vec<Mining>, complete_id: u64) {
         // If group is 0 it means that we are preparing jobs and p hash for a non HOM downstream
         // that want to open a new extended channel in that case we want to use the channel id
-        // TODO verify that this is true also for the case where the channle factory is in a proxy
+        // TODO verify that this is true also for the case where the channel factory is in a proxy
         // and not in a pool.
         let group_id = match GroupId::into_group_id(complete_id) {
             0 => GroupId::into_channel_id(complete_id),
@@ -1167,7 +1167,7 @@ impl PoolChannelFactory {
         let target = self.job_creator.last_target();
         // When downstream set a custom mining job we add the job to the negotiated job
         // hashmap, with the extended channel id as a key. Whenever the pool receive a share must
-        // first check if the channel have a negotiated job if so we can not retreive the template
+        // first check if the channel have a negotiated job if so we can not retrieve the template
         // via the job creator but we create a new one from the set custom job.
         if self.negotiated_jobs.contains_key(&m.channel_id) {
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
@@ -1305,7 +1305,7 @@ impl PoolChannelFactory {
     }
 }
 
-/// Used by proxies that want to open extended channls with upstream. If the proxy has job
+/// Used by proxies that want to open extended channels with upstream. If the proxy has job
 /// declaration capabilities, we set the job creator and the coinbase outs.
 #[derive(Debug)]
 pub struct ProxyExtendedChannelFactory {

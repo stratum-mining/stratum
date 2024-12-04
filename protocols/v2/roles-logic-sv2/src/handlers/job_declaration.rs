@@ -41,6 +41,8 @@
 
 use crate::{parsers::JobDeclaration, utils::Mutex};
 use std::sync::Arc;
+
+/// see [`SendTo_`]
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use super::SendTo_;
 use crate::errors::Error;

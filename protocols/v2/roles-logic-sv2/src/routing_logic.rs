@@ -274,20 +274,20 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningRouter<Down, Up, Sel> for MiningProxyRoutingLogic<Down, Up, Sel>
 {
-    /// Handles the `OpenStandardMiningChannel` message.
-    ///
-    /// This method processes the request to open a standard mining channel. It selects a suitable
-    /// upstream, updates the request ID to ensure uniqueness, and then delegates to
-    /// `on_open_standard_channel_request_header_only` to finalize the process.
-    ///
-    /// # Arguments
-    /// - `downstream`: The downstream requesting the channel opening.
-    /// - `request`: A mutable reference to the `OpenStandardMiningChannel` message.
-    /// - `downstream_mining_data`: Common data about the downstream mining setup.
-    ///
-    /// # Returns
-    /// - `Result<Arc<Mutex<Up>>, Error>`: Returns the selected upstream for the downstream or an
-    ///   error.
+    // Handles the `OpenStandardMiningChannel` message.
+    //
+    // This method processes the request to open a standard mining channel. It selects a suitable
+    // upstream, updates the request ID to ensure uniqueness, and then delegates to
+    // `on_open_standard_channel_request_header_only` to finalize the process.
+    //
+    // # Arguments
+    // - `downstream`: The downstream requesting the channel opening.
+    // - `request`: A mutable reference to the `OpenStandardMiningChannel` message.
+    // - `downstream_mining_data`: Common data about the downstream mining setup.
+    //
+    // # Returns
+    // - `Result<Arc<Mutex<Up>>, Error>`: Returns the selected upstream for the downstream or an
+    //   error.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
@@ -310,19 +310,19 @@ impl<
         self.on_open_standard_channel_request_header_only(downstream, request)
     }
 
-    /// Handles the `OpenStandardMiningChannelSuccess` message.
-    ///
-    /// This method processes the success message received from an upstream when a standard mining
-    /// channel is opened. It maps the request ID back to the original ID from the downstream and
-    /// updates the associated group and channel IDs in the upstream.
-    ///
-    /// # Arguments
-    /// - `upstream`: The upstream involved in the channel opening.
-    /// - `request`: A mutable reference to the `OpenStandardMiningChannelSuccess` message.
-    ///
-    /// # Returns
-    /// - `Result<Arc<Mutex<Down>>, Error>`: Returns the downstream corresponding to the request or
-    ///   an error.
+    // Handles the `OpenStandardMiningChannelSuccess` message.
+    //
+    // This method processes the success message received from an upstream when a standard mining
+    // channel is opened. It maps the request ID back to the original ID from the downstream and
+    // updates the associated group and channel IDs in the upstream.
+    //
+    // # Arguments
+    // - `upstream`: The upstream involved in the channel opening.
+    // - `request`: A mutable reference to the `OpenStandardMiningChannelSuccess` message.
+    //
+    // # Returns
+    // - `Result<Arc<Mutex<Down>>, Error>`: Returns the downstream corresponding to the request or
+    //   an error.
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
@@ -352,17 +352,17 @@ impl<
     }
 }
 
-/// Selects the upstream with the lowest total hash rate.
-///
-/// # Arguments
-/// - `ups`: A mutable slice of upstream mining entities.
-///
-/// # Returns
-/// - `Arc<Mutex<Up>>`: The upstream entity with the lowest total hash rate.
-///
-/// # Panics
-/// This function panics if the slice is empty, as it is internally guaranteed that this function
-/// will only be called with non-empty vectors.
+// Selects the upstream with the lowest total hash rate.
+//
+// # Arguments
+// - `ups`: A mutable slice of upstream mining entities.
+//
+// # Returns
+// - `Arc<Mutex<Up>>`: The upstream entity with the lowest total hash rate.
+//
+// # Panics
+// This function panics if the slice is empty, as it is internally guaranteed that this function
+// will only be called with non-empty vectors.
 fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Arc<Mutex<Up>>
 where
     Down: IsMiningDownstream + D,
@@ -384,13 +384,13 @@ where
         .clone() // Unwrap is safe because the function only operates on non-empty vectors.
 }
 
-/// Filters upstream entities that are not configured for header-only mining.
-///
-/// # Arguments
-/// - `ups`: A mutable slice of upstream mining entities.
-///
-/// # Returns
-/// - `Vec<Arc<Mutex<Up>>>`: A vector of upstream entities that are not header-only.
+// Filters upstream entities that are not configured for header-only mining.
+//
+// # Arguments
+// - `ups`: A mutable slice of upstream mining entities.
+//
+// # Returns
+// - `Vec<Arc<Mutex<Up>>>`: A vector of upstream entities that are not header-only.
 fn filter_header_only<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Vec<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -408,18 +408,18 @@ where
         .collect()
 }
 
-/// Selects the most appropriate upstream entity based on specific criteria.
-///
-/// # Criteria
-/// - If only one upstream is available, it is selected.
-/// - If multiple upstreams exist, preference is given to those not configured as header-only.
-/// - Among the remaining upstreams, the one with the lowest total hash rate is selected.
-///
-/// # Arguments
-/// - `ups`: A mutable slice of upstream mining entities.
-///
-/// # Returns
-/// - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
+// Selects the most appropriate upstream entity based on specific criteria.
+//
+// # Criteria
+// - If only one upstream is available, it is selected.
+// - If multiple upstreams exist, preference is given to those not configured as header-only.
+// - Among the remaining upstreams, the one with the lowest total hash rate is selected.
+//
+// # Arguments
+// - `ups`: A mutable slice of upstream mining entities.
+//
+// # Returns
+// - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
 fn select_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -443,18 +443,18 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningProxyRoutingLogic<Down, Up, Sel>
 {
-    /// Selects an upstream entity from a list of available upstreams.
-    ///
-    /// # Arguments
-    /// - `ups`: A mutable slice of upstream mining entities.
-    ///
-    /// # Returns
-    /// - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
+    // Selects an upstream entity from a list of available upstreams.
+    //
+    // # Arguments
+    // - `ups`: A mutable slice of upstream mining entities.
+    //
+    // # Returns
+    // - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
     fn select_upstreams(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>> {
         select_upstream(ups)
     }
 
-    /// Handles the `SetupConnection` process for header-only mining downstreams.
+    /// Handles the `SetupConnection` process for header-only mining downstream's.
     ///
     /// This method selects compatible upstreams, assigns connection flags, and maps the
     /// downstream to the selected upstreams.
@@ -487,7 +487,7 @@ impl<
         Ok((downstream_data, message))
     }
 
-    /// Handles a standard channel opening request for header-only mining downstreams.
+    /// Handles a standard channel opening request for header-only mining downstream's.
     ///
     /// # Arguments
     /// - `downstream`: The downstream mining entity.

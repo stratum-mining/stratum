@@ -42,6 +42,7 @@ use template_distribution_sv2::{
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
+/// see [`SendTo_`]
 pub type SendTo = SendTo_<TemplateDistribution<'static>, ()>;
 use const_sv2::*;
 use core::convert::TryInto;
