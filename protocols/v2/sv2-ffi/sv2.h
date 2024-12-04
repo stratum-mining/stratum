@@ -286,52 +286,77 @@ void _c_export_cvec2(CVec2 _a);
 #include <ostream>
 #include <new>
 
-/// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobDeclarationProtocol = [`SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT`],
-/// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
+/// This enum has a list of the different Stratum V2 subprotocols.
 enum class Protocol : uint8_t {
+  /// Mining protocol.
   MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
+  /// Job declaration protocol.
   JobDeclarationProtocol = SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
+  /// Template distribution protocol.
   TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
 
-/// ## ChannelEndpointChanged (Server -> Client)
-/// When a channel’s upstream or downstream endpoint changes and that channel had previously
-/// sent messages with [channel_msg] bitset of unknown extension_type, the intermediate proxy
-/// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
-/// (including version negotiation and the presence of support for a given extension) MUST be
-/// reset and version/presence negotiation must begin again.
+/// Message used by an upstream role for announcing a mining channel endpoint change.
+///
+/// This message should be sent when a mining channel’s upstream or downstream endpoint changes and
+/// that channel had previously exchanged message(s) with `channel_msg` bitset of unknown
+/// `extension_type`.
+///
+/// When a downstream receives such a message, any extension state (including version and extension
+/// support) must be reset and renegotiated.
 struct ChannelEndpointChanged {
-  /// The channel which has changed endpoint.
+  /// Unique identifier of the channel that has changed its endpoint.
   uint32_t channel_id;
 };
 
-/// ## SetupConnection.Success (Server -> Client)
-/// Response to [`SetupConnection`] message if the server accepts the connection. The client is
-/// required to verify the set of feature flags that the server supports and act accordingly.
+/// Message used by an upstream role to accept a connection setup request from a downstream role.
+///
+/// This message is sent in response to a [`SetupConnection`] message.
 struct SetupConnectionSuccess {
-  /// Selected version proposed by the connecting node that the upstream
-  /// node supports. This version will be used on the connection for the rest
-  /// of its life.
+  /// Selected version based on the [`SetupConnection::min_version`] and
+  /// [`SetupConnection::max_version`] sent by the downstream role.
+  ///
+  /// This version will be used on the connection for the rest of its life.
   uint16_t used_version;
-  /// Flags indicating optional protocol features the server supports. Each
-  /// protocol from [`Protocol`] field has its own values/flags.
+  /// Flags indicating optional protocol features supported by the upstream.
+  ///
+  /// The downstream is required to verify this set of flags and act accordingly.
+  ///
+  /// Each [`SetupConnection::protocol`] field has its own values/flags.
   uint32_t flags;
 };
 
+/// C representation of [`SetupConnection`]
 struct CSetupConnection {
+  /// Protocol to be used for the connection.
   Protocol protocol;
+  /// The minimum protocol version supported.
+  ///
+  /// Currently must be set to 2.
   uint16_t min_version;
+  /// The maximum protocol version supported.
+  ///
+  /// Currently must be set to 2.
   uint16_t max_version;
+  /// Flags indicating optional protocol features supported by the downstream.
+  ///
+  /// Each [`SetupConnection::protocol`] value has it's own flags.
   uint32_t flags;
+  /// ASCII representation of the connection hostname or IP address.
   CVec endpoint_host;
+  /// Connection port value.
   uint16_t endpoint_port;
+  /// Device vendor name.
   CVec vendor;
+  /// Device hardware version.
   CVec hardware_version;
+  /// Device firmware version.
   CVec firmware;
+  /// Device identifier.
   CVec device_id;
 };
 
+/// C representation of [`SetupConnectionError`]
 struct CSetupConnectionError {
   uint32_t flags;
   CVec error_code;
@@ -339,8 +364,10 @@ struct CSetupConnectionError {
 
 extern "C" {
 
+/// A C-compatible function that exports the [`ChannelEndpointChanged`] struct.
 void _c_export_channel_endpoint_changed(ChannelEndpointChanged _a);
 
+/// A C-compatible function that exports the `SetupConnection` struct.
 void _c_export_setup_conn_succ(SetupConnectionSuccess _a);
 
 void free_setup_connection(CSetupConnection s);
