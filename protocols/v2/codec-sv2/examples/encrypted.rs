@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Using Sv2 Codec with Noise Encryption
 //
 // This example demonstrates how to use the `codec-sv2` crate to encode and decode Sv2 frames

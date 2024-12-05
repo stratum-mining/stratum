@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # Stratum Common Crate
 //!
 //! `stratum_common` is a utility crate designed to centralize

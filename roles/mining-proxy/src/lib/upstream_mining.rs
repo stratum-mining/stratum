@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![deny(missing_docs)]
 
 use core::convert::TryInto;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};

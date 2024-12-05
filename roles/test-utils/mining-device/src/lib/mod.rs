@@ -1,4 +1,5 @@
 #![allow(clippy::option_map_unit_fn)]
+#![deny(missing_docs)]
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::utils::Id;

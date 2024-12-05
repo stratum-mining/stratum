@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{ShortTxId, Signature, B016M, B0255, B064K, U24, U256};
 use crate::Error;
 use core::convert::TryInto;

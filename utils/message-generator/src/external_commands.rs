@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use binary_sv2::{Deserialize, Serialize};
 use std::{process::Stdio, time::Duration};
 use tokio::{

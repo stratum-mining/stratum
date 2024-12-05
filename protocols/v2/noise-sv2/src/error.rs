@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Error Handling
 //
 // Defines error types and utilities for handling errors in the `noise_sv2` module.

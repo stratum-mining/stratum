@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! https://www.jsonrpc.org/specification#response_object
 use serde::{Deserialize, Serialize};
 

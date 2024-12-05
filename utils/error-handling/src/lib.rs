@@ -1,4 +1,5 @@
 #![allow(clippy::crate_in_macro_def)]
+#![deny(missing_docs)]
 /// # Description
 /// This macro handles errors inserting error handling logic for a given `Result<T,
 /// crate::error::Error<'a>>` it is used by passing in a `Sender<crate::status::Status>` as the

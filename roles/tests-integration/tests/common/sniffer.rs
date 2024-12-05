@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::{Receiver, Sender};
 use codec_sv2::{
     framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame, Sv2Frame,

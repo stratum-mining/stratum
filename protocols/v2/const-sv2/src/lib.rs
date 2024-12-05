@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! This crate provides all constants used in the SV2 protocol.
 //! These constants are essential for message framing, encryption, and
 //! protocol-specific identifiers across various SV2 components, including

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! This code uses `criterion` crate to benchmark the performance sv1.
 //! It measures connection time, send subscription latency and share submission time.
 

@@ -1,4 +1,5 @@
 #![no_main]
+#![deny(missing_docs)]
 use arbitrary::Arbitrary;
 use buffer_sv2::BufferPool as Pool;
 use buffer_sv2::{Buffer, Slice};

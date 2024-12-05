@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # Error Handling and Result Types
 //!
 //! This module defines error types and utilities for handling errors in the `codec_sv2` module.

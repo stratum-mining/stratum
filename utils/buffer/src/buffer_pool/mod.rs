@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use alloc::{vec, vec::Vec};
 use core::sync::atomic::Ordering;
 

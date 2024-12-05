@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Decoder
 //
 // Provides utilities for decoding messages held by Sv2 frames, with or without Noise protocol

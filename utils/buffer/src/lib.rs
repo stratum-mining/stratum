@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "debug"), no_std)]
+#![deny(missing_docs)]
 //#![feature(backtrace)]
 
 mod buffer;

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Copy data types
 use crate::{codec::Fixed, datatypes::Sv2DataType, Error};
 

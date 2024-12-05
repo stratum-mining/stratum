@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::SendError;
 use codec_sv2::StandardEitherFrame;
 use roles_logic_sv2::parsers::PoolMessages;

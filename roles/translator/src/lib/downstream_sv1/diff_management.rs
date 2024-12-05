@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};

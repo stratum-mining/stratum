@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{error::Error, primitives::GetSize};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};

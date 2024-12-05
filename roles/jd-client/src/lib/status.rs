@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::error::{self, Error};
 
 #[derive(Debug)]

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::SendTo_;
 use crate::{
     common_properties::CommonDownstreamData,

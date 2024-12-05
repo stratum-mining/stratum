@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{
     external_commands::os_command, net::setup_as_sv1_downstream, Command, Sv1Action,
     Sv1ActionResult, Test,

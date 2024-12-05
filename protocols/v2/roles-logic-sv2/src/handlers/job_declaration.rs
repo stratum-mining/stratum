@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{parsers::JobDeclaration, utils::Mutex};
 use std::sync::Arc;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;

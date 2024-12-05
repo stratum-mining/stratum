@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // use crate::framing2::EitherFrame;
 use core::fmt;
 

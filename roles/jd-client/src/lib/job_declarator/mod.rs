@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};

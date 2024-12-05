@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! The job creator module provides logic to create extended mining jobs given a template from
 //! a template provider as well as logic to clean up old templates when new blocks are mined
 use crate::{errors, utils::Id, Error};

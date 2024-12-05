@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},

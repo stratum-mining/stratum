@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! The SV2 protocol is binary, with fixed message framing.
 //! Each message begins with the extension type, message type, and message length (six bytes in
 //! total), followed by a variable length message.

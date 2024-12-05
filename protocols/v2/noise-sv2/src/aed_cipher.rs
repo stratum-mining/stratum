@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # AEAD Cipher
 //
 // Abstracts the encryption and decryption operations for authenticated encryption with associated

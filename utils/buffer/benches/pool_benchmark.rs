@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use core::sync::atomic::Ordering;
 use criterion::{criterion_group, criterion_main, Criterion};
 

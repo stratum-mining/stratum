@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Traits that implements very basic properties that every implementation should use
 use crate::selectors::{
     DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,

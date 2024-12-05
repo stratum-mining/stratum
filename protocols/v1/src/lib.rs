@@ -1,4 +1,5 @@
 #![allow(clippy::result_unit_err)]
+#![deny(missing_docs)]
 //! Startum V1 application protocol:
 //!
 //! json-rpc has two types of messages: **request** and **response**.

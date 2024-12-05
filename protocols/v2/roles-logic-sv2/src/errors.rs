@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Errors specific to this crate
 
 use crate::{

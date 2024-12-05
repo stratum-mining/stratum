@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use bitcoin_hashes::hex::ToHex;
 use serde_json::{
     Value,

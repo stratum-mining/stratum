@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Noise Protocol Handshake
 //
 // This example demonstrates how to use the `noise-sv2` crate to establish a Noise handshake

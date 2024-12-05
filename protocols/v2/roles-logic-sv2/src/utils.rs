@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::{
     convert::{TryFrom, TryInto},
     ops::{Div, Mul},

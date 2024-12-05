@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "no_std", no_std)]
+#![deny(missing_docs)]
 
 //! Common messages for [stratum v2][Sv2]
 //! The following protocol messages are common across all of the sv2 (sub)protocols.

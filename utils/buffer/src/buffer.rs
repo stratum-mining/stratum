@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::Buffer;
 use aes_gcm::aead::Buffer as AeadBuffer;
 use alloc::vec::Vec;

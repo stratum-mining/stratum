@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     net::{TcpListener, TcpStream},

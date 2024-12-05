@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use buffer_sv2::{Buffer, BufferFromSystemMemory as BufferFromMemory, BufferPool as Pool};
 use core::time::Duration;
 use rand::Rng;

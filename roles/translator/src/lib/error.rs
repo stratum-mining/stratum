@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use ext_config::ConfigError;
 use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod channel_factory;
 pub mod proxy_group_channel;
 

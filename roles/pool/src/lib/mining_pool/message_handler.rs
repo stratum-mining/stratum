@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::super::mining_pool::Downstream;
 use roles_logic_sv2::{
     errors::Error,

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Signature-Based Message Handling
 //
 // Defines the [`SignatureNoiseMessage`] struct, which represents a signed message used in the

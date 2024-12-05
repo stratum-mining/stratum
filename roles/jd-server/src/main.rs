@@ -1,4 +1,5 @@
 #![allow(special_module_name)]
+#![deny(missing_docs)]
 pub use crate::lib::{
     mempool::{self},
     status, Configuration,

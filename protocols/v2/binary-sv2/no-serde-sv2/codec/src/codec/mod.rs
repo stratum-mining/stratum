@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // At lower level I generally prefer to work with slices as more efficient than Read/Write streams
 // eg: Read for & [u8] is implemented with memcpy but here is more than enough to just get a
 // pointer to the original data

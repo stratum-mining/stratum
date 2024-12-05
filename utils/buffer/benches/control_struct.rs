@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use buffer_sv2::{Buffer, Slice};
 use std::sync::{Arc, Mutex};
 

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use v1::json_rpc::*;

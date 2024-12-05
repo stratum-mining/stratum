@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{
     super::{Signature, B016M, B064K, U24, U256},
     Seq, SeqMaxLen, SeqVisitor, TryFromBSlice,

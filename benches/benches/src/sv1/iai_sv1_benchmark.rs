@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! The code uses iai library to measure the system requirements of sv1 client.
 
 use iai::{black_box, main};

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use binary_sv2::{Deserialize, Serialize};
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnectionError, SetupConnectionSuccess},

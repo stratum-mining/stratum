@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use rpc_sv2::mini_rpc_client::RpcError;
 use std::{convert::From, sync::PoisonError};
 use tracing::{error, warn};

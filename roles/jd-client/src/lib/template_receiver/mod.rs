@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
 use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};

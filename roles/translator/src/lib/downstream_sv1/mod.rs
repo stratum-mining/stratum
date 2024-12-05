@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use roles_logic_sv2::mining_sv2::Target;
 use v1::{client_to_server::Submit, utils::HexU32Be};
 pub mod diff_management;

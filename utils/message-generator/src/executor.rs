@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{
     external_commands::os_command,
     into_static::into_static,

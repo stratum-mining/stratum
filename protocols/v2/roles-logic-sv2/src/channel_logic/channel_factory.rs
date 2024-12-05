@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::extended_to_standard_job;
 use crate::{
     common_properties::StandardChannel,

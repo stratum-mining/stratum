@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::super::downstream::DownstreamMiningNode as Downstream;
 
 use super::super::{

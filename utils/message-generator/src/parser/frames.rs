@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::sv2_messages::{message_from_path, ReplaceField};
 use codec_sv2::{buffer_sv2::Slice, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;

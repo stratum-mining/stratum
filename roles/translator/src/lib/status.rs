@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::error::{self, Error};
 
 #[derive(Debug)]

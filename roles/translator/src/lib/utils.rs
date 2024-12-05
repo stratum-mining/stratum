@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 /// currently the pool only supports 16 bytes exactly for its channels
 /// to use but that may change
 pub fn proxy_extranonce1_len(

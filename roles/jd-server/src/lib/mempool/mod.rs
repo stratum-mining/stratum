@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod error;
 use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;

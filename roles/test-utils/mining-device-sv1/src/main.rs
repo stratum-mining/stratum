@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub(crate) mod client;
 pub(crate) mod job;
 pub(crate) mod miner;
