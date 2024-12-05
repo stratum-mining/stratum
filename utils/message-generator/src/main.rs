@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 mod executor;
 mod executor_sv1;
 mod external_commands;

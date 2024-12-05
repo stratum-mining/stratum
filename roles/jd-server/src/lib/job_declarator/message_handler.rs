@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},

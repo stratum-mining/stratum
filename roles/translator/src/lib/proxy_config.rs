@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use key_utils::Secp256k1PublicKey;
 use serde::Deserialize;
 

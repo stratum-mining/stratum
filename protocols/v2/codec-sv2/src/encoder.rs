@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Encoder
 //
 // Provides utilities for encoding messages into Sv2 frames, with or without Noise protocol

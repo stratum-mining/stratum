@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Handlers are divided per (sub)protocol and per Downstream/Upstream.
 //! Each (sup)protocol defines a handler for both the Upstream node and the Downstream node
 //! Handlers are a trait called `Parse[Downstream/Upstream][(sub)protocol]`

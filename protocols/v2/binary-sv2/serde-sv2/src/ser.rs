@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Serde serializer for [stratum v2][Sv2] implemented following [serde tutorial][tutorial]
 //!
 //! Right now trying to serialize a value that is an invalid Sv2 type will result in a panic so

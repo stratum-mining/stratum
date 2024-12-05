@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{handshake::HandshakeOp, initiator::Initiator, responder::Responder};
 
 #[test]

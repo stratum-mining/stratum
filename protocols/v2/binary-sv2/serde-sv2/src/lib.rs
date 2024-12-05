@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Serde serializer/deserializer for [stratum v2][Sv2] implemented following [serde
 //! tutorial][tutorial]
 //!

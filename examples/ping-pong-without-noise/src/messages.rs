@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{binary_codec_sv2, decodable::DecodableField, decodable::FieldMarker};
 use binary_sv2::{Deserialize, GetSize, Seq064K, Serialize, Str0255, U24, U256};

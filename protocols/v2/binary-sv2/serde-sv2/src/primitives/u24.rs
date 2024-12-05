@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::primitives::FixedSize;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};

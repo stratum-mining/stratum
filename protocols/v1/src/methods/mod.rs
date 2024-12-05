@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::error::Error;
 use bitcoin_hashes::Error as BTCHashError;
 use hex::FromHexError;

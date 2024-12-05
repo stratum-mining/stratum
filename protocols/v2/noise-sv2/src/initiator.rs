@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Initiator Role
 //
 // Manages the [`Initiator`] role in the Noise protocol handshake for communication between Sv2

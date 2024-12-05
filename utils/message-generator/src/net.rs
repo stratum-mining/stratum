@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{os_command, Command};
 use async_channel::{bounded, Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};

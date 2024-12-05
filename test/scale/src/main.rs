@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::thread;
 use tokio::{
     net::{TcpListener, TcpStream},

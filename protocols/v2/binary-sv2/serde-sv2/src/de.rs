@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Serde deserializer for [stratum v2][Sv2] implemented following [serde tutorial][tutorial]
 //!
 //! [Sv2]: https://docs.google.com/document/d/1FadCWj-57dvhxsnFM_7X806qyvhR0u3i85607bGHxvg/edit

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{
     job_declarator::JobDeclarator,
     status::{self, State},

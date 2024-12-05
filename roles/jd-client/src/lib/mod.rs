@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod downstream;
 pub mod error;
 pub mod job_declarator;

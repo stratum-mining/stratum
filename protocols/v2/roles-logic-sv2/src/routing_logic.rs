@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! The routing logic code is used by the handler to determine where a message should be relayed or
 //! responded to
 //!

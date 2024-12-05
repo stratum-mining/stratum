@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "no_std", no_std)]
+#![deny(missing_docs)]
 
 //! # Mining Protocol
 //! ## Channels

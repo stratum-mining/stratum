@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::Error;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;

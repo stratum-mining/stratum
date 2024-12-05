@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! The defines a sv1 `Client` struct that handles message exchange with the server.
 //! It includes methods for initializing the client, parsing messages, and sending various types of
 //! messages. It also provides a trait implementation for handling server messages and managing

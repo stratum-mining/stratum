@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]

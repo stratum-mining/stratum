@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{error::Error, primitives::FixedSize};
 use alloc::{boxed::Box, vec::Vec};
 use core::convert::TryFrom;

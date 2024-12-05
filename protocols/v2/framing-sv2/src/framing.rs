@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{header::Header, Error};
 use alloc::vec::Vec;
 use binary_sv2::{to_writer, GetSize, Serialize};

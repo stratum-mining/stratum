@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use roles_logic_sv2::parsers::Mining;
 
 use super::error::PoolError;

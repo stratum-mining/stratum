@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 mod sniffer;
 
 use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};

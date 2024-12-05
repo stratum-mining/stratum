@@ -1,4 +1,5 @@
 #![cfg(not(feature = "with_serde"))]
+#![deny(missing_docs)]
 use std::{
     fmt,
     fmt::{Display, Formatter},

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 mod common;
 
 use std::convert::TryInto;

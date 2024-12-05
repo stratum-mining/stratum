@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{

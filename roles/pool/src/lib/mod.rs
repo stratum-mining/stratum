@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod error;
 pub mod mining_pool;
 pub mod status;

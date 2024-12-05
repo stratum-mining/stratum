@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::str::FromStr;
 use stratum_common::bitcoin::{
     secp256k1::Secp256k1,

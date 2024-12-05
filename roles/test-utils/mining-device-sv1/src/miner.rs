@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::job::Job;
 use std::convert::TryInto;
 use stratum_common::bitcoin::{

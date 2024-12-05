@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::messages::{Message, Ping, Pong};
 use binary_sv2::{from_bytes, U256};
 use rand::Rng;

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::IntoOwned;
 use crate::{
     codec::{GetSize, SizeHint},

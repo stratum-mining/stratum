@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use alloc::{string::String, vec::Vec};
 mod byte_arrays;
 pub mod sequences;

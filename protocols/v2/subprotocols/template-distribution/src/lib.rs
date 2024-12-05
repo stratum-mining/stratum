@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "no_std", no_std)]
+#![deny(missing_docs)]
 
 //! # Template Distribution Protocol
 //! The Template Distribution protocol is used to receive updates of the block template to use in

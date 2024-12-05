@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // TODO unify errors from serde_sv2 and no-serde-sv2
 
 #![no_std]

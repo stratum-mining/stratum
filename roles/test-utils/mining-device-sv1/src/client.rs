@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_std::net::TcpStream;
 use std::{convert::TryInto, net::SocketAddr, ops::Div};
 

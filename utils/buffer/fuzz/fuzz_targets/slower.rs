@@ -1,4 +1,5 @@
 #![no_main]
+#![deny(missing_docs)]
 use affinity::{get_core_num, set_thread_affinity};
 use arbitrary::Arbitrary;
 use buffer_sv2::BufferPool as Pool;

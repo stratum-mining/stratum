@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use ::key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use secp256k1::{rand, Keypair, Secp256k1};
 

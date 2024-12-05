@@ -1,4 +1,5 @@
 #![allow(special_module_name)]
+#![deny(missing_docs)]
 #![allow(clippy::option_map_unit_fn)]
 use key_utils::Secp256k1PublicKey;
 

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use roles_logic_sv2::{
     job_creator::extended_job_to_non_segwit,
     mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},

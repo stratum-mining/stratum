@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::{convert::TryInto, sync::Arc};
 
 use async_channel::{Receiver, SendError, Sender};

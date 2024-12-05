@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // TODO
 //  - manage id in RpcResult messages
 use base64::Engine;

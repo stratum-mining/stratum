@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::{Receiver, Sender};
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},

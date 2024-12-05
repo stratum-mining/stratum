@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU8, Ordering};
 #[cfg(feature = "debug")]

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;

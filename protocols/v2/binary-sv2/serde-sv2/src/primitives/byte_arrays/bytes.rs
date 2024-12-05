@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::primitives::GetSize;
 use alloc::vec::Vec;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};

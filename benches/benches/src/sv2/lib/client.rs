@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use bitcoin::{
     blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
 };

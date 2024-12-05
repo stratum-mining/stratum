@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::error::{self, Error};
 use binary_sv2::{B032, U256};
 use bitcoin_hashes::hex::{FromHex, ToHex};

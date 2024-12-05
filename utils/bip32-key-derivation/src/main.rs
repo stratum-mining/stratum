@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::env;
 use stratum_common::bitcoin::util::bip32::ExtendedPubKey;
 

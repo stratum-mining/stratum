@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_std::net::{TcpListener, TcpStream};
 use std::convert::{TryFrom, TryInto};
 

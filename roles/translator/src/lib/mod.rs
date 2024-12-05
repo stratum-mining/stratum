@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::{bounded, unbounded};
 use futures::FutureExt;
 use rand::Rng;

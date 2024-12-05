@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Provides all relevant types, traits and functions to implement a valid SV2 role.
 //!
 //! - For channel and job management, see [`channel_logic`], which utilizes [`job_creator`] and

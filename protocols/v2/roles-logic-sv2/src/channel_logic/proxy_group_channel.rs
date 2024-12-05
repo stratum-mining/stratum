@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{common_properties::StandardChannel, parsers::Mining, Error};
 
 use mining_sv2::{

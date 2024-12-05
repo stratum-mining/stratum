@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! ```txt
 //! SERDE    <-> Sv2
 //! bool     <-> BOOL

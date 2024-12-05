@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::convert::TryInto;
 use v1::server_to_client;
 

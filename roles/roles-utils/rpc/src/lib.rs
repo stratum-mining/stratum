@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod mini_rpc_client;
 use serde::{Deserialize, Serialize};
 

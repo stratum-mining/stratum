@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use alloc::vec::Vec;
 
 use crate::{buffer_pool::BufferPool as Pool, slice::Slice, Buffer};

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame, Sv2Frame};

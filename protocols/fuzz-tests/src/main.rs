@@ -1,4 +1,5 @@
 #![no_main]
+#![deny(missing_docs)]
 use libfuzzer_sys::fuzz_target;
 use binary_codec_sv2::{Seq064K,U256,B0255,Seq0255};
 use binary_codec_sv2::from_bytes;

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # Noise-SV2: Noise Protocol Implementation for Stratum V2
 //!
 //! `noise_sv2` ensures secure communication between Sv2 roles by handling encryption, decryption,

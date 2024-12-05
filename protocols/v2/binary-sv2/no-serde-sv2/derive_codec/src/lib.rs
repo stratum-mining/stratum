@@ -1,4 +1,5 @@
 #![no_std]
+#![deny(missing_docs)]
 
 extern crate alloc;
 extern crate proc_macro;

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # Stratum V2 Codec Library
 //!
 //! `codec_sv2` provides the message encoding and decoding functionality for the Stratum V2 (Sv2)

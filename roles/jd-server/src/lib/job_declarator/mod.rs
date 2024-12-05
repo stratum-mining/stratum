@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 pub mod message_handler;
 use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};

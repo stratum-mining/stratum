@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use ext_config::ConfigError;
 use std::fmt;
 

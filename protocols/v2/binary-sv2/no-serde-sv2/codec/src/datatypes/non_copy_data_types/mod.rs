@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 

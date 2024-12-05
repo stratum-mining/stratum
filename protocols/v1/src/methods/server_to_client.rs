@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use serde_json::{
     Value,
     Value::{Array as JArrary, Bool as JBool, Number as JNumber, String as JString},

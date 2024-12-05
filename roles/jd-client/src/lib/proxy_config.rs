@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![deny(missing_docs)]
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
 use serde::Deserialize;

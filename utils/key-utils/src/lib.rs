@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use bs58::{decode, decode::Error as Bs58DecodeError};
 use core::convert::TryFrom;
 use secp256k1::{

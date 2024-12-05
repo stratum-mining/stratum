@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{
     methods::{Method, MethodError},
     utils::HexU32Be,

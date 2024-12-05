@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::parsers::PoolMessages;
 

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::buffer_pool::{InnerMemory, PoolFront, PoolMode, POOL_CAPACITY};
 
 #[derive(Debug, Clone)]

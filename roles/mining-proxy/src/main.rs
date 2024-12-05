@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Configurable Sv2 it support extended and group channel
 //! Upstream means another proxy or a pool
 //! Downstream means another proxy or a mining device

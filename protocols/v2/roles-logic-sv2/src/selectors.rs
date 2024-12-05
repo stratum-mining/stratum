@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! Selectors are used from the routing logic in order to chose to which remote or set of remotes
 //! a message should be ralyied, or to which remote or set of remotes a message should be sent.
 use crate::{

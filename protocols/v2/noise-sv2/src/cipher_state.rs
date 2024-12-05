@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Cipher State Management
 //
 // Defines the [`CipherState`] trait and the [`GenericCipher`] enum, which manage the state of

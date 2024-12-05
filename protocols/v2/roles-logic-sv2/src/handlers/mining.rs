@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use crate::{common_properties::RequestIdMapper, errors::Error, parsers::Mining};
 use core::convert::TryInto;
 use mining_sv2::{

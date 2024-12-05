@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! The parsers modules provides logic to convert raw SV2 message data into rust types
 //! as well as logic to handle conversions among SV2 rust types
 

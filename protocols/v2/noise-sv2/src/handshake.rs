@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Noise Handshake Operations
 //
 // The [`HandshakeOp`] trait defines the cryptographic operations and utilities required to perform

@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::{super::error::ProxyResult, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 

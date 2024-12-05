@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 mod messages;
 mod node;
 use async_std::{

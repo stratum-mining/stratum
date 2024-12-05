@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use super::SendTo_;
 use crate::{errors::Error, parsers::TemplateDistribution, utils::Mutex};
 use template_distribution_sv2::{

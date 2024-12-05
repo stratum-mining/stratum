@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 mod actions;
 mod frames;
 pub mod sv1_messages;

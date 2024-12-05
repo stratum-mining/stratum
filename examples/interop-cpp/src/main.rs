@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 fn main() -> Result<(), std::io::Error> {
     use main_::main;
     main()

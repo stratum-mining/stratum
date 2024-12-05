@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 // # Responder Role
 //
 // Manages the [`Responder`] role in the Noise protocol handshake for secure communication between

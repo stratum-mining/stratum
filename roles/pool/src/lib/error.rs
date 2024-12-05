@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use std::{
     convert::From,
     fmt::Debug,

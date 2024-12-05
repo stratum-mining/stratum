@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 use alloc::string::String;
 use core::fmt::{self, Display};
 
