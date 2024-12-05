@@ -1,0 +1,35 @@
+name: Validate Rust Docs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Find and Document All Crates
+        run: |
+          # Fail on any error
+          set -e
+          
+          # Find all Cargo.toml files (crates) and run `cargo doc` for each
+          find . -name "Cargo.toml" | while read -r crate; do
+            crate_dir=$(dirname "$crate")
+            echo "Generating documentation for $crate_dir..."
+            (
+              cd "$crate_dir" || exit 1
+              cargo doc --all-features --no-deps
+            )
+          done
