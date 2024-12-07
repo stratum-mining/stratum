@@ -264,6 +264,7 @@ impl Responder {
             &mut rand::thread_rng(),
         )
     }
+    #[inline]
     pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
         &mut self,
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
@@ -367,6 +368,7 @@ impl Responder {
     // certificate validity period, and a cryptographic signature. The signature is created using
     // the responder's static public key and authority keypair, ensuring that the responder's
     // identity and certificate validity are cryptographically verifiable.
+    #[inline]
     fn get_signature<R: rand::Rng + rand::CryptoRng>(
         &self,
         version: u16,

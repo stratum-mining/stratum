@@ -79,6 +79,7 @@ impl SignatureNoiseMessage {
             .as_secs() as u32;
         self.verify_with_now(pk, authority_pk, now)
     }
+    #[inline]
     pub fn verify_with_now(
         self,
         pk: &XOnlyPublicKey,
