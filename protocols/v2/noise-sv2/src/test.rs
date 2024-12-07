@@ -1,6 +1,7 @@
 use crate::{handshake::HandshakeOp, initiator::Initiator, responder::Responder};
 
 #[test]
+#[cfg(feature = "std")]
 fn test_1() {
     let key_pair = Responder::generate_key();
 
