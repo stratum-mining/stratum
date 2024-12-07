@@ -71,7 +71,15 @@ impl SignatureNoiseMessage {
     //
     // If an authority public key is not provided, the function assumes that the signature
     // is already valid without further verification.
-    pub fn verify(
+    #[cfg(feature = "std")]
+    pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+        self.verify_with_now(pk, authority_pk, now)
+    }
+    pub fn verify_with_now(
         self,
         pk: &XOnlyPublicKey,
         authority_pk: &Option<XOnlyPublicKey>,
@@ -102,7 +110,11 @@ impl SignatureNoiseMessage {
     // Creates a Schnorr signature for the message, combining the version, validity period, and
     // the static public key of the server (`static_pk`). The resulting signature is then written
     // into the provided message buffer (`msg`).
-    pub fn sign<R: rand::Rng + rand::CryptoRng>(
+    #[cfg(feature = "std")]
+    pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {
+        Self::sign_with_rng(msg, static_pk, kp, &mut rand::thread_rng());
+    }
+    pub fn sign_with_rng<R: rand::Rng + rand::CryptoRng>(
         msg: &mut [u8; 74],
         static_pk: &XOnlyPublicKey,
         kp: &Keypair,

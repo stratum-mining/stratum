@@ -176,15 +176,23 @@ impl Responder {
     /// protocol handshake. It generates ephemeral and static key pairs for the responder and
     /// prepares the handshake state. The authority keypair and certificate validity period are
     /// also configured.
-    pub fn new<R: rand::Rng + ?Sized>(a: Keypair, cert_validity: u32, rng: &mut R) -> Box<Self> {
+    #[cfg(feature = "std")]
+    pub fn new(a: Keypair, cert_validity: u32) -> Box<Self> {
+        Self::new_with_rng(a, cert_validity, &mut rand::thread_rng())
+    }
+    pub fn new_with_rng<R: rand::Rng + ?Sized>(
+        a: Keypair,
+        cert_validity: u32,
+        rng: &mut R,
+    ) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
             n: 0,
             ck: [0; 32],
             h: [0; 32],
-            e: Self::generate_key(rng),
-            s: Self::generate_key(rng),
+            e: Self::generate_key_with_rng(rng),
+            s: Self::generate_key_with_rng(rng),
             a,
             c1: None,
             c2: None,
@@ -200,7 +208,15 @@ impl Responder {
     /// the responder's authority credentials. It verifies that the provided public key matches the
     /// corresponding private key, ensuring the authenticity of the authority key pair. The
     /// certificate validity duration is also set here. Fails if the key pair is mismatched.
-    pub fn from_authority_kp<R: rand::Rng + ?Sized>(
+    #[cfg(feature = "std")]
+    pub fn from_authority_kp(
+        public: &[u8; 32],
+        private: &[u8; 32],
+        cert_validity: Duration,
+    ) -> Result<Box<Self>, Error> {
+        Self::from_authority_kp_with_rng(public, private, cert_validity, &mut rand::thread_rng())
+    }
+    pub fn from_authority_kp_with_rng<R: rand::Rng + ?Sized>(
         public: &[u8; 32],
         private: &[u8; 32],
         cert_validity: Duration,
@@ -211,7 +227,7 @@ impl Responder {
         let kp = Keypair::from_secret_key(&secp, &secret);
         let pub_ = kp.x_only_public_key().0.serialize();
         if public == &pub_[..] {
-            Ok(Self::new(kp, cert_validity.as_secs() as u32, rng))
+            Ok(Self::new_with_rng(kp, cert_validity.as_secs() as u32, rng))
         } else {
             Err(Error::InvalidRawPublicKey)
         }
@@ -232,7 +248,23 @@ impl Responder {
     ///
     /// On failure, the method returns an error if there is an issue during encryption, decryption,
     /// or any other step of the handshake process.
-    pub fn step_1<R: rand::Rng + rand::CryptoRng>(
+    #[cfg(feature = "std")]
+    pub fn step_1(
+        &mut self,
+        elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
+    ) -> Result<([u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE], NoiseCodec), aes_gcm::Error> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+
+        self.step_1_with_now_rng(
+            elligatorswift_theirs_ephemeral_serialized,
+            now,
+            &mut rand::thread_rng(),
+        )
+    }
+    pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
         &mut self,
         elligatorswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE],
         now: u32,
@@ -356,7 +388,7 @@ impl Responder {
         ret[7] = not_valid_after[1];
         ret[8] = not_valid_after[2];
         ret[9] = not_valid_after[3];
-        SignatureNoiseMessage::sign(&mut ret, &self.s.x_only_public_key().0, &self.a, rng);
+        SignatureNoiseMessage::sign_with_rng(&mut ret, &self.s.x_only_public_key().0, &self.a, rng);
         ret
     }
 
