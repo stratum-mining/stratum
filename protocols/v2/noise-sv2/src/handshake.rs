@@ -101,14 +101,19 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     // Generates a fresh key pair, consisting of a secret key and a corresponding public key,
     // using the [`Secp256k1`] elliptic curve. If the generated public key does not match the
     // expected parity, a new key pair is generated to ensure consistency.
-    fn generate_key<R: rand::Rng + ?Sized>(rng: &mut R) -> Keypair {
+    #[cfg(feature = "std")]
+    fn generate_key() -> Keypair {
+        Self::generate_key_with_rng(&mut rand::thread_rng())
+    }
+
+    fn generate_key_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Keypair {
         let secp = Secp256k1::new();
         let (secret_key, _) = secp.generate_keypair(rng);
         let kp = Keypair::from_secret_key(&secp, &secret_key);
         if kp.x_only_public_key().1 == crate::PARITY {
             kp
         } else {
-            Self::generate_key(rng)
+            Self::generate_key_with_rng(rng)
         }
     }
 
@@ -468,8 +473,25 @@ mod test {
 
     #[test]
     fn test_ecdh() {
-        let key_pair_1 = TestHandShake::generate_key(&mut rand::thread_rng());
-        let key_pair_2 = TestHandShake::generate_key(&mut rand::thread_rng());
+        let key_pair_1 = TestHandShake::generate_key();
+        let key_pair_2 = TestHandShake::generate_key();
+
+        let secret_1 = key_pair_1.secret_bytes();
+        let secret_2 = key_pair_2.secret_bytes();
+
+        let pub_1 = key_pair_1.x_only_public_key();
+        let pub_2 = key_pair_2.x_only_public_key();
+
+        let ecdh_1 = TestHandShake::ecdh(&secret_1, &pub_2.0.serialize());
+        let ecdh_2 = TestHandShake::ecdh(&secret_2, &pub_1.0.serialize());
+
+        assert!(ecdh_1 == ecdh_2);
+    }
+
+    #[test]
+    fn test_ecdh_with_rng() {
+        let key_pair_1 = TestHandShake::generate_key_with_rng(&mut rand::thread_rng());
+        let key_pair_2 = TestHandShake::generate_key_with_rng(&mut rand::thread_rng());
 
         let secret_1 = key_pair_1.secret_bytes();
         let secret_2 = key_pair_2.secret_bytes();
