@@ -6,16 +6,18 @@ use binary_sv2::{Deserialize, Serialize};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// ## ChannelEndpointChanged (Server -> Client)
-/// When a channel’s upstream or downstream endpoint changes and that channel had previously
-/// sent messages with [channel_msg] bitset of unknown extension_type, the intermediate proxy
-/// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
-/// (including version negotiation and the presence of support for a given extension) MUST be
-/// reset and version/presence negotiation must begin again.
+/// Message used by an upstream role for announcing a mining channel endpoint change.
+///
+/// This message should be sent when a mining channel’s upstream or downstream endpoint changes and
+/// that channel had previously exchanged message(s) with `channel_msg` bitset of unknown
+/// `extension_type`.
+///
+/// When a downstream receives such a message, any extension state (including version and extension
+/// support) must be reset and renegotiated.
 #[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ChannelEndpointChanged {
-    /// The channel which has changed endpoint.
+    /// Unique identifier of the channel that has changed its endpoint.
     pub channel_id: u32,
 }
 #[cfg(feature = "with_serde")]
