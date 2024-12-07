@@ -472,6 +472,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_ecdh() {
         let key_pair_1 = TestHandShake::generate_key();
         let key_pair_2 = TestHandShake::generate_key();
