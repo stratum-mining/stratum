@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Defines types, encodings, and conversions between Serde and SV2 protocols,
 //! providing abstractions for encoding, decoding, and error handling of SV2 data types.
 //!

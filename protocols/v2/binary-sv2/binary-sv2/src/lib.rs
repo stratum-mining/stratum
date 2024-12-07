@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Mediates between two implementations of the `binary_sv2` protocol,
 //! enabling encoding and decoding through `serde` or custom traits.
 //!
