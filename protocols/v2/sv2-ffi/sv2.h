@@ -381,35 +381,44 @@ void free_setup_connection_error(CSetupConnectionError s);
 #include <ostream>
 #include <new>
 
-/// ## CoinbaseOutputDataSize (Client -> Server)
-/// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
-/// other uses, and thus the Template Provider will need to consider this additional block size
-/// when selecting transactions for inclusion in a block (to not create an invalid, oversized
-/// block). Thus, this message is used to indicate that some additional space in the block/coinbase
-/// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
-/// of available coinbase space).
-/// The Job Declarator MUST discover the maximum serialized size of the additional outputs which
-/// will be added by the pool(s) it intends to use this work. It then MUST communicate the
-/// maximum such size to the Template Provider via this message. The Template Provider MUST
-/// NOT provide NewWork messages which would represent consensus-invalid blocks once this
-/// additional size — along with a maximally-sized (100 byte) coinbase field — is added. Further,
-/// the Template Provider MUST consider the maximum additional bytes required in the output
-/// count variable-length integer in the coinbase transaction when complying with the size limits.
+/// Message used by a downstream to indicate the size of the additional bytes they will need in
+/// coinbase transaction outputs.
+///
+/// As the pool is responsible for adding coinbase transaction outputs for payouts and other uses,
+/// the Template Provider will need to consider this reserved space when selecting transactions for
+/// inclusion in a block(to avoid an invalid, oversized block).  Thus, this message indicates that
+/// additional space in the block/coinbase transaction must be reserved for, assuming they will use
+/// the entirety of this space.
+///
+/// The Job Declarator **must** discover the maximum serialized size of the additional outputs which
+/// will be added by the pools it intends to use this work. It then **must** communicate the sum of
+/// such size to the Template Provider via this message.
+///
+/// The Template Provider **must not** provide [`NewTemplate`] messages which would represent
+/// consensus-invalid blocks once this additional size — along with a maximally-sized (100 byte)
+/// coinbase field — is added. Further, the Template Provider **must** consider the maximum
+/// additional bytes required in the output count variable-length integer in the coinbase
+/// transaction when complying with the size limits.
+///
+/// [`NewTemplate`]: crate::NewTemplate
 struct CoinbaseOutputDataSize {
-  /// The maximum additional serialized bytes which the pool will add in
-  /// coinbase transaction outputs.
+  /// Additional serialized bytes needed in coinbase transaction outputs.
   uint32_t coinbase_output_max_additional_size;
 };
 
-/// ## RequestTransactionData (Client -> Server)
-/// A request sent by the Job Declarator to the Template Provider which requests the set of
-/// transaction data for all transactions (excluding the coinbase transaction) included in a block,
-/// as well as any additional data which may be required by the Pool to validate the work.
+/// Message used by a downstream to request data about all transactions in a block template.
+///
+/// Data includes the full transaction data and any additional data required to block validation.
+///
+/// Note that the coinbase transaction is excluded from this data.
 struct RequestTransactionData {
-  /// The template_id corresponding to a NewTemplate message.
+  /// Identifier of the template that the downstream node is requesting transaction data for.
+  ///
+  /// This must be identical to previously exchanged [`crate::NewTemplate::template_id`].
   uint64_t template_id;
 };
 
+/// C representation of [`NewTemplate`].
 struct CNewTemplate {
   uint64_t template_id;
   bool future_template;
@@ -424,17 +433,20 @@ struct CNewTemplate {
   CVec2 merkle_path;
 };
 
+/// C representation of [`RequestTransactionDataSuccess`].
 struct CRequestTransactionDataSuccess {
   uint64_t template_id;
   CVec excess_data;
   CVec2 transaction_list;
 };
 
+/// C representation of [`RequestTransactionDataError`].
 struct CRequestTransactionDataError {
   uint64_t template_id;
   CVec error_code;
 };
 
+/// C representation of [`SetNewPrevHash`].
 struct CSetNewPrevHash {
   uint64_t template_id;
   CVec prev_hash;
@@ -443,6 +455,7 @@ struct CSetNewPrevHash {
   CVec target;
 };
 
+/// C representation of [`SubmitSolution`].
 struct CSubmitSolution {
   uint64_t template_id;
   uint32_t version;
@@ -453,18 +466,25 @@ struct CSubmitSolution {
 
 extern "C" {
 
+/// Exports the [`CoinbaseOutputDataSize`] struct to C.
 void _c_export_coinbase_out(CoinbaseOutputDataSize _a);
 
+/// Exports the [`RequestTransactionData`] struct to C.
 void _c_export_req_tx_data(RequestTransactionData _a);
 
+/// Drops the [`CNewTemplate`] object.
 void free_new_template(CNewTemplate s);
 
+/// Drops the CRequestTransactionDataSuccess object.
 void free_request_tx_data_success(CRequestTransactionDataSuccess s);
 
+/// Drops the CRequestTransactionDataError object.
 void free_request_tx_data_error(CRequestTransactionDataError s);
 
+/// Drops the CSetNewPrevHash object.
 void free_set_new_prev_hash(CSetNewPrevHash s);
 
+/// Drops the CSubmitSolution object.
 void free_submit_solution(CSubmitSolution s);
 
 } // extern "C"
