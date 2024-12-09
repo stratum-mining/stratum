@@ -66,7 +66,7 @@ use proc_macro::{Group, TokenStream, TokenTree};
 //
 // # Example
 //
-// ```rust
+// ```ignore
 // use proc_macro2::{Delimiter, Group, Ident, Span, TokenStream, TokenTree};
 // use quote::quote;
 //
@@ -115,7 +115,7 @@ fn is_already_sized(item: TokenStream) -> bool {
 //
 // # Example
 //
-// ```rust
+// ```ignore
 // use proc_macro2::{Delimiter, Group, TokenStream, TokenTree};
 // use quote::quote;
 //
@@ -192,7 +192,7 @@ enum ParserState {
 //
 // # Examples
 //
-// ```
+// ```ignore
 // struct MyStruct<T> {
 //     pub field1: i32,
 //     pub field2: String,
@@ -229,7 +229,7 @@ struct ParsedStruct {
 //
 // # Examples
 //
-// ```
+// ```ignore
 // // Given a struct field definition:
 // // data: Option<T>,
 //
@@ -282,7 +282,7 @@ impl ParsedField {
 //
 // # Examples
 //
-// ```
+// ```ignore
 // use quote::quote;
 //
 // struct MyStruct<T> {
@@ -366,7 +366,7 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
 //
 // # Examples
 //
-// ```
+// ```ignore
 // struct MyStruct<T> {
 //     field1: i32,
 // }
@@ -464,7 +464,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 ///
 /// Given a struct:
 ///
-/// ```
+/// ```ignore
 /// struct Test {
 ///     a: u32,
 ///     b: u8,
@@ -474,7 +474,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 ///
 /// Using `#[derive(Decodable)]` on `Test` generates the following implementations:
 ///
-/// ```rust
+/// ```ignore
 /// mod impl_parse_decodable_test {
 ///     use super::{
 ///         binary_codec_sv2::{
@@ -705,7 +705,7 @@ fn get_static_generics(gen: &str) -> &str {
 ///
 /// Given a struct:
 ///
-/// ```
+/// ```ignore
 /// struct Test {
 ///     a: u32,
 ///     b: u8,
@@ -715,7 +715,7 @@ fn get_static_generics(gen: &str) -> &str {
 ///
 /// Using `#[derive(Encodable)]` on `Test` generates the following implementations:
 ///
-/// ```rust
+/// ```ignore
 /// mod impl_parse_encodable_test {
 ///     use super::binary_codec_sv2::{encodable::EncodableField, GetSize};
 ///     extern crate alloc;
