@@ -25,4 +25,4 @@ pool_signature = "Stratum v2 SRI Pool"
 #tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
 tp_address = "75.119.150.111:8442"
-tp_authority_public_key = "9azQdassggC7L3YMVcZyRJmK7qrFDj5MZNHb4LkaUrJRUhct92W"
+tp_authority_public_key = "9bwHCYnjhbHm4AS3pWg9MtAH83mzWohoJJJDELYBqZhDNqszDLc"
