@@ -699,7 +699,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         _: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        warn!("SNPH received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
+        warn!("SNPH received from upstream, proxy ignored it, and used the one declared by JDC");
         Ok(SendTo::None(None))
     }
 
