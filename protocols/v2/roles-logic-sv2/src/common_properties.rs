@@ -1,4 +1,5 @@
-//! Traits that implements very basic properties that every implementation should use
+//! This module defines traits for properties that every SRI-based application should implement
+
 use crate::selectors::{
     DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
 };
@@ -24,11 +25,11 @@ pub struct PairSettings {
     pub flags: u32,
 }
 
-/// A trait that defines the basic properties of an upstream node.
+/// General properties that every Sv2 compatible upstream node must implement.
 pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized> {
     /// Used to bitcoin protocol version for the channel.
     fn get_version(&self) -> u16;
-    // Used to get flags for the defined sv2 message protocol
+    /// Used to get flags for the defined sv2 message protocol
     fn get_flags(&self) -> u32;
     /// Used to check if the upstream supports the protocol that the downstream wants to use
     fn get_supported_protocols(&self) -> Vec<Protocol>;
@@ -54,7 +55,7 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
 /// Channel to be opened with the upstream nodes.
 #[derive(Debug, Clone, Copy)]
 pub enum UpstreamChannel {
-    // nominal hash rate
+    /// nominal hash rate
     Standard(f32),
     Group,
     Extended,
@@ -75,7 +76,7 @@ pub struct StandardChannel {
     pub extranonce: Extranonce,
 }
 
-/// General properties that every Sv2 compatible mining upstream nodes must implement.
+/// General properties that every Sv2 compatible mining upstream node must implement.
 pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down> + ?Sized>:
     IsUpstream<Down, Sel>
 {
@@ -89,18 +90,19 @@ pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelect
     }
 }
 
-/// General properties that every Sv2 compatible mining downstream nodes must implement.
+/// General properties that every Sv2 compatible downstream node must implement.
 pub trait IsDownstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData;
 }
 
+/// General properties that every Sv2 compatible mining downstream node must implement.
 pub trait IsMiningDownstream: IsDownstream {
     fn is_header_only(&self) -> bool {
         self.get_downstream_mining_data().header_only
     }
 }
 
-/// Implemented for the NullDownstreamMiningSelector
+// Implemented for the NullDownstreamMiningSelector
 impl<Down: IsDownstream + D> IsUpstream<Down, NullDownstreamMiningSelector> for () {
     fn get_version(&self) -> u16 {
         unreachable!("Null upstream do not have a version");
@@ -126,7 +128,7 @@ impl<Down: IsDownstream + D> IsUpstream<Down, NullDownstreamMiningSelector> for 
     }
 }
 
-/// Implemented for the NullDownstreamMiningSelector
+// Implemented for the NullDownstreamMiningSelector
 impl IsDownstream for () {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
         unreachable!("Null downstream do not have mining data");
@@ -152,11 +154,11 @@ impl<Down: IsMiningDownstream + D> IsMiningUpstream<Down, NullDownstreamMiningSe
 
 impl IsMiningDownstream for () {}
 
-/// Proxies likely need to change the request ids of the downsteam's messages. They also need to
+/// Proxies likely need to change the request ids of the downstream's messages. They also need to
 /// remember the original id to patch the upstream's response with it.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct RequestIdMapper {
-    /// Mapping of upstream id -> downstream ids
+    // Mapping of upstream id -> downstream ids
     request_ids_map: HashMap<u32, u32, BuildNoHashHasher<u32>>,
     next_id: u32,
 }
@@ -180,7 +182,7 @@ impl RequestIdMapper {
         new_id
     }
 
-    /// Removes a upstream/downstream mapping from the `RequsetIdMapper`.
+    /// Removes a upstream/downstream mapping from the `RequestIdMapper`.
     pub fn remove(&mut self, upstream_id: u32) -> Option<u32> {
         self.request_ids_map.remove(&upstream_id)
     }
