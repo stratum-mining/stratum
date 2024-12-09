@@ -1,3 +1,48 @@
+//! # Procedural Macros for Automatic Serialization and Deserialization
+//!
+//! Provides procedural macros for deriving serialization and deserialization
+//! traits on structs used in binary protocol communication. The macros `Encodable` and `Decodable`
+//! generate implementations of encoding and decoding behaviors, making it simpler to work with
+//! binary data by automatically handling field parsing, sizing, and transformation.
+//!
+//! ## Overview
+//!
+//! These macros parse struct definitions to produce code that supports efficient and type-safe
+//! serialization and deserialization. Each field within a struct is processed based on its type and
+//! associated generics, allowing for custom encoding schemes and alignment with protocol
+//! requirements. Additionally, the macros enable flexible handling of lifetimes and static
+//! references to ensure compatibility across different use cases.
+//!
+//! ## Available Macros
+//!
+//! - **`Encodable`**: Automatically implements encoding logic, converting a struct's fields into a
+//!   binary format.
+//!   - **Attributes**: `#[already_sized]` (optional) to specify that a struct's size is fixed at
+//!     compile-time.
+//!   - **Generated Traits**: `EncodableField` (field-by-field encoding) and `GetSize` (size
+//!     calculation).
+//!
+//! - **`Decodable`**: Automatically implements decoding logic, allowing a struct to be
+//!   reconstructed from binary data.
+//!   - **Generated Methods**: `get_structure` (defines field structure) and `from_decoded_fields`
+//!     (builds the struct from decoded fields).
+//!
+//! ## Internal Structure
+//!
+//! ### `is_already_sized`
+//! Checks if the `#[already_sized]` attribute is present on the struct, allowing certain
+//! optimizations in generated code for fixed-size structs.
+//!
+//! ### `get_struct_properties`
+//! Parses and captures a struct’s name, generics, and field data, enabling custom encoding and
+//! decoding functionality.
+//!
+//! ### Custom Implementations
+//! The `Encodable` macro generates an `EncodableField` implementation by serializing each field,
+//! while `Decodable` constructs the struct from binary data. Both macros provide support for
+//! structs with or without lifetimes, ensuring versatility in applications that require efficient,
+//! protocol-level data handling.
+
 #![no_std]
 
 extern crate alloc;
@@ -11,6 +56,37 @@ use alloc::{
 use core::iter::FromIterator;
 use proc_macro::{Group, TokenStream, TokenTree};
 
+// Checks if a `TokenStream` contains a group with a bracket delimiter (`[]`),
+// and further examines if the group has an identifier called `already_sized`.
+//
+// Iterates through the `TokenStream`, searching for a group of tokens
+// that is delimited by square brackets (`[]`). Once a group is found, it looks inside
+// the group for an identifier named `already_sized`. If such an identifier is found,
+// the function returns `true`. Otherwise, it returns `false`.
+//
+// # Example
+//
+// ```ignore
+// use proc_macro2::{Delimiter, Group, Ident, Span, TokenStream, TokenTree};
+// use quote::quote;
+//
+// let input: TokenStream = quote! {
+//     [already_sized]
+// };
+//
+// // Call the function to check if `already_sized` is present inside the bracket group.
+// assert_eq!(is_already_sized(input), true);
+//
+// // Now let's try another TokenStream that doesn't contain the `already_sized` identifier.
+// let input_without_already_sized: TokenStream = quote! {
+//     [some_other_ident]
+// };
+//
+// assert_eq!(is_already_sized(input_without_already_sized), false);
+// ```
+//
+// In this example, the function successfully detects the presence of the `already_sized`
+// identifier when it's wrapped inside brackets, and returns `true` accordingly.
 fn is_already_sized(item: TokenStream) -> bool {
     let stream = item.into_iter();
 
@@ -29,6 +105,43 @@ fn is_already_sized(item: TokenStream) -> bool {
     }
     false
 }
+
+// Filters out attributes from a `TokenStream` that are prefixed with `#`.
+//
+// Removes all Rust attributes (e.g., `#[derive(...)]`, `#[cfg(...)]`)
+// from the provided `TokenStream`, leaving behind only the core structure and
+// its fields. This is useful in procedural macros when you want to manipulate
+// the underlying data without the attributes.
+//
+// # Example
+//
+// ```ignore
+// use proc_macro2::{Delimiter, Group, TokenStream, TokenTree};
+// use quote::quote;
+//
+// let input: TokenStream = quote! {
+//     #[derive(Debug, Clone)]
+//     pub struct MyStruct {
+//         pub field1: i32,
+//         #[cfg(feature = "extra")]
+//         pub field2: String,
+//     }
+// };
+//
+// let cleaned: TokenStream = remove_attributes(input);
+//
+// let expected_output: TokenStream = quote! {
+//     pub struct MyStruct {
+//         pub field1: i32,
+//         pub field2: String,
+//     }
+// };
+//
+// assert_eq!(cleaned.to_string(), expected_output.to_string());
+// ```
+//
+// In this example, the `#[derive(Debug, Clone)]` and `#[cfg(feature = "extra")]`
+// attributes were removed, leaving just the plain `struct` with its fields.
 fn remove_attributes(item: TokenStream) -> TokenStream {
     let stream = item.into_iter();
     let mut is_attribute = false;
@@ -63,12 +176,212 @@ fn remove_attributes(item: TokenStream) -> TokenStream {
     TokenStream::from_iter(result)
 }
 
+// Represents the current state of the parser while processing a struct.
 enum ParserState {
+    // Indicates that the parser is processing the struct's name.
     Name,
+    // Indicates that the parser is processing the struct's type.
     Type,
-    //       open angle brackets
+    // Indicates that the parser is inside the angle brackets for generics.
+    //
+    // The `usize` value represents the depth of nested generics
     Generics(usize),
 }
+
+// Represents a parsed struct, including its name, generics, and fields.
+//
+// # Examples
+//
+// ```ignore
+// struct MyStruct<T> {
+//     pub field1: i32,
+//     pub field2: String,
+// }
+//
+// let parsed = ParsedStruct {
+//     name: "MyStruct".to_string(),
+//     generics: "T".to_string(),
+//     fields: vec![
+//         ParsedField {
+//             name: "field1".to_string(),
+//             type_: "i32".to_string(),
+//             generics: "".to_string(),
+//         },
+//         ParsedField {
+//             name: "field2".to_string(),
+//             type_: "String".to_string(),
+//             generics: "".to_string(),
+//         },
+//     ],
+// };
+// ```
+#[derive(Clone, Debug)]
+struct ParsedStruct {
+    // Name of the struct.
+    pub name: String,
+    // Generics associated with the struct, if any.
+    pub generics: String,
+    // List of fields within the struct.
+    pub fields: Vec<ParsedField>,
+}
+
+// Represents a parsed field within a struct, including its name, type, and any associated generics.
+//
+// # Examples
+//
+// ```ignore
+// // Given a struct field definition:
+// // data: Option<T>,
+//
+// let field = ParsedField {
+//     name: "data".to_string(),
+//     type_: "Option".to_string(),
+//     generics: "T".to_string(),
+// };
+// ```
+#[derive(Clone, Debug)]
+struct ParsedField {
+    // Name of the field.
+    name: String,
+    // Type of the field.
+    type_: String,
+    // Generics associated with the field, if any.
+    generics: String,
+}
+
+impl ParsedField {
+    pub fn new() -> Self {
+        ParsedField {
+            name: "".to_string(),
+            type_: "".to_string(),
+            generics: "".to_string(),
+        }
+    }
+
+    pub fn get_generics(&self) -> String {
+        if self.generics == "<'decoder>" || self.generics.is_empty() {
+            "".to_string()
+        } else {
+            format!("::{}", self.generics.clone())
+        }
+    }
+    pub fn as_static(&self) -> String {
+        if self.generics.is_empty() {
+            "".to_string()
+        } else {
+            ".into_static()".to_string()
+        }
+    }
+}
+
+// Extracts properties of a struct, including its name, generics, and fields.
+//
+// Processes a token stream, filtering out attributes and extracting
+// core components such as the struct's name, generics, and fields. It expects the
+// token stream to represent a struct declaration.
+//
+// # Examples
+//
+// ```ignore
+// use quote::quote;
+//
+// struct MyStruct<T> {
+//     field1: i32,
+// }
+//
+// let tokens = quote! {struct MyStream<T> { field1: i32 }};
+// let parsed_struct = get_struct_properties(tokens);
+//
+// assert_eq!(parsed_struct.name, "MyStruct");
+// assert_eq!(parsed_struct.generics, "T");
+// assert_eq!(parsed_struct.fields.len(), 1);
+// assert_eq!(parsed_struct.fields[0].name, "field1");
+// assert_eq!(parsed_struct.fields[0].type_, "i32");
+// ```
+//
+// This example demonstrates how `get_struct_properties` identifies the struct's
+// name, any generic parameters, and its fields, including types and generic parameters.
+fn get_struct_properties(item: TokenStream) -> ParsedStruct {
+    let item = remove_attributes(item);
+    let mut stream = item.into_iter();
+
+    // Check if the stream is a struct
+    loop {
+        match stream.next().expect("Stream not a struct") {
+            TokenTree::Ident(i) => {
+                if i.to_string() == "struct" {
+                    break;
+                }
+            }
+            _ => continue,
+        }
+    }
+
+    // Get the struct name
+    let struct_name = match stream.next().expect("Struct has no name") {
+        TokenTree::Ident(i) => i.to_string(),
+        // Never executed at runtime it ok to panic
+        _ => panic!("Strcut has no name"),
+    };
+
+    let mut struct_generics = "".to_string();
+    let group: Vec<TokenTree>;
+
+    // Get the struct generics if any
+    loop {
+        match stream
+            .next()
+            // Never executed at runtime it ok to panic
+            .unwrap_or_else(|| panic!("Struct {} has no fields", struct_name))
+        {
+            TokenTree::Group(g) => {
+                group = g.stream().into_iter().collect();
+                break;
+            }
+            TokenTree::Punct(p) => {
+                struct_generics = format!("{}{}", struct_generics, p);
+            }
+            TokenTree::Ident(i) => {
+                struct_generics = format!("{}{}", struct_generics, i);
+            }
+            // Never executed at runtime it ok to panic
+            _ => panic!("Struct {} has no fields", struct_name),
+        };
+    }
+
+    let fields = parse_struct_fields(group);
+
+    ParsedStruct {
+        name: struct_name,
+        generics: struct_generics,
+        fields,
+    }
+}
+
+// Parses the fields of a struct, scanning tokens to identify field names, types, and generics.
+//
+// Processes tokens for each field in a struct, managing parser states
+// (`ParserState::Name`, `ParserState::Type`, and `ParserState::Generics`) to accurately parse
+// complex types and nested generics within struct definitions.
+//
+// # Examples
+//
+// ```ignore
+// struct MyStruct<T> {
+//     field1: i32,
+// }
+//
+// let tokens = vec![/* TokenTree representing `id: i32` */];
+// let parsed_fields = parse_struct_fields(tokens);
+//
+// assert_eq!(parsed_fields.len(), 1);
+// assert_eq!(parsed_fields[0].name, "field1");
+// assert_eq!(parsed_fields[0].type_, "i32");
+// assert_eq!(parsed_fields[0].generics, "");
+// ```
+//
+// This example shows how `parse_struct_fields` handles both a primitive field (`id`) and a
+// generic field (`data`) within a struct, including parsing of generic parameters.
 fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
     let mut fields = Vec::new();
     let mut field_ = ParsedField::new();
@@ -138,112 +451,108 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
     fields
 }
 
-#[derive(Clone, Debug)]
-struct ParsedField {
-    name: String,
-    type_: String,
-    generics: String,
-}
-
-impl ParsedField {
-    pub fn new() -> Self {
-        ParsedField {
-            name: "".to_string(),
-            type_: "".to_string(),
-            generics: "".to_string(),
-        }
-    }
-
-    pub fn get_generics(&self) -> String {
-        if self.generics == "<'decoder>" || self.generics.is_empty() {
-            "".to_string()
-        } else {
-            format!("::{}", self.generics.clone())
-        }
-    }
-    pub fn as_static(&self) -> String {
-        if self.generics.is_empty() {
-            "".to_string()
-        } else {
-            ".into_static()".to_string()
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct ParsedStruct {
-    pub name: String,
-    pub generics: String,
-    pub fields: Vec<ParsedField>,
-}
-
-// impl ParsedStruct {
-//     pub fn new() -> Self {
-//         ParsedStruct {
-//             name: "".to_string(),
-//             generics: "".to_string(),
-//             fields: Vec::new(),
-//         }
-//     }
-// }
-
-fn get_struct_properties(item: TokenStream) -> ParsedStruct {
-    let item = remove_attributes(item);
-    let mut stream = item.into_iter();
-
-    // Check if the stream is a struct
-    loop {
-        match stream.next().expect("Stream not a struct") {
-            TokenTree::Ident(i) => {
-                if i.to_string() == "struct" {
-                    break;
-                }
-            }
-            _ => continue,
-        }
-    }
-
-    // Get the struct name
-    let struct_name = match stream.next().expect("Struct has no name") {
-        TokenTree::Ident(i) => i.to_string(),
-        // Never executed at runtime it ok to panic
-        _ => panic!("Strcut has no name"),
-    };
-
-    let mut struct_generics = "".to_string();
-    let group: Vec<TokenTree>;
-
-    // Get the struct generics if any
-    loop {
-        match stream
-            .next()
-            // Never executed at runtime it ok to panic
-            .unwrap_or_else(|| panic!("Struct {} has no fields", struct_name))
-        {
-            TokenTree::Group(g) => {
-                group = g.stream().into_iter().collect();
-                break;
-            }
-            TokenTree::Punct(p) => {
-                struct_generics = format!("{}{}", struct_generics, p);
-            }
-            TokenTree::Ident(i) => {
-                struct_generics = format!("{}{}", struct_generics, i);
-            }
-            // Never executed at runtime it ok to panic
-            _ => panic!("Struct {} has no fields", struct_name),
-        };
-    }
-
-    let fields = parse_struct_fields(group);
-
-    ParsedStruct {
-        name: struct_name,
-        generics: struct_generics,
-        fields,
-    }
-}
-
+/// Derives the `Decodable` trait, generating implementations for deserializing a struct from a
+/// byte stream, including its structure, field decoding, and a method for creating a static
+/// version.
+///
+/// This procedural macro generates the `Decodable` trait for a struct, which allows it to be
+/// decoded from a binary stream, with support for handling fields of different types and
+/// nested generics. The macro also includes implementations for `from_decoded_fields`,
+/// `get_structure`, and methods to return a static version of the struct.
+///
+/// # Example
+///
+/// Given a struct:
+///
+/// ```ignore
+/// struct Test {
+///     a: u32,
+///     b: u8,
+///     c: U24,
+/// }
+/// ```
+///
+/// Using `#[derive(Decodable)]` on `Test` generates the following implementations:
+///
+/// ```ignore
+/// mod impl_parse_decodable_test {
+///     use super::{
+///         binary_codec_sv2::{
+///             decodable::{DecodableField, FieldMarker},
+///             Decodable, Error, SizeHint,
+///         },
+///         *,
+///     };
+///
+///     struct Test {
+///         a: u32,
+///         b: u8,
+///         c: U24,
+///     }
+///
+///     impl<'decoder> Decodable<'decoder> for Test {
+///         fn get_structure(data: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+///             let mut fields = Vec::new();
+///             let mut offset = 0;
+///
+///             let a: Vec<FieldMarker> = u32::get_structure(&data[offset..])?;
+///             offset += a.size_hint_(&data, offset)?;
+///             let a = a.try_into()?;
+///             fields.push(a);
+///
+///             let b: Vec<FieldMarker> = u8::get_structure(&data[offset..])?;
+///             offset += b.size_hint_(&data, offset)?;
+///             let b = b.try_into()?;
+///             fields.push(b);
+///
+///             let c: Vec<FieldMarker> = U24::get_structure(&data[offset..])?;
+///             offset += c.size_hint_(&data, offset)?;
+///             let c = c.try_into()?;
+///             fields.push(c);
+///
+///             Ok(fields)
+///         }
+///
+///         fn from_decoded_fields(mut data: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {
+///             Ok(Self {
+///                 c: U24::from_decoded_fields(
+///                     data.pop().ok_or(Error::NoDecodableFieldPassed)?.into(),
+///                 )?,
+///                 b: u8::from_decoded_fields(
+///                     data.pop().ok_or(Error::NoDecodableFieldPassed)?.into(),
+///                 )?,
+///                 a: u32::from_decoded_fields(
+///                     data.pop().ok_or(Error::NoDecodableFieldPassed)?.into(),
+///                 )?,
+///             })
+///         }
+///     }
+///
+///     impl Test {
+///         pub fn into_static(self) -> Test {
+///             Test {
+///                 a: self.a.clone(),
+///                 b: self.b.clone(),
+///                 c: self.c.clone(),
+///             }
+///         }
+///     }
+///
+///     impl Test {
+///         pub fn as_static(&self) -> Test {
+///             Test {
+///                 a: self.a.clone(),
+///                 b: self.b.clone(),
+///                 c: self.c.clone(),
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// This generated code enables `Test` to be decoded from a binary stream, defines how each
+/// field should be parsed, and provides `into_static` and `as_static` methods to facilitate
+/// ownership and lifetime management of decoded fields in the struct.
 #[proc_macro_derive(Decodable)]
 pub fn decodable(item: TokenStream) -> TokenStream {
     let parsed_struct = get_struct_properties(item);
@@ -383,6 +692,75 @@ fn get_static_generics(gen: &str) -> &str {
     }
 }
 
+/// Derives the `Encodable` trait, generating implementations for serializing a struct into an
+/// encoded format, including methods for field serialization, calculating the encoded size,
+/// and handling cases where the struct is already sized.
+///
+/// This procedural macro generates the `Encodable` trait for a struct, allowing each field
+/// to be converted into an `EncodableField`, with support for recursive field encoding.
+/// The macro also includes an implementation of the `GetSize` trait to calculate the
+/// encoded size of the struct, depending on the `already_sized` attribute.
+///
+/// # Example
+///
+/// Given a struct:
+///
+/// ```ignore
+/// struct Test {
+///     a: u32,
+///     b: u8,
+///     c: U24,
+/// }
+/// ```
+///
+/// Using `#[derive(Encodable)]` on `Test` generates the following implementations:
+///
+/// ```ignore
+/// mod impl_parse_encodable_test {
+///     use super::binary_codec_sv2::{encodable::EncodableField, GetSize};
+///     extern crate alloc;
+///     use alloc::vec::Vec;
+///
+///     struct Test {
+///         a: u32,
+///         b: u8,
+///         c: U24,
+///     }
+///
+///     impl<'decoder> From<Test> for EncodableField<'decoder> {
+///         fn from(v: Test) -> Self {
+///             let mut fields: Vec<EncodableField> = Vec::new();
+///
+///             let val = v.a;
+///             fields.push(val.into());
+///
+///             let val = v.b;
+///             fields.push(val.into());
+///
+///             let val = v.c;
+///             fields.push(val.into());
+///
+///             Self::Struct(fields)
+///         }
+///     }
+///
+///     impl<'decoder> GetSize for Test {
+///         fn get_size(&self) -> usize {
+///             let mut size = 0;
+///
+///             size += self.a.get_size();
+///             size += self.b.get_size();
+///             size += self.c.get_size();
+///
+///             size
+///         }
+///     }
+/// }
+/// ```
+///
+/// This generated code enables `Test` to be serialized into an encoded format, defines
+/// how each field should be converted, and calculates the total encoded size of the struct,
+/// depending on whether it is marked as `already_sized`.
 #[proc_macro_derive(Encodable, attributes(already_sized))]
 pub fn encodable(item: TokenStream) -> TokenStream {
     let is_already_sized = is_already_sized(item.clone());

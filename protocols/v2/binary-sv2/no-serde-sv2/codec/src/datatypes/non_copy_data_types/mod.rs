@@ -1,3 +1,35 @@
+// Provides a flexible, low-level interface for representing fixed-size and variable-size byte
+// arrays, simplifying serialization and deserialization of cryptographic and protocol data.
+//
+// The core component is the [`Inner`] type, a wrapper for managing both fixed and variable-length
+// data slices or owned values. It offers aliases for commonly used data types like 32-byte hashes
+// (`U256`), public keys (`PubKey`), cryptographic signatures (`Signature`), and dynamically-sized
+// arrays (`B0255`, `B064K`).
+
+// # Features
+// - **Fixed-size Aliases**: Types like [`U32AsRef`], [`U256`], [`ShortTxId`], [`PubKey`], and
+//   [`Signature`] represent specific byte sizes, often used in cryptographic contexts or protocol
+//   identifiers.
+// - **Variable-size Aliases**: Types like [`B032`], [`B0255`], [`Str0255`], [`B064K`], and
+//   [`B016M`] handle data with bounded sizes, providing flexibility for dynamic data.
+// - **Traits and Conversions**: Implements traits like `From`, `TryFrom`, and [`IntoOwned`] for
+//   seamless transformations between owned and reference-based values.
+// - **Property Testing** (optional, requires the `prop_test` feature): Supports generating
+//   arbitrary test data for property-based testing.
+
+// # Type Aliases
+// - **[`U32AsRef`]**: 4-byte representation for small identifiers or integer values.
+// - **[`U256`]**: 32-byte cryptographic hash (e.g., SHA-256 or protocol IDs).
+// - **[`ShortTxId`]**: 6-byte transaction ID.
+// - **[`PubKey`]**: 32-byte public key (e.g., Ed25519).
+// - **[`Signature`]**: 64-byte cryptographic signature.
+// - **[`B032`], [`B0255`], [`Str0255`]**: Variable-size representations for optional fields or
+//   protocol data.
+
+// # Feature Flags
+// - **`prop_test`**: Enables property-based testing with the `quickcheck` crate. When enabled,
+//   types like `U256` and `B016M` gain methods to generate arbitrary test data for testing
+//   serialization and deserialization.
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 
@@ -15,15 +47,35 @@ trait IntoOwned {
 pub use inner::Inner;
 pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
 
+/// Type alias for a 4-byte slice or owned data represented using the `Inner`
+/// type with fixed-size configuration.
 pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
+/// Type alias for a 32-byte slice or owned data (commonly used for cryptographic
+/// hashes or IDs) represented using the `Inner` type with fixed-size configuration.
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
+/// Type alias for a 6-byte transaction ID (TxId) represented using the `Inner`
+/// type with fixed-size configuration.
 pub type ShortTxId<'a> = Inner<'a, true, 6, 0, 0>;
+/// Type alias for a 32-byte public key represented using the `Inner` type
+/// with fixed-size configuration.
 pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;
+/// Type alias for a 64-byte cryptographic signature represented using the
+/// `Inner` type with fixed-size configuration.
 pub type Signature<'a> = Inner<'a, true, 64, 0, 0>;
+/// Type alias for a variable-sized byte array with a maximum size of 32 bytes,
+/// represented using the `Inner` type with a 1-byte header.
 pub type B032<'a> = Inner<'a, false, 1, 1, 32>;
+/// Type alias for a variable-sized byte array with a maximum size of 255 bytes,
+/// represented using the `Inner` type with a 1-byte header.
 pub type B0255<'a> = Inner<'a, false, 1, 1, 255>;
+/// Type alias for a variable-sized string with a maximum size of 255 bytes,
+/// represented using the `Inner` type with a 1-byte header.
 pub type Str0255<'a> = Inner<'a, false, 1, 1, 255>;
+/// Type alias for a variable-sized byte array with a maximum size of 64 KB,
+/// represented using the `Inner` type with a 2-byte header.
 pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
+/// Type alias for a variable-sized byte array with a maximum size of ~16 MB,
+/// represented using the `Inner` type with a 3-byte header.
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
 
 impl<'decoder> From<[u8; 32]> for U256<'decoder> {
@@ -53,6 +105,7 @@ impl<'a> B016M<'a> {
 
 use core::convert::{TryFrom, TryInto};
 
+// Attempts to convert a `String` into a `Str0255<'a>`.
 impl<'a> TryFrom<String> for Str0255<'a> {
     type Error = crate::Error;
 
@@ -61,7 +114,10 @@ impl<'a> TryFrom<String> for Str0255<'a> {
     }
 }
 
+/// Represents a reference to a 32-bit unsigned integer (`u32`),
+/// providing methods for convenient conversions.
 impl<'a> U32AsRef<'a> {
+    /// Returns the `u32` value represented by this reference.
     pub fn as_u32(&self) -> u32 {
         let inner = self.inner_as_ref();
         u32::from_le_bytes([inner[0], inner[1], inner[2], inner[3]])

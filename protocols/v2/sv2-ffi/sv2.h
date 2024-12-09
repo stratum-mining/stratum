@@ -242,41 +242,56 @@ static const bool CHANNEL_BIT_UPDATE_CHANNEL_ERROR = true;
 #include <ostream>
 #include <new>
 
+/// A struct to facilitate transferring a `Vec<u8>` across FFI boundaries.
 struct CVec {
   uint8_t *data;
   uintptr_t len;
   uintptr_t capacity;
 };
 
+/// A struct to manage a collection of `CVec` objects across FFI boundaries.
 struct CVec2 {
   CVec *data;
   uintptr_t len;
   uintptr_t capacity;
 };
 
+/// Represents a 24-bit unsigned integer (`U24`), supporting SV2 serialization and deserialization.
+/// Only first 3 bytes of a u32 is considered to get the SV2 value, and rest are ignored (in little
+/// endian).
 struct U24 {
   uint32_t _0;
 };
 
 extern "C" {
 
-/// Given a C allocated buffer return a rust allocated CVec
+/// Creates a `CVec` from a buffer that was allocated in C.
 ///
 /// # Safety
+/// The caller must ensure that the buffer is valid and that
+/// the data length does not exceed the allocated size.
 CVec cvec_from_buffer(const uint8_t *data, uintptr_t len);
 
+/// Initializes an empty `CVec2`.
+///
 /// # Safety
+/// The caller is responsible for freeing the `CVec2` when it is no longer needed.
 CVec2 init_cvec2();
 
-/// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
-/// as this can lead to double free errors when the message is dropped.
+/// Adds a `CVec` to a `CVec2`.
+///
 /// # Safety
+/// The caller must ensure no duplicate `CVec`s are added, as duplicates may
+/// lead to double-free errors when the message is dropped.
 void cvec2_push(CVec2 *cvec2, CVec cvec);
 
+/// Exported FFI functions for interoperability with C code for u24
 void _c_export_u24(U24 _a);
 
+/// Exported FFI functions for interoperability with C code for CVec
 void _c_export_cvec(CVec _a);
 
+/// Exported FFI functions for interoperability with C code for CVec2
 void _c_export_cvec2(CVec2 _a);
 
 } // extern "C"

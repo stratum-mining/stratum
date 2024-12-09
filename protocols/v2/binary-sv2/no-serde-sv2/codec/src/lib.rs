@@ -1,16 +1,29 @@
+//! Defines types, encodings, and conversions between Serde and SV2 protocols,
+//! providing abstractions for encoding, decoding, and error handling of SV2 data types.
+//!
+//! # Overview
+//!
+//! Enables conversion between various Rust types and SV2-specific data formats for efficient
+//! network communication. Provides utilities to encode and decode data types according to the SV2
+//! specifications.
+//!
+//! ## Type Mappings
+//! The following table illustrates how standard Rust types or serde data model map to their SV2
+//! counterparts:
+//!
 //! ```txt
 //! SERDE    <-> Sv2
 //! bool     <-> BOOL
 //! u8       <-> U8
 //! u16      <-> U16
 //! U24      <-> U24
-//! u32      <-> u32
-//! f32      <-> f32 // not in the spec but used
-//! u64      <-> u64 // not in the spec but used
+//! u32      <-> U32
+//! f32      <-> F32     // Not in the spec, but used
+//! u64      <-> U64     
 //! U256     <-> U256
 //! Str0255  <-> STRO_255
 //! Signature<-> SIGNATURE
-//! B032     <-> B0_32 // not in the spec but used
+//! B032     <-> B0_32   
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -19,6 +32,49 @@
 //! Seq0255  <-> SEQ0_255[T]
 //! Seq064K  <-> SEQ0_64K[T]
 //! ```
+//!
+//! # Encoding & Decoding
+//!
+//! Enables conversion between various Rust types and SV2-specific data formats for efficient
+//! network communication. Provides utilities to encode and decode data types according to the SV2
+//! specifications.
+//!
+//! - **to_bytes**: Encodes an SV2 data type into a byte vector.
+//! - **to_writer**: Encodes an SV2 data type into a byte slice.
+//! - **from_bytes**: Decodes an SV2-encoded byte slice into the specified data type.
+//!
+//! # Error Handling
+//!
+//! Defines an `Error` enum for handling failure conditions during encoding, decoding, and data
+//! manipulation. Common errors include:
+//! - Out-of-bounds accesses
+//! - Size mismatches during encoding/decoding
+//! - Invalid data representations, such as non-boolean values interpreted as booleans.
+//!
+//! # Cross-Language Interoperability
+//!
+//! To support foreign function interface (FFI) use cases, the module includes `CError` and `CVec`
+//! types that represent SV2 data and errors in a format suitable for cross-language compatibility.
+//!
+//! # Build Options
+//!
+//! Supports optional features like `no_std` for environments without standard library support.
+//! Error types are conditionally compiled to work with or without `std`.
+//!
+//! ## Conditional Compilation
+//! - With the `no_std` feature enabled, I/O-related errors use a simplified `IoError`
+//!   representation.
+//! - Standard I/O errors (`std::io::Error`) are used when `no_std` is disabled.
+//!
+//! # FFI Interoperability
+//!
+//! Provides utilities for FFI (Foreign Function Interface) to enable data passing between Rust and
+//! other languages. Includes:
+//! - `CVec`: Represents a byte vector for safe passing between C and Rust.
+//! - `CError`: A C-compatible error type.
+//! - `CVec2`: Manages collections of `CVec` objects across FFI boundaries.
+//!
+//! Facilitates integration of SV2 functionality into cross-language projects.
 
 #![cfg_attr(feature = "no_std", no_std)]
 
@@ -40,6 +96,7 @@ pub use crate::codec::{
 
 use alloc::vec::Vec;
 
+/// Converts the provided SV2 data type to a byte vector based on the SV2 encoding format.
 #[allow(clippy::wrong_self_convention)]
 pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
     let mut result = vec![0_u8; src.get_size()];
@@ -47,21 +104,106 @@ pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
     Ok(result)
 }
 
+/// Encodes the SV2 data type to the provided byte slice.
 #[allow(clippy::wrong_self_convention)]
 pub fn to_writer<T: Encodable>(src: T, dst: &mut [u8]) -> Result<(), Error> {
     src.to_bytes(dst)?;
     Ok(())
 }
 
+/// Decodes an SV2-encoded byte slice into the specified data type.
 pub fn from_bytes<'a, T: Decodable<'a>>(data: &'a mut [u8]) -> Result<T, Error> {
     T::from_bytes(data)
 }
 
+/// Provides an interface and implementation details for decoding complex data structures
+/// from raw bytes or I/O streams. Handles deserialization of nested and primitive data
+/// structures through traits, enums, and helper functions for managing the decoding process.
+///
+/// # Overview
+/// The [`Decodable`] trait serves as the core component, offering methods to define a type's
+/// structure, decode raw byte data, and construct instances from decoded fields. It supports both
+/// in-memory byte slices and I/O streams for flexibility across deserialization use cases.
+///
+/// # Key Concepts and Types
+/// - **[`Decodable`] Trait**: Defines methods to decode types from byte data, process individual
+///   fields, and construct complete types.
+/// - **[`FieldMarker`] and `PrimitiveMarker`**: Enums that represent data types or structures,
+///   guiding the decoding process by defining field structures and types.
+/// - **[`DecodableField`] and `DecodablePrimitive`**: Represent decoded fields as either primitives
+///   or nested structures, forming the building blocks for complex data types.
+///
+/// # Error Handling
+/// Custom error types manage issues during decoding, such as insufficient data or unsupported
+/// types. Errors are surfaced through `Result` types to ensure reliability in data parsing tasks.
+///
+/// # `no_std` Support
+/// Compatible with `no_std` environments through conditional compilation. Omits I/O-dependent
+/// methods like `from_reader` when `no_std` is enabled, ensuring lightweight builds for constrained
+/// environments.
 pub mod decodable {
     pub use crate::codec::decodable::{Decodable, DecodableField, FieldMarker};
     //pub use crate::codec::decodable::PrimitiveMarker;
 }
 
+/// Provides an encoding framework for serializing various data types into bytes.
+///
+/// The [`Encodable`] trait is the core of this framework, enabling types to define
+/// how they serialize data into bytes. This is essential for transmitting data
+/// between components or systems in a consistent, byte-oriented format.
+///
+/// ## Overview
+///
+/// Supports a wide variety of data types, including basic types (e.g., integers,
+/// booleans, and byte arrays) and complex structures. Each type’s encoding logic is
+/// encapsulated in enums like [`EncodablePrimitive`] and [`EncodableField`], enabling
+/// structured and hierarchical data serialization.
+///
+/// ### Key Types
+///
+/// - **[`Encodable`]**: Defines methods for converting an object into a byte array or writing it
+///   directly to an output stream. It supports both primitive types and complex structures.
+/// - **[`EncodablePrimitive`]**: Represents basic types that can be serialized directly. Includes
+///   data types like integers, booleans, and byte arrays.
+/// - **[`EncodableField`]**: Extends [`EncodablePrimitive`] to support structured and nested data,
+///   enabling recursive encoding of complex structures.
+///
+/// ### `no_std` Compatibility
+///
+/// When compiled with the `no_std` feature enabled, this module omits the `to_writer` method
+/// to support environments without the standard library. Only buffer-based encoding
+/// (`to_bytes`) is available in this mode.
+///
+/// ## Error Handling
+///
+/// Errors during encoding are handled through the [`Error`] type. Common failure scenarios include
+/// buffer overflows and type-specific serialization errors. Each encoding method returns an
+/// appropriate error if encoding fails, supporting comprehensive error management.
+///
+/// ## Trait Details
+///
+/// ### [`Encodable`]
+/// - **`to_bytes`**: Encodes the instance into a byte slice, returning the number of bytes written
+///   or an error if encoding fails.
+/// - **`to_writer`** (requires `std`): Encodes the instance into any [`Write`] implementor, such as
+///   a file or network stream.
+///
+/// ### Additional Enums and Methods
+///
+/// Includes utility types and methods for calculating sizes, encoding hierarchical data,
+/// and supporting both owned and reference-based data variants.
+///
+/// - **[`EncodablePrimitive`]**: Handles encoding logic for primitive types, addressing
+///   serialization requirements specific to each type.
+/// - **[`EncodableField`]**: Extends encoding to support composite types and structured data,
+///   enabling recursive encoding of nested structures.
+///
+/// ## Summary
+///
+/// Designed for flexibility and extensibility, this module supports a wide range of data
+/// serialization needs through customizable encoding strategies. Implementing the
+/// [`Encodable`] trait for custom types ensures efficient and consistent data serialization
+/// across applications.
 pub mod encodable {
     pub use crate::codec::encodable::{Encodable, EncodableField, EncodablePrimitive};
 }
@@ -69,39 +211,89 @@ pub mod encodable {
 #[macro_use]
 extern crate alloc;
 
+/// Error types used within the protocol library to indicate various failure conditions.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Error {
+    /// Indicates an attempt to read beyond a valid range.
     OutOfBound,
+
+    /// Raised when a non-binary value is interpreted as a boolean.
     NotABool(u8),
-    /// -> (expected size, actual size)
+
+    /// Occurs when an unexpected size mismatch arises during a write operation, specifying
+    /// expected and actual sizes.
     WriteError(usize, usize),
+
+    /// Signifies an overflow condition where a `u32` exceeds the maximum allowable `u24` value.
     U24TooBig(u32),
+
+    /// Reports a size mismatch for a signature, such as when it does not match the expected size.
     InvalidSignatureSize(usize),
+
+    /// Raised when a `u256` value is invalid, typically due to size discrepancies.
     InvalidU256(usize),
+
+    /// Indicates an invalid `u24` representation.
     InvalidU24(u32),
+
+    /// Error indicating that a byte array exceeds the maximum allowed size for `B0255`.
     InvalidB0255Size(usize),
+
+    /// Error indicating that a byte array exceeds the maximum allowed size for `B064K`.
     InvalidB064KSize(usize),
+
+    /// Error indicating that a byte array exceeds the maximum allowed size for `B016M`.
     InvalidB016MSize(usize),
+
+    /// Raised when a sequence size exceeds `0255`.
     InvalidSeq0255Size(usize),
-    /// Error when trying to encode a non-primitive data type
+
+    /// Error when trying to encode a non-primitive data type.
     NonPrimitiveTypeCannotBeEncoded,
+
+    /// Generic conversion error related to primitive types.
     PrimitiveConversionError,
+
+    /// Error occurring during decoding due to conversion issues.
     DecodableConversionError,
+
+    /// Error triggered when a decoder is used without initialization.
     UnInitializedDecoder,
+
     #[cfg(not(feature = "no_std"))]
+    /// Represents I/O-related errors, compatible with `no_std` mode where specific error types may
+    /// vary.
     IoError(E),
+
     #[cfg(feature = "no_std")]
+    /// Represents I/O-related errors, compatible with `no_std` mode.
     IoError,
+
+    /// Raised when an unexpected mismatch occurs during read operations, specifying expected and
+    /// actual read sizes.
     ReadError(usize, usize),
+
+    /// Used as a marker error for fields that should remain void or empty.
     VoidFieldMarker,
-    /// Error when `Inner` type value exceeds max size.
-    /// (ISFIXED, SIZE, HEADERSIZE, MAXSIZE, bad value vec, bad value length)
+
+    /// Signifies a value overflow based on protocol restrictions, containing details about
+    /// fixed/variable size, maximum size allowed, and the offending value details.
     ValueExceedsMaxSize(bool, usize, usize, usize, Vec<u8>, usize),
-    /// Error when sequence value (`Seq0255`, `Seq064K`) exceeds max size
+
+    /// Triggered when a sequence type (`Seq0255`, `Seq064K`) exceeds its maximum allowable size.
     SeqExceedsMaxSize,
+
+    /// Raised when no valid decodable field is provided during decoding.
     NoDecodableFieldPassed,
+
+    /// Error for protocol-specific invalid values.
     ValueIsNotAValidProtocol(u8),
+
+    /// Raised when an unsupported or unknown message type is encountered.
     UnknownMessageType(u8),
+
+    /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
+    /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
 }
 
@@ -115,41 +307,91 @@ impl From<E> for Error {
     }
 }
 
-/// FFI-safe Error
+/// `CError` is a foreign function interface (FFI)-compatible version of the `Error` enum to
+/// facilitate cross-language compatibility.
 #[repr(C)]
 #[derive(Debug)]
 pub enum CError {
+    /// Indicates an attempt to read beyond a valid range.
     OutOfBound,
+
+    /// Raised when a non-binary value is interpreted as a boolean.
     NotABool(u8),
-    /// -> (expected size, actual size)
+
+    /// Occurs when an unexpected size mismatch arises during a write operation, specifying
+    /// expected and actual sizes.
     WriteError(usize, usize),
+
+    /// Signifies an overflow condition where a `u32` exceeds the maximum allowable `u24` value.
     U24TooBig(u32),
+
+    /// Reports a size mismatch for a signature, such as when it does not match the expected size.
     InvalidSignatureSize(usize),
+
+    /// Raised when a `u256` value is invalid, typically due to size discrepancies.
     InvalidU256(usize),
+
+    /// Indicates an invalid `u24` representation.
     InvalidU24(u32),
+
+    /// Error indicating that a byte array exceeds the maximum allowed size for `B0255`.
     InvalidB0255Size(usize),
+
+    /// Error indicating that a byte array exceeds the maximum allowed size for `B064K`.
     InvalidB064KSize(usize),
+
+    /// Error indicating that a byte array exceeds the maximum allowed size for `B016M`.
     InvalidB016MSize(usize),
+
+    /// Raised when a sequence size exceeds `0255`.
     InvalidSeq0255Size(usize),
-    /// Error when trying to encode a non-primitive data type
+
+    /// Error when trying to encode a non-primitive data type.
     NonPrimitiveTypeCannotBeEncoded,
+
+    /// Generic conversion error related to primitive types.
     PrimitiveConversionError,
+
+    /// Error occurring during decoding due to conversion issues.
     DecodableConversionError,
+
+    /// Error triggered when a decoder is used without initialization.
     UnInitializedDecoder,
+
     #[cfg(not(feature = "no_std"))]
+    /// Represents I/O-related errors, compatible with `no_std` mode where specific error types may
+    /// vary.
     IoError(E),
+
     #[cfg(feature = "no_std")]
+    /// Represents I/O-related errors, compatible with `no_std` mode.
     IoError,
+
+    /// Raised when an unexpected mismatch occurs during read operations, specifying expected and
+    /// actual read sizes.
     ReadError(usize, usize),
+
+    /// Used as a marker error for fields that should remain void or empty.
     VoidFieldMarker,
-    /// Error when `Inner` type value exceeds max size.
-    /// (ISFIXED, SIZE, HEADERSIZE, MAXSIZE, bad value vec, bad value length)
+
+    /// Signifies a value overflow based on protocol restrictions, containing details about
+    /// fixed/variable size, maximum size allowed, and the offending value details.
     ValueExceedsMaxSize(bool, usize, usize, usize, CVec, usize),
-    /// Error when sequence value (`Seq0255`, `Seq064K`) exceeds max size
+
+    /// Triggered when a sequence type (`Seq0255`, `Seq064K`) exceeds its maximum allowable size.
     SeqExceedsMaxSize,
+
+    /// Raised when no valid decodable field is provided during decoding.
     NoDecodableFieldPassed,
+
+    /// Error for protocol-specific invalid values.
     ValueIsNotAValidProtocol(u8),
+
+    /// Raised when an unsupported or unknown message type is encountered.
     UnknownMessageType(u8),
+
+    /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
+    /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
 }
 
@@ -246,6 +488,7 @@ impl<'a> From<buffer_sv2::Slice> for EncodableField<'a> {
     }
 }
 
+/// A struct to facilitate transferring a `Vec<u8>` across FFI boundaries.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct CVec {
@@ -255,16 +498,22 @@ pub struct CVec {
 }
 
 impl CVec {
+    /// Returns a mutable slice of the contained data.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the data pointed to by `self.data`
+    /// remains valid for the duration of the returned slice.
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(self.data, self.len) }
     }
 
-    /// Used when we need to fill a buffer allocated in rust from C.
+    /// Fills a buffer allocated in Rust from C.
     ///
     /// # Safety
     ///
-    /// This function construct a CVec without taking ownership of the pointed buffer so if the
-    /// owner drop them the CVec will point to garbage.
+    /// Constructs a `CVec` without taking ownership of the pointed buffer. If the owner drops the
+    /// buffer, the `CVec` will point to invalid memory.
     #[allow(clippy::wrong_self_convention)]
     pub fn as_shared_buffer(v: &mut [u8]) -> Self {
         let (data, len) = (v.as_mut_ptr(), v.len());
@@ -296,9 +545,11 @@ impl From<&[u8]> for CVec {
     }
 }
 
-/// Given a C allocated buffer return a rust allocated CVec
+/// Creates a `CVec` from a buffer that was allocated in C.
 ///
 /// # Safety
+/// The caller must ensure that the buffer is valid and that
+/// the data length does not exceed the allocated size.
 #[no_mangle]
 pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
     let input = core::slice::from_raw_parts(data, len);
@@ -319,6 +570,7 @@ pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
     }
 }
 
+/// A struct to manage a collection of `CVec` objects across FFI boundaries.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct CVec2 {
@@ -328,6 +580,7 @@ pub struct CVec2 {
 }
 
 impl CVec2 {
+    /// `as_mut_slice`: helps to get a mutable slice
     pub fn as_mut_slice(&mut self) -> &mut [CVec] {
         unsafe { core::slice::from_raw_parts_mut(self.data, self.len) }
     }
@@ -338,10 +591,12 @@ impl From<CVec2> for Vec<CVec> {
     }
 }
 
+/// Frees the underlying memory of a `CVec`.
 pub fn free_vec(buf: &mut CVec) {
     let _: Vec<u8> = unsafe { Vec::from_raw_parts(buf.data, buf.len, buf.capacity) };
 }
 
+/// Frees the underlying memory of a `CVec2` and all its elements.
 pub fn free_vec_2(buf: &mut CVec2) {
     let vs: Vec<CVec> = unsafe { Vec::from_raw_parts(buf.data, buf.len, buf.capacity) };
     for mut s in vs {
@@ -389,7 +644,10 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
     }
 }
 
+/// Initializes an empty `CVec2`.
+///
 /// # Safety
+/// The caller is responsible for freeing the `CVec2` when it is no longer needed.
 #[no_mangle]
 pub unsafe extern "C" fn init_cvec2() -> CVec2 {
     let mut buffer = Vec::<CVec>::new();
@@ -407,9 +665,11 @@ pub unsafe extern "C" fn init_cvec2() -> CVec2 {
     }
 }
 
-/// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
-/// as this can lead to double free errors when the message is dropped.
+/// Adds a `CVec` to a `CVec2`.
+///
 /// # Safety
+/// The caller must ensure no duplicate `CVec`s are added, as duplicates may
+/// lead to double-free errors when the message is dropped.
 #[no_mangle]
 pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
     let mut buffer: Vec<CVec> = Vec::from_raw_parts(cvec2.data, cvec2.len, cvec2.capacity);
@@ -459,9 +719,12 @@ impl<'a, T: Into<CVec>> From<Seq064K<'a, T>> for CVec2 {
     }
 }
 
+/// Exported FFI functions for interoperability with C code for u24
 #[no_mangle]
 pub extern "C" fn _c_export_u24(_a: U24) {}
+/// Exported FFI functions for interoperability with C code for CVec
 #[no_mangle]
 pub extern "C" fn _c_export_cvec(_a: CVec) {}
+/// Exported FFI functions for interoperability with C code for CVec2
 #[no_mangle]
 pub extern "C" fn _c_export_cvec2(_a: CVec2) {}

@@ -1,5 +1,22 @@
-// TODO unify errors from serde_sv2 and no-serde-sv2
-
+//! Mediates between two implementations of the `binary_sv2` protocol,
+//! enabling encoding and decoding through `serde` or custom traits.
+//!
+//! # Overview
+//!
+//! Depending on the feature flags enabled, this crate will re-export implementations of the
+//! `Deserialize` and `Serialize` traits either from the `serde` library or from a custom,
+//! `serde`-free implementation provided by `binary_codec_sv2` and `derive_codec_sv2`. This allows
+//! for flexible integration of SV2 protocol types and binary serialization for environments that
+//! may not support `serde`.
+//!
+//! ## Features
+//! - **with_serde**: Enables `serde`-based serialization and deserialization for SV2 types, using
+//!   `serde` and `serde_sv2`.
+//! - **core**: Enables the custom `binary_codec_sv2` and `derive_codec_sv2` implementations, which
+//!   provide `Deserialize` and `Serialize` traits without the need for `serde`.
+//! - **prop_test**: Adds support for property testing for protocol types.
+//! - **with_buffer_pool**: Enables support for buffer pooling to optimize memory usage during
+//!   serialization and deserialization.
 #![no_std]
 
 #[macro_use]
@@ -19,10 +36,12 @@ pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serializ
 #[cfg(not(feature = "with_serde"))]
 pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 
+/// Does nothing and will be removed during refactor
 pub fn clone_message<T: Serialize>(_: T) -> T {
     todo!()
 }
 
+/// Converts a value implementing the `Into<u64>` trait into a custom `U256` type.
 pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
     // initialize u256 as a bytes vec of len 24
     let mut u256 = vec![0_u8; 24];
