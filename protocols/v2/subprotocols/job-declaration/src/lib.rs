@@ -2,10 +2,20 @@
 
 //! # Job Declaration Protocol
 //!
-//! This protocol runs between the Job Declarator and Pool and can be
-//! provided as a trusted 3rd party service for mining farms.
+//! `job_declaration_sv2` is a Rust crate that implements a set of messages defined in the Job
+//! Declaration Protocol of Stratum V2.  This protocol runs between the Job Declarator Server
+//! (JDS) and Job Declarator Client (JDC).
 //!
-//! Protocol flow:
+//! ## Build Options
+//! This crate can be built with the following features:
+//! - `std`: Enables support for standard library features.
+//! - `with_serde`: Enables support for serialization and de-serialization using Serde.
+//!
+//! Note that `with_serde` feature flag is only used for the Message Generator, and deprecated for
+//! any other kind of usage. It will likely be fully deprecated in the future.
+//!
+//! For further information about the messages, please refer to [Stratum V2 documentation - Job
+//! Declaration](https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/).
 
 extern crate alloc;
 mod allocate_mining_job_token;
