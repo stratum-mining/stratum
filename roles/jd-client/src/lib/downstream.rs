@@ -556,7 +556,7 @@ impl
             .unwrap()
         {
             OnNewShare::SendErrorDownstream(s) => {
-                error!("Share do not meet downstream target");
+                error!("Share does not meet the downstream target");
                 Ok(SendTo::Respond(Mining::SubmitSharesError(s)))
             }
             OnNewShare::SendSubmitShareUpstream((m, Some(template_id))) => {
