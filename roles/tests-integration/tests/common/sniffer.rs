@@ -519,7 +519,7 @@ macro_rules! assert_mining_message {
 	assert_message!(Mining, Mining, $msg, $expected_message_variant, $($expected_property, $expected_property_value),*);
   };
   ($msg:expr, $expected_message_variant:ident) => {
-	assert_message!(Mining, Mining, $msg, $expected_message_variant);
+        assert_message!(Mining, Mining, $msg, $expected_message_variant);
   };
 }
 
