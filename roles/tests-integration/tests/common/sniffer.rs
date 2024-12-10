@@ -418,6 +418,21 @@ impl Sniffer {
             panic!("Impossible to accept dowsntream connection")
         }
     }
+
+    /// used to block the test runtime
+    /// while we wait until Sniffer has a specific count of messages
+    pub async fn wait_for_message_count(&self, message_direction: MessageDirection, count: usize) {
+        loop {
+            let message_count = match message_direction {
+                MessageDirection::ToDownstream => self.messages_from_upstream.message_count(),
+                MessageDirection::ToUpstream => self.messages_from_downstream.message_count(),
+            };
+
+            if message_count >= count {
+                return;
+            }
+        }
+    }
 }
 
 // Utility macro to assert that the downstream and upstream roles have sent specific messages.
@@ -587,6 +602,10 @@ impl MessagesAggregator {
         self.messages
             .safe_lock(|messages| messages.is_empty())
             .unwrap()
+    }
+
+    fn message_count(&self) -> usize {
+        self.messages.safe_lock(|messages| messages.len()).unwrap()
     }
 
     // The aggregator queues messages in FIFO order, so this function returns the oldest message in
