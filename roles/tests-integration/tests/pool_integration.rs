@@ -3,7 +3,10 @@ mod common;
 use std::{convert::TryInto, time::Duration};
 
 use common::{InterceptMessage, MessageDirection};
-use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR;
+use const_sv2::{
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     parsers::{CommonMessages, Mining, PoolMessages, TemplateDistribution},
@@ -118,8 +121,9 @@ async fn translation_proxy() {
     let _pool_1 = common::start_pool(Some(pool_addr), Some(tp_addr)).await;
     let tproxy_addr = common::start_sv2_translator(pool_translator_sniffer_addr).await;
     let _ = common::start_mining_device_sv1(tproxy_addr).await;
-    sleep(Duration::from_secs(6)).await;
-
+    pool_translator_sniffer
+        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
+        .await;
     assert_common_message!(
         &pool_translator_sniffer.next_message_from_downstream(),
         SetupConnection
@@ -140,6 +144,12 @@ async fn translation_proxy() {
         &pool_translator_sniffer.next_message_from_upstream(),
         NewExtendedMiningJob
     );
+    pool_translator_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+        )
+        .await;
     assert_mining_message!(
         &pool_translator_sniffer.next_message_from_downstream(),
         SubmitSharesExtended
