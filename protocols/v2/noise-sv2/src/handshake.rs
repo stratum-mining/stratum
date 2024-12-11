@@ -105,7 +105,7 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     fn generate_key() -> Keypair {
         Self::generate_key_with_rng(&mut rand::thread_rng())
     }
-
+    #[inline]
     fn generate_key_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Keypair {
         let secp = Secp256k1::new();
         let (secret_key, _) = secp.generate_keypair(rng);
