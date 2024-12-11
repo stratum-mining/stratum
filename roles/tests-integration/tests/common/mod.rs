@@ -145,10 +145,6 @@ impl TemplateProvider {
         TemplateProvider { bitcoind }
     }
 
-    fn stop(&self) {
-        let _ = self.bitcoind.client.stop().unwrap();
-    }
-
     fn generate_blocks(&self, n: u64) {
         let mining_address = self
             .bitcoind
@@ -161,12 +157,6 @@ impl TemplateProvider {
             .client
             .generate_to_address(n, &mining_address)
             .unwrap();
-    }
-}
-
-impl Drop for TemplateProvider {
-    fn drop(&mut self) {
-        self.stop();
     }
 }
 
