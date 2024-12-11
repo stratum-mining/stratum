@@ -1,76 +1,65 @@
-//! Handlers are divided per (sub)protocol and per Downstream/Upstream.
-//! Each (sup)protocol defines a handler for both the Upstream node and the Downstream node
-//! Handlers are a trait called `Parse[Downstream/Upstream][(sub)protocol]`
-//! (eg. `ParseDownstreamCommonMessages`).
+//! # Handlers Overview
 //!
-//! When implemented, the handler makes the `handle_message_[(sub)protoco](..)` (e.g.
-//! `handle_message_common(..)`) function available.
+//! This module centralizes the logic for processing and routing Stratum V2 protocol messages,
+//! defining traits and utilities to handle messages for both Downstream and Upstream roles.
 //!
-//! The trait requires the implementer to define one function for each message type that a role
-//! defined by the (sub)protocol and the Upstream/Downstream state could receive.
+//! ## Purpose
 //!
-//! This function will always take a mutable ref to `self`, a message payload + message type, and
-//! the routing logic.
-//! Using `parsers` in `crate::parser`, the payload and message type are parsed in an actual SV2
-//! message.
-//! Routing logic is used in order to select the correct Downstream/Upstream to which the message
-//! must be relayed/sent.
-//! Routing logic is used to update the request id when needed.
-//! After that, the specific function for the message type (implemented by the implementer) is
-//! called with the SV2 message and the remote that must receive the message.
+//! - Standardize the handling of protocol-specific messages.
+//! - Enable efficient routing, transformation, and relaying of messages between nodes.
+//! - Support modularity and scalability across Stratum V2 subprotocols.
 //!
-//! A `Result<SendTo_, Error>` is returned and it is the duty of the implementer to send the
-//! message.
+//! ## Structure
+//!
+//! The module is organized by subprotocol and role, with handler traits for:
+//! - `ParseDownstream[Protocol]`: Handles messages from Downstream nodes.
+//! - `ParseUpstream[Protocol]`: Handles messages from Upstream nodes.
+//!
+//! Supported subprotocols include:
+//! - `common`: Shared messages across protocols.
+//! - `job_declaration`: Job-related messages.
+//! - `mining`: Mining-specific messages.
+//! - `template_distribution`: Template distribution messages.
+//!
+//! ## Return Values
+//!
+//! Handlers return `Result<SendTo_, Error>`, where:
+//! - `SendTo_` specifies the action (relay, respond, or no action).
+//! - `Error` indicates processing issues.
 pub mod common;
 pub mod job_declaration;
 pub mod mining;
 pub mod template_distribution;
+
 use crate::utils::Mutex;
 use std::sync::Arc;
 
 #[derive(Debug)]
-/// Message is a serializable entity that rapresent the meanings of communication between Remote(s)
-/// SendTo_ is used to add context to Message, it say what we need to do with that Message.
+/// Represents a serializable entity used for communication between Remotes.
+/// The `SendTo_` enum adds context to the message, specifying the intended action.
 pub enum SendTo_<Message, Remote> {
-    /// Used by proxies when Message must be relayed downstream or upstream and we want to specify
-    /// to which particular downstream or upstream we want to relay the message.
-    ///
-    /// When the message that we need to relay is the same message that we received should be used
-    /// RelaySameMessageToRemote in order to save an allocation.
+    /// Relay a new message to a specific remote.
     RelayNewMessageToRemote(Arc<Mutex<Remote>>, Message),
-    /// Used by proxies when Message must be relayed downstream or upstream and we want to specify
-    /// to which particular downstream or upstream we want to relay the message.
-    ///
-    /// Is used when we need to relay the same message the we received in order to save an
-    /// allocation.
+    /// Relay the same received message to a specific remote to avoid extra allocations.
     RelaySameMessageToRemote(Arc<Mutex<Remote>>),
-    /// Used by proxies when Message must be relayed downstream or upstream and we do not want to
-    /// specify specify to which particular downstream or upstream we want to relay the
-    /// message.
+    /// Relay a new message without specifying a specific remote.
     ///
-    /// This is used in proxies that do and Sv1 to Sv2 translation. The upstream is connected via
-    /// an extended channel that means that
+    /// This is common in proxies that translate between SV1 and SV2 protocols, where messages are
+    /// often broadcasted via extended channels.
     RelayNewMessage(Message),
-    /// Used proxies clients and servers to directly respond to a received message.
+    /// Directly respond to a received message.
     Respond(Message),
+    /// Relay multiple messages to various destinations.
     Multiple(Vec<SendTo_<Message, Remote>>),
-    /// Used by proxies, clients, and servers, when Message do not have to be used in any of the
-    /// above way. If Message is still needed to be used in a non conventional way we use
-    /// SendTo::None(Some(message)) If we just want to discard it we can use SendTo::None(None)
+    /// Indicates that no immediate action is required for the message.
     ///
-    /// SendTo::None(Some(m)) could be used for example when we do not need to send the message,
-    /// but we still need it for successive handling/transformation.
-    /// One of these cases are proxies that are connected to upstream via an extended channel (like
-    /// the Sv1 <-> Sv2 translator). This because extended channel messages are always general
-    /// for all the downstream, where standard channel message can be specific for a particular
-    /// downstream. Another case is when 2 roles are implemented in the same software, like a
-    /// pool that is both TP client and a Mining server, messages received by the TP client
-    /// must be sent to the Mining Server than transformed in Mining messages and sent to the
-    /// downstream.
+    /// This variant allows for cases where the message is still needed for later processing
+    /// (e.g., transformations or when two roles are implemented in the same software).
     None(Option<Message>),
 }
 
 impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
+    /// Extracts the message, if available.
     pub fn into_message(self) -> Option<SubProtocol> {
         match self {
             Self::RelayNewMessageToRemote(_, m) => Some(m),
@@ -81,6 +70,8 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
             Self::None(m) => m,
         }
     }
+
+    /// Extracts the remote, if available.
     pub fn into_remote(self) -> Option<Arc<Mutex<Remote>>> {
         match self {
             Self::RelayNewMessageToRemote(r, _) => Some(r),

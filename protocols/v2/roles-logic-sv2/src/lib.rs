@@ -22,13 +22,13 @@
 //!     handlers::common::ParseDownstreamCommonMessages +
 //!     handlers::mining::ParseDownstreamMiningMessages +
 //!
-//! ProxyDownstreamConnetion:
+//! ProxyDownstreamConnection:
 //!     common_properties::IsDownstream +
 //!     common_properties::IsMiningDownstream +
 //!     handlers::common::ParseDownstreamCommonMessages +
 //!     handlers::mining::ParseDownstreamMiningMessages +
 //!
-//! ProxyUpstreamConnetion:
+//! ProxyUpstreamConnection:
 //!     common_properties::IsUpstream +
 //!     common_properties::IsMiningUpstream +
 //!     handlers::common::ParseUpstreamCommonMessages +
