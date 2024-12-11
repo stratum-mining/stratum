@@ -172,6 +172,16 @@ impl Initiator {
     pub fn new(pk: Option<XOnlyPublicKey>) -> Box<Self> {
         Self::new_with_rng(pk, &mut rand::thread_rng())
     }
+
+    /// Creates a new [`Initiator`] instance with an optional responder public key and a custom
+    /// random number generator.
+    ///
+    /// If the responder public key is provided, the initiator uses this key to authenticate the
+    /// responder during the handshake. The initial initiator state is instantiated with the
+    /// ephemeral key pair and handshake hash.
+    ///
+    /// The custom random number generator is used to generate the ephemeral key pair.
+    #[inline]
     pub fn new_with_rng<R: rand::Rng + ?Sized>(
         pk: Option<XOnlyPublicKey>,
         rng: &mut R,
@@ -202,6 +212,18 @@ impl Initiator {
     pub fn from_raw_k(key: [u8; 32]) -> Result<Box<Self>, Error> {
         Self::from_raw_k_with_rng(key, &mut rand::thread_rng())
     }
+
+    /// Creates a new [`Initiator`] instance using a raw 32-byte public key and a custom random
+    /// number generator.
+    ///
+    /// Constructs a [`XOnlyPublicKey`] from the provided raw key slice and initializes a new
+    /// [`Initiator`] with the derived public key and the custom random number generator. If the
+    /// provided key cannot be converted into a valid [`XOnlyPublicKey`], an
+    /// [`Error::InvalidRawPublicKey`] error is returned.
+    ///
+    /// Typically used when the initiator is aware of the responder's public key in advance and
+    /// wants to use a custom random number generator.
+    #[inline]
     pub fn from_raw_k_with_rng<R: rand::Rng + ?Sized>(
         key: [u8; 32],
         rng: &mut R,
@@ -220,6 +242,17 @@ impl Initiator {
     pub fn without_pk() -> Result<Box<Self>, Error> {
         Self::without_pk_with_rng(&mut rand::thread_rng())
     }
+
+    /// Creates a new [`Initiator`] instance without a responder's public key and using a custom
+    /// random number generator.
+    ///
+    /// This function initializes an [`Initiator`] with a default empty state, without requiring the
+    /// responder's authority public key, ideal for scenarios where both parties are within the same
+    /// network. The custom random number generator is used to generate the ephemeral key pair,
+    /// ensuring unique and secure cryptographic materials for the handshake process. The
+    /// connection remains encrypted, even though the initiator does not validate the
+    /// responder's static key from a certificate. Returns an error if the initialization fails.
+    #[inline]
     pub fn without_pk_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Result<Box<Self>, Error> {
         Ok(Self::new_with_rng(None, rng))
     }
