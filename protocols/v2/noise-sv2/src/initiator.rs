@@ -176,11 +176,11 @@ impl Initiator {
     /// Creates a new [`Initiator`] instance with an optional responder public key and a custom
     /// random number generator.
     ///
-    /// If the responder public key is provided, the initiator uses this key to authenticate the
-    /// responder during the handshake. The initial initiator state is instantiated with the
-    /// ephemeral key pair and handshake hash.
+    /// See [`Self::new`] for more details.
     ///
-    /// The custom random number generator is used to generate the ephemeral key pair.
+    /// The custom random number generator is used to generate the ephemeral key pair. It should be
+    /// provided in order to not implicitely rely on `std` and allow `no_std` environments to
+    /// provide a hardware random number generator for example.
     #[inline]
     pub fn new_with_rng<R: rand::Rng + ?Sized>(
         pk: Option<XOnlyPublicKey>,
@@ -216,13 +216,11 @@ impl Initiator {
     /// Creates a new [`Initiator`] instance using a raw 32-byte public key and a custom random
     /// number generator.
     ///
-    /// Constructs a [`XOnlyPublicKey`] from the provided raw key slice and initializes a new
-    /// [`Initiator`] with the derived public key and the custom random number generator. If the
-    /// provided key cannot be converted into a valid [`XOnlyPublicKey`], an
-    /// [`Error::InvalidRawPublicKey`] error is returned.
+    /// See [`Self::from_raw_k`] for more details.
     ///
-    /// Typically used when the initiator is aware of the responder's public key in advance and
-    /// wants to use a custom random number generator.
+    /// The custom random number generator should be provided in order to not implicitely rely on
+    /// `std` and allow `no_std` environments to provide a hardware random number generator for
+    /// example.
     #[inline]
     pub fn from_raw_k_with_rng<R: rand::Rng + ?Sized>(
         key: [u8; 32],
@@ -246,12 +244,11 @@ impl Initiator {
     /// Creates a new [`Initiator`] instance without a responder's public key and using a custom
     /// random number generator.
     ///
-    /// This function initializes an [`Initiator`] with a default empty state, without requiring the
-    /// responder's authority public key, ideal for scenarios where both parties are within the same
-    /// network. The custom random number generator is used to generate the ephemeral key pair,
-    /// ensuring unique and secure cryptographic materials for the handshake process. The
-    /// connection remains encrypted, even though the initiator does not validate the
-    /// responder's static key from a certificate. Returns an error if the initialization fails.
+    /// See [`Self::without_pk`] for more details.
+    ///
+    /// The custom random number generator should be provided in order to not implicitely rely on
+    /// `std` and allow `no_std` environments to provide a hardware random number generator for
+    /// example.
     #[inline]
     pub fn without_pk_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Result<Box<Self>, Error> {
         Ok(Self::new_with_rng(None, rng))
@@ -307,6 +304,14 @@ impl Initiator {
             .as_secs() as u32;
         self.step_2_with_now(message, now)
     }
+
+    /// Processes the second step of the Noise NX protocol handshake for the initiator given the
+    /// current system time.
+    ///
+    /// See [`Self::step_2`] for more details.
+    ///
+    /// The current system time should be provided to avoid relying on `std` and allow `no_std`
+    /// environments to use another source of time.
     pub fn step_2_with_now(
         &mut self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],

@@ -184,12 +184,11 @@ impl Responder {
     /// Creates a new [`Responder`] instance with the provided authority keypair, certificate
     /// validity, and a custom random number generator.
     ///
-    /// Constructs a new [`Responder`] with the necessary cryptographic state for the Noise NX
-    /// protocol handshake. It generates ephemeral and static key pairs for the responder and
-    /// prepares the handshake state. The authority keypair, certificate validity period, and
-    /// custom random number generator are also configured. The custom random number generator
-    /// is used to generate the ephemeral key pair for the handshake process. Returns an error if
-    /// the initialization fails.
+    /// See [`Self::new`] for more details.
+    ///
+    /// The custom random number generator should be provided in order to not implicitely rely on
+    /// `std` and allow `no_std` environments to provide a hardware random number generator for
+    /// example.
     #[inline]
     pub fn new_with_rng<R: rand::Rng + ?Sized>(
         a: Keypair,
@@ -231,12 +230,11 @@ impl Responder {
     /// Creates a new [`Responder`] instance with the provided 32-byte authority key pair and a
     /// custom random number generator.
     ///
-    /// Constructs a new [`Responder`] with a given public and private key pair, which represents
-    /// the responder's authority credentials. It verifies that the provided public key matches the
-    /// corresponding private key, ensuring the authenticity of the authority key pair. The
-    /// certificate validity duration is also set here. The custom random number generator is used
-    /// to generate the ephemeral key pair for the handshake process. Fails if the key pair is
-    /// mismatched or if the initialization fails.
+    /// See [`Self::from_authority_kp`] for more details.
+    ///
+    /// The custom random number generator should be provided in order to not implicitely rely on
+    /// `std` and allow `no_std` environments to provide a hardware random number generator for
+    /// example.
     #[inline]
     pub fn from_authority_kp_with_rng<R: rand::Rng + ?Sized>(
         public: &[u8; 32],
@@ -287,18 +285,14 @@ impl Responder {
         )
     }
 
-    /// Executes the first step of the Noise NX protocol handshake for the responder with
-    /// the current time and a custom RNG.
+    /// Executes the first step of the Noise NX protocol handshake for the responder given
+    /// the current time and a custom random number generator.
     ///
-    /// This method handles the initial processing of the initiator's message by interpreting
-    /// the provided ephemeral public key, deriving shared secrets, and setting up the session
-    /// ciphers. It performs operations such as mixing the handshake hash, decrypting, and hashing
-    /// the ephemeral public key, and encrypting and hashing the static public key. Additionally,
-    /// it generates a signature noise message and encrypts it to be included in the response.
+    /// See [`Self::step_1`] for more details.
     ///
-    /// The method finalizes by configuring the session ciphers for secure communication, returning
-    /// both the response message and a `NoiseCodec` instance for further message encryption and
-    /// decryption. On failure, it returns an error if decryption or encryption operations fail.
+    /// The current time and the custom random number generatorshould be provided in order to not
+    /// implicitely rely on `std` and allow `no_std` environments to provide a hardware random
+    /// number generator for example.
     #[inline]
     pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
         &mut self,

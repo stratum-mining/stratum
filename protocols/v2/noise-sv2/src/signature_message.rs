@@ -82,21 +82,11 @@ impl SignatureNoiseMessage {
 
     /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp.
     ///
-    /// This method checks that the message is within its validity period defined by `valid_from`
-    /// and `not_valid_after`, and verifies the Schnorr signature using the provided public keys.
-    /// It computes the message hash using SHA-256 over the message components concatenated with
-    /// the public key serialization. If `authority_pk` is provided, the signature is verified
-    /// against it; otherwise, the message is assumed valid.
+    /// See [`Self::verify`] for more details.
     ///
-    /// # Parameters
-    /// - `pk`: A reference to the `XOnlyPublicKey` of the responder.
-    /// - `authority_pk`: An optional reference to the `XOnlyPublicKey` of the authority, used for
-    ///   signature verification.
-    /// - `now`: The current time as a Unix timestamp, used to check the validity period.
-    ///
-    /// # Returns
-    /// Returns `true` if the message is valid and the signature is successfully verified, `false`
-    /// otherwise.
+    /// The current system time should be provided to avoid relying on `std` and allow `no_std`
+    /// environments to use another source of time.
+
     #[inline]
     pub fn verify_with_now(
         self,
@@ -134,12 +124,14 @@ impl SignatureNoiseMessage {
         Self::sign_with_rng(msg, static_pk, kp, &mut rand::thread_rng());
     }
 
-    /// Creates a Schnorr signature for the message, combining the version, validity period, and
-    /// the static public key of the server (`static_pk`). The resulting signature is then written
-    /// into the provided message buffer (`msg`).
+    /// Signs a [`SignatureNoiseMessage`] using the provided keypair (`kp`) and a custom random
+    /// number generator.
     ///
-    /// This function takes a random number generator (`R`) to generate the random number used in
-    /// the signature generation.
+    /// See [`Self::sign`] for more details.
+    ///
+    /// The random number generator is used in the signature generation. It should be provided in
+    /// order to not implicitely rely on `std` and allow `no_std` environments to provide a
+    /// hardware random number generator for example.
     #[inline]
     pub fn sign_with_rng<R: rand::Rng + rand::CryptoRng>(
         msg: &mut [u8; 74],
