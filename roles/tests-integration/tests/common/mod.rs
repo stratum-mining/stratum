@@ -146,7 +146,7 @@ impl TemplateProvider {
     }
 
     fn stop(&self) {
-        let _ = self.bitcoind.client.stop().unwrap();
+        self.bitcoind.stop().expect("Failed to stop bitcoind");
     }
 
     fn generate_blocks(&self, n: u64) {
