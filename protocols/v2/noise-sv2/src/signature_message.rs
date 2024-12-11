@@ -21,8 +21,9 @@
 // public key and optional authority key, while ensuring the message falls within the specified
 // validity period.
 
+use core::convert::TryInto;
+
 use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1, XOnlyPublicKey};
-use std::{convert::TryInto, time::SystemTime};
 
 /// `SignatureNoiseMessage` represents a signed message used in the Noise NX protocol
 /// for authentication during the handshake process. It encapsulates the necessary
@@ -70,12 +71,40 @@ impl SignatureNoiseMessage {
     //
     // If an authority public key is not provided, the function assumes that the signature
     // is already valid without further verification.
+    #[cfg(feature = "std")]
     pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+        self.verify_with_now(pk, authority_pk, now)
+    }
+
+    /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp.
+    ///
+    /// This method checks that the message is within its validity period defined by `valid_from`
+    /// and `not_valid_after`, and verifies the Schnorr signature using the provided public keys.
+    /// It computes the message hash using SHA-256 over the message components concatenated with
+    /// the public key serialization. If `authority_pk` is provided, the signature is verified
+    /// against it; otherwise, the message is assumed valid.
+    ///
+    /// # Parameters
+    /// - `pk`: A reference to the `XOnlyPublicKey` of the responder.
+    /// - `authority_pk`: An optional reference to the `XOnlyPublicKey` of the authority, used for
+    ///   signature verification.
+    /// - `now`: The current time as a Unix timestamp, used to check the validity period.
+    ///
+    /// # Returns
+    /// Returns `true` if the message is valid and the signature is successfully verified, `false`
+    /// otherwise.
+    #[inline]
+    pub fn verify_with_now(
+        self,
+        pk: &XOnlyPublicKey,
+        authority_pk: &Option<XOnlyPublicKey>,
+        now: u32,
+    ) -> bool {
         if let Some(authority_pk) = authority_pk {
-            let now = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as u32;
             if self.valid_from <= now && self.not_valid_after >= now {
                 let secp = Secp256k1::verification_only();
                 let (m, s) = self.split();
@@ -100,11 +129,28 @@ impl SignatureNoiseMessage {
     // Creates a Schnorr signature for the message, combining the version, validity period, and
     // the static public key of the server (`static_pk`). The resulting signature is then written
     // into the provided message buffer (`msg`).
+    #[cfg(feature = "std")]
     pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {
+        Self::sign_with_rng(msg, static_pk, kp, &mut rand::thread_rng());
+    }
+
+    /// Creates a Schnorr signature for the message, combining the version, validity period, and
+    /// the static public key of the server (`static_pk`). The resulting signature is then written
+    /// into the provided message buffer (`msg`).
+    ///
+    /// This function takes a random number generator (`R`) to generate the random number used in
+    /// the signature generation.
+    #[inline]
+    pub fn sign_with_rng<R: rand::Rng + rand::CryptoRng>(
+        msg: &mut [u8; 74],
+        static_pk: &XOnlyPublicKey,
+        kp: &Keypair,
+        rng: &mut R,
+    ) {
         let secp = Secp256k1::signing_only();
         let m = [&msg[0..10], &static_pk.serialize()].concat();
         let m = Message::from_hashed_data::<sha256::Hash>(&m);
-        let signature = secp.sign_schnorr(&m, kp);
+        let signature = secp.sign_schnorr_with_rng(&m, kp, rng);
         for (i, b) in signature.as_ref().iter().enumerate() {
             msg[10 + i] = *b;
         }
