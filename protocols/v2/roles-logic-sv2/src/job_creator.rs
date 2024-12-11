@@ -49,6 +49,7 @@ pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
 }
 
 impl JobsCreators {
+    /// constructor
     pub fn new(extranonce_len: u8) -> Self {
         Self {
             lasts_new_template: Vec::new(),
@@ -60,6 +61,7 @@ impl JobsCreators {
         }
     }
 
+    /// get template id from job
     pub fn get_template_id_from_job(&self, job_id: u32) -> Option<u64> {
         self.job_to_template_id.get(&job_id).map(|x| x - 1)
     }
@@ -135,6 +137,7 @@ impl JobsCreators {
     }
 }
 
+/// convert custom job into extended job
 pub fn extended_job_from_custom_job(
     referenced_job: &mining_sv2::SetCustomMiningJob,
     pool_signature: String,
