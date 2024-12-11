@@ -405,11 +405,17 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> SocketAddr {
     .expect("failed");
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
-    let hashrate = measure_hashrate(3) as f32 / 100.0;
-    let min_individual_miner_hashrate = hashrate;
+
+    // use a deliberately high values here
+    // allows to find valid shares in a short period of time
     let shares_per_minute = 60.0;
+    let hashrate_attenuator = 100.0;
+
+    let attenuated_hashrate = measure_hashrate(3) as f32 / hashrate_attenuator;
+    let min_individual_miner_hashrate = attenuated_hashrate;
+    let channel_nominal_hashrate = attenuated_hashrate;
+
     let channel_diff_update_interval = 60;
-    let channel_nominal_hashrate = hashrate;
     let downstream_difficulty_config =
         translator_sv2::proxy_config::DownstreamDifficultyConfig::new(
             min_individual_miner_hashrate,
