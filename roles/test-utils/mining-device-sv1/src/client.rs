@@ -102,9 +102,20 @@ impl Client {
         task::spawn(async move {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
-                let message = message.unwrap();
-                sender_incoming.send(message).await.unwrap();
+                match message {
+                    Ok(msg) => {
+                        if let Err(e) = sender_incoming.send(msg).await {
+                            eprintln!("Failed to send message to receiver_incoming: {:?}", e);
+                            break; // Exit the loop if sending fails
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading from socket: {:?}", e);
+                        break; // Exit the loop on read failure
+                    }
+                }
             }
+            eprintln!("Reader task terminated.");
         });
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
