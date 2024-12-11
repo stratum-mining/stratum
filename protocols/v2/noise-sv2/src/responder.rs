@@ -180,6 +180,17 @@ impl Responder {
     pub fn new(a: Keypair, cert_validity: u32) -> Box<Self> {
         Self::new_with_rng(a, cert_validity, &mut rand::thread_rng())
     }
+
+    /// Creates a new [`Responder`] instance with the provided authority keypair, certificate
+    /// validity, and a custom random number generator.
+    ///
+    /// Constructs a new [`Responder`] with the necessary cryptographic state for the Noise NX
+    /// protocol handshake. It generates ephemeral and static key pairs for the responder and
+    /// prepares the handshake state. The authority keypair, certificate validity period, and
+    /// custom random number generator are also configured. The custom random number generator
+    /// is used to generate the ephemeral key pair for the handshake process. Returns an error if
+    /// the initialization fails.
+    #[inline]
     pub fn new_with_rng<R: rand::Rng + ?Sized>(
         a: Keypair,
         cert_validity: u32,
@@ -216,6 +227,17 @@ impl Responder {
     ) -> Result<Box<Self>, Error> {
         Self::from_authority_kp_with_rng(public, private, cert_validity, &mut rand::thread_rng())
     }
+
+    /// Creates a new [`Responder`] instance with the provided 32-byte authority key pair and a
+    /// custom random number generator.
+    ///
+    /// Constructs a new [`Responder`] with a given public and private key pair, which represents
+    /// the responder's authority credentials. It verifies that the provided public key matches the
+    /// corresponding private key, ensuring the authenticity of the authority key pair. The
+    /// certificate validity duration is also set here. The custom random number generator is used
+    /// to generate the ephemeral key pair for the handshake process. Fails if the key pair is
+    /// mismatched or if the initialization fails.
+    #[inline]
     pub fn from_authority_kp_with_rng<R: rand::Rng + ?Sized>(
         public: &[u8; 32],
         private: &[u8; 32],
@@ -264,6 +286,19 @@ impl Responder {
             &mut rand::thread_rng(),
         )
     }
+
+    /// Executes the first step of the Noise NX protocol handshake for the responder with
+    /// the current time and a custom RNG.
+    ///
+    /// This method handles the initial processing of the initiator's message by interpreting
+    /// the provided ephemeral public key, deriving shared secrets, and setting up the session
+    /// ciphers. It performs operations such as mixing the handshake hash, decrypting, and hashing
+    /// the ephemeral public key, and encrypting and hashing the static public key. Additionally,
+    /// it generates a signature noise message and encrypts it to be included in the response.
+    ///
+    /// The method finalizes by configuring the session ciphers for secure communication, returning
+    /// both the response message and a `NoiseCodec` instance for further message encryption and
+    /// decryption. On failure, it returns an error if decryption or encryption operations fail.
     #[inline]
     pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
         &mut self,
