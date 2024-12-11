@@ -30,3 +30,9 @@ rand = {version = "0.8.5", default-features = false, features = ["std", "std_rng
 
 [package.metadata.docs.rs]
 all-features = true
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "abort"
