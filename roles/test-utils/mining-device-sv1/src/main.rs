@@ -8,7 +8,6 @@ pub(crate) use client::Client;
 #[async_std::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
         .init();
     const ADDR: &str = "127.0.0.1:34255";
     Client::connect(
