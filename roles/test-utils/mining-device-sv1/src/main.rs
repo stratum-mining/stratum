@@ -2,7 +2,6 @@ pub(crate) mod client;
 pub(crate) mod job;
 pub(crate) mod miner;
 use std::{net::SocketAddr, str::FromStr};
-use tracing_subscriber;
 
 pub(crate) use client::Client;
 
