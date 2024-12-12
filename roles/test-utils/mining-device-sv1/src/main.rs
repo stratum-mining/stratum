@@ -7,8 +7,7 @@ pub(crate) use client::Client;
 
 #[async_std::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .init();
+    tracing_subscriber::fmt().init();
     const ADDR: &str = "127.0.0.1:34255";
     Client::connect(
         80,
