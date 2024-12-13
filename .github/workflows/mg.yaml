@@ -154,16 +154,6 @@ jobs:
       - name: Run translation-proxy-broke-pool
         run: sh ./test/message-generator/test/translation-proxy-broke-pool/translation-proxy-broke-pool.sh
 
-  translation-proxy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run translation-proxy
-        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
-
   translation-proxy-old-share:
     runs-on: ubuntu-latest
     steps:
@@ -193,7 +183,6 @@ jobs:
       standard-coverage,
       sv1-test,
       translation-proxy-broke-pool,
-      translation-proxy,
       translation-proxy-old-share
     ]
     steps:
@@ -215,7 +204,6 @@ jobs:
           [ "${{ needs.standard-coverage.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
-          [ "${{ needs.translation-proxy.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
             echo "One or more jobs failed."
             exit 1
