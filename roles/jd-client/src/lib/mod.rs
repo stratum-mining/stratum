@@ -54,6 +54,7 @@ pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 /// switching to backup Pools in case of declared custom jobs refused by JDS (which is Pool side).
 /// As a solution of last-resort, it is able to switch to Solo Mining until new safe Pools appear
 /// in the market.
+#[derive(Debug, Clone)]
 pub struct JobDeclaratorClient {
     /// Configuration of the proxy server [`JobDeclaratorClient`] is connected to.
     config: ProxyConfig,
