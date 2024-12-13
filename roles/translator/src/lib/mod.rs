@@ -105,7 +105,7 @@ impl TranslatorSv2 {
                     break;
                 }
                 State::UpstreamTryReconnect(err) => {
-                    error!("SHUTDOWN from: {}", err);
+                    error!("Trying to reconnect the Upstream because of: {}", err);
 
                     // wait a random amount of time between 0 and 3000ms
                     // if all the downstreams try to reconnect at the same time, the upstream may
