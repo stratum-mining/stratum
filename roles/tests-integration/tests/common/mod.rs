@@ -1,4 +1,4 @@
-mod sniffer;
+pub(crate) mod sniffer;
 
 use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};
 use flate2::read::GzDecoder;
@@ -7,7 +7,6 @@ use once_cell::sync::Lazy;
 use pool_sv2::PoolSv2;
 use rand::{thread_rng, Rng};
 use sniffer::Sniffer;
-pub use sniffer::{InterceptMessage, MessageDirection};
 use std::{
     collections::HashSet,
     convert::{TryFrom, TryInto},
@@ -192,7 +191,7 @@ pub async fn start_sniffer(
     listening_address: SocketAddr,
     upstream: SocketAddr,
     check_on_drop: bool,
-    intercept_message: Option<Vec<InterceptMessage>>,
+    intercept_message: Option<Vec<sniffer::InterceptMessage>>,
 ) -> Sniffer {
     let sniffer = Sniffer::new(
         identifier,
