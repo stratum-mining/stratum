@@ -1,6 +1,6 @@
 mod common;
 
-use common::MessageDirection;
+use common::sniffer::MessageDirection;
 use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
 
