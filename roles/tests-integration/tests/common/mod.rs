@@ -2,6 +2,8 @@ pub(crate) mod sniffer;
 
 use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};
 use flate2::read::GzDecoder;
+use jd_client::JobDeclaratorClient;
+use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use once_cell::sync::Lazy;
 use pool_sv2::PoolSv2;
@@ -19,6 +21,7 @@ use std::{
     sync::Mutex,
 };
 use tar::Archive;
+use translator_sv2::TranslatorSv2;
 
 // prevents get_available_port from ever returning the same port twice
 static UNIQUE_PORTS: Lazy<Mutex<HashSet<u16>>> = Lazy::new(|| Mutex::new(HashSet::new()));
@@ -188,11 +191,11 @@ pub fn get_available_address() -> SocketAddr {
 
 pub async fn start_sniffer(
     identifier: String,
-    listening_address: SocketAddr,
     upstream: SocketAddr,
     check_on_drop: bool,
     intercept_message: Option<Vec<sniffer::InterceptMessage>>,
-) -> Sniffer {
+) -> (Sniffer, SocketAddr) {
+    let listening_address = get_available_address();
     let sniffer = Sniffer::new(
         identifier,
         listening_address,
@@ -205,7 +208,7 @@ pub async fn start_sniffer(
     tokio::spawn(async move {
         sniffer_clone.start().await;
     });
-    sniffer
+    (sniffer, listening_address)
 }
 
 #[derive(Debug)]
@@ -268,11 +271,9 @@ impl TestPoolSv2 {
     }
 }
 
-pub async fn start_pool(
-    listening_address: Option<SocketAddr>,
-    template_provider_address: Option<SocketAddr>,
-) -> PoolSv2 {
-    let test_pool = TestPoolSv2::new(listening_address, template_provider_address);
+pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolSv2, SocketAddr) {
+    let listening_address = get_available_address();
+    let test_pool = TestPoolSv2::new(Some(listening_address), template_provider_address);
     let pool = test_pool.pool.clone();
     let pool_clone = pool.clone();
     tokio::task::spawn(async move {
@@ -280,20 +281,21 @@ pub async fn start_pool(
     });
     // Wait a bit to let the pool exchange initial messages with the TP
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    pool
+    (pool, listening_address)
 }
 
-pub async fn start_template_provider(tp_port: u16) -> TemplateProvider {
-    let template_provider = TemplateProvider::start(tp_port);
+pub async fn start_template_provider() -> (TemplateProvider, SocketAddr) {
+    let address = get_available_address();
+    let template_provider = TemplateProvider::start(address.port());
     template_provider.generate_blocks(16);
-    template_provider
+    (template_provider, address)
 }
 
 pub async fn start_jdc(
     pool_address: SocketAddr,
     tp_address: SocketAddr,
     jds_address: SocketAddr,
-) -> SocketAddr {
+) -> (JobDeclaratorClient, SocketAddr) {
     use jd_client::proxy_config::{
         CoinbaseOutput, PoolConfig, ProtocolConfig, ProxyConfig, TPConfig, Upstream,
     };
@@ -344,13 +346,14 @@ pub async fn start_jdc(
         std::time::Duration::from_secs(cert_validity_sec),
     );
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
-    tokio::spawn(async move { ret.start().await });
+    let ret_clone = ret.clone();
+    tokio::spawn(async move { ret_clone.start().await });
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    jdc_address
+    (ret, jdc_address)
 }
 
-pub async fn start_jds(tp_address: SocketAddr) -> SocketAddr {
-    use jd_server::{CoinbaseOutput, Configuration, CoreRpc, JobDeclaratorServer};
+pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAddr) {
+    use jd_server::{CoinbaseOutput, Configuration, CoreRpc};
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
@@ -380,14 +383,16 @@ pub async fn start_jds(tp_address: SocketAddr) -> SocketAddr {
         core_rpc,
         std::time::Duration::from_secs(1),
     );
+    let job_declarator_server = JobDeclaratorServer::new(config);
+    let job_declarator_server_clone = job_declarator_server.clone();
     tokio::spawn(async move {
-        JobDeclaratorServer::new(config).start().await;
+        job_declarator_server_clone.start().await;
     });
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    listen_jd_address
+    (job_declarator_server, listen_jd_address)
 }
 
-pub async fn start_sv2_translator(upstream: SocketAddr) -> SocketAddr {
+pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
     let upstream_address = upstream.ip().to_string();
     let upstream_port = upstream.port();
     let upstream_authority_pubkey = Secp256k1PublicKey::try_from(
@@ -429,11 +434,12 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> SocketAddr {
     let config =
         translator_sv2::proxy_config::ProxyConfig::new(upstream_conf, downstream_conf, 2, 2, 8);
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
+    let clone_translator_v2 = translator_v2.clone();
     tokio::spawn(async move {
-        translator_v2.start().await;
+        clone_translator_v2.start().await;
     });
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    listening_address
+    (translator_v2, listening_address)
 }
 
 fn measure_hashrate(duration_secs: u64) -> f64 {
