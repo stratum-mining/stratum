@@ -15,22 +15,9 @@ use roles_logic_sv2::{
 // Pool will connect to the Sniffer, and the Sniffer will connect to the Template Provider.
 #[tokio::test]
 async fn success_pool_template_provider_connection() {
-    let sniffer_addr = common::get_available_address();
-    let tp_addr = common::get_available_address();
-    let pool_addr = common::get_available_address();
-    let _tp = common::start_template_provider(tp_addr.port(), None).await;
-    let sniffer_identifier =
-        "success_pool_template_provider_connection tp_pool sniffer".to_string();
-    let sniffer_check_on_drop = true;
-    let sniffer = common::start_sniffer(
-        sniffer_identifier,
-        sniffer_addr,
-        tp_addr,
-        sniffer_check_on_drop,
-        None,
-    )
-    .await;
-    let _ = common::start_pool(Some(pool_addr), Some(sniffer_addr)).await;
+    let (_tp, tp_addr) = common::start_template_provider(None).await;
+    let (sniffer, sniffer_addr) = common::start_sniffer("".to_string(), tp_addr, true, None).await;
+    let _ = common::start_pool(Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
     // with the correct parameters, protocol, flags, min_version and max_version.  Note that the
     // macro can take any number of arguments after the message argument, but the order is
@@ -78,29 +65,23 @@ async fn success_pool_template_provider_connection() {
 // Related issue: https://github.com/stratum-mining/stratum/issues/1324
 #[tokio::test]
 async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
-    let tp_pool_sniffer_addr = common::get_available_address();
-    let pool_translator_sniffer_addr = common::get_available_address();
-    let tp_addr = common::get_available_address();
-    let pool_addr = common::get_available_address();
     let sv2_interval = Some(5);
-    let _tp = common::start_template_provider(tp_addr.port(), sv2_interval).await;
+    let (_tp, tp_addr) = common::start_template_provider(sv2_interval).await;
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer".to_string();
-    let tp_pool_sniffer = common::start_sniffer(
+    let (tp_pool_sniffer, tp_pool_sniffer_addr) = common::start_sniffer(
         tp_pool_sniffer_identifier,
-        tp_pool_sniffer_addr,
         tp_addr,
         false,
         None,
     )
     .await;
-    let _ = common::start_pool(Some(pool_addr), Some(tp_pool_sniffer_addr)).await;
+    let (_,pool_addr) = common::start_pool(Some(tp_pool_sniffer_addr)).await;
     let pool_translator_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job pool_translator sniffer"
             .to_string();
-    let pool_translator_sniffer = common::start_sniffer(
+    let (pool_translator_sniffer, pool_translator_sniffer_addr) = common::start_sniffer(
         pool_translator_sniffer_identifier,
-        pool_translator_sniffer_addr,
         pool_addr,
         false,
         None,
