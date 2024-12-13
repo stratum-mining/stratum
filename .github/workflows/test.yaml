@@ -14,10 +14,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - macos-latest
+          - macos-14
           - ubuntu-latest
         include:
-          - os: macos-latest
+          - os: macos-14
             target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
