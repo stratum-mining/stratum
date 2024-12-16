@@ -1,6 +1,6 @@
 [package]
 name = "sv2_ffi"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["The Stratum V2 Developers"]
 edition = "2018"
 readme = "README.md"
