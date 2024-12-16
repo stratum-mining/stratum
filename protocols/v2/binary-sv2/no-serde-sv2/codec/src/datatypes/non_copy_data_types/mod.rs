@@ -7,7 +7,7 @@
 // arrays (`B0255`, `B064K`).
 
 // # Features
-// - **Fixed-size Aliases**: Types like [`U32AsRef`], [`U256`], [`ShortTxId`], [`PubKey`], and
+// - **Fixed-size Aliases**: Types like [`U32AsRef`], [`U256`], [`PubKey`], and
 //   [`Signature`] represent specific byte sizes, often used in cryptographic contexts or protocol
 //   identifiers.
 // - **Variable-size Aliases**: Types like [`B032`], [`B0255`], [`Str0255`], [`B064K`], and
@@ -20,7 +20,6 @@
 // # Type Aliases
 // - **[`U32AsRef`]**: 4-byte representation for small identifiers or integer values.
 // - **[`U256`]**: 32-byte cryptographic hash (e.g., SHA-256 or protocol IDs).
-// - **[`ShortTxId`]**: 6-byte transaction ID.
 // - **[`PubKey`]**: 32-byte public key (e.g., Ed25519).
 // - **[`Signature`]**: 64-byte cryptographic signature.
 // - **[`B032`], [`B0255`], [`Str0255`]**: Variable-size representations for optional fields or
@@ -53,9 +52,6 @@ pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
 /// Type alias for a 32-byte slice or owned data (commonly used for cryptographic
 /// hashes or IDs) represented using the `Inner` type with fixed-size configuration.
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
-/// Type alias for a 6-byte transaction ID (TxId) represented using the `Inner`
-/// type with fixed-size configuration.
-pub type ShortTxId<'a> = Inner<'a, true, 6, 0, 0>;
 /// Type alias for a 32-byte public key represented using the `Inner` type
 /// with fixed-size configuration.
 pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;

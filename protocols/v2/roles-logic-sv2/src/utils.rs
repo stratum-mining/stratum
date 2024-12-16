@@ -5,17 +5,15 @@ use std::{
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
-use binary_sv2::{Seq064K, ShortTxId, U256};
+use binary_sv2::U256;
 use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
-use siphasher::sip::SipHasher24;
-//compact_target_from_u256
 use bitcoin::Block;
 use stratum_common::{
     bitcoin,
     bitcoin::{
         blockdata::block::BlockHeader,
         hash_types::{BlockHash, TxMerkleNode},
-        hashes::{sha256, sha256d::Hash as DHash, Hash},
+        hashes::{sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
         util::{
             psbt::serialize::Deserialize,
@@ -712,48 +710,6 @@ pub fn get_target(
     let mut hash = hash_.as_hash().into_inner();
     hash.reverse();
     hash
-}
-pub fn hash_lists_tuple(
-    tx_data: Vec<Transaction>,
-    tx_short_hash_nonce: u64,
-) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
-    let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
-    for tx in tx_data {
-        txid_list.push(tx.txid());
-    }
-    let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
-    for txid in txid_list.clone() {
-        tx_short_hash_list_.push(get_short_hash(txid, tx_short_hash_nonce));
-    }
-    let tx_short_hash_list: Seq064K<'static, ShortTxId> = Seq064K::from(tx_short_hash_list_);
-    let tx_hash_list_hash = tx_hash_list_hash_builder(txid_list);
-    (tx_short_hash_list, tx_hash_list_hash)
-}
-
-pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxId<'static> {
-    // hash the short hash nonce
-    let nonce_hash = sha256::Hash::hash(&tx_short_hash_nonce.to_le_bytes());
-    // take first two integers from the hash
-    let k0 = u64::from_le_bytes(nonce_hash[0..8].try_into().unwrap());
-    let k1 = u64::from_le_bytes(nonce_hash[8..16].try_into().unwrap());
-    // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
-    let hasher = SipHasher24::new_with_keys(k0, k1);
-    let tx_hashed = hasher.hash(&txid);
-    let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes()[2..].to_vec();
-    let short_tx_id: ShortTxId = tx_hashed_bytes.try_into().unwrap();
-    short_tx_id
-}
-
-fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
-    // TODO: understand if this field is redunant and to be deleted since
-    // the full coinbase is known
-    let mut vec_u8 = vec![];
-    for txid in txid_list {
-        let txid_as_byte_array: &[u8; 32] = &txid.as_inner().clone();
-        vec_u8.extend_from_slice(txid_as_byte_array);
-    }
-    let hash = sha256::Hash::hash(&vec_u8).as_inner().to_owned();
-    hash.to_vec().try_into().unwrap()
 }
 
 pub struct BlockCreator<'a> {

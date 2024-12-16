@@ -57,16 +57,6 @@ where
                     .safe_lock(|x| x.handle_declare_mining_job_error(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(JobDeclaration::IdentifyTransactions(message)) => {
-                info!(
-                    "Received IdentifyTransactions with id: {}",
-                    message.request_id
-                );
-                debug!("IdentifyTransactions: {:?}", message);
-                self_
-                    .safe_lock(|x| x.handle_identify_transactions(message))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => {
                 info!(
                     "Received ProvideMissingTransactions with id: {}",
@@ -101,12 +91,6 @@ where
     fn handle_declare_mining_job_error(
         &mut self,
         message: DeclareMiningJobError,
-    ) -> Result<SendTo, Error>;
-
-    // TODO: comment
-    fn handle_identify_transactions(
-        &mut self,
-        message: IdentifyTransactions,
     ) -> Result<SendTo, Error>;
 
     // TODO: comment
@@ -149,16 +133,6 @@ where
                     .safe_lock(|x| x.handle_declare_mining_job(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => {
-                info!(
-                    "Received IdentifyTransactionsSuccess with id: {}",
-                    message.request_id
-                );
-                debug!("IdentifyTransactionsSuccess: {:?}", message);
-                self_
-                    .safe_lock(|x| x.handle_identify_transactions_success(message))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => {
                 info!(
                     "Received ProvideMissingTransactionsSuccess with id: {}",
@@ -188,11 +162,6 @@ where
     ) -> Result<SendTo, Error>;
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error>;
-
-    fn handle_identify_transactions_success(
-        &mut self,
-        message: IdentifyTransactionsSuccess,
-    ) -> Result<SendTo, Error>;
 
     fn handle_provide_missing_transactions_success(
         &mut self,

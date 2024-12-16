@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     primitives::{FixedSize, GetSize},
-    Error, ShortTxId,
+    Error,
 };
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
@@ -28,7 +28,6 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::Parti
 }
 impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
 impl<'s> Eq for Seq064K<'s, B064K<'s>> {}
-impl<'s> Eq for Seq064K<'s, ShortTxId<'s>> {}
 impl<'s> Eq for Seq064K<'s, U256<'s>> {}
 impl<'s> Eq for Seq064K<'s, u16> {}
 
@@ -182,27 +181,6 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq064K<'a, U256<'a>> {
                     "Seq_064K_U256",
                     SeqVisitor {
                         inner_type_size: 32,
-                        max_len: SeqMaxLen::_2B,
-                        _a: core::marker::PhantomData,
-                    },
-                )
-                .map(|x| x.into()),
-            true => Seq064K::deserialize_json(deserializer),
-        }
-    }
-}
-impl<'de: 'a, 'a> Deserialize<'de> for Seq064K<'a, ShortTxId<'a>> {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        match deserializer.is_human_readable() {
-            false => deserializer
-                .deserialize_newtype_struct(
-                    "Seq_064K_ShortTxId",
-                    SeqVisitor {
-                        inner_type_size: 6,
                         max_len: SeqMaxLen::_2B,
                         _a: core::marker::PhantomData,
                     },
@@ -487,29 +465,6 @@ impl<'s> Seq064K<'s, u16> {
         } else {
             panic!()
         }
-    }
-}
-impl<'s> Seq064K<'s, ShortTxId<'s>> {
-    pub fn into_static(self) -> Seq064K<'static, ShortTxId<'static>> {
-        if let Some(inner) = self.data {
-            let inner = inner.clone();
-            let data: Vec<ShortTxId<'static>> =
-                inner.into_iter().map(|i| i.into_static()).collect();
-            Seq064K {
-                seq: None,
-                data: Some(data),
-            }
-        } else {
-            panic!()
-        }
-    }
-    pub fn to_vec(&self) -> Vec<Vec<u8>> {
-        self.data
-            .clone()
-            .unwrap()
-            .iter()
-            .map(|x| x.to_vec())
-            .collect()
     }
 }
 impl<'s> Seq064K<'s, U256<'s>> {

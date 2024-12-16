@@ -20,7 +20,6 @@ use const_sv2::{
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
     CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_DECLARE_MINING_JOB,
     CHANNEL_BIT_DECLARE_MINING_JOB_ERROR, CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS,
-    CHANNEL_BIT_IDENTIFY_TRANSACTIONS, CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
     CHANNEL_BIT_MINING_SET_NEW_PREV_HASH, CHANNEL_BIT_NEW_EXTENDED_MINING_JOB,
     CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL,
     CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES, CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR,
@@ -40,7 +39,6 @@ use const_sv2::{
     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_CLOSE_CHANNEL,
     MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE, MESSAGE_TYPE_DECLARE_MINING_JOB,
     MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR, MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
-    MESSAGE_TYPE_IDENTIFY_TRANSACTIONS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
     MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
     MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
@@ -70,7 +68,7 @@ use template_distribution_sv2::{
 
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
-    DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
+    DeclareMiningJobSuccess,
     ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
 };
 
@@ -129,9 +127,6 @@ pub enum JobDeclaration<'a> {
     DeclareMiningJobError(DeclareMiningJobError<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     DeclareMiningJobSuccess(DeclareMiningJobSuccess<'a>),
-    IdentifyTransactions(IdentifyTransactions),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -284,8 +279,6 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::DeclareMiningJob(_) => MESSAGE_TYPE_DECLARE_MINING_JOB,
             Self::DeclareMiningJobSuccess(_) => MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
             Self::DeclareMiningJobError(_) => MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-            Self::IdentifyTransactions(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
-            Self::IdentifyTransactionsSuccess(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
             Self::ProvideMissingTransactions(_) => MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
             Self::ProvideMissingTransactionsSuccess(_) => {
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
@@ -300,8 +293,6 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::DeclareMiningJob(_) => CHANNEL_BIT_DECLARE_MINING_JOB,
             Self::DeclareMiningJobSuccess(_) => CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS,
             Self::DeclareMiningJobError(_) => CHANNEL_BIT_DECLARE_MINING_JOB_ERROR,
-            Self::IdentifyTransactions(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS,
-            Self::IdentifyTransactionsSuccess(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
             Self::ProvideMissingTransactions(_) => CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS,
             Self::ProvideMissingTransactionsSuccess(_) => {
                 CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
@@ -408,8 +399,6 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
             JobDeclaration::DeclareMiningJob(a) => a.into(),
             JobDeclaration::DeclareMiningJobSuccess(a) => a.into(),
             JobDeclaration::DeclareMiningJobError(a) => a.into(),
-            JobDeclaration::IdentifyTransactions(a) => a.into(),
-            JobDeclaration::IdentifyTransactionsSuccess(a) => a.into(),
             JobDeclaration::ProvideMissingTransactions(a) => a.into(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.into(),
             JobDeclaration::SubmitSolution(a) => a.into(),
@@ -478,8 +467,6 @@ impl<'a> GetSize for JobDeclaration<'a> {
             JobDeclaration::DeclareMiningJob(a) => a.get_size(),
             JobDeclaration::DeclareMiningJobSuccess(a) => a.get_size(),
             JobDeclaration::DeclareMiningJobError(a) => a.get_size(),
-            JobDeclaration::IdentifyTransactions(a) => a.get_size(),
-            JobDeclaration::IdentifyTransactionsSuccess(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactions(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.get_size(),
             JobDeclaration::SubmitSolution(a) => a.get_size(),
@@ -719,8 +706,6 @@ pub enum JobDeclarationTypes {
     DeclareMiningJob = MESSAGE_TYPE_DECLARE_MINING_JOB,
     DeclareMiningJobSuccess = MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
     DeclareMiningJobError = MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    IdentifyTransactions = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
-    IdentifyTransactionsSuccess = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
     ProvideMissingTransactions = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     ProvideMissingTransactionsSuccess = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
     SubmitSolution = MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
@@ -742,10 +727,6 @@ impl TryFrom<u8> for JobDeclarationTypes {
                 Ok(JobDeclarationTypes::DeclareMiningJobSuccess)
             }
             MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR => Ok(JobDeclarationTypes::DeclareMiningJobError),
-            MESSAGE_TYPE_IDENTIFY_TRANSACTIONS => Ok(JobDeclarationTypes::IdentifyTransactions),
-            MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS => {
-                Ok(JobDeclarationTypes::IdentifyTransactionsSuccess)
-            }
             MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS => {
                 Ok(JobDeclarationTypes::ProvideMissingTransactions)
             }
@@ -783,14 +764,6 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
             JobDeclarationTypes::DeclareMiningJobError => {
                 let message: DeclareMiningJobError = from_bytes(v.1)?;
                 Ok(JobDeclaration::DeclareMiningJobError(message))
-            }
-            JobDeclarationTypes::IdentifyTransactions => {
-                let message: IdentifyTransactions = from_bytes(v.1)?;
-                Ok(JobDeclaration::IdentifyTransactions(message))
-            }
-            JobDeclarationTypes::IdentifyTransactionsSuccess => {
-                let message: IdentifyTransactionsSuccess = from_bytes(v.1)?;
-                Ok(JobDeclaration::IdentifyTransactionsSuccess(message))
             }
             JobDeclarationTypes::ProvideMissingTransactions => {
                 let message: ProvideMissingTransactions = from_bytes(v.1)?;

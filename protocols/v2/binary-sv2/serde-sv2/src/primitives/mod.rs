@@ -1,7 +1,6 @@
 use alloc::{string::String, vec::Vec};
 mod byte_arrays;
 pub mod sequences;
-mod short_tx_id;
 mod signature;
 mod u24;
 mod u256;
@@ -9,7 +8,6 @@ mod u256;
 pub use byte_arrays::{b016m::B016M, b0255::B0255, b032::B032, b064k::B064K, bytes::Bytes};
 pub use sequences::{option::Sv2Option, seq0255::Seq0255, seq064k::Seq064K};
 
-pub use short_tx_id::ShortTxId;
 pub use signature::Signature;
 pub use u24::U24;
 pub use u256::U256;

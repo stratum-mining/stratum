@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq064K, Serialize, ShortTxId, Str0255, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq064K, Serialize, Str0255, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
@@ -27,28 +27,9 @@ pub struct DeclareMiningJob<'decoder> {
     /// the coinbase field in the coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_suffix: B064K<'decoder>,
-    /// A unique nonce used to ensure [`DeclareMiningJob::tx_short_hash_list`] collisions are
-    /// uncorrelated across the network.
-    pub tx_short_hash_nonce: u64,
-    /// A list of short transaction hashes which are used to identify the transactions.
-    ///
-    /// SipHash 2-4 variant is used for short txids as a strategy to reduce bandwidth consumption.
-    /// More specifically, the SipHash 2-4 variant is used.
-    ///
-    /// Inputs to the SipHash functions are transaction hashes from the mempool. Secret keys k0, k1
-    /// are derived from the first two little-endian 64-bit integers from the
-    /// SHA256(tx_short_hash_nonce), respectively. For more info see
-    /// [BIP-0152](https://github.com/bitcoin/bips/blob/master/bip-0152.mediawiki).
-    ///
-    /// Upon receiving this message, JDS must check the list against its mempool.
-    ///
-    /// This list does not include the coinbase transaction.
+    // List of transactions for that job in the same order that will apppear in the block.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub tx_short_hash_list: Seq064K<'decoder, ShortTxId<'decoder>>,
-    /// Hash of the list of full txids, concatenated in the same sequence as they are declared in
-    /// [`DeclareMiningJob::tx_short_hash_list`].
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub tx_hash_list_hash: U256<'decoder>,
+    pub tx_list: Seq064K<'decoder, U256<'decoder>>,
     /// Extra data which the JDS may require to validate the work.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub excess_data: B064K<'decoder>,
@@ -102,9 +83,6 @@ impl<'d> GetSize for DeclareMiningJob<'d> {
             + self.version.get_size()
             + self.coinbase_prefix.get_size()
             + self.coinbase_suffix.get_size()
-            + self.tx_short_hash_nonce.get_size()
-            + self.tx_short_hash_list.get_size()
-            + self.tx_hash_list_hash.get_size()
             + self.excess_data.get_size()
     }
 }
