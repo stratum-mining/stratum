@@ -1,6 +1,6 @@
 [package]
 name = "roles_logic_sv2"
-version = "1.2.1"
+version = "1.2.2"
 authors = ["The Stratum V2 Developers"]
 edition = "2018"
 readme = "README.md"
@@ -21,7 +21,7 @@ common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messag
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^1.0.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^1.0.1" }
 job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^1.0.0" }
-const_sv2 = { version = "^2.0.0", path = "../../../protocols/v2/const-sv2"}
+const_sv2 = { version = "^3.0.0", path = "../../../protocols/v2/const-sv2"}
 framing_sv2 = { version = "^2.0.0", path = "../../../protocols/v2/framing-sv2" }
 tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}
