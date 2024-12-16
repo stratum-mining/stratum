@@ -16,10 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install Rust 1.75.0
+      - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: stable
           override: true
 
       - name: Cache Cargo registry
@@ -42,7 +42,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y cmake
 
       - name: Install cargo-semver-checks
-        run: cargo install cargo-semver-checks --version 0.33.0 --locked
+        run: cargo install cargo-semver-checks --version 0.37.0 --locked
 
       - name: Run semver checks for common
         working-directory: common
