@@ -28,4 +28,4 @@ core_rpc_pass =  "password"
 # Time interval used for JDS mempool update 
 [mempool_update_interval]
 unit = "secs"
-value = 0.1
+value = 1
