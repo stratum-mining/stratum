@@ -27,6 +27,7 @@ pub struct JobsCreators {
     templte_to_job_id: HashMap<u64, u32, BuildNoHashHasher<u64>>,
     ids: Id,
     last_target: mining_sv2::Target,
+    last_ntime: Option<u32>,
     extranonce_len: u8,
 }
 
@@ -56,6 +57,7 @@ impl JobsCreators {
             templte_to_job_id: HashMap::with_hasher(BuildNoHashHasher::default()),
             ids: Id::new(),
             last_target: mining_sv2::Target::new(0, 0),
+            last_ntime: None,
             extranonce_len,
         }
     }
@@ -91,6 +93,7 @@ impl JobsCreators {
             next_job_id,
             version_rolling_allowed,
             self.extranonce_len,
+            self.last_ntime,
         )
     }
 
@@ -106,6 +109,7 @@ impl JobsCreators {
     /// we clear all the saved templates.
     pub fn on_new_prev_hash(&mut self, prev_hash: &SetNewPrevHash<'static>) -> Option<u32> {
         self.last_target = prev_hash.target.clone().into();
+        self.last_ntime = prev_hash.header_timestamp.into(); // set correct ntime
         let template: Vec<NewTemplate<'static>> = self
             .lasts_new_template
             .clone()
@@ -162,6 +166,7 @@ pub fn extended_job_from_custom_job(
         0,
         true,
         extranonce_len,
+        Some(referenced_job.min_ntime),
     )
 }
 
@@ -181,6 +186,7 @@ fn new_extended_job(
     job_id: u32,
     version_rolling_allowed: bool,
     extranonce_len: u8,
+    ntime: Option<u32>,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     coinbase_outputs[0].value = match new_template.coinbase_tx_value_remaining.checked_mul(1) {
         //check that value_remaining is updated by TP
@@ -207,13 +213,7 @@ fn new_extended_job(
 
     let min_ntime = match new_template.future_template {
         true => binary_sv2::Sv2Option::new(None),
-        false => {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as u32;
-            binary_sv2::Sv2Option::new(Some(now))
-        }
+        false => binary_sv2::Sv2Option::new(ntime),
     };
 
     let new_extended_mining_job: NewExtendedMiningJob<'static> = NewExtendedMiningJob {
@@ -432,11 +432,11 @@ impl StrippedCoinbaseTx {
         let mut inputs = self.inputs.clone();
         let last_input = inputs.last_mut().ok_or(Error::BadPayloadSize)?;
         let new_last_input_len =
-        32 // outpoint
-        + 4 // vout
-        + 1 // script length byte -> TODO can be also 3 (based on TODO in `coinbase_tx_prefix()`)
-        + self.bip141_bytes_len // space for bip34 bytes
-        ;
+            32 // outpoint
+                + 4 // vout
+                + 1 // script length byte -> TODO can be also 3 (based on TODO in `coinbase_tx_prefix()`)
+                + self.bip141_bytes_len // space for bip34 bytes
+            ;
         last_input.truncate(new_last_input_len);
         let mut prefix: Vec<u8> = vec![];
         prefix.extend_from_slice(&self.version.to_le_bytes());
