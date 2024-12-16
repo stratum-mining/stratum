@@ -15,8 +15,8 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 serde = { version = "1.0.89", default-features = false, optional= true }
-binary_sv2 = { version = "^1.0.1", path = "../../../../protocols/v2/binary-sv2/binary-sv2" }
-const_sv2 = { version = "^2.0.0", path = "../../../../protocols/v2/const-sv2"}
+binary_sv2 = { version = "^1.0.1", path = "../../binary-sv2/binary-sv2" }
+const_sv2 = { version = "^2.0.0", path = "../../const-sv2"}
 quickcheck = { version = "1.0.3", optional=true }
 quickcheck_macros = { version = "1", optional=true }
 

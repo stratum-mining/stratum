@@ -259,6 +259,7 @@ impl ChannelFactory {
                 self.id_to_job.retain(|_, v| *v != to_remove as u8);
                 self.id_to_job.insert(job.job_id, to_remove as u8);
                 self.last_valid_jobs[to_remove] = Some((job, group_ids));
+                self.added_elements += 1;
             }
             _ => panic!("Internal error: invalid last_valid_jobs state"),
         }
