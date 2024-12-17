@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "mining_sv2"
-version = "2.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -2016,7 +2016,7 @@ dependencies = [
 
 [[package]]
 name = "roles_logic_sv2"
-version = "2.0.0"
+version = "1.2.2"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",

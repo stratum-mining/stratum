@@ -39,6 +39,7 @@ use alloc::vec::Vec;
 mod inner;
 mod seq_inner;
 
+#[allow(dead_code)]
 trait IntoOwned {
     fn into_owned(self) -> Self;
 }

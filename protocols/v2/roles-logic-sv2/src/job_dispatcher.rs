@@ -91,12 +91,6 @@ struct DownstreamJob {
     extended_job_id: u32,
 }
 
-#[derive(Debug)]
-struct ExtendedJobs {
-    #[allow(dead_code)]
-    upstream_target: Vec<u8>,
-}
-
 /// Used by proxies to keep track of standard jobs in the group channel
 /// created with the sv2 server
 #[derive(Debug)]

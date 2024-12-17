@@ -95,20 +95,6 @@ where
         res
     }
 
-    fn into_aesg(mut self) -> Option<Cipher<Aes256Gcm>> {
-        #[allow(clippy::clone_on_copy)]
-        let k = self.get_k().clone()?;
-        let c = Aes256Gcm::from_key(k);
-        Some(Cipher::from_cipher(c))
-    }
-
-    fn into_chacha(mut self) -> Option<Cipher<ChaCha20Poly1305>> {
-        #[allow(clippy::clone_on_copy)]
-        let k = self.get_k().clone()?;
-        let c = ChaCha20Poly1305::from_key(k);
-        Some(Cipher::from_cipher(c))
-    }
-
     // Encrypts the provided `data` in place using the cipher and AAD (`ad`).
     //
     // Performs authenticated encryption on the provided `data` buffer, modifying it in place to

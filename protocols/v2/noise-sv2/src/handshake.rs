@@ -33,9 +33,8 @@
 use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROTOCOL_NAME_CHACHA};
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
-    ecdh::SharedSecret,
     hashes::{sha256::Hash as Sha256Hash, Hash},
-    rand, Keypair, Secp256k1, SecretKey, XOnlyPublicKey,
+    rand, Keypair, Secp256k1
 };
 
 // Represents the operations needed during a Noise protocol handshake.
@@ -166,17 +165,6 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         (out_1, out_2)
     }
 
-    fn hkdf_3(
-        chaining_key: &[u8; 32],
-        input_key_material: &[u8],
-    ) -> ([u8; 32], [u8; 32], [u8; 32]) {
-        let temp_key = Self::hmac_hash(chaining_key, input_key_material);
-        let out_1 = Self::hmac_hash(&temp_key, &[0x1]);
-        let out_2 = Self::hmac_hash(&temp_key, &[&out_1[..], &[0x2][..]].concat());
-        let out_3 = Self::hmac_hash(&temp_key, &[&out_2[..], &[0x3][..]].concat());
-        (out_1, out_2, out_3)
-    }
-
     // Mixes the input key material into the current chaining key (`ck`) and initializes the
     // handshake cipher with an updated encryption key (`k`).
     //
@@ -227,13 +215,6 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         };
         self.mix_hash(&encrypted);
         Ok(())
-    }
-
-    fn ecdh(private: &[u8], public: &[u8]) -> [u8; 32] {
-        let private = SecretKey::from_slice(private).expect("Wrong key");
-        let x_public = XOnlyPublicKey::from_slice(public).expect("Wrong key");
-        let res = SharedSecret::new(&x_public.public_key(crate::PARITY), &private);
-        res.secret_bytes()
     }
 
     // Initializes the handshake state by setting the initial chaining key (`ck`) and handshake
