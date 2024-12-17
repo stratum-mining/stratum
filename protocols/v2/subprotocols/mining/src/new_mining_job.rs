@@ -6,35 +6,48 @@ use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B032, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # NewMiningJob (Server -> Client)
+/// Message used by an upstream to provide an updated mining job to downstream.
 ///
-/// The server provides an updated mining job to the client through a standard channel. This MUST be
-/// the first message after the channel has been successfully opened. This first message will have
-/// min_ntime unset (future job). If the `min_ntime` field is set, the client MUST start to mine on
-/// the new job immediately after receiving this message, and use the value for the initial nTime.
-
+/// This is used for Standard Channels only.
+///
+/// Note that Standard Jobs distrbuted through this message are restricted to a fixed Merkle Root,
+/// and the only rollable bits are `version`, `nonce`, and `nTime` fields of the block header.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewMiningJob<'decoder> {
-    /// Channel identifier, this must be a standard channel.
+    /// Channel identifier for the channel that this job is valid for.
+    ///
+    /// This must be a Standard Channel.
     pub channel_id: u32,
-    /// Server’s identification of the mining job. This identifier must be provided
-    /// to the server when shares are submitted later in the mining process.
+    /// Upstream’s identification of the mining job.
+    ///
+    /// This identifier must be provided to the upstream when shares are submitted.
     pub job_id: u32,
-    /// Smallest nTime value available for hashing for the new mining job. An empty value indicates
-    /// this is a future job to be activated once a SetNewPrevHash message is received with a
-    /// matching job_id. This SetNewPrevHash message provides the new prev_hash and min_ntime.
-    /// If the min_ntime value is set, this mining job is active and miner must start mining on it
-    /// immediately. In this case, the new mining job uses the prev_hash from the last received
-    /// SetNewPrevHash message.
+    /// Smallest `nTime` value available for hashing for the new mining job.
+    ///
+    /// An empty value indicates this is a future job and will be ready to mine on once a
+    /// [`SetNewPrevHash`] message is received with a matching `job_id`.
+    /// [`SetNewPrevHash`] message will also provide `prev_hash` and `min_ntime`.
+    ///
+    /// Otherwise, if [`NewMiningJob::min_ntime`] value is set, the downstream must start mining on
+    /// it immediately. In this case, the new mining job uses the `prev_hash` from the last
+    /// received [`SetNewPrevHash`] message.
+    ///
+    /// [`SetNewPrevHash`]: crate::SetNewPrevHash
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
-    /// Valid version field that reflects the current network consensus. The
-    /// general purpose bits (as specified in BIP320) can be freely manipulated
-    /// by the downstream node. The downstream node MUST NOT rely on the
-    /// upstream node to set the BIP320 bits to any particular value.
+    /// Version field that reflects the current network consensus.
+    ///
+    /// As specified in [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki),
+    /// the general purpose bits can be freely manipulated by the downstream node.
+    ///
+    /// The downstream node must not rely on the upstream node to set the
+    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki) bits to any
+    /// particular value.
     pub version: u32,
     /// Merkle root field as used in the bitcoin block header.
+    ///
+    /// Note that this field is fixed and cannot be modified by the downstream node.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_root: B032<'decoder>,
 }
@@ -51,59 +64,60 @@ impl<'d> NewMiningJob<'d> {
     }
 }
 
-/// NewExtendedMiningJob (Server -> Client)
+/// Message used by an upstream to provide an updated mining job to the downstream through
+/// Extended or Group Channel only.
 ///
-/// (Extended and group channels only)
-/// For an *extended channel*: The whole search space of the job is owned by the specified
-/// channel. If the future_job field is set to *False,* the client MUST start to mine on the new job
-/// as soon as possible after receiving this message.
-/// For a *group channel*: This is a broadcast variant of NewMiningJob message with the
-/// merkle_root field replaced by merkle_path and coinbase TX prefix and suffix, for further traffic
-/// optimization. The Merkle root is then defined deterministically for each channel by the
-/// common merkle_path and unique extranonce_prefix serialized into the coinbase. The full
-/// coinbase is then constructed as follows: *coinbase_tx_prefix* + *extranonce_prefix* +
-/// *coinbase_tx_suffix*. The proxy MAY transform this multicast variant for downstream standard
-/// channels into NewMiningJob messages by computing the derived Merkle root for them. A proxy MUST
-/// translate the message for all downstream channels belonging to the group which don’t signal
-/// that they accept extended mining jobs in the SetupConnection message (intended and
-/// expected behaviour for end mining devices).
+/// An Extended Job allows rolling Merkle Roots, giving extensive control over the search space so
+/// that they can implement various advanced use cases such as: translation between Stratum V1 and
+/// V2 protocols, difficulty aggregation and search space splitting.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewExtendedMiningJob<'decoder> {
-    /// For a group channel, the message is broadcasted to all standard
-    /// channels belonging to the group. Otherwise, it is addressed to
-    /// the specified extended channel.
+    /// Identifier of the Extended Mining Channel that this job is valid for.
+    ///
+    /// For a Group Channel, the message is broadcasted to all standard channels belonging to the
+    /// group.
     pub channel_id: u32,
-    /// Server’s identification of the mining job.
+    /// Upstream’s identification of the mining job.
+    ///
+    /// This identifier must be provided to the upstream when shares are submitted later in the
+    /// mining process.
     pub job_id: u32,
-    /// Smallest nTime value available for hashing for the new mining job. An empty value indicates
-    /// this is a future job to be activated once a SetNewPrevHash message is received with a
-    /// matching job_id. This SetNewPrevHash message provides the new prev_hash and min_ntime.
-    /// If the min_ntime value is set, this mining job is active and miner must start mining on it
-    /// immediately. In this case, the new mining job uses the prev_hash from the last received
-    /// SetNewPrevHash message.
+    /// Smallest `nTime` value available for hashing for the new mining job.
+    ///
+    /// An empty value indicates this is a future job and will be ready to mine on once a
+    /// [`SetNewPrevHash`] message is received with a matching `job_id`.
+    /// [`SetNewPrevHash`] message will also provide `prev_hash` and `min_ntime`.
+    ///
+    /// Otherwise, if [`NewMiningJob::min_ntime`] value is set, the downstream must start mining on
+    /// it immediately. In this case, the new mining job uses the `prev_hash` from the last
+    /// received [`SetNewPrevHash`] message.
+    ///
+    /// [`SetNewPrevHash`]: crate::SetNewPrevHash
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
-    /// Valid version field that reflects the current network consensus.
+    /// Version field that reflects the current network consensus.
+    ///
+    /// As specified in [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki),
+    /// the general purpose bits can be freely manipulated by the downstream node.
+    ///
+    /// The downstream node must not rely on the upstream node to set the
+    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki) bits to any
+    /// particular value.
     pub version: u32,
-    /// If set to True, the general purpose bits of version (as specified in
-    /// BIP320) can be freely manipulated by the downstream node.
-    /// The downstream node MUST NOT rely on the upstream node to
-    /// set the BIP320 bits to any particular value.
-    /// If set to False, the downstream node MUST use version as it is
+    /// If set to `true`, the general purpose bits of [`NewExtendedMiningJob::version`] (as
+    /// specified in BIP320) can be freely manipulated by the downstream node.
+    ///
+    /// If set to `false`, the downstream node must use [`NewExtendedMiningJob::version`] as it is
     /// defined by this message.
     pub version_rolling_allowed: bool,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     /// Merkle path hashes ordered from deepest.
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
     /// Prefix part of the coinbase transaction.
-    /// The full coinbase is constructed by inserting one of the following:
-    /// * For a *standard channel*: extranonce_prefix
-    /// * For an *extended channel*: extranonce_prefix + extranonce (=N bytes), where N is the
-    ///   negotiated extranonce space for the channel (OpenMiningChannel.Success.extranonce_size)
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_prefix: B064K<'decoder>,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     /// Suffix part of the coinbase transaction.
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
