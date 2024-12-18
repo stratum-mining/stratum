@@ -835,7 +835,7 @@ dependencies = [
 
 [[package]]
 name = "derive_codec_sv2"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "binary_codec_sv2",
 ]
