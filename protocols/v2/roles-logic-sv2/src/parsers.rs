@@ -68,8 +68,8 @@ use template_distribution_sv2::{
 
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
-    DeclareMiningJobSuccess,
-    ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
+    DeclareMiningJobSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+    SubmitSolutionJd,
 };
 
 use mining_sv2::{

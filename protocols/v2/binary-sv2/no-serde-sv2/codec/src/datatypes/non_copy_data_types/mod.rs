@@ -7,9 +7,8 @@
 // arrays (`B0255`, `B064K`).
 
 // # Features
-// - **Fixed-size Aliases**: Types like [`U32AsRef`], [`U256`], [`PubKey`], and
-//   [`Signature`] represent specific byte sizes, often used in cryptographic contexts or protocol
-//   identifiers.
+// - **Fixed-size Aliases**: Types like [`U32AsRef`], [`U256`], [`PubKey`], and [`Signature`]
+//   represent specific byte sizes, often used in cryptographic contexts or protocol identifiers.
 // - **Variable-size Aliases**: Types like [`B032`], [`B0255`], [`Str0255`], [`B064K`], and
 //   [`B016M`] handle data with bounded sizes, providing flexibility for dynamic data.
 // - **Traits and Conversions**: Implements traits like `From`, `TryFrom`, and [`IntoOwned`] for

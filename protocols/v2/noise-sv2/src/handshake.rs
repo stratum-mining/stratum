@@ -34,7 +34,7 @@ use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROT
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
     hashes::{sha256::Hash as Sha256Hash, Hash},
-    rand, Keypair, Secp256k1
+    rand, Keypair, Secp256k1,
 };
 
 // Represents the operations needed during a Noise protocol handshake.

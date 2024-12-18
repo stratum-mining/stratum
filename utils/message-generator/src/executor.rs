@@ -441,18 +441,6 @@ impl Executor {
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactions(m)) => {
-                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_each_field(msg, field_data);
-                                    }
-                                }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactionsSuccess(m)) => {
-                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_each_field(msg, field_data);
-                                    }
-                                }
                                 Ok(roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactions(m)) => {
                                     if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
                                         let msg = serde_json::to_value(&m).unwrap();
@@ -677,14 +665,6 @@ impl Executor {
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
                                 Ok(roles_logic_sv2::parsers::JobDeclaration::DeclareMiningJobError(m)) => {
-                                    let mess = serde_json::to_value(&m).unwrap();
-                                    self.save = save_message_field(mess, self.save.clone(), fields);
-                                }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactions(m)) => {
-                                    let mess = serde_json::to_value(&m).unwrap();
-                                    self.save = save_message_field(mess, self.save.clone(), fields);
-                                }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactionsSuccess(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }

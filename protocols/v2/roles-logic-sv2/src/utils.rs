@@ -6,8 +6,8 @@ use std::{
 };
 
 use binary_sv2::U256;
-use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use bitcoin::Block;
+use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use stratum_common::{
     bitcoin,
     bitcoin::{

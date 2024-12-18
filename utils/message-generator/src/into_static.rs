@@ -4,8 +4,8 @@ use roles_logic_sv2::{
     },
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-        DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactions,
-        IdentifyTransactionsSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+        DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
+        ProvideMissingTransactionsSuccess,
     },
     mining_sv2::{
         CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -294,9 +294,7 @@ pub fn into_static(m: AnyMessage<'_>) -> AnyMessage<'static> {
                     version: m.version,
                     coinbase_prefix: m.coinbase_prefix.into_static(),
                     coinbase_suffix: m.coinbase_suffix.into_static(),
-                    tx_short_hash_nonce: m.tx_short_hash_nonce,
-                    tx_short_hash_list: m.tx_short_hash_list.into_static(),
-                    tx_hash_list_hash: m.tx_hash_list_hash.into_static(),
+                    tx_list: m.tx_list.into_static(),
                     excess_data: m.excess_data.into_static(),
                 };
                 PoolMessages::JobDeclaration(parsers::JobDeclaration::DeclareMiningJob(m))
@@ -315,21 +313,6 @@ pub fn into_static(m: AnyMessage<'_>) -> AnyMessage<'static> {
                     error_details: m.error_details.into_static(),
                 };
                 PoolMessages::JobDeclaration(parsers::JobDeclaration::DeclareMiningJobError(m))
-            }
-            parsers::JobDeclaration::IdentifyTransactions(m) => {
-                let m = IdentifyTransactions {
-                    request_id: m.request_id,
-                };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::IdentifyTransactions(m))
-            }
-            parsers::JobDeclaration::IdentifyTransactionsSuccess(m) => {
-                let m = IdentifyTransactionsSuccess {
-                    request_id: m.request_id,
-                    tx_data_hashes: m.tx_data_hashes.into_static(),
-                };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::IdentifyTransactionsSuccess(
-                    m,
-                ))
             }
             parsers::JobDeclaration::ProvideMissingTransactions(m) => {
                 let m = ProvideMissingTransactions {
