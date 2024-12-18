@@ -1,3 +1,7 @@
+//! # Error Handling
+//!
+//! This module defines error types and utilities for handling errors in the `framing_sv2` module.
+
 // use crate::framing2::EitherFrame;
 use core::fmt;
 
@@ -5,6 +9,7 @@ use core::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
+    /// Binary Sv2 data format error.
     BinarySv2Error(binary_sv2::Error),
     ExpectedHandshakeFrame,
     ExpectedSv2Frame,
