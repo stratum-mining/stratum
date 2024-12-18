@@ -1,6 +1,6 @@
 [package]
 name = "translator_sv2"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "Server used to bridge SV1 miners to SV2 pools"
@@ -27,7 +27,7 @@ async-std = { version = "1.12.0", features = ["attributes"] }
 binary_sv2 = { version = "^1.0.0", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { version = "^1.0.0", path = "../../utils/buffer" }
 codec_sv2 = { version = "^1.0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
-framing_sv2 = { version = "^2.0.0", path = "../../protocols/v2/framing-sv2" }
+framing_sv2 = { version = "^3.0.0", path = "../../protocols/v2/framing-sv2" }
 network_helpers_sv2 = { version = "2.0.0", path = "../roles-utils/network-helpers", features=["async_std", "with_buffer_pool"] }
 once_cell = "1.12.0"
 roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
