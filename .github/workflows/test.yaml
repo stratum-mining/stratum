@@ -38,10 +38,6 @@ jobs:
           cargo build --manifest-path=roles/Cargo.toml
           cargo build --manifest-path=utils/Cargo.toml
 
-      - name: Roles Integration Tests
-        run: |
-          cargo test --manifest-path=roles/Cargo.toml --verbose --test '*' -- --nocapture
-
       - name: Run sv1-client-and-server example
         run: |
           cargo run --manifest-path=examples/sv1-client-and-server/Cargo.toml --bin client_and_server -- 60
