@@ -22,6 +22,12 @@ To include this crate in your project, run:
 cargo add noise_sv2
 ```
 
+This crate can be built with the following feature flags:
+
+- `std`: Enable usage of rust `std` library, enabled by default.
+
+In order to use this crate in a `#![no_std]` environment, use the `--no-default-features` to remove the `std` feature.
+
 ### Examples
 
 This crate provides example on establishing a secure line:
