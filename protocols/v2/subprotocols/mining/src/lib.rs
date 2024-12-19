@@ -1,33 +1,111 @@
-//! # Stratum V2 Mining Protocol Messages Crate
+#![no_std]
+
+//! # Mining Protocol
+//! ## Channels
+//! The protocol is designed such that downstream devices (or proxies) open communication
+//! channels with upstream stratum nodes within established connections. The upstream stratum
+//! endpoints could be actual mining servers or proxies that pass the messages further upstream.
+//! Each channel identifies a dedicated mining session associated with an authorized user.
+//! Upstream stratum nodes accept work submissions and specify a mining target on a
+//! per-channel basis.
 //!
-//! `mining_sv2` is a Rust crate that implements a set of messages defined in the Mining protocol
-//! of Stratum V2.
+//! There can theoretically be up to 2^32 open channels within one physical connection to an
+//! upstream stratum node. All channels are independent of each other, but share some messages
+//! broadcasted from the server for higher efficiency (e.g. information about a new prevhash).
+//! Each channel is identified by its channel_id (U32), which is consistent throughout the whole
+//! life of the connection.
 //!
-//! The Mining protocol enables the distribution of work to mining devices and the submission of
-//! proof-of-work results.
+//! A proxy can either transparently allow its clients to open separate channels with the server
+//! (preferred behaviour) or aggregate open connections from downstream devices into its own
+//! open channel with the server and translate the messages accordingly (present mainly for
+//! allowing v1 proxies). Both options have some practical use cases. In either case, proxies
+//! SHOULD aggregate clients’ channels into a smaller number of TCP connections. This saves
+//! network traffic for broadcast messages sent by a server because fewer messages need to be
+//! sent in total, which leads to lower latencies as a result. And it further increases efficiency by
+//! allowing larger packets to be sent.
 //!
-//! For further information about the messages, please refer to [Stratum V2 documentation - Mining](https://stratumprotocol.org/specification/05-Mining-Protocol/).
+//! The protocol defines three types of channels: **standard channels** , **extended channels** (mining
+//! sessions) and **group channels** (organizational), which are useful for different purposes.
+//! The main difference between standard and extended channels is that standard channels
+//! cannot manipulate the coinbase transaction / Merkle path, as they operate solely on provided
+//! Merkle roots. We call this **header-only mining**. Extended channels, on the other hand, are
+//! given extensive control over the search space so that they can implement various advanceduse cases such as translation between v1 and v2 protocols, difficulty aggregation, custom
+//! search space splitting, etc.
 //!
-//! ## Build Options
+//! This separation vastly simplifies the protocol implementation for clients that don’t support
+//! extended channels, as they only need to implement the subset of protocol messages related to
+//! standard channels (see Mining Protocol Messages for details).
 //!
-//! This crate can be built with the following features:
-//! - `no_std`: Disables the standard library.
-//! - `with_serde`: Enables support for serialization and deserialization using Serde.
+//! ### Standard Channels
 //!
-//! **Note that `with_serde` feature flag is only used for the Message Generator, and deprecated
-//! for
-//! any other kind of usage. It will likely be fully deprecated in the future.**
+//! Standard channels are intended to be used by end mining devices.
+//! The size of the search space for one standard channel (header-only mining) for one particular
+//! value in the nTime field is 2^(NONCE_BITS + VERSION_ROLLING_BITS) = ~280Th, where
+//! NONCE_BITS = 32 and VERSION_ROLLING_BITS = 16. This is a guaranteed space before
+//! nTime rolling (or changing the Merkle root).
+//! The protocol dedicates all directly modifiable bits (version, nonce, and nTime) from the block
+//! header to one mining channel. This is the smallest assignable unit of search space by the
+//! protocol. The client which opened the particular channel owns the whole assigned space and
+//! can split it further if necessary (e.g. for multiple hashing boards and for individual chips etc.).
 //!
-//! ## Usage
+//! ### Extended channels
 //!
-//! To include this crate in your project, run:
-//! ```bash
-//! $ cargo add mining_sv2
-//! ```
+//! Extended channels are intended to be used by proxies. Upstream servers which accept
+//! connections and provide work MUST support extended channels. Clients, on the other hand, do
+//! not have to support extended channels, as they MAY be implemented more simply with only
+//! standard channels at the end-device level. Thus, upstream servers providing work MUST also
+//! support standard channels.
+//! The size of search space for an extended channel is
+//! 2^(NONCE_BITS+VERSION_ROLLING_BITS+extranonce_size*8) per nTime value.
 //!
-//! For further information about the mining protocol, please refer to [Stratum V2 documentation -
-//! Mining Protocol](https://stratumprotocol.org/specification/05-Mining-Protocol/).
-#![cfg_attr(feature = "no_std", no_std)]
+//! ### Group Channels
+//!
+//! Standard channels opened within one particular connection can be grouped together to be
+//! addressable by a common communication group channel.
+//! Whenever a standard channel is created it is always put into some channel group identified by
+//! its group_channel_id. Group channel ID namespace is the same as channel ID namespace on a
+//! particular connection but the values chosen for group channel IDs must be distinct.
+//!
+//! ### Future Jobs
+//! An empty future block job or speculated non-empty job can be sent in advance to speedup
+//! new mining job distribution. The point is that the mining server MAY have precomputed such a
+//! job and is able to pre-distribute it for all active channels. The only missing information to
+//! start to mine on the new block is the new prevhash. This information can be provided
+//! independently.Such an approach improves the efficiency of the protocol where the upstream node
+//! doesn’t waste precious time immediately after a new block is found in the network.
+//!
+//! ### Hashing Space Distribution
+//! Each mining device has to work on a unique part of the whole search space. The full search
+//! space is defined in part by valid values in the following block header fields:
+//! * Nonce header field (32 bits),
+//! * Version header field (16 bits, as specified by BIP 320),
+//! * Timestamp header field.
+//!
+//! The other portion of the block header that’s used to define the full search space is the Merkle
+//! root hash of all transactions in the block, projected to the last variable field in the block
+//! header:
+//!
+//! * Merkle root, deterministically computed from:
+//!   * Coinbase transaction: typically 4-8 bytes, possibly much more.
+//!   * Transaction set: practically unbounded space. All roles in Stratum v2 MUST NOT
+//!     use transaction selection/ordering for additional hash space extension. This
+//!     stems both from the concept that miners/pools should be able to choose their
+//!     transaction set freely without any interference with the protocol, and also to
+//!     enable future protocol modifications to Bitcoin. In other words, any rules
+//!     imposed on transaction selection/ordering by miners not described in the rest of
+//!     this document may result in invalid work/blocks.
+//!
+//! Mining servers MUST assign a unique subset of the search space to each connection/channel
+//! (and therefore each mining device) frequently and rapidly enough so that the mining devices
+//! are not running out of search space. Unique jobs can be generated regularly by:
+//! * Putting unique data into the coinbase for each connection/channel, and/or
+//! * Using unique work from a work provider, e.g. a previous work update (note that this is
+//!   likely more difficult to implement, especially in light of the requirement that transaction
+//!   selection/ordering not be used explicitly for additional hash space distribution).
+//!
+//! This protocol explicitly expects that upstream server software is able to manage the size of
+//! the hashing space correctly for its clients and can provide new jobs quickly enough.
+use alloc::vec::Vec;
 use binary_sv2::{B032, U256};
 use core::{
     cmp::{Ord, PartialOrd},
@@ -137,11 +215,9 @@ impl Ord for Target {
 
 // WARNING: do not derive Copy on this type. Some operations performed to a copy of an extranonce
 // do not affect the original, and this may lead to different extranonce inconsistency
-/// Extranonce bytes which need to be added to the coinbase to form a fully valid submission.
-///
+/// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
+/// (full coinbase = coinbase_tx_prefix + extranonce + coinbase_tx_suffix).
 /// Representation is in big endian, so tail is for the digits relative to smaller powers
-///
-/// `full coinbase = coinbase_tx_prefix + extranonce + coinbase_tx_suffix`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
@@ -202,6 +278,12 @@ impl core::convert::TryFrom<alloc::vec::Vec<u8>> for Extranonce {
     }
 }
 
+impl AsRef<[u8]> for Extranonce {
+    fn as_ref(&self) -> &[u8] {
+        self.extranonce.as_ref()
+    }
+}
+
 impl Extranonce {
     pub fn new(len: usize) -> Option<Self> {
         if len > MAX_EXTRANONCE_LEN {
@@ -236,12 +318,21 @@ impl Extranonce {
 
     /// Return only the prefix part of the extranonce
     /// If the required size is greater than the extranonce len it return None
-    pub fn into_prefix(&self, prefix_len: usize) -> Option<B032<'static>> {
+    pub fn into_prefix(
+        &self,
+        prefix_len: usize,
+        additional_coinbase_script_data: &[u8],
+    ) -> Option<B032<'static>> {
         if prefix_len > self.extranonce.len() {
             None
         } else {
-            let mut prefix = self.extranonce.clone();
-            prefix.resize(prefix_len, 0);
+            let mut prefix = Vec::with_capacity(prefix_len + additional_coinbase_script_data.len());
+            for b in additional_coinbase_script_data {
+                prefix.push(*b);
+            }
+            for i in 0..prefix_len {
+                prefix.push(self.extranonce[i]);
+            }
             // unwrap is sage as prefix_len can not be greater than 32 cause is not possible to
             // contruct Extranonce with the inner vecto greater than 32.
             Some(prefix.try_into().unwrap())
@@ -258,9 +349,9 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 }
 
 #[derive(Debug, Clone)]
-/// Downstram and upstream are relative to an actor of the protocol P. In simple terms, upstream is
-/// the part of the protocol that a user P sees when he looks above and downstream when he looks
-/// beneath.
+/// Downstram and upstream are not global terms but are relative
+/// to an actor of the protocol P. In simple terms, upstream is the part of the protocol that a
+/// user P sees when he looks above and downstream when he looks beneath.
 ///
 /// An ExtendedExtranonce is defined by 3 ranges:
 ///
@@ -299,6 +390,7 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// range_2 -> 32..32 no more downstream
 ///
 ///
+///
 /// About how the pool work having both extended and standard downstreams:
 ///
 /// the pool reserve the first 16 bytes for herself and let downstreams change the lase 16, so
@@ -318,6 +410,7 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// 0000 0000 0000 0000      0000 0000 0000 0000
 /// where the second will be
 /// 0000 0000 0000 0000      0000 0000 0000 0001 ecc ecc
+///
 ///
 ///
 /// ExtendedExtranonce type is meant to be used in cases where the extranonce length is not
@@ -637,8 +730,7 @@ pub mod tests {
 
         assert!(extranonce.is_some());
 
-        //validate that the extranonce is the concatenation of the upstream part and the downstream
-        // part
+        //validate that the extranonce is the concatenation of the upstream part and the downstream part
         assert_eq!(
             extra_content,
             extranonce.unwrap().extranonce.to_vec()[downstream_len..downstream_len * 2]
@@ -836,8 +928,8 @@ pub mod tests {
                 }
                 None => false,
             },
-            // if .next_standard() method falls in None case, this means that the range_2 is at
-            // maximum value, so every entry must be 255 as u8
+            // if .next_standard() method falls in None case, this means that the range_2 is at maximum
+            // value, so every entry must be 255 as u8
             None => {
                 for b in inner[range_2.start..range_2.end].iter() {
                     if b != &255_u8 {
@@ -1025,7 +1117,7 @@ pub mod tests {
     fn test_extranonce_to_prefix() {
         let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         let extranone = Extranonce { extranonce: inner };
-        let prefix = extranone.into_prefix(4).unwrap();
+        let prefix = extranone.into_prefix(4, &[]).unwrap();
         assert!(vec![1, 2, 3, 4] == prefix.to_vec())
     }
 
@@ -1033,7 +1125,7 @@ pub mod tests {
     fn test_extranonce_to_prefix_not_greater_than_inner() {
         let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         let extranone = Extranonce { extranonce: inner };
-        let prefix = extranone.into_prefix(20);
+        let prefix = extranone.into_prefix(20, &[]);
         assert!(prefix.is_none())
     }
 

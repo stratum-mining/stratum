@@ -76,7 +76,7 @@ impl SignatureNoiseMessage {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as u32;
-            if self.valid_from <= now && self.not_valid_after >= now {
+            if (self.valid_from - 10) <= now && (self.not_valid_after + 10) >= now {
                 let secp = Secp256k1::verification_only();
                 let (m, s) = self.split();
                 // m = SHA-256(version || valid_from || not_valid_after || server_static_key)

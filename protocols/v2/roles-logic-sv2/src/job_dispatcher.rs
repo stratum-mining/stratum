@@ -18,8 +18,7 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
-/// Used to convert an extended mining job to a standard mining job. The `extranonce` field must
-/// be exactly 32 bytes.
+/// Used to convert an extended mining job to a standard mining job
 pub fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
     extranonce: &[u8],
@@ -31,6 +30,7 @@ pub fn extended_to_standard_job_for_group_channel<'a>(
         extended.coinbase_tx_suffix.inner_as_ref(),
         extranonce,
         &extended.merkle_path.inner_as_ref(),
+        &[],
     );
 
     Some(NewMiningJob {
@@ -146,6 +146,7 @@ impl GroupChannelJobDispatcher {
         &mut self,
         extended: &NewExtendedMiningJob,
         channel: &StandardChannel,
+        additional_coinbase_script_data: &[u8],
         // should be changed to return a Result<Option<NewMiningJob>>
     ) -> Option<NewMiningJob<'static>> {
         if extended.is_future() {
@@ -161,9 +162,17 @@ impl GroupChannelJobDispatcher {
         let standard_job_id = self.ids.safe_lock(|ids| ids.next()).unwrap();
 
         let extranonce: Vec<u8> = channel.extranonce.clone().into();
+        let mut prefix: Vec<u8> =
+            Vec::with_capacity(extranonce.len() + additional_coinbase_script_data.len());
+        for b in additional_coinbase_script_data {
+            prefix.push(*b);
+        }
+        for b in extranonce {
+            prefix.push(b);
+        }
         let new_mining_job_message = extended_to_standard_job_for_group_channel(
             extended,
-            &extranonce,
+            &prefix,
             channel.channel_id,
             standard_job_id,
         )?;
@@ -310,19 +319,20 @@ mod tests {
 
     #[test]
     fn test_group_channel_job_dispatcher() {
+        let extranonce_len = 16;
         let out = TxOut {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
         };
-        let pool_signature = "Stratum v2 SRI Pool".to_string();
-        let mut jobs_creators = JobsCreators::new(32);
+        let pool_signature = "Stratum v2 SRI".to_string();
+        let mut jobs_creators = JobsCreators::new(extranonce_len);
         let group_channel_id = 1;
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
         template.template_id = template.template_id % u64::MAX;
         template.future_template = true;
         let extended_mining_job = jobs_creators
-            .on_new_template(&mut template, false, vec![out], pool_signature)
+            .on_new_template(&mut template, false, vec![out], pool_signature.len() as u8)
             .expect("Failed to create new job");
 
         // create GroupChannelJobDispatcher
@@ -331,8 +341,9 @@ mod tests {
         // create standard channel
         let target = Target::from(U256::try_from(utils::extranonce_gen()).unwrap());
         let standard_channel_id = 2;
-        let extranonce = Extranonce::try_from(utils::extranonce_gen())
-            .expect("Failed to convert bytes to extranonce");
+        let extranonce =
+            Extranonce::try_from(utils::extranonce_gen()[0..extranonce_len as usize].to_vec())
+                .expect("Failed to convert bytes to extranonce");
         let standard_channel = StandardChannel {
             channel_id: standard_channel_id,
             group_id: group_channel_id,
@@ -341,7 +352,11 @@ mod tests {
         };
         // call target function (on_new_extended_mining_job)
         let new_mining_job = group_channel_dispatcher
-            .on_new_extended_mining_job(&extended_mining_job, &standard_channel)
+            .on_new_extended_mining_job(
+                &extended_mining_job,
+                &standard_channel,
+                &pool_signature.clone().into_bytes(),
+            )
             .unwrap();
 
         // on_new_extended_mining_job assertions
@@ -351,6 +366,7 @@ mod tests {
             &extended_mining_job,
             extranonce.clone(),
             standard_channel_id,
+            &pool_signature,
         );
         // on_new_prev_hash assertions
         if extended_mining_job.is_future() {
@@ -374,13 +390,23 @@ mod tests {
         extended_mining_job: &NewExtendedMiningJob,
         extranonce: Extranonce,
         standard_channel_id: u32,
+        pool_signature: &String,
     ) -> (u32, Vec<u8>) {
+        let extranonce: Vec<u8> = extranonce.clone().into();
+        let mut prefix: Vec<u8> = Vec::new();
+        for b in pool_signature.clone().into_bytes() {
+            prefix.push(b);
+        }
+        for b in extranonce {
+            prefix.push(b);
+        }
         // compute test merkle path
         let new_root = merkle_root_from_path(
             extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
             extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
-            extranonce.to_vec().as_slice(),
+            prefix.as_slice(),
             &extended_mining_job.merkle_path.inner_as_ref(),
+            &[],
         )
         .unwrap();
         // Assertions
