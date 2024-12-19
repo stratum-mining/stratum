@@ -108,6 +108,10 @@ impl Sniffer {
         check_on_drop: bool,
         intercept_messages: Option<Vec<InterceptMessage>>,
     ) -> Self {
+        // Don't print backtrace on panic
+        std::panic::set_hook(Box::new(|_| {
+            println!();
+        }));
         Self {
             identifier,
             listening_address,
@@ -576,23 +580,36 @@ macro_rules! assert_jd_message {
 impl Drop for Sniffer {
     fn drop(&mut self) {
         if self.check_on_drop {
-            // Don't print backtrace on panic
-            std::panic::set_hook(Box::new(|_| {
-                println!();
-            }));
-            if !self.messages_from_downstream.is_empty() {
-                println!(
-                    "Sniffer {}: You didn't handle all downstream messages: {:?}",
-                    self.identifier, self.messages_from_downstream
-                );
-                panic!();
-            }
-            if !self.messages_from_upstream.is_empty() {
-                println!(
-                    "Sniffer{}: You didn't handle all upstream messages: {:?}",
-                    self.identifier, self.messages_from_upstream
-                );
-                panic!();
+            match (
+                self.messages_from_downstream.is_empty(),
+                self.messages_from_upstream.is_empty(),
+            ) {
+                (true, true) => {}
+                (true, false) => {
+                    println!(
+                        "Sniffer {}: You didn't handle all upstream messages: {:?}",
+                        self.identifier, self.messages_from_upstream
+                    );
+                    panic!();
+                }
+                (false, true) => {
+                    println!(
+                        "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                        self.identifier, self.messages_from_downstream
+                    );
+                    panic!();
+                }
+                (false, false) => {
+                    println!(
+                        "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                        self.identifier, self.messages_from_downstream
+                    );
+                    println!(
+                        "Sniffer {}: You didn't handle all upstream messages: {:?}",
+                        self.identifier, self.messages_from_upstream
+                    );
+                    panic!();
+                }
             }
         }
     }
