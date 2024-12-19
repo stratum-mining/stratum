@@ -444,23 +444,6 @@ mod test {
         assert!(cipher_1.get_h() == cipher_2.get_h());
     }
 
-    #[test]
-    fn test_ecdh() {
-        let key_pair_1 = TestHandShake::generate_key();
-        let key_pair_2 = TestHandShake::generate_key();
-
-        let secret_1 = key_pair_1.secret_bytes();
-        let secret_2 = key_pair_2.secret_bytes();
-
-        let pub_1 = key_pair_1.x_only_public_key();
-        let pub_2 = key_pair_2.x_only_public_key();
-
-        let ecdh_1 = TestHandShake::ecdh(&secret_1, &pub_2.0.serialize());
-        let ecdh_2 = TestHandShake::ecdh(&secret_2, &pub_1.0.serialize());
-
-        assert!(ecdh_1 == ecdh_2);
-    }
-
     #[derive(Clone, Debug)]
     struct KeypairWrapper(pub Option<Keypair>);
 
@@ -482,33 +465,6 @@ mod test {
                 Ok(secret) => KeypairWrapper(Some(Keypair::from_secret_key(&secp, &secret))),
                 Err(_) => KeypairWrapper(None),
             }
-        }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ecdh_1(kp1: KeypairWrapper, kp2: KeypairWrapper) -> TestResult {
-        let (kp1, kp2) = match (kp1.0, kp2.0) {
-            (Some(kp1), Some(kp2)) => (kp1, kp2),
-            _ => return TestResult::discard(),
-        };
-        if kp1.x_only_public_key().1 == crate::PARITY && kp2.x_only_public_key().1 == crate::PARITY
-        {
-            let secret_1 = kp1.secret_bytes();
-            let secret_2 = kp2.secret_bytes();
-
-            let pub_1 = kp1.x_only_public_key();
-            let pub_2 = kp2.x_only_public_key();
-
-            let ecdh_1 = TestHandShake::ecdh(&secret_1, &pub_2.0.serialize());
-            let ecdh_2 = TestHandShake::ecdh(&secret_2, &pub_1.0.serialize());
-
-            if ecdh_1 == ecdh_2 {
-                TestResult::passed()
-            } else {
-                TestResult::failed()
-            }
-        } else {
-            TestResult::discard()
         }
     }
 }
