@@ -1579,6 +1579,8 @@ dependencies = [
  "serde_json",
  "stratum-common",
  "sv1_api",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

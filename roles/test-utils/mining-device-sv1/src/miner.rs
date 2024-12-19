@@ -6,6 +6,7 @@ use stratum_common::bitcoin::{
     hashes::{sha256d::Hash as DHash, Hash},
     util::uint::Uint256,
 };
+use tracing::info;
 
 /// A mock representation of a Mining Device that produces block header hashes to be submitted by
 /// the `Client` to the Upstream node (either a SV1 Pool server or a SV1 <-> SV2 Translator Proxy
@@ -75,7 +76,7 @@ impl Miner {
         hash.reverse();
         let hash = Uint256::from_be_bytes(hash);
         if hash < *self.target.as_ref().ok_or(())? {
-            println!(
+            info!(
                 "Found share with nonce: {}, for target: {:?}, hash: {:?}",
                 header.nonce, self.target, hash
             );

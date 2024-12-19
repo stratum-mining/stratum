@@ -27,3 +27,5 @@ serde_json = { version = "1.0.64", default-features = false, features = ["alloc"
 v1 = { path="../../../protocols/v1", package="sv1_api" }
 num-bigint = "0.4.3"
 num-traits = "0.2.15"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
