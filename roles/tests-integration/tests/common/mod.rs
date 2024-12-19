@@ -24,7 +24,7 @@ use tar::Archive;
 // prevents get_available_port from ever returning the same port twice
 static UNIQUE_PORTS: Lazy<Mutex<HashSet<u16>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
-const VERSION_TP: &str = "0.1.9";
+const VERSION_TP: &str = "0.1.13";
 
 fn download_bitcoind_tarball(download_url: &str) -> Vec<u8> {
     let response = minreq::get(download_url)
@@ -91,10 +91,12 @@ impl TemplateProvider {
             "-txindex=1",
             "-sv2",
             &port,
+            "-debug=rpc",
             "-debug=sv2",
             "-sv2interval=20",
             "-sv2feedelta=1000",
             "-loglevel=sv2:trace",
+            "-logtimemicros=1",
         ]);
 
         let os = env::consts::OS;
