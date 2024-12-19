@@ -48,10 +48,14 @@ async fn translation_proxy() {
         &pool_translator_sniffer.next_message_from_upstream(),
         NewExtendedMiningJob
     );
-    pool_translator_sniffer
-        .wait_for_message_type(
-            MessageDirection::ToUpstream,
-            MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-        )
-        .await;
+    //panic!("Not yet implemented");
+    tokio::task::spawn(async move {
+        pool_translator_sniffer
+            .wait_for_message_type(
+                MessageDirection::ToUpstream,
+                MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+            )
+            .await;
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(10000)).await;
 }
