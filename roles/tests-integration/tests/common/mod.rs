@@ -91,10 +91,12 @@ impl TemplateProvider {
             "-txindex=1",
             "-sv2",
             &port,
+            "-debug=rpc",
             "-debug=sv2",
             "-sv2interval=20",
             "-sv2feedelta=1000",
             "-loglevel=sv2:trace",
+            "-logtimemicros=1",
         ]);
 
         let os = env::consts::OS;
