@@ -61,6 +61,8 @@ pub enum Error {
     HashrateError(InputError),
     LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
     JDSMissingTransactions,
+    AdditionalCoinbaseScriptDataTooBig,
+    NewAdditionalCoinbaseDataLenDoNotMatch,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -153,6 +155,8 @@ impl Display for Error {
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
             LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
+            AdditionalCoinbaseScriptDataTooBig => write!(f, "Additional coinbase script data too big"),
+            NewAdditionalCoinbaseDataLenDoNotMatch => write!(f, "Channel factory can update the additional data only if the new data is the same size as the old one"),
         }
     }
 }

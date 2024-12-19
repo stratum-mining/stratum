@@ -9,7 +9,7 @@ use roles_logic_sv2::{
     mining_sv2::SubmitSharesExtended,
     parsers::{JobDeclaration, PoolMessages},
     template_distribution_sv2::SetNewPrevHash,
-    utils::{hash_lists_tuple, Mutex},
+    utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use stratum_common::bitcoin::{util::psbt::serialize::Deserialize, Transaction};
@@ -240,21 +240,20 @@ impl JobDeclarator {
         self_mutex: &Arc<Mutex<Self>>,
         template: NewTemplate<'static>,
         token: Vec<u8>,
-        tx_list_: Seq064K<'static, B016M<'static>>,
+        tx_list: Seq064K<'static, B016M<'static>>,
         excess_data: B064K<'static>,
         coinbase_pool_output: Vec<u8>,
     ) {
         let (id, _, sender) = self_mutex
             .safe_lock(|s| (s.req_ids.next(), s.min_extranonce_size, s.sender.clone()))
             .unwrap();
-        // TODO: create right nonce
-        let tx_short_hash_nonce = 0;
-        let mut tx_list: Vec<Transaction> = Vec::new();
-        for tx in tx_list_.to_vec() {
-            //TODO remove unwrap
+        let mut tx_ids = vec![];
+        for tx in tx_list.to_vec() {
             let tx = Transaction::deserialize(&tx).unwrap();
-            tx_list.push(tx);
+            let id: U256 = tx.txid().to_vec().try_into().unwrap();
+            tx_ids.push(id);
         }
+        let tx_ids: Seq064K<'static, U256> = Seq064K::from(tx_ids);
         let declare_job = DeclareMiningJob {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
@@ -265,16 +264,14 @@ impl JobDeclarator {
             coinbase_suffix: self_mutex
                 .safe_lock(|s| s.coinbase_tx_suffix.clone())
                 .unwrap(),
-            tx_short_hash_nonce,
-            tx_short_hash_list: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).0,
-            tx_hash_list_hash: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).1,
+            tx_list: tx_ids,
             excess_data, // request transaction data
         };
         let last_declare = LastDeclareJob {
             declare_job: declare_job.clone(),
             template,
             coinbase_pool_output,
-            tx_list: tx_list_.clone(),
+            tx_list,
         };
         Self::update_last_declare_job_sent(self_mutex, id, last_declare);
         let frame: StdFrame =

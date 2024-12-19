@@ -597,11 +597,11 @@ impl Pool {
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
     ) -> Arc<Mutex<Self>> {
-        let extranonce_len = 32;
+        let extranonce_len = 13;
         let range_0 = std::ops::Range { start: 0, end: 0 };
-        let range_1 = std::ops::Range { start: 0, end: 16 };
+        let range_1 = std::ops::Range { start: 0, end: 5 };
         let range_2 = std::ops::Range {
-            start: 16,
+            start: 5,
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
@@ -611,15 +611,18 @@ impl Pool {
         let creator = JobsCreators::new(extranonce_len as u8);
         let share_per_min = 1.0;
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
-        let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(
-            ids,
-            extranonces,
-            creator,
-            share_per_min,
-            kind,
-            pool_coinbase_outputs.expect("Invalid coinbase output in config"),
-            config.pool_signature.clone(),
-        )));
+        let channel_factory = Arc::new(Mutex::new(
+            PoolChannelFactory::new(
+                ids,
+                extranonces,
+                creator,
+                share_per_min,
+                kind,
+                pool_coinbase_outputs.expect("Invalid coinbase output in config"),
+                config.pool_signature.clone().into_bytes(),
+            )
+            .expect("Signature + extranonce lens exceed 32 bytes"),
+        ));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             solution_sender,

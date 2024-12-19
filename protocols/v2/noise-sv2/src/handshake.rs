@@ -33,9 +33,8 @@
 use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROTOCOL_NAME_CHACHA};
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
-    ecdh::SharedSecret,
     hashes::{sha256::Hash as Sha256Hash, Hash},
-    rand, Keypair, Secp256k1, SecretKey, XOnlyPublicKey,
+    rand, Keypair, Secp256k1,
 };
 
 // Represents the operations needed during a Noise protocol handshake.
@@ -166,17 +165,6 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         (out_1, out_2)
     }
 
-    fn hkdf_3(
-        chaining_key: &[u8; 32],
-        input_key_material: &[u8],
-    ) -> ([u8; 32], [u8; 32], [u8; 32]) {
-        let temp_key = Self::hmac_hash(chaining_key, input_key_material);
-        let out_1 = Self::hmac_hash(&temp_key, &[0x1]);
-        let out_2 = Self::hmac_hash(&temp_key, &[&out_1[..], &[0x2][..]].concat());
-        let out_3 = Self::hmac_hash(&temp_key, &[&out_2[..], &[0x3][..]].concat());
-        (out_1, out_2, out_3)
-    }
-
     // Mixes the input key material into the current chaining key (`ck`) and initializes the
     // handshake cipher with an updated encryption key (`k`).
     //
@@ -227,13 +215,6 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         };
         self.mix_hash(&encrypted);
         Ok(())
-    }
-
-    fn ecdh(private: &[u8], public: &[u8]) -> [u8; 32] {
-        let private = SecretKey::from_slice(private).expect("Wrong key");
-        let x_public = XOnlyPublicKey::from_slice(public).expect("Wrong key");
-        let res = SharedSecret::new(&x_public.public_key(crate::PARITY), &private);
-        res.secret_bytes()
     }
 
     // Initializes the handshake state by setting the initial chaining key (`ck`) and handshake
@@ -463,23 +444,6 @@ mod test {
         assert!(cipher_1.get_h() == cipher_2.get_h());
     }
 
-    #[test]
-    fn test_ecdh() {
-        let key_pair_1 = TestHandShake::generate_key();
-        let key_pair_2 = TestHandShake::generate_key();
-
-        let secret_1 = key_pair_1.secret_bytes();
-        let secret_2 = key_pair_2.secret_bytes();
-
-        let pub_1 = key_pair_1.x_only_public_key();
-        let pub_2 = key_pair_2.x_only_public_key();
-
-        let ecdh_1 = TestHandShake::ecdh(&secret_1, &pub_2.0.serialize());
-        let ecdh_2 = TestHandShake::ecdh(&secret_2, &pub_1.0.serialize());
-
-        assert!(ecdh_1 == ecdh_2);
-    }
-
     #[derive(Clone, Debug)]
     struct KeypairWrapper(pub Option<Keypair>);
 
@@ -501,33 +465,6 @@ mod test {
                 Ok(secret) => KeypairWrapper(Some(Keypair::from_secret_key(&secp, &secret))),
                 Err(_) => KeypairWrapper(None),
             }
-        }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ecdh_1(kp1: KeypairWrapper, kp2: KeypairWrapper) -> TestResult {
-        let (kp1, kp2) = match (kp1.0, kp2.0) {
-            (Some(kp1), Some(kp2)) => (kp1, kp2),
-            _ => return TestResult::discard(),
-        };
-        if kp1.x_only_public_key().1 == crate::PARITY && kp2.x_only_public_key().1 == crate::PARITY
-        {
-            let secret_1 = kp1.secret_bytes();
-            let secret_2 = kp2.secret_bytes();
-
-            let pub_1 = kp1.x_only_public_key();
-            let pub_2 = kp2.x_only_public_key();
-
-            let ecdh_1 = TestHandShake::ecdh(&secret_1, &pub_2.0.serialize());
-            let ecdh_2 = TestHandShake::ecdh(&secret_2, &pub_1.0.serialize());
-
-            if ecdh_1 == ecdh_2 {
-                TestResult::passed()
-            } else {
-                TestResult::failed()
-            }
-        } else {
-            TestResult::discard()
         }
     }
 }

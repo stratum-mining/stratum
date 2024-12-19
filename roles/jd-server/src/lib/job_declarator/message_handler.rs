@@ -1,16 +1,19 @@
-use binary_sv2::ShortTxId;
+use binary_sv2::{Deserialize, U256};
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-        DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
-        ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
+        DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
+        ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
     utils::Mutex,
 };
 use std::{convert::TryInto, io::Cursor, sync::Arc};
-use stratum_common::bitcoin::{Transaction, Txid};
+use stratum_common::bitcoin::{
+    hashes::{sha256d::Hash as Hash256, Hash},
+    Transaction, Txid,
+};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
 
@@ -73,36 +76,21 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         // The unknown transactions is a vector that contains the transactions that are not in the
         // jds mempool, and will be non-empty in the ProvideMissingTransactionsSuccess message
         let mut known_transactions: Vec<Txid> = vec![];
-        self.tx_hash_list_hash = Some(message.tx_hash_list_hash.clone().into_static());
         if self.verify_job(&message) {
-            let short_hash_list: Vec<ShortTxId> = message
-                .tx_short_hash_list
-                .inner_as_ref()
-                .iter()
-                .map(|x| x.to_vec().try_into().unwrap())
-                .collect();
-            let nonce = message.tx_short_hash_nonce;
-            // TODO return None when we have a collision handle that case as weel
-            let short_id_mempool = self
-                .mempool
-                .safe_lock(|x| x.to_short_ids(nonce))
-                .unwrap()
-                .unwrap();
-            let mut transactions_with_state =
-                vec![TransactionState::Missing; short_hash_list.len()];
+            let hash_list: Vec<&[u8]> = message.tx_list.inner_as_ref().clone();
+            let mempool = self.mempool.safe_lock(|x| x.mempool.clone()).unwrap();
+            let mut transactions_with_state = vec![TransactionState::Missing; hash_list.len()];
             let mut missing_txs: Vec<u16> = Vec::new();
 
-            for (i, sid) in short_hash_list.iter().enumerate() {
-                let sid_: [u8; 6] = sid.to_vec().try_into().unwrap();
-                match short_id_mempool.get(&sid_) {
-                    Some(tx_data) => {
-                        transactions_with_state[i] = TransactionState::PresentInMempool(tx_data.id);
-                        known_transactions.push(tx_data.id);
-                    }
-                    None => {
-                        transactions_with_state[i] = TransactionState::Missing;
-                        missing_txs.push(i as u16);
-                    }
+            for (i, id) in hash_list.iter().enumerate() {
+                let hash = Hash256::from_slice(id).unwrap();
+                let id_ = Txid::from_hash(hash);
+                if mempool.contains_key(&id_) {
+                    transactions_with_state[i] = TransactionState::PresentInMempool(id_);
+                    known_transactions.push(id_);
+                } else {
+                    transactions_with_state[i] = TransactionState::Missing;
+                    missing_txs.push(i as u16);
                 }
             }
             self.declared_mining_job = (
@@ -118,10 +106,12 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .append(&mut known_transactions);
 
             if missing_txs.is_empty() {
+                let mut placeholder = [0_u8; 32];
                 let message_success = DeclareMiningJobSuccess {
                     request_id: message.request_id,
                     new_mining_job_token: signed_token(
-                        message.tx_hash_list_hash.clone(),
+                        // TODO here we maybe want to have the hash of the concatenated txs
+                        U256::from_bytes(&mut placeholder).unwrap(),
                         &self.public_key.clone(),
                         &self.private_key.clone(),
                     ),
@@ -148,13 +138,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             let message_enum_error = JobDeclaration::DeclareMiningJobError(message_error);
             Ok(SendTo::Respond(message_enum_error))
         }
-    }
-
-    fn handle_identify_transactions_success(
-        &mut self,
-        _message: IdentifyTransactionsSuccess,
-    ) -> Result<SendTo, Error> {
-        Ok(SendTo::None(None))
     }
 
     fn handle_provide_missing_transactions_success(
@@ -201,12 +184,12 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                             TransactionState::Missing => return Err(Error::JDSMissingTransactions),
                         }
                     }
-                    // TODO check it
-                    let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
+                    let mut placeholder = [0_u8; 32];
                     let message_success = DeclareMiningJobSuccess {
                         request_id: message.request_id,
                         new_mining_job_token: signed_token(
-                            tx_hash_list_hash,
+                            // TODO here we maybe want to have the hash of the concatenated txs
+                            U256::from_bytes(&mut placeholder).unwrap(),
                             &self.public_key.clone(),
                             &self.private_key.clone(),
                         ),
@@ -233,56 +216,49 @@ fn clear_declared_mining_job(
     new_mining_job: &DeclareMiningJob,
     mempool: Arc<Mutex<JDsMempool>>,
 ) -> Result<(), Error> {
-    let old_transactions = old_mining_job.tx_short_hash_list.inner_as_ref();
-    let new_transactions = new_mining_job.tx_short_hash_list.inner_as_ref();
+    let old_transactions = old_mining_job.tx_list.inner_as_ref();
+    let new_transactions = new_mining_job.tx_list.inner_as_ref();
 
     if old_transactions.is_empty() {
         info!("No transactions to remove from mempool");
         return Ok(());
     }
 
-    let nonce = old_mining_job.tx_short_hash_nonce;
-
     let result = mempool
         .safe_lock(|mempool_| -> Result<(), Error> {
-            let short_ids_map = mempool_
-                .to_short_ids(nonce)
-                .ok_or(Error::JDSMissingTransactions)?;
+            let mempool = &mut mempool_.mempool;
+            let mut to_remove = Vec::new();
 
-            for short_id in old_transactions
-                .iter()
-                .filter(|&id| !new_transactions.contains(id))
-            {
-                if let Some(transaction_with_hash) = short_ids_map.get(*short_id) {
-                    let txid = transaction_with_hash.id;
-                    match mempool_.mempool.get_mut(&txid) {
-                        Some(Some((_transaction, counter))) => {
+            for (id, tx) in mempool {
+                if new_transactions.contains(&id.as_ref()) {
+                    match tx {
+                        Some((_, counter)) => {
                             if *counter > 1 {
                                 *counter -= 1;
                                 debug!(
-                                    "Fat transaction {:?} counter decremented; job id {:?} dropped",
-                                    txid, old_mining_job.request_id
+                                    "Transaction {:?} counter decremented; job id {:?} dropped",
+                                    id, old_mining_job.mining_job_token
                                 );
                             } else {
-                                mempool_.mempool.remove(&txid);
+                                to_remove.push(*id);
                                 debug!(
-                                    "Fat transaction {:?} with job id {:?} removed from mempool",
-                                    txid, old_mining_job.request_id
+                                    "Transaction {:?} with job id {:?} removed from mempool",
+                                    id, old_mining_job.mining_job_token
                                 );
                             }
                         }
-                        Some(None) => debug!(
-                            "Thin transaction {:?} with job id {:?} removed from mempool",
-                            txid, old_mining_job.request_id
-                        ),
-                        None => {}
+                        None => {
+                            to_remove.push(*id);
+                            debug!(
+                                "Transaction {:?} with job id {:?} removed from mempool",
+                                id, old_mining_job.request_id
+                            );
+                        }
                     }
-                } else {
-                    debug!(
-                        "Transaction with short id {:?} not found in mempool for old jobs",
-                        short_id
-                    );
                 }
+            }
+            for id in to_remove {
+                mempool_.mempool.remove(&id);
             }
             Ok(())
         })

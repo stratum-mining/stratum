@@ -65,8 +65,6 @@ mod impls;
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::Slice;
 
-use alloc::vec::Vec;
-
 /// The `SizeHint` trait provides a mechanism to return the encoded bytes size of a decodable type.
 ///
 /// It defines two methods for retrieving the size of an encoded message:
@@ -109,19 +107,6 @@ pub trait Fixed {
     ///the constant `SIZE`, represents the fixed number of bytes needed to encode or decode the
     /// type.
     const SIZE: usize;
-}
-
-// Not used and will be removed during refactoring
-pub trait Variable {
-    const HEADER_SIZE: usize;
-    //const ELEMENT_SIZE: usize;
-    const MAX_SIZE: usize;
-
-    fn inner_size(&self) -> usize;
-
-    // Retrieves the header as a byte vector. This header typically contains information
-    // about the size or type of the data that follows.
-    fn get_header(&self) -> Vec<u8>;
 }
 
 impl<T: Fixed> SizeHint for T {
