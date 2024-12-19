@@ -425,8 +425,16 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> SocketAddr {
         downstream_difficulty_config,
     );
 
-    let config =
-        translator_sv2::proxy_config::ProxyConfig::new(upstream_conf, downstream_conf, 2, 2, 8);
+    let min_extranonce2_size = 5;
+    let min_version = 5;
+    let max_version = 5;
+    let config = translator_sv2::proxy_config::ProxyConfig::new(
+        upstream_conf,
+        downstream_conf,
+        max_version,
+        min_version,
+        min_extranonce2_size,
+    );
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
     tokio::spawn(async move {
         translator_v2.start().await;
