@@ -30,6 +30,8 @@
 // mandatory for communication across external networks (e.g., between a local mining proxy and a
 // remote pool).
 
+use alloc::{string::String, vec::Vec};
+
 use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROTOCOL_NAME_CHACHA};
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
@@ -99,14 +101,19 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     // Generates a fresh key pair, consisting of a secret key and a corresponding public key,
     // using the [`Secp256k1`] elliptic curve. If the generated public key does not match the
     // expected parity, a new key pair is generated to ensure consistency.
+    #[cfg(feature = "std")]
     fn generate_key() -> Keypair {
+        Self::generate_key_with_rng(&mut rand::thread_rng())
+    }
+    #[inline]
+    fn generate_key_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Keypair {
         let secp = Secp256k1::new();
-        let (secret_key, _) = secp.generate_keypair(&mut rand::thread_rng());
+        let (secret_key, _) = secp.generate_keypair(rng);
         let kp = Keypair::from_secret_key(&secp, &secret_key);
         if kp.x_only_public_key().1 == crate::PARITY {
             kp
         } else {
-            Self::generate_key()
+            Self::generate_key_with_rng(rng)
         }
     }
 
@@ -273,10 +280,11 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::string::ToString;
+    use core::convert::TryInto;
     use quickcheck::{Arbitrary, TestResult};
     use quickcheck_macros;
     use secp256k1::{ecdh::SharedSecret, SecretKey, XOnlyPublicKey};
-    use std::convert::TryInto;
 
     struct TestHandShake {
         k: Option<[u8; 32]>,
@@ -464,9 +472,27 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_ecdh() {
         let key_pair_1 = TestHandShake::generate_key();
         let key_pair_2 = TestHandShake::generate_key();
+
+        let secret_1 = key_pair_1.secret_bytes();
+        let secret_2 = key_pair_2.secret_bytes();
+
+        let pub_1 = key_pair_1.x_only_public_key();
+        let pub_2 = key_pair_2.x_only_public_key();
+
+        let ecdh_1 = TestHandShake::ecdh(&secret_1, &pub_2.0.serialize());
+        let ecdh_2 = TestHandShake::ecdh(&secret_2, &pub_1.0.serialize());
+
+        assert!(ecdh_1 == ecdh_2);
+    }
+
+    #[test]
+    fn test_ecdh_with_rng() {
+        let key_pair_1 = TestHandShake::generate_key_with_rng(&mut rand::thread_rng());
+        let key_pair_2 = TestHandShake::generate_key_with_rng(&mut rand::thread_rng());
 
         let secret_1 = key_pair_1.secret_bytes();
         let secret_2 = key_pair_2.secret_bytes();
