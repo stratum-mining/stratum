@@ -7,6 +7,7 @@ use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time};
+use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::util::uint::Uint256;
 use v1::{
@@ -105,17 +106,17 @@ impl Client {
                 match message {
                     Ok(msg) => {
                         if let Err(e) = sender_incoming.send(msg).await {
-                            eprintln!("Failed to send message to receiver_incoming: {:?}", e);
+                            error!("Failed to send message to receiver_incoming: {:?}", e);
                             break; // Exit the loop if sending fails
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error reading from socket: {:?}", e);
+                        error!("Error reading from socket: {:?}", e);
                         break; // Exit the loop on read failure
                     }
                 }
             }
-            eprintln!("Reader task terminated.");
+            warn!("Reader task terminated.");
         });
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
@@ -234,7 +235,7 @@ impl Client {
     ) {
         // If we have a line (1 line represents 1 sv1 incoming message), then handle that message
         if let Ok(line) = incoming_message {
-            println!(
+            info!(
                 "CLIENT {} - Received: {}",
                 self_.safe_lock(|s| s.client_id).unwrap(),
                 line
@@ -254,7 +255,7 @@ impl Client {
     /// Send SV1 messages to the receiver_outgoing which writes to the socket (aka Upstream node)
     async fn send_message(sender: Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        println!(" - Send: {}", &msg);
+        info!(" - Send: {}", &msg);
         sender.send(msg).await.unwrap();
     }
 
