@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  MSRV-1.75-Check:
+  Msrv-Check:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -32,7 +32,7 @@ jobs:
       - name: Build Utils
         run: cargo build --manifest-path=utils/Cargo.toml
 
-  semver-check:
+  Semver-check:
     runs-on: ubuntu-latest
 
     steps:
