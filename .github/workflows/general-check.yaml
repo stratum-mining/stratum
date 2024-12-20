@@ -1,0 +1,315 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  MSRV-1.75-Check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust:
+          - 1.75.0 # MSRV
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Swatinem/rust-cache@v1.2.0
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Build Benches
+        run: cargo build --manifest-path=benches/Cargo.toml
+      - name: Build Protocols
+        run: cargo build --manifest-path=protocols/Cargo.toml
+      - name: Build Roles
+        run: cargo build --manifest-path=roles/Cargo.toml
+      - name: Build Utils
+        run: cargo build --manifest-path=utils/Cargo.toml
+
+  semver-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --version 0.37.0 --locked
+
+      - name: Run semver checks for common
+        working-directory: common
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/buffer
+        working-directory: utils/buffer
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/binary-sv2/no-serde-sv2/codec
+        working-directory: protocols/v2/binary-sv2/no-serde-sv2/codec
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/binary-sv2/serde-sv2
+        working-directory: protocols/v2/binary-sv2/serde-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/binary-sv2/binary-sv2
+        working-directory: protocols/v2/binary-sv2/binary-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/const-sv2
+        working-directory: protocols/v2/const-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/framing-sv2
+        working-directory: protocols/v2/framing-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/noise-sv2
+        working-directory: protocols/v2/noise-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/codec-sv2
+        working-directory: protocols/v2/codec-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/common-messages
+        working-directory: protocols/v2/subprotocols/common-messages
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/job-declaration
+        working-directory: protocols/v2/subprotocols/job-declaration
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/mining
+        working-directory: protocols/v2/subprotocols/mining
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/template-distribution
+        working-directory: protocols/v2/subprotocols/template-distribution
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/sv2-ffi
+        working-directory: protocols/v2/sv2-ffi
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/roles-logic-sv2
+        working-directory: protocols/v2/roles-logic-sv2
+        run: cargo semver-checks --default-features
+
+      - name: Run semver checks for protocols/v1
+        working-directory: protocols/v1
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/bip32-key-derivation
+        working-directory: utils/bip32-key-derivation
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/error-handling
+        working-directory: utils/error-handling
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/key-utils
+        working-directory: utils/key-utils
+        run: cargo semver-checks
+
+      - name: Run semver checks for roles/roles-utils/network-helpers
+        working-directory: roles/roles-utils/network-helpers
+        run: cargo semver-checks
+
+      - name: Run semver checks for roles/roles-utils/rpc
+        working-directory: roles/roles-utils/rpc
+        run: cargo semver-checks
+  
+  Lockfiles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build with locked dependencies
+        run: |
+          cargo build --manifest-path=roles/Cargo.toml --locked
+          cargo build --manifest-path=utils/Cargo.toml --locked
+
+  Rust-fmt:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
+      - name: Run fmt in different workspaces and crates
+        run: |
+          cargo fmt --all --manifest-path=benches/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=common/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=protocols/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=roles/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=utils/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=utils/message-generator/Cargo.toml -- --check
+  
+  clippy-check-lint:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.75.0
+          override: true
+          components: clippy
+      - name: Run Clippy on different workspaces and crates
+        run: |
+          cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=utils/message-generator/Cargo.toml -- -D warnings -A dead-code
+
+  Tests-ci:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-13
+          - ubuntu-latest
+        include:
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - name: Install stable toolchain & components
+        uses: actions/checkout@v4
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: Build
+        run: |
+          cargo build --manifest-path=benches/Cargo.toml
+          cargo build --manifest-path=common/Cargo.toml
+          cargo build --manifest-path=protocols/Cargo.toml
+          cargo build --manifest-path=roles/Cargo.toml
+          cargo build --manifest-path=utils/Cargo.toml
+
+      - name: Roles Integration Tests
+        run: |
+          cargo test --manifest-path=roles/Cargo.toml --verbose --test '*' -- --nocapture
+
+      - name: Run sv1-client-and-server example
+        run: |
+          cargo run --manifest-path=examples/sv1-client-and-server/Cargo.toml --bin client_and_server -- 60
+
+      - name: interop-test
+        run: |
+          if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
+            ./run.sh 30
+          else
+            echo "Skipping interop-test on ${{ matrix.os }} - not supported"
+          fi
+        working-directory: examples/interop-cpp/
+
+          # TODO this is only usefull if we want to build c bindings with guix
+          #- name: interop-no-cargo-test
+          #  run: |
+          #    if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
+          #      ./run.sh 30
+          #    else
+          #      echo "Skipping interop-test on ${{ matrix.os }} - not supported"
+          #    fi
+          #  working-directory: examples/interop-cpp-no-cargo/
+
+      - name: fuzz tests
+        run: |
+          if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
+            ./run.sh 30
+          else
+            echo "Skipping fuzz test on ${{ matrix.os }} - not supported"
+          fi
+        working-directory: utils/buffer/fuzz
+
+      - name: Test
+        run: |
+          cargo test --manifest-path=benches/Cargo.toml
+          cargo test --manifest-path=common/Cargo.toml
+          cargo test --manifest-path=protocols/Cargo.toml
+          cargo test --manifest-path=roles/Cargo.toml
+          cargo test --manifest-path=utils/Cargo.toml
+
+      - name: Property based testing
+        run: |
+          cargo test --manifest-path=protocols/Cargo.toml --features prop_test
+
+      - name: Run ping-pong-with-noise example
+        run: |
+          cargo run --manifest-path=examples/ping-pong-with-noise/Cargo.toml --bin ping_pong_with_noise -- 10
+
+      - name: Run ping-pong-without-noise example
+        run: |
+          cargo run --manifest-path=examples/ping-pong-without-noise/Cargo.toml --bin ping_pong_without_noise -- 10
+  
