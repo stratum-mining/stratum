@@ -16,26 +16,26 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 pub use v1::server_to_client;
 
-use proxy_config::ProxyConfig;
+use jdc_config::JDCConfig;
 
 use crate::status::State;
 
 pub mod downstream_sv1;
 pub mod error;
+pub mod jdc_config;
 pub mod proxy;
-pub mod proxy_config;
 pub mod status;
 pub mod upstream_sv2;
 pub mod utils;
 
 #[derive(Clone, Debug)]
 pub struct TranslatorSv2 {
-    config: ProxyConfig,
+    config: JDCConfig,
     reconnect_wait_time: u64,
 }
 
 impl TranslatorSv2 {
-    pub fn new(config: ProxyConfig) -> Self {
+    pub fn new(config: JDCConfig) -> Self {
         let mut rng = rand::thread_rng();
         let wait_time = rng.gen_range(0..=3000);
         Self {
@@ -139,7 +139,7 @@ impl TranslatorSv2 {
         tx_status: async_channel::Sender<Status<'static>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
-        let proxy_config = self.config.clone();
+        let jdc_config = self.config.clone();
         // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
         // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
         let (tx_sv2_submit_shares_ext, rx_sv2_submit_shares_ext) = bounded(10);
@@ -166,21 +166,21 @@ impl TranslatorSv2 {
 
         // Format `Upstream` connection address
         let upstream_addr = SocketAddr::new(
-            IpAddr::from_str(&proxy_config.upstream_address)
+            IpAddr::from_str(&jdc_config.upstream_address)
                 .expect("Failed to parse upstream address!"),
-            proxy_config.upstream_port,
+            jdc_config.upstream_port,
         );
 
-        let diff_config = Arc::new(Mutex::new(proxy_config.upstream_difficulty_config.clone()));
+        let diff_config = Arc::new(Mutex::new(jdc_config.upstream_difficulty_config.clone()));
         let task_collector_upstream = task_collector.clone();
         // Instantiate a new `Upstream` (SV2 Pool)
         let upstream = match upstream_sv2::Upstream::new(
             upstream_addr,
-            proxy_config.upstream_authority_pubkey,
+            jdc_config.upstream_authority_pubkey,
             rx_sv2_submit_shares_ext,
             tx_sv2_set_new_prev_hash,
             tx_sv2_new_ext_mining_job,
-            proxy_config.min_extranonce2_size,
+            jdc_config.min_extranonce2_size,
             tx_sv2_extranonce,
             status::Sender::Upstream(tx_status.clone()),
             target.clone(),
@@ -204,8 +204,8 @@ impl TranslatorSv2 {
             // Connect to the SV2 Upstream role
             match upstream_sv2::Upstream::connect(
                 upstream.clone(),
-                proxy_config.min_supported_version,
-                proxy_config.max_supported_version,
+                jdc_config.min_supported_version,
+                jdc_config.max_supported_version,
             )
             .await
             {
@@ -258,8 +258,8 @@ impl TranslatorSv2 {
 
             // Format `Downstream` connection address
             let downstream_addr = SocketAddr::new(
-                IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
-                proxy_config.downstream_port,
+                IpAddr::from_str(&jdc_config.downstream_address).unwrap(),
+                jdc_config.downstream_port,
             );
 
             let task_collector_downstream = task_collector_init_task.clone();
@@ -270,7 +270,7 @@ impl TranslatorSv2 {
                 tx_sv1_notify,
                 status::Sender::DownstreamListener(tx_status.clone()),
                 b,
-                proxy_config.downstream_difficulty_config,
+                jdc_config.downstream_difficulty_config,
                 diff_config,
                 task_collector_downstream,
             );

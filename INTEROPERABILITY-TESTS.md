@@ -61,7 +61,7 @@ Once the pool role is running you can start up the Translation Proxy. The transl
    
 If this successfully starts up you'll see these messages as part of the output:
 ```
-2023-01-11T21:29:05.468529Z  INFO translator: PC: ProxyConfig { upstream_address: "127.0.0.1", upstream_port: 34254, upstream_authority_pubkey: "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL", downstream_address: "0.0.0.0", downstream_port: 34255, max_supported_version: 2, min_supported_version: 2, min_extranonce2_size: 16 }
+2023-01-11T21:29:05.468529Z  INFO translator: PC: JDCConfig { upstream_address: "127.0.0.1", upstream_port: 34254, upstream_authority_pubkey: "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL", downstream_address: "0.0.0.0", downstream_port: 34255, max_supported_version: 2, min_supported_version: 2, min_extranonce2_size: 16 }
 2023-01-11T21:29:05.469467Z  INFO translator::upstream_sv2::upstream: PROXY SERVER - ACCEPTING FROM UPSTREAM: 127.0.0.1:34254
 2023-01-11T21:29:05.477542Z  INFO translator::upstream_sv2::upstream: Up: Sending: SetupConnection { protocol: MiningProtocol, min_version: 2, max_version: 2, flags: 14, endpoint_host: Owned([48, 46, 48, 46, 48, 46, 48]), endpoint_port: 50, vendor: Owned([]), hardware_version: Owned([]), firmware: Owned([]), device_id: Owned([]) }
 2023-01-11T21:29:05.479122Z DEBUG translator::upstream_sv2::upstream: Up: Handling SetupConnectionSuccess

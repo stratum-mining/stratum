@@ -4,7 +4,7 @@ mod lib;
 
 use lib::{
     error::{Error, ProxyResult},
-    proxy_config::ProxyConfig,
+    jdc_config::JDCConfig,
     status, JobDeclaratorClient,
 };
 
@@ -14,7 +14,7 @@ use tracing::error;
 
 /// Process CLI args and load configuration.
 #[allow(clippy::result_large_err)]
-fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+fn process_cli_args<'a>() -> ProxyResult<'a, JDCConfig> {
     // Parse CLI arguments
     let args = Args::from_args().map_err(|help| {
         error!("{}", help);
@@ -31,8 +31,8 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()?;
 
-    // Deserialize settings into ProxyConfig
-    let config = settings.try_deserialize::<ProxyConfig>()?;
+    // Deserialize settings into JDCConfig
+    let config = settings.try_deserialize::<JDCConfig>()?;
     Ok(config)
 }
 
@@ -91,7 +91,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let proxy_config = match process_cli_args() {
+    let jdc_config = match process_cli_args() {
         Ok(p) => p,
         Err(e) => {
             error!("Job Declarator Client Config error: {}", e);
@@ -99,6 +99,6 @@ async fn main() {
         }
     };
 
-    let jdc = JobDeclaratorClient::new(proxy_config);
+    let jdc = JobDeclaratorClient::new(jdc_config);
     jdc.start().await;
 }
