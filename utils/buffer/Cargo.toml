@@ -33,6 +33,3 @@ harness = false
 debug = []
 fuzz = []
 with_serde = ["serde"]
-
-[package.metadata.docs.rs]
-all-features = true

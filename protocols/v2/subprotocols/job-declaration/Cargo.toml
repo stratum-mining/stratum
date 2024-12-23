@@ -19,6 +19,3 @@ const_sv2 = {version = "^3.0.0", path = "../../const-sv2"}
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde"]
-
-[package.metadata.docs.rs]
-all-features = true

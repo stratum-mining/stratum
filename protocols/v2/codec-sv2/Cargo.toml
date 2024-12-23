@@ -29,4 +29,4 @@ with_buffer_pool = ["framing_sv2/with_buffer_pool"]
 no_std = []
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["with_buffer_pool", "noise_sv2"]

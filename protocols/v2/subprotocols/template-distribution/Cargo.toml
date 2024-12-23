@@ -23,6 +23,3 @@ quickcheck_macros = { version = "1", optional=true }
 [features]
 with_serde = ["binary_sv2/with_serde", "serde"]
 prop_test = ["quickcheck"]
-
-[package.metadata.docs.rs]
-all-features = true
