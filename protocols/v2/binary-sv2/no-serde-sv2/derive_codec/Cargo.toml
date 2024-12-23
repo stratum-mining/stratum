@@ -18,6 +18,3 @@ binary_codec_sv2 = {version = "^1.0.0", path="../codec"}
 
 [lib]
 proc-macro = true
-
-[package.metadata.docs.rs]
-all-features = true

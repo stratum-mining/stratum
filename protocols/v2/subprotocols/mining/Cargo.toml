@@ -25,6 +25,3 @@ quickcheck_macros = "1"
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde"]
-
-[package.metadata.docs.rs]
-all-features = true
