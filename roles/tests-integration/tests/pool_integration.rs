@@ -1,9 +1,7 @@
-mod common;
+use integration_tests_sv2::*;
 
-use common::sniffer::MessageDirection;
-use const_sv2::{
-    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
-};
+use crate::sniffer::MessageDirection;
+use const_sv2::{MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     parsers::{AnyMessage, CommonMessages, Mining, PoolMessages, TemplateDistribution},
@@ -15,9 +13,9 @@ use roles_logic_sv2::{
 // Pool will connect to the Sniffer, and the Sniffer will connect to the Template Provider.
 #[tokio::test]
 async fn success_pool_template_provider_connection() {
-    let (_tp, tp_addr) = common::start_template_provider(None).await;
-    let (sniffer, sniffer_addr) = common::start_sniffer("".to_string(), tp_addr, true, None).await;
-    let _ = common::start_pool(Some(sniffer_addr)).await;
+    let (_tp, tp_addr) = start_template_provider(None).await;
+    let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, true, None).await;
+    let _ = start_pool(Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
     // with the correct parameters, protocol, flags, min_version and max_version.  Note that the
     // macro can take any number of arguments after the message argument, but the order is
@@ -66,28 +64,18 @@ async fn success_pool_template_provider_connection() {
 #[tokio::test]
 async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     let sv2_interval = Some(5);
-    let (_tp, tp_addr) = common::start_template_provider(sv2_interval).await;
+    let (_tp, tp_addr) = start_template_provider(sv2_interval).await;
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer".to_string();
-    let (tp_pool_sniffer, tp_pool_sniffer_addr) = common::start_sniffer(
-        tp_pool_sniffer_identifier,
-        tp_addr,
-        false,
-        None,
-    )
-    .await;
-    let (_,pool_addr) = common::start_pool(Some(tp_pool_sniffer_addr)).await;
+    let (tp_pool_sniffer, tp_pool_sniffer_addr) =
+        start_sniffer(tp_pool_sniffer_identifier, tp_addr, false, None).await;
+    let (_, pool_addr) = start_pool(Some(tp_pool_sniffer_addr)).await;
     let pool_translator_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job pool_translator sniffer"
             .to_string();
-    let (pool_translator_sniffer, pool_translator_sniffer_addr) = common::start_sniffer(
-        pool_translator_sniffer_identifier,
-        pool_addr,
-        false,
-        None,
-    )
-    .await;
-    let _tproxy_addr = common::start_sv2_translator(pool_translator_sniffer_addr).await;
+    let (pool_translator_sniffer, pool_translator_sniffer_addr) =
+        start_sniffer(pool_translator_sniffer_identifier, pool_addr, false, None).await;
+    let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr).await;
     assert_common_message!(
         &tp_pool_sniffer.next_message_from_upstream(),
         SetupConnectionSuccess

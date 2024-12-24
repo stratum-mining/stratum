@@ -35,4 +35,4 @@ rand = "0.8.4"
 stratum-common = { path = "../../common" }
 
 [lib]
-path = "tests/common/mod.rs"
+path = "lib/mod.rs"

@@ -1,17 +1,15 @@
-mod common;
-
-use std::convert::TryInto;
-
-use common::sniffer::{InterceptMessage, MessageDirection};
 use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR;
+use integration_tests_sv2::*;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionError,
     parsers::{CommonMessages, PoolMessages},
 };
+use sniffer::{InterceptMessage, MessageDirection};
+use std::convert::TryInto;
 
 #[tokio::test]
 async fn test_sniffer_interrupter() {
-    let (_tp, tp_addr) = common::start_template_provider(None).await;
+    let (_tp, tp_addr) = start_template_provider(None).await;
     use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS;
     let message =
         PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
@@ -30,8 +28,8 @@ async fn test_sniffer_interrupter() {
         true,
     );
     let (sniffer, sniffer_addr) =
-        common::start_sniffer("".to_string(), tp_addr, false, Some(vec![interrupt_msgs])).await;
-    let _ = common::start_pool(Some(sniffer_addr)).await;
+        start_sniffer("".to_string(), tp_addr, false, Some(vec![interrupt_msgs])).await;
+    let _ = start_pool(Some(sniffer_addr)).await;
     assert_common_message!(&sniffer.next_message_from_downstream(), SetupConnection);
     assert_common_message!(&sniffer.next_message_from_upstream(), SetupConnectionError);
 }

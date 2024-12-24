@@ -1,193 +1,28 @@
-pub(crate) mod sniffer;
-
-use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};
-use flate2::read::GzDecoder;
+use crate::{sniffer::*, template_provider::*};
 use jd_client::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use once_cell::sync::Lazy;
 use pool_sv2::PoolSv2;
+use translator_sv2::TranslatorSv2;
+
+use once_cell::sync::Lazy;
 use rand::{thread_rng, Rng};
-use sniffer::Sniffer;
 use std::{
     collections::HashSet,
     convert::{TryFrom, TryInto},
-    env,
-    fs::{create_dir_all, File},
-    io::{BufReader, Read},
     net::{SocketAddr, TcpListener},
-    path::{Path, PathBuf},
     str::FromStr,
     sync::Mutex,
 };
-use tar::Archive;
-use translator_sv2::TranslatorSv2;
+
+pub mod sniffer;
+pub mod template_provider;
 
 // prevents get_available_port from ever returning the same port twice
 static UNIQUE_PORTS: Lazy<Mutex<HashSet<u16>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
-const VERSION_TP: &str = "0.1.13";
-
-fn download_bitcoind_tarball(download_url: &str) -> Vec<u8> {
-    let response = minreq::get(download_url)
-        .send()
-        .unwrap_or_else(|_| panic!("Cannot reach URL: {}", download_url));
-    assert_eq!(
-        response.status_code, 200,
-        "URL {} didn't return 200",
-        download_url
-    );
-    response.as_bytes().to_vec()
-}
-
-fn read_tarball_from_file(path: &str) -> Vec<u8> {
-    let file = File::open(path).unwrap_or_else(|_| {
-        panic!(
-            "Cannot find {:?} specified with env var BITCOIND_TARBALL_FILE",
-            path
-        )
-    });
-    let mut reader = BufReader::new(file);
-    let mut buffer = Vec::new();
-    reader.read_to_end(&mut buffer).unwrap();
-    buffer
-}
-
-fn unpack_tarball(tarball_bytes: &[u8], destination: &Path) {
-    let decoder = GzDecoder::new(tarball_bytes);
-    let mut archive = Archive::new(decoder);
-    for mut entry in archive.entries().unwrap().flatten() {
-        if let Ok(file) = entry.path() {
-            if file.ends_with("bitcoind") {
-                entry.unpack_in(destination).unwrap();
-            }
-        }
-    }
-}
-
-fn get_bitcoind_filename(os: &str, arch: &str) -> String {
-    match (os, arch) {
-        ("macos", "aarch64") => format!("bitcoin-sv2-tp-{}-arm64-apple-darwin.tar.gz", VERSION_TP),
-        ("macos", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-apple-darwin.tar.gz", VERSION_TP),
-        ("linux", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-linux-gnu.tar.gz", VERSION_TP),
-        ("linux", "aarch64") => format!("bitcoin-sv2-tp-{}-aarch64-linux-gnu.tar.gz", VERSION_TP),
-        _ => format!(
-            "bitcoin-sv2-tp-{}-x86_64-apple-darwin-unsigned.zip",
-            VERSION_TP
-        ),
-    }
-}
-
-pub struct TemplateProvider {
-    bitcoind: BitcoinD,
-}
-
-impl TemplateProvider {
-    pub fn start(port: u16, sv2_interval: u32) -> Self {
-        let temp_dir = PathBuf::from("/tmp/.template-provider");
-        let mut conf = Conf::default();
-        let staticdir = format!(".bitcoin-{}", port);
-        conf.staticdir = Some(temp_dir.join(staticdir));
-        let port_arg = format!("-sv2port={}", port);
-        let sv2_interval_arg = format!("-sv2interval={}", sv2_interval);
-        conf.args.extend(vec![
-            "-txindex=1",
-            "-sv2",
-            &port_arg,
-            "-debug=rpc",
-            "-debug=sv2",
-            &sv2_interval_arg,
-            "-sv2feedelta=0",
-            "-loglevel=sv2:trace",
-            "-logtimemicros=1",
-        ]);
-
-        let os = env::consts::OS;
-        let arch = env::consts::ARCH;
-        let download_filename = get_bitcoind_filename(os, arch);
-        let bitcoin_exe_home = temp_dir
-            .join(format!("bitcoin-sv2-tp-{}", VERSION_TP))
-            .join("bin");
-
-        if !bitcoin_exe_home.exists() {
-            let tarball_bytes = match env::var("BITCOIND_TARBALL_FILE") {
-                Ok(path) => read_tarball_from_file(&path),
-                Err(_) => {
-                    let download_endpoint =
-                        env::var("BITCOIND_DOWNLOAD_ENDPOINT").unwrap_or_else(|_| {
-                            "https://github.com/Sjors/bitcoin/releases/download".to_owned()
-                        });
-                    let url = format!(
-                        "{}/sv2-tp-{}/{}",
-                        download_endpoint, VERSION_TP, download_filename
-                    );
-                    download_bitcoind_tarball(&url)
-                }
-            };
-
-            if let Some(parent) = bitcoin_exe_home.parent() {
-                create_dir_all(parent).unwrap();
-            }
-
-            unpack_tarball(&tarball_bytes, &temp_dir);
-
-            if os == "macos" {
-                let bitcoind_binary = bitcoin_exe_home.join("bitcoind");
-                std::process::Command::new("codesign")
-                    .arg("--sign")
-                    .arg("-")
-                    .arg(&bitcoind_binary)
-                    .output()
-                    .expect("Failed to sign bitcoind binary");
-            }
-        }
-
-        env::set_var("BITCOIND_EXE", bitcoin_exe_home.join("bitcoind"));
-        let exe_path = bitcoind::exe_path().unwrap();
-
-        let bitcoind = BitcoinD::with_conf(exe_path, &conf).unwrap();
-
-        TemplateProvider { bitcoind }
-    }
-
-    fn generate_blocks(&self, n: u64) {
-        let mining_address = self
-            .bitcoind
-            .client
-            .get_new_address(None, None)
-            .unwrap()
-            .require_network(bitcoind::bitcoincore_rpc::bitcoin::Network::Regtest)
-            .unwrap();
-        self.bitcoind
-            .client
-            .generate_to_address(n, &mining_address)
-            .unwrap();
-    }
-}
-
 fn is_port_open(address: SocketAddr) -> bool {
     TcpListener::bind(address).is_err()
-}
-
-fn get_available_port() -> u16 {
-    let mut unique_ports = UNIQUE_PORTS.lock().unwrap();
-
-    loop {
-        let port = TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        if !unique_ports.contains(&port) {
-            unique_ports.insert(port);
-            return port;
-        }
-    }
-}
-
-pub fn get_available_address() -> SocketAddr {
-    let port = get_available_port();
-    SocketAddr::from(([127, 0, 0, 1], port))
 }
 
 pub async fn start_sniffer(
@@ -216,7 +51,6 @@ pub async fn start_sniffer(
 struct TestPoolSv2 {
     pool: PoolSv2,
 }
-
 impl TestPoolSv2 {
     fn new(
         listening_address: Option<SocketAddr>,
@@ -267,7 +101,6 @@ impl TestPoolSv2 {
             coinbase_outputs,
         );
         let pool = PoolSv2::new(config);
-
         Self { pool }
     }
 }
@@ -444,7 +277,7 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     (translator_v2, listening_address)
 }
 
-fn measure_hashrate(duration_secs: u64) -> f64 {
+pub fn measure_hashrate(duration_secs: u64) -> f64 {
     use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
     let mut share = {
@@ -513,4 +346,25 @@ pub async fn start_mining_sv2_proxy(upstream: SocketAddr) -> SocketAddr {
         mining_proxy_sv2::start_mining_proxy(config).await;
     });
     mining_proxy_listening_address
+}
+
+fn get_available_port() -> u16 {
+    let mut unique_ports = UNIQUE_PORTS.lock().unwrap();
+
+    loop {
+        let port = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        if !unique_ports.contains(&port) {
+            unique_ports.insert(port);
+            return port;
+        }
+    }
+}
+
+fn get_available_address() -> SocketAddr {
+    let port = get_available_port();
+    SocketAddr::from(([127, 0, 0, 1], port))
 }
