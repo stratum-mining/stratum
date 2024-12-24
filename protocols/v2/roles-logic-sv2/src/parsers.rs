@@ -1,7 +1,23 @@
-//! The parsers module provides logic to convert raw Sv2 message data into rust types,
-//! as well as logic to handle conversions among Sv2 rust types
+//! # Parsing, Serializing, and Message Type Identification
 //!
-//! Most of the logic on this module is tightly coupled with the binary_sv2 crate.
+//! Provides logic to convert raw Stratum V2 (Sv2) message data into Rust types, as well as logic
+//! to handle conversions among Sv2 rust types.
+//!
+//! Most of the logic on this module is tightly coupled with the [`binary_sv2`] crate.
+//!
+//! ## Responsibilities
+//! - **Parsing**: Converts raw Sv2 message bytes into Rust enums ([`CommonMessages`], [`Mining`],
+//!   etc.).
+//! - **Serialization**: Converts Rust enums back into binary format for transmission.
+//! - **Protocol Abstraction**: Separates logic for different Sv2 subprotocols, ensuring modular and
+//!   extensible design.
+//! - **Message Metadata**: Identifies message types and channel bits for routing and processing.
+//!
+//! ## Supported Subprotocols
+//! - **Common Messages**: Shared across all Sv2 roles.
+//! - **Template Distribution**: Handles block templates and transaction data.
+//! - **Job Declaration**: Manages mining job assignments and solutions.
+//! - **Mining Protocol**: Manages standard mining communication (e.g., job dispatch, shares).
 
 use crate::Error;
 
@@ -88,20 +104,31 @@ use mining_sv2::{
 use core::convert::{TryFrom, TryInto};
 use tracing::error;
 
-// todo: fix this, PoolMessages shouldn't be a generic parser
+// TODO: Fix this, PoolMessages shouldn't be a generic parser.
 /// An alias to a generic parser
 pub type AnyMessage<'a> = PoolMessages<'a>;
 
+/// Common Sv2 protocol messages used across all subprotocols.
+///
+/// These messages are essential
+/// for initializing connections and managing endpoints.
 /// A parser of messages that are common to all Sv2 subprotocols, to be used for parsing raw
 /// messages
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum CommonMessages<'a> {
+    /// Notifies about changes in channel endpoint configuration.
     ChannelEndpointChanged(ChannelEndpointChanged),
+
+    /// Initiates a connection between a client and server.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetupConnection(SetupConnection<'a>),
+
+    /// Indicates an error during connection setup.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetupConnectionError(SetupConnectionError<'a>),
+
+    /// Acknowledges successful connection setup.
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
@@ -148,7 +175,29 @@ pub enum JobDeclaration<'a> {
     SubmitSolution(SubmitSolutionJd<'a>),
 }
 
-/// A parser of messages of Mining subprotocol, to be used for parsing raw messages
+/// Mining subprotocol messages: categorization, encapsulation, and parsing.
+///
+/// Encapsulates mining-related Sv2 protocol messages, providing both a structured representation
+/// of parsed messages and an abstraction for communication between mining-related roles. These
+/// messages are essential for managing mining channels, distributing jobs, and processing shares.
+///
+/// ## Purpose
+/// - **Parsing Raw Messages**:
+///   - Converts raw binary Sv2 mining subprotocol messages into strongly-typed Rust
+///     representations.
+///   - Simplifies deserialization by mapping raw data directly to the appropriate enum variant.
+///   - Once parsed, the [`Mining`] enum provides a structured interface that can be passed through
+///     routing and processing layers in roles like proxies or pools.
+/// - **Encapsulation**:
+///   - Groups mining-related messages into a unified type, abstracting away low-level subprotocol
+///     details and making it easier to interact with Sv2 protocol messages.
+/// - **Facilitating Modular Handling**:
+///   - Categorizes mining messages under a single enum, enabling roles (e.g., proxies or pools) to
+///     route and process messages more efficiently using pattern matching and centralized logic.
+/// - **Bridging Parsed Messages and Role Logic**:
+///   - Acts as a bridge between parsed subprotocol messages and role-specific logic, providing a
+///     unified interface for handling mining-related communication. This reduces complexity and
+///     ensures consistency across roles.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum Mining<'a> {
