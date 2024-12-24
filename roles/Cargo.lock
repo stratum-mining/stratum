@@ -1333,7 +1333,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "integration-test"
+name = "integration_tests_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
