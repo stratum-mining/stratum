@@ -188,14 +188,14 @@ impl Sniffer {
         let responder =
             Responder::from_authority_kp(&pub_key, &prv_key, std::time::Duration::from_secs(10000))
                 .unwrap();
-        if let Ok((receiver_from_client, send_to_client, _, _)) =
+        if let Ok((receiver_from_client, sender_to_client, _, _)) =
             Connection::new::<'static, AnyMessage<'static>>(
                 stream,
                 HandshakeRole::Responder(responder),
             )
             .await
         {
-            Some((receiver_from_client, send_to_client))
+            Some((receiver_from_client, sender_to_client))
         } else {
             None
         }
@@ -205,14 +205,14 @@ impl Sniffer {
         stream: TcpStream,
     ) -> Option<(Receiver<MessageFrame>, Sender<MessageFrame>)> {
         let initiator = Initiator::without_pk().expect("This fn call can not fail");
-        if let Ok((receiver_from_client, send_to_client, _, _)) =
+        if let Ok((receiver_from_server, sender_to_server, _, _)) =
             Connection::new::<'static, AnyMessage<'static>>(
                 stream,
                 HandshakeRole::Initiator(initiator),
             )
             .await
         {
-            Some((receiver_from_client, send_to_client))
+            Some((receiver_from_server, sender_to_server))
         } else {
             None
         }
