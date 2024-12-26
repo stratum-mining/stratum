@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "no_std", no_std)]
-
 //! # Job Declaration Protocol
 //!
 //! `job_declaration_sv2` is a Rust crate that implements a set of messages defined in the Job
@@ -16,6 +14,8 @@
 //!
 //! For further information about the messages, please refer to [Stratum V2 documentation - Job
 //! Declaration](https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/).
+
+#![no_std]
 
 extern crate alloc;
 mod allocate_mining_job_token;

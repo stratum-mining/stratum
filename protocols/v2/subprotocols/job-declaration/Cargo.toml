@@ -1,6 +1,6 @@
 [package]
 name = "job_declaration_sv2"
-version = "1.0.1"
+version = "2.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2018"
 readme = "README.md"
@@ -18,7 +18,6 @@ binary_sv2 = {version = "^1.0.0", path = "../../binary-sv2/binary-sv2" }
 const_sv2 = {version = "^3.0.0", path = "../../const-sv2"}
 
 [features]
-no_std = []
 with_serde = ["binary_sv2/with_serde", "serde"]
 
 [package.metadata.docs.rs]

@@ -1,6 +1,6 @@
 [package]
 name = "template_distribution_sv2"
-version = "1.0.3"
+version = "2.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2018"
 readme = "README.md"
@@ -21,7 +21,6 @@ quickcheck = { version = "1.0.3", optional=true }
 quickcheck_macros = { version = "1", optional=true }
 
 [features]
-no_std = []
 with_serde = ["binary_sv2/with_serde", "serde"]
 prop_test = ["quickcheck"]
 
