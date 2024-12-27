@@ -1,0 +1,10 @@
+[package]
+name = "sv2_serde_json"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[[example]]
+path = "examples/json.rs"
+name = "json"
