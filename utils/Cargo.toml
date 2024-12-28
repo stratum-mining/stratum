@@ -6,7 +6,8 @@ members = [
     "error-handling",
     "key-utils",
     "bip32-key-derivation",
-]
+    "sv2_serde_json"
+, "sv2_serde_json_macros"]
 
 exclude = [
     "message-generator",

@@ -120,3 +120,38 @@ impl<'a> TryFrom<&'a Value> for &'a HashMap<String, Value> {
     }
 }
 
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::String(value)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Value::Number(Number::I64(value))
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::Number(Number::F64(value))
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Boolean(value)
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(value: Vec<Value>) -> Self {
+        Value::Array(value)
+    }
+}
+
+impl From<HashMap<String, Value>> for Value {
+    fn from(value: HashMap<String, Value>) -> Self {
+        Value::Object(value)
+    }
+}
