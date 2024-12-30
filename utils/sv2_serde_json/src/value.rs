@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Number {
     I64(i64),
-    F64(f64)
+    F64(f64),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -14,7 +13,7 @@ pub enum Value {
     Boolean(bool),
     Array(Vec<Value>),
     Object(HashMap<String, Value>),
-    Null
+    Null,
 }
 
 impl Value {
@@ -44,15 +43,13 @@ impl Value {
     }
 }
 
-
-
 impl TryFrom<&Value> for String {
     type Error = ();
 
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         match value {
             Value::String(value) => Ok(value.clone()),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -64,9 +61,23 @@ impl TryFrom<&Value> for i64 {
         match value {
             Value::Number(value) => match value {
                 Number::I64(value) => Ok(*value),
-                Number::F64(value) => Ok(*value as i64)
+                Number::F64(value) => Ok(*value as i64),
             },
-            _ => Err(())
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<&Value> for i32 {
+    type Error = ();
+
+    fn try_from(value: &Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Number(value) => match value {
+                Number::I64(value) => Ok(*value as i32),
+                Number::F64(value) => Ok(*value as i32),
+            },
+            _ => Err(()),
         }
     }
 }
@@ -78,13 +89,26 @@ impl TryFrom<&Value> for f64 {
         match value {
             Value::Number(value) => match value {
                 Number::I64(value) => Ok(*value as f64),
-                Number::F64(value) => Ok(*value)
+                Number::F64(value) => Ok(*value),
             },
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
 
+impl TryFrom<&Value> for f32 {
+    type Error = ();
+
+    fn try_from(value: &Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Number(value) => match value {
+                Number::I64(value) => Ok(*value as f32),
+                Number::F64(value) => Ok(*value as f32),
+            },
+            _ => Err(()),
+        }
+    }
+}
 
 impl TryFrom<&Value> for bool {
     type Error = ();
@@ -92,11 +116,10 @@ impl TryFrom<&Value> for bool {
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         match value {
             Value::Boolean(value) => Ok(*value),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
-
 
 impl<'a> TryFrom<&'a Value> for &'a Vec<Value> {
     type Error = ();
@@ -104,7 +127,7 @@ impl<'a> TryFrom<&'a Value> for &'a Vec<Value> {
     fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
         match value {
             Value::Array(value) => Ok(value),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -115,7 +138,7 @@ impl<'a> TryFrom<&'a Value> for &'a HashMap<String, Value> {
     fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
         match value {
             Value::Object(value) => Ok(value),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -153,5 +176,49 @@ impl From<Vec<Value>> for Value {
 impl From<HashMap<String, Value>> for Value {
     fn from(value: HashMap<String, Value>) -> Self {
         Value::Object(value)
+    }
+}
+
+impl<'a> TryFrom<&'a Value> for Vec<String> {
+    type Error = ();
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Array(arr) => arr.iter().map(|v| v.try_into()).collect(),
+            _ => Err(()), // Replace with an appropriate default if required.
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a Value> for Vec<i64> {
+    type Error = ();
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Array(arr) => arr.iter().map(|v| v.try_into()).collect(),
+            _ => Err(()), // Replace with an appropriate default if required.
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a Value> for Vec<f64> {
+    type Error = ();
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Array(arr) => arr.iter().map(|v| v.try_into()).collect(),
+            _ => Err(()), // Replace with an appropriate default if required.
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a Value> for Vec<bool> {
+    type Error = ();
+
+    fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Array(arr) => arr.iter().map(|v| v.try_into()).collect(),
+            _ => Err(()), // Replace with an appropriate default if required.
+        }
     }
 }

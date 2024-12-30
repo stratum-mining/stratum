@@ -1,14 +1,21 @@
-use std::{collections::HashMap, fs::File, io::{BufReader, Cursor}, iter::Peekable, slice::Iter};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufReader, Cursor},
+    iter::Peekable,
+    slice::Iter,
+};
 
-use crate::{token::{Jsontokensizer, Token}, value::Value};
+use crate::{
+    token::{Jsontokensizer, Token},
+    value::Value,
+};
 
 /// Main parser which is the entrypoint for parsing JSON
 pub struct JsonParser;
 
 impl JsonParser {
-    
-
-    pub fn parse_from_bytes<'a>(input: &'a[u8]) -> Result<Value, ()> {
+    pub fn parse_from_bytes<'a>(input: &'a [u8]) -> Result<Value, ()> {
         let mut json_tokenizer = Jsontokensizer::<BufReader<Cursor<&[u8]>>>::from_bytes(input);
         let tokens = json_tokenizer.tokensize_json()?;
         Ok(Self::tokens_to_value(tokens))
@@ -34,12 +41,14 @@ impl JsonParser {
                 Token::Number(number) => {
                     value = Value::Number(*number);
                 }
-                Token::ArrayOpen => {
-                    value = Value::Array(Self::process_array(&mut iterator))
-                }
+                Token::ArrayOpen => value = Value::Array(Self::process_array(&mut iterator)),
                 Token::Boolean(boolean) => value = Value::Boolean(*boolean),
                 Token::Null => value = Value::Null,
-                Token::Comma | Token::CurlyClose | Token::Quotes | Token::Colon | Token::ArrayClose => {}
+                Token::Comma
+                | Token::CurlyClose
+                | Token::Quotes
+                | Token::Colon
+                | Token::ArrayClose => {}
             }
         }
         value
@@ -47,19 +56,22 @@ impl JsonParser {
 
     fn process_object(iterator: &mut Peekable<Iter<Token>>) -> HashMap<String, Value> {
         let mut is_key = true;
-        let mut current_key : Option<&str> = None;
+        let mut current_key: Option<&str> = None;
         let mut value = HashMap::<String, Value>::new();
         while let Some(token) = iterator.next() {
             match token {
                 Token::CurlyOpen => {
                     if let Some(current_key) = current_key {
-                        value.insert(current_key.to_string(), Value::Object(Self::process_object(iterator)));
+                        value.insert(
+                            current_key.to_string(),
+                            Value::Object(Self::process_object(iterator)),
+                        );
                     }
                 }
                 Token::CurlyClose => {
                     break;
                 }
-                Token::Quotes | Token::ArrayClose => {},
+                Token::Quotes | Token::ArrayClose => {}
                 Token::Colon => {
                     is_key = false;
                 }
@@ -104,7 +116,6 @@ impl JsonParser {
 
         while let Some(token) = iterator.next() {
             match token {
-
                 Token::CurlyOpen => {
                     internal_value.push(Value::Object(Self::process_object(iterator)));
                 }
@@ -119,7 +130,6 @@ impl JsonParser {
                 Token::Boolean(boolean) => internal_value.push(Value::Boolean(*boolean)),
                 Token::Null => internal_value.push(Value::Null),
                 Token::Comma | Token::CurlyClose | Token::Quotes | Token::Colon => {}
-
             }
         }
 

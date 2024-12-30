@@ -1,8 +1,6 @@
-use std::fs::File;
-use std::io::Write;
+use std::{fs::File, io::Write};
 
-use sv2_serde_json::parser::JsonParser;
-use sv2_serde_json::value::Value;
+use sv2_serde_json::{parser::JsonParser, value::Value};
 
 fn write_value_to_file(value: &Value, file_path: &str) -> std::io::Result<()> {
     let json_bytes = value.to_json_bytes();

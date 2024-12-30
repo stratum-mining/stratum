@@ -1,7 +1,10 @@
-use std::{fs::File, io::{BufReader, Cursor, Read, Seek}, iter::Peekable};
+use std::{
+    fs::File,
+    io::{BufReader, Cursor, Read, Seek},
+    iter::Peekable,
+};
 
 use crate::{reader::JsonReader, value::Number};
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -15,28 +18,42 @@ pub enum Token {
     ArrayClose,
     Comma,
     Boolean(bool),
-    Null
+    Null,
 }
 
-
-pub struct Jsontokensizer<T> where T: Read + Seek {
+pub struct Jsontokensizer<T>
+where
+    T: Read + Seek,
+{
     tokens: Vec<Token>,
-    iterator: Peekable<JsonReader<T>>
+    iterator: Peekable<JsonReader<T>>,
 }
 
-impl<T> Jsontokensizer<T> where  T: Read + Seek {
+impl<T> Jsontokensizer<T>
+where
+    T: Read + Seek,
+{
     pub fn new(reader: File) -> Jsontokensizer<File> {
         let json_reader = JsonReader::<File>::new(BufReader::new(reader));
-        Jsontokensizer { tokens: vec![], iterator: json_reader.peekable() }
+        Jsontokensizer {
+            tokens: vec![],
+            iterator: json_reader.peekable(),
+        }
     }
 
     pub fn from_bytes<'a>(input: &'a [u8]) -> Jsontokensizer<Cursor<&'a [u8]>> {
         let json_reader = JsonReader::<Cursor<&'a [u8]>>::from_bytes(input);
-        Jsontokensizer { tokens: Vec::with_capacity(input.len()), iterator: json_reader.peekable() }
+        Jsontokensizer {
+            tokens: Vec::with_capacity(input.len()),
+            iterator: json_reader.peekable(),
+        }
     }
 }
 
-impl<T> Jsontokensizer<T> where T: Read + Seek {
+impl<T> Jsontokensizer<T>
+where
+    T: Read + Seek,
+{
     pub fn tokensize_json(&mut self) -> Result<&[Token], ()> {
         while let Some(character) = self.iterator.peek() {
             match *character {
@@ -57,24 +74,22 @@ impl<T> Jsontokensizer<T> where T: Read + Seek {
                     self.tokens.push(Token::Number(number));
                 }
                 't' => {
-                    let _ =self.iterator.next();
+                    let _ = self.iterator.next();
 
                     assert_eq!(Some('r'), self.iterator.next());
                     assert_eq!(Some('u'), self.iterator.next());
-                    assert_eq!(Some('e'), self.iterator.next()); 
+                    assert_eq!(Some('e'), self.iterator.next());
                     self.tokens.push(Token::Boolean(true));
                 }
                 'f' => {
-
                     let _ = self.iterator.next();
                     assert_eq!(Some('a'), self.iterator.next());
-                    
+
                     assert_eq!(Some('l'), self.iterator.next());
                     assert_eq!(Some('s'), self.iterator.next());
 
                     assert_eq!(Some('e'), self.iterator.next());
                     self.tokens.push(Token::Boolean(false));
-
                 }
                 'n' => {
                     let _ = self.iterator.next();
@@ -114,12 +129,11 @@ impl<T> Jsontokensizer<T> where T: Read + Seek {
                     } else {
                         self.iterator.next();
                     }
-                },
+                }
             }
         }
         Ok(&self.tokens)
     }
-
 
     fn parse_string(&mut self) -> String {
         let mut string_characters = Vec::<char>::new();
@@ -146,7 +160,7 @@ impl<T> Jsontokensizer<T> where T: Read + Seek {
         while let Some(character) = self.iterator.peek() {
             match character {
                 '-' => {
-                    if  is_epsilon_characters {
+                    if is_epsilon_characters {
                         epsilon_characters.push('-');
                     } else {
                         number_characters.push('-');
@@ -157,7 +171,7 @@ impl<T> Jsontokensizer<T> where T: Read + Seek {
                     let _ = self.iterator.next();
                 }
                 digit @ '0'..='9' => {
-                    if  is_epsilon_characters {
+                    if is_epsilon_characters {
                         epsilon_characters.push(*digit);
                     } else {
                         number_characters.push(*digit);
