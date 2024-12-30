@@ -19,6 +19,7 @@ enum Status {
     Active,
     Inactive,
     Pending,
+    Here(Person),
 }
 
 fn main() {
