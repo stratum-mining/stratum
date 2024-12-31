@@ -16,7 +16,9 @@
 //!
 //! For further information about the messages, please refer to [Stratum V2 documentation - Job
 //! Distribution](https://stratumprotocol.org/specification/07-Template-Distribution-Protocol/).
-#![cfg_attr(feature = "no_std", no_std)]
+
+#![no_std]
+
 extern crate alloc;
 
 #[cfg(feature = "prop_test")]

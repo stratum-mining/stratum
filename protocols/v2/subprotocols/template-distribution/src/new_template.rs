@@ -7,8 +7,6 @@ use binary_sv2::Error;
 use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
-#[cfg(all(feature = "with_serde", not(feature = "no_std")))]
-use std::convert::TryInto;
 
 /// Message used by an upstream(Template Provider) to provide a new template for downstream to mine
 /// on.

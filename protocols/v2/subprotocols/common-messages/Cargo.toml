@@ -1,6 +1,6 @@
 [package]
 name = "common_messages_sv2"
-version = "2.0.1"
+version = "3.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2018"
 readme = "README.md"
@@ -22,7 +22,6 @@ quickcheck_macros = { version = "1", optional = true }
 serde_repr = { version= "0.1.10", optional = true }
 
 [features]
-no_std = []
 with_serde = ["binary_sv2/with_serde", "serde", "serde_repr"]
 prop_test = ["quickcheck"]
 
