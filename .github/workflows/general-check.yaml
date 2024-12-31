@@ -23,23 +23,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Build Projects
-        run: |
-          cargo build --manifest-path=benches/Cargo.toml
-          cargo build --manifest-path=protocols/Cargo.toml
-          cargo build --manifest-path=roles/Cargo.toml
-          cargo build --manifest-path=utils/Cargo.toml
-
-  shared-strategy: &shared-strategy
-    strategy:
-      matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-        include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+        run: ./ci/build_projects.sh
 
   Semver-check:
     runs-on: ubuntu-latest
@@ -65,35 +49,21 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y cmake
       - run: cargo install cargo-semver-checks --version 0.37.0 --locked
       - name: Run Semver Checks
-        run: |
-          for dir in \
-            common \
-            utils/buffer \
-            protocols/v2/binary-sv2/no-serde-sv2/codec \
-            protocols/v2/binary-sv2/serde-sv2 \
-            protocols/v2/binary-sv2/binary-sv2 \
-            protocols/v2/const-sv2 \
-            protocols/v2/framing-sv2 \
-            protocols/v2/noise-sv2 \
-            protocols/v2/codec-sv2 \
-            protocols/v2/subprotocols/common-messages \
-            protocols/v2/subprotocols/job-declaration \
-            protocols/v2/subprotocols/mining \
-            protocols/v2/subprotocols/template-distribution \
-            protocols/v2/sv2-ffi \
-            protocols/v2/roles-logic-sv2 \
-            protocols/v1 \
-            utils/bip32-key-derivation \
-            utils/error-handling \
-            utils/key-utils \
-            roles/roles-utils/network-helpers \
-            roles/roles-utils/rpc; do
-            cargo semver-checks --manifest-path="$dir/Cargo.toml"
-          done
+        run: ./ci/run_semver_checks.sh
 
   Rust-fmt:
-    <<: *shared-strategy
     runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
@@ -103,20 +73,21 @@ jobs:
           override: true
           components: rustfmt
       - name: Run fmt in different workspaces and crates
-        run: |
-          for manifest in \
-            benches/Cargo.toml \
-            common/Cargo.toml \
-            protocols/Cargo.toml \
-            roles/Cargo.toml \
-            utils/Cargo.toml \
-            utils/message-generator/Cargo.toml; do
-            cargo fmt --all --manifest-path=$manifest -- --check
-          done
+        run: ./ci/run_fmt.sh
 
   clippy-check-lint:
-    <<: *shared-strategy
     runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
@@ -126,13 +97,4 @@ jobs:
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates
-        run: |
-          for manifest in \
-            benches/Cargo.toml \
-            common/Cargo.toml \
-            protocols/Cargo.toml \
-            roles/Cargo.toml \
-            utils/Cargo.toml \
-            utils/message-generator/Cargo.toml; do
-            cargo clippy --manifest-path=$manifest -- -D warnings -A dead-code
-          done
+        run: ./ci/run_clippy.sh
