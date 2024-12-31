@@ -23,7 +23,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Build Projects
-        run: ./scripts//build_projects.sh
+        run: ./scripts/build_projects.sh
 
   Semver-check:
     runs-on: ubuntu-latest
@@ -73,7 +73,7 @@ jobs:
           override: true
           components: rustfmt
       - name: Run fmt in different workspaces and crates
-        run: ./scripts//run_fmt.sh
+        run: ./scripts/run_fmt.sh
 
   clippy-check-lint:
     runs-on: ${{ matrix.os }}
@@ -97,4 +97,4 @@ jobs:
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates
-        run: ./scripts//run_clippy.sh
+        run: ./scripts/run_clippy.sh
