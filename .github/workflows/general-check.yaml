@@ -23,7 +23,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Build Projects
-        run: ./ci/build_projects.sh
+        run: ./scripts//build_projects.sh
 
   Semver-check:
     runs-on: ubuntu-latest
@@ -49,7 +49,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y cmake
       - run: cargo install cargo-semver-checks --version 0.37.0 --locked
       - name: Run Semver Checks
-        run: ./ci/run_semver_checks.sh
+        run: ./scripts/run_semver_checks.sh
 
   Rust-fmt:
     runs-on: ${{ matrix.os }}
@@ -73,7 +73,7 @@ jobs:
           override: true
           components: rustfmt
       - name: Run fmt in different workspaces and crates
-        run: ./ci/run_fmt.sh
+        run: ./scripts//run_fmt.sh
 
   clippy-check-lint:
     runs-on: ${{ matrix.os }}
@@ -97,4 +97,4 @@ jobs:
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates
-        run: ./ci/run_clippy.sh
+        run: ./scripts//run_clippy.sh
