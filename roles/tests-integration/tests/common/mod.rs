@@ -81,20 +81,21 @@ pub struct TemplateProvider {
 }
 
 impl TemplateProvider {
-    pub fn start(port: u16) -> Self {
+    pub fn start(port: u16, sv2_interval: u32) -> Self {
         let temp_dir = PathBuf::from("/tmp/.template-provider");
         let mut conf = Conf::default();
         let staticdir = format!(".bitcoin-{}", port);
         conf.staticdir = Some(temp_dir.join(staticdir));
-        let port = format!("-sv2port={}", port);
+        let port_arg = format!("-sv2port={}", port);
+        let sv2_interval_arg = format!("-sv2interval={}", sv2_interval);
         conf.args.extend(vec![
             "-txindex=1",
             "-sv2",
-            &port,
+            &port_arg,
             "-debug=rpc",
             "-debug=sv2",
-            "-sv2interval=20",
-            "-sv2feedelta=1000",
+            &sv2_interval_arg,
+            "-sv2feedelta=0",
             "-loglevel=sv2:trace",
             "-logtimemicros=1",
         ]);
@@ -284,8 +285,9 @@ pub async fn start_pool(
     pool
 }
 
-pub async fn start_template_provider(tp_port: u16) -> TemplateProvider {
-    let template_provider = TemplateProvider::start(tp_port);
+pub async fn start_template_provider(tp_port: u16, sv2_interval: Option<u32>) -> TemplateProvider {
+    let sv2_interval = sv2_interval.unwrap_or(20);
+    let template_provider = TemplateProvider::start(tp_port, sv2_interval);
     template_provider.generate_blocks(16);
     template_provider
 }

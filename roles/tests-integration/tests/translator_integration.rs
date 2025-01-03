@@ -21,7 +21,7 @@ async fn translation_proxy() {
         None,
     )
     .await;
-    let _tp = common::start_template_provider(tp_addr.port()).await;
+    let _tp = common::start_template_provider(tp_addr.port(), None).await;
     let _pool = common::start_pool(Some(pool_addr), Some(tp_addr)).await;
     let tproxy_addr = common::start_sv2_translator(pool_translator_sniffer_addr).await;
     let _mining_device = common::start_mining_device_sv1(tproxy_addr).await;

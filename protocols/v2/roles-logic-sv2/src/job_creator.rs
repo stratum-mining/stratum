@@ -211,10 +211,11 @@ fn new_extended_job(
         extranonce_len,
     );
 
-    let min_ntime = match new_template.future_template {
-        true => binary_sv2::Sv2Option::new(None),
-        false => binary_sv2::Sv2Option::new(ntime),
-    };
+    let min_ntime = binary_sv2::Sv2Option::new(if new_template.future_template {
+        None
+    } else {
+        ntime
+    });
 
     let new_extended_mining_job: NewExtendedMiningJob<'static> = NewExtendedMiningJob {
         channel_id: 0,
