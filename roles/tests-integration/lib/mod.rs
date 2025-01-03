@@ -21,10 +21,6 @@ pub mod template_provider;
 // prevents get_available_port from ever returning the same port twice
 static UNIQUE_PORTS: Lazy<Mutex<HashSet<u16>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
-fn is_port_open(address: SocketAddr) -> bool {
-    TcpListener::bind(address).is_err()
-}
-
 pub async fn start_sniffer(
     identifier: String,
     upstream: SocketAddr,
@@ -47,68 +43,44 @@ pub async fn start_sniffer(
     (sniffer, listening_address)
 }
 
-#[derive(Debug)]
-struct TestPoolSv2 {
-    pool: PoolSv2,
-}
-impl TestPoolSv2 {
-    fn new(
-        listening_address: Option<SocketAddr>,
-        template_provider_address: Option<SocketAddr>,
-    ) -> Self {
-        use pool_sv2::mining_pool::{CoinbaseOutput, Configuration};
-        let pool_port = if let Some(listen_addr) = listening_address {
-            listen_addr.port()
-        } else {
-            get_available_port()
-        };
-        let listening_address = listening_address
-            .unwrap_or(SocketAddr::from_str(&format!("127.0.0.1:{}", pool_port)).unwrap());
-        let is_pool_port_open = is_port_open(listening_address);
-        assert!(!is_pool_port_open);
-        let authority_public_key = Secp256k1PublicKey::try_from(
-            "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
-        )
-        .expect("failed");
-        let authority_secret_key = Secp256k1SecretKey::try_from(
-            "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
-        )
-        .expect("failed");
-        let cert_validity_sec = 3600;
-        let coinbase_outputs = vec![CoinbaseOutput::new(
-            "P2WPKH".to_string(),
-            "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        )];
-        let pool_signature = "Stratum v2 SRI Pool".to_string();
-        let tp_address = if let Some(tp_add) = template_provider_address {
-            tp_add.to_string()
-        } else {
-            "127.0.0.1:8442".to_string()
-        };
-        let connection_config = pool_sv2::mining_pool::ConnectionConfig::new(
-            listening_address.to_string(),
-            cert_validity_sec,
-            pool_signature,
-        );
-        let template_provider_config =
-            pool_sv2::mining_pool::TemplateProviderConfig::new(tp_address, None);
-        let authority_config =
-            pool_sv2::mining_pool::AuthorityConfig::new(authority_public_key, authority_secret_key);
-        let config = Configuration::new(
-            connection_config,
-            template_provider_config,
-            authority_config,
-            coinbase_outputs,
-        );
-        let pool = PoolSv2::new(config);
-        Self { pool }
-    }
-}
-
 pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolSv2, SocketAddr) {
+    use pool_sv2::mining_pool::{CoinbaseOutput, Configuration};
     let listening_address = get_available_address();
-    let test_pool = TestPoolSv2::new(Some(listening_address), template_provider_address);
-    let pool = test_pool.pool.clone();
+    let authority_public_key = Secp256k1PublicKey::try_from(
+        "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
+    )
+        .expect("failed");
+    let authority_secret_key = Secp256k1SecretKey::try_from(
+        "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
+    )
+        .expect("failed");
+    let cert_validity_sec = 3600;
+    let coinbase_outputs = vec![CoinbaseOutput::new(
+        "P2WPKH".to_string(),
+        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+    )];
+    let pool_signature = "Stratum v2 SRI Pool".to_string();
+    let tp_address = if let Some(tp_add) = template_provider_address {
+        tp_add.to_string()
+    } else {
+        "127.0.0.1:8442".to_string()
+    };
+    let connection_config = pool_sv2::mining_pool::ConnectionConfig::new(
+        listening_address.to_string(),
+        cert_validity_sec,
+        pool_signature,
+    );
+    let template_provider_config =
+        pool_sv2::mining_pool::TemplateProviderConfig::new(tp_address, None);
+    let authority_config =
+        pool_sv2::mining_pool::AuthorityConfig::new(authority_public_key, authority_secret_key);
+    let config = Configuration::new(
+        connection_config,
+        template_provider_config,
+        authority_config,
+        coinbase_outputs,
+    );
+    let pool = PoolSv2::new(config);
     let pool_clone = pool.clone();
     tokio::task::spawn(async move {
         assert!(pool_clone.start().await.is_ok());
