@@ -295,8 +295,8 @@ pub async fn start_jdc(
     tp_address: SocketAddr,
     jds_address: SocketAddr,
 ) -> SocketAddr {
-    use jd_client::proxy_config::{
-        CoinbaseOutput, PoolConfig, ProtocolConfig, ProxyConfig, TPConfig, Upstream,
+    use jd_client::jdc_config::{
+        CoinbaseOutput, JDCConfig, PoolConfig, ProtocolConfig, TPConfig, Upstream,
     };
     let jdc_address = get_available_address();
     let max_supported_version = 2;
@@ -335,7 +335,7 @@ pub async fn start_jdc(
         min_extranonce2_size,
         coinbase_outputs,
     );
-    let jd_client_proxy = ProxyConfig::new(
+    let jd_client_proxy = JDCConfig::new(
         jdc_address,
         protocol_config,
         withhold,
@@ -402,33 +402,32 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> SocketAddr {
     let shares_per_minute = 60.0;
     let channel_diff_update_interval = 60;
     let channel_nominal_hashrate = hashrate;
-    let downstream_difficulty_config =
-        translator_sv2::proxy_config::DownstreamDifficultyConfig::new(
-            min_individual_miner_hashrate,
-            shares_per_minute,
-            0,
-            0,
-        );
-    let upstream_difficulty_config = translator_sv2::proxy_config::UpstreamDifficultyConfig::new(
+    let downstream_difficulty_config = translator_sv2::jdc_config::DownstreamDifficultyConfig::new(
+        min_individual_miner_hashrate,
+        shares_per_minute,
+        0,
+        0,
+    );
+    let upstream_difficulty_config = translator_sv2::jdc_config::UpstreamDifficultyConfig::new(
         channel_diff_update_interval,
         channel_nominal_hashrate,
         0,
         false,
     );
-    let upstream_conf = translator_sv2::proxy_config::UpstreamConfig::new(
+    let upstream_conf = translator_sv2::jdc_config::UpstreamConfig::new(
         upstream_address,
         upstream_port,
         upstream_authority_pubkey,
         upstream_difficulty_config,
     );
-    let downstream_conf = translator_sv2::proxy_config::DownstreamConfig::new(
+    let downstream_conf = translator_sv2::jdc_config::DownstreamConfig::new(
         listening_address.ip().to_string(),
         listening_port,
         downstream_difficulty_config,
     );
 
     let config =
-        translator_sv2::proxy_config::ProxyConfig::new(upstream_conf, downstream_conf, 2, 2, 8);
+        translator_sv2::jdc_config::JDCConfig::new(upstream_conf, downstream_conf, 2, 2, 8);
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
     tokio::spawn(async move {
         translator_v2.start().await;

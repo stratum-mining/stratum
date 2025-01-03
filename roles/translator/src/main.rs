@@ -4,8 +4,8 @@ mod lib;
 
 use args::Args;
 use error::{Error, ProxyResult};
-pub use lib::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
-use proxy_config::ProxyConfig;
+use jdc_config::JDCConfig;
+pub use lib::{downstream_sv1, error, jdc_config, proxy, status, upstream_sv2};
 
 use ext_config::{Config, File, FileFormat};
 
@@ -13,7 +13,7 @@ use tracing::{error, info};
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+fn process_cli_args<'a>() -> ProxyResult<'a, JDCConfig> {
     // Parse CLI arguments
     let args = Args::from_args().map_err(|help| {
         error!("{}", help);
@@ -30,8 +30,8 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()?;
 
-    // Deserialize settings into ProxyConfig
-    let config = settings.try_deserialize::<ProxyConfig>()?;
+    // Deserialize settings into JDCConfig
+    let config = settings.try_deserialize::<JDCConfig>()?;
     Ok(config)
 }
 
@@ -39,11 +39,11 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let proxy_config = match process_cli_args() {
+    let jdc_config = match process_cli_args() {
         Ok(p) => p,
         Err(e) => panic!("failed to load config: {}", e),
     };
-    info!("Proxy Config: {:?}", &proxy_config);
+    info!("Proxy Config: {:?}", &jdc_config);
 
-    lib::TranslatorSv2::new(proxy_config).start().await;
+    lib::TranslatorSv2::new(jdc_config).start().await;
 }
