@@ -13,7 +13,9 @@
 //!
 //! For further information about the messages, please refer to [Stratum V2
 //! documentation - Common Messages](https://stratumprotocol.org/specification/03-Protocol-Overview/#36-common-protocol-messages).
-#![cfg_attr(feature = "no_std", no_std)]
+
+#![no_std]
+
 extern crate alloc;
 mod channel_endpoint_changed;
 mod setup_connection;
