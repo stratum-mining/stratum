@@ -412,11 +412,11 @@ impl Sniffer {
         }
     }
 
-    async fn wait_for_client(client: SocketAddr) -> TcpStream {
-        let listner = TcpListener::bind(client)
+    async fn wait_for_client(listen_socket: SocketAddr) -> TcpStream {
+        let listener = TcpListener::bind(listen_socket)
             .await
             .expect("Impossible to listen on given address");
-        if let Ok((stream, _)) = listner.accept().await {
+        if let Ok((stream, _)) = listener.accept().await {
             stream
         } else {
             panic!("Impossible to accept dowsntream connection")
