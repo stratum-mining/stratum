@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  Msrv-Check:
+  MSRV:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -23,9 +23,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: Build Projects
-        run: ./scripts/build_projects.sh
+        run: ./scripts/workflows/build.sh
 
-  Semver-check:
+  SemVer:
     runs-on: ubuntu-latest
 
     steps:
@@ -49,9 +49,9 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y cmake
       - run: cargo install cargo-semver-checks --version 0.37.0 --locked
       - name: Run Semver Checks
-        run: ./scripts/run_semver_checks.sh
+        run: ./scripts/workflows/semver.sh
 
-  Rust-fmt:
+  Format:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -73,9 +73,9 @@ jobs:
           override: true
           components: rustfmt
       - name: Run fmt in different workspaces and crates
-        run: ./scripts/run_fmt.sh
+        run: ./scripts/workflows/format.sh
 
-  clippy-check-lint:
+  Clippy:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -97,4 +97,4 @@ jobs:
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates
-        run: ./scripts/run_clippy.sh
+        run: ./scripts/workflows/clippy.sh
