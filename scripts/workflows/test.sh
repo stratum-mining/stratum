@@ -1,10 +1,12 @@
 #!/bin/bash
 
+cd ../..
 cargo build --manifest-path=benches/Cargo.toml
 cargo build --manifest-path=common/Cargo.toml
 cargo build --manifest-path=protocols/Cargo.toml
 cargo build --manifest-path=roles/Cargo.toml
 cargo build --manifest-path=utils/Cargo.toml
+
 
 cargo test --manifest-path=roles/Cargo.toml --verbose --test '*' -- --nocapture
 
@@ -15,7 +17,8 @@ if [ "$CI_OS" == "ubuntu-latest" ]; then
 else
     echo "Skipping interop-test on $CI_OS - not supported"
 fi
-cd examples/interop-cpp/ || exit
+
+cd ./examples/interop-cpp/ || exit
 
 if [ "$CI_OS" == "ubuntu-latest" ]; then
     ./run.sh 30
@@ -23,12 +26,10 @@ else
     echo "Skipping fuzz test on $CI_OS - not supported"
 fi
 
-if [ -d "utils/buffer/fuzz" ]; then
-    cd utils/buffer/fuzz || exit
-else
-    echo "Directory 'utils/buffer/fuzz' not found. Skipping..."
-fi
+cd ../..
+cd ./utils/buffer/fuzz || exit
 
+cd ../../..
 cargo test --manifest-path=benches/Cargo.toml
 cargo test --manifest-path=common/Cargo.toml
 cargo test --manifest-path=protocols/Cargo.toml
