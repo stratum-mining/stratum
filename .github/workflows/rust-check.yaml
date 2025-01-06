@@ -122,3 +122,33 @@ jobs:
       - name: Run CI script
         run: ./scripts/workflows/test.sh
         working-directory: .
+
+ci-example:
+  runs-on: ${{ matrix.os }}
+  strategy:
+    matrix:
+      os:
+        - macos-13
+        - ubuntu-latest
+      include:
+        - os: macos-13
+          target: x86_64-apple-darwin
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-musl
+
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set OS environment variable
+      run: echo "CI_OS=${{ matrix.os }}" >> $GITHUB_ENV
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Run examples script
+      run: ./scripts/workflows/example.sh
+      working-directory: .
