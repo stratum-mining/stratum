@@ -1,12 +1,8 @@
 # This workflow is used to publish SV2 crates to crates.io
-# The workflow tries to update all the library crates, so if a crate is not to updated, the step will fail
-# for that each step have continue-on-error set to true.
-# Since each step can fail, the output ot the action must be manually checked to make sure that all
-# the library intended to be published are published.
-# Running cargo release in the various workspace help to prepare the version number and everything.
-# ATTENTION
-# Is very important to check the output manually cause when too many crates are updated crates.io could fail
-# and ask to rerun the action later
+# the workflow tries to publish all the library crates by running scripts/release-libs.sh
+# in case the `cargo publish` command fails, the script returns 1 and the entire workflow fails
+# the only exception is when the `cargo publish` command fails because the crate has already
+# been published, in which case the workflow continues
 
 name: Release Libs
 
@@ -32,113 +28,91 @@ jobs:
             override: true
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
+
       - name: Publish crate common
-        continue-on-error: true
         run: |
-          cd common
-          cargo publish
+          ./scripts/release-libs.sh common
+
       - name: Publish crate buffer_sv2
-        continue-on-error: true
         run: |
-          cd utils/buffer
-          cargo publish
+          ./scripts/release-libs.sh utils/buffer
+
       - name: Publish crate no_serde_sv2_derive_codec
-        continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/no-serde-sv2/derive_codec
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/no-serde-sv2/derive_codec
+
       - name: Publish crate no_serde_sv2_codec
-        continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/no-serde-sv2/codec
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/no-serde-sv2/codec
+
       - name: Publish crate serde_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/serde-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/serde-sv2
+
       - name: Publish crate binary_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/binary-sv2/binary-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/binary-sv2
+
       - name: Publish crate const_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/const-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/const-sv2
+
       - name: Publish crate framing_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/framing-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/framing-sv2
+
       - name: Publish crate noise_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/noise-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/noise-sv2
+
       - name: Publish crate codec_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/codec-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/codec-sv2
+
       - name: Publish crate common_messages
-        continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/common-messages
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/subprotocols/common-messages
+
       - name: Publish crate job_declaration
-        continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/job-declaration
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/subprotocols/job-declaration
+
       - name: Publish crate mining
-        continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/mining
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/subprotocols/mining
+
       - name: Publish crate template_distribution
-        continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/template-distribution
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/subprotocols/template-distribution
+
       - name: Publish crate sv2_ffi
-        continue-on-error: true
         run: |
-          cd protocols/v2/sv2-ffi
-          cargo publish --all-features
+          ./scripts/release-libs.sh protocols/v2/sv2-ffi
+
       - name: Publish crate roles_logic_sv2
-        continue-on-error: true
         run: |
-          cd protocols/v2/roles-logic-sv2
-          cargo publish
+          ./scripts/release-libs.sh protocols/v2/roles-logic-sv2
+
       - name: Publish crate v1
-        continue-on-error: true
         run: |
-          cd protocols/v1
-          cargo publish
+          ./scripts/release-libs.sh protocols/v1
+
       - name: Publish crate bip32-key-derivation
-        continue-on-error: true
         run: |
-          cd utils/bip32-key-derivation
-          cargo publish
+          ./scripts/release-libs.sh utils/bip32-key-derivation
+
       - name: Publish crate error-handling
-        continue-on-error: true
         run: |
-          cd utils/error-handling
-          cargo publish
+          ./scripts/release-libs.sh utils/error-handling
+
       - name: Publish crate key-utils
-        continue-on-error: true
         run: |
-          cd utils/key-utils
-          cargo publish
+          ./scripts/release-libs.sh utils/key-utils
+
       - name: Publish crate network_helpers_sv2
-        continue-on-error: true
         run: |
-          cd roles/roles-utils/network-helpers
-          cargo publish
+          ./scripts/release-libs.sh roles/roles-utils/network-helpers
+
       - name: Publish crate rpc_sv2
-        continue-on-error: true
         run: |
-          cd roles/roles-utils/rpc
-          cargo publish
+          ./scripts/release-libs.sh roles/roles-utils/rpc
