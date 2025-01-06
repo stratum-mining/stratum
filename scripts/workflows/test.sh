@@ -1,10 +1,4 @@
 #!/bin/bash
-cargo build --manifest-path=benches/Cargo.toml
-cargo build --manifest-path=common/Cargo.toml
-cargo build --manifest-path=protocols/Cargo.toml
-cargo build --manifest-path=roles/Cargo.toml
-cargo build --manifest-path=utils/Cargo.toml
-
 cargo test --manifest-path=roles/Cargo.toml --verbose --test '*' -- --nocapture
 
 cargo run --manifest-path=examples/sv1-client-and-server/Cargo.toml --bin client_and_server -- 60
