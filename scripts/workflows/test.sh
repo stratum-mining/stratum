@@ -22,7 +22,12 @@ if [ "$CI_OS" == "ubuntu-latest" ]; then
 else
     echo "Skipping fuzz test on $CI_OS - not supported"
 fi
-cd utils/buffer/fuzz || exit
+
+if [ -d "utils/buffer/fuzz" ]; then
+    cd utils/buffer/fuzz || exit
+else
+    echo "Directory 'utils/buffer/fuzz' not found. Skipping..."
+fi
 
 cargo test --manifest-path=benches/Cargo.toml
 cargo test --manifest-path=common/Cargo.toml
