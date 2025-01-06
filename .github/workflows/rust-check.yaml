@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  MSRV:
+  msrv:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,7 +25,7 @@ jobs:
       - name: Build Projects
         run: ./scripts/workflows/build.sh
 
-  SemVer:
+  semver:
     runs-on: ubuntu-latest
 
     steps:
@@ -51,7 +51,7 @@ jobs:
       - name: Run Semver Checks
         run: ./scripts/workflows/semver.sh
 
-  Format:
+  fmt:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -75,7 +75,7 @@ jobs:
       - name: Run fmt in different workspaces and crates
         run: ./scripts/workflows/format.sh
 
-  Clippy:
+  clippy-check:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -98,3 +98,27 @@ jobs:
           components: clippy
       - name: Run Clippy on different workspaces and crates
         run: ./scripts/workflows/clippy.sh
+
+  ci:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-13
+          - ubuntu-latest
+        include:
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set OS environment variable
+        run: echo "CI_OS=${{ matrix.os }}" >> $GITHUB_ENV
+
+      - name: Run CI script
+        run: ./scripts/workflows/test.sh
+        working-directory: .
