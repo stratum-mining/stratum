@@ -5,21 +5,17 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use pool_sv2::PoolSv2;
 use translator_sv2::TranslatorSv2;
 
-use once_cell::sync::Lazy;
 use rand::{thread_rng, Rng};
 use std::{
-    collections::HashSet,
     convert::{TryFrom, TryInto},
-    net::{SocketAddr, TcpListener},
+    net::SocketAddr,
     str::FromStr,
-    sync::Mutex,
 };
+use utils::get_available_address;
 
 pub mod sniffer;
 pub mod template_provider;
-
-// prevents get_available_port from ever returning the same port twice
-static UNIQUE_PORTS: Lazy<Mutex<HashSet<u16>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+mod utils;
 
 pub async fn start_sniffer(
     identifier: String,
@@ -49,11 +45,11 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
-        .expect("failed");
+    .expect("failed");
     let authority_secret_key = Secp256k1SecretKey::try_from(
         "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
     )
-        .expect("failed");
+    .expect("failed");
     let cert_validity_sec = 3600;
     let coinbase_outputs = vec![CoinbaseOutput::new(
         "P2WPKH".to_string(),
@@ -318,25 +314,4 @@ pub async fn start_mining_sv2_proxy(upstream: SocketAddr) -> SocketAddr {
         mining_proxy_sv2::start_mining_proxy(config).await;
     });
     mining_proxy_listening_address
-}
-
-fn get_available_port() -> u16 {
-    let mut unique_ports = UNIQUE_PORTS.lock().unwrap();
-
-    loop {
-        let port = TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        if !unique_ports.contains(&port) {
-            unique_ports.insert(port);
-            return port;
-        }
-    }
-}
-
-fn get_available_address() -> SocketAddr {
-    let port = get_available_port();
-    SocketAddr::from(([127, 0, 0, 1], port))
 }
