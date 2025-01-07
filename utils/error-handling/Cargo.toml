@@ -5,7 +5,6 @@ authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "Macro used to clean and centralize error handling within async processes"
 documentation = "https://docs.rs/error_handling"
-readme = "README.md"
 homepage = "https://stratumprotocol.org"
 repository = "https://github.com/stratum-mining/stratum"
 license = "MIT OR Apache-2.0"
