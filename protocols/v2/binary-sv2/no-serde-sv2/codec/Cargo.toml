@@ -24,4 +24,4 @@ prop_test = ["quickcheck"]
 with_buffer_pool = ["buffer_sv2"]
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["with_buffer_pool"]

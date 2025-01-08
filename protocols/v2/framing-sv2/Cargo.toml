@@ -29,4 +29,4 @@ with_serde = ["binary_sv2/with_serde", "serde", "buffer_sv2?/with_serde"]
 with_buffer_pool = ["binary_sv2/with_buffer_pool", "buffer_sv2"]
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["with_buffer_pool"]

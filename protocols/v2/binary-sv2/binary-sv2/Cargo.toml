@@ -28,4 +28,4 @@ prop_test = ["binary_codec_sv2/prop_test", "derive_codec_sv2"]
 with_buffer_pool = ["binary_codec_sv2/with_buffer_pool", "derive_codec_sv2"]
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["core", "with_buffer_pool"]
