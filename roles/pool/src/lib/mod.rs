@@ -101,3 +101,38 @@ impl PoolSv2 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ext_config::{Config, File, FileFormat};
+
+    #[tokio::test]
+    async fn pool_bad_coinbase_output() {
+        let invalid_coinbase_output = vec![mining_pool::CoinbaseOutput::new(
+            "P2PK".to_string(),
+            "wrong".to_string(),
+        )];
+        let config_path = "config-examples/pool-config-hosted-tp-example.toml";
+        let mut config: Configuration = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<Configuration>() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to deserialize config: {}", e);
+                    return;
+                }
+            },
+            Err(e) => {
+                error!("Failed to build config: {}", e);
+                return;
+            }
+        };
+        config.coinbase_outputs = invalid_coinbase_output;
+        let pool = PoolSv2::new(config);
+        let result = pool.start().await;
+        assert!(result.is_err());
+    }
+}

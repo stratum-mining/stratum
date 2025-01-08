@@ -11,16 +11,6 @@ on:
       - main
 
 jobs:
-  bad-pool-config-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run bad-pool-config-test
-        run: sh ./test/message-generator/test/bad-pool-config-test/bad-pool-config-test.sh
-
   interop-jd-translator:
     runs-on: ubuntu-latest
     steps:
@@ -167,7 +157,6 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [
-      bad-pool-config-test,
       interop-jd-translator,
       interop-proxy-with-multi-ups,
       interop-proxy-with-multi-ups-extended,
@@ -188,8 +177,7 @@ jobs:
     steps:
       - name: Aggregate Results
         run: |
-          if [ "${{ needs.bad-pool-config-test.result }}" != "success" ] ||
-          [ "${{ needs.interop-jd-translator.result }}" != "success" ] ||
+          if [ "${{ needs.interop-jd-translator.result }}" != "success" ] ||
           [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
           [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
