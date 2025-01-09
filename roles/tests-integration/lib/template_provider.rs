@@ -67,10 +67,13 @@ pub struct TemplateProvider {
 
 impl TemplateProvider {
     pub fn start(port: u16, sv2_interval: u32) -> Self {
-        let temp_dir = PathBuf::from("/tmp/.template-provider");
+        // get the Cargo target directory from env or default to local "target"
+        let cargo_target_dir =
+            PathBuf::from(env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string()));
+
         let mut conf = Conf::default();
         let staticdir = format!(".bitcoin-{}", port);
-        conf.staticdir = Some(temp_dir.join(staticdir));
+        conf.staticdir = Some(cargo_target_dir.join(staticdir));
         let port_arg = format!("-sv2port={}", port);
         let sv2_interval_arg = format!("-sv2interval={}", sv2_interval);
         conf.args.extend(vec![
@@ -88,7 +91,7 @@ impl TemplateProvider {
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
         let download_filename = get_bitcoind_filename(os, arch);
-        let bitcoin_exe_home = temp_dir
+        let bitcoin_exe_home = cargo_target_dir
             .join(format!("bitcoin-sv2-tp-{}", VERSION_TP))
             .join("bin");
 
@@ -112,7 +115,7 @@ impl TemplateProvider {
                 create_dir_all(parent).unwrap();
             }
 
-            unpack_tarball(&tarball_bytes, &temp_dir);
+            unpack_tarball(&tarball_bytes, &cargo_target_dir);
 
             if os == "macos" {
                 let bitcoind_binary = bitcoin_exe_home.join("bitcoind");
