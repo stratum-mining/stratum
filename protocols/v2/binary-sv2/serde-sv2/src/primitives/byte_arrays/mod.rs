@@ -5,6 +5,7 @@ pub mod b064k;
 pub mod bytes;
 
 pub trait IntoStatic {
+    #[allow(dead_code)]
     fn into_static(self) -> Self;
 }
 

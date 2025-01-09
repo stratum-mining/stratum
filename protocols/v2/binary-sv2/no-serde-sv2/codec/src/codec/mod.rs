@@ -112,6 +112,7 @@ pub trait Fixed {
 }
 
 // Not used and will be removed during refactoring
+#[allow(dead_code)]
 pub trait Variable {
     const HEADER_SIZE: usize;
     //const ELEMENT_SIZE: usize;

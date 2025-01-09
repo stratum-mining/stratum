@@ -101,6 +101,7 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     // Generates a fresh key pair, consisting of a secret key and a corresponding public key,
     // using the [`Secp256k1`] elliptic curve. If the generated public key does not match the
     // expected parity, a new key pair is generated to ensure consistency.
+    #[allow(dead_code)]
     #[cfg(feature = "std")]
     fn generate_key() -> Keypair {
         Self::generate_key_with_rng(&mut rand::thread_rng())
@@ -173,6 +174,7 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         (out_1, out_2)
     }
 
+    #[allow(dead_code)]
     fn hkdf_3(
         chaining_key: &[u8; 32],
         input_key_material: &[u8],
@@ -236,6 +238,7 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn ecdh(private: &[u8], public: &[u8]) -> [u8; 32] {
         let private = SecretKey::from_slice(private).expect("Wrong key");
         let x_public = XOnlyPublicKey::from_slice(public).expect("Wrong key");
@@ -284,7 +287,7 @@ mod test {
     use core::convert::TryInto;
     use quickcheck::{Arbitrary, TestResult};
     use quickcheck_macros;
-    use secp256k1::{ecdh::SharedSecret, SecretKey, XOnlyPublicKey};
+    use secp256k1::SecretKey;
 
     struct TestHandShake {
         k: Option<[u8; 32]>,

@@ -797,7 +797,7 @@ pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'
 }
 
 /// TODO: Not used, to be removed.
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
+#[allow(clippy::too_many_arguments)]
 pub fn get_target(
     nonce: u32,
     version: u32,

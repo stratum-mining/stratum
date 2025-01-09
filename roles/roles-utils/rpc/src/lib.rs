@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
+#[allow(dead_code)]
 #[derive(Clone, Deserialize)]
 pub struct Amount(f64);
 
