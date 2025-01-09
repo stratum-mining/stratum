@@ -456,6 +456,22 @@ impl Sniffer {
             sleep(Duration::from_secs(1)).await;
         }
     }
+
+	/// Checks whether the sniffer has received a message of the specified type.
+    pub async fn includes_message_type(
+        &self,
+        message_direction: MessageDirection,
+        message_type: u8,
+    ) -> bool {
+        match message_direction {
+            MessageDirection::ToDownstream => {
+                self.messages_from_upstream.has_message_type(message_type)
+            }
+            MessageDirection::ToUpstream => {
+                self.messages_from_downstream.has_message_type(message_type)
+            }
+        }
+    }
 }
 
 // Utility macro to assert that the downstream and upstream roles have sent specific messages.
