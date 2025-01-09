@@ -33,11 +33,11 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
     let (_tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp_addr).await;
-    let (jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_addr).await;
+    let (jdc, jdc_addr) = start_jdc(vec![pool_addr], tp_addr, jds_addr).await;
     jdc.shutdown();
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_ok());
     let (sniffer, sniffer_addr) = start_sniffer("0".to_string(), jds_addr, false, None).await;
-    let (_jdc, _jdc_addr) = start_jdc(pool_addr, tp_addr, sniffer_addr).await;
+    let (_jdc, _jdc_addr) = start_jdc(vec![pool_addr], tp_addr, sniffer_addr).await;
     assert_common_message!(sniffer.next_message_from_downstream(), SetupConnection);
 }
