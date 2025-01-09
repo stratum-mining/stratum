@@ -65,7 +65,7 @@ async fn translation_proxy_and_jd() {
     let (jdc_pool_sniffer, jdc_pool_sniffer_addr) =
         start_sniffer("0".to_string(), pool_addr, false, None).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
-    let (_jdc, jdc_addr) = start_jdc(jdc_pool_sniffer_addr, tp_addr, jds_addr).await;
+    let (_jdc, jdc_addr) = start_jdc(&[(jdc_pool_sniffer_addr, jds_addr)], tp_addr).await;
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
     let _mining_device = start_mining_device_sv1(tproxy_addr, true, None).await;
     jdc_pool_sniffer
