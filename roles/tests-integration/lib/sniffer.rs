@@ -108,6 +108,10 @@ impl Sniffer {
         check_on_drop: bool,
         intercept_messages: Option<Vec<InterceptMessage>>,
     ) -> Self {
+        // Don't print backtrace on panic
+        std::panic::set_hook(Box::new(|_| {
+            println!();
+        }));
         Self {
             identifier,
             listening_address,
@@ -184,14 +188,14 @@ impl Sniffer {
         let responder =
             Responder::from_authority_kp(&pub_key, &prv_key, std::time::Duration::from_secs(10000))
                 .unwrap();
-        if let Ok((receiver_from_client, send_to_client, _, _)) =
+        if let Ok((receiver_from_client, sender_to_client, _, _)) =
             Connection::new::<'static, AnyMessage<'static>>(
                 stream,
                 HandshakeRole::Responder(responder),
             )
             .await
         {
-            Some((receiver_from_client, send_to_client))
+            Some((receiver_from_client, sender_to_client))
         } else {
             None
         }
@@ -201,14 +205,14 @@ impl Sniffer {
         stream: TcpStream,
     ) -> Option<(Receiver<MessageFrame>, Sender<MessageFrame>)> {
         let initiator = Initiator::without_pk().expect("This fn call can not fail");
-        if let Ok((receiver_from_client, send_to_client, _, _)) =
+        if let Ok((receiver_from_server, sender_to_server, _, _)) =
             Connection::new::<'static, AnyMessage<'static>>(
                 stream,
                 HandshakeRole::Initiator(initiator),
             )
             .await
         {
-            Some((receiver_from_client, send_to_client))
+            Some((receiver_from_server, sender_to_server))
         } else {
             None
         }
@@ -408,11 +412,11 @@ impl Sniffer {
         }
     }
 
-    async fn wait_for_client(client: SocketAddr) -> TcpStream {
-        let listner = TcpListener::bind(client)
+    async fn wait_for_client(listen_socket: SocketAddr) -> TcpStream {
+        let listener = TcpListener::bind(listen_socket)
             .await
             .expect("Impossible to listen on given address");
-        if let Ok((stream, _)) = listner.accept().await {
+        if let Ok((stream, _)) = listener.accept().await {
             stream
         } else {
             panic!("Impossible to accept dowsntream connection")
@@ -576,23 +580,36 @@ macro_rules! assert_jd_message {
 impl Drop for Sniffer {
     fn drop(&mut self) {
         if self.check_on_drop {
-            // Don't print backtrace on panic
-            std::panic::set_hook(Box::new(|_| {
-                println!();
-            }));
-            if !self.messages_from_downstream.is_empty() {
-                println!(
-                    "Sniffer {}: You didn't handle all downstream messages: {:?}",
-                    self.identifier, self.messages_from_downstream
-                );
-                panic!();
-            }
-            if !self.messages_from_upstream.is_empty() {
-                println!(
-                    "Sniffer{}: You didn't handle all upstream messages: {:?}",
-                    self.identifier, self.messages_from_upstream
-                );
-                panic!();
+            match (
+                self.messages_from_downstream.is_empty(),
+                self.messages_from_upstream.is_empty(),
+            ) {
+                (true, true) => {}
+                (true, false) => {
+                    println!(
+                        "Sniffer {}: You didn't handle all upstream messages: {:?}",
+                        self.identifier, self.messages_from_upstream
+                    );
+                    panic!();
+                }
+                (false, true) => {
+                    println!(
+                        "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                        self.identifier, self.messages_from_downstream
+                    );
+                    panic!();
+                }
+                (false, false) => {
+                    println!(
+                        "Sniffer {}: You didn't handle all downstream messages: {:?}",
+                        self.identifier, self.messages_from_downstream
+                    );
+                    println!(
+                        "Sniffer {}: You didn't handle all upstream messages: {:?}",
+                        self.identifier, self.messages_from_upstream
+                    );
+                    panic!();
+                }
             }
         }
     }

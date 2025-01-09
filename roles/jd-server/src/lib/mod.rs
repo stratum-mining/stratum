@@ -28,6 +28,7 @@ pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+#[derive(Debug, Clone)]
 pub struct JobDeclaratorServer {
     config: Configuration,
 }
