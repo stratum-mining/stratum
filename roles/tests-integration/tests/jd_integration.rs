@@ -19,13 +19,13 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
-    let (jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_addr).await;
+    let (jdc, jdc_addr) = start_jdc(vec![pool_addr], tp_addr, jds_addr).await;
     jdc.shutdown();
     // wait for shutdown to complete
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_ok());
     let (sniffer, sniffer_addr) = start_sniffer("0".to_string(), jds_addr, false, None).await;
-    let (_jdc_1, _jdc_addr_1) = start_jdc(pool_addr, tp_addr, sniffer_addr).await;
+    let (_jdc_1, _jdc_addr_1) = start_jdc(vec![pool_addr], tp_addr, sniffer_addr).await;
     assert_common_message!(sniffer.next_message_from_downstream(), SetupConnection);
 }
 
@@ -40,7 +40,7 @@ async fn jdc_tp_success_setup() {
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
     let (tp_jdc_sniffer, tp_jdc_sniffer_addr) =
         start_sniffer("0".to_string(), tp_addr, false, None).await;
-    let (_jdc, jdc_addr) = start_jdc(pool_addr, tp_jdc_sniffer_addr, jds_addr).await;
+    let (_jdc, jdc_addr) = start_jdc(vec![pool_addr], tp_jdc_sniffer_addr, jds_addr).await;
     // This is needed because jd-client waits for a downstream connection before it starts
     // exchanging messages with the Template Provider.
     start_sv2_translator(jdc_addr).await;
