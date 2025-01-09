@@ -4,17 +4,6 @@
 //! Stratum V2 protocol. The job declaration process is integral to managing mining tasks and
 //! transactions between server and client components.
 //!
-//! ## Core Traits
-//!
-//! - `ParseServerJobDeclarationMessages`: This trait is implemented by downstream nodes to process
-//!   job declaration messages received from upstream nodes. The trait includes methods for handling
-//!   job-related events such as mining job token allocation, job declaration successes or errors,
-//!   and transaction identification or provisioning.
-//! - `ParseClientJobDeclarationMessages`: This trait is implemented by upstream nodes to manage job
-//!   declaration messages received from downstream nodes. It facilitates the handling of job
-//!   declarations, mining job token allocation, and transaction solutions submitted by downstream
-//!   nodes.
-//!
 //! ## Message Handling
 //!
 //! The handlers are responsible for the following tasks:
@@ -60,15 +49,6 @@ where
     Self: Sized,
 {
     /// Routes an incoming job declaration message to the appropriate handler function.
-    ///
-    /// # Parameters
-    /// - `self_`: An `Arc<Mutex<Self>>` instance to ensure thread-safe access to the implementor.
-    /// - `message_type`: The type identifier of the incoming message.
-    /// - `payload`: A mutable slice containing the message payload.
-    ///
-    /// # Returns
-    /// - `Ok(SendTo)`: Indicates the message was successfully handled.
-    /// - `Err(Error)`: Indicates an error occurred during message parsing or handling.
     fn handle_message_job_declaration(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -78,15 +58,6 @@ where
     }
 
     /// Routes a deserialized job declaration message to the appropriate handler function.
-    ///
-    /// # Parameters
-    /// - `self_`: An `Arc<Mutex<Self>>` instance to ensure thread-safe access to the implementor.
-    /// - `message`: A `Result<JobDeclaration, Error>` containing either the parsed message or an
-    ///   error.
-    ///
-    /// # Returns
-    /// - `Ok(SendTo)`: Indicates the message was successfully handled.
-    /// - `Err(Error)`: Indicates an error occurred during message parsing or handling.
     fn handle_message_job_declaration_deserialized(
         self_: Arc<Mutex<Self>>,
         message: Result<JobDeclaration<'_>, Error>,
@@ -151,12 +122,6 @@ where
     /// Handles an `AllocateMiningJobTokenSuccess` message.
     ///
     /// This method processes a message indicating a successful job token allocation.
-    ///
-    /// # Arguments
-    /// - `message`: The `AllocateMiningJobTokenSuccess` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_allocate_mining_job_token_success(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
@@ -165,12 +130,6 @@ where
     /// Handles a `DeclareMiningJobSuccess` message.
     ///
     /// This method processes a message indicating a successful mining job declaration.
-    ///
-    /// # Arguments
-    /// - `message`: The `DeclareMiningJobSuccess` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_declare_mining_job_success(
         &mut self,
         message: DeclareMiningJobSuccess,
@@ -179,12 +138,6 @@ where
     /// Handles a `DeclareMiningJobError` message.
     ///
     /// This method processes a message indicating an error in the mining job declaration process.
-    ///
-    /// # Arguments
-    /// - `message`: The `DeclareMiningJobError` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_declare_mining_job_error(
         &mut self,
         message: DeclareMiningJobError,
@@ -193,12 +146,6 @@ where
     /// Handles an `IdentifyTransactions` message.
     ///
     /// This method processes a message that provides transaction identification data.
-    ///
-    /// # Arguments
-    /// - `message`: The `IdentifyTransactions` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_identify_transactions(
         &mut self,
         message: IdentifyTransactions,
@@ -207,12 +154,6 @@ where
     /// Handles a `ProvideMissingTransactions` message.
     ///
     /// This method processes a message that supplies missing transaction data.
-    ///
-    /// # Arguments
-    /// - `message`: The `ProvideMissingTransactions` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_provide_missing_transactions(
         &mut self,
         message: ProvideMissingTransactions,
@@ -227,15 +168,6 @@ where
     Self: Sized,
 {
     /// Routes an incoming job declaration message to the appropriate handler function.
-    ///
-    /// # Parameters
-    /// - `self_`: An `Arc<Mutex<Self>>` instance to ensure thread-safe access to the implementor.
-    /// - `message_type`: The type identifier of the incoming message.
-    /// - `payload`: A mutable slice containing the message payload.
-    ///
-    /// # Returns
-    /// - `Ok(SendTo)`: Indicates the message was successfully handled.
-    /// - `Err(Error)`: Indicates an error occurred during message parsing or handling.
     fn handle_message_job_declaration(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -245,15 +177,6 @@ where
     }
 
     /// Routes a deserialized job declaration message to the appropriate handler function.
-    ///
-    /// # Parameters
-    /// - `self_`: An `Arc<Mutex<Self>>` instance to ensure thread-safe access to the implementor.
-    /// - `message`: A `Result<JobDeclaration, Error>` containing either the parsed message or an
-    ///   error.
-    ///
-    /// # Returns
-    /// - `Ok(SendTo)`: Indicates the message was successfully handled.
-    /// - `Err(Error)`: Indicates an error occurred during message parsing or handling.
     fn handle_message_job_declaration_deserialized(
         self_: Arc<Mutex<Self>>,
         message: Result<JobDeclaration<'_>, Error>,
@@ -309,14 +232,6 @@ where
     }
 
     /// Handles an `AllocateMiningJobToken` message.
-    ///
-    /// This method processes a message that allocates a mining job token.
-    ///
-    /// # Arguments
-    /// - `message`: The `AllocateMiningJobToken` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_allocate_mining_job_token(
         &mut self,
         message: AllocateMiningJobToken,
@@ -325,23 +240,11 @@ where
     /// Handles a `DeclareMiningJob` message.
     ///
     /// This method processes a message that declares a new mining job.
-    ///
-    /// # Arguments
-    /// - `message`: The `DeclareMiningJob` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error>;
 
     /// Handles an `IdentifyTransactionsSuccess` message.
     ///
     /// This method processes a message that confirms the identification of transactions.
-    ///
-    /// # Arguments
-    /// - `message`: The `IdentifyTransactionsSuccess` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_identify_transactions_success(
         &mut self,
         message: IdentifyTransactionsSuccess,
@@ -350,12 +253,6 @@ where
     /// Handles a `ProvideMissingTransactionsSuccess` message.
     ///
     /// This method processes a message that confirms the receipt of missing transactions.
-    ///
-    /// # Arguments
-    /// - `message`: The `ProvideMissingTransactionsSuccess` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_provide_missing_transactions_success(
         &mut self,
         message: ProvideMissingTransactionsSuccess,
@@ -364,11 +261,5 @@ where
     /// Handles a `SubmitSolution` message.
     ///
     /// This method processes a message that submits a solution for the mining job.
-    ///
-    /// # Arguments
-    /// - `message`: The `SubmitSolutionJd` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error>;
 }

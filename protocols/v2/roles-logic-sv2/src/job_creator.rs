@@ -1,5 +1,7 @@
-//! The job creator module provides logic to create extended mining jobs given a template from
-//! a template provider as well as logic to clean up old templates when new blocks are mined
+//! # Job Creator
+//!
+//! This module provides logic to create extended mining jobs given a template from
+//! a template provider as well as logic to clean up old templates when new blocks are mined.
 use crate::{errors, utils::Id, Error};
 use binary_sv2::B064K;
 use mining_sv2::NewExtendedMiningJob;
@@ -31,7 +33,7 @@ pub struct JobsCreators {
     extranonce_len: u8,
 }
 
-/// Transform the byte array `coinbase_outputs` in a vector of TxOut
+/// Transforms the byte array `coinbase_outputs` in a vector of TxOut
 /// It assumes the data to be valid data and does not do any kind of check
 pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
     let mut txs = vec![];
@@ -50,7 +52,7 @@ pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
 }
 
 impl JobsCreators {
-    /// constructor
+    /// Constructor
     pub fn new(extranonce_len: u8) -> Self {
         Self {
             lasts_new_template: Vec::new(),
@@ -63,12 +65,12 @@ impl JobsCreators {
         }
     }
 
-    /// get template id from job
+    /// Get template id from job
     pub fn get_template_id_from_job(&self, job_id: u32) -> Option<u64> {
         self.job_to_template_id.get(&job_id).map(|x| x - 1)
     }
 
-    /// used to create new jobs when a new template arrives
+    /// Used to create new jobs when a new template arrives
     pub fn on_new_template(
         &mut self,
         template: &mut NewTemplate,
@@ -135,13 +137,13 @@ impl JobsCreators {
         }
     }
 
-    /// returns the latest mining target
+    /// Returns the latest mining target
     pub fn last_target(&self) -> mining_sv2::Target {
         self.last_target.clone()
     }
 }
 
-/// convert custom job into extended job
+/// Converts custom job into extended job
 pub fn extended_job_from_custom_job(
     referenced_job: &mining_sv2::SetCustomMiningJob,
     pool_signature: String,
@@ -173,7 +175,7 @@ pub fn extended_job_from_custom_job(
     )
 }
 
-// returns an extended job given the provided template from the Template Provider and other
+// Returns an extended job given the provided template from the Template Provider and other
 // Pool role related fields.
 //
 // Pool related arguments:
@@ -238,7 +240,7 @@ fn new_extended_job(
     Ok(new_extended_mining_job)
 }
 
-// used to extract the coinbase transaction prefix for extended jobs
+// Used to extract the coinbase transaction prefix for extended jobs
 // so the extranonce search space can be introduced
 fn coinbase_tx_prefix(
     coinbase: &Transaction,
@@ -262,7 +264,7 @@ fn coinbase_tx_prefix(
     r.try_into().map_err(Error::BinarySv2Error)
 }
 
-// used to extract the coinbase transaction suffix for extended jobs
+// Used to extract the coinbase transaction suffix for extended jobs
 // so the extranonce search space can be introduced
 fn coinbase_tx_suffix(
     coinbase: &Transaction,
@@ -424,7 +426,7 @@ impl StrippedCoinbaseTx {
         })
     }
 
-    // the coinbase tx prefix is the LE bytes concatenation of the tx version and all
+    // The coinbase tx prefix is the LE bytes concatenation of the tx version and all
     // of the tx inputs minus the 32 bytes after the bip34 bytes in the script
     // and the last input's sequence (used as the first entry in the coinbase tx suffix).
     // The last 32 bytes after the bip34 bytes in the script will be used to allow extranonce

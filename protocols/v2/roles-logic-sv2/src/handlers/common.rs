@@ -3,13 +3,6 @@
 //! This module defines traits and implementations for handling common Stratum V2 messages exchanged
 //! between upstream and downstream nodes.
 //!
-//! ## Core Traits
-//!
-//! - `ParseUpstreamCommonMessages`: Implemented by downstream nodes to handle common messages
-//!   received from upstream nodes, such as setup connection results or channel endpoint changes.
-//! - `ParseDownstreamCommonMessages`: Implemented by upstream nodes to process setup connection
-//!   messages received from downstream nodes.
-//!
 //! ## Message Handling
 //!
 //! Handlers in this module are responsible for:
@@ -58,10 +51,6 @@ where
 {
     /// Takes a message type and a payload, and if the message type is a
     /// [`crate::parsers::CommonMessages`], it calls the appropriate handler function
-    ///
-    /// Arguments:
-    ///
-    /// * `message_type`: See [`const_sv2`].
     fn handle_message_common(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -76,10 +65,6 @@ where
     }
 
     /// Takes a message and it calls the appropriate handler function
-    ///
-    /// Arguments:
-    ///
-    /// * `message_type`: See [`const_sv2`].
     fn handle_message_common_deserilized(
         self_: Arc<Mutex<Self>>,
         message: Result<CommonMessages<'_>, Error>,
@@ -124,12 +109,6 @@ where
     ///
     /// This method processes a `SetupConnectionSuccess` message and handles it
     /// by delegating to the appropriate handler.
-    ///
-    /// # Arguments
-    /// - `message`: The `SetupConnectionSuccess` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_setup_connection_success(
         &mut self,
         m: SetupConnectionSuccess,
@@ -139,24 +118,12 @@ where
     ///
     /// This method processes a `SetupConnectionError` message and handles it
     /// by delegating to the appropriate handler.
-    ///
-    /// # Arguments
-    /// - `message`: The `SetupConnectionError` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_setup_connection_error(&mut self, m: SetupConnectionError) -> Result<SendTo, Error>;
 
     /// Handles a `ChannelEndpointChanged` message.
     ///
     /// This method processes a `ChannelEndpointChanged` message and handles it
     /// by delegating to the appropriate handler.
-    ///
-    /// # Arguments
-    /// - `message`: The `ChannelEndpointChanged` message.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_channel_endpoint_changed(
         &mut self,
         m: ChannelEndpointChanged,
@@ -191,10 +158,6 @@ where
     /// It takes a message type and a payload, and if the message is a serialized setup connection
     /// message, it calls the `on_setup_connection` function on the routing logic, and then calls
     /// the `handle_setup_connection` function on the router
-    ///
-    /// Arguments:
-    ///
-    /// * `message_type`: See [`const_sv2`].
     fn handle_message_common(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -255,13 +218,6 @@ where
     ///
     /// This method processes a `SetupConnection` message and handles it
     /// by delegating to the appropriate handler in the routing logic.
-    ///
-    /// # Arguments
-    /// - `message`: The `SetupConnection` message.
-    /// - `result`: The result of the `on_setup_connection` call, if available.
-    ///
-    /// # Returns
-    /// - `Result<SendTo, Error>`: The result of processing the message.
     fn handle_setup_connection(
         &mut self,
         m: SetupConnection,

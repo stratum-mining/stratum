@@ -15,9 +15,10 @@
 //!
 //! ## Supported Subprotocols
 //! - **Common Messages**: Shared across all Sv2 roles.
-//! - **Template Distribution**: Handles block templates and transaction data.
-//! - **Job Declaration**: Manages mining job assignments and solutions.
-//! - **Mining Protocol**: Manages standard mining communication (e.g., job dispatch, shares).
+//! - **Template Distribution**: Handles block templates updates and transaction data.
+//! - **Job Declaration**: Manages custom mining job declarations, transactions, and solutions.
+//! - **Mining Protocol**: Manages standard mining communication (e.g., job dispatch, shares
+//!   submission).
 
 use crate::Error;
 

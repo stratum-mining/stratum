@@ -87,7 +87,7 @@ pub struct Mutex<T: ?Sized>(Mutex_<T>);
 impl<T> Mutex<T> {
     /// Mutex safe lock.
     ///
-    /// Safely locks the `Mutex` and executes a closer (`thunk`) with a mutable reference to to the
+    /// Safely locks the `Mutex` and executes a closer (`thunk`) with a mutable reference to the
     /// inner value. This ensures that the lock is automatically released after the closure
     /// completes, preventing deadlocks. It explicitly returns a [`PoisonError`] containing a
     /// [`MutexGuard`] to the inner value in cases where the lock is poisoned.
@@ -212,7 +212,7 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
     }
 }
 
-// Computes the Merkle root by iteratively combines the coinbase transaction hash with each
+// Computes the Merkle root by iteratively combining the coinbase transaction hash with each
 // transaction hash in the `path`.
 //
 // Handles the core logic of combining hashes using the Bitcoin double-SHA256 hashing algorithm.
@@ -430,13 +430,13 @@ pub fn hash_rate_to_target(
 ///
 /// ## Formula
 /// ```text
-/// h = (2^256 - target) / (s * (t + 1))
+/// h = (2^256 - t) / (s * (t + 1))
 /// ```
 ///
 /// Where:
 /// - `h`: Mining device hashrate (H/s).
 /// - `t`: Target threshold.
-/// - `s`: Shares per second `60 / shares/min`.
+/// - `s`: Shares per minute.
 pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Result<f64, Error> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {

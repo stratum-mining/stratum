@@ -1,4 +1,6 @@
-//! The Job Dispatcher contains relevant logic to maintain group channels in proxy roles such as:
+//! Job Dispatcher
+//!
+//! This module contains relevant logic to maintain group channels in proxy roles such as:
 //! - converting extended jobs to standard jobs
 //! - handling updates to jobs when new templates and prev hashes arrive, as well as cleaning up old
 //!   jobs

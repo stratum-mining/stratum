@@ -1,4 +1,7 @@
-//! Errors specific to this crate
+//! # Error Handling
+//!
+//! This module defines error types and utilities for handling errors in the `roles_logic_sv2`
+//! module. It includes the [`Error`] enum for representing various errors.
 
 use crate::{
     common_properties::CommonDownstreamData, parsers::PoolMessages as AllMessages,

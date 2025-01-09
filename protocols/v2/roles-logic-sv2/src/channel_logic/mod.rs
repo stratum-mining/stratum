@@ -1,3 +1,5 @@
+//! # Channel Logic
+//!
 //! A module for managing channels on applications.
 //!
 //! Divided in two submodules:
@@ -10,7 +12,7 @@ pub mod proxy_group_channel;
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob};
 use std::convert::TryInto;
 
-/// convert extended to standard job by calculating the merkle root
+/// Convert extended to standard job by calculating the merkle root
 pub fn extended_to_standard_job<'a>(
     extended: &NewExtendedMiningJob,
     coinbase_script: &[u8],

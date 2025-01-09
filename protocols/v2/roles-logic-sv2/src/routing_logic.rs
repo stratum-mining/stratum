@@ -1,7 +1,7 @@
+//! # Routing Logic
+//!
 //! This module contains the routing logic used by handlers to determine where a message should be
 //! relayed or responded to.
-//!
-//! ## Overview
 //!
 //! The routing logic defines a set of traits and structures to manage message routing in Stratum
 //! V2. The following components are included:
@@ -16,29 +16,6 @@
 //!   cases where no routing logic is required.
 //! - **`MiningProxyRoutingLogic`**: Routing logic valid for a standard Sv2 mining proxy,
 //!   implementing both `CommonRouter` and `MiningRouter`.
-//!
-//! ## Details
-//!
-//! ### Traits
-//!
-//! - **`CommonRouter`**: Defines routing behavior for common protocol messages.
-//! - **`MiningRouter`**: Defines routing behavior for mining protocol messages. Requires
-//!   `DownstreamMiningSelector` for downstream selection.
-//!
-//! ### Enums
-//!
-//! - **`CommonRoutingLogic`**: Represents possible routing logics for the common protocol, such as
-//!   proxy-based routing or no routing.
-//! - **`MiningRoutingLogic`**: Represents possible routing logics for the mining protocol,
-//!   supporting additional parameters such as selectors and marker traits.
-//!
-//! ### Structures
-//!
-//! - **`NoRouting`**: A minimal implementation of `CommonRouter` and `MiningRouter` that panics
-//!   when used. Its primary purpose is to serve as a placeholder for cases where no routing logic
-//!   is applied.
-//! - **`MiningProxyRoutingLogic`**: Implements routing logic for a standard Sv2 proxy, including
-//!   upstream selection and message transformation.
 //!
 //! ## Future Work
 //!
@@ -67,12 +44,6 @@ use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc}
 /// protocol routing.
 pub trait CommonRouter: std::fmt::Debug {
     /// Handles a `SetupConnection` message for the common protocol.
-    ///
-    /// # Arguments
-    /// - `message`: The `SetupConnection` message received.
-    ///
-    /// # Returns
-    /// - `Result<(CommonDownstreamData, SetupConnectionSuccess), Error>`: The routing result.
     fn on_setup_connection(
         &mut self,
         message: &SetupConnection,
@@ -91,14 +62,6 @@ pub trait MiningRouter<
 >: CommonRouter
 {
     /// Handles an `OpenStandardMiningChannel` message from a downstream.
-    ///
-    /// # Arguments
-    /// - `downstream`: The downstream mining entity.
-    /// - `request`: The mining channel request message.
-    /// - `downstream_mining_data`: Associated downstream mining data.
-    ///
-    /// # Returns
-    /// - `Result<Arc<Mutex<Up>>, Error>`: The upstream mining entity.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
@@ -107,13 +70,6 @@ pub trait MiningRouter<
     ) -> Result<Arc<Mutex<Up>>, Error>;
 
     /// Handles an `OpenStandardMiningChannelSuccess` message from an upstream.
-    ///
-    /// # Arguments
-    /// - `upstream`: The upstream mining entity.
-    /// - `request`: The successful channel opening message.
-    ///
-    /// # Returns
-    /// - `Result<Arc<Mutex<Down>>, Error>`: The downstream mining entity.
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
@@ -235,14 +191,6 @@ impl<
     ///
     /// This method initializes the connection between a downstream and an upstream by determining
     /// the appropriate upstream based on the provided protocol, versions, and flags.
-    ///
-    /// # Arguments
-    /// - `message`: A reference to the `SetupConnection` message containing the connection details.
-    ///
-    /// # Returns
-    /// - `Result<(CommonDownstreamData, SetupConnectionSuccess), Error>`: On success, returns the
-    ///   downstream connection data and the corresponding setup success message. Returns an error
-    ///   otherwise.
     fn on_setup_connection(
         &mut self,
         message: &SetupConnection,
@@ -279,15 +227,6 @@ impl<
     // This method processes the request to open a standard mining channel. It selects a suitable
     // upstream, updates the request ID to ensure uniqueness, and then delegates to
     // `on_open_standard_channel_request_header_only` to finalize the process.
-    //
-    // # Arguments
-    // - `downstream`: The downstream requesting the channel opening.
-    // - `request`: A mutable reference to the `OpenStandardMiningChannel` message.
-    // - `downstream_mining_data`: Common data about the downstream mining setup.
-    //
-    // # Returns
-    // - `Result<Arc<Mutex<Up>>, Error>`: Returns the selected upstream for the downstream or an
-    //   error.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
@@ -315,14 +254,6 @@ impl<
     // This method processes the success message received from an upstream when a standard mining
     // channel is opened. It maps the request ID back to the original ID from the downstream and
     // updates the associated group and channel IDs in the upstream.
-    //
-    // # Arguments
-    // - `upstream`: The upstream involved in the channel opening.
-    // - `request`: A mutable reference to the `OpenStandardMiningChannelSuccess` message.
-    //
-    // # Returns
-    // - `Result<Arc<Mutex<Down>>, Error>`: Returns the downstream corresponding to the request or
-    //   an error.
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
@@ -353,13 +284,6 @@ impl<
 }
 
 // Selects the upstream with the lowest total hash rate.
-//
-// # Arguments
-// - `ups`: A mutable slice of upstream mining entities.
-//
-// # Returns
-// - `Arc<Mutex<Up>>`: The upstream entity with the lowest total hash rate.
-//
 // # Panics
 // This function panics if the slice is empty, as it is internally guaranteed that this function
 // will only be called with non-empty vectors.
@@ -385,12 +309,6 @@ where
 }
 
 // Filters upstream entities that are not configured for header-only mining.
-//
-// # Arguments
-// - `ups`: A mutable slice of upstream mining entities.
-//
-// # Returns
-// - `Vec<Arc<Mutex<Up>>>`: A vector of upstream entities that are not header-only.
 fn filter_header_only<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Vec<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -414,12 +332,6 @@ where
 // - If only one upstream is available, it is selected.
 // - If multiple upstreams exist, preference is given to those not configured as header-only.
 // - Among the remaining upstreams, the one with the lowest total hash rate is selected.
-//
-// # Arguments
-// - `ups`: A mutable slice of upstream mining entities.
-//
-// # Returns
-// - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
 fn select_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -444,12 +356,6 @@ impl<
     > MiningProxyRoutingLogic<Down, Up, Sel>
 {
     // Selects an upstream entity from a list of available upstreams.
-    //
-    // # Arguments
-    // - `ups`: A mutable slice of upstream mining entities.
-    //
-    // # Returns
-    // - `Option<Arc<Mutex<Up>>>`: The selected upstream entity, or `None` if none are available.
     fn select_upstreams(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>> {
         select_upstream(ups)
     }
@@ -458,12 +364,6 @@ impl<
     ///
     /// This method selects compatible upstreams, assigns connection flags, and maps the
     /// downstream to the selected upstreams.
-    ///
-    /// # Arguments
-    /// - `pair_settings`: The pairing settings for the connection.
-    ///
-    /// # Returns
-    /// - `Result<(CommonDownstreamData, SetupConnectionSuccess), Error>`: The connection result.
     pub fn on_setup_connection_mining_header_only(
         &mut self,
         pair_settings: &PairSettings,
@@ -487,14 +387,7 @@ impl<
         Ok((downstream_data, message))
     }
 
-    /// Handles a standard channel opening request for header-only mining downstream's.
-    ///
-    /// # Arguments
-    /// - `downstream`: The downstream mining entity.
-    /// - `request`: The standard mining channel request message.
-    ///
-    /// # Returns
-    /// - `Result<Arc<Mutex<Up>>, Error>`: The selected upstream mining entity.
+    /// Handles a standard channel opening request for header-only mining downstreams.
     pub fn on_open_standard_channel_request_header_only(
         &mut self,
         downstream: Arc<Mutex<Down>>,

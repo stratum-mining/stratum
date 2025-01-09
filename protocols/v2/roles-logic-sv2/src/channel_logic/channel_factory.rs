@@ -1,4 +1,6 @@
-//! Contains logic for creating channels.
+//! # Channel Factory
+//!
+//! This module contains logic for creating and managing channels.
 
 use super::extended_to_standard_job;
 use crate::{
@@ -76,7 +78,7 @@ pub enum OnNewShare {
 }
 
 impl OnNewShare {
-    /// Convert standard share into extended share
+    /// Converts standard share into extended share
     pub fn into_extended(&mut self, extranonce: Vec<u8>, up_id: u32) {
         match self {
             OnNewShare::SendErrorDownstream(_) => (),
@@ -139,7 +141,7 @@ pub struct StagedPhash {
 }
 
 impl StagedPhash {
-    /// converts a Staged PrevHash into a SetNewPrevHash message
+    /// Converts a Staged PrevHash into a SetNewPrevHash message
     pub fn into_set_p_hash(
         &self,
         channel_id: u32,
@@ -156,7 +158,7 @@ impl StagedPhash {
 }
 
 impl Share {
-    /// get share sequence number
+    /// Get share sequence number
     pub fn get_sequence_number(&self) -> u32 {
         match self {
             Share::Extended(s) => s.sequence_number,
@@ -164,7 +166,7 @@ impl Share {
         }
     }
 
-    /// get share channel id
+    /// Get share channel id
     pub fn get_channel_id(&self) -> u32 {
         match self {
             Share::Extended(s) => s.channel_id,
@@ -172,7 +174,7 @@ impl Share {
         }
     }
 
-    /// get share timestamp
+    /// Get share timestamp
     pub fn get_n_time(&self) -> u32 {
         match self {
             Share::Extended(s) => s.ntime,
@@ -180,7 +182,7 @@ impl Share {
         }
     }
 
-    /// get share nonce
+    /// Get share nonce
     pub fn get_nonce(&self) -> u32 {
         match self {
             Share::Extended(s) => s.nonce,
@@ -188,7 +190,7 @@ impl Share {
         }
     }
 
-    /// get share job id
+    /// Get share job id
     pub fn get_job_id(&self) -> u32 {
         match self {
             Share::Extended(s) => s.job_id,
@@ -196,7 +198,7 @@ impl Share {
         }
     }
 
-    /// get share version
+    /// Get share version
     pub fn get_version(&self) -> u32 {
         match self {
             Share::Extended(s) => s.version,
@@ -976,7 +978,7 @@ impl ChannelFactory {
             },
         }
     }
-    /// updates the downstream target for the given channel_id
+    /// Updates the downstream target for the given channel_id
     fn update_target_for_channel(&mut self, channel_id: u32, new_target: Target) -> Option<bool> {
         let channel = self.extended_channels.get_mut(&channel_id)?;
         channel.target = new_target.into();
@@ -1292,12 +1294,12 @@ impl PoolChannelFactory {
         true
     }
 
-    /// get extended channel ids
+    /// Get extended channel ids
     pub fn get_extended_channels_ids(&self) -> Vec<u32> {
         self.inner.extended_channels.keys().copied().collect()
     }
 
-    /// update coinbase outputs
+    /// Update coinbase outputs
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = outs;
     }
@@ -1331,7 +1333,7 @@ pub struct ProxyExtendedChannelFactory {
 }
 
 impl ProxyExtendedChannelFactory {
-    /// constructor
+    /// Constructor
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         ids: Arc<Mutex<GroupId>>,
@@ -1520,7 +1522,7 @@ impl ProxyExtendedChannelFactory {
 
     /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the
     /// shares against the channel's respective target and return `OnNewShare` to let us know if
-    /// and where the the shares should be relayed
+    /// and where the shares should be relayed
     pub fn on_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended<'static>,
@@ -1723,12 +1725,12 @@ impl ProxyExtendedChannelFactory {
         self.inner.on_new_extended_mining_job(m)
     }
 
-    /// set new target
+    /// Set new target
     pub fn set_target(&mut self, new_target: &mut Target) {
         self.inner.kind.set_target(new_target);
     }
 
-    /// get last valid job version
+    /// Get last valid job version
     pub fn last_valid_job_version(&self) -> Option<u32> {
         self.inner.last_valid_job.as_ref().map(|j| j.0.version)
     }
@@ -1752,44 +1754,44 @@ impl ProxyExtendedChannelFactory {
             .map(|f| f.0.prev_hash.clone())
     }
 
-    /// last min ntime
+    /// Get last min ntime
     pub fn last_min_ntime(&self) -> Option<u32> {
         self.inner.last_prev_hash.as_ref().map(|f| f.0.min_ntime)
     }
 
-    /// last nbits
+    /// Get last nbits
     pub fn last_nbits(&self) -> Option<u32> {
         self.inner.last_prev_hash.as_ref().map(|f| f.0.nbits)
     }
 
-    /// extranonce_size
+    /// Get extranonce_size
     pub fn extranonce_size(&self) -> usize {
         self.inner.extranonces.get_len()
     }
 
-    /// extranonce_2 size
+    /// Get extranonce_2 size
     pub fn channel_extranonce2_size(&self) -> usize {
         self.inner.extranonces.get_len() - self.inner.extranonces.get_range0_len()
     }
 
     // Only used when the proxy is using Job Declaration
-    /// update pool outputs
+    /// Updates pool outputs
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
     }
 
-    /// get this channel id
+    /// Get this channel id
     pub fn get_this_channel_id(&self) -> u32 {
         self.extended_channel_id
     }
 
-    /// returns the extranonce1 len of the upstream. For a proxy, this would
+    /// Returns the extranonce1 len of the upstream. For a proxy, this would
     /// be the extranonce_prefix len
     pub fn get_upstream_extranonce1_len(&self) -> usize {
         self.inner.extranonces.get_range0_len()
     }
 
-    /// calls [`ChannelFactory::update_target_for_channel`]
+    /// Calls [`ChannelFactory::update_target_for_channel`]
     pub fn update_target_for_channel(
         &mut self,
         channel_id: u32,
@@ -1807,7 +1809,7 @@ pub enum ExtendedChannelKind {
     Pool,
 }
 impl ExtendedChannelKind {
-    /// set target
+    /// Set target
     pub fn set_target(&mut self, new_target: &mut Target) {
         match self {
             ExtendedChannelKind::Proxy { upstream_target }

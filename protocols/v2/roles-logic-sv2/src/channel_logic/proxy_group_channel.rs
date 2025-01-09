@@ -1,4 +1,6 @@
-//! Contains logic for managing Standard Channels via Group Channels.
+//! # Proxy Group Channel
+//!
+//! This module contains logic for managing Standard Channels via Group Channels.
 
 use crate::{common_properties::StandardChannel, parsers::Mining, Error};
 
@@ -10,13 +12,13 @@ use super::extended_to_standard_job;
 use nohash_hasher::BuildNoHashHasher;
 use std::collections::HashMap;
 
-/// wrapper around `GroupChannel` for managing multiple group channels
+/// Wrapper around `GroupChannel` for managing multiple group channels
 #[derive(Debug, Clone, Default)]
 pub struct GroupChannels {
     channels: HashMap<u32, GroupChannel>,
 }
 impl GroupChannels {
-    /// constructor
+    /// Constructor
     pub fn new() -> Self {
         Self {
             channels: HashMap::new(),
@@ -74,7 +76,7 @@ impl GroupChannels {
         }
     }
 
-    /// get group channel ids
+    /// Get group channel ids
     pub fn ids(&self) -> Vec<u32> {
         self.channels.keys().copied().collect()
     }

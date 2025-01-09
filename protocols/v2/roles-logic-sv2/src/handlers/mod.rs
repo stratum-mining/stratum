@@ -1,4 +1,4 @@
-//! # Handlers Overview
+//! # Handlers
 //!
 //! This module centralizes the logic for processing and routing Stratum V2 protocol messages,
 //! defining traits and utilities to handle messages for both Downstream and Upstream roles.
@@ -16,10 +16,11 @@
 //! - `ParseUpstream[Protocol]`: Handles messages from Upstream nodes.
 //!
 //! Supported subprotocols include:
-//! - `common`: Shared messages across protocols.
-//! - `job_declaration`: Job-related messages.
-//! - `mining`: Mining-specific messages.
-//! - `template_distribution`: Template distribution messages.
+//! - `common`: Shared messages across all Sv2 roles.
+//! - `job_declaration`: Manages custom mining job declarations, transactions, and solutions.
+//! - `mining`: Manages standard mining communication (e.g., job dispatch, shares submission).
+//! - `template_distribution`: Handles block templates updates and transaction data.
+//! //! - **Common Messages**: Shared across all Sv2 roles.
 //!
 //! ## Return Values
 //!

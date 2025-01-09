@@ -18,32 +18,28 @@ use std::{collections::HashMap, fmt::Debug as D};
 pub struct CommonDownstreamData {
     /// Header-only mining flag.
     ///
-    /// Enables the processing of block headers only, leaving transaction management and template
-    /// construction to the upstream node. It reduces the amount of data processed and transmitted
-    /// by the downstream node, making it useful when bandwidth is limited and transmitting full
-    /// block templates is costly.
+    /// Enables the processing of standard jobs only, leaving merkle root manipulation to the
+    /// upstream node.
     ///
-    /// - `true`: The downstream node only processes block headers, relying on the upstream for
-    ///   transaction management.
-    /// - `false`: The downstream node handles full blocks.
+    /// - `true`: The downstream node only processes standard jobs, relying on the upstream for
+    ///   merkle root manipulation.
+    /// - `false`: The downstream node handles extended jobs and merkle root manipulation.
     pub header_only: bool,
 
     /// Work selection flag.
     ///
-    /// Enables the selection of which transactions or templates the node will work on. It allows
-    /// for more autonomy for downstream nodes to define specific version bits to roll, adjust the
-    /// difficulty target, apply `timestamp` range constraints, etc.
+    /// Enables the selection of which transactions or templates the node will work on.
     ///
-    /// - `true`: The downstream node can modify or customize the mining job, such as choosing
-    ///   specific transactions to include in a block template.
-    /// - `false`: The downstream node strictly follows the work provided by the upstream, such as
-    ///   pre-constructed templates from a pool.
+    /// - `true`: The downstream node works on a custom block template, using the Job Declaration
+    ///   Protocol.
+    /// - `false`: The downstream node strictly follows the work provided by the upstream, based on
+    ///   pre-constructed templates from the upstream (e.g. Pool).
     pub work_selection: bool,
 
     /// Version rolling flag.
     ///
     /// Enables rolling the block header version bits which allows for more unique hash generation
-    /// on the same block template by expanding the nonce-space. Used when other fields (e.g.
+    /// on the same mining job by expanding the nonce-space. Used when other fields (e.g.
     /// `nonce` or `extranonce`) are fully exhausted.
     ///
     /// - `true`: The downstream supports version rolling and can modify specific bits in the
@@ -60,7 +56,7 @@ pub struct CommonDownstreamData {
 /// range, and flag settings.
 #[derive(Debug, Copy, Clone)]
 pub struct PairSettings {
-    /// Role the settings apply to.
+    /// Protocol the settings apply to.
     pub protocol: Protocol,
 
     /// Minimum protocol version the node supports.
@@ -70,7 +66,7 @@ pub struct PairSettings {
     pub max_v: u16,
 
     /// Flags indicating optional protocol features the node supports (e.g. header-only mining,
-    /// Noise protocol support, job configuration parameters, etc.). Each protocol field as its own
+    /// work selection, version-rolling, etc.). Each protocol field as its own
     /// flags.
     pub flags: u32,
 }
@@ -122,8 +118,9 @@ pub enum UpstreamChannel {
 
     /// A grouped channel for aggregated mining.
     ///
-    /// Aggregates mining work for multiple devices or clients under a single channel, enabling the
-    /// upstream to manage work distribution and result aggregation for an entire group of miners.
+    /// Aggregates mining work for multiple standard channels under a single group channel,
+    /// enabling the upstream to manage work distribution and result aggregation for an entire
+    /// group of channels.
     ///
     /// Typically used by a mining proxy managing multiple downstream miners.
     Group,
@@ -138,7 +135,7 @@ pub enum UpstreamChannel {
 /// Properties of a standard mining channel.
 ///
 /// Standard channels are intended to be used by end mining devices with a nominal hashrate, where
-/// each device operates on an independent connection to its upstream.
+/// each device operates on an independent channel to its upstream.
 #[derive(Debug, Clone)]
 pub struct StandardChannel {
     /// Identifies a specific channel, unique to each mining connection.
@@ -148,7 +145,7 @@ pub struct StandardChannel {
     /// the same upstream node. The identifier remains stable for the whole lifetime of the
     /// connection.
     ///
-    /// Used for broadcasting new jobs by [`mining_sv2::NewExtendedMiningJob`].
+    /// Used for broadcasting new jobs by [`mining_sv2::NewMiningJob`].
     pub channel_id: u32,
 
     /// Identifies a specific group in which the standard channel belongs.
