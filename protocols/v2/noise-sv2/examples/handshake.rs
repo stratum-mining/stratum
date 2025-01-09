@@ -41,19 +41,52 @@ fn main() {
 
     let responder_key_pair = generate_key();
 
+    #[cfg(feature = "std")]
     let mut initiator = Initiator::new(Some(responder_key_pair.public_key().into()));
+    #[cfg(not(feature = "std"))]
+    let mut initiator = Initiator::new_with_rng(
+        Some(responder_key_pair.public_key().into()),
+        &mut rand::thread_rng(),
+    );
+    #[cfg(feature = "std")]
     let mut responder = Responder::new(responder_key_pair, RESPONDER_CERT_VALIDITY);
+    #[cfg(not(feature = "std"))]
+    let mut responder = Responder::new_with_rng(
+        responder_key_pair,
+        RESPONDER_CERT_VALIDITY,
+        &mut rand::thread_rng(),
+    );
 
     let first_message = initiator
         .step_0()
         .expect("Initiator failed first step of handshake");
 
+    #[cfg(feature = "std")]
     let (second_message, mut responder_state) = responder
         .step_1(first_message)
         .expect("Responder failed second step of handshake");
+    #[cfg(not(feature = "std"))]
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
+    #[cfg(not(feature = "std"))]
+    let (second_message, mut responder_state) = responder
+        .step_1_with_now_rng(first_message, now, &mut rand::thread_rng())
+        .expect("Responder failed second step of handshake");
 
+    #[cfg(feature = "std")]
     let mut initiator_state = initiator
         .step_2(second_message)
+        .expect("Initiator failed third step of handshake");
+    #[cfg(not(feature = "std"))]
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u32;
+    #[cfg(not(feature = "std"))]
+    let mut initiator_state = initiator
+        .step_2_with_now(second_message, now)
         .expect("Initiator failed third step of handshake");
 
     initiator_state
