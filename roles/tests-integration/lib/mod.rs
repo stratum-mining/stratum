@@ -95,7 +95,7 @@ pub async fn start_template_provider(sv2_interval: Option<u32>) -> (TemplateProv
 }
 
 pub async fn start_jdc(
-    pool_address: SocketAddr,
+    pool_addresses: Vec<SocketAddr>,
     tp_address: SocketAddr,
     jds_address: SocketAddr,
 ) -> (JobDeclaratorClient, SocketAddr) {
@@ -125,12 +125,17 @@ pub async fn start_jdc(
     )
     .unwrap();
     let pool_signature = "Stratum v2 SRI Pool".to_string();
-    let upstreams = vec![Upstream::new(
-        authority_pubkey,
-        pool_address.to_string(),
-        jds_address.to_string(),
-        pool_signature,
-    )];
+    let upstreams = pool_addresses
+        .iter()
+        .map(|addr| {
+            Upstream::new(
+                authority_pubkey,
+                addr.to_string(),
+                jds_address.to_string(),
+                pool_signature.clone(),
+            )
+        })
+        .collect();
     let pool_config = PoolConfig::new(authority_public_key, authority_secret_key);
     let tp_config = TPConfig::new(1000, tp_address.to_string(), None);
     let protocol_config = ProtocolConfig::new(
