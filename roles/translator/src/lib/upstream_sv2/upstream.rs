@@ -4,7 +4,7 @@ use crate::{
         Error::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
         ProxyResult,
     },
-    proxy_config::UpstreamDifficultyConfig,
+    jdc_config::UpstreamDifficultyConfig,
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
