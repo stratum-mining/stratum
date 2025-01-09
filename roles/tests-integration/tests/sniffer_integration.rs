@@ -11,9 +11,9 @@ use sniffer::{InterceptMessage, MessageDirection};
 use std::convert::TryInto;
 
 #[tokio::test]
-async fn test_sniffer_interrupter() {
+async fn test_sniffer_intercept() {
     let (_tp, tp_addr) = start_template_provider(None).await;
-    let message =
+    let message_replacement =
         PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
             flags: 0,
             error_code: "unsupported-feature-flags"
@@ -22,15 +22,14 @@ async fn test_sniffer_interrupter() {
                 .try_into()
                 .unwrap(),
         }));
-    let interrupt_msgs = InterceptMessage::new(
+    let intercept = InterceptMessage::new(
         MessageDirection::ToDownstream,
         MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-        message,
+        message_replacement,
         MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-        true,
     );
     let (sniffer, sniffer_addr) =
-        start_sniffer("".to_string(), tp_addr, false, Some(vec![interrupt_msgs])).await;
+        start_sniffer("".to_string(), tp_addr, false, Some(vec![intercept])).await;
     let _ = start_pool(Some(sniffer_addr)).await;
     assert_common_message!(&sniffer.next_message_from_downstream(), SetupConnection);
     assert_common_message!(&sniffer.next_message_from_upstream(), SetupConnectionError);

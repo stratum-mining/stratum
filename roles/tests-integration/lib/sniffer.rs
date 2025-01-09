@@ -31,7 +31,6 @@ type MsgType = u8;
 enum SnifferError {
     DownstreamClosed,
     UpstreamClosed,
-    MessageInterrupted,
 }
 
 /// Allows to intercept messages sent between two roles.
@@ -48,9 +47,6 @@ enum SnifferError {
 /// field can be used. It will look for the [`InterceptMessage::expected_message_type`] in the
 /// specified [`InterceptMessage::direction`] and replace it with
 /// [`InterceptMessage::replacement_message`].
-///
-/// If `break_on` is set to `true`, the [`Sniffer`] will stop the communication after sending the
-/// new message.
 ///
 /// Can be useful for testing purposes, as it allows to assert that the roles have sent specific
 /// messages in a specific order and to inspect the messages details.
@@ -71,7 +67,6 @@ pub struct InterceptMessage {
     expected_message_type: MsgType,
     replacement_message: PoolMessages<'static>,
     replacement_message_type: MsgType,
-    break_on: bool,
 }
 
 impl InterceptMessage {
@@ -80,14 +75,12 @@ impl InterceptMessage {
         expected_message_type: MsgType,
         replacement_message: PoolMessages<'static>,
         replacement_message_type: MsgType,
-        break_on: bool,
     ) -> Self {
         Self {
             direction,
             expected_message_type,
             replacement_message,
             replacement_message_type,
-            break_on,
         }
     }
 }
@@ -244,11 +237,6 @@ impl Sniffer {
                     downstream_messages
                         .add_message(msg_type, intercept_message.replacement_message.clone());
                     let _ = send.send(frame).await;
-                    if intercept_message.break_on {
-                        return Err(SnifferError::MessageInterrupted);
-                    } else {
-                        continue;
-                    }
                 }
             }
 
@@ -286,11 +274,6 @@ impl Sniffer {
                     upstream_messages
                         .add_message(msg_type, intercept_message.replacement_message.clone());
                     let _ = send.send(frame).await;
-                    if intercept_message.break_on {
-                        return Err(SnifferError::MessageInterrupted);
-                    } else {
-                        continue;
-                    }
                 }
             }
             if send.send(frame).await.is_err() {
