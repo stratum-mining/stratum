@@ -33,7 +33,7 @@
 // within the Noise protocol, ensuring secure data handling, key management, and nonce tracking
 // throughout the communication session.
 
-use std::ptr;
+use core::ptr;
 
 use crate::aed_cipher::AeadCipher;
 use aes_gcm::Aes256Gcm;

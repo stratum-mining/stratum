@@ -2,6 +2,8 @@
 //
 // Defines error types and utilities for handling errors in the `noise_sv2` module.
 
+use alloc::vec::Vec;
+
 use aes_gcm::Error as AesGcm;
 
 /// Noise protocol error handling.
