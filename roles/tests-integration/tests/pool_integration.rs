@@ -1,7 +1,10 @@
 use integration_tests_sv2::*;
 
 use crate::sniffer::MessageDirection;
-use const_sv2::{MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE};
+use const_sv2::{
+    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
+    MESSAGE_TYPE_NEW_TEMPLATE,
+};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     parsers::{AnyMessage, CommonMessages, Mining, PoolMessages, TemplateDistribution},
@@ -92,24 +95,12 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         }
         _ => panic!("SetNewPrevHash not found!"),
     };
-    // Assertions of messages between Pool and Translator Proxy (these are not necessary for the
-    // test itself, but they are used to pop from the sniffer's message queue)
-    assert_common_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        SetupConnectionSuccess
-    );
-    assert_mining_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        OpenExtendedMiningChannelSuccess
-    );
-    assert_mining_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        NewExtendedMiningJob
-    );
-    assert_mining_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        SetNewPrevHash
-    );
+    pool_translator_sniffer
+        .wait_for_message_type_and_clean_queue(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+        )
+        .await;
     // Wait for a second NewExtendedMiningJob message
     pool_translator_sniffer
         .wait_for_message_type(
