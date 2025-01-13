@@ -704,6 +704,7 @@ dependencies = [
  "const_sv2",
  "framing_sv2",
  "noise_sv2",
+ "rand",
  "serde",
  "tracing",
 ]
