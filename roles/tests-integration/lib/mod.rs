@@ -126,7 +126,6 @@ pub async fn start_jdc(
         "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
     )
     .unwrap();
-    let cert_validity_sec = 3600;
     let coinbase_outputs = vec![CoinbaseOutput::new(
         "P2WPKH".to_string(),
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
@@ -162,7 +161,7 @@ pub async fn start_jdc(
         pool_config,
         tp_config,
         upstreams,
-        std::time::Duration::from_secs(cert_validity_sec),
+        std::time::Duration::from_secs(1),
     );
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
     let ret_clone = ret.clone();
