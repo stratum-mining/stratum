@@ -1,5 +1,7 @@
 //! https://www.jsonrpc.org/specification#response_object
 use serde::{Deserialize, Serialize};
+use sv2_serde_json_macros::{DeJson, SerJson};
+use sv2_serde_json::value::{ToJsonValue, FromJsonValue};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
@@ -8,6 +10,14 @@ pub enum Message {
     Notification(Notification),
     OkResponse(Response),
     ErrorResponse(Response),
+}
+
+#[derive(Clone, SerJson, DeJson, Debug)]
+pub enum Message_ {
+    StandardRequest(StandardRequest_),
+    Notification(Notification_),
+    OkResponse(Response_),
+    ErrorResponse(Response_),
 }
 
 impl Message {
@@ -36,10 +46,23 @@ pub struct StandardRequest {
     pub params: serde_json::Value,
 }
 
+#[derive(SerJson, DeJson, Clone, Debug, PartialEq)]
+pub struct StandardRequest_ {
+    pub id: u64,
+    pub method: String,
+    pub params: sv2_serde_json::value::Value
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Notification {
     pub method: String,
     pub params: serde_json::Value,
+}
+
+#[derive(Clone, SerJson, DeJson, Debug)]
+pub struct Notification_ {
+    pub method: String,
+    pub params: sv2_serde_json::value::Value,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -49,11 +72,25 @@ pub struct Response {
     pub result: serde_json::Value,
 }
 
+#[derive(Clone, SerJson, DeJson, Debug)]
+pub struct Response_ {
+    pub id: u64,
+    pub error: Option<JsonRpcError_>,
+    pub result: sv2_serde_json::value::Value,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JsonRpcError {
     pub code: i32, // json do not specify precision which one should be used?
     pub message: String,
     pub data: Option<serde_json::Value>,
+}
+
+#[derive(Clone, SerJson, DeJson, Debug)]
+pub struct JsonRpcError_ {
+    pub code: i32, // json do not specify precision which one should be used?
+    pub message: String,
+    pub data: Option<sv2_serde_json::value::Value>,
 }
 
 impl From<Response> for Message {
