@@ -1,0 +1,7 @@
+[package]
+name = "sv2_serde_json"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+sv2_serde_json_macros = {path = "../sv2_serde_json_macros"}
