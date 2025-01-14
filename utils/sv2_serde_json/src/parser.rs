@@ -1,3 +1,4 @@
+#![allow(clippy::result_unit_err)]
 use std::{
     collections::HashMap,
     fs::File,
@@ -15,7 +16,7 @@ use crate::{
 pub struct JsonParser;
 
 impl JsonParser {
-    pub fn parse_from_bytes<'a>(input: &'a [u8]) -> Result<Value, ()> {
+    pub fn parse_from_bytes(input: &[u8]) -> Result<Value, ()> {
         let mut json_tokenizer = Jsontokensizer::<BufReader<Cursor<&[u8]>>>::from_bytes(input);
         let tokens = json_tokenizer.tokensize_json()?;
         Ok(Self::tokens_to_value(tokens))

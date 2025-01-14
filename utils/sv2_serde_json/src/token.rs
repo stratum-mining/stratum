@@ -1,3 +1,4 @@
+#![allow(clippy::result_unit_err)]
 use std::{
     fs::File,
     io::{BufReader, Cursor, Read, Seek},
@@ -58,7 +59,6 @@ where
         while let Some(character) = self.iterator.peek() {
             match *character {
                 '"' => {
-                    // Pushed opening quote to output tokens list.
                     self.tokens.push(Token::Quotes);
 
                     let _ = self.iterator.next();

@@ -1,3 +1,4 @@
+#![allow(clippy::result_unit_err)]
 use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -14,7 +15,7 @@ pub enum Value {
     Array(Vec<Value>),
     Object(HashMap<String, Value>),
     Null,
-    None, 
+    None,
     Some(Box<Value>),
 }
 
@@ -57,7 +58,6 @@ pub trait ToJsonValue {
 pub trait FromJsonValue: Sized {
     fn from_json_value(value: &Value) -> Result<Self, ()>;
 }
-
 
 impl ToJsonValue for String {
     fn to_json_value(&self) -> Value {
