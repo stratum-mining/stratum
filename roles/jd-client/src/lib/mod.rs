@@ -337,7 +337,7 @@ impl JobDeclaratorClient {
         };
 
         // Wait for downstream to connect
-        let downstream = downstream::listen_for_downstream_mining(
+        let downstream = match downstream::listen_for_downstream_mining(
             downstream_addr,
             Some(upstream),
             send_solution,
@@ -351,7 +351,10 @@ impl JobDeclaratorClient {
             Some(jd.clone()),
         )
         .await
-        .unwrap();
+        {
+            Ok(d) => d,
+            Err(_e) => return,
+        };
 
         TemplateRx::connect(
             SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
