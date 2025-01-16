@@ -1,3 +1,30 @@
+//! # Template Distribution Handlers
+//!
+//! This module defines traits and functions for handling template distribution messages within the
+//! Stratum V2 protocol.
+//!
+//! ## Message Handling
+//!
+//! Handlers are responsible for:
+//! - Parsing and deserializing template distribution messages into appropriate types.
+//! - Dispatching the deserialized messages to specific handler functions based on message type,
+//!   such as handling new templates, transaction data requests, and coinbase output data.
+//!
+//! ## Return Type
+//!
+//! Functions return `Result<SendTo, Error>`, where `SendTo` determines the next action for the
+//! message: whether it should be relayed, responded to, or ignored.
+//!
+//! ## Structure
+//!
+//! This module includes:
+//! - Traits for processing template distribution messages, including server-side and client-side
+//!   handling.
+//! - Functions to parse, deserialize, and process messages related to template distribution,
+//!   ensuring robust error handling.
+//! - Error handling mechanisms to address unexpected messages and ensure safe processing,
+//!   especially in the context of shared state.
+
 use super::SendTo_;
 use crate::{errors::Error, parsers::TemplateDistribution, utils::Mutex};
 use template_distribution_sv2::{
@@ -5,16 +32,25 @@ use template_distribution_sv2::{
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
+/// see [`SendTo_`]
 pub type SendTo = SendTo_<TemplateDistribution<'static>, ()>;
 use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
 use tracing::{debug, error, info, trace};
 
+/// Trait for handling template distribution messages received from upstream nodes (server side).
+/// Includes functions to handle messages such as new templates, previous hash updates, and
+/// transaction data requests.
 pub trait ParseServerTemplateDistributionMessages
 where
     Self: Sized,
 {
+    /// Handles incoming template distribution messages.
+    ///
+    /// This function is responsible for parsing and dispatching the appropriate handler based on
+    /// the message type. It first deserializes the payload and then routes it to the
+    /// corresponding handler function.
     fn handle_message_template_distribution(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -25,6 +61,11 @@ where
             (message_type, payload).try_into(),
         )
     }
+
+    /// Handles deserialized template distribution messages.
+    ///
+    /// This function takes the deserialized message and processes it according to the specific
+    /// message type, invoking the appropriate handler function.
     fn handle_message_template_distribution_desrialized(
         self_: Arc<Mutex<Self>>,
         message: Result<TemplateDistribution<'_>, Error>,
@@ -80,22 +121,48 @@ where
             Err(e) => Err(e),
         }
     }
+
+    /// Handles a `NewTemplate` message.
+    ///
+    /// This method processes the `NewTemplate` message, which contains information about a newly
+    /// generated template.
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error>;
+
+    /// Handles a `SetNewPrevHash` message.
+    ///
+    /// This method processes the `SetNewPrevHash` message, which updates the previous hash for a
+    /// template.
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error>;
+
+    /// Handles a `RequestTransactionDataSuccess` message.
+    ///
+    /// This method processes the success response for a requested transaction data message.
     fn handle_request_tx_data_success(
         &mut self,
         m: RequestTransactionDataSuccess,
     ) -> Result<SendTo, Error>;
+
+    /// Handles a `RequestTransactionDataError` message.
+    ///
+    /// This method processes an error response for a requested transaction data message.
     fn handle_request_tx_data_error(
         &mut self,
         m: RequestTransactionDataError,
     ) -> Result<SendTo, Error>;
 }
 
+/// Trait for handling template distribution messages received from downstream nodes (client side).
+/// Includes functions to handle messages such as coinbase output data size, transaction data
+/// requests, and solution submissions.
 pub trait ParseClientTemplateDistributionMessages
 where
     Self: Sized,
 {
+    /// Handles incoming template distribution messages.
+    ///
+    /// This function is responsible for parsing and dispatching the appropriate handler based on
+    /// the message type. It first deserializes the payload and then routes it to the
+    /// corresponding handler function.
     fn handle_message_template_distribution(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -107,6 +174,10 @@ where
         )
     }
 
+    /// Handles deserialized template distribution messages.
+    ///
+    /// This function takes the deserialized message and processes it according to the specific
+    /// message type, invoking the appropriate handler function.
     fn handle_message_template_distribution_desrialized(
         self_: Arc<Mutex<Self>>,
         message: Result<TemplateDistribution<'_>, Error>,
@@ -137,8 +208,20 @@ where
             Err(e) => Err(e),
         }
     }
+
+    /// Handles a `CoinbaseOutputDataSize` message.
+    ///
+    /// This method processes a message that includes the coinbase output data size.
     fn handle_coinbase_out_data_size(&mut self, m: CoinbaseOutputDataSize)
         -> Result<SendTo, Error>;
+
+    /// Handles a `RequestTransactionData` message.
+    ///
+    /// This method processes a message requesting transaction data.
     fn handle_request_tx_data(&mut self, m: RequestTransactionData) -> Result<SendTo, Error>;
+
+    /// Handles a `SubmitSolution` message.
+    ///
+    /// This method processes a solution submission message.
     fn handle_request_submit_solution(&mut self, m: SubmitSolution) -> Result<SendTo, Error>;
 }

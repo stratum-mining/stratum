@@ -35,6 +35,7 @@ toml =  {git = "https://github.com/diondokter/toml-rs", default-features = false
 
 [features]
 with_serde = [ "serde",
+"framing_sv2/with_serde",
 "binary_sv2/with_serde",
 "common_messages_sv2/with_serde",
 "template_distribution_sv2/with_serde",

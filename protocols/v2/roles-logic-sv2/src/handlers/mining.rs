@@ -1,3 +1,32 @@
+//! # Mining Handlers
+//!
+//! This module defines traits and functions for handling mining-related messages within the Stratum
+//! V2 protocol.
+//!
+//! ## Message Handling
+//!
+//! Handlers in this module are responsible for:
+//! - Parsing and deserializing mining-related messages into the appropriate types.
+//! - Dispatching the deserialized messages to specific handler functions based on message type,
+//!   such as handling new mining jobs, share submissions, and extranonce updates.
+//! - Ensuring the integrity and validity of received messages, while interacting with downstream
+//!   mining systems to ensure proper communication and task execution.
+//!
+//! ## Return Type
+//!
+//! Functions return `Result<SendTo<Down>, Error>`, where `SendTo<Down>` specifies the next action
+//! for the message: whether it should be sent to the downstream node, an error response should be
+//! generated, or the message should be ignored.
+//!
+//! ## Structure
+//!
+//! This module includes:
+//! - Traits for processing mining-related messages for both upstream and downstream communication.
+//! - Functions to parse, deserialize, and process messages related to mining, ensuring robust error
+//!   handling for unexpected conditions.
+//! - Support for managing mining channels, extranonce prefixes, and share submissions, while
+//!   handling edge cases and ensuring the correctness of the mining process.
+
 use crate::{common_properties::RequestIdMapper, errors::Error, parsers::Mining};
 use core::convert::TryInto;
 use mining_sv2::{
@@ -22,18 +51,23 @@ use const_sv2::*;
 use std::{fmt::Debug as D, sync::Arc};
 use tracing::{debug, error, info, trace};
 
+/// see [`SendTo_`]
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
 
+/// Represents supported channel types in a mining connection.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SupportedChannelTypes {
     Standard,
     Extended,
     Group,
-    // Non header only connection can support both group and extended channels.
+    /// Represents a connection that supports both group and extended channels.
     GroupAndExtended,
 }
 
-/// Connection-wide downtream's messages parser implemented by an upstream.
+/// Trait for parsing downstream mining messages in a Stratum V2 connection.
+///
+/// This trait defines methods for parsing and routing downstream messages
+/// related to mining operations.
 pub trait ParseDownstreamMiningMessages<
     Up: IsMiningUpstream<Self, Selector> + D,
     Selector: DownstreamMiningSelector<Self> + D,
@@ -41,10 +75,10 @@ pub trait ParseDownstreamMiningMessages<
 > where
     Self: IsMiningDownstream + Sized + D,
 {
+    /// Returns the type of channel supported by the downstream connection.
     fn get_channel_type(&self) -> SupportedChannelTypes;
 
-    /// Used to parse and route SV2 mining messages from the downstream based on `message_type` and
-    /// `payload`
+    /// Handles a mining message from the downstream, given its type and payload.
     fn handle_message_mining(
         self_mutex: Arc<Mutex<Self>>,
         message_type: u8,
@@ -64,7 +98,7 @@ pub trait ParseDownstreamMiningMessages<
         }
     }
 
-    /// Used to route SV2 mining messages from the downstream
+    /// Deserializes and processes a mining message from the downstream.
     fn handle_message_mining_deserialized(
         self_mutex: Arc<Mutex<Self>>,
         message: Result<Mining<'_>, Error>,
@@ -265,9 +299,10 @@ pub trait ParseDownstreamMiningMessages<
         }
     }
 
+    /// Checks if work selection is enabled for the downstream connection.
     fn is_work_selection_enabled(&self) -> bool;
 
-    /// returns None if the user is authorized and Open
+    /// Checks if the downstream user is authorized.
     fn is_downstream_authorized(
         _self_mutex: Arc<Mutex<Self>>,
         _user_identity: &binary_sv2::Str0255,
@@ -275,32 +310,51 @@ pub trait ParseDownstreamMiningMessages<
         Ok(true)
     }
 
+    /// Handles an `OpenStandardMiningChannel` message.
     fn handle_open_standard_mining_channel(
         &mut self,
         m: OpenStandardMiningChannel,
         up: Option<Arc<Mutex<Up>>>,
     ) -> Result<SendTo<Up>, Error>;
 
+    /// Handles an `OpenExtendedMiningChannel` message.
     fn handle_open_extended_mining_channel(
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<Up>, Error>;
 
+    /// Handles an `UpdateChannel` message.
+    ///
+    /// This method processes an `UpdateChannel` message and updates the channel settings.
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<Up>, Error>;
 
+    /// Handles a `SubmitSharesStandard` message.
+    ///
+    /// This method processes a `SubmitSharesStandard` message and validates the submitted shares.
     fn handle_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<Up>, Error>;
 
+    /// Handles a `SubmitSharesExtended` message.
+    ///
+    /// This method processes a `SubmitSharesExtended` message and validates the submitted shares.
     fn handle_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<Up>, Error>;
 
+    /// Handles a `SetCustomMiningJob` message.
+    ///
+    /// This method processes a `SetCustomMiningJob` message and applies the custom mining job
+    /// settings.
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<Up>, Error>;
 }
-/// Connection-wide upstream's messages parser implemented by a downstream.
+
+/// A trait defining the parser for upstream mining messages used by a downstream.
+///
+/// This trait provides the functionality to handle and route various types of mining messages
+/// from the upstream based on the message type and payload.
 pub trait ParseUpstreamMiningMessages<
     Down: IsMiningDownstream + D,
     Selector: DownstreamMiningSelector<Down> + D,
@@ -308,16 +362,18 @@ pub trait ParseUpstreamMiningMessages<
 > where
     Self: IsMiningUpstream<Down, Selector> + Sized + D,
 {
+    /// Retrieves the type of the channel supported by this upstream parser.
     fn get_channel_type(&self) -> SupportedChannelTypes;
 
+    /// Retrieves an optional RequestIdMapper, used to manage request IDs across connections.
     fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
         None
     }
 
-    /// Used to parse and route SV2 mining messages from the upstream based on `message_type` and
-    /// `payload` The implementor of DownstreamMining needs to pass a RequestIdMapper if needing
-    /// to change the req id. Proxies likely would want to update a downstream req id to a new
-    /// one as req id must be connection-wide unique
+    /// Parses and routes SV2 mining messages from the upstream based on the message type and
+    /// payload. The implementor of DownstreamMining needs to pass a RequestIdMapper if changing
+    /// the request ID. Proxies typically need this to ensure the request ID is unique across
+    /// the connection.
     fn handle_message_mining(
         self_mutex: Arc<Mutex<Self>>,
         message_type: u8,
@@ -334,6 +390,8 @@ pub trait ParseUpstreamMiningMessages<
         }
     }
 
+    /// Handles the deserialized mining message from the upstream, processing it according to the
+    /// routing logic.
     fn handle_message_mining_deserialized(
         self_mutex: Arc<Mutex<Self>>,
         message: Result<Mining, Error>,
@@ -673,64 +731,81 @@ pub trait ParseUpstreamMiningMessages<
         }
     }
 
+    /// Determines whether work selection is enabled for this upstream.
     fn is_work_selection_enabled(&self) -> bool;
 
+    /// Handles a successful response for opening a standard mining channel.
     fn handle_open_standard_mining_channel_success(
         &mut self,
         m: OpenStandardMiningChannelSuccess,
         remote: Option<Arc<Mutex<Down>>>,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a successful response for opening an extended mining channel.
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles an error when opening a mining channel.
     fn handle_open_mining_channel_error(
         &mut self,
         m: OpenMiningChannelError,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles an error when updating a mining channel.
     fn handle_update_channel_error(&mut self, m: UpdateChannelError)
         -> Result<SendTo<Down>, Error>;
 
+    /// Handles a request to close a mining channel.
     fn handle_close_channel(&mut self, m: CloseChannel) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a request to set the extranonce prefix for mining.
     fn handle_set_extranonce_prefix(
         &mut self,
         m: SetExtranoncePrefix,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a successful submission of shares.
     fn handle_submit_shares_success(
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles an error when submitting shares.
     fn handle_submit_shares_error(&mut self, m: SubmitSharesError) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a new mining job.
     fn handle_new_mining_job(&mut self, m: NewMiningJob) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a new extended mining job.
     fn handle_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a request to set the new previous hash.
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a successful response for setting a custom mining job.
     fn handle_set_custom_mining_job_success(
         &mut self,
         m: SetCustomMiningJobSuccess,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles an error when setting a custom mining job.
     fn handle_set_custom_mining_job_error(
         &mut self,
         m: SetCustomMiningJobError,
     ) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a request to set the target for mining.
     fn handle_set_target(&mut self, m: SetTarget) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a request to reconnect the mining connection.
     fn handle_reconnect(&mut self, m: Reconnect) -> Result<SendTo<Down>, Error>;
 
+    /// Handles a request to set the group channel for mining.
     fn handle_set_group_channel(&mut self, _m: SetGroupChannel) -> Result<SendTo<Down>, Error> {
         Ok(SendTo::None(None))
     }
