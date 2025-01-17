@@ -74,6 +74,7 @@ impl<'a> BlockHeader<'a> {
 // helper struct to identify Standard Jobs being managed for downstream
 #[derive(Debug)]
 struct DownstreamJob {
+    #[allow(dead_code)]
     merkle_root: Vec<u8>,
     extended_job_id: u32,
 }

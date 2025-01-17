@@ -453,6 +453,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 }
 
+#[allow(dead_code)]
 struct Seq<'de, 'a> {
     de: &'a mut Deserializer<'de>,
     len: usize,

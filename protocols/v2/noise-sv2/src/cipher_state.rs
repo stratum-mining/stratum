@@ -95,6 +95,7 @@ where
         res
     }
 
+    #[allow(dead_code)]
     fn into_aesg(mut self) -> Option<Cipher<Aes256Gcm>> {
         #[allow(clippy::clone_on_copy)]
         let k = self.get_k().clone()?;
@@ -102,6 +103,7 @@ where
         Some(Cipher::from_cipher(c))
     }
 
+    #[allow(dead_code)]
     fn into_chacha(mut self) -> Option<Cipher<ChaCha20Poly1305>> {
         #[allow(clippy::clone_on_copy)]
         let k = self.get_k().clone()?;
