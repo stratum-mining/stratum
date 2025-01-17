@@ -423,8 +423,8 @@ impl Sniffer {
         }
     }
 
-    /// used to block the test runtime
-    /// while we wait until Sniffer has received a message of some specific type
+    /// Waits until a message of the specified type is received into the `message_direction`
+    /// corresponding queue.
     pub async fn wait_for_message_type(
         &self,
         message_direction: MessageDirection,
@@ -454,6 +454,56 @@ impl Sniffer {
 
             // sleep to reduce async lock contention
             sleep(Duration::from_secs(1)).await;
+        }
+    }
+
+    /// Similar to `[Sniffer::wait_for_message_type]` but also removes the messages from the queue
+    /// including the specified message type.
+    pub async fn wait_for_message_type_and_clean_queue(
+        &self,
+        message_direction: MessageDirection,
+        message_type: u8,
+    ) -> bool {
+        let now = std::time::Instant::now();
+        loop {
+            let has_message_type = match message_direction {
+                MessageDirection::ToDownstream => self
+                    .messages_from_upstream
+                    .has_message_type_with_remove(message_type),
+                MessageDirection::ToUpstream => self
+                    .messages_from_downstream
+                    .has_message_type_with_remove(message_type),
+            };
+
+            // ready to unblock test runtime
+            if has_message_type {
+                return true;
+            }
+
+            // 10 min timeout
+            // only for worst case, ideally should never be triggered
+            if now.elapsed().as_secs() > 10 * 60 {
+                panic!("Timeout waiting for message type");
+            }
+
+            // sleep to reduce async lock contention
+            sleep(Duration::from_secs(1)).await;
+        }
+    }
+
+    /// Checks whether the sniffer has received a message of the specified type.
+    pub async fn includes_message_type(
+        &self,
+        message_direction: MessageDirection,
+        message_type: u8,
+    ) -> bool {
+        match message_direction {
+            MessageDirection::ToDownstream => {
+                self.messages_from_upstream.has_message_type(message_type)
+            }
+            MessageDirection::ToUpstream => {
+                self.messages_from_downstream.has_message_type(message_type)
+            }
         }
     }
 }
@@ -654,6 +704,22 @@ impl MessagesAggregator {
             })
             .unwrap();
         has_message
+    }
+
+    fn has_message_type_with_remove(&self, message_type: u8) -> bool {
+        self.messages
+            .safe_lock(|messages| {
+                let mut cloned_messages = messages.clone();
+                for (pos, (t, _)) in cloned_messages.iter().enumerate() {
+                    if *t == message_type {
+                        let drained = cloned_messages.drain(pos + 1..).collect();
+                        *messages = drained;
+                        return true;
+                    }
+                }
+                false
+            })
+            .unwrap()
     }
 
     // The aggregator queues messages in FIFO order, so this function returns the oldest message in
