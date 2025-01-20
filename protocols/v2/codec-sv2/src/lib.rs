@@ -19,11 +19,15 @@
 //!
 //! This crate can be built with the following features:
 //!
+//! - `std`: Enable usage of rust `std` library, enabled by default.
 //! - `noise_sv2`: Enables support for Noise protocol encryption and decryption.
 //! - `with_buffer_pool`: Enables buffer pooling for more efficient memory management.
 //! - `with_serde`: builds [`binary_sv2`] and [`buffer_sv2`] crates with `serde`-based encoding and
 //!   decoding. Note that this feature flag is only used for the Message Generator, and deprecated
 //!   for any other kind of usage. It will likely be fully deprecated in the future.
+//!
+//! In order to use this crate in a `#![no_std]` environment, use the `--no-default-features` to
+//! remove the `std` feature.
 //!
 //! ## Examples
 //!
@@ -32,7 +36,7 @@
 //! - [Unencrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/unencrypted.rs)
 //! - [Encrypted Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/codec-sv2/examples/encrypted.rs)
 
-#![cfg_attr(feature = "no_std", no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 pub use framing_sv2::framing::Frame;
 
@@ -156,14 +160,38 @@ impl State {
     /// nb: Returns a new state [`State::Transport`] but does not update the current state
     /// (`self`). The caller is responsible for updating the state, allowing for more flexible
     /// control over the handshake process as the caller decides what to do with this state.
+    #[cfg(feature = "std")]
     pub fn step_1(
         &mut self,
         re_pub: [u8; const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
     ) -> core::result::Result<(HandShakeFrame, Self), Error> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+
+        self.step_1_with_now_rng(re_pub, now, &mut rand::thread_rng())
+    }
+
+    /// Processes the second step of the handshake process for the responder given
+    /// the current time and a custom random number generator.
+    ///
+    /// See [`Self::step_1`] for more details.
+    ///
+    /// The current time and the custom random number generatorshould be provided in order to not
+    /// implicitely rely on `std` and allow `no_std` environments to provide a hardware random
+    /// number generator for example.
+    #[inline]
+    pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
+        &mut self,
+        re_pub: [u8; const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
+        now: u32,
+        rng: &mut R,
+    ) -> core::result::Result<(HandShakeFrame, Self), Error> {
         match self {
             Self::HandShake(h) => match h {
                 HandshakeRole::Responder(r) => {
-                    let (message, codec) = r.step_1(re_pub)?;
+                    let (message, codec) = r.step_1_with_now_rng(re_pub, now, rng)?;
                     Ok((h2f(message), Self::Transport(codec)))
                 }
                 HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
@@ -180,15 +208,37 @@ impl State {
     ///
     /// nb: Directly updates the current state (`self`) to [`State::Transport`], completing the
     /// handshake process.
+    #[cfg(feature = "std")]
     pub fn step_2(
         &mut self,
         message: [u8; const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
     ) -> core::result::Result<Self, Error> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+        self.step_2_with_now(message, now)
+    }
+
+    /// Processes the final step of the handshake process for the initiator given the
+    /// current system time.
+    ///
+    /// See [`Self::step_2`] for more details.
+    ///
+    /// The current system time should be provided to avoid relying on `std` and allow `no_std`
+    /// environments to use another source of time.
+    #[inline]
+    pub fn step_2_with_now(
+        &mut self,
+        message: [u8; const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
+        now: u32,
+    ) -> core::result::Result<Self, Error> {
         match self {
             Self::HandShake(h) => match h {
-                HandshakeRole::Initiator(i) => {
-                    i.step_2(message).map_err(|e| e.into()).map(Self::Transport)
-                }
+                HandshakeRole::Initiator(i) => i
+                    .step_2_with_now(message, now)
+                    .map_err(|e| e.into())
+                    .map(Self::Transport),
                 HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
             },
             _ => Err(Error::NotInHandShakeState),

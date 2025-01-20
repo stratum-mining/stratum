@@ -28,12 +28,15 @@ cargo add codec_sv2
 
 This crate can be built with the following feature flags:
 
+- `std`: Enable usage of rust `std` library, enabled by default.
 - `noise_sv2`: Enables support for Noise protocol encryption and decryption.
 - `with_buffer_pool`: Enables buffer pooling for more efficient memory management.
 - `with_serde`: builds [`binary_sv2`](https://crates.io/crates/binary_sv2) and
   [`buffer_sv2`](https://crates.io/crates/buffer_sv2) crates with `serde`-based encoding and
   decoding. Note that this feature flag is only used for the Message Generator, and deprecated
   for any other kind of usage. It will likely be fully deprecated in the future.
+
+In order to use this crate in a `#![no_std]` environment, use the `--no-default-features` to remove the `std` feature.
 
 ### Examples
 
