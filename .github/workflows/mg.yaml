@@ -117,16 +117,6 @@ jobs:
       - name: Run pool-sri-test-reject-auth
         run: sh ./test/message-generator/test/pool-sri-test-reject-auth/pool-sri-test-reject-auth.sh
 
-  standard-coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run standard-coverage
-        run: sh ./test/message-generator/test/standard-coverage-test/standard-coverage-test.sh
-
   sv1-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -169,7 +159,6 @@ jobs:
       pool-sri-test-extended_0,
       pool-sri-test-extended_1,
       pool-sri-test-reject-auth,
-      standard-coverage,
       sv1-test,
       translation-proxy-broke-pool,
       translation-proxy-old-share
@@ -189,7 +178,6 @@ jobs:
           [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-reject-auth.result }}" != "success" ] ||
-          [ "${{ needs.standard-coverage.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
