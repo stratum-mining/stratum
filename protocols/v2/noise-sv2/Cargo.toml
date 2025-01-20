@@ -33,3 +33,6 @@ panic = "unwind"
 
 [profile.release]
 panic = "abort"
+
+[package.metadata.docs.rs]
+features = ["std"]

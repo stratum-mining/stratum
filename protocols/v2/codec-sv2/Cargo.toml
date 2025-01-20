@@ -31,4 +31,4 @@ with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffe
 with_buffer_pool = ["framing_sv2/with_buffer_pool"]
 
 [package.metadata.docs.rs]
-features = ["with_buffer_pool", "noise_sv2"]
+features = ["with_buffer_pool", "noise_sv2", "std"]
