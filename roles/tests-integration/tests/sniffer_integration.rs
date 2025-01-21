@@ -1,7 +1,4 @@
-use const_sv2::{
-    MESSAGE_TYPE_SETUP_CONNECTION_ERROR, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-    MESSAGE_TYPE_SET_NEW_PREV_HASH,
-};
+use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SET_NEW_PREV_HASH};
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionError,
@@ -30,7 +27,6 @@ async fn test_sniffer_intercept() {
         MessageDirection::ToDownstream,
         MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         message_replacement,
-        MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
     );
 
     // this sniffer will replace SetupConnectionSuccess with SetupConnectionError
