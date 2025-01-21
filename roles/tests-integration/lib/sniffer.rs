@@ -31,7 +31,6 @@ type MsgType = u8;
 enum SnifferError {
     DownstreamClosed,
     UpstreamClosed,
-    MessageInterrupted,
 }
 
 /// Allows to intercept messages sent between two roles.
@@ -47,10 +46,7 @@ enum SnifferError {
 /// In order to alter the messages sent between the roles, the [`Sniffer::intercept_messages`]
 /// field can be used. It will look for the [`InterceptMessage::expected_message_type`] in the
 /// specified [`InterceptMessage::direction`] and replace it with
-/// [`InterceptMessage::response_message`].
-///
-/// If `break_on` is set to `true`, the [`Sniffer`] will stop the communication after sending the
-/// response message.
+/// [`InterceptMessage::replacement_message`].
 ///
 /// Can be useful for testing purposes, as it allows to assert that the roles have sent specific
 /// messages in a specific order and to inspect the messages details.
@@ -69,25 +65,22 @@ pub struct Sniffer {
 pub struct InterceptMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
-    response_message: PoolMessages<'static>,
-    response_message_type: MsgType,
-    break_on: bool,
+    replacement_message: PoolMessages<'static>,
+    replacement_message_type: MsgType,
 }
 
 impl InterceptMessage {
     pub fn new(
         direction: MessageDirection,
         expected_message_type: MsgType,
-        response_message: PoolMessages<'static>,
-        response_message_type: MsgType,
-        break_on: bool,
+        replacement_message: PoolMessages<'static>,
+        replacement_message_type: MsgType,
     ) -> Self {
         Self {
             direction,
             expected_message_type,
-            response_message,
-            response_message_type,
-            break_on,
+            replacement_message,
+            replacement_message_type,
         }
     }
 }
@@ -234,21 +227,16 @@ impl Sniffer {
                     let channel_msg = false;
                     let frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                         Sv2Frame::from_message(
-                            intercept_message.response_message.clone(),
-                            intercept_message.response_message_type,
+                            intercept_message.replacement_message.clone(),
+                            intercept_message.replacement_message_type,
                             extension_type,
                             channel_msg,
                         )
                         .expect("Failed to create the frame"),
                     );
                     downstream_messages
-                        .add_message(msg_type, intercept_message.response_message.clone());
+                        .add_message(msg_type, intercept_message.replacement_message.clone());
                     let _ = send.send(frame).await;
-                    if intercept_message.break_on {
-                        return Err(SnifferError::MessageInterrupted);
-                    } else {
-                        continue;
-                    }
                 }
             }
 
@@ -276,21 +264,16 @@ impl Sniffer {
                     let channel_msg = false;
                     let frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                         Sv2Frame::from_message(
-                            intercept_message.response_message.clone(),
-                            intercept_message.response_message_type,
+                            intercept_message.replacement_message.clone(),
+                            intercept_message.replacement_message_type,
                             extension_type,
                             channel_msg,
                         )
                         .expect("Failed to create the frame"),
                     );
                     upstream_messages
-                        .add_message(msg_type, intercept_message.response_message.clone());
+                        .add_message(msg_type, intercept_message.replacement_message.clone());
                     let _ = send.send(frame).await;
-                    if intercept_message.break_on {
-                        return Err(SnifferError::MessageInterrupted);
-                    } else {
-                        continue;
-                    }
                 }
             }
             if send.send(frame).await.is_err() {
