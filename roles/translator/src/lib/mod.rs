@@ -308,3 +308,42 @@ fn kill_tasks(task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>) {
         }
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TranslatorSv2;
+    use ext_config::{Config, File, FileFormat};
+
+    use crate::*;
+
+    #[tokio::test]
+    async fn test_shutdown() {
+        let config_path = "config-examples/tproxy-config-hosted-pool-example.toml";
+        let config: ProxyConfig = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<ProxyConfig>() {
+                Ok(c) => c,
+                Err(e) => {
+                    dbg!(&e);
+                    return;
+                }
+            },
+            Err(e) => {
+                dbg!(&e);
+                return;
+            }
+        };
+        let translator = TranslatorSv2::new(config.clone());
+        let cloned = translator.clone();
+        tokio::spawn(async move {
+            cloned.start().await;
+        });
+        translator.shutdown();
+        let ip = config.downstream_address.clone();
+        let port = config.downstream_port;
+        let translator_addr = format!("{}:{}", ip, port);
+        assert!(std::net::TcpListener::bind(translator_addr).is_ok());
+    }
+}
