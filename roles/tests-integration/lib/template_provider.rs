@@ -67,10 +67,11 @@ pub struct TemplateProvider {
 
 impl TemplateProvider {
     pub fn start(port: u16, sv2_interval: u32) -> Self {
-        let temp_dir = PathBuf::from("/tmp/.template-provider");
+        let current_dir: PathBuf = std::env::current_dir().expect("failed to read current dir");
+        let tp_dir = current_dir.join("template-provider");
         let mut conf = Conf::default();
         let staticdir = format!(".bitcoin-{}", port);
-        conf.staticdir = Some(temp_dir.join(staticdir));
+        conf.staticdir = Some(tp_dir.join(staticdir));
         let port_arg = format!("-sv2port={}", port);
         let sv2_interval_arg = format!("-sv2interval={}", sv2_interval);
         conf.args.extend(vec![
@@ -88,7 +89,7 @@ impl TemplateProvider {
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
         let download_filename = get_bitcoind_filename(os, arch);
-        let bitcoin_exe_home = temp_dir
+        let bitcoin_exe_home = tp_dir
             .join(format!("bitcoin-sv2-tp-{}", VERSION_TP))
             .join("bin");
 
@@ -112,7 +113,7 @@ impl TemplateProvider {
                 create_dir_all(parent).unwrap();
             }
 
-            unpack_tarball(&tarball_bytes, &temp_dir);
+            unpack_tarball(&tarball_bytes, &tp_dir);
 
             if os == "macos" {
                 let bitcoind_binary = bitcoin_exe_home.join("bitcoind");

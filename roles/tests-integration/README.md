@@ -22,5 +22,9 @@ $ git clone git@github.com:stratum-mining/stratum.git
 $ cargo test --manifest-path=roles/Cargo.toml --verbose --test '*' -- --nocapture
 ```
 
+Note: during the execution of the tests, a new directory called `template-provider` is created.
+This directory holds the executable for Template Provider node, as well as the different data 
+directories created for each execution.
+
 ## License
 MIT OR Apache-2.0
