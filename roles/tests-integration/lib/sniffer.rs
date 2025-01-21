@@ -35,21 +35,22 @@ enum SnifferError {
 
 /// Allows to intercept messages sent between two roles.
 ///
-/// The downstream (or client) role connects to the [`Sniffer`] `listening_address` and the
-/// [`Sniffer`] connects to the `upstream` server. This way, the Sniffer can intercept messages sent
-/// between the downstream and upstream roles. The downstream will send its messages to the
-/// [`Sniffer`] which will save those in the `messages_from_downstream` aggregator and forward them
-/// to the upstream role. When a response is received it is saved in `messages_from_upstream` and
-/// forwarded to the downstream role. Both `messages_from_downstream` and `messages_from_upstream`
-/// can be accessed as FIFO queues.
-///
-/// In order to alter the messages sent between the roles, the [`Sniffer::intercept_messages`]
-/// field can be used. It will look for the [`InterceptMessage::expected_message_type`] in the
-/// specified [`InterceptMessage::direction`] and replace it with
-/// [`InterceptMessage::replacement_message`].
-///
 /// Can be useful for testing purposes, as it allows to assert that the roles have sent specific
 /// messages in a specific order and to inspect the messages details.
+///
+/// The downstream (or client) role connects to the [`Sniffer`] `listening_address` and the
+/// [`Sniffer`] connects to the `upstream` server. This way, the Sniffer can intercept messages sent
+/// between the downstream and upstream roles.
+///
+/// Messages received from downstream are stored in the `messages_from_downstream` aggregator and
+/// forwarded to the upstream role. Alternatively, messages received from upstream are stored in
+/// the `messages_from_upstream` and forwarded to the downstream role. Both
+/// `messages_from_downstream` and `messages_from_upstream` aggregators can be accessed as FIFO
+/// queues via [`Sniffer::next_message_from_downstream`] and
+/// [`Sniffer::next_message_from_upstream`], respectively.
+///
+/// In order to replace the messages sent between the roles, a set of [`InterceptMessage`] can be
+/// used in [`Sniffer::new`].
 #[derive(Debug, Clone)]
 pub struct Sniffer {
     identifier: String,
@@ -61,6 +62,7 @@ pub struct Sniffer {
     intercept_messages: Vec<InterceptMessage>,
 }
 
+/// Allows [`Sniffer`] to replace some intercepted message before forwarding it.
 #[derive(Debug, Clone)]
 pub struct InterceptMessage {
     direction: MessageDirection,
@@ -70,6 +72,11 @@ pub struct InterceptMessage {
 }
 
 impl InterceptMessage {
+    /// Constructor of `InterceptMessage`
+    /// - `direction`: direction of message to be intercepted and replaced
+    /// - `expected_message_type`: type of message to be intercepted and replaced
+    /// - `replacement_message`: message to replace the intercepted one
+    /// - `replacement_message_type`: type of message to replace the intercepted one
     pub fn new(
         direction: MessageDirection,
         expected_message_type: MsgType,

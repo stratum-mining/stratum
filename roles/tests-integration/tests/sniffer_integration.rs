@@ -10,7 +10,7 @@ use roles_logic_sv2::{
 use sniffer::{InterceptMessage, MessageDirection};
 use std::convert::TryInto;
 
-// this test aims to assert that Sniffer is able to intercept and replace some message
+// This test aims to assert that Sniffer is able to intercept and replace some messages.
 // sniffer_a replaces a SetupConnectionSuccess from TP with a SetupConnectionError directed at Pool
 // sniffer_b asserts that Pool is about to receive a SetupConnectionError
 // TP -> sniffer_a -> sniffer_b -> Pool
