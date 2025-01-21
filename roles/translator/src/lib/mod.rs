@@ -78,7 +78,7 @@ impl TranslatorSv2 {
         // Check all tasks if is_finished() is true, if so exit
 
         tokio::spawn({
-            let shutdown_signal = self.shutdown();
+            let shutdown_signal = self.shutdown.clone();
             async move {
                 if tokio::signal::ctrl_c().await.is_ok() {
                     info!("Interrupt received");
@@ -94,7 +94,7 @@ impl TranslatorSv2 {
                         match task_status_.state {
                             State::DownstreamShutdown(err) | State::BridgeShutdown(err) | State::UpstreamShutdown(err) => {
                                 error!("SHUTDOWN from: {}", err);
-                                self.shutdown().notify_one();
+                                self.shutdown();
                             }
                             State::UpstreamTryReconnect(err) => {
                                 error!("Trying to reconnect the Upstream because of: {}", err);
@@ -126,7 +126,7 @@ impl TranslatorSv2 {
                             }
                             State::Healthy(msg) => {
                                 info!("HEALTHY message: {}", msg);
-                                self.shutdown().notify_one();
+                                self.shutdown();
                             }
                         }
                     } else {
@@ -288,8 +288,13 @@ impl TranslatorSv2 {
             task_collector.safe_lock(|t| t.push((task.abort_handle(), "init task".to_string())));
     }
 
-    pub fn shutdown(&self) -> Arc<Notify> {
-        self.shutdown.clone()
+    /// Closes Translator role and any open connection associated with it.
+    ///
+    /// Note that this method will result in a full exit of the  running
+    /// Translator and any open connection most be re-initiated upon new
+    /// start.
+    pub fn shutdown(&self) {
+        self.shutdown.notify_last();
     }
 }
 
