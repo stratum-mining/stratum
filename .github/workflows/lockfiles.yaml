@@ -1,10 +1,7 @@
 name: Lockfiles
 
-# Trigger the workflow on push or pull request events for the main branch
+# Trigger the workflow on pull request events for the main branch
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
