@@ -16,7 +16,7 @@ use utils::get_available_address;
 
 pub mod sniffer;
 pub mod template_provider;
-mod utils;
+pub(crate) mod utils;
 
 static LOGGER: Once = Once::new();
 
