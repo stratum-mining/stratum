@@ -170,7 +170,7 @@ impl JobDeclaratorClient {
                     },
                     _ = self.shutdown.notified().fuse() => {
                         info!("Shutting down gracefully...");
-                        std::process::exit(0);
+                        break 'outer;
                     }
                 };
             }
