@@ -1,84 +1,9 @@
 use corepc_node::{Conf, Node};
-use flate2::read::GzDecoder;
-use std::{
-    env,
-    fs::{create_dir_all, File},
-    io::{BufReader, Read},
-    path::{Path, PathBuf},
-};
-use tar::Archive;
+use std::{env, fs::create_dir_all, path::PathBuf};
+
+use crate::utils::{http, tarball};
 
 const VERSION_TP: &str = "0.1.13";
-
-fn download_bitcoind_tarball(download_url: &str, retries: usize) -> Vec<u8> {
-    for attempt in 1..=retries {
-        let response = minreq::get(download_url).send();
-        match response {
-            Ok(res) if res.status_code == 200 => {
-                return res.as_bytes().to_vec();
-            }
-            Ok(res) if res.status_code == 503 => {
-                // If the response is 503, log and prepare for retry
-                eprintln!(
-                    "Attempt {}: URL {} returned status code 503 (Service Unavailable)",
-                    attempt + 1,
-                    download_url
-                );
-            }
-            Ok(res) => {
-                // For other status codes, log and stop retrying
-                panic!(
-                    "URL {} returned unexpected status code {}. Aborting.",
-                    download_url, res.status_code
-                );
-            }
-            Err(err) => {
-                eprintln!(
-                    "Attempt {}: Failed to fetch URL {}: {:?}",
-                    attempt + 1,
-                    download_url,
-                    err
-                );
-            }
-        }
-
-        if attempt < retries {
-            let delay = 1u64 << (attempt - 1);
-            eprintln!("Retrying in {} seconds (exponential backoff)...", delay);
-            std::thread::sleep(std::time::Duration::from_secs(delay));
-        }
-    }
-    // If all retries fail, panic with an error message
-    panic!(
-        "Cannot reach URL {} after {} attempts",
-        download_url, retries
-    );
-}
-
-fn read_tarball_from_file(path: &str) -> Vec<u8> {
-    let file = File::open(path).unwrap_or_else(|_| {
-        panic!(
-            "Cannot find {:?} specified with env var BITCOIND_TARBALL_FILE",
-            path
-        )
-    });
-    let mut reader = BufReader::new(file);
-    let mut buffer = Vec::new();
-    reader.read_to_end(&mut buffer).unwrap();
-    buffer
-}
-
-fn unpack_tarball(tarball_bytes: &[u8], destination: &Path) {
-    let decoder = GzDecoder::new(tarball_bytes);
-    let mut archive = Archive::new(decoder);
-    for mut entry in archive.entries().unwrap().flatten() {
-        if let Ok(file) = entry.path() {
-            if file.ends_with("bitcoind") {
-                entry.unpack_in(destination).unwrap();
-            }
-        }
-    }
-}
 
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
@@ -128,7 +53,7 @@ impl TemplateProvider {
 
         if !bitcoin_exe_home.exists() {
             let tarball_bytes = match env::var("BITCOIND_TARBALL_FILE") {
-                Ok(path) => read_tarball_from_file(&path),
+                Ok(path) => tarball::read_from_file(&path),
                 Err(_) => {
                     let download_endpoint =
                         env::var("BITCOIND_DOWNLOAD_ENDPOINT").unwrap_or_else(|_| {
@@ -138,7 +63,7 @@ impl TemplateProvider {
                         "{}/sv2-tp-{}/{}",
                         download_endpoint, VERSION_TP, download_filename
                     );
-                    download_bitcoind_tarball(&url, 5)
+                    http::make_get_request(&url, 5)
                 }
             };
 
@@ -146,7 +71,7 @@ impl TemplateProvider {
                 create_dir_all(parent).unwrap();
             }
 
-            unpack_tarball(&tarball_bytes, &tp_dir);
+            tarball::unpack(&tarball_bytes, &tp_dir);
 
             if os == "macos" {
                 let bitcoind_binary = bitcoin_exe_home.join("bitcoind");
