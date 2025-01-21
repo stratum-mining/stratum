@@ -15,7 +15,7 @@ use utils::get_available_address;
 
 pub mod sniffer;
 pub mod template_provider;
-mod utils;
+pub(crate) mod utils;
 
 pub async fn start_sniffer(
     identifier: String,
