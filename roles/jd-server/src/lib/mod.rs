@@ -9,7 +9,7 @@ use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
-use tokio::{select, task};
+use tokio::{select, sync::Notify, task};
 use tracing::{error, info, warn};
 
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
@@ -31,11 +31,15 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorServer {
     config: Configuration,
+    shutdown: Arc<Notify>,
 }
 
 impl JobDeclaratorServer {
     pub fn new(config: Configuration) -> Self {
-        Self { config }
+        Self {
+            config,
+            shutdown: Arc::new(Notify::new()),
+        }
     }
     pub async fn start(&self) {
         let config = self.config.clone();
@@ -57,6 +61,16 @@ impl JobDeclaratorServer {
         let sender = status::Sender::Downstream(status_tx.clone());
         let mut last_empty_mempool_warning =
             std::time::Instant::now().sub(std::time::Duration::from_secs(60));
+
+        tokio::spawn({
+            let shutdown_signal = self.shutdown.clone();
+            async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    info!("Interrupt received");
+                    shutdown_signal.notify_one();
+                }
+            }
+        });
 
         // TODO if the jd-server is launched with core_rpc_url empty, the following flow is never
         // taken. Consequentally new_block_receiver in JDsMempool::on_submit is never read, possibly
@@ -164,16 +178,8 @@ impl JobDeclaratorServer {
         loop {
             let task_status = select! {
                 task_status = status_rx.recv() => task_status,
-                interrupt_signal = tokio::signal::ctrl_c() => {
-                    match interrupt_signal {
-                        Ok(()) => {
-                            info!("Interrupt received");
-                        },
-                        Err(err) => {
-                            error!("Unable to listen for interrupt signal: {}", err);
-                            // we also shut down in case of error
-                        },
-                    }
+                _ = self.shutdown.notified() => {
+                    info!("Shutting down gracefully...");
                     break;
                 }
             };
@@ -199,6 +205,16 @@ impl JobDeclaratorServer {
                 }
             }
         }
+    }
+
+    /// Notifies the JD-Server to shut down gracefully.
+    ///
+    /// This method triggers the shutdown process by sending a notification.
+    /// It ensures that any ongoing operations are properly handled before
+    /// the jd-server stops functioning.
+    #[allow(dead_code)]
+    pub fn shutdown(&self) {
+        self.shutdown.notify_one();
     }
 }
 
