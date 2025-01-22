@@ -2019,7 +2019,7 @@ dependencies = [
 
 [[package]]
 name = "roles_logic_sv2"
-version = "1.2.3"
+version = "2.2.3"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",
