@@ -56,6 +56,7 @@ impl PoolSv2 {
             s_solution,
             s_message_recv_signal,
             status::Sender::DownstreamListener(status_tx),
+            self.shutdown.clone(),
         );
 
         task::spawn({
