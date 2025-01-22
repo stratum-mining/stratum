@@ -665,6 +665,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        dbg!("received submit shares error");
+        dbg!(&_m);
         self.pool_chaneger_trigger
             .safe_lock(|t| t.start(self.tx_status.clone()))
             .unwrap();

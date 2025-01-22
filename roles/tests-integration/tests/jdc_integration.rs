@@ -1,8 +1,8 @@
 use std::convert::TryInto;
 
 use const_sv2::{
-    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_SETUP_CONNECTION,
-    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
 };
 use integration_tests_sv2::*;
 use sniffer::InterceptMessage;
@@ -26,14 +26,12 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
         false,
         Some(vec![InterceptMessage::new(
             MessageDirection::ToDownstream,
-            MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+            MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
             PoolMessages::Mining(Mining::SubmitSharesError(SubmitSharesError {
                 channel_id: 0,
                 sequence_number: 0,
                 error_code: "invalid-nonce".to_string().into_bytes().try_into().unwrap(),
             })),
-            MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
-            false,
         )]),
     )
     .await;
@@ -43,14 +41,18 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
     let (_jds, jds_addr) = start_jds(tp_addr).await;
     let (_jdc, jdc_addr) = start_jdc(vec![sniffer_addr, sniffer_addr_2], tp_addr, jds_addr).await;
     assert_common_message!(&sniffer_1.next_message_from_downstream(), SetupConnection);
-    let (_translator, _sv2_translator_addr) = start_sv2_translator(jdc_addr).await;
+    let (_translator, sv2_translator_addr) = start_sv2_translator(jdc_addr).await;
+    let _ = start_mining_device_sv1(sv2_translator_addr).await;
+    dbg!("here 1");
+    sniffer_1
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+        )
+        .await;
+    dbg!("here 2");
     sniffer_2
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
-    sniffer_2
-        .wait_for_message_type(
-            MessageDirection::ToDownstream,
-            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-        )
-        .await;
+    dbg!("here 3");
 }
