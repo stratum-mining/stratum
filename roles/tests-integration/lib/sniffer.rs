@@ -6,7 +6,7 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     parsers::{
-        AnyMessage, CommonMessages,
+        AnyMessage, CommonMessages, IsSv2Message,
         JobDeclaration::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
             DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactions,
@@ -68,7 +68,6 @@ pub struct InterceptMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
     replacement_message: PoolMessages<'static>,
-    replacement_message_type: MsgType,
 }
 
 impl InterceptMessage {
@@ -81,13 +80,11 @@ impl InterceptMessage {
         direction: MessageDirection,
         expected_message_type: MsgType,
         replacement_message: PoolMessages<'static>,
-        replacement_message_type: MsgType,
     ) -> Self {
         Self {
             direction,
             expected_message_type,
             replacement_message,
-            replacement_message_type,
         }
     }
 }
@@ -235,7 +232,7 @@ impl Sniffer {
                     let frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                         Sv2Frame::from_message(
                             intercept_message.replacement_message.clone(),
-                            intercept_message.replacement_message_type,
+                            intercept_message.replacement_message.message_type(),
                             extension_type,
                             channel_msg,
                         )
@@ -272,7 +269,7 @@ impl Sniffer {
                     let frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                         Sv2Frame::from_message(
                             intercept_message.replacement_message.clone(),
-                            intercept_message.replacement_message_type,
+                            intercept_message.replacement_message.message_type(),
                             extension_type,
                             channel_msg,
                         )
