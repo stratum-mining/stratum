@@ -434,4 +434,33 @@ mod tests {
         let result: Result<CoinbaseOutput_, _> = (&input).try_into();
         assert!(matches!(result, Err(Error::UnknownOutputScriptType)));
     }
+
+    #[tokio::test]
+    async fn test_shutdown() {
+        let config_path = "config-examples/jds-config-local-example.toml";
+        let config: Configuration = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<Configuration>() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to deserialize config: {}", e);
+                    return;
+                }
+            },
+            Err(e) => {
+                error!("Failed to build config: {}", e);
+                return;
+            }
+        };
+        let jds = JobDeclaratorServer::new(config.clone());
+        let cloned = jds.clone();
+        tokio::spawn(async move {
+            cloned.start().await;
+        });
+        jds.shutdown();
+        let jds_addr = config.listen_jd_address.clone();
+        assert!(std::net::TcpListener::bind(jds_addr).is_ok());
+    }
 }
