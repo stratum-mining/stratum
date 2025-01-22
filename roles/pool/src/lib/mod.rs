@@ -3,6 +3,8 @@ pub mod mining_pool;
 pub mod status;
 pub mod template_receiver;
 
+use std::sync::Arc;
+
 use async_channel::{bounded, unbounded};
 
 use error::PoolError;
@@ -10,16 +12,20 @@ use mining_pool::{get_coinbase_output, Configuration, Pool};
 use template_receiver::TemplateRx;
 use tracing::{error, info, warn};
 
-use tokio::select;
+use tokio::{select, sync::Notify, task};
 
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
     config: Configuration,
+    shutdown: Arc<Notify>,
 }
 
 impl PoolSv2 {
     pub fn new(config: Configuration) -> PoolSv2 {
-        PoolSv2 { config }
+        PoolSv2 {
+            config,
+            shutdown: Arc::new(Notify::new()),
+        }
     }
 
     pub async fn start(&self) -> Result<(), PoolError> {
@@ -52,21 +58,23 @@ impl PoolSv2 {
             status::Sender::DownstreamListener(status_tx),
         );
 
+        task::spawn({
+            let shutdown_signal = self.shutdown.clone();
+            async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    info!("Interrupt received");
+                    shutdown_signal.notify_waiters();
+                }
+            }
+        });
+
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
         loop {
             let task_status = select! {
                 task_status = status_rx.recv() => task_status,
-                interrupt_signal = tokio::signal::ctrl_c() => {
-                    match interrupt_signal {
-                        Ok(()) => {
-                            info!("Interrupt received");
-                        },
-                        Err(err) => {
-                            error!("Unable to listen for interrupt signal: {}", err);
-                            // we also shut down in case of error
-                        },
-                    }
+                _ = self.shutdown.notified() => {
+                    info!("Shutting down gracefully...");
                     break Ok(());
                 }
             };
@@ -99,6 +107,16 @@ impl PoolSv2 {
                 }
             }
         }
+    }
+
+    /// Notifies the Pool to shut down gracefully.
+    ///
+    /// This method triggers the shutdown process by sending a notification.
+    /// It ensures that any ongoing operations are properly handled before
+    /// the pool stops functioning.
+    #[allow(dead_code)]
+    pub fn shutdown(&self) {
+        self.shutdown.notify_waiters();
     }
 }
 
