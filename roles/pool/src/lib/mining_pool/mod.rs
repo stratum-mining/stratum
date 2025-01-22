@@ -32,7 +32,11 @@ use stratum_common::{
     bitcoin::{Script, TxOut},
     secp256k1,
 };
-use tokio::{net::TcpListener, task};
+use tokio::{
+    net::TcpListener,
+    sync::Notify,
+    task::{self, JoinHandle},
+};
 use tracing::{debug, error, info, warn};
 
 pub mod setup_connection;
@@ -382,6 +386,35 @@ impl IsDownstream for Downstream {
 
 impl IsMiningDownstream for Downstream {}
 
+struct TaskHandler {
+    handles: Vec<JoinHandle<()>>,
+}
+
+impl TaskHandler {
+    fn new() -> Self {
+        TaskHandler {
+            handles: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
+    }
+
+    fn abort_all(&mut self) {
+        for handle in self.handles.drain(..) {
+            handle.abort();
+        }
+    }
+}
+
+impl Drop for TaskHandler {
+    fn drop(&mut self) {
+        info!("Aborting all child task.");
+        self.abort_all();
+    }
+}
+
 impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
     async fn accept_incoming_plain_connection(
@@ -596,6 +629,7 @@ impl Pool {
         solution_sender: Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
+        shutdown: Arc<Notify>,
     ) -> Arc<Mutex<Self>> {
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
@@ -633,13 +667,15 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
+        let mut task_handler = TaskHandler::new();
+
         #[cfg(feature = "test_only_allow_unencrypted")]
         {
             let cloned4 = pool.clone();
             let status_tx_clone_unenc = status_tx.clone();
             let config_unenc = config.clone();
 
-            task::spawn(async move {
+            task_handler.add(task::spawn(async move {
                 if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config_unenc).await
                 {
                     error!("{}", e);
@@ -655,12 +691,12 @@ impl Pool {
                 {
                     error!("Downstream shutdown and Status Channel dropped");
                 }
-            });
+            }));
         }
 
         info!("Starting up pool listener");
         let status_tx_clone = status_tx.clone();
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             if let Err(e) = Self::accept_incoming_connection(cloned, config).await {
                 error!("{}", e);
             }
@@ -675,11 +711,11 @@ impl Pool {
             {
                 error!("Downstream shutdown and Status Channel dropped");
             }
-        });
+        }));
 
         let cloned = sender_message_received_signal.clone();
         let status_tx_clone = status_tx.clone();
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             if let Err(e) = Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await {
                 error!("{}", e);
             }
@@ -695,10 +731,10 @@ impl Pool {
             {
                 error!("Downstream shutdown and Status Channel dropped");
             }
-        });
+        }));
 
         let status_tx_clone = status_tx;
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             if let Err(e) =
                 Self::on_new_template(pool, new_template_rx, sender_message_received_signal).await
             {
@@ -716,6 +752,11 @@ impl Pool {
             {
                 error!("Downstream shutdown and Status Channel dropped");
             }
+        }));
+
+        task::spawn(async move {
+            shutdown.notified().await;
+            drop(task_handler);
         });
         cloned3
     }
