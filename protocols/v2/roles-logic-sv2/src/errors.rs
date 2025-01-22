@@ -113,11 +113,18 @@ pub enum Error {
     LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
     /// JD server cannot propagate the block due to missing transactions
     JDSMissingTransactions,
+    IoError(std::io::Error),
 }
 
 impl From<BinarySv2Error> for Error {
     fn from(v: BinarySv2Error) -> Error {
         Error::BinarySv2Error(v)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(v: std::io::Error) -> Error {
+        Error::IoError(v)
     }
 }
 
@@ -205,6 +212,7 @@ impl Display for Error {
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
             LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
+            IoError(e) => write!(f, "IO error: {:?}", e),
         }
     }
 }
