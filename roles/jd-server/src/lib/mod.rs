@@ -9,7 +9,11 @@ use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
-use tokio::{select, sync::Notify, task};
+use tokio::{
+    select,
+    sync::Notify,
+    task::{self, JoinHandle},
+};
 use tracing::{error, info, warn};
 
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
@@ -32,6 +36,35 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub struct JobDeclaratorServer {
     config: Configuration,
     shutdown: Arc<Notify>,
+}
+
+struct TaskHandler {
+    handles: Vec<JoinHandle<()>>,
+}
+
+impl TaskHandler {
+    fn new() -> Self {
+        TaskHandler {
+            handles: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
+    }
+
+    fn abort_all(&mut self) {
+        for handle in self.handles.drain(..) {
+            handle.abort();
+        }
+    }
+}
+
+impl Drop for TaskHandler {
+    fn drop(&mut self) {
+        info!("Aborting all child task.");
+        self.abort_all();
+    }
 }
 
 impl JobDeclaratorServer {
@@ -62,6 +95,8 @@ impl JobDeclaratorServer {
         let mut last_empty_mempool_warning =
             std::time::Instant::now().sub(std::time::Duration::from_secs(60));
 
+        let mut task_handler = TaskHandler::new();
+
         tokio::spawn({
             let shutdown_signal = self.shutdown.clone();
             async move {
@@ -78,7 +113,7 @@ impl JobDeclaratorServer {
         // JobDeclarator::start()
         if url.contains("http") {
             let sender_update_mempool = sender.clone();
-            task::spawn(async move {
+            task_handler.add(task::spawn(async move {
                 loop {
                     let update_mempool_result: Result<(), mempool::error::JdsMempoolError> =
                         mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
@@ -110,11 +145,11 @@ impl JobDeclaratorServer {
                     //let _transactions =
                     // mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
                 }
-            });
+            }));
 
             let mempool_cloned = mempool.clone();
             let sender_submit_solution = sender.clone();
-            task::spawn(async move {
+            task_handler.add(task::spawn(async move {
                 loop {
                     let result = mempool::JDsMempool::on_submit(mempool_cloned.clone()).await;
                     if let Err(err) = result {
@@ -134,13 +169,13 @@ impl JobDeclaratorServer {
                         }
                     }
                 }
-            });
+            }));
         };
 
         let cloned = config.clone();
         let mempool_cloned = mempool.clone();
         let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             JobDeclarator::start(
                 cloned,
                 sender,
@@ -149,8 +184,8 @@ impl JobDeclaratorServer {
                 sender_add_txs_to_mempool,
             )
             .await
-        });
-        task::spawn(async move {
+        }));
+        task_handler.add(task::spawn(async move {
             loop {
                 if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                     let mempool_cloned = mempool.clone();
@@ -171,7 +206,7 @@ impl JobDeclaratorServer {
                     });
                 }
             }
-        });
+        }));
 
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
