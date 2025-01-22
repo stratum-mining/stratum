@@ -65,6 +65,7 @@ impl PoolSv2 {
             s_message_recv_signal,
             status::Sender::DownstreamListener(status_tx),
             config.shares_per_minute(),
+            self.shutdown.clone(),
         );
 
         task::spawn({
