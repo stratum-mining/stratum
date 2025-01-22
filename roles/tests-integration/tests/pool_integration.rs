@@ -129,3 +129,25 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         "The `minntime` field of the second NewExtendedMiningJob does not match the `header_timestamp`!"
     );
 }
+
+/// Validates the graceful shutdown behavior of the pool.
+///
+/// This test performs the following steps:
+/// 1. Starts a Template Provider (`_tp`) and retrieves its address.
+/// 2. Starts a Pool, providing the Template Provider's address if available.
+/// 3. Invokes the `shutdown` API on the Pool to initiate a graceful shutdown.
+/// 4. Waits briefly to allow the shutdown process to complete.
+/// 5. Verifies that the Pool's address is available for reuse, indicating a proper shutdown.
+///
+/// The test ensures that the Pool cleans up its resources properly and shuts down
+/// without leaving the address in use.
+#[tokio::test]
+async fn check_if_pool_shutsdown_gracefully() {
+    start_tracing();
+    let (_tp, tp_addr) = start_template_provider(None);
+    let (pool, pool_addr) = start_pool(Some(tp_addr)).await;
+    pool.shutdown();
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    dbg!(pool_addr);
+    assert!(tokio::net::TcpListener::bind(pool_addr).await.is_ok());
+}

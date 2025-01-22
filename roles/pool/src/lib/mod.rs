@@ -11,7 +11,6 @@ use config::PoolConfig;
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Pool};
 use template_receiver::TemplateRx;
-use tokio::select;
 use tracing::{error, info, warn};
 
 use tokio::{select, sync::Notify, task};

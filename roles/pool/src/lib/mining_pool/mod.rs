@@ -477,6 +477,7 @@ impl Pool {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn start(
         config: PoolConfig,
         new_template_rx: Receiver<NewTemplate<'static>>,
