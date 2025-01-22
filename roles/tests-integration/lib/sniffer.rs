@@ -105,10 +105,6 @@ impl Sniffer {
         check_on_drop: bool,
         intercept_messages: Option<Vec<InterceptMessage>>,
     ) -> Self {
-        // Don't print backtrace on panic
-        std::panic::set_hook(Box::new(|_| {
-            println!();
-        }));
         Self {
             identifier,
             listening_address,
