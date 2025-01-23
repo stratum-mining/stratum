@@ -1,4 +1,4 @@
-use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD, Conf};
+use corepc_node::{Conf, Node};
 use flate2::read::GzDecoder;
 use std::{
     env,
@@ -62,7 +62,7 @@ fn get_bitcoind_filename(os: &str, arch: &str) -> String {
 
 #[derive(Debug)]
 pub struct TemplateProvider {
-    bitcoind: BitcoinD,
+    bitcoind: Node,
 }
 
 impl TemplateProvider {
@@ -127,9 +127,9 @@ impl TemplateProvider {
         }
 
         env::set_var("BITCOIND_EXE", bitcoin_exe_home.join("bitcoind"));
-        let exe_path = bitcoind::exe_path().unwrap();
+        let exe_path = corepc_node::exe_path().expect("Failed to get bitcoind path");
 
-        let bitcoind = BitcoinD::with_conf(exe_path, &conf).unwrap();
+        let bitcoind = Node::with_conf(exe_path, &conf).expect("Failed to create Node");
 
         TemplateProvider { bitcoind }
     }
@@ -138,13 +138,11 @@ impl TemplateProvider {
         let mining_address = self
             .bitcoind
             .client
-            .get_new_address(None, None)
-            .unwrap()
-            .require_network(bitcoind::bitcoincore_rpc::bitcoin::Network::Regtest)
-            .unwrap();
+            .new_address()
+            .expect("Failed to get mining address");
         self.bitcoind
             .client
-            .generate_to_address(n, &mining_address)
-            .unwrap();
+            .generate_to_address(n as usize, &mining_address)
+            .expect("Failed to generate blocks");
     }
 }
