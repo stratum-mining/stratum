@@ -127,18 +127,22 @@ impl TemplateProvider {
         }
 
         env::set_var("BITCOIND_EXE", bitcoin_exe_home.join("bitcoind"));
-        let exe_path = corepc_node::exe_path().unwrap();
+        let exe_path = corepc_node::exe_path().expect("Failed to get bitcoind path");
 
-        let bitcoind = Node::with_conf(exe_path, &conf).unwrap();
+        let bitcoind = Node::with_conf(exe_path, &conf).expect("Failed to create Node");
 
         TemplateProvider { bitcoind }
     }
 
     pub fn generate_blocks(&self, n: u64) {
-        let mining_address = self.bitcoind.client.new_address().unwrap();
+        let mining_address = self
+            .bitcoind
+            .client
+            .new_address()
+            .expect("Failed to get mining address");
         self.bitcoind
             .client
             .generate_to_address(n as usize, &mining_address)
-            .unwrap();
+            .expect("Failed to generate blocks");
     }
 }
