@@ -12,8 +12,8 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 async-channel = "1.5.1"
+corepc-node = "0.5.0"
 binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2" }
-bitcoind = "0.36.0"
 codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 const_sv2 = { path = "../../protocols/v2/const-sv2" }
 flate2 = "1.0.32"
