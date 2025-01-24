@@ -10,16 +10,49 @@ use tar::Archive;
 
 const VERSION_TP: &str = "0.1.13";
 
-fn download_bitcoind_tarball(download_url: &str) -> Vec<u8> {
-    let response = minreq::get(download_url)
-        .send()
-        .unwrap_or_else(|_| panic!("Cannot reach URL: {}", download_url));
-    assert_eq!(
-        response.status_code, 200,
-        "URL {} didn't return 200",
-        download_url
+fn download_bitcoind_tarball(download_url: &str, retries: usize) -> Vec<u8> {
+    for attempt in 1..=retries {
+        let response = minreq::get(download_url).send();
+        match response {
+            Ok(res) if res.status_code == 200 => {
+                return res.as_bytes().to_vec();
+            }
+            Ok(res) if res.status_code == 503 => {
+                // If the response is 503, log and prepare for retry
+                eprintln!(
+                    "Attempt {}: URL {} returned status code 503 (Service Unavailable)",
+                    attempt + 1,
+                    download_url
+                );
+            }
+            Ok(res) => {
+                // For other status codes, log and stop retrying
+                panic!(
+                    "URL {} returned unexpected status code {}. Aborting.",
+                    download_url, res.status_code
+                );
+            }
+            Err(err) => {
+                eprintln!(
+                    "Attempt {}: Failed to fetch URL {}: {:?}",
+                    attempt + 1,
+                    download_url,
+                    err
+                );
+            }
+        }
+
+        if attempt < retries {
+            let delay = 1u64 << (attempt - 1);
+            eprintln!("Retrying in {} seconds (exponential backoff)...", delay);
+            std::thread::sleep(std::time::Duration::from_secs(delay));
+        }
+    }
+    // If all retries fail, panic with an error message
+    panic!(
+        "Cannot reach URL {} after {} attempts",
+        download_url, retries
     );
-    response.as_bytes().to_vec()
 }
 
 fn read_tarball_from_file(path: &str) -> Vec<u8> {
@@ -105,7 +138,7 @@ impl TemplateProvider {
                         "{}/sv2-tp-{}/{}",
                         download_endpoint, VERSION_TP, download_filename
                     );
-                    download_bitcoind_tarball(&url)
+                    download_bitcoind_tarball(&url, 5)
                 }
             };
 
