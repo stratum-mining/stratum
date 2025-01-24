@@ -131,11 +131,13 @@ impl TranslatorSv2 {
                         }
                     } else {
                         info!("Channel closed");
+                        kill_tasks(task_collector.clone());
                         break; // Channel closed
                     }
                 }
                 _ = self.shutdown.notified() => {
                     info!("Shutting down gracefully...");
+                    kill_tasks(task_collector.clone());
                     break;
                 }
             }
@@ -294,7 +296,7 @@ impl TranslatorSv2 {
     /// Translator and any open connection most be re-initiated upon new
     /// start.
     pub fn shutdown(&self) {
-        self.shutdown.notify_last();
+        self.shutdown.notify_one();
     }
 }
 
