@@ -13,12 +13,12 @@ use time::SystemTime;
 
 const ADDR: &str = "127.0.0.1:0";
 
-use v1::{
+use sv1_api::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be, MerkleNode, PrevHash},
-    ClientStatus, IsClient, IsServer,
+    ClientStatus, IsClient, IsServer, Message
 };
 
 fn new_extranonce<'a>() -> Extranonce<'a> {
@@ -606,7 +606,7 @@ impl<'a> IsClient<'a> for Client<'a> {
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message,
+        message: Message,
     ) -> Result<Option<json_rpc::Message>, Error<'a>> {
         println!("{:?}", message);
         Ok(None)
