@@ -1,5 +1,0 @@
-upstreams = [{ address = "127.0.0.1", port = 34254, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}]
-listen_address = "127.0.0.1"
-listen_mining_port = 34255
-max_supported_version = 2
-min_supported_version = 2

@@ -1,5 +1,0 @@
-listen_address = "127.0.0.1:34254"
-tp_address = "127.0.0.1:8442"
-authority_public_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-authority_secret_key = "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
-cert_validity_sec = 3600
