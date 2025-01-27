@@ -213,6 +213,9 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         }, 
         PoolError::TokioChannelRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        },
+        PoolError::TokioBroadcastChannelRecv(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
     }
 }

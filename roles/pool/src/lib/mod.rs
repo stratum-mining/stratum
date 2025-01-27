@@ -3,8 +3,6 @@ pub mod mining_pool;
 pub mod status;
 pub mod template_receiver;
 
-use async_channel::bounded;
-
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Configuration, Pool};
 use template_receiver::TemplateRx;
@@ -46,7 +44,8 @@ impl PoolSv2 {
         let (s_solution, r_solution) = tokio::sync::mpsc::channel(10);
         // This is spicy, as the r_message_recv_signal is cloning at few of the places, so, we can
         // use broadcast.
-        let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
+        // let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
+        let (s_message_recv_signal, _) = tokio::sync::broadcast::channel(10);
         let coinbase_output_result = get_coinbase_output(&config);
         let coinbase_output_len = coinbase_output_result?.len() as u32;
         let tp_authority_public_key = config.tp_authority_public_key;
@@ -55,7 +54,7 @@ impl PoolSv2 {
             s_new_t,
             s_prev_hash,
             r_solution,
-            r_message_recv_signal,
+            s_message_recv_signal.clone(),
             status::Sender::UpstreamTokio(status_tx.clone()),
             coinbase_output_len,
             tp_authority_public_key,

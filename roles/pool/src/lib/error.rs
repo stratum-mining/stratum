@@ -20,7 +20,8 @@ pub enum PoolError {
     ComponentShutdown(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
-    TokioChannelRecv(Box<dyn std::marker::Send + Debug>)
+    TokioChannelRecv(Box<dyn std::marker::Send + Debug>),
+    TokioBroadcastChannelRecv(tokio::sync::broadcast::error::RecvError)
 }
 
 impl std::fmt::Display for PoolError {
@@ -42,11 +43,18 @@ impl std::fmt::Display for PoolError {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             },
             TokioChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
+            TokioBroadcastChannelRecv(ref e) => write!(f, "BroadCastChannel Recv failed: {:?}", e)
         }
     }
 }
 
 pub type PoolResult<T> = Result<T, PoolError>;
+
+impl From<tokio::sync::broadcast::error::RecvError> for PoolError {
+    fn from(value: tokio::sync::broadcast::error::RecvError) -> Self {
+        PoolError::TokioBroadcastChannelRecv(value)
+    }
+}
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {
@@ -92,6 +100,12 @@ impl<'a, T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T
 
 impl<'a, T: 'static + std::marker::Send + Debug> From<tokio::sync::mpsc::error::SendError<T>> for PoolError {
     fn from(e: tokio::sync::mpsc::error::SendError<T>) -> PoolError {
+        PoolError::TokioChannelRecv(Box::new(e))
+    }
+}
+
+impl<'a, T: 'static + std::marker::Send + Debug> From<tokio::sync::broadcast::error::SendError<T>> for PoolError {
+    fn from(e: tokio::sync::broadcast::error::SendError<T>) -> PoolError {
         PoolError::TokioChannelRecv(Box::new(e))
     }
 }

@@ -492,7 +492,7 @@ impl Pool {
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
         mut rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
-        sender_message_received_signal: Sender<()>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_
             .safe_lock(|s| s.status_tx.clone())
@@ -537,7 +537,7 @@ impl Pool {
                         .await;
                         handle_result!(status_tx, res);
                     }
-                    handle_result!(status_tx, sender_message_received_signal.send(()).await);
+                    handle_result!(status_tx, sender_message_received_signal.send(()));
                 }
                 Err(_) => todo!(),
             }
@@ -548,7 +548,7 @@ impl Pool {
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
         mut rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
-        sender_message_received_signal: Sender<()>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
@@ -584,7 +584,7 @@ impl Pool {
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             handle_result!(status_tx, res);
 
-            handle_result!(status_tx, sender_message_received_signal.send(()).await);
+            handle_result!(status_tx, sender_message_received_signal.send(()));
         }
         Ok(())
     }
@@ -594,7 +594,7 @@ impl Pool {
         new_template_rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
         solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
-        sender_message_received_signal: Sender<()>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
         status_tx: status::Sender,
     ) -> Arc<Mutex<Self>> {
         let extranonce_len = 32;

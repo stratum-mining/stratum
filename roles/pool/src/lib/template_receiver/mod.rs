@@ -27,7 +27,7 @@ use setup_connection::SetupConnectionHandler;
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
-    message_received_signal: Receiver<()>,
+    message_received_signal: tokio::sync::broadcast::Sender<()>,
     new_template_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
     new_prev_hash_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
     status_tx: status::Sender,
@@ -40,7 +40,7 @@ impl TemplateRx {
         templ_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
         prev_h_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
         solution_receiver: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
-        message_received_signal: Receiver<()>,
+        message_received_signal: tokio::sync::broadcast::Sender<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
         expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
@@ -96,11 +96,11 @@ impl TemplateRx {
     }
 
     pub async fn start(self_: Arc<Mutex<Self>>) {
-        let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
+        let (mut recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
             self_
                 .safe_lock(|s| {
                     (
-                        s.message_received_signal.clone(),
+                        s.message_received_signal.subscribe(),
                         s.receiver.clone(),
                         s.new_template_sender.clone(),
                         s.new_prev_hash_sender.clone(),
