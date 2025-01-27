@@ -1,6 +1,5 @@
 use std::{
     convert::{TryFrom, TryInto},
-    env,
     io::{BufRead, BufReader, Write},
     net::{SocketAddr, TcpListener, TcpStream},
     process::exit,
@@ -10,6 +9,7 @@ use std::{
 };
 
 const ADDR: &str = "127.0.0.1:0";
+const TEST_DURATION: i32 = 30;
 
 type Receiver<T> = mpsc::Receiver<T>;
 type Sender<T> = mpsc::Sender<T>;
@@ -165,7 +165,7 @@ impl<'a> Server<'a> {
         {
             let cloned = Arc::clone(&server_arc);
             thread::spawn(move || {
-                let mut run_time = Self::get_runtime();
+                let mut run_time = TEST_DURATION;
                 loop {
                     let notify_time = 5;
                     if let Ok(mut self_) = cloned.try_lock() {
@@ -178,7 +178,7 @@ impl<'a> Server<'a> {
                     run_time -= notify_time as i32;
 
                     if run_time <= 0 {
-                        println!("Test Success - ran for {} seconds", Server::get_runtime());
+                        println!("Test Success - ran for {} seconds", TEST_DURATION);
                         exit(0)
                     }
                 }
@@ -186,15 +186,6 @@ impl<'a> Server<'a> {
         }
 
         server_arc
-    }
-
-    fn get_runtime() -> i32 {
-        let args: Vec<String> = env::args().collect();
-        if args.len() > 1 {
-            args[1].parse::<i32>().unwrap()
-        } else {
-            i32::MAX
-        }
     }
 
     fn handle_message(
