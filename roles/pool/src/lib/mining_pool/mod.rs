@@ -242,7 +242,7 @@ impl Downstream {
                         })
                         .await
                     {
-                        error!("Encountered Error but status channel is down: {}", e);
+                        error!("Encountered Error but status channel is down: {:?}", e);
                     }
 
                     return;
@@ -547,12 +547,12 @@ impl Pool {
 
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<NewTemplate<'static>>,
+        mut rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
         sender_message_received_signal: Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
-        while let Ok(mut new_template) = rx.recv().await {
+        while let Some(mut new_template) = rx.recv().await {
             debug!(
                 "New template received, creating a new mining job(s): {:?}",
                 new_template
@@ -591,7 +591,7 @@ impl Pool {
 
     pub fn start(
         config: Configuration,
-        new_template_rx: Receiver<NewTemplate<'static>>,
+        new_template_rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
