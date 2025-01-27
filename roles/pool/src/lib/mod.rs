@@ -43,7 +43,7 @@ impl PoolSv2 {
         let (s_prev_hash, r_prev_hash) = tokio::sync::mpsc::channel(10);
         // s_solution is sent to pool (no one give a damn about clonable), r_solution is sent 
         // to templateRx and then to on_new_solution, so mpsc works.
-        let (s_solution, r_solution) = bounded(10);
+        let (s_solution, r_solution) = tokio::sync::mpsc::channel(10);
         // This is spicy, as the r_message_recv_signal is cloning at few of the places, so, we can
         // use broadcast.
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);

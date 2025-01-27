@@ -179,14 +179,14 @@ pub struct Downstream {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
 }
 
 /// Accept downstream connection
 pub struct Pool {
     downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
     last_prev_hash_template_id: u64,
@@ -198,7 +198,7 @@ impl Downstream {
     pub async fn new(
         mut receiver: Receiver<EitherFrame>,
         mut sender: Sender<EitherFrame>,
-        solution_sender: Sender<SubmitSolution<'static>>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
         status_tx: status::Sender,
@@ -593,7 +593,7 @@ impl Pool {
         config: Configuration,
         new_template_rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
-        solution_sender: Sender<SubmitSolution<'static>>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
     ) -> Arc<Mutex<Self>> {

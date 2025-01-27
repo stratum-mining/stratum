@@ -39,7 +39,7 @@ impl TemplateRx {
         address: SocketAddr,
         templ_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
         prev_h_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
-        solution_receiver: Receiver<SubmitSolution<'static>>,
+        solution_receiver: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
         message_received_signal: Receiver<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
@@ -165,9 +165,9 @@ impl TemplateRx {
         Ok(())
     }
 
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
+    async fn on_new_solution(self_: Arc<Mutex<Self>>,mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>) {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        while let Ok(solution) = rx.recv().await {
+        while let Some(solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
             let sv2_frame_res: Result<StdFrame, _> =
                 PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
