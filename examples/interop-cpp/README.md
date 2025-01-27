@@ -10,9 +10,6 @@ and keep answering with a [`common_messages_sv2::SetupConnectionError`].
 
 The Rust codec is exported as a C static library by the crate [sv2-ffi](../../protocols/v2/sv2-ffi).
 
-This crate also provide an [example](./template-provider/example-of-guix-build) of how to build
-the `sv2-ffi` as a static library using guix.
-
 ## Intro
 
 ### Header file
@@ -183,35 +180,3 @@ and can be overwritten.
 2. Call [`sv2_ffi::encode`] with a valid `CSv2Message`
 3. Copy the returned encoded frame where needed
 4. Call [`sv2_ffi::flush_encoder`] to let the encoder know that the encoded frame has been copied
-
-## Build for C++
-
-### Guix
-An example of how to build a C++ program that use [`sv2_ffi`] can be found
-[here](./template-provider/example-of-guix-build/build.sh).
-
-The build script does the following:
-1. Packages `sv2_ffi` and all its dependencies (this step wont be necessary as the packages will be
-available in crates.io or github.com)
-2. Calls g++ in a guix container defined [here](./template-provider/example-of-guix-build/example.scm)
-
-#### Manifest:
-The first 255 lines of `example.scm` are a copy paste of the
-[guix cargo build system](`https://github.com/guix-mirror/guix/blob/13c4a377f5a2e1240790679f3d5643385b6d7635/guix/build-system/cargo.scm`).
-The only difference is that it uses Rust-1.51 as it needs `const` generics basic support (line 30 of the manifest)
-
-The actual manifest begins on L256, where it builds all the `sv2_ffi` dependencies and then builds `sv2_ffi`.
-
-`sv2_ffi` is a library crate and the guix default behavior is to not install the Rust library such that the
-installation phase of `sv2_ffi` is replaced and `sv2.h` and the newly built `libsv2_ffi.a` are installed
-in the container (they are installed in `/gnu/store/[hash]-Rust-sv2_ffi-[version]/`).
-
-The manifest it expect to find `sv2.h` in the `sv2_ffi` package. Since the `sv2.h` is created manually with
-`scripts/build_header.sh`, it is very easy to commit code with an out of date header file. To ensure all commits include
-the most updated header file, a GitHub Actions check is planned to be added.
-
-## Install cbindgen
-`run.sh` will (indirectly) install cbindgen for you or you can manually
-```
-$ cargo install cbindgen --force bts
-```
