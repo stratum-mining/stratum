@@ -39,7 +39,8 @@ impl PoolSv2 {
         // s_prev_hash (no one gives a damn about clonable stuff), which is only passed to
         // TemplateRx and nothing new.  r_prev_hash is sent to pool::start which is also
         // sent to on_new_prevhash, so mpsc also works here.
-        let (s_prev_hash, r_prev_hash) = bounded(10);
+        // let (s_prev_hash, r_prev_hash) = bounded(10);
+        let (s_prev_hash, r_prev_hash) = tokio::sync::mpsc::channel(10);
         // s_solution is sent to pool (no one give a damn about clonable), r_solution is sent 
         // to templateRx and then to on_new_solution, so mpsc works.
         let (s_solution, r_solution) = bounded(10);

@@ -29,7 +29,7 @@ pub struct TemplateRx {
     sender: Sender<EitherFrame>,
     message_received_signal: Receiver<()>,
     new_template_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
-    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    new_prev_hash_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
     status_tx: status::Sender,
 }
 
@@ -38,7 +38,7 @@ impl TemplateRx {
     pub async fn connect(
         address: SocketAddr,
         templ_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
-        prev_h_sender: Sender<SetNewPrevHash<'static>>,
+        prev_h_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
         message_received_signal: Receiver<()>,
         status_tx: status::Sender,

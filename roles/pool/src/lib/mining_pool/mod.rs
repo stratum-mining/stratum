@@ -491,13 +491,13 @@ impl Pool {
 
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<SetNewPrevHash<'static>>,
+        mut rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
         sender_message_received_signal: Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_
             .safe_lock(|s| s.status_tx.clone())
             .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
-        while let Ok(new_prev_hash) = rx.recv().await {
+        while let Some(new_prev_hash) = rx.recv().await {
             debug!("New prev hash received: {:?}", new_prev_hash);
             let res = self_
                 .safe_lock(|s| {
@@ -592,7 +592,7 @@ impl Pool {
     pub fn start(
         config: Configuration,
         new_template_rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
-        new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
+        new_prev_hash_rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
