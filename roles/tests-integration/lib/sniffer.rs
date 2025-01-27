@@ -234,8 +234,10 @@ impl Sniffer {
                         )
                         .expect("Failed to create the frame"),
                     );
-                    downstream_messages
-                        .add_message(msg_type, intercept_message.replacement_message.clone());
+                    downstream_messages.add_message(
+                        intercept_message.replacement_message.message_type(),
+                        intercept_message.replacement_message.clone(),
+                    );
                     let _ = send.send(frame).await;
                 }
             }
@@ -271,8 +273,10 @@ impl Sniffer {
                         )
                         .expect("Failed to create the frame"),
                     );
-                    upstream_messages
-                        .add_message(msg_type, intercept_message.replacement_message.clone());
+                    upstream_messages.add_message(
+                        intercept_message.replacement_message.message_type(),
+                        intercept_message.replacement_message.clone(),
+                    );
                     let _ = send.send(frame).await;
                 }
             }
