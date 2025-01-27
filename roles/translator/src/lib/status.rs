@@ -7,12 +7,24 @@ pub enum Sender {
     Bridge(async_channel::Sender<Status<'static>>),
     Upstream(async_channel::Sender<Status<'static>>),
     TemplateReceiver(async_channel::Sender<Status<'static>>),
+    DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
+    DownstreamListenerTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
+    BridgeTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
+    UpstreamTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
+    TemplateReceiverTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
+}
+
+#[derive(Debug)]
+pub enum ErrorS {
+    AsyncError(async_channel::SendError<Status<'static>>),
+    TokioError(tokio::sync::mpsc::error::SendError<Status<'static>>)
 }
 
 impl Sender {
     pub fn listener_to_connection(&self) -> Self {
         match self {
             Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
+            Self::DownstreamListenerTokio(inner) => Self::DownstreamTokio(inner.clone()),
             _ => unreachable!(),
         }
     }
@@ -20,13 +32,18 @@ impl Sender {
     pub async fn send(
         &self,
         status: Status<'static>,
-    ) -> Result<(), async_channel::SendError<Status<'_>>> {
+    ) -> Result<(), ErrorS> {
         match self {
-            Self::Downstream(inner) => inner.send(status).await,
-            Self::DownstreamListener(inner) => inner.send(status).await,
-            Self::Bridge(inner) => inner.send(status).await,
-            Self::Upstream(inner) => inner.send(status).await,
-            Self::TemplateReceiver(inner) => inner.send(status).await,
+            Self::Downstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::DownstreamListener(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::Bridge(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::Upstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::TemplateReceiver(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::UpstreamTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
+            Self::BridgeTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
+            Self::DownstreamListenerTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
+            Self::DownstreamTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
+            Self::TemplateReceiverTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
         }
     }
 }
@@ -39,6 +56,11 @@ impl Clone for Sender {
             Self::Bridge(inner) => Self::Bridge(inner.clone()),
             Self::Upstream(inner) => Self::Upstream(inner.clone()),
             Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
+            Self::UpstreamTokio(inner) => Self::UpstreamTokio(inner.clone()),
+            Self::BridgeTokio(inner) => Self::BridgeTokio(inner.clone()),
+            Self::DownstreamListenerTokio(inner) => Self::DownstreamListenerTokio(inner.clone()),
+            Self::DownstreamTokio(inner) => Self::DownstreamTokio(inner.clone()),
+            Self::TemplateReceiverTokio(inner) => Self::DownstreamTokio(inner.clone()),
         }
     }
 }
@@ -106,7 +128,45 @@ async fn send_status(
             })
             .await
             .unwrap_or(());
+        },
+        Sender::UpstreamTokio(tx) => match e {
+            Error::ChannelErrorReceiver(_) => {
+                tx.send(Status {
+                    state: State::UpstreamTryReconnect(e),
+                })
+                .unwrap_or(());
+            }
+            _ => {
+                tx.send(Status {
+                    state: State::UpstreamShutdown(e),
+                })
+                .unwrap_or(());
+            }
+        },
+        Sender::BridgeTokio(tx) => {
+            tx.send(Status {
+                state: State::BridgeShutdown(e),
+            })
+            .unwrap_or(());
+        },
+        Sender::DownstreamTokio(tx) => {
+            tx.send(Status {
+                state: State::Healthy(e.to_string()),
+            })
+            .unwrap_or(());
         }
+        Sender::DownstreamListenerTokio(tx) => {
+            tx.send(Status {
+                state: State::DownstreamShutdown(e),
+            })
+            .unwrap_or(());
+        },
+        Sender::TemplateReceiverTokio(tx) => {
+            tx.send(Status {
+                state: State::UpstreamShutdown(e),
+            })
+            .unwrap_or(());
+        },
     }
     outcome
 }

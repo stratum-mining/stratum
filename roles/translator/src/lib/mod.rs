@@ -48,14 +48,16 @@ impl TranslatorSv2 {
     }
 
     pub async fn start(self) {
-        let (tx_status, rx_status) = unbounded();
+        // mpsc can be used as single consumer.
+        // let (tx_status, rx_status) = unbounded();
+        let (tx_status,mut rx_status) = tokio::sync::mpsc::unbounded_channel();
 
         let target = Arc::new(Mutex::new(vec![0; 32]));
 
         // Sender/Receiver to send SV1 `mining.notify` message from the `Bridge` to the `Downstream`
         let (tx_sv1_notify, _rx_sv1_notify): (
-            broadcast::Sender<server_to_client::Notify>,
-            broadcast::Receiver<server_to_client::Notify>,
+            tokio::sync::broadcast::Sender<server_to_client::Notify>,
+            tokio::sync::broadcast::Receiver<server_to_client::Notify>,
         ) = broadcast::channel(10);
 
         let task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>> =
@@ -90,7 +92,7 @@ impl TranslatorSv2 {
         loop {
             select! {
                 task_status = rx_status.recv().fuse() => {
-                    if let Ok(task_status_) = task_status {
+                    if let Some(task_status_) = task_status {
                         match task_status_.state {
                             State::DownstreamShutdown(err) | State::BridgeShutdown(err) | State::UpstreamShutdown(err) => {
                                 error!("SHUTDOWN from: {}", err);
@@ -144,9 +146,9 @@ impl TranslatorSv2 {
 
     async fn internal_start(
         proxy_config: ProxyConfig,
-        tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
+        tx_sv1_notify: tokio::sync::broadcast::Sender<server_to_client::Notify<'static>>,
         target: Arc<Mutex<Vec<u8>>>,
-        tx_status: async_channel::Sender<Status<'static>>,
+        tx_status: tokio::sync::mpsc::UnboundedSender<Status<'static>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
         // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
@@ -191,7 +193,7 @@ impl TranslatorSv2 {
             tx_sv2_new_ext_mining_job,
             proxy_config.min_extranonce2_size,
             tx_sv2_extranonce,
-            status::Sender::Upstream(tx_status.clone()),
+            status::Sender::UpstreamTokio(tx_status.clone()),
             target.clone(),
             diff_config.clone(),
             task_collector_upstream,
@@ -257,7 +259,7 @@ impl TranslatorSv2 {
                 rx_sv2_set_new_prev_hash,
                 rx_sv2_new_ext_mining_job,
                 tx_sv1_notify.clone(),
-                status::Sender::Bridge(tx_status.clone()),
+                status::Sender::BridgeTokio(tx_status.clone()),
                 extended_extranonce,
                 target,
                 up_id,
@@ -277,7 +279,7 @@ impl TranslatorSv2 {
                 downstream_addr,
                 tx_sv1_bridge,
                 tx_sv1_notify,
-                status::Sender::DownstreamListener(tx_status.clone()),
+                status::Sender::DownstreamListenerTokio(tx_status.clone()),
                 b,
                 proxy_config.downstream_difficulty_config,
                 diff_config,
