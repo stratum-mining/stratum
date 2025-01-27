@@ -1,7 +1,10 @@
-use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SET_NEW_PREV_HASH};
+use const_sv2::{
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+    MESSAGE_TYPE_SET_NEW_PREV_HASH,
+};
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
-    common_messages_sv2::SetupConnectionError,
+    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     parsers::{CommonMessages, PoolMessages},
 };
 use sniffer::{InterceptMessage, MessageDirection};
@@ -12,7 +15,7 @@ use std::convert::TryInto;
 // sniffer_b asserts that Pool is about to receive a SetupConnectionError
 // TP -> sniffer_a -> sniffer_b -> Pool
 #[tokio::test]
-async fn test_sniffer_intercept() {
+async fn test_sniffer_intercept_to_downstream() {
     let (_tp, tp_addr) = start_template_provider(None).await;
     let message_replacement =
         PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
@@ -44,6 +47,57 @@ async fn test_sniffer_intercept() {
     assert_common_message!(
         &sniffer_b.next_message_from_upstream(),
         SetupConnectionError
+    );
+}
+
+#[tokio::test]
+async fn test_sniffer_intercept_to_upstream() {
+    let (_tp, tp_addr) = start_template_provider(None).await;
+    let setup_connection = SetupConnection {
+        protocol: Protocol::TemplateDistributionProtocol,
+        min_version: 2,
+        max_version: 2,
+        flags: 0,
+        endpoint_host: "0.0.0.0".to_string().into_bytes().try_into().unwrap(),
+        endpoint_port: 8081,
+        vendor: "Bitmain".to_string().into_bytes().try_into().unwrap(),
+        hardware_version: "901".to_string().into_bytes().try_into().unwrap(),
+        firmware: "abcX".to_string().into_bytes().try_into().unwrap(),
+        device_id: "89567".to_string().into_bytes().try_into().unwrap(),
+    };
+    let message_replacement =
+        PoolMessages::Common(CommonMessages::SetupConnection(setup_connection));
+    let intercept = InterceptMessage::new(
+        MessageDirection::ToUpstream,
+        MESSAGE_TYPE_SETUP_CONNECTION,
+        message_replacement,
+    );
+
+    let (sniffer_a, sniffer_a_addr) =
+        start_sniffer("A".to_string(), tp_addr, false, Some(vec![intercept])).await;
+
+    let (_sniffer_b, sniffer_b_addr) =
+        start_sniffer("B".to_string(), sniffer_a_addr, false, None).await;
+
+    let _ = start_pool(Some(sniffer_b_addr)).await;
+
+    assert_common_message!(
+        &sniffer_a.next_message_from_downstream(),
+        SetupConnection,
+        protocol,
+        Protocol::TemplateDistributionProtocol,
+        flags,
+        0,
+        min_version,
+        2,
+        max_version,
+        2,
+        endpoint_host,
+        "0.0.0.0".to_string().into_bytes().try_into().unwrap(),
+        endpoint_port,
+        8081,
+        vendor,
+        "Bitmain".to_string().into_bytes().try_into().unwrap()
     );
 }
 
