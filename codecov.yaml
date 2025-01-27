@@ -11,3 +11,5 @@ coverage:
         target: auto
         threshold: 100%
         base: auto
+github_checks:
+    annotations: false
