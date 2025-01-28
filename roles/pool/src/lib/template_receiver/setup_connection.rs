@@ -2,7 +2,6 @@ use super::super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
 };
-use async_channel::{Receiver, Sender};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     errors::Error,
@@ -38,17 +37,17 @@ impl SetupConnectionHandler {
     }
 
     pub async fn setup(
-        receiver: &mut Receiver<EitherFrame>,
-        sender: &mut Sender<EitherFrame>,
+        receiver: &mut tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: &mut tokio::sync::broadcast::Sender<EitherFrame>,
         address: SocketAddr,
     ) -> PoolResult<()> {
         let setup_connection = Self::get_setup_connection_message(address)?;
 
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into()).try_into()?;
         let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await?;
+        sender.send(sv2_frame)?;
 
-        let mut incoming: StdFrame = receiver
+        let mut incoming: StdFrame = receiver.subscribe()
             .recv()
             .await?
             .try_into()

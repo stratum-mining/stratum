@@ -2,7 +2,6 @@ use super::{
     error::{PoolError, PoolResult},
     status,
 };
-use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
@@ -176,8 +175,8 @@ impl Configuration {
 pub struct Downstream {
     // Either group or channel id
     id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
     solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
@@ -196,8 +195,8 @@ pub struct Pool {
 impl Downstream {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
+        mut receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        mut sender: tokio::sync::broadcast::Sender<EitherFrame>,
         solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
@@ -249,7 +248,7 @@ impl Downstream {
                 }
             };
             loop {
-                match receiver.recv().await {
+                match receiver.subscribe().recv().await {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
                             .try_into()
@@ -349,7 +348,7 @@ impl Downstream {
         //};
         let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
-        sender.send(sv2_frame.into()).await?;
+        sender.send(sv2_frame.into())?;
         Ok(())
     }
 }
@@ -461,8 +460,8 @@ impl Pool {
 
     async fn accept_incoming_connection_(
         self_: Arc<Mutex<Pool>>,
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
         address: SocketAddr,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
