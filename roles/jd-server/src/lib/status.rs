@@ -7,18 +7,12 @@ use super::error::JdsError;
 /// the main thread to know which component sent the message
 #[derive(Debug)]
 pub enum Sender {
-    Downstream(async_channel::Sender<Status>),
-    DownstreamListener(async_channel::Sender<Status>),
-    Upstream(async_channel::Sender<Status>),
     DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
 }
 
 impl Clone for Sender {
     fn clone(&self) -> Self {
         match self {
-            Self::Downstream(inner) => Self::Downstream(inner.clone()),
-            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Upstream(inner) => Self::Upstream(inner.clone()),
             Self::DownstreamTokio(inner) => Self::DownstreamTokio(inner.clone()),
         }
     }
@@ -47,51 +41,6 @@ async fn send_status(
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
-        Sender::Downstream(tx) => match e {
-            JdsError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
-                tx.send(Status {
-                    state: State::DownstreamInstanceDropped(id),
-                })
-                .await
-                .unwrap_or(());
-            }
-            JdsError::ChannelRecv(_) => {
-                tx.send(Status {
-                    state: State::DownstreamShutdown(e),
-                })
-                .await
-                .unwrap_or(());
-            }
-            JdsError::MempoolError(_) => {
-                tx.send(Status {
-                    state: State::TemplateProviderShutdown(e),
-                })
-                .await
-                .unwrap_or(());
-            }
-            _ => {
-                let string_err = e.to_string();
-                tx.send(Status {
-                    state: State::Healthy(string_err),
-                })
-                .await
-                .unwrap_or(());
-            }
-        },
-        Sender::DownstreamListener(tx) => {
-            tx.send(Status {
-                state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Upstream(tx) => {
-            tx.send(Status {
-                state: State::TemplateProviderShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
         Sender::DownstreamTokio(tx) => match e {
             JdsError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
                 tx.send(Status {

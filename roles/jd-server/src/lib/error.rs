@@ -12,7 +12,7 @@ use crate::mempool::error::JdsMempoolError;
 pub enum JdsError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
-    ChannelRecv(async_channel::RecvError),
+    ChannelRecv(tokio::sync::mpsc::error::TryRecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
@@ -60,12 +60,6 @@ impl From<std::io::Error> for JdsError {
     }
 }
 
-impl From<async_channel::RecvError> for JdsError {
-    fn from(e: async_channel::RecvError) -> JdsError {
-        JdsError::ChannelRecv(e)
-    }
-}
-
 impl From<tokio::sync::broadcast::error::RecvError> for JdsError {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> JdsError {
         JdsError::ChannelRecvTokio(e)
@@ -93,12 +87,6 @@ impl From<noise_sv2::Error> for JdsError {
 impl From<roles_logic_sv2::Error> for JdsError {
     fn from(e: roles_logic_sv2::Error) -> JdsError {
         JdsError::RolesLogic(e)
-    }
-}
-
-impl<T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> for JdsError {
-    fn from(e: async_channel::SendError<T>) -> JdsError {
-        JdsError::ChannelSend(Box::new(e))
     }
 }
 
