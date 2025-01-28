@@ -1,7 +1,6 @@
 pub mod error;
 use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;
-use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
@@ -20,7 +19,7 @@ pub struct JDsMempool {
     pub mempool: HashMap<Txid, Option<(Transaction, u32)>>,
     auth: mini_rpc_client::Auth,
     url: String,
-    new_block_receiver: Receiver<String>,
+    new_block_sender: tokio::sync::broadcast::Sender<String>,
 }
 
 impl JDsMempool {
@@ -47,7 +46,7 @@ impl JDsMempool {
         url: String,
         username: String,
         password: String,
-        new_block_receiver: Receiver<String>,
+        new_block_sender: tokio::sync::broadcast::Sender<String>,
     ) -> Self {
         let auth = mini_rpc_client::Auth::new(username, password);
         let empty_mempool: HashMap<Txid, Option<(Transaction, u32)>> = HashMap::new();
@@ -55,7 +54,7 @@ impl JDsMempool {
             mempool: empty_mempool,
             auth,
             url,
-            new_block_receiver,
+            new_block_sender,
         }
     }
 
@@ -148,8 +147,9 @@ impl JDsMempool {
     }
 
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-        let new_block_receiver: Receiver<String> =
-            self_.safe_lock(|x| x.new_block_receiver.clone())?;
+        let new_block_sender: tokio::sync::broadcast::Sender<String> =
+            self_.safe_lock(|x| x.new_block_sender.clone())?;
+        let mut new_block_receiver = new_block_sender.subscribe();
         let client = self_
             .safe_lock(|x| x.get_client())?
             .ok_or(JdsMempoolError::NoClient)?;

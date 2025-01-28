@@ -3,7 +3,6 @@ pub mod job_declarator;
 pub mod mempool;
 pub mod status;
 
-use async_channel::{bounded, Receiver, Sender};
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
@@ -43,13 +42,15 @@ impl JobDeclaratorServer {
         let username = config.core_rpc_user.clone();
         let password = config.core_rpc_pass.clone();
         // TODO should we manage what to do when the limit is reaced?
-        let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) =
-            bounded(10);
+        // broadcast can be used, as JDSMempool is clonable.
+        // let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) =
+        //     bounded(10);
+        let (new_block_sender, _): (tokio::sync::broadcast::Sender<String>, tokio::sync::broadcast::Receiver<String>) = tokio::sync::broadcast::channel(10);
         let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
             url.clone(),
             username,
             password,
-            new_block_receiver,
+            new_block_sender.clone(),
         )));
         let mempool_update_interval = config.mempool_update_interval;
         let mempool_cloned_ = mempool.clone();

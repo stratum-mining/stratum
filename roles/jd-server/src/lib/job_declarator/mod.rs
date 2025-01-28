@@ -200,7 +200,7 @@ impl JobDeclaratorDownstream {
     pub fn start(
         self_mutex: Arc<Mutex<Self>>,
         tx_status: status::Sender,
-        new_block_sender: Sender<String>,
+        new_block_sender: tokio::sync::broadcast::Sender<String>,
     ) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
@@ -311,7 +311,7 @@ impl JobDeclaratorDownstream {
                                                             break;
                                                         }
                                                     };
-                                                let _ = new_block_sender.send(hexdata).await;
+                                                let _ = new_block_sender.send(hexdata);
                                             }
                                             Err(error) => {
                                                 error!("Missing transactions: {:?}", error);
@@ -336,7 +336,7 @@ impl JobDeclaratorDownstream {
                                                             message.clone(),
                                                         ) {
                                                             Ok(hexdata) => {
-                                                                let _ = new_block_sender.send(hexdata).await;
+                                                                let _ = new_block_sender.send(hexdata);
                                                             },
                                                             Err(e) => {
                                                                 handle_result!(
@@ -427,7 +427,7 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
-        new_block_sender: Sender<String>,
+        new_block_sender: tokio::sync::broadcast::Sender<String>,
         sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
@@ -447,7 +447,7 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
-        new_block_sender: Sender<String>,
+        new_block_sender: tokio::sync::broadcast::Sender<String>,
         sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
     ) {
         let listener = TcpListener::bind(&config.listen_jd_address).await.unwrap();
