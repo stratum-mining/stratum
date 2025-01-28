@@ -8,7 +8,7 @@ use crate::{
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
-use async_channel::{Receiver, Sender};
+use async_channel::Sender;
 use async_std::net::TcpStream;
 use binary_sv2::u256_from_int;
 use codec_sv2::{HandshakeRole, Initiator};
@@ -72,7 +72,7 @@ pub struct Upstream {
     pub(super) connection: UpstreamConnection,
     /// Receives SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages.
     /// Translated by and sent from the `Bridge`.
-    rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
+    tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
     /// Sends SV2 `SetNewPrevHash` messages to be translated (along with SV2 `NewExtendedMiningJob`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
     tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
@@ -120,7 +120,7 @@ impl Upstream {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
-        rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
+        tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
         tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
@@ -163,7 +163,7 @@ impl Upstream {
 
         Ok(Arc::new(Mutex::new(Self {
             connection,
-            rx_sv2_submit_shares_ext,
+            tx_sv2_submit_shares_ext,
             extranonce_prefix: None,
             tx_sv2_set_new_prev_hash,
             tx_sv2_new_ext_mining_job,
@@ -480,11 +480,11 @@ impl Upstream {
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let task_collector = self_.safe_lock(|s| s.task_collector.clone()).unwrap();
         let clone = self_.clone();
-        let (tx_frame, receiver, tx_status) = clone
+        let (tx_frame,mut receiver, tx_status) = clone
             .safe_lock(|s| {
                 (
                     s.connection.sender.clone(),
-                    s.rx_sv2_submit_shares_ext.clone(),
+                    s.tx_sv2_submit_shares_ext.clone().subscribe(),
                     s.tx_status.clone(),
                 )
             })

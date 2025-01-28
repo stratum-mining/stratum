@@ -153,7 +153,8 @@ impl TranslatorSv2 {
     ) {
         // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
         // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
-        let (tx_sv2_submit_shares_ext, rx_sv2_submit_shares_ext) = bounded(10);
+        // Producer I dont give much damn about, consumer are getting cloned,so broadcast should be used.
+        let (tx_sv2_submit_shares_ext, _) = tokio::sync::broadcast::channel(10);
 
         // `tx_sv1_bridge` sender is used by `Downstream` to send a `DownstreamMessages` message to
         // `Bridge` via the `rx_sv1_downstream` receiver
@@ -188,7 +189,7 @@ impl TranslatorSv2 {
         let upstream = match upstream_sv2::Upstream::new(
             upstream_addr,
             proxy_config.upstream_authority_pubkey,
-            rx_sv2_submit_shares_ext,
+            tx_sv2_submit_shares_ext.clone(),
             tx_sv2_set_new_prev_hash,
             tx_sv2_new_ext_mining_job,
             proxy_config.min_extranonce2_size,
