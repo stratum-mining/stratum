@@ -12,7 +12,6 @@ use job_declarator::JobDeclarator;
 use proxy_config::ProxyConfig;
 use template_receiver::TemplateRx;
 
-use async_channel::bounded;
 use futures::{select, FutureExt};
 use roles_logic_sv2::utils::Mutex;
 use std::{
@@ -189,7 +188,9 @@ impl JobDeclaratorClient {
 
         // When Downstream receive a share that meets bitcoin target it transformit in a
         // SubmitSolution and send it to the TemplateReceiver
-        let (send_solution, recv_solution) = bounded(10);
+        // mpsc gonna work
+        // let (send_solution, recv_solution) = bounded(10);
+        let (send_solution, recv_solution) = tokio::sync::mpsc::channel(10);
 
         // Format `Downstream` connection address
         let downstream_addr = SocketAddr::new(
@@ -263,7 +264,8 @@ impl JobDeclaratorClient {
 
         // When Downstream receive a share that meets bitcoin target it transformit in a
         // SubmitSolution and send it to the TemplateReceiver
-        let (send_solution, recv_solution) = bounded(10);
+        // let (send_solution, recv_solution) = bounded(10);
+        let (send_solution, recv_solution) = tokio::sync::mpsc::channel(10);
 
         // Instantiate a new `Upstream` (SV2 Pool)
         let upstream = match upstream_sv2::Upstream::new(

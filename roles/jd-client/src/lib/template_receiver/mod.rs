@@ -46,7 +46,7 @@ impl TemplateRx {
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
-        solution_receiver: Receiver<SubmitSolution<'static>>,
+        solution_receiver: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
         tx_status: status::Sender,
         jd: Option<Arc<Mutex<super::job_declarator::JobDeclarator>>>,
         down: Arc<Mutex<super::downstream::DownstreamMiningNode>>,
@@ -313,8 +313,8 @@ impl TemplateRx {
             .unwrap();
     }
 
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-        while let Ok(solution) = rx.recv().await {
+    async fn on_new_solution(self_: Arc<Mutex<Self>>,mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>) {
+        while let Some(solution) = rx.recv().await {
             if !self_
                 .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
                 .unwrap()

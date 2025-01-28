@@ -41,7 +41,7 @@ pub struct DownstreamMiningNode {
     pub status: DownstreamMiningNodeStatus,
     #[allow(dead_code)]
     pub prev_job_id: Option<u32>,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     withhold: bool,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     tx_status: status::Sender,
@@ -157,7 +157,7 @@ impl DownstreamMiningNode {
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
         upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
-        solution_sender: Sender<SubmitSolution<'static>>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         withhold: bool,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         tx_status: status::Sender,
@@ -592,7 +592,7 @@ impl
                             coinbase_tx: coinbase.try_into()?,
                         };
                         // The below channel should never be full is ok to block
-                        solution_sender.send_blocking(solution).unwrap();
+                        solution_sender.blocking_send(solution).unwrap();
                         if !self.status.is_solo_miner() {
                             {
                                 let jd = self.jd.clone();
@@ -671,7 +671,7 @@ use tokio::{
 pub async fn listen_for_downstream_mining(
     address: SocketAddr,
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     withhold: bool,
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
