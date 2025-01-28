@@ -81,7 +81,7 @@ impl JobDeclarator {
         config: ProxyConfig,
         up: Arc<Mutex<Upstream>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    ) -> Result<Arc<Mutex<Self>>, Error<'static>> {
+    ) -> Result<Arc<Mutex<Self>>, Error> {
         let stream = tokio::net::TcpStream::connect(address).await?;
         let initiator = Initiator::from_raw_k(authority_public_key)?;
         let (mut receiver, mut sender, _, _) =

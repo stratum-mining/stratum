@@ -2,33 +2,20 @@ use super::error::{self, Error};
 
 #[derive(Debug)]
 pub enum Sender {
-    Downstream(async_channel::Sender<Status<'static>>),
-    DownstreamListener(async_channel::Sender<Status<'static>>),
-    Upstream(async_channel::Sender<Status<'static>>),
-    TemplateReceiver(async_channel::Sender<Status<'static>>),
-    DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
-    TemplateReceiverTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
-    UpstreamTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
+    DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
+    TemplateReceiverTokio(tokio::sync::mpsc::UnboundedSender<Status>),
+    UpstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
 }
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ErrorS {
-    AsyncError(async_channel::SendError<Status<'static>>),
-    TokioError(tokio::sync::mpsc::error::SendError<Status<'static>>),
+    TokioError(tokio::sync::mpsc::error::SendError<Status>),
 }
 
 impl Sender {
-    pub async fn send(&self, status: Status<'static>) -> Result<(), ErrorS> {
+    pub async fn send(&self, status: Status) -> Result<(), ErrorS> {
         match self {
-            Self::Downstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::DownstreamListener(inner) => {
-                inner.send(status).await.map_err(|e| ErrorS::AsyncError(e))
-            }
-            Self::Upstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::TemplateReceiver(inner) => {
-                inner.send(status).await.map_err(|e| ErrorS::AsyncError(e))
-            }
             Self::DownstreamTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
             Self::TemplateReceiverTokio(inner) => {
                 inner.send(status).map_err(|e| ErrorS::TokioError(e))
@@ -41,10 +28,6 @@ impl Sender {
 impl Clone for Sender {
     fn clone(&self) -> Self {
         match self {
-            Self::Downstream(inner) => Self::Downstream(inner.clone()),
-            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Upstream(inner) => Self::Upstream(inner.clone()),
-            Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
             Self::DownstreamTokio(inner) => Self::DownstreamTokio(inner.clone()),
             Self::TemplateReceiverTokio(inner) => Self::TemplateReceiverTokio(inner.clone()),
             Self::UpstreamTokio(inner) => Self::UpstreamTokio(inner.clone()),
@@ -53,52 +36,24 @@ impl Clone for Sender {
 }
 
 #[derive(Debug)]
-pub enum State<'a> {
-    DownstreamShutdown(Error<'a>),
-    UpstreamShutdown(Error<'a>),
+pub enum State {
+    DownstreamShutdown(Error),
+    UpstreamShutdown(Error),
     UpstreamRogue,
     Healthy(String),
 }
 
 #[derive(Debug)]
-pub struct Status<'a> {
-    pub state: State<'a>,
+pub struct Status {
+    pub state: State,
 }
 
 async fn send_status(
     sender: &Sender,
-    e: error::Error<'static>,
+    e: error::Error,
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
-        Sender::Downstream(tx) => {
-            tx.send(Status {
-                state: State::Healthy(e.to_string()),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::DownstreamListener(tx) => {
-            tx.send(Status {
-                state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Upstream(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::TemplateReceiver(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
         Sender::DownstreamTokio(tx) => {
             tx.send(Status {
                 state: State::Healthy(e.to_string()),
@@ -124,7 +79,7 @@ async fn send_status(
 // This is called by `error_handling::handle_result!`
 pub async fn handle_error(
     sender: &Sender,
-    e: error::Error<'static>,
+    e: error::Error,
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
@@ -155,10 +110,6 @@ pub async fn handle_error(
         }
         // Locking Errors
         Error::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Channel Receiver Error
-        Error::ChannelErrorReceiver(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
         Error::TokioChannelErrorRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }

@@ -180,7 +180,7 @@ impl JobDeclaratorClient {
 
     async fn initialize_jd_as_solo_miner(
         proxy_config: ProxyConfig,
-        tx_status: tokio::sync::mpsc::UnboundedSender<status::Status<'static>>,
+        tx_status: tokio::sync::mpsc::UnboundedSender<status::Status>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
         let timeout = proxy_config.timeout;
@@ -237,7 +237,7 @@ impl JobDeclaratorClient {
 
     async fn initialize_jd(
         proxy_config: ProxyConfig,
-        tx_status: tokio::sync::mpsc::UnboundedSender<status::Status<'static>>,
+        tx_status: tokio::sync::mpsc::UnboundedSender<status::Status>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: proxy_config::Upstream,
     ) {
