@@ -12,7 +12,7 @@ use job_declarator::JobDeclarator;
 use proxy_config::ProxyConfig;
 use template_receiver::TemplateRx;
 
-use async_channel::{bounded, unbounded};
+use async_channel::bounded;
 use futures::{select, FutureExt};
 use roles_logic_sv2::utils::Mutex;
 use std::{
@@ -74,7 +74,9 @@ impl JobDeclaratorClient {
         let mut upstream_index = 0;
 
         // Channel used to manage failed tasks
-        let (tx_status, rx_status) = unbounded();
+        // mpsc can work here:
+        // let (tx_status, rx_status) = unbounded();
+        let (tx_status, mut rx_status) = tokio::sync::mpsc::unbounded_channel();
 
         let task_collector = Arc::new(Mutex::new(vec![]));
 
@@ -116,7 +118,7 @@ impl JobDeclaratorClient {
             loop {
                 select! {
                     task_status = rx_status.recv().fuse() => {
-                        if let Ok(task_status) = task_status {
+                        if let Some(task_status) = task_status {
                             match task_status.state {
                                 // Should only be sent by the downstream listener
                                 status::State::DownstreamShutdown(err) => {
@@ -179,7 +181,7 @@ impl JobDeclaratorClient {
 
     async fn initialize_jd_as_solo_miner(
         proxy_config: ProxyConfig,
-        tx_status: async_channel::Sender<status::Status<'static>>,
+        tx_status: tokio::sync::mpsc::UnboundedSender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
         let timeout = proxy_config.timeout;
@@ -205,7 +207,7 @@ impl JobDeclaratorClient {
             proxy_config.authority_secret_key,
             proxy_config.cert_validity_sec,
             task_collector.clone(),
-            status::Sender::Downstream(tx_status.clone()),
+            status::Sender::DownstreamTokio(tx_status.clone()),
             miner_tx_out.clone(),
             None,
         )
@@ -220,7 +222,7 @@ impl JobDeclaratorClient {
         TemplateRx::connect(
             SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
             recv_solution,
-            status::Sender::TemplateReceiver(tx_status.clone()),
+            status::Sender::TemplateReceiverTokio(tx_status.clone()),
             None,
             downstream,
             task_collector,
@@ -234,7 +236,7 @@ impl JobDeclaratorClient {
 
     async fn initialize_jd(
         proxy_config: ProxyConfig,
-        tx_status: async_channel::Sender<status::Status<'static>>,
+        tx_status: tokio::sync::mpsc::UnboundedSender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: proxy_config::Upstream,
     ) {
@@ -269,7 +271,7 @@ impl JobDeclaratorClient {
             upstream_config.authority_pubkey,
             0, // TODO
             upstream_config.pool_signature.clone(),
-            status::Sender::Upstream(tx_status.clone()),
+            status::Sender::UpstreamTokio(tx_status.clone()),
             task_collector.clone(),
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         )
@@ -330,8 +332,7 @@ impl JobDeclaratorClient {
                 let _ = tx_status
                     .send(status::Status {
                         state: status::State::UpstreamShutdown(e),
-                    })
-                    .await;
+                    });
                 return;
             }
         };
@@ -346,7 +347,7 @@ impl JobDeclaratorClient {
             proxy_config.authority_secret_key,
             proxy_config.cert_validity_sec,
             task_collector.clone(),
-            status::Sender::Downstream(tx_status.clone()),
+            status::Sender::DownstreamTokio(tx_status.clone()),
             vec![],
             Some(jd.clone()),
         )
@@ -359,7 +360,7 @@ impl JobDeclaratorClient {
         TemplateRx::connect(
             SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
             recv_solution,
-            status::Sender::TemplateReceiver(tx_status.clone()),
+            status::Sender::TemplateReceiverTokio(tx_status.clone()),
             Some(jd.clone()),
             downstream,
             task_collector,
