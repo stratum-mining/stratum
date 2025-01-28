@@ -10,7 +10,6 @@ use roles_logic_sv2::parsers::Mining;
 pub enum PoolError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
-    ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
@@ -30,7 +29,6 @@ impl std::fmt::Display for PoolError {
         match self {
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
-            ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             Codec(ref e) => write!(f, "Codec SV2 error: `{:?}", e),
             Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -62,12 +60,6 @@ impl From<std::io::Error> for PoolError {
     }
 }
 
-impl From<async_channel::RecvError> for PoolError {
-    fn from(e: async_channel::RecvError) -> PoolError {
-        PoolError::ChannelRecv(e)
-    }
-}
-
 impl From<binary_sv2::Error> for PoolError {
     fn from(e: binary_sv2::Error) -> PoolError {
         PoolError::BinarySv2(e)
@@ -89,12 +81,6 @@ impl From<noise_sv2::Error> for PoolError {
 impl From<roles_logic_sv2::Error> for PoolError {
     fn from(e: roles_logic_sv2::Error) -> PoolError {
         PoolError::RolesLogic(e)
-    }
-}
-
-impl<'a, T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> for PoolError {
-    fn from(e: async_channel::SendError<T>) -> PoolError {
-        PoolError::ChannelSend(Box::new(e))
     }
 }
 
