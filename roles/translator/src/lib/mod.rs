@@ -1,4 +1,3 @@
-use async_channel::unbounded;
 use futures::FutureExt;
 use rand::Rng;
 pub use roles_logic_sv2::utils::Mutex;
@@ -161,7 +160,8 @@ impl TranslatorSv2 {
         // (Sender<downstream_sv1::DownstreamMessages>,
         // Receiver<downstream_sv1::DownstreamMessages>)
         // Cant really do anything because of bounded nature in broadcast?
-        let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
+        // let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
+        let (tx_sv1_bridge, _) = tokio::sync::broadcast::channel(1000000);
 
         // Sender/Receiver to send a SV2 `NewExtendedMiningJob` message from the `Upstream` to the
         // `Bridge`
@@ -259,7 +259,7 @@ impl TranslatorSv2 {
             let task_collector_bridge = task_collector_init_task.clone();
             // Instantiate a new `Bridge` and begins handling incoming messages
             let b = proxy::Bridge::new(
-                rx_sv1_downstream,
+                tx_sv1_bridge.clone(),
                 tx_sv2_submit_shares_ext,
                 tx_sv2_set_new_prev_hash,
                 tx_sv2_new_ext_mining_job,

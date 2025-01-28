@@ -1,4 +1,3 @@
-use async_channel::Receiver;
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},
     mining_sv2::{
@@ -30,7 +29,7 @@ use tracing::{debug, error, info, warn};
 #[derive(Debug)]
 pub struct Bridge {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
-    rx_sv1_downstream: Receiver<DownstreamMessages>,
+    tx_sv1_downstream: tokio::sync::broadcast::Sender<DownstreamMessages>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
     tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
@@ -70,7 +69,7 @@ impl Bridge {
     #[allow(clippy::too_many_arguments)]
     /// Instantiate a new `Bridge`.
     pub fn new(
-        rx_sv1_downstream: Receiver<DownstreamMessages>,
+        tx_sv1_downstream: tokio::sync::broadcast::Sender<DownstreamMessages>,
         tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
         tx_sv2_set_new_prev_hash: tokio::sync::broadcast::Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
@@ -87,7 +86,7 @@ impl Bridge {
             target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         let upstream_target: Target = upstream_target.into();
         Arc::new(Mutex::new(Self {
-            rx_sv1_downstream,
+            tx_sv1_downstream,
             tx_sv2_submit_shares_ext,
             tx_sv2_set_new_prev_hash,
             tx_sv2_new_ext_mining_job,
@@ -166,12 +165,13 @@ impl Bridge {
     fn handle_downstream_messages(self_: Arc<Mutex<Self>>) {
         let task_collector_handle_downstream =
             self_.safe_lock(|b| b.task_collector.clone()).unwrap();
-        let (rx_sv1_downstream, tx_status) = self_
-            .safe_lock(|s| (s.rx_sv1_downstream.clone(), s.tx_status.clone()))
+        let (tx_sv1_downstream, tx_status) = self_
+            .safe_lock(|s| (s.tx_sv1_downstream.clone(), s.tx_status.clone()))
             .unwrap();
         let handle_downstream = tokio::task::spawn(async move {
             loop {
-                let msg = handle_result!(tx_status, rx_sv1_downstream.clone().recv().await);
+                let mut rx_sv1_downstream = tx_sv1_downstream.clone().subscribe();
+                let msg = handle_result!(tx_status, rx_sv1_downstream.recv().await);
 
                 match msg {
                     DownstreamMessages::SubmitShares(share) => {

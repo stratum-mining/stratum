@@ -12,7 +12,7 @@ pub use downstream::Downstream;
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 10;
 
 /// enum of messages sent to the Bridge
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DownstreamMessages {
     SubmitShares(SubmitShareWithChannelId),
     SetDownstreamTarget(SetDownstreamTarget),
@@ -20,7 +20,7 @@ pub enum DownstreamMessages {
 
 /// wrapper around a `mining.submit` with extra channel informationfor the Bridge to
 /// process
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubmitShareWithChannelId {
     pub channel_id: u32,
     pub share: Submit<'static>,
@@ -31,7 +31,7 @@ pub struct SubmitShareWithChannelId {
 
 /// message for notifying the bridge that a downstream target has updated
 /// so the Bridge can process the update
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SetDownstreamTarget {
     pub channel_id: u32,
     pub new_target: Target,

@@ -4,7 +4,6 @@ use crate::{
     proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     status,
 };
-use async_channel::Sender;
 use async_std::{
     io::BufReader,
     net::{TcpListener, TcpStream},
@@ -54,7 +53,7 @@ pub struct Downstream {
     version_rolling_min_bit: Option<HexU32Be>,
     /// Sends a SV1 `mining.submit` message received from the Downstream role to the `Bridge` for
     /// translation into a SV2 `SubmitSharesExtended`.
-    tx_sv1_bridge: Sender<DownstreamMessages>,
+    tx_sv1_bridge: tokio::sync::broadcast::Sender<DownstreamMessages>,
     /// Sends message to the SV1 Downstream role.
     tx_outgoing: tokio::sync::mpsc::Sender<json_rpc::Message>,
     /// True if this is the first job received from `Upstream`.
@@ -73,7 +72,7 @@ impl Downstream {
         extranonce1: Vec<u8>,
         version_rolling_mask: Option<HexU32Be>,
         version_rolling_min_bit: Option<HexU32Be>,
-        tx_sv1_bridge: Sender<DownstreamMessages>,
+        tx_sv1_bridge: tokio::sync::broadcast::Sender<DownstreamMessages>,
         tx_outgoing: tokio::sync::mpsc::Sender<json_rpc::Message>,
         first_job_received: bool,
         extranonce2_len: usize,
@@ -101,7 +100,7 @@ impl Downstream {
     pub async fn new_downstream(
         stream: TcpStream,
         connection_id: u32,
-        tx_sv1_bridge: Sender<DownstreamMessages>,
+        tx_sv1_bridge: tokio::sync::broadcast::Sender<DownstreamMessages>,
         mut rx_sv1_notify: broadcast::Receiver<server_to_client::Notify<'static>>,
         tx_status: status::Sender,
         extranonce1: Vec<u8>,
@@ -364,7 +363,7 @@ impl Downstream {
     #[allow(clippy::too_many_arguments)]
     pub fn accept_connections(
         downstream_addr: SocketAddr,
-        tx_sv1_submit: Sender<DownstreamMessages>,
+        tx_sv1_submit: tokio::sync::broadcast::Sender<DownstreamMessages>,
         tx_mining_notify: broadcast::Sender<server_to_client::Notify<'static>>,
         tx_status: status::Sender,
         bridge: Arc<Mutex<crate::proxy::Bridge>>,
@@ -470,7 +469,7 @@ impl Downstream {
     ) -> ProxyResult<'static, ()> {
         let sender = self_.safe_lock(|s| s.tx_sv1_bridge.clone()).unwrap();
         debug!("To Bridge: {:?}", msg);
-        let _ = sender.send(msg).await;
+        let _ = sender.send(msg);
         Ok(())
     }
 }
@@ -556,7 +555,7 @@ impl IsServer<'static> for Downstream {
             };
 
             self.tx_sv1_bridge
-                .try_send(DownstreamMessages::SubmitShares(to_send))
+                .send(DownstreamMessages::SubmitShares(to_send))
                 .unwrap();
 
             true
