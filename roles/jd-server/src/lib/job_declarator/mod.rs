@@ -42,7 +42,7 @@ pub struct AddTrasactionsToMempoolInner {
 #[derive(Clone, Debug)]
 pub struct AddTrasactionsToMempool {
     pub add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
-    pub sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
+    pub sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
 }
 
 #[derive(Debug)]
@@ -76,7 +76,7 @@ impl JobDeclaratorDownstream {
         sender: Sender<EitherFrame>,
         config: &Configuration,
         mempool: Arc<Mutex<JDsMempool>>,
-        sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
+        sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
     ) -> Self {
         let mut coinbase_output = vec![];
         // TODO: use next variables
@@ -162,8 +162,7 @@ impl JobDeclaratorDownstream {
         let sender_add_txs_to_mempool = add_txs_to_mempool.sender_add_txs_to_mempool;
         let add_txs_to_mempool_inner = add_txs_to_mempool.add_txs_to_mempool_inner;
         let _ = sender_add_txs_to_mempool
-            .send(add_txs_to_mempool_inner)
-            .await;
+            .send(add_txs_to_mempool_inner);
         // the trasnactions sent to the mempool can be freed
         let _ = self_mutex.safe_lock(|a| {
             a.add_txs_to_mempool.add_txs_to_mempool_inner = AddTrasactionsToMempoolInner {
@@ -429,7 +428,7 @@ impl JobDeclarator {
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
-        sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
+        sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
@@ -449,7 +448,7 @@ impl JobDeclarator {
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
-        sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
+        sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
     ) {
         let listener = TcpListener::bind(&config.listen_jd_address).await.unwrap();
 

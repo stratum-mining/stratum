@@ -3,7 +3,7 @@ pub mod job_declarator;
 pub mod mempool;
 pub mod status;
 
-use async_channel::{bounded, unbounded, Receiver, Sender};
+use async_channel::{bounded, Receiver, Sender};
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
@@ -127,7 +127,9 @@ impl JobDeclaratorServer {
 
         let cloned = config.clone();
         let mempool_cloned = mempool.clone();
-        let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
+        // mpsc should work here
+        // let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
+        let (sender_add_txs_to_mempool,mut receiver_add_txs_to_mempool) = tokio::sync::mpsc::unbounded_channel();
         task::spawn(async move {
             JobDeclarator::start(
                 cloned,
@@ -140,7 +142,7 @@ impl JobDeclaratorServer {
         });
         task::spawn(async move {
             loop {
-                if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
+                if let Some(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                     let mempool_cloned = mempool.clone();
                     task::spawn(async move {
                         match mempool::JDsMempool::add_tx_data_to_mempool(
