@@ -1,4 +1,3 @@
-use async_channel::{Receiver, Sender};
 use codec_sv2::{
     framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame, Sv2Frame,
 };
@@ -167,7 +166,7 @@ impl Sniffer {
 
     async fn create_downstream(
         stream: TcpStream,
-    ) -> Option<(Receiver<MessageFrame>, Sender<MessageFrame>)> {
+    ) -> Option<(tokio::sync::broadcast::Sender<MessageFrame>, tokio::sync::broadcast::Sender<MessageFrame>)> {
         let pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
             .to_string()
             .parse::<Secp256k1PublicKey>()
@@ -196,7 +195,7 @@ impl Sniffer {
 
     async fn create_upstream(
         stream: TcpStream,
-    ) -> Option<(Receiver<MessageFrame>, Sender<MessageFrame>)> {
+    ) -> Option<(tokio::sync::broadcast::Sender<MessageFrame>, tokio::sync::broadcast::Sender<MessageFrame>)> {
         let initiator = Initiator::without_pk().expect("This fn call can not fail");
         if let Ok((receiver_from_server, sender_to_server, _, _)) =
             Connection::new::<'static, AnyMessage<'static>>(
@@ -212,12 +211,12 @@ impl Sniffer {
     }
 
     async fn recv_from_down_send_to_up(
-        recv: Receiver<MessageFrame>,
-        send: Sender<MessageFrame>,
+        recv: tokio::sync::broadcast::Sender<MessageFrame>,
+        send: tokio::sync::broadcast::Sender<MessageFrame>,
         downstream_messages: MessagesAggregator,
         intercept_messages: Vec<InterceptMessage>,
     ) -> Result<(), SnifferError> {
-        while let Ok(mut frame) = recv.recv().await {
+        while let Ok(mut frame) = recv.subscribe().recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             for intercept_message in intercept_messages.iter() {
                 if intercept_message.direction == MessageDirection::ToUpstream
@@ -236,12 +235,12 @@ impl Sniffer {
                     );
                     downstream_messages
                         .add_message(msg_type, intercept_message.replacement_message.clone());
-                    let _ = send.send(frame).await;
+                    let _ = send.send(frame);
                 }
             }
 
             downstream_messages.add_message(msg_type, msg);
-            if send.send(frame).await.is_err() {
+            if send.send(frame).is_err() {
                 return Err(SnifferError::UpstreamClosed);
             };
         }
@@ -249,12 +248,12 @@ impl Sniffer {
     }
 
     async fn recv_from_up_send_to_down(
-        recv: Receiver<MessageFrame>,
-        send: Sender<MessageFrame>,
+        recv: tokio::sync::broadcast::Sender<MessageFrame>,
+        send: tokio::sync::broadcast::Sender<MessageFrame>,
         upstream_messages: MessagesAggregator,
         intercept_messages: Vec<InterceptMessage>,
     ) -> Result<(), SnifferError> {
-        while let Ok(mut frame) = recv.recv().await {
+        while let Ok(mut frame) = recv.subscribe().recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             for intercept_message in intercept_messages.iter() {
                 if intercept_message.direction == MessageDirection::ToDownstream
@@ -273,10 +272,10 @@ impl Sniffer {
                     );
                     upstream_messages
                         .add_message(msg_type, intercept_message.replacement_message.clone());
-                    let _ = send.send(frame).await;
+                    let _ = send.send(frame);
                 }
             }
-            if send.send(frame).await.is_err() {
+            if send.send(frame).is_err() {
                 return Err(SnifferError::DownstreamClosed);
             };
             upstream_messages.add_message(msg_type, msg);
