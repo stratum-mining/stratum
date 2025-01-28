@@ -3,7 +3,7 @@ use super::{
     status::{self, State},
     upstream_sv2::Upstream as UpstreamMiningNode,
 };
-use async_channel::{Receiver, SendError, Sender};
+
 use roles_logic_sv2::{
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
@@ -36,8 +36,8 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// downstream do not make much sense.
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
     #[allow(dead_code)]
     pub prev_job_id: Option<u32>,
@@ -154,8 +154,8 @@ use std::sync::Arc;
 impl DownstreamMiningNode {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
         upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
         solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         withhold: bool,
@@ -207,7 +207,7 @@ impl DownstreamMiningNode {
                 .unwrap();
             Self::set_channel_factory(self_mutex.clone());
 
-            while let Ok(message) = receiver.recv().await {
+            while let Ok(message) = receiver.subscribe().recv().await {
                 let incoming: StdFrame = message.try_into().unwrap();
                 Self::next(self_mutex, incoming).await;
             }
@@ -341,10 +341,11 @@ impl DownstreamMiningNode {
     pub async fn send(
         self_mutex: &Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
-    ) -> Result<(), SendError<StdFrame>> {
+        // Error needs to be taken care
+    ) -> Result<(), ()> {
         let either_frame = sv2_frame.into();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
-        match sender.send(either_frame).await {
+        match sender.send(either_frame) {
             Ok(_) => Ok(()),
             Err(_) => {
                 todo!()
@@ -707,7 +708,7 @@ pub async fn listen_for_downstream_mining(
             jd,
         );
 
-        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = node.receiver.subscribe().recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;

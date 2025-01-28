@@ -1,5 +1,4 @@
 use super::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
-use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
@@ -28,8 +27,8 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 pub struct TemplateRx {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     /// Allows the tp recv to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
     tx_status: status::Sender,
@@ -109,7 +108,7 @@ impl TemplateRx {
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) {
         let either_frame = sv2_frame.into();
         let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
-        match sender_to_tp.send(either_frame).await {
+        match sender_to_tp.send(either_frame) {
             Ok(_) => (),
             Err(e) => panic!("{:?}", e),
         }
@@ -191,7 +190,7 @@ impl TemplateRx {
                         .clone()
                         .safe_lock(|s| s.receiver.clone())
                         .unwrap();
-                    let received = handle_result!(tx_status.clone(), receiver.recv().await);
+                    let received = handle_result!(tx_status.clone(), receiver.subscribe().recv().await);
                     let mut frame: StdFrame =
                         handle_result!(tx_status.clone(), received.try_into());
                     let message_type = frame.get_header().unwrap().msg_type();

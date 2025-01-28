@@ -9,7 +9,7 @@ use super::super::{
     upstream_sv2::{EitherFrame, Message, StdFrame},
     PoolChangerTrigger,
 };
-use async_channel::{Receiver, Sender};
+
 use binary_sv2::{Seq0255, U256};
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
@@ -117,9 +117,9 @@ pub struct Upstream {
     /// String be included in coinbase tx input scriptsig
     pub pool_signature: String,
     /// Receives messages from the SV2 Upstream role
-    pub receiver: Receiver<EitherFrame>,
+    pub receiver: tokio::sync::broadcast::Sender<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
-    pub sender: Sender<EitherFrame>,
+    pub sender: tokio::sync::broadcast::Sender<EitherFrame>,
     pub downstream: Option<Arc<Mutex<Downstream>>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
@@ -134,7 +134,7 @@ impl Upstream {
             .safe_lock(|s| s.sender.clone())
             .map_err(|_| PoisonLock)?;
         let either_frame = sv2_frame.into();
-        sender.send(either_frame).await.map_err(|e| {
+        sender.send(either_frame).map_err(|e| {
             super::super::error::Error::ChannelErrorSender(
                 super::super::error::ChannelSendError::General(e.to_string()),
             )
@@ -223,7 +223,7 @@ impl Upstream {
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
-        let mut incoming: StdFrame = match recv.recv().await {
+        let mut incoming: StdFrame = match recv.subscribe().recv().await {
             Ok(frame) => frame.try_into()?,
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
@@ -323,7 +323,7 @@ impl Upstream {
             task::spawn(async move {
                 loop {
                     // Waiting to receive a message from the SV2 Upstream role
-                    let incoming = handle_result!(tx_status, recv.recv().await);
+                    let incoming = handle_result!(tx_status, recv.subscribe().recv().await);
                     let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                     // On message receive, get the message type from the message header and get the
                     // message payload

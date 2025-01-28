@@ -1,4 +1,3 @@
-use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
@@ -35,8 +34,8 @@ impl SetupConnectionHandler {
     }
 
     pub async fn setup(
-        receiver: &mut Receiver<EitherFrame>,
-        sender: &mut Sender<EitherFrame>,
+        receiver: &mut tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: &mut tokio::sync::broadcast::Sender<EitherFrame>,
         address: SocketAddr,
     ) -> Result<(), ()> {
         let setup_connection = Self::get_setup_connection_message(address);
@@ -45,9 +44,9 @@ impl SetupConnectionHandler {
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await.map_err(|_| ())?;
+        sender.send(sv2_frame).map_err(|_| ())?;
 
-        let mut incoming: StdFrame = receiver
+        let mut incoming: StdFrame = receiver.subscribe()
             .recv()
             .await
             .expect("Connection to TP closed!")

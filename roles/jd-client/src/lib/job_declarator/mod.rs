@@ -1,5 +1,4 @@
 pub mod message_handler;
-use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::noise_connection_tokio::Connection;
@@ -48,8 +47,8 @@ pub struct LastDeclareJob {
 
 #[derive(Debug)]
 pub struct JobDeclarator {
-    receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
-    sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    receiver: tokio::sync::broadcast::Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    sender: tokio::sync::broadcast::Sender<StandardEitherFrame<PoolMessages<'static>>>,
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
     min_extranonce_size: u16,
@@ -281,7 +280,7 @@ impl JobDeclarator {
             PoolMessages::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
                 .try_into()
                 .unwrap();
-        sender.send(frame.into()).await.unwrap();
+        sender.send(frame.into()).unwrap();
     }
 
     pub fn on_upstream_message(self_mutex: Arc<Mutex<Self>>) {
@@ -291,7 +290,7 @@ impl JobDeclarator {
             tokio::task::spawn(async move {
                 let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
                 loop {
-                    let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                    let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
                     let message_type = incoming.get_header().unwrap().msg_type();
                     let payload = incoming.payload();
                     let next_message_to_send =
@@ -363,7 +362,7 @@ impl JobDeclarator {
                                 PoolMessages::JobDeclaration(m).try_into().unwrap();
                             let sender =
                                 self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
-                            sender.send(sv2_frame.into()).await.unwrap();
+                            sender.send(sv2_frame.into()).unwrap();
                         }
                         Ok(_) => unreachable!(),
                         Err(_) => todo!(),
@@ -451,7 +450,7 @@ impl JobDeclarator {
             // Safe unwrap message is build above and is valid, below can never panic
             let frame: StdFrame = PoolMessages::JobDeclaration(message).try_into().unwrap();
             // TODO join re
-            sender.send(frame.into()).await.unwrap();
+            sender.send(frame.into()).unwrap();
         }
     }
     pub async fn on_solution(
@@ -475,6 +474,6 @@ impl JobDeclarator {
                 .try_into()
                 .unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
-        sender.send(frame.into()).await.unwrap();
+        sender.send(frame.into()).unwrap();
     }
 }
