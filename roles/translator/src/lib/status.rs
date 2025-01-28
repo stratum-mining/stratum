@@ -2,11 +2,6 @@ use crate::error::{self, Error};
 
 #[derive(Debug)]
 pub enum Sender {
-    Downstream(async_channel::Sender<Status<'static>>),
-    DownstreamListener(async_channel::Sender<Status<'static>>),
-    Bridge(async_channel::Sender<Status<'static>>),
-    Upstream(async_channel::Sender<Status<'static>>),
-    TemplateReceiver(async_channel::Sender<Status<'static>>),
     DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
     DownstreamListenerTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
     BridgeTokio(tokio::sync::mpsc::UnboundedSender<Status<'static>>),
@@ -16,14 +11,12 @@ pub enum Sender {
 
 #[derive(Debug)]
 pub enum ErrorS {
-    AsyncError(async_channel::SendError<Status<'static>>),
     TokioError(tokio::sync::mpsc::error::SendError<Status<'static>>),
 }
 
 impl Sender {
     pub fn listener_to_connection(&self) -> Self {
         match self {
-            Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
             Self::DownstreamListenerTokio(inner) => Self::DownstreamTokio(inner.clone()),
             _ => unreachable!(),
         }
@@ -31,15 +24,6 @@ impl Sender {
 
     pub async fn send(&self, status: Status<'static>) -> Result<(), ErrorS> {
         match self {
-            Self::Downstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::DownstreamListener(inner) => {
-                inner.send(status).await.map_err(|e| ErrorS::AsyncError(e))
-            }
-            Self::Bridge(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::Upstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::TemplateReceiver(inner) => {
-                inner.send(status).await.map_err(|e| ErrorS::AsyncError(e))
-            }
             Self::UpstreamTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
             Self::BridgeTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
             Self::DownstreamListenerTokio(inner) => {
@@ -56,11 +40,6 @@ impl Sender {
 impl Clone for Sender {
     fn clone(&self) -> Self {
         match self {
-            Self::Downstream(inner) => Self::Downstream(inner.clone()),
-            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Bridge(inner) => Self::Bridge(inner.clone()),
-            Self::Upstream(inner) => Self::Upstream(inner.clone()),
-            Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
             Self::UpstreamTokio(inner) => Self::UpstreamTokio(inner.clone()),
             Self::BridgeTokio(inner) => Self::BridgeTokio(inner.clone()),
             Self::DownstreamListenerTokio(inner) => Self::DownstreamListenerTokio(inner.clone()),
@@ -90,50 +69,6 @@ async fn send_status(
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
-        Sender::Downstream(tx) => {
-            tx.send(Status {
-                state: State::Healthy(e.to_string()),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::DownstreamListener(tx) => {
-            tx.send(Status {
-                state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Bridge(tx) => {
-            tx.send(Status {
-                state: State::BridgeShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Upstream(tx) => match e {
-            Error::ChannelErrorReceiver(_) => {
-                tx.send(Status {
-                    state: State::UpstreamTryReconnect(e),
-                })
-                .await
-                .unwrap_or(());
-            }
-            _ => {
-                tx.send(Status {
-                    state: State::UpstreamShutdown(e),
-                })
-                .await
-                .unwrap_or(());
-            }
-        },
-        Sender::TemplateReceiver(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
         Sender::UpstreamTokio(tx) => match e {
             Error::ChannelErrorReceiver(_) => {
                 tx.send(Status {

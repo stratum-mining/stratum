@@ -1,6 +1,6 @@
 use ext_config::ConfigError;
 use roles_logic_sv2::{
-    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
+    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob},
     parsers::Mining,
 };
 use std::{fmt, sync::PoisonError};
@@ -12,30 +12,14 @@ pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
 #[derive(Debug)]
 pub enum ChannelSendError<'a> {
-    SubmitSharesExtended(
-        async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
-    ),
-    SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
-    NewExtendedMiningJob(async_channel::SendError<NewExtendedMiningJob<'a>>),
-    Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
-    V1Message(async_channel::SendError<v1::Message>),
     General(String),
-    Extranonce(async_channel::SendError<(ExtendedExtranonce, u32)>),
-    SetCustomMiningJob(
-        async_channel::SendError<roles_logic_sv2::mining_sv2::SetCustomMiningJob<'a>>,
-    ),
-    NewTemplate(
-        async_channel::SendError<(
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            Vec<u8>,
-        )>,
-    ),
     NewExtendedMiningJobTokio(tokio::sync::broadcast::error::SendError<NewExtendedMiningJob<'a>>),
     ExtranonceTokio(tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>),
     SetNewPrevHashTokio(
         tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>,
     ),
     V1MessageTokio(tokio::sync::mpsc::error::SendError<v1::Message>),
+    Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
 }
 
 // tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::NewExtendedMiningJob<'_>>
@@ -74,7 +58,7 @@ pub enum Error<'a> {
     // Locking Errors
     PoisonLock,
     // Channel Receiver Error
-    ChannelErrorReceiver(async_channel::RecvError),
+    ChannelErrorReceiver(tokio::sync::mpsc::error::TryRecvError),
     TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
     // Channel Sender Errors
     ChannelErrorSender(ChannelSendError<'a>),
@@ -183,12 +167,6 @@ impl<'a> From<v1::error::Error<'a>> for Error<'a> {
     }
 }
 
-impl<'a> From<async_channel::RecvError> for Error<'a> {
-    fn from(e: async_channel::RecvError) -> Self {
-        Error::ChannelErrorReceiver(e)
-    }
-}
-
 impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
         Error::TokioChannelErrorRecv(e)
@@ -203,23 +181,6 @@ impl<'a, T> From<PoisonError<T>> for Error<'a> {
 }
 
 // *** CHANNEL SENDER ERRORS ***
-impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>
-    for Error<'a>
-{
-    fn from(
-        e: async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
-    ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
-    }
-}
-
-impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
-    for Error<'a>
-{
-    fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
-    }
-}
 
 impl<'a>
     From<tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
@@ -240,33 +201,15 @@ impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for Error<'a
     }
 }
 
-impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
-    fn from(e: async_channel::SendError<v1::Message>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::V1Message(e))
-    }
-}
-
 impl<'a> From<tokio::sync::mpsc::error::SendError<v1::Message>> for Error<'a> {
     fn from(e: tokio::sync::mpsc::error::SendError<v1::Message>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::V1MessageTokio(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
-    fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
-    }
-}
-
 impl<'a> From<tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
     fn from(e: tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::ExtranonceTokio(e))
-    }
-}
-
-impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for Error<'a> {
-    fn from(e: async_channel::SendError<NewExtendedMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
     }
 }
 
@@ -277,30 +220,6 @@ impl<'a> From<tokio::sync::broadcast::error::SendError<NewExtendedMiningJob<'a>>
         >,
     ) -> Self {
         Error::ChannelErrorSender(ChannelSendError::NewExtendedMiningJobTokio(e))
-    }
-}
-
-impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for Error<'a> {
-    fn from(e: async_channel::SendError<SetCustomMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
-    }
-}
-
-impl<'a>
-    From<
-        async_channel::SendError<(
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            Vec<u8>,
-        )>,
-    > for Error<'a>
-{
-    fn from(
-        e: async_channel::SendError<(
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            Vec<u8>,
-        )>,
-    ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))
     }
 }
 
