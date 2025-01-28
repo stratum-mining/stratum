@@ -24,6 +24,7 @@ pub enum JdsError {
     MempoolError(JdsMempoolError),
     ImpossibleToReconstructBlock(String),
     NoLastDeclaredJob,
+    ChannelRecvTokio(tokio::sync::broadcast::error::RecvError),
 }
 
 impl std::fmt::Display for JdsError {
@@ -48,6 +49,7 @@ impl std::fmt::Display for JdsError {
                 write!(f, "Error in reconstructing the block: {:?}", e)
             }
             NoLastDeclaredJob => write!(f, "Last declared job not found"),
+            ChannelRecvTokio(ref e) => write!(f, "Tokio Channel recv failed: `{:?}`", e),
         }
     }
 }
@@ -61,6 +63,12 @@ impl From<std::io::Error> for JdsError {
 impl From<async_channel::RecvError> for JdsError {
     fn from(e: async_channel::RecvError) -> JdsError {
         JdsError::ChannelRecv(e)
+    }
+}
+
+impl From<tokio::sync::broadcast::error::RecvError> for JdsError {
+    fn from(e: tokio::sync::broadcast::error::RecvError) -> JdsError {
+        JdsError::ChannelRecvTokio(e)
     }
 }
 

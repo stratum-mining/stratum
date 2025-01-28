@@ -1,6 +1,5 @@
 pub mod message_handler;
 use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
-use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{HandshakeRole, Responder};
 use core::panic;
@@ -48,8 +47,8 @@ pub struct AddTrasactionsToMempool {
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
     async_mining_allowed: bool,
-    sender: Sender<EitherFrame>,
-    receiver: Receiver<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
     #[allow(dead_code)]
     // TODO: use coinbase output
@@ -72,8 +71,8 @@ pub struct JobDeclaratorDownstream {
 impl JobDeclaratorDownstream {
     pub fn new(
         async_mining_allowed: bool,
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
         config: &Configuration,
         mempool: Arc<Mutex<JDsMempool>>,
         sender_add_txs_to_mempool: tokio::sync::mpsc::UnboundedSender<AddTrasactionsToMempoolInner>,
@@ -194,7 +193,7 @@ impl JobDeclaratorDownstream {
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = JdsMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
-        sender.send(sv2_frame.into()).await.map_err(|_| ())?;
+        sender.send(sv2_frame.into()).map_err(|_| ())?;
         Ok(())
     }
     pub fn start(
@@ -205,7 +204,7 @@ impl JobDeclaratorDownstream {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
-                match recv.recv().await {
+                match recv.subscribe().recv().await {
                     Ok(message) => {
                         let mut frame: StdFrame = handle_result!(tx_status, message.try_into());
                         let header = frame
@@ -306,7 +305,8 @@ impl JobDeclaratorDownstream {
                                                             "Received solution but encountered error: {:?}",
                                                             e
                                                         );
-                                                            recv.close();
+                                                            // recv.close();
+                                                            drop(recv);
                                                             //TODO should we brake it?
                                                             break;
                                                         }
@@ -387,13 +387,14 @@ impl JobDeclaratorDownstream {
                                     tx_status,
                                     Err(JdsError::Custom("Invalid message received".to_string()))
                                 );
-                                recv.close();
+                                // recv.close();
+                                drop(recv);
                                 break;
                             }
                         }
                     }
                     Err(err) => {
-                        handle_result!(tx_status, Err(JdsError::ChannelRecv(err)));
+                        handle_result!(tx_status, Err(JdsError::ChannelRecvTokio(err)));
                         break;
                     }
                 }
@@ -465,7 +466,7 @@ impl JobDeclarator {
             if let Ok((receiver, sender, _, _)) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await
             {
-                match receiver.recv().await {
+                match receiver.subscribe().recv().await {
                     Ok(EitherFrame::Sv2(mut sv2_message)) => {
                         debug!("Received SV2 message: {:?}", sv2_message);
                         let payload = sv2_message.payload();
@@ -490,7 +491,7 @@ impl JobDeclarator {
         .try_into()
         .expect("Failed to convert setup connection response message to standard frame");
 
-                                sender.send(sv2_frame.into()).await.unwrap();
+                                sender.send(sv2_frame.into()).unwrap();
 
                                 let jddownstream = Arc::new(Mutex::new(
                                     JobDeclaratorDownstream::new(
@@ -524,7 +525,7 @@ impl JobDeclarator {
         .try_into()
         .expect("Failed to convert setup connection response message to standard frame");
 
-                                sender.send(sv2_frame.into()).await.unwrap();
+                                sender.send(sv2_frame.into()).unwrap();
                             }
                         } else {
                             error!("Error parsing SetupConnection message");
