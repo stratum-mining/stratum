@@ -1,6 +1,4 @@
 use super::{super::error::ProxyResult, EitherFrame, StdFrame};
-use async_channel::{Receiver, Sender};
-
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
 /// On upstream, we have a sv2connection, so we use the connection from network helpers
@@ -11,16 +9,16 @@ use async_channel::{Receiver, Sender};
 #[derive(Debug, Clone)]
 pub struct UpstreamConnection {
     /// Receives messages from the SV2 Upstream role
-    pub receiver: Receiver<EitherFrame>,
+    pub receiver: tokio::sync::broadcast::Sender<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
-    pub sender: Sender<EitherFrame>,
+    pub sender: tokio::sync::broadcast::Sender<EitherFrame>,
 }
 
 impl UpstreamConnection {
     /// Send a SV2 message to the Upstream role
     pub async fn send(&mut self, sv2_frame: StdFrame) -> ProxyResult<'static, ()> {
         let either_frame = sv2_frame.into();
-        self.sender.send(either_frame).await.map_err(|e| {
+        self.sender.send(either_frame).map_err(|e| {
             super::super::error::Error::ChannelErrorSender(
                 super::super::error::ChannelSendError::General(e.to_string()),
             )

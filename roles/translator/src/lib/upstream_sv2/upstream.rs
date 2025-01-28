@@ -8,12 +8,12 @@ use crate::{
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
-use async_std::net::TcpStream;
+
 use binary_sv2::u256_from_int;
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::Connection;
+use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -131,7 +131,7 @@ impl Upstream {
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
-            match TcpStream::connect(address).await {
+            match tokio::net::TcpStream::connect(address).await {
                 Ok(socket) => break socket,
                 Err(e) => {
                     error!(
@@ -153,7 +153,7 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator), 10)
+        let (receiver, sender,_,_) = Connection::new(socket, HandshakeRole::Initiator(initiator))
             .await
             .unwrap();
         // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and
@@ -200,7 +200,7 @@ impl Upstream {
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
-        let mut incoming: StdFrame = match connection.receiver.recv().await {
+        let mut incoming: StdFrame = match connection.receiver.subscribe().recv().await {
             Ok(frame) => frame.try_into()?,
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
@@ -309,7 +309,7 @@ impl Upstream {
         let parse_incoming = tokio::task::spawn(async move {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
-                let incoming = handle_result!(tx_status, recv.recv().await);
+                let incoming = handle_result!(tx_status, recv.subscribe().recv().await);
                 let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                 // On message receive, get the message type from the message header and get the
                 // message payload
@@ -352,7 +352,7 @@ impl Upstream {
                         // Relay the response message to the Upstream role
                         handle_result!(
                             tx_status,
-                            tx_frame.send(frame).await.map_err(|e| {
+                            tx_frame.send(frame).map_err(|e| {
                                 super::super::error::Error::ChannelErrorSender(
                                     super::super::error::ChannelSendError::General(e.to_string()),
                                 )
@@ -517,7 +517,7 @@ impl Upstream {
                 let frame: EitherFrame = frame.into();
                 handle_result!(
                     tx_status,
-                    tx_frame.send(frame).await.map_err(|e| {
+                    tx_frame.send(frame).map_err(|e| {
                         super::super::error::Error::ChannelErrorSender(
                             super::super::error::ChannelSendError::General(e.to_string()),
                         )

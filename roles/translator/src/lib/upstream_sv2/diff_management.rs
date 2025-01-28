@@ -38,7 +38,7 @@ impl Upstream {
         let either_frame: StdFrame = message.try_into()?;
         let frame: EitherFrame = either_frame.into();
 
-        tx_frame.send(frame).await.map_err(|e| {
+        tx_frame.send(frame).map_err(|e| {
             super::super::error::Error::ChannelErrorSender(
                 super::super::error::ChannelSendError::General(e.to_string()),
             )
