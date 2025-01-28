@@ -172,7 +172,9 @@ impl TranslatorSv2 {
         // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to
         // be passed to the `Downstream` upon a Downstream role connection
         // (Sender<ExtendedExtranonce>, Receiver<ExtendedExtranonce>)
-        let (tx_sv2_extranonce, rx_sv2_extranonce) = bounded(1);
+        // mpsc will work as only one consumer
+        // let (tx_sv2_extranonce, rx_sv2_extranonce) = bounded(1);
+        let (tx_sv2_extranonce, mut rx_sv2_extranonce) = tokio::sync::mpsc::channel(1);
 
         // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the
         // `Bridge` (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)

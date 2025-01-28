@@ -83,7 +83,7 @@ pub struct Upstream {
     /// `OpenExtendedMiningChannelSuccess` message to be used by the `Downstream` and sent to
     /// the Downstream role in a SV2 `mining.subscribe` response message. Passed to the
     /// `Downstream` on connection creation.
-    tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
+    tx_sv2_extranonce: tokio::sync::mpsc::Sender<(ExtendedExtranonce, u32)>,
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
     tx_status: status::Sender,
@@ -124,7 +124,7 @@ impl Upstream {
         tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
-        tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
+        tx_sv2_extranonce: tokio::sync::mpsc::Sender<(ExtendedExtranonce, u32)>,
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
         difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,

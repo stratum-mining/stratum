@@ -31,9 +31,11 @@ pub enum ChannelSendError<'a> {
         )>,
     ),
     NewExtendedMiningJobTokio(tokio::sync::broadcast::error::SendError<NewExtendedMiningJob<'a>>),
+    ExtranonceTokio(tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>),
 }
 
 // tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::NewExtendedMiningJob<'_>>
+// tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>
 
 #[derive(Debug)]
 pub enum Error<'a> {
@@ -228,6 +230,12 @@ impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
 impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
     fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
+    }
+}
+
+impl<'a> From<tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
+    fn from(e: tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::ExtranonceTokio(e))
     }
 }
 
