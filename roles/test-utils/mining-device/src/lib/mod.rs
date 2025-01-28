@@ -274,13 +274,14 @@ impl Device {
         let self_mutex = std::sync::Arc::new(Mutex::new(self_));
         let cloned = self_mutex.clone();
 
-        let (share_send, share_recv) = async_channel::unbounded();
+        // mpsc can be used.
+        // let (share_send, share_recv) = async_channel::unbounded();
+        let (share_send, mut share_recv) = tokio::sync::mpsc::unbounded_channel();
 
         start_mining_threads(update_miners, miner, share_send);
         tokio::task::spawn(async move {
-            let recv = share_recv.clone();
             loop {
-                let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
+                let (nonce, job_id, version, ntime) = share_recv.recv().await.unwrap();
                 Self::send_share(cloned.clone(), nonce, job_id, version, ntime).await;
             }
         });
@@ -671,7 +672,7 @@ fn generate_random_32_byte_array() -> [u8; 32] {
 fn start_mining_threads(
     mut have_new_job: tokio::sync::mpsc::UnboundedReceiver<()>,
     miner: Arc<Mutex<Miner>>,
-    share_send: Sender<(u32, u32, u32, u32)>,
+    share_send: tokio::sync::mpsc::UnboundedSender<(u32, u32, u32, u32)>,
 ) {
     tokio::task::spawn(async move {
         let mut killers: Vec<Arc<AtomicBool>> = vec![];
@@ -698,7 +699,7 @@ fn start_mining_threads(
     });
 }
 
-fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<AtomicBool>) {
+fn mine(mut miner: Miner, share_send: tokio::sync::mpsc::UnboundedSender<(u32, u32, u32, u32)>, kill: Arc<AtomicBool>) {
     if miner.handicap != 0 {
         loop {
             if kill.load(Ordering::Relaxed) {
@@ -711,7 +712,7 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                 let job_id = miner.job_id.unwrap();
                 let version = miner.version;
                 share_send
-                    .try_send((nonce, job_id, version.unwrap(), time))
+                    .send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
             miner.header.as_mut().map(|h| h.nonce += 1);
@@ -727,7 +728,7 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                 let job_id = miner.job_id.unwrap();
                 let version = miner.version;
                 share_send
-                    .try_send((nonce, job_id, version.unwrap(), time))
+                    .send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
             miner.header.as_mut().map(|h| h.nonce += 1);
