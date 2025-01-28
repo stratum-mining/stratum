@@ -1,6 +1,5 @@
 use std::{convert::TryInto, sync::Arc};
 
-use async_channel::{Receiver, SendError, Sender};
 use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
 use tracing::{info, warn};
 
@@ -33,8 +32,8 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
     id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
 }
@@ -144,7 +143,7 @@ impl DownstreamMiningNode {
             .open_channel_for_down_hom_up_extended(channel_id, group_id);
     }
 
-    pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>, id: u32) -> Self {
+    pub fn new(receiver: tokio::sync::broadcast::Sender<EitherFrame>, sender: tokio::sync::broadcast::Sender<EitherFrame>, id: u32) -> Self {
         Self {
             receiver,
             sender,
@@ -178,7 +177,7 @@ impl DownstreamMiningNode {
                 .safe_lock(|self_| self_.receiver.clone())
                 .unwrap();
 
-            while let Ok(message) = receiver.recv().await {
+            while let Ok(message) = receiver.subscribe().recv().await {
                 let incoming: StdFrame = message.try_into().unwrap();
                 Self::next(self_mutex.clone(), incoming).await;
             }
@@ -265,10 +264,11 @@ impl DownstreamMiningNode {
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
-    ) -> Result<(), SendError<StdFrame>> {
+        // check the error
+    ) -> Result<(), ()> {
         let either_frame = sv2_frame.into();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
-        match sender.send(either_frame).await {
+        match sender.send(either_frame) {
             Ok(_) => Ok(()),
             Err(_) => {
                 todo!()
@@ -281,8 +281,9 @@ impl DownstreamMiningNode {
             UpstreamMiningNode::remove_dowstream(up, &self_);
         };
         self_
-            .safe_lock(|s| {
-                s.receiver.close();
+            .safe_lock(|_| {
+                // check this somehow
+                // s.receiver.close();
             })
             .unwrap();
     }
@@ -446,12 +447,12 @@ pub async fn listen_for_downstream_mining(
         tokio::select! {
             accept_result = listener.accept() => {
                 let (stream, _) = accept_result.expect("failed to accept downstream connection");
-                let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+                let (receiver, sender): (tokio::sync::broadcast::Sender<EitherFrame>, tokio::sync::broadcast::Sender<EitherFrame>) =
                     PlainConnection::new(stream).await;
                 let node = DownstreamMiningNode::new(receiver, sender, ids.next());
 
                 let mut incoming: StdFrame =
-                    node.receiver.recv().await.unwrap().try_into().unwrap();
+                    node.receiver.subscribe().recv().await.unwrap().try_into().unwrap();
                 let message_type = incoming.get_header().unwrap().msg_type();
                 let payload = incoming.payload();
                 let routing_logic = super::get_common_routing_logic();

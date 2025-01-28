@@ -1,4 +1,3 @@
-use async_channel::SendError;
 use codec_sv2::StandardEitherFrame;
 use roles_logic_sv2::parsers::PoolMessages;
 use std::net::SocketAddr;
@@ -11,13 +10,13 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[allow(clippy::enum_variant_names)]
 #[allow(dead_code)]
 pub enum Error {
-    SendError(SendError<EitherFrame>),
+    SendError(tokio::sync::broadcast::error::SendError<EitherFrame>),
     UpstreamNotAvailabe(SocketAddr),
     SetupConnectionError(String),
 }
 
-impl From<SendError<EitherFrame>> for Error {
-    fn from(error: SendError<EitherFrame>) -> Self {
+impl From<tokio::sync::broadcast::error::SendError<EitherFrame>> for Error {
+    fn from(error: tokio::sync::broadcast::error::SendError<EitherFrame>) -> Self {
         Error::SendError(error)
     }
 }

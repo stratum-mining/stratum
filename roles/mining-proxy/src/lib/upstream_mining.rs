@@ -3,7 +3,7 @@
 use core::convert::TryInto;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
-use async_channel::{Receiver, SendError, Sender};
+use async_channel::{Receiver, Sender};
 use async_recursion::async_recursion;
 use nohash_hasher::BuildNoHashHasher;
 use tokio::{net::TcpStream, task};
@@ -122,15 +122,15 @@ impl From<super::ChannelKind> for ChannelKind {
 /// a pool or an upstream proxy.
 #[derive(Debug, Clone)]
 struct UpstreamMiningConnection {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
 }
 
 impl UpstreamMiningConnection {
-    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<EitherFrame>> {
+    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), tokio::sync::broadcast::error::SendError<EitherFrame>> {
         info!("SEND");
         let either_frame = sv2_frame.into();
-        match self.sender.send(either_frame).await {
+        match self.sender.send(either_frame) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
@@ -337,7 +337,7 @@ impl UpstreamMiningNode {
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();
         match connection.as_mut() {
-            Some(connection) => match connection.receiver.recv().await {
+            Some(connection) => match connection.receiver.subscribe().recv().await {
                 Ok(m) => Ok(m.try_into().unwrap()),
                 Err(_) => {
                     let address = self_mutex.safe_lock(|s| s.address).unwrap();
@@ -429,11 +429,11 @@ impl UpstreamMiningNode {
     fn relay_incoming_messages(
         self_: Arc<Mutex<Self>>,
         //_downstreams: HashMap<u32, Downstream>,
-        receiver: Receiver<EitherFrame>,
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
     ) {
         task::spawn(async move {
             loop {
-                if let Ok(message) = receiver.recv().await {
+                if let Ok(message) = receiver.subscribe().recv().await {
                     let m: StdFrame = message.try_into().unwrap();
                     let incoming: StdFrame = m;
                     Self::next(self_.clone(), incoming).await;
