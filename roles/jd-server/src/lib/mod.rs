@@ -53,8 +53,10 @@ impl JobDeclaratorServer {
         )));
         let mempool_update_interval = config.mempool_update_interval;
         let mempool_cloned_ = mempool.clone();
-        let (status_tx, status_rx) = unbounded();
-        let sender = status::Sender::Downstream(status_tx.clone());
+        // mpsc can be used.
+        // let (status_tx, status_rx) = unbounded();
+        let (status_tx,mut status_rx) = tokio::sync::mpsc::unbounded_channel();
+        let sender = status::Sender::DownstreamTokio(status_tx.clone());
         let mut last_empty_mempool_warning =
             std::time::Instant::now().sub(std::time::Duration::from_secs(60));
 
