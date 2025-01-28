@@ -1,4 +1,4 @@
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::Sender;
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
 use tokio::{
@@ -22,26 +22,38 @@ impl PlainConnection {
     /// * `strict` - true - will disconnect a connection that sends a message that can't be
     ///   translated, false - will ignore messages that can't be translated
     #[allow(clippy::new_ret_no_self)]
-    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
+    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static + Clone>(
         stream: TcpStream,
     ) -> (
-        Receiver<StandardEitherFrame<Message>>,
-        Sender<StandardEitherFrame<Message>>,
+        tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
+        tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
     ) {
         const NOISE_HANDSHAKE_SIZE_HINT: usize = 3363412;
 
         let (mut reader, mut writer) = stream.into_split();
 
-        let (sender_incoming, receiver_incoming): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(10); // TODO caller should provide this param
-        let (sender_outgoing, receiver_outgoing): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(10); // TODO caller should provide this param
+        // broadcast gonna work,
+        // let (sender_incoming, receiver_incoming): (
+        //     Sender<StandardEitherFrame<Message>>,
+        //     Receiver<StandardEitherFrame<Message>>,
+        // ) = bounded(10); // TODO caller should provide this param
+        let (sender_incoming, _): (
+            tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
+            tokio::sync::broadcast::Receiver<StandardEitherFrame<Message>>,
+        ) = tokio::sync::broadcast::channel(10); // TODO caller should provide this param
+
+        // let (sender_outgoing, receiver_outgoing): (
+        //     Sender<StandardEitherFrame<Message>>,
+        //     Receiver<StandardEitherFrame<Message>>,
+        // ) = bounded(10); // TODO caller should provide this param
+
+        let (sender_outgoing, mut receiver_outgoing): (
+            tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
+            tokio::sync::broadcast::Receiver<StandardEitherFrame<Message>>,
+        ) = tokio::sync::broadcast::channel(10); // TODO caller should provide this param
 
         // RECEIVE AND PARSE INCOMING MESSAGES FROM TCP STREAM
+        let sender_incoming_clone = sender_incoming.clone();
         task::spawn(async move {
             let mut decoder = StandardDecoder::<Message>::new();
 
@@ -51,7 +63,7 @@ impl PlainConnection {
                     Ok(_) => {
                         match decoder.next_frame() {
                             Ok(frame) => {
-                                if let Err(e) = sender_incoming.send(frame.into()).await {
+                                if let Err(e) = sender_incoming_clone.send(frame.into()) {
                                     error!("Failed to send incoming message: {}", e);
                                     task::yield_now().await;
                                     break;
@@ -70,7 +82,7 @@ impl PlainConnection {
                             }
                             Err(e) => {
                                 error!("Failed to read from stream: {}", e);
-                                sender_incoming.close();
+                                // sender_incoming.close();
                                 task::yield_now().await;
                                 break;
                             }
@@ -79,7 +91,7 @@ impl PlainConnection {
                     Err(e) => {
                         // Just fail and force to reinitialize everything
                         error!("Failed to read from stream: {}", e);
-                        sender_incoming.close();
+                        // sender_incoming.close();
                         task::yield_now().await;
                         break;
                     }
@@ -104,10 +116,10 @@ impl PlainConnection {
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        error!("Failed to read from stream - terminating connection");
+                        error!("Failed to read from stream - terminating connection, {:?}",e);
                         task::yield_now().await;
                         break;
                     }
@@ -115,7 +127,7 @@ impl PlainConnection {
             }
         });
 
-        (receiver_incoming, sender_outgoing)
+        (sender_incoming, sender_outgoing)
     }
 }
 
