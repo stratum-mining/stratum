@@ -78,7 +78,7 @@ pub struct Upstream {
     tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
     /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
-    tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
+    tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
     /// Sends the extranonce1 and the channel id received in the SV2
     /// `OpenExtendedMiningChannelSuccess` message to be used by the `Downstream` and sent to
     /// the Downstream role in a SV2 `mining.subscribe` response message. Passed to the
@@ -122,7 +122,7 @@ impl Upstream {
         authority_public_key: Secp256k1PublicKey,
         tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
         tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
-        tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
+        tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
         tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
         tx_status: status::Sender,
@@ -406,7 +406,7 @@ impl Upstream {
                                     })
                                     .map_err(|_e| PoisonLock);
                                 handle_result!(tx_status, res);
-                                handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m).await);
+                                handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m));
                             }
                             Mining::SetNewPrevHash(m) => {
                                 handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);

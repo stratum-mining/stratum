@@ -40,7 +40,7 @@ pub struct Bridge {
     /// Receives a SV2 `NewExtendedMiningJob` message from the `Upstream` to be translated (along
     /// with a SV2 `SetNewPrevHash` message) to a SV1 `mining.submit` to be sent to the
     /// `Downstream`.
-    rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
+    tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
     /// Sends SV1 `mining.notify` message (translated from the SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages stored in the `NextMiningNotify`) to the `Downstream`.
     tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
@@ -73,7 +73,7 @@ impl Bridge {
         rx_sv1_downstream: Receiver<DownstreamMessages>,
         tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
-        rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
+        tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
         tx_status: status::Sender,
         extranonces: ExtendedExtranonce,
@@ -90,7 +90,7 @@ impl Bridge {
             rx_sv1_downstream,
             tx_sv2_submit_shares_ext,
             rx_sv2_set_new_prev_hash,
-            rx_sv2_new_ext_mining_job,
+            tx_sv2_new_ext_mining_job,
             tx_sv1_notify,
             tx_status,
             last_notify: None,
@@ -481,11 +481,11 @@ impl Bridge {
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
         let task_collector_new_extended_mining_job =
             self_.safe_lock(|b| b.task_collector.clone()).unwrap();
-        let (tx_sv1_notify, rx_sv2_new_ext_mining_job, tx_status) = self_
+        let (tx_sv1_notify, tx_sv2_new_ext_mining_job, tx_status) = self_
             .safe_lock(|s| {
                 (
                     s.tx_sv1_notify.clone(),
-                    s.rx_sv2_new_ext_mining_job.clone(),
+                    s.tx_sv2_new_ext_mining_job.clone(),
                     s.tx_status.clone(),
                 )
             })
@@ -496,7 +496,7 @@ impl Bridge {
                 // Receive `NewExtendedMiningJob` from `Upstream`
                 let sv2_new_extended_mining_job: NewExtendedMiningJob = handle_result!(
                     tx_status.clone(),
-                    rx_sv2_new_ext_mining_job.clone().recv().await
+                    tx_sv2_new_ext_mining_job.clone().subscribe().recv().await
                 );
                 debug!(
                     "handle_new_extended_mining_job job_id: {:?}",

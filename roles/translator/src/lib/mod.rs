@@ -160,12 +160,14 @@ impl TranslatorSv2 {
         // `Bridge` via the `rx_sv1_downstream` receiver
         // (Sender<downstream_sv1::DownstreamMessages>,
         // Receiver<downstream_sv1::DownstreamMessages>)
+        // Cant really do anything because of bounded nature in broadcast?
         let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
 
         // Sender/Receiver to send a SV2 `NewExtendedMiningJob` message from the `Upstream` to the
         // `Bridge`
         // (Sender<NewExtendedMiningJob<'static>>, Receiver<NewExtendedMiningJob<'static>>)
-        let (tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(10);
+        // let (tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(10);
+        let (tx_sv2_new_ext_mining_job, _) = tokio::sync::broadcast::channel(10);
 
         // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to
         // be passed to the `Downstream` upon a Downstream role connection
@@ -191,7 +193,7 @@ impl TranslatorSv2 {
             proxy_config.upstream_authority_pubkey,
             tx_sv2_submit_shares_ext.clone(),
             tx_sv2_set_new_prev_hash,
-            tx_sv2_new_ext_mining_job,
+            tx_sv2_new_ext_mining_job.clone(),
             proxy_config.min_extranonce2_size,
             tx_sv2_extranonce,
             status::Sender::UpstreamTokio(tx_status.clone()),
@@ -258,7 +260,7 @@ impl TranslatorSv2 {
                 rx_sv1_downstream,
                 tx_sv2_submit_shares_ext,
                 rx_sv2_set_new_prev_hash,
-                rx_sv2_new_ext_mining_job,
+                tx_sv2_new_ext_mining_job,
                 tx_sv1_notify.clone(),
                 status::Sender::BridgeTokio(tx_status.clone()),
                 extended_extranonce,
