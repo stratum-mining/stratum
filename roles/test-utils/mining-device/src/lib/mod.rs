@@ -13,7 +13,6 @@ use std::{
 };
 use tokio::net::TcpStream;
 
-use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
 use rand::{thread_rng, Rng};
@@ -74,7 +73,7 @@ pub async fn connect(
     info!("Pool tcp connection established at {}", address);
     let address = socket.peer_addr().unwrap();
     let initiator = Initiator::new(pub_key.map(|e| e.0));
-    let (receiver, sender, _, _): (Receiver<EitherFrame>, Sender<EitherFrame>, _, _) =
+    let (receiver, sender, _, _): (tokio::sync::broadcast::Sender<EitherFrame>, tokio::sync::broadcast::Sender<EitherFrame>, _, _) =
         Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator))
             .await
             .unwrap();
@@ -130,8 +129,8 @@ impl SetupConnectionHandler {
     }
     pub async fn setup(
         self_: Arc<Mutex<Self>>,
-        receiver: &mut Receiver<EitherFrame>,
-        sender: &mut Sender<EitherFrame>,
+        receiver: &mut tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: &mut tokio::sync::broadcast::Sender<EitherFrame>,
         device_id: Option<String>,
         address: SocketAddr,
     ) {
@@ -141,10 +140,10 @@ impl SetupConnectionHandler {
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await.unwrap();
+        sender.send(sv2_frame).unwrap();
         info!("Setup connection sent to {}", address);
 
-        let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         ParseUpstreamCommonMessages::handle_message_common(
@@ -192,8 +191,8 @@ struct NewWorkNotifier {
 #[derive(Debug)]
 pub struct Device {
     #[allow(dead_code)]
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     #[allow(dead_code)]
     channel_opened: bool,
     channel_id: Option<u32>,
@@ -230,8 +229,8 @@ fn open_channel(
 
 impl Device {
     async fn start(
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
+        mut receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        mut sender: tokio::sync::broadcast::Sender<EitherFrame>,
         addr: SocketAddr,
         device_id: Option<String>,
         user_id: Option<String>,
@@ -270,7 +269,7 @@ impl Device {
             open_channel(user_id, nominal_hashrate_multiplier, handicap),
         ));
         let frame: StdFrame = open_channel.try_into().unwrap();
-        self_.sender.send(frame.into()).await.unwrap();
+        self_.sender.send(frame.into()).unwrap();
         let self_mutex = std::sync::Arc::new(Mutex::new(self_));
         let cloned = self_mutex.clone();
 
@@ -287,7 +286,7 @@ impl Device {
         });
 
         loop {
-            let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+            let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
             let next = Device::handle_message_mining(
@@ -315,7 +314,7 @@ impl Device {
                 SendTo::RelayNewMessageToRemote(_, m) => {
                     let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();
                     let either_frame: EitherFrame = sv2_frame.into();
-                    sender.send(either_frame).await.unwrap();
+                    sender.send(either_frame).unwrap();
                 }
                 SendTo::None(_) => (),
                 _ => panic!(),
@@ -341,7 +340,7 @@ impl Device {
             }));
         let frame: StdFrame = share.try_into().unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
-        sender.send(frame.into()).await.unwrap();
+        sender.send(frame.into()).unwrap();
     }
 }
 
