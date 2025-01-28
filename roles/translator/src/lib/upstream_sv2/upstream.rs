@@ -8,7 +8,6 @@ use crate::{
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
-use async_channel::Sender;
 use async_std::net::TcpStream;
 use binary_sv2::u256_from_int;
 use codec_sv2::{HandshakeRole, Initiator};
@@ -75,7 +74,7 @@ pub struct Upstream {
     tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
     /// Sends SV2 `SetNewPrevHash` messages to be translated (along with SV2 `NewExtendedMiningJob`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
-    tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
+    tx_sv2_set_new_prev_hash: tokio::sync::broadcast::Sender<SetNewPrevHash<'static>>,
     /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
     tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
@@ -121,7 +120,7 @@ impl Upstream {
         address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
         tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
-        tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
+        tx_sv2_set_new_prev_hash: tokio::sync::broadcast::Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
         tx_sv2_extranonce: tokio::sync::mpsc::Sender<(ExtendedExtranonce, u32)>,
@@ -409,7 +408,7 @@ impl Upstream {
                                 handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m));
                             }
                             Mining::SetNewPrevHash(m) => {
-                                handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);
+                                handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m));
                             }
                             Mining::CloseChannel(_m) => {
                                 error!("Received Mining::CloseChannel msg from upstream!");

@@ -36,7 +36,7 @@ pub struct Bridge {
     tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
     /// Receives a SV2 `SetNewPrevHash` message from the `Upstream` to be translated (along with a
     /// SV2 `NewExtendedMiningJob` message) to a SV1 `mining.submit` for the `Downstream`.
-    rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+    tx_sv2_set_new_prev_hash: tokio::sync::broadcast::Sender<SetNewPrevHash<'static>>,
     /// Receives a SV2 `NewExtendedMiningJob` message from the `Upstream` to be translated (along
     /// with a SV2 `SetNewPrevHash` message) to a SV1 `mining.submit` to be sent to the
     /// `Downstream`.
@@ -72,7 +72,7 @@ impl Bridge {
     pub fn new(
         rx_sv1_downstream: Receiver<DownstreamMessages>,
         tx_sv2_submit_shares_ext: tokio::sync::broadcast::Sender<SubmitSharesExtended<'static>>,
-        rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+        tx_sv2_set_new_prev_hash: tokio::sync::broadcast::Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: tokio::sync::broadcast::Sender<NewExtendedMiningJob<'static>>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
         tx_status: status::Sender,
@@ -89,7 +89,7 @@ impl Bridge {
         Arc::new(Mutex::new(Self {
             rx_sv1_downstream,
             tx_sv2_submit_shares_ext,
-            rx_sv2_set_new_prev_hash,
+            tx_sv2_set_new_prev_hash,
             tx_sv2_new_ext_mining_job,
             tx_sv1_notify,
             tx_status,
@@ -379,11 +379,11 @@ impl Bridge {
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
         let task_collector_handle_new_prev_hash =
             self_.safe_lock(|b| b.task_collector.clone()).unwrap();
-        let (tx_sv1_notify, rx_sv2_set_new_prev_hash, tx_status) = self_
+        let (tx_sv1_notify, tx_sv2_set_new_prev_hash, tx_status) = self_
             .safe_lock(|s| {
                 (
                     s.tx_sv1_notify.clone(),
-                    s.rx_sv2_set_new_prev_hash.clone(),
+                    s.tx_sv2_set_new_prev_hash.clone(),
                     s.tx_status.clone(),
                 )
             })
@@ -393,7 +393,7 @@ impl Bridge {
             loop {
                 // Receive `SetNewPrevHash` from `Upstream`
                 let sv2_set_new_prev_hash: SetNewPrevHash =
-                    handle_result!(tx_status, rx_sv2_set_new_prev_hash.clone().recv().await);
+                    handle_result!(tx_status, tx_sv2_set_new_prev_hash.clone().subscribe().recv().await);
                 debug!(
                     "handle_new_prev_hash job_id: {:?}",
                     &sv2_set_new_prev_hash.job_id

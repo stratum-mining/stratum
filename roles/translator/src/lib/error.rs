@@ -32,10 +32,12 @@ pub enum ChannelSendError<'a> {
     ),
     NewExtendedMiningJobTokio(tokio::sync::broadcast::error::SendError<NewExtendedMiningJob<'a>>),
     ExtranonceTokio(tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>),
+    SetNewPrevHashTokio(tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
 }
 
 // tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::NewExtendedMiningJob<'_>>
 // tokio::sync::mpsc::error::SendError<(ExtendedExtranonce, u32)>
+// tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'_>>
 
 #[derive(Debug)]
 pub enum Error<'a> {
@@ -212,6 +214,14 @@ impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHa
 {
     fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
+    }
+}
+
+impl<'a> From<tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
+    for Error<'a>
+{
+    fn from(e: tokio::sync::broadcast::error::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHashTokio(e))
     }
 }
 

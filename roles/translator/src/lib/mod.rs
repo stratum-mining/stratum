@@ -1,4 +1,4 @@
-use async_channel::{bounded, unbounded};
+use async_channel::unbounded;
 use futures::FutureExt;
 use rand::Rng;
 pub use roles_logic_sv2::utils::Mutex;
@@ -178,7 +178,7 @@ impl TranslatorSv2 {
 
         // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the
         // `Bridge` (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
-        let (tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(10);
+        let (tx_sv2_set_new_prev_hash, _) = tokio::sync::broadcast::channel(10);
 
         // Format `Upstream` connection address
         let upstream_addr = SocketAddr::new(
@@ -194,7 +194,7 @@ impl TranslatorSv2 {
             upstream_addr,
             proxy_config.upstream_authority_pubkey,
             tx_sv2_submit_shares_ext.clone(),
-            tx_sv2_set_new_prev_hash,
+            tx_sv2_set_new_prev_hash.clone(),
             tx_sv2_new_ext_mining_job.clone(),
             proxy_config.min_extranonce2_size,
             tx_sv2_extranonce,
@@ -261,7 +261,7 @@ impl TranslatorSv2 {
             let b = proxy::Bridge::new(
                 rx_sv1_downstream,
                 tx_sv2_submit_shares_ext,
-                rx_sv2_set_new_prev_hash,
+                tx_sv2_set_new_prev_hash,
                 tx_sv2_new_ext_mining_job,
                 tx_sv1_notify.clone(),
                 status::Sender::BridgeTokio(tx_status.clone()),
