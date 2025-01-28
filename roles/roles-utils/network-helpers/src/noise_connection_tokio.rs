@@ -1,6 +1,8 @@
 use crate::Error;
 use binary_sv2::{Deserialize, Serialize};
-use const_sv2::{INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
+use const_sv2::{
+    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
+};
 use futures::lock::Mutex;
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::{
@@ -9,13 +11,12 @@ use tokio::{
     task::{self, AbortHandle},
 };
 
-use std::{
-    convert::TryInto,
-    sync::atomic::AtomicBool,
-};
+use std::{convert::TryInto, sync::atomic::AtomicBool};
 
 use binary_sv2::GetSize;
-use codec_sv2::{HandShakeFrame, HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder};
+use codec_sv2::{
+    HandShakeFrame, HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder,
+};
 
 use tracing::{debug, error};
 
@@ -42,7 +43,10 @@ impl crate::SetState for Connection {
 impl Connection {
     #[allow(clippy::new_ret_no_self)]
     // Debug added for some trait requirement
-    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static + Clone + Debug>(
+    pub async fn new<
+        'a,
+        Message: Serialize + Deserialize<'a> + GetSize + Send + 'static + Clone + Debug,
+    >(
         stream: TcpStream,
         role: HandshakeRole,
     ) -> Result<
@@ -66,7 +70,7 @@ impl Connection {
             tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
             tokio::sync::broadcast::Receiver<StandardEitherFrame<Message>>,
         ) = tokio::sync::broadcast::channel(10); // TODO caller should provide this param
-        
+
         // let (sender_outgoing, receiver_outgoing): (
         //     Sender<StandardEitherFrame<Message>>,
         //     Receiver<StandardEitherFrame<Message>>,
@@ -87,7 +91,7 @@ impl Connection {
         // RECEIVE AND PARSE INCOMING MESSAGES FROM TCP STREAM
         let recv_task = task::spawn(async move {
             let mut decoder = StandardNoiseDecoder::<Message>::new();
-            
+
             loop {
                 let writable = decoder.writable();
                 match reader.read_exact(writable).await {
@@ -241,8 +245,6 @@ pub async fn connect(
     Ok((stream, role))
 }
 
-
-
 async fn initialize_as_downstream_tokio<
     'a,
     // Debug added for this unwrap, remove later
@@ -284,7 +286,11 @@ async fn initialize_as_downstream_tokio<
 
 // Addition of Debug, for some trait requirement
 // clone is again a broadcast requirement
-async fn initialize_as_upstream_tokio<'a, Message: Serialize + Deserialize<'a> + GetSize + Debug + Clone, T: crate::SetState>(
+async fn initialize_as_upstream_tokio<
+    'a,
+    Message: Serialize + Deserialize<'a> + GetSize + Debug + Clone,
+    T: crate::SetState,
+>(
     self_: Arc<Mutex<T>>,
     role: HandshakeRole,
     sender_outgoing: tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
@@ -295,7 +301,8 @@ async fn initialize_as_upstream_tokio<'a, Message: Serialize + Deserialize<'a> +
     // Receive and deserialize first handshake message
     let first_message: HandShakeFrame = receiver_incoming
         .recv()
-        .await.unwrap()
+        .await
+        .unwrap()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
     let first_message: [u8; RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = first_message

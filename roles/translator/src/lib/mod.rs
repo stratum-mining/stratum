@@ -49,7 +49,7 @@ impl TranslatorSv2 {
     pub async fn start(self) {
         // mpsc can be used as single consumer.
         // let (tx_status, rx_status) = unbounded();
-        let (tx_status,mut rx_status) = tokio::sync::mpsc::unbounded_channel();
+        let (tx_status, mut rx_status) = tokio::sync::mpsc::unbounded_channel();
 
         let target = Arc::new(Mutex::new(vec![0; 32]));
 
@@ -152,7 +152,8 @@ impl TranslatorSv2 {
     ) {
         // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
         // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
-        // Producer I dont give much damn about, consumer are getting cloned,so broadcast should be used.
+        // Producer I dont give much damn about, consumer are getting cloned,so broadcast should be
+        // used.
         let (tx_sv2_submit_shares_ext, _) = tokio::sync::broadcast::channel(10);
 
         // `tx_sv1_bridge` sender is used by `Downstream` to send a `DownstreamMessages` message to

@@ -143,7 +143,11 @@ impl DownstreamMiningNode {
             .open_channel_for_down_hom_up_extended(channel_id, group_id);
     }
 
-    pub fn new(receiver: tokio::sync::broadcast::Sender<EitherFrame>, sender: tokio::sync::broadcast::Sender<EitherFrame>, id: u32) -> Self {
+    pub fn new(
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
+        id: u32,
+    ) -> Self {
         Self {
             receiver,
             sender,

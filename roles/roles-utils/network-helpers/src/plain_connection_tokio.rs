@@ -22,7 +22,10 @@ impl PlainConnection {
     /// * `strict` - true - will disconnect a connection that sends a message that can't be
     ///   translated, false - will ignore messages that can't be translated
     #[allow(clippy::new_ret_no_self)]
-    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static + Clone>(
+    pub async fn new<
+        'a,
+        Message: Serialize + Deserialize<'a> + GetSize + Send + 'static + Clone,
+    >(
         stream: TcpStream,
     ) -> (
         tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
@@ -119,7 +122,10 @@ impl PlainConnection {
                     Err(e) => {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        error!("Failed to read from stream - terminating connection, {:?}",e);
+                        error!(
+                            "Failed to read from stream - terminating connection, {:?}",
+                            e
+                        );
                         task::yield_now().await;
                         break;
                     }

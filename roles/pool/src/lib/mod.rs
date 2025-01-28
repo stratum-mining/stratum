@@ -28,7 +28,7 @@ impl PoolSv2 {
         // producers are clonable so no issue. but its unbounded.
         // tokio also provide unbounded mpsc.
         // let (status_tx, status_rx) = unbounded();
-        let (status_tx,mut  status_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (status_tx, mut status_rx) = tokio::sync::mpsc::unbounded_channel();
         // r_new_t consumer is sent in pool::start,  s_new_t is sent in templateRx::connect
         // sender or producer I dont give a damn about. even the r_new_t is passed in only
         // start then to on_new_template, so mpsc makes sense here as well.
@@ -39,7 +39,7 @@ impl PoolSv2 {
         // sent to on_new_prevhash, so mpsc also works here.
         // let (s_prev_hash, r_prev_hash) = bounded(10);
         let (s_prev_hash, r_prev_hash) = tokio::sync::mpsc::channel(10);
-        // s_solution is sent to pool (no one give a damn about clonable), r_solution is sent 
+        // s_solution is sent to pool (no one give a damn about clonable), r_solution is sent
         // to templateRx and then to on_new_solution, so mpsc works.
         let (s_solution, r_solution) = tokio::sync::mpsc::channel(10);
         // This is spicy, as the r_message_recv_signal is cloning at few of the places, so, we can

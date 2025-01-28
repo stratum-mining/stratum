@@ -54,7 +54,13 @@ impl SetupConnectionHandler {
 
         sender.send(sv2_frame).map_err(|_| ())?;
 
-        let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = receiver
+            .subscribe()
+            .recv()
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
 
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();

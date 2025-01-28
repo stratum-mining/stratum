@@ -190,7 +190,8 @@ impl TemplateRx {
                         .clone()
                         .safe_lock(|s| s.receiver.clone())
                         .unwrap();
-                    let received = handle_result!(tx_status.clone(), receiver.subscribe().recv().await);
+                    let received =
+                        handle_result!(tx_status.clone(), receiver.subscribe().recv().await);
                     let mut frame: StdFrame =
                         handle_result!(tx_status.clone(), received.try_into());
                     let message_type = frame.get_header().unwrap().msg_type();
@@ -312,7 +313,10 @@ impl TemplateRx {
             .unwrap();
     }
 
-    async fn on_new_solution(self_: Arc<Mutex<Self>>,mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>) {
+    async fn on_new_solution(
+        self_: Arc<Mutex<Self>>,
+        mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
+    ) {
         while let Some(solution) = rx.recv().await {
             if !self_
                 .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)

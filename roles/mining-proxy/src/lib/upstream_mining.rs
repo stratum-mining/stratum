@@ -127,7 +127,10 @@ struct UpstreamMiningConnection {
 }
 
 impl UpstreamMiningConnection {
-    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), tokio::sync::broadcast::error::SendError<EitherFrame>> {
+    async fn send(
+        &mut self,
+        sv2_frame: StdFrame,
+    ) -> Result<(), tokio::sync::broadcast::error::SendError<EitherFrame>> {
         info!("SEND");
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame) {

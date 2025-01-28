@@ -1,10 +1,8 @@
-use async_std::net::TcpStream;
-use std::{convert::TryInto, net::SocketAddr, ops::Div};
-use async_std::{io::BufReader, prelude::*, task};
+use async_std::{io::BufReader, net::TcpStream, prelude::*, task};
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use roles_logic_sv2::utils::Mutex;
-use std::{sync::Arc, time};
+use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
 use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::util::uint::Uint256;
@@ -84,7 +82,7 @@ impl Client {
         // results are formated into a "mining.submit" messages that is then sent to the
         // Upstream via `sender_outgoing`
         // mpsc can be used
-        let (sender_share,mut receiver_share) = tokio::sync::mpsc::channel(10);
+        let (sender_share, mut receiver_share) = tokio::sync::mpsc::channel(10);
 
         // Instantiates a new `Miner` (a mock of an actual Mining Device) with a job id of 0.
         let miner = Arc::new(Mutex::new(Miner::new(0)));
@@ -208,7 +206,10 @@ impl Client {
                 sender_outgoing_clone.send(message).await.unwrap();
             }
         });
-        let mut recv_incoming = client.safe_lock(|c| c.sender_incoming.clone()).unwrap().subscribe();
+        let mut recv_incoming = client
+            .safe_lock(|c| c.sender_incoming.clone())
+            .unwrap()
+            .subscribe();
 
         loop {
             match client.clone().safe_lock(|c| c.status).unwrap() {

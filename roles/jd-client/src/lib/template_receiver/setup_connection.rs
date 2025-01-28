@@ -46,7 +46,8 @@ impl SetupConnectionHandler {
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).map_err(|_| ())?;
 
-        let mut incoming: StdFrame = receiver.subscribe()
+        let mut incoming: StdFrame = receiver
+            .subscribe()
             .recv()
             .await
             .expect("Connection to TP closed!")

@@ -91,7 +91,7 @@ async fn send_status(
             })
             .await
             .unwrap_or(());
-        },
+        }
         Sender::DownstreamTokio(tx) => match e {
             JdsError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
                 tx.send(Status {
@@ -156,7 +156,7 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
         }
         JdsError::NoLastDeclaredJob => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
-        },
+        }
         JdsError::ChannelRecvTokio(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }

@@ -153,7 +153,7 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender,_,_) = Connection::new(socket, HandshakeRole::Initiator(initiator))
+        let (receiver, sender, _, _) = Connection::new(socket, HandshakeRole::Initiator(initiator))
             .await
             .unwrap();
         // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and
@@ -479,7 +479,7 @@ impl Upstream {
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let task_collector = self_.safe_lock(|s| s.task_collector.clone()).unwrap();
         let clone = self_.clone();
-        let (tx_frame,mut receiver, tx_status) = clone
+        let (tx_frame, mut receiver, tx_status) = clone
             .safe_lock(|s| {
                 (
                     s.connection.sender.clone(),

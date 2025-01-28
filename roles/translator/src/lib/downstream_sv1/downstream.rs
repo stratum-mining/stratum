@@ -149,7 +149,10 @@ impl Downstream {
         // receiving messages with a future (either TCP recv or Receiver<_>) we use the
         // futures::select! macro to merge the receiving end of a task channels into a single loop
         // within the task
-        let (tx_shutdown, _): (tokio::sync::broadcast::Sender<bool>, tokio::sync::broadcast::Receiver<bool>) = tokio::sync::broadcast::channel(3);
+        let (tx_shutdown, _): (
+            tokio::sync::broadcast::Sender<bool>,
+            tokio::sync::broadcast::Receiver<bool>,
+        ) = tokio::sync::broadcast::channel(3);
 
         let tx_shutdown_clone = tx_shutdown.clone();
         let tx_status_reader = tx_status.clone();

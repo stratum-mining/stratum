@@ -166,7 +166,10 @@ impl Sniffer {
 
     async fn create_downstream(
         stream: TcpStream,
-    ) -> Option<(tokio::sync::broadcast::Sender<MessageFrame>, tokio::sync::broadcast::Sender<MessageFrame>)> {
+    ) -> Option<(
+        tokio::sync::broadcast::Sender<MessageFrame>,
+        tokio::sync::broadcast::Sender<MessageFrame>,
+    )> {
         let pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
             .to_string()
             .parse::<Secp256k1PublicKey>()
@@ -195,7 +198,10 @@ impl Sniffer {
 
     async fn create_upstream(
         stream: TcpStream,
-    ) -> Option<(tokio::sync::broadcast::Sender<MessageFrame>, tokio::sync::broadcast::Sender<MessageFrame>)> {
+    ) -> Option<(
+        tokio::sync::broadcast::Sender<MessageFrame>,
+        tokio::sync::broadcast::Sender<MessageFrame>,
+    )> {
         let initiator = Initiator::without_pk().expect("This fn call can not fail");
         if let Ok((receiver_from_server, sender_to_server, _, _)) =
             Connection::new::<'static, AnyMessage<'static>>(

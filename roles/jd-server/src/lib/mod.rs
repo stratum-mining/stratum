@@ -45,7 +45,10 @@ impl JobDeclaratorServer {
         // broadcast can be used, as JDSMempool is clonable.
         // let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) =
         //     bounded(10);
-        let (new_block_sender, _): (tokio::sync::broadcast::Sender<String>, tokio::sync::broadcast::Receiver<String>) = tokio::sync::broadcast::channel(10);
+        let (new_block_sender, _): (
+            tokio::sync::broadcast::Sender<String>,
+            tokio::sync::broadcast::Receiver<String>,
+        ) = tokio::sync::broadcast::channel(10);
         let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
             url.clone(),
             username,
@@ -56,7 +59,7 @@ impl JobDeclaratorServer {
         let mempool_cloned_ = mempool.clone();
         // mpsc can be used.
         // let (status_tx, status_rx) = unbounded();
-        let (status_tx,mut status_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (status_tx, mut status_rx) = tokio::sync::mpsc::unbounded_channel();
         let sender = status::Sender::DownstreamTokio(status_tx.clone());
         let mut last_empty_mempool_warning =
             std::time::Instant::now().sub(std::time::Duration::from_secs(60));
@@ -130,7 +133,8 @@ impl JobDeclaratorServer {
         let mempool_cloned = mempool.clone();
         // mpsc should work here
         // let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
-        let (sender_add_txs_to_mempool,mut receiver_add_txs_to_mempool) = tokio::sync::mpsc::unbounded_channel();
+        let (sender_add_txs_to_mempool, mut receiver_add_txs_to_mempool) =
+            tokio::sync::mpsc::unbounded_channel();
         task::spawn(async move {
             JobDeclarator::start(
                 cloned,
@@ -143,7 +147,8 @@ impl JobDeclaratorServer {
         });
         task::spawn(async move {
             loop {
-                if let Some(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
+                if let Some(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await
+                {
                     let mempool_cloned = mempool.clone();
                     task::spawn(async move {
                         match mempool::JDsMempool::add_tx_data_to_mempool(

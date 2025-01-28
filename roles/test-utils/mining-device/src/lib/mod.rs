@@ -73,10 +73,14 @@ pub async fn connect(
     info!("Pool tcp connection established at {}", address);
     let address = socket.peer_addr().unwrap();
     let initiator = Initiator::new(pub_key.map(|e| e.0));
-    let (receiver, sender, _, _): (tokio::sync::broadcast::Sender<EitherFrame>, tokio::sync::broadcast::Sender<EitherFrame>, _, _) =
-        Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator))
-            .await
-            .unwrap();
+    let (receiver, sender, _, _): (
+        tokio::sync::broadcast::Sender<EitherFrame>,
+        tokio::sync::broadcast::Sender<EitherFrame>,
+        _,
+        _,
+    ) = Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator))
+        .await
+        .unwrap();
     info!("Pool noise connection established at {}", address);
     Device::start(
         receiver,
@@ -143,7 +147,13 @@ impl SetupConnectionHandler {
         sender.send(sv2_frame).unwrap();
         info!("Setup connection sent to {}", address);
 
-        let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = receiver
+            .subscribe()
+            .recv()
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         ParseUpstreamCommonMessages::handle_message_common(
@@ -250,7 +260,8 @@ impl Device {
         let miner = Arc::new(Mutex::new(Miner::new(handicap)));
         // mpsc can be used.
         // let (notify_changes_to_mining_thread, update_miners) = async_channel::unbounded();
-        let (notify_changes_to_mining_thread, update_miners) = tokio::sync::mpsc::unbounded_channel();
+        let (notify_changes_to_mining_thread, update_miners) =
+            tokio::sync::mpsc::unbounded_channel();
         let self_ = Self {
             channel_opened: false,
             receiver: receiver.clone(),
@@ -286,7 +297,13 @@ impl Device {
         });
 
         loop {
-            let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
+            let mut incoming: StdFrame = receiver
+                .subscribe()
+                .recv()
+                .await
+                .unwrap()
+                .try_into()
+                .unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
             let next = Device::handle_message_mining(
@@ -304,10 +321,7 @@ impl Device {
                     || message_type == const_sv2::MESSAGE_TYPE_SET_NEW_PREV_HASH
                     || message_type == const_sv2::MESSAGE_TYPE_SET_TARGET)
             {
-                notify_changes_to_mining_thread
-                    .sender
-                    .send(())
-                    .unwrap();
+                notify_changes_to_mining_thread.sender.send(()).unwrap();
                 notify_changes_to_mining_thread.should_send = false;
             };
             match next {
@@ -698,7 +712,11 @@ fn start_mining_threads(
     });
 }
 
-fn mine(mut miner: Miner, share_send: tokio::sync::mpsc::UnboundedSender<(u32, u32, u32, u32)>, kill: Arc<AtomicBool>) {
+fn mine(
+    mut miner: Miner,
+    share_send: tokio::sync::mpsc::UnboundedSender<(u32, u32, u32, u32)>,
+    kill: Arc<AtomicBool>,
+) {
     if miner.handicap != 0 {
         loop {
             if kill.load(Ordering::Relaxed) {

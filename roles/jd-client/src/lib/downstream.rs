@@ -708,7 +708,14 @@ pub async fn listen_for_downstream_mining(
             jd,
         );
 
-        let mut incoming: StdFrame = node.receiver.subscribe().recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = node
+            .receiver
+            .subscribe()
+            .recv()
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;

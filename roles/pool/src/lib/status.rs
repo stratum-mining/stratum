@@ -13,14 +13,13 @@ pub enum Sender {
     DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
     DownstreamListenerTokio(tokio::sync::mpsc::UnboundedSender<Status>),
     UpstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
-    
 }
 
 #[derive(Debug)]
 pub enum Error {
     AsyncChannel(async_channel::SendError<Status>),
     TokioChannel(tokio::sync::mpsc::error::SendError<Status>),
-    TokioChannelUnbounded(tokio::sync::mpsc::error::SendError<Status>)
+    TokioChannelUnbounded(tokio::sync::mpsc::error::SendError<Status>),
 }
 
 impl From<async_channel::SendError<Status>> for Error {
@@ -50,11 +49,15 @@ impl Sender {
     pub async fn send(&self, status: Status) -> Result<(), Error> {
         match self {
             Self::Downstream(inner) => inner.send(status).await.map_err(|e| Error::AsyncChannel(e)),
-            Self::DownstreamListener(inner) => inner.send(status).await.map_err(|e| Error::AsyncChannel(e)),
+            Self::DownstreamListener(inner) => {
+                inner.send(status).await.map_err(|e| Error::AsyncChannel(e))
+            }
             Self::Upstream(inner) => inner.send(status).await.map_err(|e| Error::AsyncChannel(e)),
-            Self::DownstreamListenerTokio(inner) => inner.send(status).map_err(|e| Error::TokioChannel(e)),
+            Self::DownstreamListenerTokio(inner) => {
+                inner.send(status).map_err(|e| Error::TokioChannel(e))
+            }
             Self::DownstreamTokio(inner) => inner.send(status).map_err(|e| Error::TokioChannel(e)),
-            Self::UpstreamTokio(inner) => inner.send(status).map_err(|e| Error::TokioChannel(e))
+            Self::UpstreamTokio(inner) => inner.send(status).map_err(|e| Error::TokioChannel(e)),
         }
     }
 }
@@ -67,7 +70,7 @@ impl Clone for Sender {
             Self::Upstream(inner) => Self::Upstream(inner.clone()),
             Self::DownstreamTokio(inner) => Self::DownstreamTokio(inner.clone()),
             Self::DownstreamListenerTokio(inner) => Self::DownstreamListenerTokio(inner.clone()),
-            Self::UpstreamTokio(inner) => Self::UpstreamTokio(inner.clone())
+            Self::UpstreamTokio(inner) => Self::UpstreamTokio(inner.clone()),
         }
     }
 }
@@ -134,7 +137,7 @@ async fn send_status(
             })
             .await
             .unwrap_or(());
-        },
+        }
         Sender::DownstreamTokio(tx) => match e {
             PoolError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
                 tx.send(Status {
@@ -210,10 +213,10 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         }
         PoolError::Sv2ProtocolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }, 
+        }
         PoolError::TokioChannelRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
-        },
+        }
         PoolError::TokioBroadcastChannelRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }

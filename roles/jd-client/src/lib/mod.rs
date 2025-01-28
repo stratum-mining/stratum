@@ -331,10 +331,9 @@ impl JobDeclaratorClient {
         {
             Ok(c) => c,
             Err(e) => {
-                let _ = tx_status
-                    .send(status::Status {
-                        state: status::State::UpstreamShutdown(e),
-                    });
+                let _ = tx_status.send(status::Status {
+                    state: status::State::UpstreamShutdown(e),
+                });
                 return;
             }
         };

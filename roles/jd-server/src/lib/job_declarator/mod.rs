@@ -160,8 +160,7 @@ impl JobDeclaratorDownstream {
             .unwrap();
         let sender_add_txs_to_mempool = add_txs_to_mempool.sender_add_txs_to_mempool;
         let add_txs_to_mempool_inner = add_txs_to_mempool.add_txs_to_mempool_inner;
-        let _ = sender_add_txs_to_mempool
-            .send(add_txs_to_mempool_inner);
+        let _ = sender_add_txs_to_mempool.send(add_txs_to_mempool_inner);
         // the trasnactions sent to the mempool can be freed
         let _ = self_mutex.safe_lock(|a| {
             a.add_txs_to_mempool.add_txs_to_mempool_inner = AddTrasactionsToMempoolInner {

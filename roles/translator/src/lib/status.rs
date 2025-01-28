@@ -17,7 +17,7 @@ pub enum Sender {
 #[derive(Debug)]
 pub enum ErrorS {
     AsyncError(async_channel::SendError<Status<'static>>),
-    TokioError(tokio::sync::mpsc::error::SendError<Status<'static>>)
+    TokioError(tokio::sync::mpsc::error::SendError<Status<'static>>),
 }
 
 impl Sender {
@@ -29,21 +29,26 @@ impl Sender {
         }
     }
 
-    pub async fn send(
-        &self,
-        status: Status<'static>,
-    ) -> Result<(), ErrorS> {
+    pub async fn send(&self, status: Status<'static>) -> Result<(), ErrorS> {
         match self {
             Self::Downstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::DownstreamListener(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::DownstreamListener(inner) => {
+                inner.send(status).await.map_err(|e| ErrorS::AsyncError(e))
+            }
             Self::Bridge(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
             Self::Upstream(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
-            Self::TemplateReceiver(inner) => inner.send(status).await.map_err(|e| ErrorS::AsyncError(e)),
+            Self::TemplateReceiver(inner) => {
+                inner.send(status).await.map_err(|e| ErrorS::AsyncError(e))
+            }
             Self::UpstreamTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
             Self::BridgeTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
-            Self::DownstreamListenerTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
+            Self::DownstreamListenerTokio(inner) => {
+                inner.send(status).map_err(|e| ErrorS::TokioError(e))
+            }
             Self::DownstreamTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
-            Self::TemplateReceiverTokio(inner) => inner.send(status).map_err(|e| ErrorS::TokioError(e)),
+            Self::TemplateReceiverTokio(inner) => {
+                inner.send(status).map_err(|e| ErrorS::TokioError(e))
+            }
         }
     }
 }
@@ -128,7 +133,7 @@ async fn send_status(
             })
             .await
             .unwrap_or(());
-        },
+        }
         Sender::UpstreamTokio(tx) => match e {
             Error::ChannelErrorReceiver(_) => {
                 tx.send(Status {
@@ -148,7 +153,7 @@ async fn send_status(
                 state: State::BridgeShutdown(e),
             })
             .unwrap_or(());
-        },
+        }
         Sender::DownstreamTokio(tx) => {
             tx.send(Status {
                 state: State::Healthy(e.to_string()),
@@ -160,13 +165,13 @@ async fn send_status(
                 state: State::DownstreamShutdown(e),
             })
             .unwrap_or(());
-        },
+        }
         Sender::TemplateReceiverTokio(tx) => {
             tx.send(Status {
                 state: State::UpstreamShutdown(e),
             })
             .unwrap_or(());
-        },
+        }
     }
     outcome
 }

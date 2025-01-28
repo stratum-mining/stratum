@@ -290,7 +290,13 @@ impl JobDeclarator {
             tokio::task::spawn(async move {
                 let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
                 loop {
-                    let mut incoming: StdFrame = receiver.subscribe().recv().await.unwrap().try_into().unwrap();
+                    let mut incoming: StdFrame = receiver
+                        .subscribe()
+                        .recv()
+                        .await
+                        .unwrap()
+                        .try_into()
+                        .unwrap();
                     let message_type = incoming.get_header().unwrap().msg_type();
                     let payload = incoming.payload();
                     let next_message_to_send =

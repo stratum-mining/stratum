@@ -164,7 +164,10 @@ impl TemplateRx {
         Ok(())
     }
 
-    async fn on_new_solution(self_: Arc<Mutex<Self>>,mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>) {
+    async fn on_new_solution(
+        self_: Arc<Mutex<Self>>,
+        mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
+    ) {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
         while let Some(solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
