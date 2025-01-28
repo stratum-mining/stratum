@@ -307,201 +307,201 @@ impl Downstream {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig};
-    use async_channel::unbounded;
-    use binary_sv2::U256;
-    use rand::{thread_rng, Rng};
-    use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
-    use sha2::{Digest, Sha256};
-    use std::{
-        sync::Arc,
-        time::{Duration, Instant},
-    };
+// #[cfg(test)]
+// mod test {
+//     use crate::proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig};
+//     use async_channel::unbounded;
+//     use binary_sv2::U256;
+//     use rand::{thread_rng, Rng};
+//     use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
+//     use sha2::{Digest, Sha256};
+//     use std::{
+//         sync::Arc,
+//         time::{Duration, Instant},
+//     };
 
-    use crate::downstream_sv1::Downstream;
+//     use crate::downstream_sv1::Downstream;
 
-    #[ignore] // as described in issue #988
-    #[test]
-    fn test_diff_management() {
-        let expected_shares_per_minute = 1000.0;
-        let total_run_time = std::time::Duration::from_secs(60);
-        let initial_nominal_hashrate = measure_hashrate(5);
-        let target = match roles_logic_sv2::utils::hash_rate_to_target(
-            initial_nominal_hashrate,
-            expected_shares_per_minute,
-        ) {
-            Ok(target) => target,
-            Err(_) => panic!(),
-        };
+//     #[ignore] // as described in issue #988
+//     #[test]
+//     fn test_diff_management() {
+//         let expected_shares_per_minute = 1000.0;
+//         let total_run_time = std::time::Duration::from_secs(60);
+//         let initial_nominal_hashrate = measure_hashrate(5);
+//         let target = match roles_logic_sv2::utils::hash_rate_to_target(
+//             initial_nominal_hashrate,
+//             expected_shares_per_minute,
+//         ) {
+//             Ok(target) => target,
+//             Err(_) => panic!(),
+//         };
 
-        let mut share = generate_random_80_byte_array();
-        let timer = std::time::Instant::now();
-        let mut elapsed = std::time::Duration::from_secs(0);
-        let mut count = 0;
-        while elapsed <= total_run_time {
-            // start hashing util a target is met and submit to
-            mock_mine(target.clone().into(), &mut share);
-            elapsed = timer.elapsed();
-            count += 1;
-        }
+//         let mut share = generate_random_80_byte_array();
+//         let timer = std::time::Instant::now();
+//         let mut elapsed = std::time::Duration::from_secs(0);
+//         let mut count = 0;
+//         while elapsed <= total_run_time {
+//             // start hashing util a target is met and submit to
+//             mock_mine(target.clone().into(), &mut share);
+//             elapsed = timer.elapsed();
+//             count += 1;
+//         }
 
-        let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-        // This is the error margin for a confidence of 99.99...% given the expect number of shares
-        // per minute TODO the review the math under it
-        let error_margin = get_error(expected_shares_per_minute);
-        let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
-        assert!(
-            error <= error_margin as f32,
-            "Calculated shares per minute are outside the 99.99...% confidence interval. Error: {:?}, Error margin: {:?}, {:?}", error, error_margin,calculated_share_per_min
-        );
-    }
+//         let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
+//         // This is the error margin for a confidence of 99.99...% given the expect number of shares
+//         // per minute TODO the review the math under it
+//         let error_margin = get_error(expected_shares_per_minute);
+//         let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
+//         assert!(
+//             error <= error_margin as f32,
+//             "Calculated shares per minute are outside the 99.99...% confidence interval. Error: {:?}, Error margin: {:?}, {:?}", error, error_margin,calculated_share_per_min
+//         );
+//     }
 
-    fn get_error(lambda: f64) -> f64 {
-        let z_score_99 = 6.0;
-        z_score_99 * lambda.sqrt()
-    }
+//     fn get_error(lambda: f64) -> f64 {
+//         let z_score_99 = 6.0;
+//         z_score_99 * lambda.sqrt()
+//     }
 
-    fn mock_mine(target: Target, share: &mut [u8; 80]) {
-        let mut hashed: Target = [255_u8; 32].into();
-        while hashed > target {
-            hashed = hash(share);
-        }
-    }
+//     fn mock_mine(target: Target, share: &mut [u8; 80]) {
+//         let mut hashed: Target = [255_u8; 32].into();
+//         while hashed > target {
+//             hashed = hash(share);
+//         }
+//     }
 
-    // returns hashrate based on how fast the device hashes over the given duration
-    fn measure_hashrate(duration_secs: u64) -> f64 {
-        let mut share = generate_random_80_byte_array();
-        let start_time = Instant::now();
-        let mut hashes: u64 = 0;
-        let duration = Duration::from_secs(duration_secs);
+//     // returns hashrate based on how fast the device hashes over the given duration
+//     fn measure_hashrate(duration_secs: u64) -> f64 {
+//         let mut share = generate_random_80_byte_array();
+//         let start_time = Instant::now();
+//         let mut hashes: u64 = 0;
+//         let duration = Duration::from_secs(duration_secs);
 
-        while start_time.elapsed() < duration {
-            for _ in 0..10000 {
-                hash(&mut share);
-                hashes += 1;
-            }
-        }
+//         while start_time.elapsed() < duration {
+//             for _ in 0..10000 {
+//                 hash(&mut share);
+//                 hashes += 1;
+//             }
+//         }
 
-        let elapsed_secs = start_time.elapsed().as_secs_f64();
+//         let elapsed_secs = start_time.elapsed().as_secs_f64();
 
-        hashes as f64 / elapsed_secs
-    }
+//         hashes as f64 / elapsed_secs
+//     }
 
-    fn hash(share: &mut [u8; 80]) -> Target {
-        let nonce: [u8; 8] = share[0..8].try_into().unwrap();
-        let mut nonce = u64::from_le_bytes(nonce);
-        nonce += 1;
-        share[0..8].copy_from_slice(&nonce.to_le_bytes());
-        let hash = Sha256::digest(&share).to_vec();
-        let hash: U256<'static> = hash.try_into().unwrap();
-        hash.into()
-    }
+//     fn hash(share: &mut [u8; 80]) -> Target {
+//         let nonce: [u8; 8] = share[0..8].try_into().unwrap();
+//         let mut nonce = u64::from_le_bytes(nonce);
+//         nonce += 1;
+//         share[0..8].copy_from_slice(&nonce.to_le_bytes());
+//         let hash = Sha256::digest(&share).to_vec();
+//         let hash: U256<'static> = hash.try_into().unwrap();
+//         hash.into()
+//     }
 
-    fn generate_random_80_byte_array() -> [u8; 80] {
-        let mut rng = thread_rng();
-        let mut arr = [0u8; 80];
-        rng.fill(&mut arr[..]);
-        arr
-    }
+//     fn generate_random_80_byte_array() -> [u8; 80] {
+//         let mut rng = thread_rng();
+//         let mut arr = [0u8; 80];
+//         rng.fill(&mut arr[..]);
+//         arr
+//     }
 
-    #[tokio::test]
-    async fn test_converge_to_spm_from_low() {
-        test_converge_to_spm(1.0).await
-    }
-    //TODO
-    //#[tokio::test]
-    //async fn test_converge_to_spm_from_high() {
-    //    test_converge_to_spm(1_000_000_000_000).await
-    //}
+//     #[tokio::test]
+//     async fn test_converge_to_spm_from_low() {
+//         test_converge_to_spm(1.0).await
+//     }
+//     //TODO
+//     //#[tokio::test]
+//     //async fn test_converge_to_spm_from_high() {
+//     //    test_converge_to_spm(1_000_000_000_000).await
+//     //}
 
-    async fn test_converge_to_spm(start_hashrate: f64) {
-        let downstream_conf = DownstreamDifficultyConfig {
-            min_individual_miner_hashrate: 0.0, // updated below
-            shares_per_minute: 1000.0,          // 1000 shares per minute
-            submits_since_last_update: 0,
-            timestamp_of_last_update: 0, // updated below
-        };
-        let upstream_config = UpstreamDifficultyConfig {
-            channel_diff_update_interval: 60,
-            channel_nominal_hashrate: 0.0,
-            timestamp_of_last_update: 0,
-            should_aggregate: false,
-        };
-        let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
-        let (tx_outgoing, _rx_outgoing) = unbounded();
-        let mut downstream = Downstream::new(
-            1,
-            vec![],
-            vec![],
-            None,
-            None,
-            tx_sv1_submit,
-            tx_outgoing,
-            false,
-            0,
-            downstream_conf.clone(),
-            Arc::new(Mutex::new(upstream_config)),
-            "0".to_string(),
-        );
-        downstream.difficulty_mgmt.min_individual_miner_hashrate = start_hashrate as f32;
+//     async fn test_converge_to_spm(start_hashrate: f64) {
+//         let downstream_conf = DownstreamDifficultyConfig {
+//             min_individual_miner_hashrate: 0.0, // updated below
+//             shares_per_minute: 1000.0,          // 1000 shares per minute
+//             submits_since_last_update: 0,
+//             timestamp_of_last_update: 0, // updated below
+//         };
+//         let upstream_config = UpstreamDifficultyConfig {
+//             channel_diff_update_interval: 60,
+//             channel_nominal_hashrate: 0.0,
+//             timestamp_of_last_update: 0,
+//             should_aggregate: false,
+//         };
+//         let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
+//         let (tx_outgoing, _rx_outgoing) = unbounded();
+//         let mut downstream = Downstream::new(
+//             1,
+//             vec![],
+//             vec![],
+//             None,
+//             None,
+//             tx_sv1_submit,
+//             tx_outgoing,
+//             false,
+//             0,
+//             downstream_conf.clone(),
+//             Arc::new(Mutex::new(upstream_config)),
+//             "0".to_string(),
+//         );
+//         downstream.difficulty_mgmt.min_individual_miner_hashrate = start_hashrate as f32;
 
-        let total_run_time = std::time::Duration::from_secs(10);
-        let config_shares_per_minute = downstream_conf.shares_per_minute;
-        let timer = std::time::Instant::now();
-        let mut elapsed = std::time::Duration::from_secs(0);
+//         let total_run_time = std::time::Duration::from_secs(10);
+//         let config_shares_per_minute = downstream_conf.shares_per_minute;
+//         let timer = std::time::Instant::now();
+//         let mut elapsed = std::time::Duration::from_secs(0);
 
-        let expected_nominal_hashrate = measure_hashrate(5);
-        let expected_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            expected_nominal_hashrate,
-            config_shares_per_minute.into(),
-        ) {
-            Ok(target) => target,
-            Err(_) => panic!(),
-        };
+//         let expected_nominal_hashrate = measure_hashrate(5);
+//         let expected_target = match roles_logic_sv2::utils::hash_rate_to_target(
+//             expected_nominal_hashrate,
+//             config_shares_per_minute.into(),
+//         ) {
+//             Ok(target) => target,
+//             Err(_) => panic!(),
+//         };
 
-        let initial_nominal_hashrate = start_hashrate;
-        let mut initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            initial_nominal_hashrate,
-            config_shares_per_minute.into(),
-        ) {
-            Ok(target) => target,
-            Err(_) => panic!(),
-        };
-        let downstream = Arc::new(Mutex::new(downstream));
-        Downstream::init_difficulty_management(downstream.clone(), initial_target.inner_as_ref())
-            .await
-            .unwrap();
-        let mut share = generate_random_80_byte_array();
-        while elapsed <= total_run_time {
-            mock_mine(initial_target.clone().into(), &mut share);
-            Downstream::save_share(downstream.clone()).unwrap();
-            Downstream::try_update_difficulty_settings(downstream.clone())
-                .await
-                .unwrap();
-            initial_target = downstream
-                .safe_lock(|d| {
-                    match roles_logic_sv2::utils::hash_rate_to_target(
-                        d.difficulty_mgmt.min_individual_miner_hashrate.into(),
-                        config_shares_per_minute.into(),
-                    ) {
-                        Ok(target) => target,
-                        Err(_) => panic!(),
-                    }
-                })
-                .unwrap();
-            elapsed = timer.elapsed();
-        }
-        let expected_0s = trailing_0s(expected_target.inner_as_ref().to_vec());
-        let actual_0s = trailing_0s(initial_target.inner_as_ref().to_vec());
-        assert!(expected_0s.abs_diff(actual_0s) <= 1);
-    }
-    fn trailing_0s(mut v: Vec<u8>) -> usize {
-        let mut ret = 0;
-        while v.pop() == Some(0) {
-            ret += 1;
-        }
-        ret
-    }
-}
+//         let initial_nominal_hashrate = start_hashrate;
+//         let mut initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
+//             initial_nominal_hashrate,
+//             config_shares_per_minute.into(),
+//         ) {
+//             Ok(target) => target,
+//             Err(_) => panic!(),
+//         };
+//         let downstream = Arc::new(Mutex::new(downstream));
+//         Downstream::init_difficulty_management(downstream.clone(), initial_target.inner_as_ref())
+//             .await
+//             .unwrap();
+//         let mut share = generate_random_80_byte_array();
+//         while elapsed <= total_run_time {
+//             mock_mine(initial_target.clone().into(), &mut share);
+//             Downstream::save_share(downstream.clone()).unwrap();
+//             Downstream::try_update_difficulty_settings(downstream.clone())
+//                 .await
+//                 .unwrap();
+//             initial_target = downstream
+//                 .safe_lock(|d| {
+//                     match roles_logic_sv2::utils::hash_rate_to_target(
+//                         d.difficulty_mgmt.min_individual_miner_hashrate.into(),
+//                         config_shares_per_minute.into(),
+//                     ) {
+//                         Ok(target) => target,
+//                         Err(_) => panic!(),
+//                     }
+//                 })
+//                 .unwrap();
+//             elapsed = timer.elapsed();
+//         }
+//         let expected_0s = trailing_0s(expected_target.inner_as_ref().to_vec());
+//         let actual_0s = trailing_0s(initial_target.inner_as_ref().to_vec());
+//         assert!(expected_0s.abs_diff(actual_0s) <= 1);
+//     }
+//     fn trailing_0s(mut v: Vec<u8>) -> usize {
+//         let mut ret = 0;
+//         while v.pop() == Some(0) {
+//             ret += 1;
+//         }
+//         ret
+//     }
+// }

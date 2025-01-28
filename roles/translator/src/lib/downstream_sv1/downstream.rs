@@ -4,7 +4,7 @@ use crate::{
     proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     status,
 };
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{Receiver, Sender};
 use async_std::{
     io::BufReader,
     net::{TcpListener, TcpStream},
@@ -56,7 +56,7 @@ pub struct Downstream {
     /// translation into a SV2 `SubmitSharesExtended`.
     tx_sv1_bridge: Sender<DownstreamMessages>,
     /// Sends message to the SV1 Downstream role.
-    tx_outgoing: Sender<json_rpc::Message>,
+    tx_outgoing: tokio::sync::mpsc::Sender<json_rpc::Message>,
     /// True if this is the first job received from `Upstream`.
     first_job_received: bool,
     extranonce2_len: usize,
@@ -74,7 +74,7 @@ impl Downstream {
         version_rolling_mask: Option<HexU32Be>,
         version_rolling_min_bit: Option<HexU32Be>,
         tx_sv1_bridge: Sender<DownstreamMessages>,
-        tx_outgoing: Sender<json_rpc::Message>,
+        tx_outgoing: tokio::sync::mpsc::Sender<json_rpc::Message>,
         first_job_received: bool,
         extranonce2_len: usize,
         difficulty_mgmt: DownstreamDifficultyConfig,
@@ -116,7 +116,8 @@ impl Downstream {
 
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, socket_writer) = (stream.clone(), stream);
-        let (tx_outgoing, receiver_outgoing) = bounded(10);
+        // mpsc can be used
+        let (tx_outgoing, mut receiver_outgoing) = tokio::sync::mpsc::channel(10);
 
         let socket_writer_clone = socket_writer.clone();
         // Used to send SV1 `mining.notify` messages to the Downstreams
@@ -229,7 +230,8 @@ impl Downstream {
             loop {
                 select! {
                     res = receiver_outgoing.recv().fuse() => {
-                        let to_send = handle_result!(tx_status_writer, res);
+                        // change the error type to mpsc recv error
+                        let to_send = handle_result!(tx_status_writer, res.ok_or(Error::BadCliArgs));
                         let to_send = match serde_json::to_string(&to_send) {
                             Ok(string) => format!("{}\n", string),
                             Err(_e) => {
@@ -453,7 +455,7 @@ impl Downstream {
     pub(super) async fn send_message_downstream(
         self_: Arc<Mutex<Self>>,
         response: json_rpc::Message,
-    ) -> Result<(), async_channel::SendError<v1::Message>> {
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<v1::Message>> {
         let sender = self_.safe_lock(|s| s.tx_outgoing.clone()).unwrap();
         debug!("To DOWN: {:?}", response);
         sender.send(response).await
