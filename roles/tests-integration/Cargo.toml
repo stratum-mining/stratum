@@ -11,7 +11,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
-async-channel = "1.5.1"
 corepc-node = "0.5.0"
 binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2" }
 codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
