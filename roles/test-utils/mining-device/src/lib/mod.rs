@@ -186,7 +186,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
 #[derive(Debug, Clone)]
 struct NewWorkNotifier {
     should_send: bool,
-    sender: Sender<()>,
+    sender: tokio::sync::mpsc::UnboundedSender<()>,
 }
 
 #[derive(Debug)]
@@ -249,7 +249,9 @@ impl Device {
         .await;
         info!("Pool sv2 connection established at {}", addr);
         let miner = Arc::new(Mutex::new(Miner::new(handicap)));
-        let (notify_changes_to_mining_thread, update_miners) = async_channel::unbounded();
+        // mpsc can be used.
+        // let (notify_changes_to_mining_thread, update_miners) = async_channel::unbounded();
+        let (notify_changes_to_mining_thread, update_miners) = tokio::sync::mpsc::unbounded_channel();
         let self_ = Self {
             channel_opened: false,
             receiver: receiver.clone(),
@@ -305,7 +307,6 @@ impl Device {
                 notify_changes_to_mining_thread
                     .sender
                     .send(())
-                    .await
                     .unwrap();
                 notify_changes_to_mining_thread.should_send = false;
             };
@@ -668,7 +669,7 @@ fn generate_random_32_byte_array() -> [u8; 32] {
 }
 
 fn start_mining_threads(
-    have_new_job: Receiver<()>,
+    mut have_new_job: tokio::sync::mpsc::UnboundedReceiver<()>,
     miner: Arc<Mutex<Miner>>,
     share_send: Sender<(u32, u32, u32, u32)>,
 ) {
@@ -677,7 +678,7 @@ fn start_mining_threads(
         loop {
             let p = available_parallelism().unwrap().get() as u32;
             let unit = u32::MAX / p;
-            while have_new_job.recv().await.is_ok() {
+            while have_new_job.recv().await.is_some() {
                 while let Some(killer) = killers.pop() {
                     killer.store(true, Ordering::Relaxed);
                 }
