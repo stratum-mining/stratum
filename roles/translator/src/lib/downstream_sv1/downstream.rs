@@ -4,7 +4,7 @@ use crate::{
     proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     status,
 };
-use async_channel::{Receiver, Sender};
+use async_channel::Sender;
 use async_std::{
     io::BufReader,
     net::{TcpListener, TcpStream},
@@ -150,9 +150,8 @@ impl Downstream {
         // receiving messages with a future (either TCP recv or Receiver<_>) we use the
         // futures::select! macro to merge the receiving end of a task channels into a single loop
         // within the task
-        let (tx_shutdown, rx_shutdown): (Sender<bool>, Receiver<bool>) = async_channel::bounded(3);
+        let (tx_shutdown, _): (tokio::sync::broadcast::Sender<bool>, tokio::sync::broadcast::Receiver<bool>) = tokio::sync::broadcast::channel(3);
 
-        let rx_shutdown_clone = rx_shutdown.clone();
         let tx_shutdown_clone = tx_shutdown.clone();
         let tx_status_reader = tx_status.clone();
         let task_collector_mining_device = task_collector.clone();
@@ -171,6 +170,7 @@ impl Downstream {
                 // On message receive, parse to `json_rpc:Message` and send to Upstream
                 // `Translator.receive_downstream` via `sender_upstream` done in
                 // `send_message_upstream`.
+                let mut rx_shutdown = tx_shutdown_clone.clone().subscribe();
                 select! {
                     res = messages.next().fuse() => {
                         match res {
@@ -203,7 +203,7 @@ impl Downstream {
                             }
                         }
                     },
-                    _ = rx_shutdown_clone.recv().fuse() => {
+                    _ = rx_shutdown.recv().fuse() => {
                         break;
                     }
                 };
@@ -218,7 +218,7 @@ impl Downstream {
             ))
         });
 
-        let rx_shutdown_clone = rx_shutdown.clone();
+        let mut rx_shutdown_clone = tx_shutdown.clone().subscribe();
         let tx_shutdown_clone = tx_shutdown.clone();
         let tx_status_writer = tx_status.clone();
         let host_ = host.clone();
@@ -317,6 +317,7 @@ impl Downstream {
                 } else if is_a {
                     // if hashrate has changed, update difficulty management, and send new
                     // mining.set_difficulty
+                    let mut rx_shutdown = tx_shutdown.clone().subscribe();
                     select! {
                         res = rx_sv1_notify.recv().fuse() => {
                             // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
