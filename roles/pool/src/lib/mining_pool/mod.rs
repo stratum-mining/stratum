@@ -252,8 +252,9 @@ impl Downstream {
                     return;
                 }
             };
+            let mut receiver = receiver.subscribe();
             loop {
-                match receiver.subscribe().recv().await {
+                match receiver.recv().await {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
                             .try_into()
