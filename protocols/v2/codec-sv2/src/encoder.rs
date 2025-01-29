@@ -34,7 +34,7 @@ use framing_sv2::framing::{Frame, HandShakeFrame};
 #[allow(unused_imports)]
 pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
 
-#[cfg(feature = "noise_sv2")]
+#[cfg(feature = "tracing")]
 use tracing::error;
 
 #[cfg(feature = "noise_sv2")]
@@ -144,6 +144,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
                 // ENCODE THE SV2 FRAME
                 let i: Sv2Frame<T, Slice> = item.try_into().map_err(|e| {
+                    #[cfg(feature = "tracing")]
                     error!("Error while encoding 1 frame: {:?}", e);
                     Error::FramingError(e)
                 })?;
@@ -198,6 +199,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|e| {
+            #[cfg(feature = "tracing")]
             error!("Error while encoding 2 frame - while_handshaking: {:?}", e);
             Error::FramingError(e)
         })?;

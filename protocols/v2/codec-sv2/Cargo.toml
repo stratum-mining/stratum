@@ -19,14 +19,14 @@ binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 const_sv2 = { path = "../../../protocols/v2/const-sv2"}
 buffer_sv2 = { path = "../../../utils/buffer"}
 rand = { version = "0.8.5", default-features = false }
-tracing = { version = "0.1"}
+tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 key-utils = { path = "../../../utils/key-utils" }
 
 [features]
 default = ["std"]
-std = ["noise_sv2?/std", "rand/std", "rand/std_rng"]
+std = ["noise_sv2?/std", "rand/std", "rand/std_rng", "dep:tracing"]
 with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffer_sv2/with_serde"]
 with_buffer_pool = ["framing_sv2/with_buffer_pool"]
 

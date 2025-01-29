@@ -376,7 +376,6 @@ dependencies = [
  "derive_codec_sv2",
  "serde",
  "serde_sv2",
- "tracing",
 ]
 
 [[package]]
