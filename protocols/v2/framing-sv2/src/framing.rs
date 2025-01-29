@@ -31,10 +31,12 @@ type Slice = buffer_sv2::Slice;
 /// A wrapper used when generic reference to a frame is needed, but the kind of frame ([`Sv2Frame`]
 /// or [`HandShakeFrame`]) does not matter. Note that after the initial handshake is complete
 /// between two Sv2 roles, all further messages are framed with [`Sv2Frame`].
-#[derive(Debug)]
+// This needs to be cloned because of broadcast channel requirement.
+#[derive(Clone, Debug)]
 pub enum Frame<T, B> {
     HandShake(HandShakeFrame),
     Sv2(Sv2Frame<T, B>),
+    Shutdown,
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<T, B> {
@@ -42,6 +44,7 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<T, B> {
         match &self {
             Self::HandShake(frame) => frame.encoded_length(),
             Self::Sv2(frame) => frame.encoded_length(),
+            Self::Shutdown => 0,
         }
     }
 }
@@ -223,6 +226,7 @@ impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
         match v {
             Frame::Sv2(frame) => Ok(frame),
             Frame::HandShake(_) => Err(Error::ExpectedSv2Frame),
+            Frame::Shutdown => Err(Error::ExpectedSv2Frame),
         }
     }
 }
@@ -232,7 +236,8 @@ impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
 /// Contains only the serialized payload with a fixed length and is only used during Noise
 /// handshake process. Once the handshake is complete, regular Sv2 communication switches to
 /// [`Sv2Frame`] for ongoing communication.
-#[derive(Debug)]
+// This needs to be cloned because of broadcast channel requirement.
+#[derive(Clone, Debug)]
 pub struct HandShakeFrame {
     payload: Slice,
 }
@@ -268,6 +273,7 @@ impl<T, B> TryFrom<Frame<T, B>> for HandShakeFrame {
         match v {
             Frame::HandShake(frame) => Ok(frame),
             Frame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
+            Frame::Shutdown => Err(Error::ExpectedHandshakeFrame),
         }
     }
 }
