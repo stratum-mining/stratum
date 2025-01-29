@@ -36,10 +36,10 @@ impl TemplateRx {
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
-        templ_sender: Sender<NewTemplate<'static>>,
-        prev_h_sender: Sender<SetNewPrevHash<'static>>,
-        solution_receiver: Receiver<SubmitSolution<'static>>,
-        message_received_signal: Receiver<()>,
+        templ_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
+        prev_h_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
+        solution_receiver: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
+        message_received_signal: tokio::sync::broadcast::Sender<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
         expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
@@ -62,7 +62,7 @@ impl TemplateRx {
             None => Initiator::without_pk(),
         }?;
         let (mut receiver, mut sender, _, _) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator),10)
+            Connection::new(stream, HandshakeRole::Initiator(initiator), 10)
                 .await
                 .unwrap();
 
@@ -95,11 +95,11 @@ impl TemplateRx {
     }
 
     pub async fn start(self_: Arc<Mutex<Self>>) {
-        let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
+        let (mut recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
             self_
                 .safe_lock(|s| {
                     (
-                        s.message_received_signal.clone(),
+                        s.message_received_signal.subscribe(),
                         s.receiver.clone(),
                         s.new_template_sender.clone(),
                         s.new_prev_hash_sender.clone(),
@@ -164,9 +164,12 @@ impl TemplateRx {
         Ok(())
     }
 
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
+    async fn on_new_solution(
+        self_: Arc<Mutex<Self>>,
+        mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
+    ) {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        while let Ok(solution) = rx.recv().await {
+        while let Some(solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
             let sv2_frame_res: Result<StdFrame, _> =
                 PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))

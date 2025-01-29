@@ -53,7 +53,7 @@ impl SetupConnectionHandler {
             }
             Ok(EitherFrame::Shutdown) => {
                 debug!("Shutdown message received");
-                return Err(PoolError::RolesLogic(Error::Shutdown))
+                return Err(PoolError::RolesLogic(Error::Shutdown));
             }
             Err(e) => {
                 error!("Error receiving message: {:?}", e);

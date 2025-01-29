@@ -74,9 +74,7 @@ fn init_tracing() {
     let console_layer = console_subscriber::spawn();
     tracing_subscriber::registry()
         .with(console_layer)
-        .with(
-            tracing_subscriber::fmt::layer()
-        )
+        .with(tracing_subscriber::fmt::layer())
         .init();
 }
 
