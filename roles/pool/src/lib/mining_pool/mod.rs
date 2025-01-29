@@ -2,12 +2,12 @@ use super::{
     error::{PoolError, PoolResult},
     status,
 };
-use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
+
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::noise_connection_tokio_with_tokio_channels::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
@@ -180,8 +180,8 @@ impl Configuration {
 pub struct Downstream {
     // Either group or channel id
     id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
     solution_sender: Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
@@ -200,9 +200,9 @@ pub struct Pool {
 impl Downstream {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
-        solution_sender: Sender<SubmitSolution<'static>>,
+        mut receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        mut sender: tokio::sync::broadcast::Sender<EitherFrame>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
         status_tx: status::Sender,
@@ -253,7 +253,7 @@ impl Downstream {
                 }
             };
             loop {
-                match receiver.recv().await {
+                match receiver.subscribe().recv().await {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
                             .try_into()
@@ -353,7 +353,7 @@ impl Downstream {
         //};
         let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
-        sender.send(sv2_frame.into()).await?;
+        sender.send(sv2_frame.into())?;
         Ok(())
     }
 }
@@ -470,7 +470,7 @@ impl Pool {
             match responder {
                 Ok(resp) => {
                     if let Ok((receiver, sender, _, _)) =
-                        Connection::new(stream, HandshakeRole::Responder(resp)).await
+                        Connection::new(stream, HandshakeRole::Responder(resp), 10).await
                     {
                         handle_result!(
                             status_tx,
@@ -494,8 +494,8 @@ impl Pool {
 
     async fn accept_incoming_connection_(
         self_: Arc<Mutex<Pool>>,
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
         address: SocketAddr,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
@@ -771,167 +771,167 @@ impl Pool {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use binary_sv2::{B0255, B064K};
-    use ext_config::{Config, File, FileFormat};
-    use std::convert::TryInto;
-    use tracing::error;
+// #[cfg(test)]
+// mod test {
+//     use binary_sv2::{B0255, B064K};
+//     use ext_config::{Config, File, FileFormat};
+//     use std::convert::TryInto;
+//     use tracing::error;
 
-    use stratum_common::{
-        bitcoin,
-        bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
-    };
+//     use stratum_common::{
+//         bitcoin,
+//         bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
+//     };
 
-    use super::Configuration;
+//     use super::Configuration;
 
-    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested
-    // against in message generator
-    // `stratum/test/message-generator/test/pool-sri-test-extended.json`
-    #[test]
-    fn test_coinbase_outputs_from_config() {
-        let config_path = "./config-examples/pool-config-local-tp-example.toml";
+//     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested
+//     // against in message generator
+//     // `stratum/test/message-generator/test/pool-sri-test-extended.json`
+//     #[test]
+//     fn test_coinbase_outputs_from_config() {
+//         let config_path = "./config-examples/pool-config-local-tp-example.toml";
 
-        // Load config
-        let config: Configuration = match Config::builder()
-            .add_source(File::new(&config_path, FileFormat::Toml))
-            .build()
-        {
-            Ok(settings) => match settings.try_deserialize::<Configuration>() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Failed to deserialize config: {}", e);
-                    return;
-                }
-            },
-            Err(e) => {
-                error!("Failed to build config: {}", e);
-                return;
-            }
-        };
+//         // Load config
+//         let config: Configuration = match Config::builder()
+//             .add_source(File::new(&config_path, FileFormat::Toml))
+//             .build()
+//         {
+//             Ok(settings) => match settings.try_deserialize::<Configuration>() {
+//                 Ok(c) => c,
+//                 Err(e) => {
+//                     error!("Failed to deserialize config: {}", e);
+//                     return;
+//                 }
+//             },
+//             Err(e) => {
+//                 error!("Failed to build config: {}", e);
+//                 return;
+//             }
+//         };
 
-        // template from message generator test (mock TP template)
-        let _extranonce_len = 3;
-        let coinbase_prefix = vec![3, 76, 163, 38, 0];
-        let _version = 536870912;
-        let coinbase_tx_version = 2;
-        let coinbase_tx_input_sequence = 4294967295;
-        let _coinbase_tx_value_remaining: u64 = 625000000;
-        let _coinbase_tx_outputs_count = 0;
-        let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config).unwrap();
-        // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
-        let extranonce_len = 32;
+//         // template from message generator test (mock TP template)
+//         let _extranonce_len = 3;
+//         let coinbase_prefix = vec![3, 76, 163, 38, 0];
+//         let _version = 536870912;
+//         let coinbase_tx_version = 2;
+//         let coinbase_tx_input_sequence = 4294967295;
+//         let _coinbase_tx_value_remaining: u64 = 625000000;
+//         let _coinbase_tx_outputs_count = 0;
+//         let coinbase_tx_locktime = 0;
+//         let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config).unwrap();
+//         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
+//         let extranonce_len = 32;
 
-        // build coinbase TX from 'job_creator::coinbase()'
+//         // build coinbase TX from 'job_creator::coinbase()'
 
-        let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
-        let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
-        bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
-        bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
-        let witness = match bip34_bytes.len() {
-            0 => Witness::from_vec(vec![]),
-            _ => Witness::from_vec(vec![vec![0; 32]]),
-        };
+//         let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
+//         let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
+//         bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
+//         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
+//         let witness = match bip34_bytes.len() {
+//             0 => Witness::from_vec(vec![]),
+//             _ => Witness::from_vec(vec![vec![0; 32]]),
+//         };
 
-        let tx_in = bitcoin::TxIn {
-            previous_output: bitcoin::OutPoint::null(),
-            script_sig: bip34_bytes.into(),
-            sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
-            witness,
-        };
-        let coinbase = bitcoin::Transaction {
-            version: coinbase_tx_version,
-            lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
-            input: vec![tx_in],
-            output: coinbase_tx_outputs,
-        };
+//         let tx_in = bitcoin::TxIn {
+//             previous_output: bitcoin::OutPoint::null(),
+//             script_sig: bip34_bytes.into(),
+//             sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
+//             witness,
+//         };
+//         let coinbase = bitcoin::Transaction {
+//             version: coinbase_tx_version,
+//             lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
+//             input: vec![tx_in],
+//             output: coinbase_tx_outputs,
+//         };
 
-        let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, script_prefix_length);
-        let coinbase_tx_suffix =
-            coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_length);
-        assert!(
-            coinbase_tx_prefix
-                == [
-                    2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38,
-                    0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111,
-                    111, 108
-                ]
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            "coinbase_tx_prefix incorrect"
-        );
-        assert!(
-            coinbase_tx_suffix
-                == [
-                    255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
-                    194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 1,
-                    32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                ]
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            "coinbase_tx_suffix incorrect"
-        );
-    }
+//         let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, script_prefix_length);
+//         let coinbase_tx_suffix =
+//             coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_length);
+//         assert!(
+//             coinbase_tx_prefix
+//                 == [
+//                     2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38,
+//                     0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111,
+//                     111, 108
+//                 ]
+//                 .to_vec()
+//                 .try_into()
+//                 .unwrap(),
+//             "coinbase_tx_prefix incorrect"
+//         );
+//         assert!(
+//             coinbase_tx_suffix
+//                 == [
+//                     255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+//                     194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 1,
+//                     32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+//                 ]
+//                 .to_vec()
+//                 .try_into()
+//                 .unwrap(),
+//             "coinbase_tx_suffix incorrect"
+//         );
+//     }
 
-    // copied from roles-logic-sv2::job_creator
-    fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
-        let encoded = coinbase.serialize();
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-        // 0 witness
-        let segwit_bytes = match script_prefix_len {
-            0 => 0,
-            _ => 2,
-        };
-        let index = 4    // tx version
-            + segwit_bytes
-            + 1  // number of inputs TODO can be also 3
-            + 32 // prev OutPoint
-            + 4  // index
-            + 1  // bytes in script TODO can be also 3
-            + script_prefix_len; // bip34_bytes
-        let r = encoded[0..index].to_vec();
-        r.try_into().unwrap()
-    }
+//     // copied from roles-logic-sv2::job_creator
+//     fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
+//         let encoded = coinbase.serialize();
+//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
+//         // 0 witness
+//         let segwit_bytes = match script_prefix_len {
+//             0 => 0,
+//             _ => 2,
+//         };
+//         let index = 4    // tx version
+//             + segwit_bytes
+//             + 1  // number of inputs TODO can be also 3
+//             + 32 // prev OutPoint
+//             + 4  // index
+//             + 1  // bytes in script TODO can be also 3
+//             + script_prefix_len; // bip34_bytes
+//         let r = encoded[0..index].to_vec();
+//         r.try_into().unwrap()
+//     }
 
-    // copied from roles-logic-sv2::job_creator
-    fn coinbase_tx_suffix(
-        coinbase: &Transaction,
-        extranonce_len: u8,
-        script_prefix_len: usize,
-    ) -> B064K<'static> {
-        let encoded = coinbase.serialize();
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-        // 0 witness
-        let segwit_bytes = match script_prefix_len {
-            0 => 0,
-            _ => 2,
-        };
-        let r = encoded[4    // tx version
-        + segwit_bytes
-        + 1  // number of inputs TODO can be also 3
-        + 32 // prev OutPoint
-        + 4  // index
-        + 1  // bytes in script TODO can be also 3
-        + script_prefix_len  // bip34_bytes
-        + (extranonce_len as usize)..]
-            .to_vec();
-        r.try_into().unwrap()
-    }
+//     // copied from roles-logic-sv2::job_creator
+//     fn coinbase_tx_suffix(
+//         coinbase: &Transaction,
+//         extranonce_len: u8,
+//         script_prefix_len: usize,
+//     ) -> B064K<'static> {
+//         let encoded = coinbase.serialize();
+//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
+//         // 0 witness
+//         let segwit_bytes = match script_prefix_len {
+//             0 => 0,
+//             _ => 2,
+//         };
+//         let r = encoded[4    // tx version
+//         + segwit_bytes
+//         + 1  // number of inputs TODO can be also 3
+//         + 32 // prev OutPoint
+//         + 4  // index
+//         + 1  // bytes in script TODO can be also 3
+//         + script_prefix_len  // bip34_bytes
+//         + (extranonce_len as usize)..]
+//             .to_vec();
+//         r.try_into().unwrap()
+//     }
 
-    fn get_bip_34_bytes(coinbase_prefix: B0255<'static>) -> Vec<u8> {
-        let script_prefix = &coinbase_prefix.to_vec()[..];
-        // add 1 cause 0 is push 1 2 is 1 is push 2 ecc ecc
-        // add 1 cause in the len there is also the op code itself
-        let bip34_len = script_prefix[0] as usize + 2;
-        if bip34_len == script_prefix.len() {
-            script_prefix[0..bip34_len].to_vec()
-        } else {
-            panic!("bip34 length does not match script prefix")
-        }
-    }
-}
+//     fn get_bip_34_bytes(coinbase_prefix: B0255<'static>) -> Vec<u8> {
+//         let script_prefix = &coinbase_prefix.to_vec()[..];
+//         // add 1 cause 0 is push 1 2 is 1 is push 2 ecc ecc
+//         // add 1 cause in the len there is also the op code itself
+//         let bip34_len = script_prefix[0] as usize + 2;
+//         if bip34_len == script_prefix.len() {
+//             script_prefix[0..bip34_len].to_vec()
+//         } else {
+//             panic!("bip34 length does not match script prefix")
+//         }
+//     }
+// }

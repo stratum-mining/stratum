@@ -3,11 +3,10 @@ use super::{
     mining_pool::{EitherFrame, StdFrame},
     status,
 };
-use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::noise_connection_tokio_with_tokio_channels::Connection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
@@ -25,11 +24,11 @@ mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub struct TemplateRx {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
-    message_received_signal: Receiver<()>,
-    new_template_sender: Sender<NewTemplate<'static>>,
-    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
+    message_received_signal: tokio::sync::broadcast::Sender<()>,
+    new_template_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
+    new_prev_hash_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
     status_tx: status::Sender,
 }
 
@@ -63,7 +62,7 @@ impl TemplateRx {
             None => Initiator::without_pk(),
         }?;
         let (mut receiver, mut sender, _, _) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator))
+            Connection::new(stream, HandshakeRole::Initiator(initiator),10)
                 .await
                 .unwrap();
 
@@ -109,7 +108,7 @@ impl TemplateRx {
                 })
                 .unwrap();
         loop {
-            let message_from_tp = handle_result!(status_tx, receiver.recv().await);
+            let message_from_tp = handle_result!(status_tx, receiver.subscribe().recv().await);
             let mut message_from_tp: StdFrame = handle_result!(
                 status_tx,
                 message_from_tp
@@ -161,7 +160,7 @@ impl TemplateRx {
         let sender = self_
             .safe_lock(|self_| self_.sender.clone())
             .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
-        sender.send(either_frame).await?;
+        sender.send(either_frame)?;
         Ok(())
     }
 

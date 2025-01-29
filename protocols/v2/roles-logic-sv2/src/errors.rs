@@ -114,6 +114,7 @@ pub enum Error {
     /// JD server cannot propagate the block due to missing transactions
     JDSMissingTransactions,
     IoError(std::io::Error),
+    Shutdown
 }
 
 impl From<BinarySv2Error> for Error {
@@ -213,6 +214,7 @@ impl Display for Error {
             LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
             IoError(e) => write!(f, "IO error: {:?}", e),
+            Shutdown => write!(f, "Shutdown incoming channel"),
         }
     }
 }
