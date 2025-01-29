@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B032, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
@@ -49,7 +49,7 @@ pub struct NewMiningJob<'decoder> {
     ///
     /// Note that this field is fixed and cannot be modified by the downstream node.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub merkle_root: B032<'decoder>,
+    pub merkle_root: U256<'decoder>,
 }
 
 impl<'d> NewMiningJob<'d> {
@@ -215,7 +215,7 @@ mod tests {
             job_id,
             min_ntime: Sv2Option::new(min_ntime),
             version,
-            merkle_root: B032::try_from(merkle_root.to_vec())
+            merkle_root: U256::try_from(merkle_root.to_vec())
                 .expect("NewMiningJob: failed to convert merkle_root to B032"),
         };
         let static_nmj = nmj.clone().as_static();
