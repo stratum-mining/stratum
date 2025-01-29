@@ -183,14 +183,14 @@ pub struct Downstream {
     receiver: tokio::sync::broadcast::Sender<EitherFrame>,
     sender: tokio::sync::broadcast::Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
 }
 
 /// Accept downstream connection
 pub struct Pool {
     downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
     last_prev_hash_template_id: u64,
@@ -246,7 +246,7 @@ impl Downstream {
                         })
                         .await
                     {
-                        error!("Encountered Error but status channel is down: {}", e);
+                        error!("Encountered Error but status channel is down: {:?}", e);
                     }
 
                     return;
@@ -524,13 +524,13 @@ impl Pool {
 
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<SetNewPrevHash<'static>>,
-        sender_message_received_signal: Sender<()>,
+        mut rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_
             .safe_lock(|s| s.status_tx.clone())
             .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
-        while let Ok(new_prev_hash) = rx.recv().await {
+        while let Some(new_prev_hash) = rx.recv().await {
             debug!("New prev hash received: {:?}", new_prev_hash);
             let res = self_
                 .safe_lock(|s| {
@@ -570,7 +570,7 @@ impl Pool {
                         .await;
                         handle_result!(status_tx, res);
                     }
-                    handle_result!(status_tx, sender_message_received_signal.send(()).await);
+                    handle_result!(status_tx, sender_message_received_signal.send(()));
                 }
                 Err(_) => todo!(),
             }
@@ -580,12 +580,12 @@ impl Pool {
 
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<NewTemplate<'static>>,
-        sender_message_received_signal: Sender<()>,
+        mut rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
-        while let Ok(mut new_template) = rx.recv().await {
+        while let Some(mut new_template) = rx.recv().await {
             debug!(
                 "New template received, creating a new mining job(s): {:?}",
                 new_template
@@ -617,17 +617,17 @@ impl Pool {
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             handle_result!(status_tx, res);
 
-            handle_result!(status_tx, sender_message_received_signal.send(()).await);
+            handle_result!(status_tx, sender_message_received_signal.send(()));
         }
         Ok(())
     }
 
     pub fn start(
         config: Configuration,
-        new_template_rx: Receiver<NewTemplate<'static>>,
-        new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
-        solution_sender: Sender<SubmitSolution<'static>>,
-        sender_message_received_signal: Sender<()>,
+        new_template_rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
+        new_prev_hash_rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
         status_tx: status::Sender,
         shutdown: Arc<Notify>,
     ) -> Arc<Mutex<Self>> {
@@ -785,8 +785,8 @@ impl Pool {
 
 //     use super::Configuration;
 
-//     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested
-//     // against in message generator
+//     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values
+// tested     // against in message generator
 //     // `stratum/test/message-generator/test/pool-sri-test-extended.json`
 //     #[test]
 //     fn test_coinbase_outputs_from_config() {
@@ -819,9 +819,9 @@ impl Pool {
 //         let _coinbase_tx_value_remaining: u64 = 625000000;
 //         let _coinbase_tx_outputs_count = 0;
 //         let coinbase_tx_locktime = 0;
-//         let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config).unwrap();
-//         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
-//         let extranonce_len = 32;
+//         let coinbase_tx_outputs: Vec<bitcoin::TxOut> =
+// super::get_coinbase_output(&config).unwrap();         // extranonce len set to
+// max_extranonce_size in `ChannelFactory::new_extended_channel()`         let extranonce_len = 32;
 
 //         // build coinbase TX from 'job_creator::coinbase()'
 
@@ -854,9 +854,9 @@ impl Pool {
 //             coinbase_tx_prefix
 //                 == [
 //                     2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-//                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38,
-//                     0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111,
-//                     111, 108
+//                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163,
+// 38,                     0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80,
+// 111,                     111, 108
 //                 ]
 //                 .to_vec()
 //                 .try_into()
@@ -868,8 +868,8 @@ impl Pool {
 //                 == [
 //                     255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
 //                     194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 1,
-//                     32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-//                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+//                     32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// 0,                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 //                 ]
 //                 .to_vec()
 //                 .try_into()
@@ -881,8 +881,8 @@ impl Pool {
 //     // copied from roles-logic-sv2::job_creator
 //     fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
 //         let encoded = coinbase.serialize();
-//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-//         // 0 witness
+//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have
+// the         // 0 witness
 //         let segwit_bytes = match script_prefix_len {
 //             0 => 0,
 //             _ => 2,
@@ -905,8 +905,8 @@ impl Pool {
 //         script_prefix_len: usize,
 //     ) -> B064K<'static> {
 //         let encoded = coinbase.serialize();
-//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-//         // 0 witness
+//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have
+// the         // 0 witness
 //         let segwit_bytes = match script_prefix_len {
 //             0 => 0,
 //             _ => 2,
@@ -918,8 +918,7 @@ impl Pool {
 //         + 4  // index
 //         + 1  // bytes in script TODO can be also 3
 //         + script_prefix_len  // bip34_bytes
-//         + (extranonce_len as usize)..]
-//             .to_vec();
+//         + (extranonce_len as usize)..] .to_vec();
 //         r.try_into().unwrap()
 //     }
 

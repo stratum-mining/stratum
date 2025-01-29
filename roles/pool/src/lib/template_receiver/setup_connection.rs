@@ -47,7 +47,8 @@ impl SetupConnectionHandler {
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame)?;
 
-        let mut incoming: StdFrame = receiver.subscribe()
+        let mut incoming: StdFrame = receiver
+            .subscribe()
             .recv()
             .await?
             .try_into()
