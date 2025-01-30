@@ -43,7 +43,7 @@ impl Upstream {
                 super::super::error::ChannelSendError::General(e.to_string()),
             )
         })?;
-        async_std::task::sleep(Duration::from_secs(timeout as u64)).await;
+        tokio::time::sleep(Duration::from_secs(timeout as u64)).await;
         Ok(())
     }
 }
