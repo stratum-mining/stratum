@@ -1,12 +1,15 @@
-use async_std::net::TcpStream;
 use std::{convert::TryInto, net::SocketAddr, ops::Div};
 
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{io::BufReader, prelude::*, task};
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::TcpStream,
+    task,
+};
 use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::util::uint::Uint256;
@@ -69,8 +72,8 @@ impl Client {
     ///    and then serialized into a json message that is sent to the Upstream via
     ///    `sender_outgoing`.
     pub async fn connect(client_id: u32, upstream_addr: SocketAddr) {
-        let stream = std::sync::Arc::new(TcpStream::connect(upstream_addr).await.unwrap());
-        let (reader, writer) = (stream.clone(), stream);
+        let stream = TcpStream::connect(upstream_addr).await.unwrap();
+        let (reader, mut writer) = stream.into_split();
 
         // `sender_incoming` listens on socket for incoming messages from the Upstream and sends
         // messages to the `receiver_incoming` to be parsed and handled by the `Client`
@@ -101,17 +104,17 @@ impl Client {
         // Reads messages sent by the Upstream from the socket to be passed to the
         // `receiver_incoming`
         task::spawn(async move {
-            let mut messages = BufReader::new(&*reader).lines();
-            while let Some(message) = messages.next().await {
+            let mut messages = BufReader::new(reader).lines();
+            while let Ok(message) = messages.next_line().await {
                 match message {
-                    Ok(msg) => {
+                    Some(msg) => {
                         if let Err(e) = sender_incoming.send(msg).await {
                             error!("Failed to send message to receiver_incoming: {:?}", e);
                             break; // Exit the loop if sending fails
                         }
                     }
-                    Err(e) => {
-                        error!("Error reading from socket: {:?}", e);
+                    None => {
+                        error!("Error reading from socket");
                         break; // Exit the loop on read failure
                     }
                 }
@@ -124,7 +127,7 @@ impl Client {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
-                (&*writer).write_all(message.as_bytes()).await.unwrap();
+                (writer).write_all(message.as_bytes()).await.unwrap();
             }
         });
 
