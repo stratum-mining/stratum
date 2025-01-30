@@ -41,7 +41,6 @@ v1 = { path = "../../protocols/v1", package="sv1_api" }
 error_handling = { path = "../../utils/error-handling" }
 key-utils = { path = "../../utils/key-utils" }
 tokio-util = { version = "0.7.10", features = ["codec"] }
-async-compat = "0.2.1"
 rand = "0.8.4"
 
 
