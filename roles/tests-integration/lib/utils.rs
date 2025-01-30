@@ -34,23 +34,21 @@ pub mod http {
         for attempt in 1..=retries {
             let response = minreq::get(download_url).send();
             match response {
-                Ok(res) if res.status_code == 200 => {
-                    return res.as_bytes().to_vec();
-                }
-                Ok(res) if res.status_code == 503 => {
-                    // If the response is 503, log and prepare for retry
-                    eprintln!(
-                        "Attempt {}: URL {} returned status code 503 (Service Unavailable)",
-                        attempt + 1,
-                        download_url
-                    );
-                }
                 Ok(res) => {
-                    // For other status codes, log and stop retrying
-                    panic!(
-                        "URL {} returned unexpected status code {}. Aborting.",
-                        download_url, res.status_code
-                    );
+                    let status_code = res.status_code;
+                    if (200..300).contains(&status_code) {
+                        return res.as_bytes().to_vec();
+                    } else if (500..600).contains(&status_code) {
+                        eprintln!(
+                            "Attempt {}: URL {} returned a server error code {}",
+                            attempt, download_url, status_code
+                        );
+                    } else {
+                        panic!(
+                            "URL {} returned unexpected status code {}. Aborting.",
+                            download_url, status_code
+                        );
+                    }
                 }
                 Err(err) => {
                     eprintln!(
