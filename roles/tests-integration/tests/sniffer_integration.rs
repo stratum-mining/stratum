@@ -13,7 +13,7 @@ use std::convert::TryInto;
 // TP -> sniffer_a -> sniffer_b -> Pool
 #[tokio::test]
 async fn test_sniffer_intercept() {
-    let (_tp, tp_addr) = start_template_provider(None).await;
+    let (_tp, tp_addr) = start_template_provider(None);
     let message_replacement =
         PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
             flags: 0,
@@ -49,7 +49,7 @@ async fn test_sniffer_intercept() {
 
 #[tokio::test]
 async fn test_sniffer_wait_for_message_type_with_remove() {
-    let (_tp, tp_addr) = start_template_provider(None).await;
+    let (_tp, tp_addr) = start_template_provider(None);
     let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, false, None).await;
     let _ = start_pool(Some(sniffer_addr)).await;
     assert!(
