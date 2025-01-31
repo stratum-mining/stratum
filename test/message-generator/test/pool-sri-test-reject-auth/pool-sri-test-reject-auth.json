@@ -24,7 +24,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
+            "message_id": "../../test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
         },
         {
             "type": "automatic",
@@ -62,16 +62,16 @@
         {
             "command": "cargo",
             "args": [
-                        "llvm-cov",
-                        "--no-report",
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "pool_sv2",
                         "--features",
                         "MG_reject_auth",
                         "--",
                         "-c",
-                        "../test/config/pool-config-sri-tp.toml"
+                        "../../test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
