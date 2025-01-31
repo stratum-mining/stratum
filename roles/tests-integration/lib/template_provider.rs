@@ -1,4 +1,4 @@
-use corepc_node::{Conf, Node};
+use corepc_node::{Conf, ConnectParams, Node};
 use flate2::read::GzDecoder;
 use std::{
     env,
@@ -177,5 +177,9 @@ impl TemplateProvider {
             .client
             .generate_to_address(n as usize, &mining_address)
             .expect("Failed to generate blocks");
+    }
+
+    pub fn rpc_info(&self) -> &ConnectParams {
+        &self.bitcoind.params
     }
 }
