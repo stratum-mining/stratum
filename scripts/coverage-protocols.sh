@@ -23,7 +23,6 @@ crates=(
   "v2/subprotocols/template-distribution"
   "v2/subprotocols/mining"
   "v2/subprotocols/job-declaration"
-  "v2/sv2-ffi"
   "v2/roles-logic-sv2"
 )
 
