@@ -88,11 +88,13 @@
             "command": "cargo",
             "args": [
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "pool_sv2",
                         "--",
                         "-c",
-                        "../test/config/interop-jd-translator/pool-config.toml"
+                        "../../test/config/interop-jd-translator/pool-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -113,11 +115,13 @@
             "command": "cargo",
             "args": [
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "translator_sv2",
                         "--",
                         "-c",
-                        "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
+                        "../../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
             ],
             "conditions": {
                 "WithConditions": {

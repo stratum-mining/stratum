@@ -16,7 +16,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+            "message_id": "../../test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
         }
     ],
     "actions": [
@@ -73,14 +73,14 @@
         {
             "command": "cargo",
             "args": [
-                        "llvm-cov",
-                        "--no-report",
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "jd_server",
                         "--",
                         "-c",
-                        "../test/config/interop-jd-change-upstream/jds-config.toml"
+                        "../../test/config/interop-jd-change-upstream/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -100,14 +100,14 @@
         {
             "command": "cargo",
             "args": [
-                        "llvm-cov",
-                        "--no-report",
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "jd_client",
                         "--",
                         "-c",
-                        "../test/config/interop-jd-change-upstream/jdc-config.toml"
+                        "../../test/config/interop-jd-change-upstream/jdc-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -127,14 +127,14 @@
         {
             "command": "cargo",
             "args": [
-                        "llvm-cov",
-                        "--no-report",
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "mining_proxy_sv2",
                         "--",
                         "-c",
-                        "../test/config/interop-jd-change-upstream/proxy-config.toml"
+                        "../../test/config/interop-jd-change-upstream/proxy-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -160,6 +160,8 @@
             "command": "cargo",
             "args": [
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "mining-device"
             ],

@@ -9,5 +9,5 @@ members = [
 ]
 
 exclude = [
-    "message-generator",
+    "stratum-message-generator"
 ]
