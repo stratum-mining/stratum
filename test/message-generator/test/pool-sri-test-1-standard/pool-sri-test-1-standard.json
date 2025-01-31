@@ -147,14 +147,14 @@
        {
            "command": "cargo",
            "args": [
-                       "llvm-cov",
-                       "--no-report",
                        "run",
+                       "--manifest-path",
+                       "../../roles/Cargo.toml",
                        "-p",
                        "pool_sv2",
                        "--",
                        "-c",
-                       "../test/config/pool-mock-tp.toml"
+                       "../../test/config/pool-mock-tp.toml"
            ],
            "conditions": {
                "WithConditions": {

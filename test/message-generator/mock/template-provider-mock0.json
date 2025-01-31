@@ -68,7 +68,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
+            "message_id": "../../test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
         },
         {
             "type": "automatic",
