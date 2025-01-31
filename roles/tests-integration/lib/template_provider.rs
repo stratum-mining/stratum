@@ -4,6 +4,7 @@ use std::{
     env,
     fs::{create_dir_all, File},
     io::{BufReader, Read},
+    net::SocketAddr,
     path::{Path, PathBuf},
 };
 use tar::Archive;
@@ -177,5 +178,9 @@ impl TemplateProvider {
             .client
             .generate_to_address(n as usize, &mining_address)
             .expect("Failed to generate blocks");
+    }
+
+    pub fn rpc_url(&self) -> SocketAddr {
+        self.bitcoind.params.rpc_socket.into()
     }
 }

@@ -155,7 +155,7 @@ pub async fn start_jdc(
     (ret, jdc_address)
 }
 
-pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAddr) {
+pub async fn start_jds(tp_rpc_address: SocketAddr) -> (JobDeclaratorServer, SocketAddr) {
     use jd_server::{CoinbaseOutput, Configuration, CoreRpc};
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
@@ -172,8 +172,8 @@ pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAd
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
     )];
     let core_rpc = CoreRpc::new(
-        tp_address.ip().to_string(),
-        tp_address.port(),
+        tp_rpc_address.ip().to_string(),
+        tp_rpc_address.port(),
         "tp_username".to_string(),
         "tp_password".to_string(),
     );
