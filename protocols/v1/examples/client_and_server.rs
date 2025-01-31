@@ -1,24 +1,25 @@
-use async_std::net::{TcpListener, TcpStream};
-use std::convert::{TryFrom, TryInto};
-
-use async_channel::{bounded, Receiver, Sender};
-use async_std::{
-    io::BufReader,
-    prelude::*,
-    sync::{Arc, Mutex},
-    task,
+use std::{
+    convert::{TryFrom, TryInto},
+    io::{BufRead, BufReader, Write},
+    net::{SocketAddr, TcpListener, TcpStream},
+    process::exit,
+    sync::{mpsc, Arc, Mutex},
+    thread,
+    time::{Duration, SystemTime},
 };
-use std::{env, net::SocketAddr, process::exit, time, time::Duration};
-use time::SystemTime;
 
 const ADDR: &str = "127.0.0.1:0";
+const TEST_DURATION: i32 = 30;
 
-use v1::{
+type Receiver<T> = mpsc::Receiver<T>;
+type Sender<T> = mpsc::Sender<T>;
+
+use sv1_api::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be, MerkleNode, PrevHash},
-    ClientStatus, IsClient, IsServer,
+    ClientStatus, IsClient, IsServer, Message,
 };
 
 fn new_extranonce<'a>() -> Extranonce<'a> {
@@ -81,38 +82,45 @@ struct Server<'a> {
     sender_outgoing: Sender<String>,
 }
 
-async fn server_pool_listen(listener: TcpListener) {
-    let mut incoming = listener.incoming();
-    while let Some(stream) = incoming.next().await {
-        let stream = stream.unwrap();
-        println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
-        let server = Server::new(stream).await;
-        Arc::new(Mutex::new(server));
+fn server_pool_listen(listener: TcpListener) {
+    loop {
+        match listener.accept() {
+            Ok((stream, addr)) => {
+                println!("SERVER - Accepting from: {}", addr);
+                let server = Server::new(stream);
+                let _ = Arc::new(Mutex::new(server));
+            }
+            Err(e) => {
+                eprintln!("SERVER - Accept error: {}", e);
+                break;
+            }
+        }
     }
 }
 
 impl<'a> Server<'a> {
-    pub async fn new(stream: TcpStream) -> Arc<Mutex<Server<'static>>> {
-        let stream = Arc::new(stream);
+    pub fn new(stream: TcpStream) -> Arc<Mutex<Server<'static>>> {
+        let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
+        let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
 
-        let (reader, writer) = (stream.clone(), stream);
+        let reader_stream = stream.try_clone().expect("Failed to clone stream (read)");
+        let mut writer_stream = stream;
 
-        let (sender_incoming, receiver_incoming) = bounded(10);
-        let (sender_outgoing, receiver_outgoing) = bounded(10);
-
-        task::spawn(async move {
-            let mut messages = BufReader::new(&*reader).lines();
-            while let Some(message) = messages.next().await {
-                let message = message.unwrap();
-                // println!("{}", message);
-                sender_incoming.send(message).await.unwrap();
+        // read thread
+        thread::spawn(move || {
+            let reader = BufReader::new(reader_stream);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    if sender_incoming.send(line).is_err() {
+                        break;
+                    }
+                }
             }
         });
 
-        task::spawn(async move {
-            loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (&*writer).write_all(message.as_bytes()).await.unwrap();
+        thread::spawn(move || {
+            for msg in receiver_outgoing {
+                let _ = writer_stream.write_all(msg.as_bytes());
             }
         });
 
@@ -126,88 +134,70 @@ impl<'a> Server<'a> {
             sender_outgoing,
         };
 
-        let server = Arc::new(Mutex::new(server));
+        let server_arc = Arc::new(Mutex::new(server));
 
-        let cloned = server.clone();
-        task::spawn(async move {
-            loop {
-                if let Some(mut self_) = cloned.try_lock() {
-                    let incoming = self_.receiver_incoming.try_recv();
-                    self_.parse_message(incoming).await;
-                    drop(self_);
-                    //It's healthy to sleep after giving up the lock so the other thread has a shot
-                    //at acquiring it.
-                    task::sleep(Duration::from_millis(100)).await;
-                };
-            }
-        });
+        {
+            let cloned = Arc::clone(&server_arc);
+            thread::spawn(move || loop {
+                if let Ok(mut self_) = cloned.try_lock() {
+                    if let Ok(line) = self_.receiver_incoming.try_recv() {
+                        println!("SERVER - message: {}", line);
+                        let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
+                        if let Ok(message) = message {
+                            match self_.handle_message(message) {
+                                Ok(response) => {
+                                    if let Some(resp) = response {
+                                        Self::send_message(
+                                            &self_.sender_outgoing,
+                                            json_rpc::Message::OkResponse(resp),
+                                        );
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                }
+                thread::sleep(Duration::from_millis(100));
+            });
+        }
 
-        let cloned = server.clone();
-        task::spawn(async move {
-            let mut run_time = Self::get_runtime();
-
-            loop {
-                let notify_time = 5;
-                if let Some(mut self_) = cloned.try_lock() {
-                    let sender = &self_.sender_outgoing.clone();
-                    let notify = self_.notify().unwrap();
-                    Server::send_message(sender, notify).await;
-                    drop(self_);
-                    task::sleep(Duration::from_secs(notify_time)).await;
-                    //subtract notify_time from run_time
+        {
+            let cloned = Arc::clone(&server_arc);
+            thread::spawn(move || {
+                let mut run_time = TEST_DURATION;
+                loop {
+                    let notify_time = 5;
+                    if let Ok(mut self_) = cloned.try_lock() {
+                        let sender = self_.sender_outgoing.clone();
+                        if let Ok(notify_msg) = self_.notify() {
+                            Server::send_message(&sender, notify_msg);
+                        }
+                    }
+                    thread::sleep(Duration::from_secs(notify_time));
                     run_time -= notify_time as i32;
 
                     if run_time <= 0 {
-                        println!("Test Success - ran for {} seconds", Self::get_runtime());
+                        println!("Test Success - ran for {} seconds", TEST_DURATION);
                         exit(0)
                     }
-                };
-            }
-        });
-
-        server
-    }
-
-    fn get_runtime() -> i32 {
-        let args: Vec<String> = env::args().collect();
-        if args.len() > 1 {
-            args[1].parse::<i32>().unwrap()
-        } else {
-            i32::MAX
-        }
-    }
-
-    #[allow(clippy::single_match)]
-    async fn parse_message(
-        &mut self,
-        incoming_message: Result<String, async_channel::TryRecvError>,
-    ) {
-        if let Ok(line) = incoming_message {
-            println!("SERVER - message: {}", line);
-            let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
-            match message {
-                Ok(message) => {
-                    match self.handle_message(message) {
-                        Ok(response) => {
-                            if response.is_some() {
-                                Self::send_message(
-                                    &self.sender_outgoing,
-                                    json_rpc::Message::OkResponse(response.unwrap()),
-                                )
-                                .await;
-                            }
-                        }
-                        Err(_) => (),
-                    };
                 }
-                Err(_) => (),
-            }
-        };
+            });
+        }
+
+        server_arc
     }
 
-    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
+    fn handle_message(
+        &mut self,
+        _message: json_rpc::Message,
+    ) -> Result<Option<json_rpc::Response>, Error<'static>> {
+        Ok(None)
+    }
+
+    fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        sender_outgoing.send(msg).await.unwrap();
+        let _ = sender_outgoing.send(msg);
     }
 }
 
@@ -216,22 +206,16 @@ impl<'a> IsServer<'a> for Server<'a> {
         &mut self,
         _request: &client_to_server::Configure,
     ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
-        self.version_rolling_mask = self
-            .version_rolling_mask
-            .clone()
-            .map_or(Some(new_version_rolling_mask()), Some);
-        self.version_rolling_min_bit = self
-            .version_rolling_mask
-            .clone()
-            .map_or(Some(new_version_rolling_min()), Some);
+        self.version_rolling_mask
+            .get_or_insert_with(new_version_rolling_mask);
+        self.version_rolling_min_bit
+            .get_or_insert_with(new_version_rolling_min);
+
+        let mask = self.version_rolling_mask.as_ref().unwrap().clone();
+        let min_bit = self.version_rolling_min_bit.as_ref().unwrap().clone();
+
         (
-            Some(
-                server_to_client::VersionRollingParams::new(
-                    self.version_rolling_mask.clone().unwrap(),
-                    self.version_rolling_min_bit.clone().unwrap(),
-                )
-                .unwrap(),
-            ),
+            Some(server_to_client::VersionRollingParams::new(mask, min_bit).unwrap()),
             Some(false),
         )
     }
@@ -323,129 +307,107 @@ struct Client<'a> {
 }
 
 impl<'a> Client<'static> {
-    pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client<'static>>> {
-        let stream = loop {
-            task::sleep(Duration::from_secs(1)).await;
-
-            match TcpStream::connect(socket).await {
+    pub fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client<'static>>> {
+        loop {
+            thread::sleep(Duration::from_secs(1));
+            match TcpStream::connect(socket) {
                 Ok(st) => {
                     println!("CLIENT - connected to server at {}", socket);
-                    break st;
+                    let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
+                    let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
+
+                    let reader_stream = st.try_clone().unwrap();
+                    let mut writer_stream = st;
+
+                    thread::spawn(move || {
+                        let reader = BufReader::new(reader_stream);
+                        for line in reader.lines() {
+                            if let Ok(line) = line {
+                                if sender_incoming.send(line).is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    thread::spawn(move || {
+                        for msg in receiver_outgoing {
+                            let _ = writer_stream.write_all(msg.as_bytes());
+                        }
+                    });
+
+                    let client = Client {
+                        client_id,
+                        extranonce1: extranonce_from_hex("00000000"),
+                        extranonce2_size: 2,
+                        version_rolling_mask: None,
+                        version_rolling_min_bit: None,
+                        status: ClientStatus::Init,
+                        last_notify: None,
+                        sented_authorize_request: vec![],
+                        authorized: vec![],
+                        receiver_incoming,
+                        sender_outgoing,
+                    };
+
+                    let arc_client = Arc::new(Mutex::new(client));
+
+                    {
+                        let cloned = Arc::clone(&arc_client);
+                        thread::spawn(move || loop {
+                            if let Ok(mut this) = cloned.try_lock() {
+                                if let Ok(line) = this.receiver_incoming.try_recv() {
+                                    println!("CLIENT {} - message: {}", this.client_id, line);
+                                    if let Ok(msg) =
+                                        serde_json::from_str::<json_rpc::Message>(&line)
+                                    {
+                                        this.handle_message(msg).ok();
+                                    }
+                                }
+                            }
+                            thread::sleep(Duration::from_millis(100));
+                        });
+                    }
+
+                    return arc_client;
                 }
                 Err(_) => {
                     println!("Server not ready... retry");
                     continue;
                 }
             }
-        };
-
-        let arc_stream = Arc::new(stream);
-
-        let (reader, writer) = (arc_stream.clone(), arc_stream);
-
-        let (sender_incoming, receiver_incoming) = bounded(10);
-        let (sender_outgoing, receiver_outgoing) = bounded(10);
-
-        task::spawn(async move {
-            let mut messages = BufReader::new(&*reader).lines();
-            while let Some(message) = messages.next().await {
-                let message = message.unwrap();
-                // println!("{}", message);
-                sender_incoming.send(message).await.unwrap();
-            }
-        });
-
-        task::spawn(async move {
-            loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (&*writer).write_all(message.as_bytes()).await.unwrap();
-            }
-        });
-
-        let client = Client {
-            client_id,
-            extranonce1: extranonce_from_hex("00000000"),
-            extranonce2_size: 2,
-            version_rolling_mask: None,
-            version_rolling_min_bit: None,
-            status: ClientStatus::Init,
-            last_notify: None,
-            sented_authorize_request: vec![],
-            authorized: vec![],
-            receiver_incoming,
-            sender_outgoing,
-        };
-
-        let client = Arc::new(Mutex::new(client));
-
-        let cloned = client.clone();
-
-        task::spawn(async move {
-            loop {
-                if let Some(mut self_) = cloned.try_lock() {
-                    let incoming = self_.receiver_incoming.try_recv();
-                    self_.parse_message(incoming).await;
-                }
-                //It's healthy to sleep after giving up the lock so the other thread has a shot
-                //at acquiring it - it also prevents pegging the cpu
-                task::sleep(Duration::from_millis(100)).await;
-            }
-        });
-
-        client
+        }
     }
 
-    async fn parse_message(
-        &mut self,
-        incoming_message: Result<String, async_channel::TryRecvError>,
-    ) {
-        if let Ok(line) = incoming_message {
-            println!("CLIENT {} - message: {}", self.client_id, line);
-            let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
-            self.handle_message(message).unwrap();
-        };
+    fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
+        let s = format!("{}\n", serde_json::to_string(&msg).unwrap());
+        let _ = sender_outgoing.send(s);
     }
 
-    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
-        let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        sender_outgoing.send(msg).await.unwrap();
-    }
-
-    pub async fn send_subscribe(&mut self) {
-        loop {
-            if let ClientStatus::Configured = self.status {
-                break;
-            }
+    pub fn send_subscribe(&mut self) {
+        while let ClientStatus::Init = self.status {
+            thread::sleep(Duration::from_millis(100));
         }
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let subscribe = self.subscribe(id, None).unwrap();
-        Self::send_message(&self.sender_outgoing, subscribe).await;
+        if let Ok(subscribe) = self.subscribe(id, None) {
+            Self::send_message(&self.sender_outgoing, subscribe);
+        }
     }
 
-    //pub async fn restore_subscribe(&mut self) {
-    //    let id = time::SystemTime::now()
-    //        .duration_since(time::SystemTime::UNIX_EPOCH)
-    //        .unwrap()
-    //        .as_nanos()
-    //        .to_string();
-    //    let subscribe = self.subscribe(id, Some(self.extranonce1.clone())).unwrap();
-    //    self.send_message(subscribe).await;
-    //}
-
-    pub async fn send_authorize(&mut self) {
+    pub fn send_authorize(&mut self) {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs();
         if let Ok(authorize) = self.authorize(id, "user".to_string(), "user".to_string()) {
-            Self::send_message(&self.sender_outgoing, authorize).await;
+            Self::send_message(&self.sender_outgoing, authorize);
         }
     }
 
-    pub async fn send_submit(&mut self) {
+    pub fn send_submit(&mut self) {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -453,26 +415,25 @@ impl<'a> Client<'static> {
         let extranonce2 = extranonce_from_hex("00");
         let nonce = 78;
         let version_bits = None;
-        let submit = self
-            .submit(
-                id,
-                "user".to_string(),
-                extranonce2,
-                nonce,
-                nonce,
-                version_bits,
-            )
-            .unwrap();
-        Self::send_message(&self.sender_outgoing, submit).await;
+        if let Ok(submit) = self.submit(
+            id,
+            "user".to_string(),
+            extranonce2,
+            nonce,
+            nonce,
+            version_bits,
+        ) {
+            Self::send_message(&self.sender_outgoing, submit);
+        }
     }
 
-    pub async fn send_configure(&mut self) {
+    pub fn send_configure(&mut self) {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs();
         let configure = self.configure(id);
-        Self::send_message(&self.sender_outgoing, configure).await;
+        Self::send_message(&self.sender_outgoing, configure);
     }
 }
 
@@ -606,55 +567,50 @@ impl<'a> IsClient<'a> for Client<'a> {
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message,
+        message: Message,
     ) -> Result<Option<json_rpc::Message>, Error<'a>> {
         println!("{:?}", message);
         Ok(None)
     }
 }
 
-async fn initialize_client(client: Arc<Mutex<Client<'static>>>) {
+fn initialize_client(client: Arc<Mutex<Client<'static>>>) {
     loop {
-        let mut client_ = client.lock().await;
-        match client_.status {
-            ClientStatus::Init => client_.send_configure().await,
-            ClientStatus::Configured => client_.send_subscribe().await,
-            ClientStatus::Subscribed => {
-                client_.send_authorize().await;
-                break;
+        {
+            let mut client_ = client.lock().unwrap();
+            match client_.status {
+                ClientStatus::Init => client_.send_configure(),
+                ClientStatus::Configured => client_.send_subscribe(),
+                ClientStatus::Subscribed => {
+                    client_.send_authorize();
+                    break;
+                }
             }
         }
-        drop(client_);
-        task::sleep(Duration::from_millis(1000)).await;
+        thread::sleep(Duration::from_millis(1000));
     }
-    task::sleep(Duration::from_millis(2000)).await;
+
+    thread::sleep(Duration::from_millis(2000));
     loop {
-        let mut client_ = client.lock().await;
-        client_.send_submit().await;
-        task::sleep(Duration::from_millis(2000)).await;
+        {
+            let mut client_ = client.lock().unwrap();
+            client_.send_submit();
+        }
+        thread::sleep(Duration::from_millis(2000));
     }
 }
 
 fn main() {
-    //Listen on available port and wait for bind
-    let listener = task::block_on(async move {
-        let listener = TcpListener::bind(ADDR).await.unwrap();
-        println!("Server listening on: {}", listener.local_addr().unwrap());
-        listener
-    });
-
+    let listener = TcpListener::bind(ADDR).unwrap();
+    println!("Server listening on: {}", listener.local_addr().unwrap());
     let socket = listener.local_addr().unwrap();
 
-    std::thread::spawn(|| {
-        task::spawn(async move {
-            server_pool_listen(listener).await;
-        });
+    thread::spawn(move || {
+        server_pool_listen(listener);
     });
 
-    task::block_on(async {
-        let client = Client::new(80, socket).await;
-        initialize_client(client).await;
-    });
+    let client = Client::new(80, socket);
+    initialize_client(client);
 }
 
 mod utils {

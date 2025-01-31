@@ -37,7 +37,7 @@ jobs:
 
       - name: Run sv1-client-and-server example
         run: |
-          cargo run --manifest-path=examples/sv1-client-and-server/Cargo.toml --bin client_and_server -- 60
+          cargo run --manifest-path=protocols/v1/Cargo.toml --example client_and_server 30
 
       - name: interop-test
         run: |
