@@ -9,6 +9,7 @@ use roles_logic_sv2::{
 };
 use sniffer::{InterceptMessage, MessageDirection};
 use std::convert::TryInto;
+use tracing_subscriber::EnvFilter;
 
 // This test aims to assert that Sniffer is able to intercept and replace some messages.
 // sniffer_a replaces a SetupConnectionSuccess from TP with a SetupConnectionError directed at Pool
@@ -16,6 +17,9 @@ use std::convert::TryInto;
 // TP -> sniffer_a -> sniffer_b -> Pool
 #[tokio::test]
 async fn test_sniffer_intercept_to_downstream() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let message_replacement =
         PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
