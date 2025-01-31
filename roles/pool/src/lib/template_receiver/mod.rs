@@ -1,13 +1,14 @@
+#![allow(dead_code)]
+#![allow(clippy::result_large_err)]
 use super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
     status,
 };
-use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection_tokio_with_tokio_channels::Connection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
@@ -24,12 +25,13 @@ mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
+#[derive(Clone)]
 pub struct TemplateRx {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
-    message_received_signal: Receiver<()>,
-    new_template_sender: Sender<NewTemplate<'static>>,
-    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
+    message_received_signal: tokio::sync::broadcast::Sender<()>,
+    new_template_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
+    new_prev_hash_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
     status_tx: status::Sender,
 }
 
@@ -37,10 +39,10 @@ impl TemplateRx {
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
-        templ_sender: Sender<NewTemplate<'static>>,
-        prev_h_sender: Sender<SetNewPrevHash<'static>>,
-        solution_receiver: Receiver<SubmitSolution<'static>>,
-        message_received_signal: Receiver<()>,
+        templ_sender: tokio::sync::mpsc::Sender<NewTemplate<'static>>,
+        prev_h_sender: tokio::sync::mpsc::Sender<SetNewPrevHash<'static>>,
+        solution_receiver: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
+        message_received_signal: tokio::sync::broadcast::Sender<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
         expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
@@ -63,21 +65,20 @@ impl TemplateRx {
             None => Initiator::without_pk(),
         }?;
         let (mut receiver, mut sender, _, _) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator))
+            Connection::new(stream, HandshakeRole::Initiator(initiator), 10)
                 .await
                 .unwrap();
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
-        let self_ = Arc::new(Mutex::new(Self {
+        let self_ = Self {
             receiver,
-            sender,
+            sender: sender.clone(),
             new_template_sender: templ_sender,
             new_prev_hash_sender: prev_h_sender,
             message_received_signal,
-            status_tx,
-        }));
-        let cloned = self_.clone();
+            status_tx: status_tx.clone(),
+        };
 
         let c_additional_size = CoinbaseOutputDataSize {
             coinbase_output_max_additional_size: coinbase_out_len,
@@ -87,29 +88,26 @@ impl TemplateRx {
         )
         .try_into()?;
 
-        Self::send(self_.clone(), frame).await?;
+        Self::send(sender.clone(), frame)?;
 
-        task::spawn(async { Self::start(cloned).await });
-        task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });
+        task::spawn(async { Self::start(self_).await });
+        task::spawn(async { Self::on_new_solution(sender, status_tx, solution_receiver).await });
 
         Ok(())
     }
 
-    pub async fn start(self_: Arc<Mutex<Self>>) {
-        let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
-            self_
-                .safe_lock(|s| {
-                    (
-                        s.message_received_signal.clone(),
-                        s.receiver.clone(),
-                        s.new_template_sender.clone(),
-                        s.new_prev_hash_sender.clone(),
-                        s.status_tx.clone(),
-                    )
-                })
-                .unwrap();
+    pub async fn start(self_: Self) {
+        let (mut recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) = (
+            self_.message_received_signal.subscribe(),
+            self_.receiver.clone(),
+            self_.new_template_sender.clone(),
+            self_.new_prev_hash_sender.clone(),
+            self_.status_tx.clone(),
+        );
+        let mut receiver = receiver.subscribe();
         loop {
             let message_from_tp = handle_result!(status_tx, receiver.recv().await);
+            info!("Message: {:?}", message_from_tp);
             let mut message_from_tp: StdFrame = handle_result!(
                 status_tx,
                 message_from_tp
@@ -124,7 +122,7 @@ impl TemplateRx {
             let msg = handle_result!(
                 status_tx,
                 ParseServerTemplateDistributionMessages::handle_message_template_distribution(
-                    self_.clone(),
+                    Arc::new(Mutex::new(self_.clone())),
                     message_type,
                     payload,
                 )
@@ -156,25 +154,28 @@ impl TemplateRx {
         }
     }
 
-    pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> PoolResult<()> {
+    pub fn send(
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
+        sv2_frame: StdFrame,
+    ) -> PoolResult<()> {
         let either_frame = sv2_frame.into();
-        let sender = self_
-            .safe_lock(|self_| self_.sender.clone())
-            .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
-        sender.send(either_frame).await?;
+        sender.send(either_frame)?;
         Ok(())
     }
 
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        while let Ok(solution) = rx.recv().await {
+    async fn on_new_solution(
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
+        status_tx: status::Sender,
+        mut rx: tokio::sync::mpsc::Receiver<SubmitSolution<'static>>,
+    ) -> PoolResult<()> {
+        while let Some(solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
             let sv2_frame_res: Result<StdFrame, _> =
                 PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
                     .try_into();
             match sv2_frame_res {
                 Ok(frame) => {
-                    handle_result!(status_tx, Self::send(self_.clone(), frame).await);
+                    handle_result!(status_tx, Self::send(sender.clone(), frame));
                 }
                 Err(_e) => {
                     // return submit error
@@ -182,5 +183,6 @@ impl TemplateRx {
                 }
             };
         }
+        Ok(())
     }
 }

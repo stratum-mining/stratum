@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #[cfg(feature = "async_std")]
 mod noise_connection_async_std;
 #[cfg(feature = "async_std")]
@@ -10,6 +11,8 @@ pub use plain_connection_async_std::{plain_connect, plain_listen, PlainConnectio
 
 #[cfg(feature = "tokio")]
 pub mod noise_connection_tokio;
+#[cfg(feature = "tokio")]
+pub mod noise_connection_tokio_with_tokio_channels;
 #[cfg(feature = "tokio")]
 pub mod plain_connection_tokio;
 
@@ -33,6 +36,8 @@ pub enum Error {
     // This means that a socket that was supposed to be opened have been closed, likley by the
     // peer
     SocketClosed,
+    SendErrorTokio,
+    RecvErrorTokio,
 }
 
 impl From<CodecError> for Error {
@@ -48,6 +53,20 @@ impl From<RecvError> for Error {
 impl<T> From<SendError<T>> for Error {
     fn from(_: SendError<T>) -> Self {
         Error::SendError
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<T> From<tokio::sync::broadcast::error::SendError<T>> for Error {
+    fn from(_: tokio::sync::broadcast::error::SendError<T>) -> Self {
+        Error::SendErrorTokio
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl From<tokio::sync::broadcast::error::RecvError> for Error {
+    fn from(_: tokio::sync::broadcast::error::RecvError) -> Self {
+        Error::RecvErrorTokio
     }
 }
 

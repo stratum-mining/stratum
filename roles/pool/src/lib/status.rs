@@ -7,9 +7,21 @@ use super::error::PoolError;
 /// the main thread to know which component sent the message
 #[derive(Debug)]
 pub enum Sender {
-    Downstream(async_channel::Sender<Status>),
-    DownstreamListener(async_channel::Sender<Status>),
-    Upstream(async_channel::Sender<Status>),
+    DownstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
+    DownstreamListenerTokio(tokio::sync::mpsc::UnboundedSender<Status>),
+    UpstreamTokio(tokio::sync::mpsc::UnboundedSender<Status>),
+}
+
+#[derive(Debug)]
+pub enum Error {
+    TokioChannel(tokio::sync::mpsc::error::SendError<Status>),
+    TokioChannelUnbounded(tokio::sync::mpsc::error::SendError<Status>),
+}
+
+impl From<tokio::sync::mpsc::error::SendError<Status>> for Error {
+    fn from(value: tokio::sync::mpsc::error::SendError<Status>) -> Self {
+        Self::TokioChannel(value)
+    }
 }
 
 impl Sender {
@@ -18,16 +30,16 @@ impl Sender {
     pub fn listener_to_connection(&self) -> Self {
         match self {
             // should only be used to clone the DownstreamListener(Sender) into Downstream(Sender)s
-            Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
+            Self::DownstreamListenerTokio(inner) => Self::DownstreamTokio(inner.clone()),
             _ => unreachable!(),
         }
     }
 
-    pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {
+    pub async fn send(&self, status: Status) -> Result<(), Error> {
         match self {
-            Self::Downstream(inner) => inner.send(status).await,
-            Self::DownstreamListener(inner) => inner.send(status).await,
-            Self::Upstream(inner) => inner.send(status).await,
+            Self::DownstreamListenerTokio(inner) => inner.send(status).map_err(Error::TokioChannel),
+            Self::DownstreamTokio(inner) => inner.send(status).map_err(Error::TokioChannel),
+            Self::UpstreamTokio(inner) => inner.send(status).map_err(Error::TokioChannel),
         }
     }
 }
@@ -35,9 +47,9 @@ impl Sender {
 impl Clone for Sender {
     fn clone(&self) -> Self {
         match self {
-            Self::Downstream(inner) => Self::Downstream(inner.clone()),
-            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Upstream(inner) => Self::Upstream(inner.clone()),
+            Self::DownstreamTokio(inner) => Self::DownstreamTokio(inner.clone()),
+            Self::DownstreamListenerTokio(inner) => Self::DownstreamListenerTokio(inner.clone()),
+            Self::UpstreamTokio(inner) => Self::UpstreamTokio(inner.clone()),
         }
     }
 }
@@ -65,12 +77,11 @@ async fn send_status(
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
-        Sender::Downstream(tx) => match e {
+        Sender::DownstreamTokio(tx) => match e {
             PoolError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
                 tx.send(Status {
                     state: State::DownstreamInstanceDropped(id),
                 })
-                .await
                 .unwrap_or(());
             }
             _ => {
@@ -78,31 +89,27 @@ async fn send_status(
                 tx.send(Status {
                     state: State::Healthy(string_err),
                 })
-                .await
                 .unwrap_or(());
             }
         },
-        Sender::DownstreamListener(tx) => match e {
+        Sender::DownstreamListenerTokio(tx) => match e {
             PoolError::RolesLogic(roles_logic_sv2::Error::NoDownstreamsConnected) => {
                 tx.send(Status {
                     state: State::Healthy("No Downstreams Connected".to_string()),
                 })
-                .await
                 .unwrap_or(());
             }
             _ => {
                 tx.send(Status {
                     state: State::DownstreamShutdown(e),
                 })
-                .await
                 .unwrap_or(());
             }
         },
-        Sender::Upstream(tx) => {
+        Sender::UpstreamTokio(tx) => {
             tx.send(Status {
                 state: State::TemplateProviderShutdown(e),
             })
-            .await
             .unwrap_or(());
         }
     }
@@ -123,9 +130,6 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
             // the map won't get send called on them
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
-        PoolError::ChannelRecv(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
         PoolError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::Codec(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
@@ -145,6 +149,12 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         }
         PoolError::Sv2ProtocolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        PoolError::TokioChannelRecv(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        }
+        PoolError::TokioBroadcastChannelRecv(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
     }
 }

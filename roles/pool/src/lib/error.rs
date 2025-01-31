@@ -10,7 +10,6 @@ use roles_logic_sv2::parsers::Mining;
 pub enum PoolError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
-    ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
@@ -20,6 +19,8 @@ pub enum PoolError {
     ComponentShutdown(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
+    TokioChannelRecv(Box<dyn std::marker::Send + Debug>),
+    TokioBroadcastChannelRecv(tokio::sync::broadcast::error::RecvError),
 }
 
 impl std::fmt::Display for PoolError {
@@ -28,7 +29,6 @@ impl std::fmt::Display for PoolError {
         match self {
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
-            ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             Codec(ref e) => write!(f, "Codec SV2 error: `{:?}", e),
             Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -40,21 +40,23 @@ impl std::fmt::Display for PoolError {
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             }
+            TokioChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
+            TokioBroadcastChannelRecv(ref e) => write!(f, "BroadCastChannel Recv failed: {:?}", e),
         }
     }
 }
 
 pub type PoolResult<T> = Result<T, PoolError>;
 
-impl From<std::io::Error> for PoolError {
-    fn from(e: std::io::Error) -> PoolError {
-        PoolError::Io(e)
+impl From<tokio::sync::broadcast::error::RecvError> for PoolError {
+    fn from(value: tokio::sync::broadcast::error::RecvError) -> Self {
+        PoolError::TokioBroadcastChannelRecv(value)
     }
 }
 
-impl From<async_channel::RecvError> for PoolError {
-    fn from(e: async_channel::RecvError) -> PoolError {
-        PoolError::ChannelRecv(e)
+impl From<std::io::Error> for PoolError {
+    fn from(e: std::io::Error) -> PoolError {
+        PoolError::Io(e)
     }
 }
 
@@ -82,9 +84,19 @@ impl From<roles_logic_sv2::Error> for PoolError {
     }
 }
 
-impl<T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> for PoolError {
-    fn from(e: async_channel::SendError<T>) -> PoolError {
-        PoolError::ChannelSend(Box::new(e))
+impl<T: 'static + std::marker::Send + Debug> From<tokio::sync::mpsc::error::SendError<T>>
+    for PoolError
+{
+    fn from(e: tokio::sync::mpsc::error::SendError<T>) -> PoolError {
+        PoolError::TokioChannelRecv(Box::new(e))
+    }
+}
+
+impl<T: 'static + std::marker::Send + Debug> From<tokio::sync::broadcast::error::SendError<T>>
+    for PoolError
+{
+    fn from(e: tokio::sync::broadcast::error::SendError<T>) -> PoolError {
+        PoolError::TokioChannelRecv(Box::new(e))
     }
 }
 
