@@ -16,6 +16,7 @@ use std::convert::TryInto;
 // TP -> sniffer_a -> sniffer_b -> Pool
 #[tokio::test]
 async fn test_sniffer_intercept_to_downstream() {
+    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let message_replacement =
         PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
