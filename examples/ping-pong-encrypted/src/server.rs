@@ -6,7 +6,7 @@ use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 
 use codec_sv2::{HandshakeRole, Responder};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 
 use async_channel::{Receiver, Sender};
 use tokio::net::TcpListener;

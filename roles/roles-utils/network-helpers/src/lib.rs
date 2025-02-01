@@ -1,8 +1,8 @@
 use binary_sv2::{Deserialize, GetSize, Serialize};
 #[cfg(feature = "tokio")]
-pub mod noise_connection_tokio;
+pub mod noise_connection;
 #[cfg(feature = "tokio")]
-pub mod plain_connection_tokio;
+pub mod plain_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
