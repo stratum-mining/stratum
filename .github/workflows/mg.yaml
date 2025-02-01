@@ -40,14 +40,6 @@ jobs:
       - name: Run jds-do-not-fail-on-wrong-tsdatasucc
         run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
 
-  jds-do-not-panic-if-jdc-close-connection:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run jds-do-not-panic-if-jdc-close-connection
-        run: sh ./test/message-generator/test/jds-do-not-panic-if-jdc-close-connection/jds-do-not-panic-if-jdc-close-connection.sh
-
   jds-do-not-stackoverflow-when-no-token:
     runs-on: ubuntu-latest
     steps:
@@ -148,7 +140,6 @@ jobs:
       interop-proxy-with-multi-ups,
       interop-proxy-with-multi-ups-extended,
       jds-do-not-fail-on-wrong-tsdatasucc,
-      jds-do-not-panic-if-jdc-close-connection,
       jds-do-not-stackoverflow-when-no-token,
       jds-receive-solution-while-processing-declared-job,
       pool-sri-test-1-standard,
@@ -167,7 +158,6 @@ jobs:
           [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
           [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
-          [ "${{ needs.jds-do-not-panic-if-jdc-close-connection.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||
           [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||

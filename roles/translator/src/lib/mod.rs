@@ -78,7 +78,7 @@ impl TranslatorSv2 {
         // Check all tasks if is_finished() is true, if so exit
 
         tokio::spawn({
-            let shutdown_signal = self.shutdown();
+            let shutdown_signal = self.shutdown.clone();
             async move {
                 if tokio::signal::ctrl_c().await.is_ok() {
                     info!("Interrupt received");
@@ -94,7 +94,7 @@ impl TranslatorSv2 {
                         match task_status_.state {
                             State::DownstreamShutdown(err) | State::BridgeShutdown(err) | State::UpstreamShutdown(err) => {
                                 error!("SHUTDOWN from: {}", err);
-                                self.shutdown().notify_one();
+                                self.shutdown();
                             }
                             State::UpstreamTryReconnect(err) => {
                                 error!("Trying to reconnect the Upstream because of: {}", err);
@@ -126,16 +126,18 @@ impl TranslatorSv2 {
                             }
                             State::Healthy(msg) => {
                                 info!("HEALTHY message: {}", msg);
-                                self.shutdown().notify_one();
+                                self.shutdown();
                             }
                         }
                     } else {
                         info!("Channel closed");
+                        kill_tasks(task_collector.clone());
                         break; // Channel closed
                     }
                 }
                 _ = self.shutdown.notified() => {
                     info!("Shutting down gracefully...");
+                    kill_tasks(task_collector.clone());
                     break;
                 }
             }
@@ -288,8 +290,13 @@ impl TranslatorSv2 {
             task_collector.safe_lock(|t| t.push((task.abort_handle(), "init task".to_string())));
     }
 
-    pub fn shutdown(&self) -> Arc<Notify> {
-        self.shutdown.clone()
+    /// Closes Translator role and any open connection associated with it.
+    ///
+    /// Note that this method will result in a full exit of the  running
+    /// Translator and any open connection most be re-initiated upon new
+    /// start.
+    pub fn shutdown(&self) {
+        self.shutdown.notify_one();
     }
 }
 
@@ -300,4 +307,43 @@ fn kill_tasks(task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>) {
             warn!("Killed task: {:?}", handle.1);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TranslatorSv2;
+    use ext_config::{Config, File, FileFormat};
+
+    use crate::*;
+
+    #[tokio::test]
+    async fn test_shutdown() {
+        let config_path = "config-examples/tproxy-config-hosted-pool-example.toml";
+        let config: ProxyConfig = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<ProxyConfig>() {
+                Ok(c) => c,
+                Err(e) => {
+                    dbg!(&e);
+                    return;
+                }
+            },
+            Err(e) => {
+                dbg!(&e);
+                return;
+            }
+        };
+        let translator = TranslatorSv2::new(config.clone());
+        let cloned = translator.clone();
+        tokio::spawn(async move {
+            cloned.start().await;
+        });
+        translator.shutdown();
+        let ip = config.downstream_address.clone();
+        let port = config.downstream_port;
+        let translator_addr = format!("{}:{}", ip, port);
+        assert!(std::net::TcpListener::bind(translator_addr).is_ok());
+    }
 }

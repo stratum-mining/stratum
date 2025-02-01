@@ -79,7 +79,7 @@ impl JobDeclaratorClient {
         let task_collector = Arc::new(Mutex::new(vec![]));
 
         tokio::spawn({
-            let shutdown_signal = self.shutdown();
+            let shutdown_signal = self.shutdown.clone();
             async move {
                 if tokio::signal::ctrl_c().await.is_ok() {
                     info!("Interrupt received");
@@ -93,17 +93,18 @@ impl JobDeclaratorClient {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
             let proxy_config = proxy_config.clone();
+            let root_handler;
             if let Some(upstream) = proxy_config.upstreams.get(upstream_index) {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
                 let upstream = upstream.clone();
-                tokio::spawn(async move {
+                root_handler = tokio::spawn(async move {
                     Self::initialize_jd(proxy_config, tx_status, task_collector, upstream).await;
                 });
             } else {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
-                tokio::spawn(async move {
+                root_handler = tokio::spawn(async move {
                     Self::initialize_jd_as_solo_miner(
                         proxy_config,
                         tx_status.clone(),
@@ -165,12 +166,28 @@ impl JobDeclaratorClient {
                             }
                         } else {
                             info!("Received unknown task. Shutting down.");
+                            task_collector
+                                .safe_lock(|s| {
+                                    for handle in s {
+                                        handle.abort();
+                                    }
+                                })
+                                .unwrap();
+                            root_handler.abort();
                             break 'outer;
                         }
                     },
                     _ = self.shutdown.notified().fuse() => {
                         info!("Shutting down gracefully...");
-                        std::process::exit(0);
+                        task_collector
+                            .safe_lock(|s| {
+                                for handle in s {
+                                    handle.abort();
+                                }
+                            })
+                            .unwrap();
+                        root_handler.abort();
+                        break 'outer;
                     }
                 };
             }
@@ -371,8 +388,14 @@ impl JobDeclaratorClient {
         .await;
     }
 
-    pub fn shutdown(&self) -> Arc<Notify> {
-        self.shutdown.clone()
+    /// Closes JDC role and any open connection associated with it.
+    ///
+    /// Note that this method will result in a full exit of the  running
+    /// jd-client and any open connection most be re-initiated upon new
+    /// start.
+    #[allow(dead_code)]
+    pub fn shutdown(&self) {
+        self.shutdown.notify_one();
     }
 }
 
@@ -407,5 +430,43 @@ impl PoolChangerTrigger {
         if let Some(task) = self.task.take() {
             task.abort();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ext_config::{Config, File, FileFormat};
+
+    use crate::*;
+
+    #[tokio::test]
+    async fn test_shutdown() {
+        let config_path = "config-examples/jdc-config-hosted-example.toml";
+        let config: ProxyConfig = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<ProxyConfig>() {
+                Ok(c) => c,
+                Err(e) => {
+                    dbg!(&e);
+                    return;
+                }
+            },
+            Err(e) => {
+                dbg!(&e);
+                return;
+            }
+        };
+        let jdc = JobDeclaratorClient::new(config.clone());
+        let cloned = jdc.clone();
+        tokio::spawn(async move {
+            cloned.start().await;
+        });
+        jdc.shutdown();
+        let ip = config.downstream_address.clone();
+        let port = config.downstream_port;
+        let jdc_addr = format!("{}:{}", ip, port);
+        assert!(std::net::TcpListener::bind(jdc_addr).is_ok());
     }
 }
