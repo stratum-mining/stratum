@@ -5,15 +5,14 @@ use crate::{
     status,
 };
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{
-    io::BufReader,
-    net::{TcpListener, TcpStream},
-    prelude::*,
-    task,
-};
 use error_handling::handle_result;
-use futures::FutureExt;
-use tokio::{sync::broadcast, task::AbortHandle};
+use futures::{FutureExt, StreamExt};
+use tokio::{
+    io::{AsyncWriteExt, BufReader},
+    net::{TcpListener, TcpStream},
+    sync::broadcast,
+    task::AbortHandle,
+};
 
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
@@ -112,15 +111,9 @@ impl Downstream {
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
-        let stream = std::sync::Arc::new(stream);
-
         // Reads and writes from Downstream SV1 Mining Device Client
-        let (socket_reader, socket_writer) = (stream.clone(), stream);
+        let (socket_reader, mut socket_writer) = stream.into_split();
         let (tx_outgoing, receiver_outgoing) = bounded(10);
-
-        let socket_writer_clone = socket_writer.clone();
-        // Used to send SV1 `mining.notify` messages to the Downstreams
-        let _socket_writer_notify = socket_writer;
 
         let downstream = Arc::new(Mutex::new(Downstream {
             connection_id,
@@ -160,11 +153,9 @@ impl Downstream {
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
         let socket_reader_task = tokio::task::spawn(async move {
-            let reader = BufReader::new(&*socket_reader);
-            let mut messages = FramedRead::new(
-                async_compat::Compat::new(reader),
-                LinesCodec::new_with_max_length(MAX_LINE_LENGTH),
-            );
+            let reader = BufReader::new(socket_reader);
+            let mut messages =
+                FramedRead::new(reader, LinesCodec::new_with_max_length(MAX_LINE_LENGTH));
             loop {
                 // Read message from SV1 Mining Device Client socket
                 // On message receive, parse to `json_rpc:Message` and send to Upstream
@@ -238,7 +229,7 @@ impl Downstream {
                             }
                         };
                         debug!("Sending to Mining Device: {} - {:?}", &host_, &to_send);
-                        let res = (&*socket_writer_clone)
+                        let res = socket_writer
                                     .write_all(to_send.as_bytes())
                                     .await;
                         handle_result!(tx_status_writer, res);
@@ -341,7 +332,7 @@ impl Downstream {
                         );
                         break;
                     }
-                    task::sleep(std::time::Duration::from_secs(1)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
             let _ = Self::remove_miner_hashrate_from_channel(self_);
@@ -369,41 +360,45 @@ impl Downstream {
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
-        let task_collector_downstream = task_collector.clone();
+        let accept_connections = tokio::task::spawn({
+            let task_collector = task_collector.clone();
+            async move {
+                let listener = TcpListener::bind(downstream_addr).await.unwrap();
 
-        let accept_connections = tokio::task::spawn(async move {
-            let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
-            let mut downstream_incoming = downstream_listener.incoming();
+                while let Ok((stream, _)) = listener.accept().await {
+                    let expected_hash_rate =
+                        downstream_difficulty_config.min_individual_miner_hashrate;
+                    let open_sv1_downstream = bridge
+                        .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
+                        .unwrap();
 
-            while let Some(stream) = downstream_incoming.next().await {
-                let stream = stream.expect("Err on SV1 Downstream connection stream");
-                let expected_hash_rate = downstream_difficulty_config.min_individual_miner_hashrate;
-                let open_sv1_downstream = bridge
-                    .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
-                    .unwrap();
+                    let host = stream.peer_addr().unwrap().to_string();
 
-                let host = stream.peer_addr().unwrap().to_string();
-                match open_sv1_downstream {
-                    Ok(opened) => {
-                        info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", host);
-                        Downstream::new_downstream(
-                            stream,
-                            opened.channel_id,
-                            tx_sv1_submit.clone(),
-                            tx_mining_notify.subscribe(),
-                            tx_status.listener_to_connection(),
-                            opened.extranonce,
-                            opened.last_notify,
-                            opened.extranonce2_len as usize,
-                            host,
-                            downstream_difficulty_config.clone(),
-                            upstream_difficulty_config.clone(),
-                            task_collector_downstream.clone(),
-                        )
-                        .await;
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to create a new downstream connection: {:?}", e);
+                    match open_sv1_downstream {
+                        Ok(opened) => {
+                            info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", host);
+                            Downstream::new_downstream(
+                                stream,
+                                opened.channel_id,
+                                tx_sv1_submit.clone(),
+                                tx_mining_notify.subscribe(),
+                                tx_status.listener_to_connection(),
+                                opened.extranonce,
+                                opened.last_notify,
+                                opened.extranonce2_len as usize,
+                                host,
+                                downstream_difficulty_config.clone(),
+                                upstream_difficulty_config.clone(),
+                                task_collector.clone(),
+                            )
+                            .await;
+                        }
+                        Err(e) => {
+                            tracing::error!(
+                                "Failed to create a new downstream connection: {:?}",
+                                e
+                            );
+                        }
                     }
                 }
             }

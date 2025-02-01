@@ -9,12 +9,11 @@ use crate::{
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use async_std::net::TcpStream;
 use binary_sv2::u256_from_int;
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::Connection;
+use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -38,6 +37,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 use tokio::{
+    net::TcpStream,
     task::AbortHandle,
     time::{sleep, Duration},
 };
@@ -154,7 +154,7 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator), 10)
+        let (receiver, sender, _, _) = Connection::new(socket, HandshakeRole::Initiator(initiator))
             .await
             .unwrap();
         // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and

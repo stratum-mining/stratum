@@ -247,7 +247,7 @@ impl TranslatorSv2 {
                 if target != [0; 32] {
                     break;
                 };
-                async_std::task::sleep(std::time::Duration::from_millis(100)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             }
 
             let task_collector_bridge = task_collector_init_task.clone();
