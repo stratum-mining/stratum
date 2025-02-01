@@ -2,7 +2,7 @@
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
 use serde::Deserialize;
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
 use stratum_common::bitcoin::TxOut;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -36,8 +36,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProxyConfig {
-    pub downstream_address: String,
-    pub downstream_port: u16,
+    pub listen_address: SocketAddr,
     pub max_supported_version: u16,
     pub min_supported_version: u16,
     pub min_extranonce2_size: u16,
@@ -118,7 +117,7 @@ impl ProtocolConfig {
 
 impl ProxyConfig {
     pub fn new(
-        listening_address: std::net::SocketAddr,
+        listen_address: std::net::SocketAddr,
         protocol_config: ProtocolConfig,
         withhold: bool,
         pool_config: PoolConfig,
@@ -127,8 +126,7 @@ impl ProxyConfig {
         timeout: Duration,
     ) -> Self {
         Self {
-            downstream_address: listening_address.ip().to_string(),
-            downstream_port: listening_address.port(),
+            listen_address,
             max_supported_version: protocol_config.max_supported_version,
             min_supported_version: protocol_config.min_supported_version,
             min_extranonce2_size: protocol_config.min_extranonce2_size,

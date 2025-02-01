@@ -100,6 +100,10 @@ impl PoolSv2 {
             }
         }
     }
+
+    pub fn is_listening(&self) -> bool {
+        std::net::TcpStream::connect(self.config.listen_address).is_ok()
+    }
 }
 
 #[cfg(test)]

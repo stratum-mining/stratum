@@ -20,6 +20,7 @@ use roles_logic_sv2::{
 use serde::Deserialize;
 use std::{
     convert::{TryFrom, TryInto},
+    net::SocketAddr,
     time::Duration,
 };
 use stratum_common::bitcoin::{Script, TxOut};
@@ -200,6 +201,10 @@ impl JobDeclaratorServer {
             }
         }
     }
+
+    pub fn is_listening(&self) -> bool {
+        std::net::TcpStream::connect(self.config.listen_jd_address).is_ok()
+    }
 }
 
 pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
@@ -251,7 +256,7 @@ impl CoinbaseOutput {
 pub struct Configuration {
     #[serde(default = "default_true")]
     pub async_mining_allowed: bool,
-    pub listen_jd_address: String,
+    pub listen_jd_address: SocketAddr,
     pub authority_public_key: Secp256k1PublicKey,
     pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
@@ -285,7 +290,7 @@ impl CoreRpc {
 
 impl Configuration {
     pub fn new(
-        listen_jd_address: String,
+        listen_jd_address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
         authority_secret_key: Secp256k1SecretKey,
         cert_validity_sec: u64,

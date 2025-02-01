@@ -93,7 +93,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
-    pub listen_address: String,
+    pub listen_address: SocketAddr,
     pub tp_address: String,
     pub tp_authority_public_key: Option<Secp256k1PublicKey>,
     pub authority_public_key: Secp256k1PublicKey,
@@ -134,13 +134,13 @@ impl AuthorityConfig {
 }
 
 pub struct ConnectionConfig {
-    listen_address: String,
+    listen_address: SocketAddr,
     cert_validity_sec: u64,
     signature: String,
 }
 
 impl ConnectionConfig {
-    pub fn new(listen_address: String, cert_validity_sec: u64, signature: String) -> Self {
+    pub fn new(listen_address: SocketAddr, cert_validity_sec: u64, signature: String) -> Self {
         Self {
             listen_address,
             cert_validity_sec,
