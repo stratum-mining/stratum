@@ -5,7 +5,7 @@ use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
 use tracing::{info, warn};
 
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use network_helpers_sv2::plain_connection_tokio::PlainConnection;
+use network_helpers_sv2::plain_connection::PlainConnection;
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},

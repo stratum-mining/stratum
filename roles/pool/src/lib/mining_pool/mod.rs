@@ -7,7 +7,7 @@ use binary_sv2::U256;
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
