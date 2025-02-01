@@ -1,5 +1,5 @@
 [default]
-features = "with_buffer_pool tokio with_tokio default"
+features = "with_buffer_pool default"
 run-types = [ "Lib" ]
 timeout = "120s"
 fail-under = 0
