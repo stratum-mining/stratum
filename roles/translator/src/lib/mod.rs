@@ -266,16 +266,10 @@ impl TranslatorSv2 {
             );
             proxy::Bridge::start(b.clone());
 
-            // Format `Downstream` connection address
-            let downstream_addr = SocketAddr::new(
-                IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
-                proxy_config.downstream_port,
-            );
-
             let task_collector_downstream = task_collector_init_task.clone();
             // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
             downstream_sv1::Downstream::accept_connections(
-                downstream_addr,
+                proxy_config.listen_address,
                 tx_sv1_bridge,
                 tx_sv1_notify,
                 status::Sender::DownstreamListener(tx_status.clone()),
@@ -296,6 +290,10 @@ impl TranslatorSv2 {
     /// start.
     pub fn shutdown(&self) {
         self.shutdown.notify_one();
+    }
+
+    pub fn is_listening(&self) -> bool {
+        std::net::TcpStream::connect(self.config.listen_address).is_ok()
     }
 }
 

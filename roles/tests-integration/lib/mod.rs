@@ -203,7 +203,6 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     )
     .expect("failed");
     let listening_address = get_available_address();
-    let listening_port = listening_address.port();
     let hashrate = measure_hashrate(1) as f32 / 100.0;
     let min_individual_miner_hashrate = hashrate;
     let shares_per_minute = 60.0;
@@ -229,8 +228,7 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
         upstream_difficulty_config,
     );
     let downstream_conf = translator_sv2::proxy_config::DownstreamConfig::new(
-        listening_address.ip().to_string(),
-        listening_port,
+        listening_address,
         downstream_difficulty_config,
     );
 

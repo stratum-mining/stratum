@@ -1,13 +1,13 @@
 use key_utils::Secp256k1PublicKey;
 use serde::Deserialize;
+use std::net::SocketAddr;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProxyConfig {
     pub upstream_address: String,
     pub upstream_port: u16,
     pub upstream_authority_pubkey: Secp256k1PublicKey,
-    pub downstream_address: String,
-    pub downstream_port: u16,
+    pub listen_address: SocketAddr,
     pub max_supported_version: u16,
     pub min_supported_version: u16,
     pub min_extranonce2_size: u16,
@@ -39,16 +39,14 @@ impl UpstreamConfig {
 }
 
 pub struct DownstreamConfig {
-    address: String,
-    port: u16,
+    listen_address: SocketAddr,
     difficulty_config: DownstreamDifficultyConfig,
 }
 
 impl DownstreamConfig {
-    pub fn new(address: String, port: u16, difficulty_config: DownstreamDifficultyConfig) -> Self {
+    pub fn new(listen_address: SocketAddr, difficulty_config: DownstreamDifficultyConfig) -> Self {
         Self {
-            address,
-            port,
+            listen_address,
             difficulty_config,
         }
     }
@@ -66,8 +64,7 @@ impl ProxyConfig {
             upstream_address: upstream.address,
             upstream_port: upstream.port,
             upstream_authority_pubkey: upstream.authority_pubkey,
-            downstream_address: downstream.address,
-            downstream_port: downstream.port,
+            listen_address: downstream.listen_address,
             max_supported_version,
             min_supported_version,
             min_extranonce2_size,
