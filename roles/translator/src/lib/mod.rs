@@ -126,7 +126,6 @@ impl TranslatorSv2 {
                             }
                             State::Healthy(msg) => {
                                 info!("HEALTHY message: {}", msg);
-                                self.shutdown();
                             }
                         }
                     } else {
