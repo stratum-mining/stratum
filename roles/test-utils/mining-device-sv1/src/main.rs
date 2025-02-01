@@ -5,7 +5,7 @@ use std::{net::SocketAddr, str::FromStr};
 
 pub(crate) use client::Client;
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     tracing_subscriber::fmt().init();
 
