@@ -178,7 +178,7 @@ pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAd
         "tp_password".to_string(),
     );
     let config = Configuration::new(
-        listen_jd_address.to_string(),
+        listen_jd_address,
         authority_public_key,
         authority_secret_key,
         cert_validity_sec,
