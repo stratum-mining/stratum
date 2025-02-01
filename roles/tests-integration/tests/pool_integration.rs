@@ -1,4 +1,5 @@
 use integration_tests_sv2::*;
+use tracing_subscriber::EnvFilter;
 
 use crate::sniffer::MessageDirection;
 use const_sv2::{
@@ -16,6 +17,9 @@ use roles_logic_sv2::{
 // Pool will connect to the Sniffer, and the Sniffer will connect to the Template Provider.
 #[tokio::test]
 async fn success_pool_template_provider_connection() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, true, None).await;
     let _ = start_pool(Some(sniffer_addr)).await;

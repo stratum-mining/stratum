@@ -1,6 +1,7 @@
 use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 use integration_tests_sv2::{sniffer::*, *};
 use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
+use tracing_subscriber::EnvFilter;
 
 // This test runs an sv2 translator between an sv1 mining device and a pool. the connection between
 // the translator and the pool is intercepted by a sniffer. The test checks if the translator and
@@ -8,6 +9,9 @@ use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
 // shares.
 #[tokio::test]
 async fn translation_proxy() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
