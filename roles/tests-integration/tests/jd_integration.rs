@@ -35,3 +35,17 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
     let (_jdc, _jdc_addr) = start_jdc(pool_addr, tp_addr, sniffer_addr).await;
     assert_common_message!(sniffer.next_message_from_downstream(), SetupConnection);
 }
+
+// This test makes sure that JDS will not stop listening after one
+// downstream client disconnects
+#[tokio::test]
+async fn jds_survives_downstream_disconnect() {
+    todo!()
+}
+
+// This test makes sure that JDC will not stop listening after one
+// downstream client disconnects
+#[tokio::test]
+async fn jdc_survives_downstream_disconnect() {
+    todo!()
+}

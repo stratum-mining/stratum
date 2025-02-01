@@ -44,3 +44,31 @@ async fn translation_proxy() {
         )
         .await;
 }
+
+// This test makes sure that tProxy will not stop listening after one
+// downstream client disconnects
+#[tokio::test]
+async fn tproxy_survives_downstream_disconnect() {
+    let (_tp, tp_addr) = start_template_provider(None).await;
+    let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
+    let (tproxy, tproxy_addr) = start_sv2_translator(pool_addr).await;
+
+    // emulate first downstream
+    let downstream_a = std::net::TcpStream::connect(tproxy_addr).unwrap();
+
+    // emulate second downstream
+    let _downstream_b = std::net::TcpStream::connect(tproxy_addr).unwrap();
+
+    // wait a bit to make sure the TCP sockets are processed
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    // kill downstream_a
+    downstream_a.shutdown(std::net::Shutdown::Both).unwrap();
+    drop(downstream_a);
+
+    // wait a bit to make sure the TCP sockets are processed
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    // tproxy still listening
+    assert!(tproxy.is_listening());
+}
