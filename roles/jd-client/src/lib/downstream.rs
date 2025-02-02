@@ -658,7 +658,7 @@ impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
     }
 }
 
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 use std::net::SocketAddr;
 use tokio::{
     net::TcpListener,

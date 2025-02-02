@@ -10,7 +10,7 @@ use tokio::{net::TcpStream, task};
 use tracing::{debug, error, info};
 
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     channel_logic::{
         channel_factory::{ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share},
