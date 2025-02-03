@@ -586,7 +586,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             share_per_min,
             channel_kind,
             vec![],
-            pool_signature,
+            pool_signature.into(),
         );
         let extranonce: Extranonce = m
             .extranonce_prefix

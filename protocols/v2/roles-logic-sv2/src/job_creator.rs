@@ -76,7 +76,7 @@ impl JobsCreators {
         template: &mut NewTemplate,
         version_rolling_allowed: bool,
         mut pool_coinbase_outputs: Vec<TxOut>,
-        additional_coinbase_script_data: String,
+        additional_coinbase_script_data: Vec<u8>,
     ) -> Result<NewExtendedMiningJob<'static>, Error> {
         let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
         let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
@@ -146,7 +146,7 @@ impl JobsCreators {
 /// Converts custom job into extended job
 pub fn extended_job_from_custom_job(
     referenced_job: &mining_sv2::SetCustomMiningJob,
-    additional_coinbase_script_data: String,
+    additional_coinbase_script_data: Vec<u8>,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     let mut outputs =
@@ -187,7 +187,7 @@ pub fn extended_job_from_custom_job(
 fn new_extended_job(
     new_template: &mut NewTemplate,
     coinbase_outputs: &mut [TxOut],
-    additional_coinbase_script_data: String,
+    additional_coinbase_script_data: Vec<u8>,
     job_id: u32,
     version_rolling_allowed: bool,
     extranonce_len: u8,
@@ -204,7 +204,7 @@ fn new_extended_job(
         .map_err(|_| Error::TxVersionTooBig)?;
 
     let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
-    let script_prefix_len = bip34_bytes.len() + additional_coinbase_script_data.as_bytes().len();
+    let script_prefix_len = bip34_bytes.len() + additional_coinbase_script_data.len();
 
     let coinbase = coinbase(
         bip34_bytes,
@@ -333,7 +333,7 @@ fn coinbase(
     lock_time: u32,
     sequence: u32,
     coinbase_outputs: &[TxOut],
-    additional_coinbase_script_data: String,
+    additional_coinbase_script_data: Vec<u8>,
     extranonce_len: u8,
 ) -> Transaction {
     // If script_prefix_len is not 0 we are not in a test environment and the coinbase have the 0
@@ -342,7 +342,7 @@ fn coinbase(
         0 => Witness::from_vec(vec![]),
         _ => Witness::from_vec(vec![vec![0; 32]]),
     };
-    bip34_bytes.extend_from_slice(additional_coinbase_script_data.as_bytes());
+    bip34_bytes.extend_from_slice(&additional_coinbase_script_data);
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
@@ -563,7 +563,12 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         let job = jobs_creators
-            .on_new_template(template.borrow_mut(), false, vec![out], "".to_string())
+            .on_new_template(
+                template.borrow_mut(),
+                false,
+                vec![out],
+                "".as_bytes().to_vec(),
+            )
             .unwrap();
 
         assert_eq!(
@@ -587,8 +592,12 @@ pub mod tests {
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
-        let _ =
-            jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], "".to_string());
+        let _ = jobs_creators.on_new_template(
+            template.borrow_mut(),
+            false,
+            vec![out],
+            "".as_bytes().to_vec(),
+        );
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
@@ -622,8 +631,12 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         //Create a template
-        let _ =
-            jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], "".to_string());
+        let _ = jobs_creators.on_new_template(
+            template.borrow_mut(),
+            false,
+            vec![out],
+            "".as_bytes().to_vec(),
+        );
         let test_id = template.template_id;
 
         // Create a SetNewPrevHash with matching template_id
