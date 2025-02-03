@@ -298,7 +298,7 @@ mod tests {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
         };
-        let additional_coinbase_script_data = "Stratum v2 SRI Pool".to_string();
+        let additional_coinbase_script_data = "Stratum v2 SRI Pool".as_bytes().to_vec();
         let mut jobs_creators = JobsCreators::new(32);
         let group_channel_id = 1;
         //Create a template
