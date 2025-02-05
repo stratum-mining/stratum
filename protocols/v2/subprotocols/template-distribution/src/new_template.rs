@@ -1,11 +1,8 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::Error;
-use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{
+    binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2},
+    Deserialize, Error, Seq0255, Serialize, B0255, B064K, U256,
+};
 use core::convert::TryInto;
 
 /// Message used by an upstream(Template Provider) to provide a new template for downstream to mine
@@ -36,7 +33,6 @@ pub struct NewTemplate<'decoder> {
     pub coinbase_tx_version: u32,
     /// Up to 8 bytes (not including the length byte) which are to be placed at the beginning of
     /// the coinbase field in the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_prefix: B0255<'decoder>,
     /// The coinbase transaction input’s `nSequence` field.
     pub coinbase_tx_input_sequence: u32,
@@ -49,18 +45,15 @@ pub struct NewTemplate<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs in the coinbase transaction.
     ///
     /// Note that those bytes will appear as is at the end of the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_outputs: B064K<'decoder>,
     /// The `locktime` field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
 /// C representation of [`NewTemplate`].
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 pub struct CNewTemplate {
     template_id: u64,
     future_template: bool,
@@ -77,12 +70,10 @@ pub struct CNewTemplate {
 
 /// Drops the [`CNewTemplate`] object.
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_new_template(s: CNewTemplate) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CNewTemplate {
     fn drop(&mut self) {
         free_vec(&mut self.coinbase_prefix);
@@ -91,7 +82,6 @@ impl Drop for CNewTemplate {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<NewTemplate<'a>> for CNewTemplate {
     fn from(v: NewTemplate<'a>) -> Self {
         Self {
@@ -110,10 +100,9 @@ impl<'a> From<NewTemplate<'a>> for CNewTemplate {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CNewTemplate {
     /// Converts from C to Rust representation.
-    #[cfg(not(feature = "with_serde"))]
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
         let coinbase_prefix: B0255 = self.coinbase_prefix.as_mut_slice().try_into()?;
@@ -140,34 +129,6 @@ impl<'a> CNewTemplate {
             coinbase_tx_locktime: self.coinbase_tx_locktime,
             merkle_path,
         })
-    }
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for NewTemplate<'d> {
-    fn get_size(&self) -> usize {
-        self.template_id.get_size()
-            + self.future_template.get_size()
-            + self.version.get_size()
-            + self.coinbase_tx_version.get_size()
-            + self.coinbase_prefix.get_size()
-            + self.coinbase_tx_input_sequence.get_size()
-            + self.coinbase_tx_value_remaining.get_size()
-            + self.coinbase_tx_outputs_count.get_size()
-            + self.coinbase_tx_outputs.get_size()
-            + self.coinbase_tx_locktime.get_size()
-            + self.merkle_path.get_size()
-    }
-}
-
-#[cfg(feature = "with_serde")]
-impl<'a> NewTemplate<'a> {
-    pub fn into_static(self) -> NewTemplate<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> NewTemplate<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 

@@ -1,11 +1,8 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::Error;
-use binary_sv2::{Deserialize, Seq064K, Serialize, Str0255, B016M, B064K};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{
+    binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2},
+    Deserialize, Error, Seq064K, Serialize, Str0255, B016M, B064K,
+};
 use core::convert::TryInto;
 
 /// Message used by a downstream to request data about all transactions in a block template.
@@ -60,26 +57,22 @@ pub struct RequestTransactionDataSuccess<'decoder> {
     /// The template_id corresponding to a NewTemplate/RequestTransactionData message.
     pub template_id: u64,
     /// Extra data which the Pool may require to validate the work.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub excess_data: B064K<'decoder>,
     /// The transaction data, serialized as a series of B0_16M byte arrays.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
 }
 
 /// C representation of [`RequestTransactionDataSuccess`].
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 pub struct CRequestTransactionDataSuccess {
     template_id: u64,
     excess_data: CVec,
     transaction_list: CVec2,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CRequestTransactionDataSuccess {
     /// Converts C struct to Rust struct.
-    #[cfg(not(feature = "with_serde"))]
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataSuccess<'a>, Error> {
         let excess_data: B064K = self.excess_data.as_mut_slice().try_into()?;
@@ -99,12 +92,10 @@ impl<'a> CRequestTransactionDataSuccess {
 
 /// Drops the CRequestTransactionDataSuccess object.
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_request_tx_data_success(s: CRequestTransactionDataSuccess) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CRequestTransactionDataSuccess {
     fn drop(&mut self) {
         free_vec(&mut self.excess_data);
@@ -112,7 +103,6 @@ impl Drop for CRequestTransactionDataSuccess {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<RequestTransactionDataSuccess<'a>> for CRequestTransactionDataSuccess {
     fn from(v: RequestTransactionDataSuccess<'a>) -> Self {
         Self {
@@ -133,22 +123,19 @@ pub struct RequestTransactionDataError<'decoder> {
     ///
     /// Possible error codes:
     /// - template-id-not-found
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
 
 /// C representation of [`RequestTransactionDataError`].
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 pub struct CRequestTransactionDataError {
     template_id: u64,
     error_code: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CRequestTransactionDataError {
     /// Converts C struct to Rust struct.
-    #[cfg(not(feature = "with_serde"))]
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataError<'a>, Error> {
         let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
@@ -161,45 +148,21 @@ impl<'a> CRequestTransactionDataError {
 
 /// Drops the CRequestTransactionDataError object.
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_request_tx_data_error(s: CRequestTransactionDataError) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CRequestTransactionDataError {
     fn drop(&mut self) {
         free_vec(&mut self.error_code);
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<RequestTransactionDataError<'a>> for CRequestTransactionDataError {
     fn from(v: RequestTransactionDataError<'a>) -> Self {
         Self {
             template_id: v.template_id,
             error_code: v.error_code.into(),
         }
-    }
-}
-
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for RequestTransactionDataSuccess<'d> {
-    fn get_size(&self) -> usize {
-        self.template_id.get_size() + self.excess_data.get_size() + self.transaction_list.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for RequestTransactionDataError<'d> {
-    fn get_size(&self) -> usize {
-        self.template_id.get_size() + self.error_code.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl GetSize for RequestTransactionData {
-    fn get_size(&self) -> usize {
-        self.template_id.get_size()
     }
 }

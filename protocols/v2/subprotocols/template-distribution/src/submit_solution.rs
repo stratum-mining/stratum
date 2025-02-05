@@ -1,11 +1,8 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::Error;
-use binary_sv2::{Deserialize, Serialize, B064K};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{
+    binary_codec_sv2::{self, free_vec, CVec},
+    Deserialize, Error, Serialize, B064K,
+};
 use core::convert::TryInto;
 
 /// Message used by a downstream to submit a successful solution to a previously provided template.
@@ -39,12 +36,10 @@ pub struct SubmitSolution<'decoder> {
     pub header_nonce: u32,
     /// Full serialized coinbase transaction, meeting all the requirements of the `NewMiningJob` or
     /// `NewExtendedMiningJob` message.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx: B064K<'decoder>,
 }
 
 /// C representation of [`SubmitSolution`].
-#[cfg(not(feature = "with_serde"))]
 #[repr(C)]
 pub struct CSubmitSolution {
     template_id: u64,
@@ -54,10 +49,9 @@ pub struct CSubmitSolution {
     coinbase_tx: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CSubmitSolution {
     /// Converts CSubmitSolution(C representation) to SubmitSolution(Rust representation).
-    #[cfg(not(feature = "with_serde"))]
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {
         let coinbase_tx: B064K = self.coinbase_tx.as_mut_slice().try_into()?;
@@ -74,19 +68,16 @@ impl<'a> CSubmitSolution {
 
 /// Drops the CSubmitSolution object.
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_submit_solution(s: CSubmitSolution) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CSubmitSolution {
     fn drop(&mut self) {
         free_vec(&mut self.coinbase_tx);
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<SubmitSolution<'a>> for CSubmitSolution {
     fn from(v: SubmitSolution<'a>) -> Self {
         Self {
@@ -96,17 +87,5 @@ impl<'a> From<SubmitSolution<'a>> for CSubmitSolution {
             header_nonce: v.header_nonce,
             coinbase_tx: v.coinbase_tx.into(),
         }
-    }
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SubmitSolution<'d> {
-    fn get_size(&self) -> usize {
-        self.template_id.get_size()
-            + self.version.get_size()
-            + self.header_timestamp.get_size()
-            + self.header_nonce.get_size()
-            + self.coinbase_tx.get_size()
     }
 }

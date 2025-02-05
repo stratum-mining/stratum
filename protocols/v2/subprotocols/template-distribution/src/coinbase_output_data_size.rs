@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 use core::convert::TryInto;
 
 /// Message used by a downstream to indicate the size of the additional bytes they will need in
@@ -31,13 +27,4 @@ use core::convert::TryInto;
 pub struct CoinbaseOutputDataSize {
     /// Additional serialized bytes needed in coinbase transaction outputs.
     pub coinbase_output_max_additional_size: u32,
-}
-
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl GetSize for CoinbaseOutputDataSize {
-    fn get_size(&self) -> usize {
-        self.coinbase_output_max_additional_size.get_size()
-    }
 }
