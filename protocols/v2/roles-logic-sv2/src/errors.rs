@@ -101,8 +101,6 @@ pub enum Error {
     InvalidExtranonceSize(u16, u16),
     /// Poison Lock
     PoisonLock(String),
-    /// Invalid BIP34 bytes
-    InvalidBip34Bytes(Vec<u8>),
     /// Channel Factory did not update job. Params: (downstream_job_id, upstream_job_id)
     JobNotUpdated(u32, u32),
     /// Impossible to get Target
@@ -206,7 +204,6 @@ impl Display for Error {
             NoTemplateForId => write!(f, "Impossible to retrieve a template for the required job id"),
             NoValidTemplate(e) => write!(f, "Impossible to retrieve a template for the required template id: {}", e),
             PoisonLock(e) => write!(f, "Poison lock: {}", e),
-            InvalidBip34Bytes(e) => write!(f, "Invalid Bip34 bytes {:?}", e),
             JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
             TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
