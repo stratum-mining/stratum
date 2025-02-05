@@ -13,6 +13,3 @@ const_sv2 = { path = "../../protocols/v2/const-sv2" }
 binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2" }
 common_messages_sv2 = { path = "../../protocols/v2/subprotocols/common-messages" }
 template_distribution_sv2 = { path = "../../protocols/v2/subprotocols/template-distribution" }
-
-[features]
-with_serde = []
