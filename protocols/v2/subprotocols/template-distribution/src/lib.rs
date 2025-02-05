@@ -24,13 +24,13 @@ use core::convert::TryInto;
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 
-mod coinbase_output_data_size;
+mod coinbase_output_constraints;
 mod new_template;
 mod request_transaction_data;
 mod set_new_prev_hash;
 mod submit_solution;
 
-pub use coinbase_output_data_size::CoinbaseOutputDataSize;
+pub use coinbase_output_constraints::CoinbaseOutputConstraints;
 pub use new_template::{CNewTemplate, NewTemplate};
 pub use request_transaction_data::{
     CRequestTransactionDataError, CRequestTransactionDataSuccess, RequestTransactionData,
@@ -39,9 +39,9 @@ pub use request_transaction_data::{
 pub use set_new_prev_hash::{CSetNewPrevHash, SetNewPrevHash};
 pub use submit_solution::{CSubmitSolution, SubmitSolution};
 
-/// Exports the [`CoinbaseOutputDataSize`] struct to C.
+/// Exports the [`CoinbaseOutputConstraints`] struct to C.
 #[no_mangle]
-pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
+pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputConstraints) {}
 
 /// Exports the [`RequestTransactionData`] struct to C.
 #[no_mangle]
@@ -82,10 +82,11 @@ impl NewTemplate<'static> {
     }
 }
 #[cfg(feature = "prop_test")]
-impl CoinbaseOutputDataSize {
+impl CoinbaseOutputConstraints {
     pub fn from_gen(g: &mut Gen) -> Self {
-        coinbase_output_data_size::CoinbaseOutputDataSize {
+        CoinbaseOutputConstraints {
             coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
+            coinbase_output_max_additional_sigops: u16::arbitrary(g).try_into().unwrap(),
         }
     }
 }
