@@ -183,7 +183,7 @@ pub const MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR: u8 = 0x59;
 pub const MESSAGE_TYPE_SUBMIT_SOLUTION_JD: u8 = 0x60;
 
 // Template Distribution Protocol message types.
-pub const MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE: u8 = 0x70;
+pub const MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS: u8 = 0x70;
 pub const MESSAGE_TYPE_NEW_TEMPLATE: u8 = 0x71;
 pub const MESSAGE_TYPE_SET_NEW_PREV_HASH: u8 = 0x72;
 pub const MESSAGE_TYPE_REQUEST_TRANSACTION_DATA: u8 = 0x73;
@@ -204,7 +204,7 @@ pub const CHANNEL_BIT_SETUP_CONNECTION_ERROR: bool = false;
 pub const CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED: bool = true;
 
 // For the Template Distribution protocol, the channel bit is always unset.
-pub const CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE: bool = false;
+pub const CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS: bool = false;
 pub const CHANNEL_BIT_NEW_TEMPLATE: bool = false;
 pub const CHANNEL_BIT_SET_NEW_PREV_HASH: bool = false;
 pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA: bool = false;

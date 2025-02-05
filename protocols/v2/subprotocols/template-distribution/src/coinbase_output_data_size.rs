@@ -28,15 +28,17 @@ use core::convert::TryInto;
 /// [`NewTemplate`]: crate::NewTemplate
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct CoinbaseOutputDataSize {
+pub struct CoinbaseOutputConstraints {
     /// Additional serialized bytes needed in coinbase transaction outputs.
     pub coinbase_output_max_additional_size: u32,
+    /// Additional sigops needed in coinbase transaction outputs.
+    pub coinbase_output_max_additional_sigops: u16,
 }
 
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
-impl GetSize for CoinbaseOutputDataSize {
+impl GetSize for CoinbaseOutputConstraints {
     fn get_size(&self) -> usize {
         self.coinbase_output_max_additional_size.get_size()
     }

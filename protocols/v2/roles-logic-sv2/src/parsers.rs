@@ -37,7 +37,7 @@ use framing_sv2::framing::Sv2Frame;
 use const_sv2::{
     CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
-    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_DECLARE_MINING_JOB,
+    CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS, CHANNEL_BIT_DECLARE_MINING_JOB,
     CHANNEL_BIT_DECLARE_MINING_JOB_ERROR, CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS,
     CHANNEL_BIT_IDENTIFY_TRANSACTIONS, CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
     CHANNEL_BIT_MINING_SET_NEW_PREV_HASH, CHANNEL_BIT_NEW_EXTENDED_MINING_JOB,
@@ -57,7 +57,7 @@ use const_sv2::{
     CHANNEL_BIT_UPDATE_CHANNEL, CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_CLOSE_CHANNEL,
-    MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE, MESSAGE_TYPE_DECLARE_MINING_JOB,
+    MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_DECLARE_MINING_JOB,
     MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR, MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
     MESSAGE_TYPE_IDENTIFY_TRANSACTIONS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
     MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
@@ -83,7 +83,7 @@ use common_messages_sv2::{
 };
 
 use template_distribution_sv2::{
-    CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
+    CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
@@ -137,7 +137,7 @@ pub enum CommonMessages<'a> {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum TemplateDistribution<'a> {
-    CoinbaseOutputDataSize(CoinbaseOutputDataSize),
+    CoinbaseOutputConstraints(CoinbaseOutputConstraints),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewTemplate(NewTemplate<'a>),
     RequestTransactionData(RequestTransactionData),
@@ -317,7 +317,7 @@ impl<'a> IsSv2Message for CommonMessages<'a> {
 impl<'a> IsSv2Message for TemplateDistribution<'a> {
     fn message_type(&self) -> u8 {
         match self {
-            Self::CoinbaseOutputDataSize(_) => MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+            Self::CoinbaseOutputConstraints(_) => MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
             Self::NewTemplate(_) => MESSAGE_TYPE_NEW_TEMPLATE,
             Self::RequestTransactionData(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
             Self::RequestTransactionDataError(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
@@ -328,7 +328,7 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
     }
     fn channel_bit(&self) -> bool {
         match self {
-            Self::CoinbaseOutputDataSize(_) => CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
+            Self::CoinbaseOutputConstraints(_) => CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS,
             Self::NewTemplate(_) => CHANNEL_BIT_NEW_TEMPLATE,
             Self::RequestTransactionData(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
             Self::RequestTransactionDataError(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR,
@@ -453,7 +453,7 @@ impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
 impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder> {
     fn from(m: TemplateDistribution<'decoder>) -> Self {
         match m {
-            TemplateDistribution::CoinbaseOutputDataSize(a) => a.into(),
+            TemplateDistribution::CoinbaseOutputConstraints(a) => a.into(),
             TemplateDistribution::NewTemplate(a) => a.into(),
             TemplateDistribution::RequestTransactionData(a) => a.into(),
             TemplateDistribution::RequestTransactionDataError(a) => a.into(),
@@ -524,7 +524,7 @@ impl GetSize for CommonMessages<'_> {
 impl GetSize for TemplateDistribution<'_> {
     fn get_size(&self) -> usize {
         match self {
-            TemplateDistribution::CoinbaseOutputDataSize(a) => a.get_size(),
+            TemplateDistribution::CoinbaseOutputConstraints(a) => a.get_size(),
             TemplateDistribution::NewTemplate(a) => a.get_size(),
             TemplateDistribution::RequestTransactionData(a) => a.get_size(),
             TemplateDistribution::RequestTransactionDataError(a) => a.get_size(),
@@ -704,7 +704,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages<'a> {
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum TemplateDistributionTypes {
-    CoinbaseOutputDataSize = MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+    CoinbaseOutputConstraints = MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
     NewTemplate = MESSAGE_TYPE_NEW_TEMPLATE,
     SetNewPrevHash = MESSAGE_TYPE_SET_NEW_PREV_HASH,
     RequestTransactionData = MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
@@ -718,8 +718,8 @@ impl TryFrom<u8> for TemplateDistributionTypes {
 
     fn try_from(v: u8) -> Result<TemplateDistributionTypes, Error> {
         match v {
-            MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE => {
-                Ok(TemplateDistributionTypes::CoinbaseOutputDataSize)
+            MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS => {
+                Ok(TemplateDistributionTypes::CoinbaseOutputConstraints)
             }
             MESSAGE_TYPE_NEW_TEMPLATE => Ok(TemplateDistributionTypes::NewTemplate),
             MESSAGE_TYPE_SET_NEW_PREV_HASH => Ok(TemplateDistributionTypes::SetNewPrevHash),
@@ -744,9 +744,9 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: TemplateDistributionTypes = v.0.try_into()?;
         match msg_type {
-            TemplateDistributionTypes::CoinbaseOutputDataSize => {
-                let message: CoinbaseOutputDataSize = from_bytes(v.1)?;
-                Ok(TemplateDistribution::CoinbaseOutputDataSize(message))
+            TemplateDistributionTypes::CoinbaseOutputConstraints => {
+                let message: CoinbaseOutputConstraints = from_bytes(v.1)?;
+                Ok(TemplateDistribution::CoinbaseOutputConstraints(message))
             }
             TemplateDistributionTypes::NewTemplate => {
                 let message: NewTemplate<'a> = from_bytes(v.1)?;
