@@ -14,36 +14,22 @@
 // ## Run
 //
 // ```
-// cargo run --example sv2_frame --features with_serde
+// cargo run --example sv2_frame
 // ```
 
-#[cfg(feature = "with_serde")]
-use binary_sv2::{GetSize, Serialize};
-#[cfg(feature = "with_serde")]
+use binary_sv2::{binary_codec_sv2, Serialize};
 use framing_sv2::framing::Sv2Frame;
 
 // Example message type (e.g., SetupConnection)
-#[cfg(feature = "with_serde")]
 const MSG_TYPE: u8 = 1;
 // Example extension type (e.g., a standard Sv2 message)
-#[cfg(feature = "with_serde")]
 const EXT_TYPE: u16 = 0x0001;
 
-#[cfg(feature = "with_serde")]
 #[derive(Serialize, Debug)]
-struct CustomMessage {
+pub struct CustomMessage {
     pub data: u32,
 }
 
-// Implemented to help determine the size of the message when framing.
-#[cfg(feature = "with_serde")]
-impl GetSize for CustomMessage {
-    fn get_size(&self) -> usize {
-        4 // `data` is `u32`, which is 4 bytes
-    }
-}
-
-#[cfg(feature = "with_serde")]
 fn main() {
     // Create the message payload
     let message = CustomMessage { data: 42 };
@@ -67,11 +53,7 @@ fn main() {
     // Deserialize the frame from bytes back into an Sv2Frame
     let mut deserialized_frame = Sv2Frame::<CustomMessage, Vec<u8>>::from_bytes(serialized_frame)
         .expect("Failed to deserialize frame");
+
     assert_eq!(deserialized_frame.encoded_length(), 10); // 6 header bytes + 4 payload bytes
     assert_eq!(deserialized_frame.payload(), [42, 0, 0, 0]);
-}
-
-#[cfg(not(feature = "with_serde"))]
-fn main() {
-    eprintln!("Serde feature not enabled. Skipping example.");
 }
