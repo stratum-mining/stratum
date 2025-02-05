@@ -1,14 +1,6 @@
-use alloc::string::ToString;
-#[cfg(not(feature = "with_serde"))]
-use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::{binary_codec_sv2, U32AsRef};
-use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
-#[cfg(not(feature = "with_serde"))]
+use alloc::{string::ToString, vec::Vec};
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, U32AsRef, B032, U256};
 use core::convert::TryInto;
-#[cfg(feature = "with_serde")]
-use core::convert::TryInto;
-
 /// Message used by a downstream to request opening a Standard Channel.
 ///
 /// Upon receiving `SetupConnectionSuccess` message, the downstream should open channel(s) on the
@@ -21,15 +13,7 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Used for matching responses from upstream.
     ///
     /// The value must be connection-wide unique and is not interpreted by the upstream.
-    #[cfg(not(feature = "with_serde"))]
     pub request_id: U32AsRef<'decoder>,
-    /// Specified by downstream role.
-    ///
-    /// Used for matching responses from upstream.
-    ///
-    /// The value must be connection-wide unique and is not interpreted by the upstream.
-    #[cfg(feature = "with_serde")]
-    pub request_id: u32,
     /// Unconstrained sequence of bytes.
     ///
     /// Whatever is needed by upstream role to identify/authenticate the downstream, e.g.
@@ -37,7 +21,6 @@ pub struct OpenStandardMiningChannel<'decoder> {
     ///
     /// Additional restrictions can be imposed by the upstream role (e.g. a pool). It is highly
     /// recommended to use UTF-8 encoding.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub user_identity: Str0255<'decoder>,
     /// Expected hash rate of the device (or cumulative hashrate on the channel if multiple devices
     /// are connected downstream) in h/s.
@@ -50,22 +33,14 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Maximum target which can be accepted by the connected device(s).
     ///
     /// Upstream must accept the target or respond by sending [`OpenMiningChannelError`] message.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub max_target: U256<'decoder>,
 }
 
 impl<'decoder> OpenStandardMiningChannel<'decoder> {
-    #[cfg(not(feature = "with_serde"))]
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
 
-    #[cfg(feature = "with_serde")]
-    pub fn get_request_id_as_u32(&self) -> u32 {
-        self.request_id
-    }
-
-    #[cfg(not(feature = "with_serde"))]
     pub fn update_id(&mut self, new_id: u32) {
         let bytes_new = new_id.to_le_bytes();
         let bytes_old = self.request_id.inner_as_mut();
@@ -73,13 +48,6 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
         bytes_old[1] = bytes_new[1];
         bytes_old[2] = bytes_new[2];
         bytes_old[3] = bytes_new[3];
-    }
-
-    #[cfg(feature = "with_serde")]
-    pub fn update_id(&mut self, _new_id: u32) {
-        // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
-        // INSTEAD IMPLEMENT U32ASREF FOR SERDE
-        todo!()
     }
 }
 
@@ -91,41 +59,25 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
     ///
     /// Specified by downstream role and should be extracted from the corresponding
     /// [`OpenStandardMiningChannel`] message.
-    #[cfg(not(feature = "with_serde"))]
     pub request_id: U32AsRef<'decoder>,
-    /// Used for matching requests/responses.
-    ///
-    /// Specified by downstream role and should be extracted from the corresponding
-    /// [`OpenStandardMiningChannel`] message.
-    #[cfg(feature = "with_serde")]
-    pub request_id: u32,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection.
     ///
     /// This will also be used for broadcasting new jobs by [`crate::NewMiningJob`].
     pub channel_id: u32,
     /// Initial target for the mining channel.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub target: U256<'decoder>,
     /// Bytes used as implicit first part of extranonce for the scenario when the job is served by
     /// the downstream role for a set of standard channels that belong to the same group.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce_prefix: B032<'decoder>,
     /// Group channel into which the new channel belongs. See SetGroupChannel for details.
     pub group_channel_id: u32,
 }
 
 impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
-    #[cfg(not(feature = "with_serde"))]
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
 
-    #[cfg(feature = "with_serde")]
-    pub fn get_request_id_as_u32(&self) -> u32 {
-        self.request_id
-    }
-
-    #[cfg(not(feature = "with_serde"))]
     pub fn update_id(&mut self, new_id: u32) {
         let bytes_new = new_id.to_le_bytes();
         let bytes_old = self.request_id.inner_as_mut();
@@ -133,13 +85,6 @@ impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
         bytes_old[1] = bytes_new[1];
         bytes_old[2] = bytes_new[2];
         bytes_old[3] = bytes_new[3];
-    }
-
-    #[cfg(feature = "with_serde")]
-    pub fn update_id(&mut self, _new_id: u32) {
-        // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
-        // INSTEAD IMPLEMENT U32ASREF FOR SERDE
-        todo!()
     }
 }
 
@@ -166,7 +111,6 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     ///
     /// Additional restrictions can be imposed by the upstream role (e.g. a pool). It is highly
     /// recommended to use UTF-8 encoding.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub user_identity: Str0255<'decoder>,
     /// Expected hash rate of the device (or cumulative hashrate on the channel if multiple devices
     /// are connected downstream) in h/s.
@@ -179,7 +123,6 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     /// Maximum target which can be accepted by the connected device or devices.
     ///
     /// Upstream must accept the target or respond by sending [`OpenMiningChannelError`] message.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub max_target: U256<'decoder>,
     /// Minimum size of extranonce needed by the downstream device/role.
     pub min_extranonce_size: u16,
@@ -204,12 +147,10 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     /// This will also be used for broadcasting new jobs by [`crate::NewExtendedMiningJob`].
     pub channel_id: u32,
     /// Initial target for the mining channel.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub target: U256<'decoder>,
     /// Extranonce size (in bytes) set for the channel.
     pub extranonce_size: u16,
     /// Bytes used as implicit first part of extranonce
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce_prefix: B032<'decoder>,
 }
 
@@ -228,7 +169,6 @@ pub struct OpenMiningChannelError<'decoder> {
     ///
     /// - ‘unknown-user’
     /// - ‘max-target-out-of-range’
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
 
@@ -253,51 +193,6 @@ impl<'a> OpenMiningChannelError<'a> {
             request_id,
             error_code: "unknown-user".to_string().try_into().unwrap(),
         }
-    }
-}
-
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for OpenStandardMiningChannel<'d> {
-    fn get_size(&self) -> usize {
-        self.request_id.get_size() + self.user_identity.get_size() + 4 + self.max_target.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for OpenMiningChannelError<'d> {
-    fn get_size(&self) -> usize {
-        self.request_id.get_size() + self.error_code.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for OpenStandardMiningChannelSuccess<'d> {
-    fn get_size(&self) -> usize {
-        self.request_id.get_size()
-            + self.channel_id.get_size()
-            + self.target.get_size()
-            + self.extranonce_prefix.get_size()
-            + self.group_channel_id.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for OpenExtendedMiningChannel<'d> {
-    fn get_size(&self) -> usize {
-        self.request_id.get_size()
-            + self.user_identity.get_size()
-            + 4
-            + self.max_target.get_size()
-            + self.min_extranonce_size.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for OpenExtendedMiningChannelSuccess<'d> {
-    fn get_size(&self) -> usize {
-        self.request_id.get_size()
-            + self.channel_id.get_size()
-            + self.target.get_size()
-            + self.extranonce_size.get_size()
-            + self.extranonce_prefix.get_size()
     }
 }
 
@@ -398,51 +293,5 @@ mod tests {
     #[test]
     fn test() {
         "placeholder to allow in file unit tests for quickcheck";
-    }
-}
-
-#[cfg(feature = "with_serde")]
-impl<'a> OpenExtendedMiningChannel<'a> {
-    pub fn into_static(self) -> OpenExtendedMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> OpenExtendedMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> OpenExtendedMiningChannelSuccess<'a> {
-    pub fn into_static(self) -> OpenExtendedMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> OpenExtendedMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> OpenMiningChannelError<'a> {
-    pub fn into_static(self) -> OpenMiningChannelError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> OpenMiningChannelError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> OpenStandardMiningChannel<'a> {
-    pub fn into_static(self) -> OpenStandardMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> OpenStandardMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> OpenStandardMiningChannelSuccess<'a> {
-    pub fn into_static(self) -> OpenStandardMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> OpenStandardMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
     }
 }

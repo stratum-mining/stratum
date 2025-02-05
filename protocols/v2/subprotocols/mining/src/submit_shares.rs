@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str0255, B032};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, B032};
 use core::convert::TryInto;
 
 /// Message used by downstream to send result of its hashing work to an upstream.
@@ -63,7 +59,6 @@ pub struct SubmitSharesExtended<'decoder> {
     ///
     /// The size of the provided extranonce must be equal to the negotiated extranonce size from
     /// channel opening flow.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce: B032<'decoder>,
 }
 
@@ -106,7 +101,6 @@ pub struct SubmitSharesError<'decoder> {
     /// - stale-share
     /// - difficulty-too-low
     /// - invalid-job-id
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
 
@@ -122,63 +116,5 @@ impl<'a> SubmitSharesError<'a> {
     }
     pub fn invalid_job_id_error_code() -> &'static str {
         "invalid-job-id"
-    }
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl GetSize for SubmitSharesStandard {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.sequence_number.get_size()
-            + self.job_id.get_size()
-            + self.nonce.get_size()
-            + self.ntime.get_size()
-            + self.version.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SubmitSharesExtended<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.sequence_number.get_size()
-            + self.job_id.get_size()
-            + self.nonce.get_size()
-            + self.ntime.get_size()
-            + self.version.get_size()
-            + self.extranonce.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl GetSize for SubmitSharesSuccess {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.last_sequence_number.get_size()
-            + self.new_submits_accepted_count.get_size()
-            + self.new_shares_sum.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SubmitSharesError<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size() + self.sequence_number.get_size() + self.error_code.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> SubmitSharesError<'a> {
-    pub fn into_static(self) -> SubmitSharesError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SubmitSharesError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> SubmitSharesExtended<'a> {
-    pub fn into_static(self) -> SubmitSharesExtended<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SubmitSharesExtended<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
     }
 }
