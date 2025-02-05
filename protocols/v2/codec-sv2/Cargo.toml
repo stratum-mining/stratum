@@ -27,7 +27,6 @@ key-utils = { path = "../../../utils/key-utils" }
 [features]
 default = ["std"]
 std = ["noise_sv2?/std", "rand/std", "rand/std_rng", "dep:tracing"]
-with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffer_sv2/with_serde"]
 with_buffer_pool = ["framing_sv2/with_buffer_pool"]
 
 [package.metadata.docs.rs]
