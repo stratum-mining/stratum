@@ -401,14 +401,6 @@ impl<
             .get(&downstream_mining_data)
             .ok_or(crate::Error::NoCompatibleUpstream(downstream_mining_data))?[0]
             .clone();
-        #[cfg(feature = "with_serde")]
-        upstream
-            .safe_lock(|u| {
-                let selector = u.get_remote_selector();
-                selector.on_open_standard_channel_request(request.request_id, downstream)
-            })
-            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
-        #[cfg(not(feature = "with_serde"))]
         upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();

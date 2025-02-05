@@ -27,8 +27,5 @@ cargo add roles_logic_sv2
 
 This crate can be built with the following feature flags:
 
-- `with_serde`: Enables serialization and deserialization support using the serde library. This feature flag also activates the with_serde feature for dependent crates such as `binary_sv2`, `common_messages_sv2`, `template_distribution_sv2`, `job_declaration_sv2`, and `mining_sv2`.
-  Note that this feature flag is only used for the Message Generator, and deprecated
-  for any other kind of usage. It will likely be fully deprecated in the future.
 - `prop_test`: Enables property-based testing features for template distribution logic, leveraging dependencies' testing capabilities such as `template_distribution_sv2` crate.
 - `disable_nopanic`: Disables the nopanic logic in scenarios where code coverage tools might conflict with it.

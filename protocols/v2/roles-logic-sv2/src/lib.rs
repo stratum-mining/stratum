@@ -16,11 +16,6 @@
 //!
 //! This crate can be built with the following features:
 //!
-//! - `with_serde`: builds [`framing_sv2`], [`binary_sv2`], [`common_messages_sv2`],
-//!   [`template_distribution_sv2`], [`job_declaration_sv2`], and [`mining_sv2`] crates with
-//!   `serde`-based encoding and decoding. Note that this feature flag is only used for the Message
-//!   Generator, and deprecated for any other kind of usage. It will likely be fully deprecated in
-//!   the future.
 //! - `prop_test`: Enables support for property testing in [`template_distribution_sv2`] crate.
 pub mod channel_logic;
 pub mod common_properties;

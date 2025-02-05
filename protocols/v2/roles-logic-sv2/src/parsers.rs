@@ -22,11 +22,10 @@
 
 use crate::Error;
 
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::{decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField};
-
-#[cfg(feature = "with_serde")]
-use binary_sv2::Serialize;
+use binary_sv2::{
+    decodable::{DecodableField, FieldMarker},
+    encodable::EncodableField,
+};
 
 use binary_sv2::GetSize;
 
@@ -116,17 +115,14 @@ pub type AnyMessage<'a> = PoolMessages<'a>;
 /// A parser of messages that are common to all Sv2 subprotocols, to be used for parsing raw
 /// messages
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum CommonMessages<'a> {
     /// Notifies about changes in channel endpoint configuration.
     ChannelEndpointChanged(ChannelEndpointChanged),
 
     /// Initiates a connection between a client and server.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetupConnection(SetupConnection<'a>),
 
     /// Indicates an error during connection setup.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetupConnectionError(SetupConnectionError<'a>),
 
     /// Acknowledges successful connection setup.
@@ -135,44 +131,28 @@ pub enum CommonMessages<'a> {
 
 /// A parser of messages of Template Distribution subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum TemplateDistribution<'a> {
     CoinbaseOutputDataSize(CoinbaseOutputDataSize),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewTemplate(NewTemplate<'a>),
     RequestTransactionData(RequestTransactionData),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     RequestTransactionDataError(RequestTransactionDataError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     RequestTransactionDataSuccess(RequestTransactionDataSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetNewPrevHash(SetNewPrevHash<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSolution(SubmitSolution<'a>),
 }
 
 /// A parser of messages of Job Declaration subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum JobDeclaration<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobToken(AllocateMiningJobToken<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     DeclareMiningJob(DeclareMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     DeclareMiningJobError(DeclareMiningJobError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     DeclareMiningJobSuccess(DeclareMiningJobSuccess<'a>),
     IdentifyTransactions(IdentifyTransactions),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSolution(SubmitSolutionJd<'a>),
 }
 
@@ -200,48 +180,28 @@ pub enum JobDeclaration<'a> {
 ///     unified interface for handling mining-related communication. This reduces complexity and
 ///     ensures consistency across roles.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum Mining<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     CloseChannel(CloseChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewExtendedMiningJob(NewExtendedMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewMiningJob(NewMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenExtendedMiningChannel(OpenExtendedMiningChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenMiningChannelError(OpenMiningChannelError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenStandardMiningChannel(OpenStandardMiningChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenStandardMiningChannelSuccess(OpenStandardMiningChannelSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Reconnect(Reconnect<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJob(SetCustomMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
     SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetExtranoncePrefix(SetExtranoncePrefix<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetGroupChannel(SetGroupChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetNewPrevHash(MiningSetNewPrevHash<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetTarget(SetTarget<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSharesError(SubmitSharesError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSharesExtended(SubmitSharesExtended<'a>),
     SubmitSharesStandard(SubmitSharesStandard),
     SubmitSharesSuccess(SubmitSharesSuccess),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     UpdateChannel(UpdateChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     UpdateChannelError(UpdateChannelError<'a>),
 }
 
@@ -438,7 +398,6 @@ impl<'a> IsSv2Message for Mining<'a> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: CommonMessages<'decoder>) -> Self {
         match m {
@@ -449,7 +408,6 @@ impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder> {
     fn from(m: TemplateDistribution<'decoder>) -> Self {
         match m {
@@ -463,7 +421,6 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
     fn from(m: JobDeclaration<'decoder>) -> Self {
         match m {
@@ -481,7 +438,6 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
     fn from(m: Mining<'decoder>) -> Self {
         match m {
@@ -579,7 +535,6 @@ impl GetSize for Mining<'_> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -590,7 +545,6 @@ impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
         unimplemented!()
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -601,7 +555,6 @@ impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
         unimplemented!()
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -612,7 +565,6 @@ impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
         unimplemented!()
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -624,7 +576,6 @@ impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for PoolMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -636,7 +587,6 @@ impl<'decoder> Deserialize<'decoder> for PoolMessages<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for MiningDeviceMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -1046,14 +996,10 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
 
 /// A parser of messages that a Mining Device could send
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum MiningDeviceMessages<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Common(CommonMessages<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Mining(Mining<'a>),
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: MiningDeviceMessages<'decoder>) -> Self {
         match m {
@@ -1089,15 +1035,10 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
 // todo: fix this, PoolMessages should only contain Mining and Common
 /// A parser of all messages a Pool could send
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum PoolMessages<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Common(CommonMessages<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Mining(Mining<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     JobDeclaration(JobDeclaration<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     TemplateDistribution(TemplateDistribution<'a>),
 }
 
@@ -1112,7 +1053,6 @@ impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: PoolMessages<'decoder>) -> Self {
         match m {
