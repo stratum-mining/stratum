@@ -374,8 +374,6 @@ version = "1.2.1"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
- "serde",
- "serde_sv2",
 ]
 
 [[package]]
@@ -529,7 +527,6 @@ name = "buffer_sv2"
 version = "1.1.1"
 dependencies = [
  "aes-gcm",
- "serde",
 ]
 
 [[package]]
@@ -673,7 +670,6 @@ dependencies = [
  "framing_sv2",
  "noise_sv2",
  "rand",
- "serde",
  "tracing",
 ]
 
@@ -1001,7 +997,6 @@ dependencies = [
  "binary_sv2",
  "buffer_sv2",
  "const_sv2",
- "serde",
 ]
 
 [[package]]
@@ -1708,7 +1703,6 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
- "serde",
  "tokio",
  "tracing",
 ]
@@ -2319,14 +2313,6 @@ version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
 dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_sv2"
-version = "2.0.0"
-dependencies = [
- "buffer_sv2",
  "serde",
 ]
 
