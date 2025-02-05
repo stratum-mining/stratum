@@ -416,9 +416,10 @@ void free_setup_connection_error(CSetupConnectionError s);
 /// transaction when complying with the size limits.
 ///
 /// [`NewTemplate`]: crate::NewTemplate
-struct CoinbaseOutputDataSize {
+struct CoinbaseOutputConstraints {
   /// Additional serialized bytes needed in coinbase transaction outputs.
   uint32_t coinbase_output_max_additional_size;
+  uint16_t coinbase_output_max_additional_sigops;
 };
 
 /// Message used by a downstream to request data about all transactions in a block template.
@@ -481,8 +482,8 @@ struct CSubmitSolution {
 
 extern "C" {
 
-/// Exports the [`CoinbaseOutputDataSize`] struct to C.
-void _c_export_coinbase_out(CoinbaseOutputDataSize _a);
+/// Exports the [`CoinbaseOutputConstraints`] struct to C.
+void _c_export_coinbase_out(CoinbaseOutputConstraints _a);
 
 /// Exports the [`RequestTransactionData`] struct to C.
 void _c_export_req_tx_data(RequestTransactionData _a);
@@ -569,7 +570,7 @@ struct EncoderWrapper;
 
 struct CSv2Message {
   enum class Tag {
-    CoinbaseOutputDataSize,
+    CoinbaseOutputConstraints,
     NewTemplate,
     RequestTransactionData,
     RequestTransactionDataError,
@@ -582,8 +583,8 @@ struct CSv2Message {
     SetupConnectionSuccess,
   };
 
-  struct CoinbaseOutputDataSize_Body {
-    CoinbaseOutputDataSize _0;
+  struct CoinbaseOutputConstraints_Body {
+    CoinbaseOutputConstraints _0;
   };
 
   struct NewTemplate_Body {
@@ -628,7 +629,7 @@ struct CSv2Message {
 
   Tag tag;
   union {
-    CoinbaseOutputDataSize_Body coinbase_output_data_size;
+    CoinbaseOutputConstraints_Body coinbase_output_constraints;
     NewTemplate_Body new_template;
     RequestTransactionData_Body request_transaction_data;
     RequestTransactionDataError_Body request_transaction_data_error;
