@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 use core::convert::TryInto;
 
 /// Message used by an upstream role for announcing a mining channel endpoint change.
@@ -19,12 +15,4 @@ use core::convert::TryInto;
 pub struct ChannelEndpointChanged {
     /// Unique identifier of the channel that has changed its endpoint.
     pub channel_id: u32,
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl GetSize for ChannelEndpointChanged {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-    }
 }
