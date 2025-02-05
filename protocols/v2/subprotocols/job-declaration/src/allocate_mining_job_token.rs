@@ -31,11 +31,12 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     /// declaration or for identifying custom mining job on mining connection.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub mining_job_token: B0255<'decoder>,
-    /// The maximum additional size that can be added to the coinbase output.
-    ///
     /// The maximum additional serialized bytes which the JDS will add in coinbase transaction
     /// outputs.
     pub coinbase_output_max_additional_size: u32,
+    /// The maximum additional sigops which the JDS will add in coinbase transaction
+    /// outputs.
+    pub coinbase_output_max_additional_sigops: u16,
     /// Bitcoin transaction outputs added by JDS.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_output: B064K<'decoder>,
@@ -66,6 +67,7 @@ impl<'d> GetSize for AllocateMiningJobTokenSuccess<'d> {
         self.request_id.get_size()
             + self.mining_job_token.get_size()
             + self.coinbase_output_max_additional_size.get_size()
+            + self.coinbase_output_max_additional_sigops.get_size()
             + self.coinbase_output.get_size()
             + self.async_mining_allowed.get_size()
     }
