@@ -12,14 +12,6 @@ provided as a trusted 3rd party service for mining farms.
 
 For further information about the messages, please refer to [Stratum V2 documentation - Job Distribution](https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/).
 
-## Build Options
-
-This crate can be built with the following features:
-- `with_serde`: Enables support for serialization and deserialization using Serde.
-
-**Note that this feature flag is only used for the Message Generator, and deprecated for any other
-kind of usage. It will likely be fully deprecated in the future.**
-
 ## Usage
 
 To include this crate in your project, run:
