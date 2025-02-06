@@ -15,7 +15,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 quickcheck = { version = "1.0.0", optional = true }
-buffer_sv2 = { path = "../../../../../utils/buffer", optional=true }
+buffer_sv2 = { path = "../../../../utils/buffer", optional=true }
 
 [features]
 no_std = []
