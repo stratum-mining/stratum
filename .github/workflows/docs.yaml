@@ -34,20 +34,15 @@ jobs:
           cd utils/buffer
           cargo doc
 
-      - name: Rust Docs crate no_serde_sv2_derive_codec
+      - name: Rust Docs crate binary_sv2 derive_codec
         run: |
-          cd protocols/v2/binary-sv2/no-serde-sv2/derive_codec
+          cd protocols/v2/binary-sv2/derive_codec
           cargo doc
 
-      - name: Rust Docs crate no_serde_sv2_codec
+      - name: Rust Docs crate binary_sv2 codec
         run: |
-          cd protocols/v2/binary-sv2/no-serde-sv2/codec
+          cd protocols/v2/binary-sv2/codec
           cargo doc --features with_buffer_pool
-
-      - name: Rust Docs crate serde_sv2
-        run: |
-          cd protocols/v2/binary-sv2/serde-sv2
-          cargo doc
 
       - name: Rust Docs crate binary_sv2
         run: |

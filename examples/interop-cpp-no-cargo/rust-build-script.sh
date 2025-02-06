@@ -27,7 +27,7 @@ rustc \
 rustc \
         --crate-name binary_codec_sv2 \
         --edition=2018 \
-        $ROOT/binary-sv2/no-serde-sv2/codec/src/lib.rs \
+        $ROOT/binary-sv2/codec/src/lib.rs \
         --error-format=json \
         --json=diagnostic-rendered-ansi \
         --crate-type lib \
@@ -40,7 +40,7 @@ rustc \
 rustc \
         --crate-name binary_codec_sv2 \
         --edition=2018 \
-        $ROOT/binary-sv2/no-serde-sv2/codec/src/lib.rs \
+        $ROOT/binary-sv2/codec/src/lib.rs \
         --error-format=json \
         --json=diagnostic-rendered-ansi,artifacts \
         --crate-type lib \
@@ -66,7 +66,7 @@ rustc \
 rustc \
         --crate-name derive_codec_sv2 \
         --edition=2018 \
-        $ROOT/binary-sv2/no-serde-sv2/derive_codec/src/lib.rs \
+        $ROOT/binary-sv2/derive_codec/src/lib.rs \
         --error-format=json \
         --json=diagnostic-rendered-ansi \
         --crate-type proc-macro \
