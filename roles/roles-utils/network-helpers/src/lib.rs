@@ -1,17 +1,6 @@
-#[cfg(feature = "async_std")]
-mod noise_connection_async_std;
-#[cfg(feature = "async_std")]
-mod plain_connection_async_std;
 use binary_sv2::{Deserialize, GetSize, Serialize};
-#[cfg(feature = "async_std")]
-pub use noise_connection_async_std::{connect, listen, Connection};
-#[cfg(feature = "async_std")]
-pub use plain_connection_async_std::{plain_connect, plain_listen, PlainConnection};
-
-#[cfg(feature = "tokio")]
-pub mod noise_connection_tokio;
-#[cfg(feature = "tokio")]
-pub mod plain_connection_tokio;
+pub mod noise_connection;
+pub mod plain_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};

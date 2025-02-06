@@ -7,7 +7,7 @@ use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},

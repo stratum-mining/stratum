@@ -1,6 +1,6 @@
 #![allow(clippy::option_map_unit_fn)]
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::utils::Id;
 use std::{
     net::{SocketAddr, ToSocketAddrs},

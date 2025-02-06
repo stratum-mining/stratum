@@ -1,7 +1,7 @@
 use crate::messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE};
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardSv2Frame};
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection::Connection;
 use tokio::net::TcpStream;
 
 use crate::error::Error;
