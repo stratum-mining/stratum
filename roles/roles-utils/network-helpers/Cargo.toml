@@ -20,13 +20,11 @@ tokio = { version = "1", features = ["full"] }
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", optional = true }
 codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features=["noise_sv2"], optional = true }
 const_sv2 = {path = "../../../protocols/v2/const-sv2"}
-serde = { version = "1.0.89", features = ["derive"], default-features = false, optional = true }
 tracing = { version = "0.1" }
 futures = "0.3.28"
 
 [features]
 default = ["async-channel", "binary_sv2", "codec_sv2"]
-with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]
 with_buffer_pool = ["codec_sv2/with_buffer_pool"]
 
 [package.metadata.docs.rs]
