@@ -173,7 +173,6 @@ dependencies = [
  "criterion",
  "iai",
  "rand",
- "serde",
 ]
 
 [[package]]
