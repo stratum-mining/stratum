@@ -85,10 +85,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/subprotocols/template-distribution
 
-      - name: Publish crate sv2_ffi
-        run: |
-          ./scripts/release-libs.sh protocols/v2/sv2-ffi
-
       - name: Publish crate roles_logic_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/roles-logic-sv2
