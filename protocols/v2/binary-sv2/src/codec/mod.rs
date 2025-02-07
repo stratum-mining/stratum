@@ -58,9 +58,12 @@
 // This module supports efficient, low-level encoding and decoding by operating directly on slices,
 // avoiding excess data copying. It offers capabilities for both fixed and variable-sized data,
 // making it versatile for a wide range of encoding tasks.
-use crate::Error;
+pub use crate::Error;
 pub mod decodable;
 pub mod encodable;
+pub use decodable::Decodable;
+pub use encodable::Encodable;
+pub use encodable::EncodableField;
 mod impls;
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::Slice;

@@ -477,7 +477,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 /// ```ignore
 /// mod impl_parse_decodable_test {
 ///     use super::{
-///         binary_codec_sv2::{
+///         codec::{
 ///             decodable::{DecodableField, FieldMarker},
 ///             Decodable, Error, SizeHint,
 ///         },
@@ -620,7 +620,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_decodable_{} {{
 
-    use super::binary_codec_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
+    use super::codec::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
     use super::*;
 
     impl{} Decodable<'decoder> for {}{} {{
@@ -717,7 +717,7 @@ fn get_static_generics(gen: &str) -> &str {
 ///
 /// ```ignore
 /// mod impl_parse_encodable_test {
-///     use super::binary_codec_sv2::{encodable::EncodableField, GetSize};
+///     use super::codec::{encodable::EncodableField, GetSize};
 ///     extern crate alloc;
 ///     use alloc::vec::Vec;
 ///
@@ -818,7 +818,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_encodable_{} {{
 
-    use super::binary_codec_sv2::{{encodable::EncodableField, GetSize}};
+    use super::codec::{{encodable::EncodableField, GetSize}};
     use super::{};
     extern crate alloc;
     use alloc::vec::Vec;
