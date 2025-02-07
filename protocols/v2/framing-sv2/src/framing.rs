@@ -82,15 +82,8 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
             dst.swap_with_slice(serialized.as_mut());
             Ok(())
         } else if let Some(payload) = self.payload {
-            #[cfg(not(feature = "with_serde"))]
             to_writer(self.header, dst).map_err(Error::BinarySv2Error)?;
-            #[cfg(not(feature = "with_serde"))]
             to_writer(payload, &mut dst[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
-            #[cfg(feature = "with_serde")]
-            to_writer(&self.header, dst.as_mut()).map_err(Error::BinarySv2Error)?;
-            #[cfg(feature = "with_serde")]
-            to_writer(&payload, &mut dst.as_mut()[Header::SIZE..])
-                .map_err(Error::BinarySv2Error)?;
             Ok(())
         } else {
             // Sv2Frame always has a payload or a serialized payload

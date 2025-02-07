@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// Message used by downstream role to set a custom job to an upstream (Pool).
@@ -36,7 +32,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// bits to any particular value.
     pub version: u32,
     /// Previous block’s hash.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub prev_hash: U256<'decoder>,
     /// Smallest `nTime` value available for hashing.
     pub min_ntime: u32,
@@ -53,12 +48,10 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Includes both transaction fees and block subsidy.
     pub coinbase_tx_value_remaining: u64,
     /// All the outputs that will be included in the coinbase txs
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_outputs: B064K<'decoder>,
     /// The `locktime` field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
     /// Size of extranonce in bytes that will be provided by the downstream role.
     pub extranonce_size: u16,
@@ -91,67 +84,5 @@ pub struct SetCustomMiningJobError<'decoder> {
     /// - invalid-channel-id
     /// - invalid-mining-job-token
     /// - invalid-job-param-value-{field_name}
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetCustomMiningJob<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.request_id.get_size()
-            + self.token.get_size()
-            + self.version.get_size()
-            + self.prev_hash.get_size()
-            + self.min_ntime.get_size()
-            + self.nbits.get_size()
-            + self.coinbase_tx_version.get_size()
-            + self.coinbase_prefix.get_size()
-            + self.coinbase_tx_input_n_sequence.get_size()
-            + self.coinbase_tx_value_remaining.get_size()
-            + self.coinbase_tx_outputs.get_size()
-            + self.coinbase_tx_locktime.get_size()
-            + self.merkle_path.get_size()
-            + self.extranonce_size.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl GetSize for SetCustomMiningJobSuccess {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size() + self.request_id.get_size() + self.job_id.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetCustomMiningJobError<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size() + self.request_id.get_size() + self.error_code.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> SetCustomMiningJob<'a> {
-    pub fn into_static(self) -> SetCustomMiningJob<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SetCustomMiningJob<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> SetCustomMiningJobError<'a> {
-    pub fn into_static(self) -> SetCustomMiningJobError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SetCustomMiningJobError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl SetCustomMiningJobSuccess {
-    pub fn into_static(self) -> SetCustomMiningJobSuccess {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SetCustomMiningJobSuccess {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
 }

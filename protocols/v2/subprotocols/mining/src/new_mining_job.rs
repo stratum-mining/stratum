@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
 use core::convert::TryInto;
 
 /// Message used by an upstream to provide an updated mining job to downstream.
@@ -34,7 +30,6 @@ pub struct NewMiningJob<'decoder> {
     /// received [`SetNewPrevHash`] message.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Version field that reflects the current network consensus.
     ///
@@ -48,7 +43,6 @@ pub struct NewMiningJob<'decoder> {
     /// Merkle root field as used in the bitcoin block header.
     ///
     /// Note that this field is fixed and cannot be modified by the downstream node.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_root: U256<'decoder>,
 }
 
@@ -93,7 +87,6 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// received [`SetNewPrevHash`] message.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Version field that reflects the current network consensus.
     ///
@@ -111,13 +104,10 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// defined by this message.
     pub version_rolling_allowed: bool,
     /// Merkle path hashes ordered from deepest.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
     /// Prefix part of the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_prefix: B064K<'decoder>,
     /// Suffix part of the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
@@ -130,32 +120,6 @@ impl<'d> NewExtendedMiningJob<'d> {
     }
     pub fn set_no_future(&mut self, min_ntime: u32) {
         self.min_ntime = Sv2Option::new(Some(min_ntime));
-    }
-}
-
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for NewExtendedMiningJob<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.job_id.get_size()
-            + self.min_ntime.get_size()
-            + self.version.get_size()
-            + self.version_rolling_allowed.get_size()
-            + self.merkle_path.get_size()
-            + self.coinbase_tx_prefix.get_size()
-            + self.coinbase_tx_suffix.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for NewMiningJob<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.job_id.get_size()
-            + self.min_ntime.get_size()
-            + self.version.get_size()
-            + self.merkle_root.get_size()
     }
 }
 
@@ -243,23 +207,5 @@ mod tests {
         pub fn bytes_to_b064k(bytes: &Vec<u8>) -> B064K {
             B064K::try_from(bytes.clone()).expect("Failed to convert to B064K")
         }
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> NewExtendedMiningJob<'a> {
-    pub fn into_static(self) -> NewExtendedMiningJob<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> NewMiningJob<'a> {
-    pub fn into_static(self) -> NewMiningJob<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> NewMiningJob<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
     }
 }

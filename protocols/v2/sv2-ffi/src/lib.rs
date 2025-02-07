@@ -1,4 +1,3 @@
-#![cfg(not(feature = "with_serde"))]
 use std::{
     fmt,
     fmt::{Display, Formatter},

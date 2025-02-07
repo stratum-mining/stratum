@@ -1,20 +1,15 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
-    binary_codec_sv2, binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
-    free_vec, Error,
+    binary_codec_sv2,
+    binary_codec_sv2::CVec,
+    decodable::{DecodableField, FieldMarker},
+    free_vec, Deserialize, Error, GetSize, Serialize, Str0255,
 };
-use binary_sv2::{Deserialize, GetSize, Serialize, Str0255};
 use const_sv2::{
     SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
     SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
-use core::convert::TryFrom;
-#[cfg(not(feature = "with_serde"))]
-use core::convert::TryInto;
-#[cfg(feature = "with_serde")]
-use serde_repr::*;
+use core::convert::{TryFrom, TryInto};
 
 /// Used by downstream to initiate a Stratum V2 connection with an upstream role.
 ///
@@ -46,21 +41,16 @@ pub struct SetupConnection<'decoder> {
     /// Each [`SetupConnection::protocol`] value has it's own flags.
     pub flags: u32,
     /// ASCII representation of the connection hostname or IP address.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub endpoint_host: Str0255<'decoder>,
     /// Connection port value.
     pub endpoint_port: u16,
     /// Device vendor name.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub vendor: Str0255<'decoder>,
     /// Device hardware version.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub hardware_version: Str0255<'decoder>,
     /// Device firmware version.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub firmware: Str0255<'decoder>,
     /// Device identifier.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub device_id: Str0255<'decoder>,
 }
 
@@ -186,7 +176,6 @@ pub fn has_work_selection(flags: u32) -> bool {
 
 /// C representation of [`SetupConnection`]
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 #[derive(Debug, Clone)]
 pub struct CSetupConnection {
     /// Protocol to be used for the connection.
@@ -217,9 +206,7 @@ pub struct CSetupConnection {
     pub device_id: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnection {
-    #[cfg(not(feature = "with_serde"))]
     #[allow(clippy::wrong_self_convention)]
     /// Convert C representation to Rust representation
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
@@ -245,12 +232,10 @@ impl<'a> CSetupConnection {
 }
 
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_setup_connection(s: CSetupConnection) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CSetupConnection {
     fn drop(&mut self) {
         free_vec(&mut self.endpoint_host);
@@ -261,7 +246,6 @@ impl Drop for CSetupConnection {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<SetupConnection<'a>> for CSetupConnection {
     fn from(v: SetupConnection) -> Self {
         Self {
@@ -324,12 +308,10 @@ pub struct SetupConnectionError<'decoder> {
     /// - unsupported-feature-flags
     /// - unsupported-protocol
     /// - protocol-version-mismatch
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
 
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 #[derive(Debug, Clone)]
 /// C representation of [`SetupConnectionError`]
 pub struct CSetupConnectionError {
@@ -337,9 +319,7 @@ pub struct CSetupConnectionError {
     error_code: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnectionError {
-    #[cfg(not(feature = "with_serde"))]
     #[allow(clippy::wrong_self_convention)]
     /// Convert C representation to Rust representation
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
@@ -353,19 +333,16 @@ impl<'a> CSetupConnectionError {
 }
 
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_setup_connection_error(s: CSetupConnectionError) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CSetupConnectionError {
     fn drop(&mut self) {
         free_vec(&mut self.error_code);
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
     fn from(v: SetupConnectionError<'a>) -> Self {
         Self {
@@ -376,7 +353,6 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 }
 
 /// This enum has a list of the different Stratum V2 subprotocols.
-#[cfg_attr(feature = "with_serde", derive(Serialize_repr, Deserialize_repr))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -389,7 +365,6 @@ pub enum Protocol {
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<Protocol> for binary_sv2::encodable::EncodableField<'a> {
     fn from(v: Protocol) -> Self {
         let val = v as u8;
@@ -397,7 +372,6 @@ impl<'a> From<Protocol> for binary_sv2::encodable::EncodableField<'a> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
     fn get_structure(
         _: &[u8],
@@ -434,44 +408,6 @@ impl GetSize for Protocol {
     }
 }
 
-#[cfg(feature = "with_serde")]
-impl From<Protocol> for u8 {
-    fn from(val: Protocol) -> Self {
-        match val {
-            Protocol::MiningProtocol => SV2_MINING_PROTOCOL_DISCRIMINANT,
-            Protocol::JobDeclarationProtocol => SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
-            Protocol::TemplateDistributionProtocol => SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-        }
-    }
-}
-
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetupConnectionError<'d> {
-    fn get_size(&self) -> usize {
-        self.flags.get_size() + self.error_code.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl GetSize for SetupConnectionSuccess {
-    fn get_size(&self) -> usize {
-        self.used_version.get_size() + self.flags.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetupConnection<'d> {
-    fn get_size(&self) -> usize {
-        self.protocol.get_size()
-            + self.min_version.get_size()
-            + self.max_version.get_size()
-            + self.flags.get_size()
-            + self.endpoint_host.get_size()
-            + self.endpoint_port.get_size()
-            + self.vendor.get_size()
-            + self.hardware_version.get_size()
-            + self.firmware.get_size()
-            + self.device_id.get_size()
-    }
-}
 #[cfg(test)]
 mod test {
     use super::*;

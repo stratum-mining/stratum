@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str0255, U256};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, U256};
 use core::convert::TryInto;
 
 /// Message used by downstream to notify an upstream about changes on a specified channel.
@@ -35,7 +31,6 @@ pub struct UpdateChannel<'decoder> {
     /// Upstream can change maximum target by sending [`SetTarget`] message.
     ///
     /// [`SetTarget`]: crate::SetTarget
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub maximum_target: U256<'decoder>,
 }
 
@@ -49,38 +44,5 @@ pub struct UpdateChannelError<'decoder> {
     /// Possible error codes:
     /// - max-target-out-of-range
     /// - invalid-channel-id
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for UpdateChannel<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size() + 4 + self.maximum_target.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for UpdateChannelError<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size() + self.error_code.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> UpdateChannel<'a> {
-    pub fn into_static(self) -> UpdateChannel<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> UpdateChannel<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> UpdateChannelError<'a> {
-    pub fn into_static(self) -> UpdateChannelError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> UpdateChannelError<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
 }

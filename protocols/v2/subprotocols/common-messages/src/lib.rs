@@ -32,15 +32,13 @@ pub use setup_connection::{
     has_requires_std_job, has_version_rolling, has_work_selection, Protocol, SetupConnection,
     SetupConnectionError, SetupConnectionSuccess,
 };
-#[cfg(not(feature = "with_serde"))]
+
 pub use setup_connection::{CSetupConnection, CSetupConnectionError};
 
-#[cfg(not(feature = "with_serde"))]
 #[no_mangle]
 /// A C-compatible function that exports the [`ChannelEndpointChanged`] struct.
 pub extern "C" fn _c_export_channel_endpoint_changed(_a: ChannelEndpointChanged) {}
 
-#[cfg(not(feature = "with_serde"))]
 #[no_mangle]
 /// A C-compatible function that exports the `SetupConnection` struct.
 pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}

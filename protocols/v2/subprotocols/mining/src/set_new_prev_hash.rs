@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, U256};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U256};
 use core::convert::TryInto;
 
 /// Message used by upstream to share or distribute the latest block hash.
@@ -25,32 +21,9 @@ pub struct SetNewPrevHash<'decoder> {
     /// current block template).
     pub job_id: u32,
     /// Latest block hash observed by the Template Provider.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub prev_hash: U256<'decoder>,
     /// Smallest `nTime` value available for hashing.
     pub min_ntime: u32,
     /// Block header field.
     pub nbits: u32,
-}
-
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetNewPrevHash<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.job_id.get_size()
-            + self.prev_hash.get_size()
-            + self.min_ntime.get_size()
-            + self.nbits.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> SetNewPrevHash<'a> {
-    pub fn into_static(self) -> SetNewPrevHash<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SetNewPrevHash<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
 }

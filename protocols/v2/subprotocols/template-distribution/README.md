@@ -15,11 +15,7 @@ For further information about the messages, please refer to [Stratum V2 document
 ## Build Options
 
 This crate can be built with the following features:
-- `with_serde`: Enables support for serialization and deserialization using Serde.
 - `prop_test`: Enables support for property testing.
-
-*Note that `with_serde` feature flag is only used for the Message Generator, and deprecated for any
-other kind of usage. It will likely be fully deprecated in the future.*
 
 ## Usage
 

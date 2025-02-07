@@ -1,6 +1,6 @@
 [package]
 name = "sv2_ffi"
-version = "1.0.2"
+version = "2.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2018"
 description = "SV2 FFI"
@@ -25,5 +25,4 @@ quickcheck = "1.0.3"
 quickcheck_macros = "1"
 
 [features]
-with_serde = []
 prop_test = ["binary_sv2/prop_test", "common_messages_sv2/prop_test", "template_distribution_sv2/prop_test"]

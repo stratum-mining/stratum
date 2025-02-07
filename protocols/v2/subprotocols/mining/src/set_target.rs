@@ -1,9 +1,5 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, U256};
-#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U256};
 use core::convert::TryInto;
 
 /// Message used by upstream to control the downstream submission rate by adjusting the difficulty
@@ -23,23 +19,5 @@ pub struct SetTarget<'decoder> {
     /// Channel identifier.
     pub channel_id: u32,
     /// Maximum value of produced hash that will be accepted by a upstream to accept shares.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub maximum_target: U256<'decoder>,
-}
-#[cfg(feature = "with_serde")]
-use binary_sv2::GetSize;
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetTarget<'d> {
-    fn get_size(&self) -> usize {
-        self.channel_id.get_size() + self.maximum_target.get_size()
-    }
-}
-#[cfg(feature = "with_serde")]
-impl<'a> SetTarget<'a> {
-    pub fn into_static(self) -> SetTarget<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
-    pub fn as_static(&self) -> SetTarget<'static> {
-        panic!("This function shouldn't be called by the Message Generator");
-    }
 }
