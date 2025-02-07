@@ -14,14 +14,12 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-binary_codec_sv2 = { path = "codec", optional = true }
-derive_codec_sv2 = { path = "derive_codec", optional = true }
+binary_codec_sv2 = { path = "codec" }
+derive_codec_sv2 = { path = "derive_codec" }
 
 [features]
-default = ["core"]
-core = ["binary_codec_sv2", "derive_codec_sv2"]
-prop_test = ["binary_codec_sv2/prop_test", "derive_codec_sv2"]
-with_buffer_pool = ["binary_codec_sv2/with_buffer_pool", "derive_codec_sv2"]
+prop_test = ["binary_codec_sv2/prop_test"]
+with_buffer_pool = ["binary_codec_sv2/with_buffer_pool"]
 
 [package.metadata.docs.rs]
-features = ["core", "with_buffer_pool"]
+features = ["with_buffer_pool"]

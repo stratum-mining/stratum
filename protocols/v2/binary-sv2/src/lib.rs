@@ -10,8 +10,6 @@
 //! may not support `serde`.
 //!
 //! ## Features
-//! - **core**: Enables the custom `binary_codec_sv2` and `derive_codec_sv2` implementations, which
-//!   provide `Deserialize` and `Serialize` traits without the need for `serde`.
 //! - **prop_test**: Adds support for property testing for protocol types.
 //! - **with_buffer_pool**: Enables support for buffer pooling to optimize memory usage during
 //!   serialization and deserialization.
