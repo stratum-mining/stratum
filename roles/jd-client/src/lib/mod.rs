@@ -194,6 +194,10 @@ impl JobDeclaratorClient {
         }
     }
 
+    pub fn is_listening(&self) -> bool {
+        std::net::TcpStream::connect(self.config.listen_address).is_ok()
+    }
+
     async fn initialize_jd_as_solo_miner(
         proxy_config: ProxyConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
@@ -206,15 +210,9 @@ impl JobDeclaratorClient {
         // SubmitSolution and send it to the TemplateReceiver
         let (send_solution, recv_solution) = bounded(10);
 
-        // Format `Downstream` connection address
-        let downstream_addr = SocketAddr::new(
-            IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
-            proxy_config.downstream_port,
-        );
-
         // Wait for downstream to connect
         let downstream = downstream::listen_for_downstream_mining(
-            downstream_addr,
+            proxy_config.listen_address,
             None,
             send_solution,
             proxy_config.withhold,
@@ -319,12 +317,6 @@ impl JobDeclaratorClient {
             panic!()
         }
 
-        // Format `Downstream` connection address
-        let downstream_addr = SocketAddr::new(
-            IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
-            proxy_config.downstream_port,
-        );
-
         // Initialize JD part
         let mut parts = proxy_config.tp_address.split(':');
         let ip_tp = parts.next().unwrap().to_string();
@@ -355,7 +347,7 @@ impl JobDeclaratorClient {
 
         // Wait for downstream to connect
         let downstream = match downstream::listen_for_downstream_mining(
-            downstream_addr,
+            proxy_config.listen_address,
             Some(upstream),
             send_solution,
             proxy_config.withhold,

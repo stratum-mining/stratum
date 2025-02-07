@@ -62,7 +62,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         "127.0.0.1:8442".to_string()
     };
     let connection_config = pool_sv2::mining_pool::ConnectionConfig::new(
-        listening_address.to_string(),
+        listening_address,
         cert_validity_sec,
         pool_signature,
     );
@@ -178,7 +178,7 @@ pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAd
         "tp_password".to_string(),
     );
     let config = Configuration::new(
-        listen_jd_address.to_string(),
+        listen_jd_address,
         authority_public_key,
         authority_secret_key,
         cert_validity_sec,
@@ -203,7 +203,6 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     )
     .expect("failed");
     let listening_address = get_available_address();
-    let listening_port = listening_address.port();
     let hashrate = measure_hashrate(1) as f32 / 100.0;
     let min_individual_miner_hashrate = hashrate;
     let shares_per_minute = 60.0;
@@ -229,8 +228,7 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
         upstream_difficulty_config,
     );
     let downstream_conf = translator_sv2::proxy_config::DownstreamConfig::new(
-        listening_address.ip().to_string(),
-        listening_port,
+        listening_address,
         downstream_difficulty_config,
     );
 
