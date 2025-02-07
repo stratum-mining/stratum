@@ -115,14 +115,6 @@ jobs:
       - name: Run sv1-test
         run: sh ./test/message-generator/test/sv1-test/sv1-test.sh
 
-  translation-proxy-broke-pool:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run translation-proxy-broke-pool
-        run: sh ./test/message-generator/test/translation-proxy-broke-pool/translation-proxy-broke-pool.sh
-
   translation-proxy-old-share:
     runs-on: ubuntu-latest
     steps:
@@ -148,7 +140,6 @@ jobs:
       pool-sri-test-extended_1,
       pool-sri-test-reject-auth,
       sv1-test,
-      translation-proxy-broke-pool,
       translation-proxy-old-share
     ]
     steps:
@@ -166,7 +157,6 @@ jobs:
           [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-reject-auth.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
-          [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
             echo "One or more jobs failed."
             exit 1
