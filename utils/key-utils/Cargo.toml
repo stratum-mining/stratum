@@ -23,9 +23,15 @@ name = "key-utils-bin"
 path = "src/main.rs"
 
 [dependencies]
-bs58 = { version ="0.4.0", features = ["check"] }
-secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
+bs58 = { version ="0.4.0", default-features = false, features = ["check", "alloc"] }
+secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand"] }
 serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
+rand = {version = "0.8.5", default-features = false }
+rustversion = "1.0"
 
 [dev-dependencies]
 toml = { version = "0.5.6", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
+
+[features]
+default = ["std"]
+std = ["bs58/std","secp256k1/rand-std", "rand/std", "rand/std_rng"]
