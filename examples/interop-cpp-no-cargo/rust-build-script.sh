@@ -82,7 +82,7 @@ rustc \
 rustc \
         --crate-name binary_sv2 \
         --edition=2018 \
-        $ROOT/binary-sv2/binary-sv2/src/lib.rs \
+        $ROOT/binary-sv2/src/lib.rs \
         --error-format=json \
         --json=diagnostic-rendered-ansi,artifacts \
         --crate-type lib \

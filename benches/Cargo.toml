@@ -18,7 +18,7 @@ num-bigint = "0.4.3"
 num-traits = "0.2.15"
 bitcoin="0.28.1"
 codec_sv2 = { path = "../protocols/v2/codec-sv2", features=["noise_sv2"] }
-binary_sv2 = { path = "../protocols/v2/binary-sv2/binary-sv2" }
+binary_sv2 = { path = "../protocols/v2/binary-sv2" }
 network_helpers_sv2 = { path = "../roles/roles-utils/network-helpers" }
 rand = "0.8.4"
 
