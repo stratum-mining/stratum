@@ -44,14 +44,6 @@ jobs:
           file: ./protocols/target/tarpaulin-reports/binary-sv2-coverage/cobertura.xml
           flags: binary_sv2-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
-      
-      - name: Upload binary_serde_sv2-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./protocols/target/tarpaulin-reports/serde-sv2-coverage
-          file: ./protocols/target/tarpaulin-reports/serde-sv2-coverage/cobertura.xml
-          flags: binary_serde_sv2-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload codec_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4

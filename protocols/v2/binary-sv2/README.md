@@ -14,7 +14,6 @@
 
 ## Features
 
-- **with_serde**: Enables `serde`-based encoding and decoding.
 - **core**: Activates non-`serde` implementations via `binary_codec_sv2` and `derive_codec_sv2`.(default)
 - **prop_test**: Adds property testing support.
 - **with_buffer_pool**: Optimizes memory usage during encoding.

@@ -98,19 +98,6 @@ pub struct Slice {
     pub time: SystemTime,
 }
 
-#[cfg(feature = "with_serde")]
-use serde::ser::{Serialize, Serializer};
-
-#[cfg(feature = "with_serde")]
-impl Serialize for Slice {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        unreachable!()
-    }
-}
-
 impl Slice {
     /// Returns the length of the slice in bytes.
     ///

@@ -1,4 +1,4 @@
-pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serialize, *};
+pub use binary_sv2::{Decodable as Deserialize, Encodable as Serialize, *};
 use core::convert::TryInto;
 pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 
