@@ -1,0 +1,14 @@
+# Block with 1 transaction (not including the cb tx) generated using regtest
+block_hash  = "59202ef47d684ab51866e91d5f40e61a94787d02d899fc3da28e4f4bcb8fd0a4"
+
+version     = 0x20000000 # LE
+prev_hash   = "74f34a78cf87740b67fa545734ce7ea86e917e53001c3bd6eaf5d32f5d89264d" # BE
+merkle_root = "3a158fb4278f27d01cafcac465ba1c5b8f3461687681465f6734649f2cb8d5a7" #BE
+nbits       = 0x207fffff # BE
+time        = 0x6238b86a # BE
+nonce       = 0x00000001 # BE
+
+coinbase_tx_prefix = "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff040172"
+coinbase_script    = "0101"
+coinbase_tx_suffix = "ffffffff02d0751b2a010000001600146e556b6f3ad312726bc501da9656ac1329a84d040000000000000000266a24aa21a9edd8b6a6c9c32ffe19d40f1109b33186c59d580c7e7d591194df4e57b05ef9824100000000"
+path               = ["55f88d00edeeca6cdb853624a34500e076394abd35fc39bf9a3a9865f0540731"]
