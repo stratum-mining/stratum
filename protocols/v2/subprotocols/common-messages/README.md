@@ -13,12 +13,7 @@ For further information, please refer to [Stratum V2 documentation - Common Mess
 ## Build Options
 
 This crate can be built with the following features:
-
- - `serde`: Enables support for serialization and deserialization using Serde.
  - `quickcheck`: Enables support for property-based testing using QuickCheck.
-
-    *Note that `serde` feature flag is only used for the Message Generator, and deprecated for any
-    other kind of usage.  It will likely be fully deprecated in the future.*
 
 ## Usage
 

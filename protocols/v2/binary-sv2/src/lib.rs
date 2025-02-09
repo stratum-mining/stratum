@@ -1,13 +1,11 @@
-//! Mediates between two implementations of the `binary_sv2` protocol,
-//! enabling encoding and decoding through `serde` or custom traits.
+//! Export custom implementations of the `binary_sv2` protocol,
+//! enabling encoding and decoding through custom traits.
 //!
 //! # Overview
 //!
-//! Depending on the feature flags enabled, this crate will re-export implementations of the
-//! `Deserialize` and `Serialize` traits either from the `serde` library or from a custom,
-//! `serde`-free implementation provided by `binary_codec_sv2` and `derive_codec_sv2`. This allows
-//! for flexible integration of SV2 protocol types and binary serialization for environments that
-//! may not support `serde`.
+//! This crate will re-export implementations of the`Deserialize` and `Serialize` traits
+//! from a custom implementation provided by `binary_codec_sv2` and `derive_codec_sv2`.
+//! This allows for flexible integration of SV2  protocol types and binary serialization.
 //!
 //! ## Features
 //! - **prop_test**: Adds support for property testing for protocol types.

@@ -5,11 +5,8 @@
 //! ## Build Options
 //! This crate can be built with the following features:
 //! - `std`: Enables support for standard library features.
-//! - `serde`: Enables support for serialization and deserialization using Serde.
 //! - `quickcheck`: Enables support for property-based testing using QuickCheck.
 //!
-//! *Note that `serde` feature flag is only used for the Message Generator, and deprecated for any
-//! other kind of usage.  It will likely be fully deprecated in the future.*
 //!
 //! For further information about the messages, please refer to [Stratum V2
 //! documentation - Common Messages](https://stratumprotocol.org/specification/03-Protocol-Overview/#36-common-protocol-messages).
