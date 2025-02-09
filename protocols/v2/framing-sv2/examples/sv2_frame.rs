@@ -17,32 +17,28 @@
 // cargo run --example sv2_frame
 // ```
 
-use binary_sv2::{binary_codec_sv2, Serialize};
+use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 use framing_sv2::framing::Sv2Frame;
+use std::convert::TryInto;
 
 // Example message type (e.g., SetupConnection)
 const MSG_TYPE: u8 = 1;
 // Example extension type (e.g., a standard Sv2 message)
 const EXT_TYPE: u16 = 0x0001;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CustomMessage {
-    pub data: u32,
+    pub nonce: u32,
 }
 
 fn main() {
     // Create the message payload
-    let message = CustomMessage { data: 42 };
+    let message = CustomMessage { nonce: 42 };
 
     // Create the frame from the message
     let frame: Sv2Frame<CustomMessage, Vec<u8>> =
-        Sv2Frame::from_message(message, MSG_TYPE, EXT_TYPE, false)
+        Sv2Frame::from_message(message.clone(), MSG_TYPE, EXT_TYPE, false)
             .expect("Failed to frame the message");
-
-    // How header information is accessed
-    let header = frame.get_header().expect("Frame has no header");
-    assert_eq!(header.msg_type(), MSG_TYPE);
-    assert_eq!(header.ext_type(), EXT_TYPE);
 
     // Serialize the frame into a byte array for transmission
     let mut serialized_frame = vec![0u8; frame.encoded_length()];
@@ -54,6 +50,15 @@ fn main() {
     let mut deserialized_frame = Sv2Frame::<CustomMessage, Vec<u8>>::from_bytes(serialized_frame)
         .expect("Failed to deserialize frame");
 
-    assert_eq!(deserialized_frame.encoded_length(), 10); // 6 header bytes + 4 payload bytes
-    assert_eq!(deserialized_frame.payload(), [42, 0, 0, 0]);
+    // Assert that deserialized header has the original content
+    let deserialized_header = deserialized_frame
+        .get_header()
+        .expect("Frame has no header");
+    assert_eq!(deserialized_header.msg_type(), MSG_TYPE);
+    assert_eq!(deserialized_header.ext_type(), EXT_TYPE);
+
+    // Assert that deserialized message has the original content
+    let deserialized_message: CustomMessage = binary_sv2::from_bytes(deserialized_frame.payload())
+        .expect("Failed to extract the message from the payload");
+    assert_eq!(deserialized_message.nonce, message.nonce);
 }
