@@ -1,9 +1,15 @@
+// This file contains integration tests for the `JDC/S` module.
+//
+// `JDC/S` are modules that implements the Job Decleration roles in the Stratum V2 protocol.
+//
+// Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
+// all tests. This is because tracing is a global setting.
 use integration_tests_sv2::*;
 
 use roles_logic_sv2::parsers::{CommonMessages, PoolMessages};
 
-// This test verifies that the `jds` (Job Distributor Server) does not panic when the `jdc`
-// (Job Distributor Client) shuts down.
+// This test verifies that the `jds` (Job Decleration Server) does not panic when the `jdc`
+// (Job Decleration Client) shuts down.
 //
 // The test follows these steps:
 // 1. Start a Template Provider (`tp`) and a Pool.
