@@ -23,7 +23,10 @@ use std::{
     convert::{TryFrom, TryInto},
     time::Duration,
 };
-use stratum_common::bitcoin::{Script, TxOut};
+use stratum_common::{
+    bitcoin::{Script, TxOut},
+    url::is_valid_url,
+};
 
 pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -35,8 +38,12 @@ pub struct JobDeclaratorServer {
 }
 
 impl JobDeclaratorServer {
-    pub fn new(config: Configuration) -> Self {
-        Self { config }
+    pub fn new(config: Configuration) -> Result<Self, JdsError> {
+        let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
+        if !is_valid_url(&url) {
+            return Err(JdsError::InvalidRPCUrl);
+        }
+        Ok(Self { config })
     }
     pub async fn start(&self) -> Result<(), JdsError> {
         let config = self.config.clone();
@@ -54,6 +61,11 @@ impl JobDeclaratorServer {
         )));
         let mempool_update_interval = config.mempool_update_interval;
         let mempool_cloned_ = mempool.clone();
+        let mempool_cloned_1 = mempool.clone();
+        if let Err(e) = mempool::JDsMempool::health(mempool_cloned_1.clone()).await {
+            error!("{:?}", e);
+            return Err(JdsError::MempoolError(e));
+        }
         let (status_tx, status_rx) = unbounded();
         let sender = status::Sender::Downstream(status_tx.clone());
         let mut last_empty_mempool_warning =
@@ -193,7 +205,7 @@ impl JobDeclaratorServer {
                     warn!("Dropping downstream instance {} from jds", downstream_id);
                 }
             }
-        };
+        }
         Ok(())
     }
 }
@@ -360,6 +372,21 @@ mod tests {
             .expect("Failed to build config");
 
         settings.try_deserialize().expect("Failed to parse config")
+    }
+
+    #[tokio::test]
+    async fn test_invalid_rpc_url() {
+        let mut config = load_config("config-examples/jds-config-hosted-example.toml");
+        config.core_rpc_url = "invalid".to_string();
+        assert!(JobDeclaratorServer::new(config).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_offline_rpc_url() {
+        let mut config = load_config("config-examples/jds-config-hosted-example.toml");
+        config.core_rpc_url = "http://127.0.0.1".to_string();
+        let jd = JobDeclaratorServer::new(config).unwrap();
+        assert!(jd.start().await.is_err());
     }
 
     #[test]

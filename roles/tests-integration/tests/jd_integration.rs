@@ -30,9 +30,9 @@ use roles_logic_sv2::parsers::{CommonMessages, PoolMessages};
 //   internal cleanup or reconnection attempts.
 #[tokio::test]
 async fn jds_should_not_panic_if_jdc_shutsdown() {
-    let (_tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
-    let (_jds, jds_addr) = start_jds(tp_addr).await;
+    let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
     let (jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_addr).await;
     jdc.shutdown();
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
