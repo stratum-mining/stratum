@@ -4,6 +4,7 @@ pub mod mempool;
 pub mod status;
 
 use async_channel::{bounded, unbounded, Receiver, Sender};
+use error::JdsError;
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
@@ -37,7 +38,7 @@ impl JobDeclaratorServer {
     pub fn new(config: Configuration) -> Self {
         Self { config }
     }
-    pub async fn start(&self) {
+    pub async fn start(&self) -> Result<(), JdsError> {
         let config = self.config.clone();
         let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
         let username = config.core_rpc_user.clone();
@@ -198,7 +199,8 @@ impl JobDeclaratorServer {
                     warn!("Dropping downstream instance {} from jds", downstream_id);
                 }
             }
-        }
+        };
+        Ok(())
     }
 }
 
