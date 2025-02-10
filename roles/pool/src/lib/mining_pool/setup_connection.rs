@@ -2,7 +2,6 @@ use super::super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
 };
-use async_channel::{Receiver, Sender};
 use roles_logic_sv2::{
     common_messages_sv2::{
         has_requires_std_job, has_version_rolling, has_work_selection, SetupConnection,
@@ -34,13 +33,13 @@ impl SetupConnectionHandler {
     }
     pub async fn setup(
         self_: Arc<Mutex<Self>>,
-        receiver: &mut Receiver<EitherFrame>,
-        sender: &mut Sender<EitherFrame>,
+        receiver: &mut tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: &mut tokio::sync::broadcast::Sender<EitherFrame>,
         address: SocketAddr,
     ) -> PoolResult<CommonDownstreamData> {
         // read stdFrame from receiver
 
-        let mut incoming: StdFrame = match receiver.recv().await {
+        let mut incoming: StdFrame = match receiver.subscribe().recv().await {
             Ok(EitherFrame::Sv2(s)) => {
                 debug!("Got sv2 message: {:?}", s);
                 s
@@ -76,7 +75,7 @@ impl SetupConnectionHandler {
 
         let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await?;
+        sender.send(sv2_frame)?;
         self_.safe_lock(|s| s.header_only)?;
 
         match message {

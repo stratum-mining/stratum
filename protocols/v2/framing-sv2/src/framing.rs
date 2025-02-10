@@ -31,7 +31,8 @@ type Slice = buffer_sv2::Slice;
 /// A wrapper used when generic reference to a frame is needed, but the kind of frame ([`Sv2Frame`]
 /// or [`HandShakeFrame`]) does not matter. Note that after the initial handshake is complete
 /// between two Sv2 roles, all further messages are framed with [`Sv2Frame`].
-#[derive(Debug)]
+// This needs to be cloned because of broadcast channel requirement.
+#[derive(Clone, Debug)]
 pub enum Frame<T, B> {
     HandShake(HandShakeFrame),
     Sv2(Sv2Frame<T, B>),
@@ -232,7 +233,8 @@ impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
 /// Contains only the serialized payload with a fixed length and is only used during Noise
 /// handshake process. Once the handshake is complete, regular Sv2 communication switches to
 /// [`Sv2Frame`] for ongoing communication.
-#[derive(Debug)]
+// This needs to be cloned because of broadcast channel requirement.
+#[derive(Clone, Debug)]
 pub struct HandShakeFrame {
     payload: Slice,
 }

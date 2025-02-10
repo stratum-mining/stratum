@@ -1,5 +1,8 @@
+#![allow(dead_code)]
 use binary_sv2::{Deserialize, GetSize, Serialize};
+
 pub mod noise_connection;
+pub mod noise_connection_tokio_with_tokio_channels;
 pub mod plain_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
@@ -22,6 +25,8 @@ pub enum Error {
     // This means that a socket that was supposed to be opened have been closed, likley by the
     // peer
     SocketClosed,
+    SendErrorTokio,
+    RecvErrorTokio,
 }
 
 impl From<CodecError> for Error {
@@ -37,6 +42,18 @@ impl From<RecvError> for Error {
 impl<T> From<SendError<T>> for Error {
     fn from(_: SendError<T>) -> Self {
         Error::SendError
+    }
+}
+
+impl<T> From<tokio::sync::broadcast::error::SendError<T>> for Error {
+    fn from(_: tokio::sync::broadcast::error::SendError<T>) -> Self {
+        Error::SendErrorTokio
+    }
+}
+
+impl From<tokio::sync::broadcast::error::RecvError> for Error {
+    fn from(_: tokio::sync::broadcast::error::RecvError) -> Self {
+        Error::RecvErrorTokio
     }
 }
 

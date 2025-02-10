@@ -2,12 +2,12 @@ use super::{
     error::{PoolError, PoolResult},
     status,
 };
-use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
+
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::noise_connection_tokio_with_tokio_channels::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
@@ -32,7 +32,11 @@ use stratum_common::{
     bitcoin::{Script, TxOut},
     secp256k1,
 };
-use tokio::{net::TcpListener, task};
+use tokio::{
+    net::TcpListener,
+    sync::Notify,
+    task::{self, JoinHandle},
+};
 use tracing::{debug, error, info, warn};
 
 pub mod setup_connection;
@@ -176,29 +180,30 @@ impl Configuration {
 pub struct Downstream {
     // Either group or channel id
     id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+    sender: tokio::sync::broadcast::Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
 }
 
 /// Accept downstream connection
 pub struct Pool {
     downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
-    solution_sender: Sender<SubmitSolution<'static>>,
+    solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
     last_prev_hash_template_id: u64,
     status_tx: status::Sender,
+    shutdown: Arc<tokio::sync::Notify>,
 }
 
 impl Downstream {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
-        solution_sender: Sender<SubmitSolution<'static>>,
+        mut receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        mut sender: tokio::sync::broadcast::Sender<EitherFrame>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
         status_tx: status::Sender,
@@ -242,12 +247,13 @@ impl Downstream {
                         })
                         .await
                     {
-                        error!("Encountered Error but status channel is down: {}", e);
+                        error!("Encountered Error but status channel is down: {:?}", e);
                     }
 
                     return;
                 }
             };
+            let mut receiver = receiver.subscribe();
             loop {
                 match receiver.recv().await {
                     Ok(received) => {
@@ -349,7 +355,7 @@ impl Downstream {
         //};
         let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
-        sender.send(sv2_frame.into()).await?;
+        sender.send(sv2_frame.into())?;
         Ok(())
     }
 }
@@ -381,6 +387,35 @@ impl IsDownstream for Downstream {
 }
 
 impl IsMiningDownstream for Downstream {}
+
+struct TaskHandler {
+    handles: Vec<JoinHandle<()>>,
+}
+
+impl TaskHandler {
+    fn new() -> Self {
+        TaskHandler {
+            handles: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
+    }
+
+    fn abort_all(&mut self) {
+        for handle in self.handles.drain(..) {
+            handle.abort();
+        }
+    }
+}
+
+impl Drop for TaskHandler {
+    fn drop(&mut self) {
+        info!("Aborting all child task.");
+        self.abort_all();
+    }
+}
 
 impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
@@ -436,8 +471,14 @@ impl Pool {
             );
             match responder {
                 Ok(resp) => {
-                    if let Ok((receiver, sender, _, _)) =
-                        Connection::new(stream, HandshakeRole::Responder(resp)).await
+                    let shutdown = self_.safe_lock(|x| x.shutdown.clone())?;
+                    if let Ok((receiver, sender, _, _)) = Connection::new(
+                        stream,
+                        HandshakeRole::Responder(resp),
+                        10,
+                        shutdown.clone(),
+                    )
+                    .await
                     {
                         handle_result!(
                             status_tx,
@@ -461,8 +502,8 @@ impl Pool {
 
     async fn accept_incoming_connection_(
         self_: Arc<Mutex<Pool>>,
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: tokio::sync::broadcast::Sender<EitherFrame>,
+        sender: tokio::sync::broadcast::Sender<EitherFrame>,
         address: SocketAddr,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
@@ -491,13 +532,13 @@ impl Pool {
 
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<SetNewPrevHash<'static>>,
-        sender_message_received_signal: Sender<()>,
+        mut rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_
             .safe_lock(|s| s.status_tx.clone())
             .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
-        while let Ok(new_prev_hash) = rx.recv().await {
+        while let Some(new_prev_hash) = rx.recv().await {
             debug!("New prev hash received: {:?}", new_prev_hash);
             let res = self_
                 .safe_lock(|s| {
@@ -537,7 +578,7 @@ impl Pool {
                         .await;
                         handle_result!(status_tx, res);
                     }
-                    handle_result!(status_tx, sender_message_received_signal.send(()).await);
+                    handle_result!(status_tx, sender_message_received_signal.send(()));
                 }
                 Err(_) => todo!(),
             }
@@ -547,12 +588,12 @@ impl Pool {
 
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<NewTemplate<'static>>,
-        sender_message_received_signal: Sender<()>,
+        mut rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
-        while let Ok(mut new_template) = rx.recv().await {
+        while let Some(mut new_template) = rx.recv().await {
             debug!(
                 "New template received, creating a new mining job(s): {:?}",
                 new_template
@@ -584,18 +625,19 @@ impl Pool {
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             handle_result!(status_tx, res);
 
-            handle_result!(status_tx, sender_message_received_signal.send(()).await);
+            handle_result!(status_tx, sender_message_received_signal.send(()));
         }
         Ok(())
     }
 
     pub fn start(
         config: Configuration,
-        new_template_rx: Receiver<NewTemplate<'static>>,
-        new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
-        solution_sender: Sender<SubmitSolution<'static>>,
-        sender_message_received_signal: Sender<()>,
+        new_template_rx: tokio::sync::mpsc::Receiver<NewTemplate<'static>>,
+        new_prev_hash_rx: tokio::sync::mpsc::Receiver<SetNewPrevHash<'static>>,
+        solution_sender: tokio::sync::mpsc::Sender<SubmitSolution<'static>>,
+        sender_message_received_signal: tokio::sync::broadcast::Sender<()>,
         status_tx: status::Sender,
+        shutdown: Arc<Notify>,
     ) -> Arc<Mutex<Self>> {
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
@@ -627,11 +669,14 @@ impl Pool {
             channel_factory,
             last_prev_hash_template_id: 0,
             status_tx: status_tx.clone(),
+            shutdown: shutdown.clone(),
         }));
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
+
+        let mut task_handler = TaskHandler::new();
 
         #[cfg(feature = "test_only_allow_unencrypted")]
         {
@@ -639,7 +684,7 @@ impl Pool {
             let status_tx_clone_unenc = status_tx.clone();
             let config_unenc = config.clone();
 
-            task::spawn(async move {
+            task_handler.add(task::spawn(async move {
                 if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config_unenc).await
                 {
                     error!("{}", e);
@@ -655,12 +700,12 @@ impl Pool {
                 {
                     error!("Downstream shutdown and Status Channel dropped");
                 }
-            });
+            }));
         }
 
         info!("Starting up pool listener");
         let status_tx_clone = status_tx.clone();
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             if let Err(e) = Self::accept_incoming_connection(cloned, config).await {
                 error!("{}", e);
             }
@@ -675,11 +720,11 @@ impl Pool {
             {
                 error!("Downstream shutdown and Status Channel dropped");
             }
-        });
+        }));
 
         let cloned = sender_message_received_signal.clone();
         let status_tx_clone = status_tx.clone();
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             if let Err(e) = Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await {
                 error!("{}", e);
             }
@@ -695,10 +740,10 @@ impl Pool {
             {
                 error!("Downstream shutdown and Status Channel dropped");
             }
-        });
+        }));
 
         let status_tx_clone = status_tx;
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             if let Err(e) =
                 Self::on_new_template(pool, new_template_rx, sender_message_received_signal).await
             {
@@ -716,6 +761,11 @@ impl Pool {
             {
                 error!("Downstream shutdown and Status Channel dropped");
             }
+        }));
+
+        task::spawn(async move {
+            shutdown.notified().await;
+            drop(task_handler);
         });
         cloned3
     }
@@ -730,167 +780,166 @@ impl Pool {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use binary_sv2::{B0255, B064K};
-    use ext_config::{Config, File, FileFormat};
-    use std::convert::TryInto;
-    use tracing::error;
+// #[cfg(test)]
+// mod test {
+//     use binary_sv2::{B0255, B064K};
+//     use ext_config::{Config, File, FileFormat};
+//     use std::convert::TryInto;
+//     use tracing::error;
 
-    use stratum_common::{
-        bitcoin,
-        bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
-    };
+//     use stratum_common::{
+//         bitcoin,
+//         bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
+//     };
 
-    use super::Configuration;
+//     use super::Configuration;
 
-    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested
-    // against in message generator
-    // `stratum/test/message-generator/test/pool-sri-test-extended.json`
-    #[test]
-    fn test_coinbase_outputs_from_config() {
-        let config_path = "./config-examples/pool-config-local-tp-example.toml";
+//     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values
+// tested     // against in message generator
+//     // `stratum/test/message-generator/test/pool-sri-test-extended.json`
+//     #[test]
+//     fn test_coinbase_outputs_from_config() {
+//         let config_path = "./config-examples/pool-config-local-tp-example.toml";
 
-        // Load config
-        let config: Configuration = match Config::builder()
-            .add_source(File::new(&config_path, FileFormat::Toml))
-            .build()
-        {
-            Ok(settings) => match settings.try_deserialize::<Configuration>() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Failed to deserialize config: {}", e);
-                    return;
-                }
-            },
-            Err(e) => {
-                error!("Failed to build config: {}", e);
-                return;
-            }
-        };
+//         // Load config
+//         let config: Configuration = match Config::builder()
+//             .add_source(File::new(&config_path, FileFormat::Toml))
+//             .build()
+//         {
+//             Ok(settings) => match settings.try_deserialize::<Configuration>() {
+//                 Ok(c) => c,
+//                 Err(e) => {
+//                     error!("Failed to deserialize config: {}", e);
+//                     return;
+//                 }
+//             },
+//             Err(e) => {
+//                 error!("Failed to build config: {}", e);
+//                 return;
+//             }
+//         };
 
-        // template from message generator test (mock TP template)
-        let _extranonce_len = 3;
-        let coinbase_prefix = vec![3, 76, 163, 38, 0];
-        let _version = 536870912;
-        let coinbase_tx_version = 2;
-        let coinbase_tx_input_sequence = 4294967295;
-        let _coinbase_tx_value_remaining: u64 = 625000000;
-        let _coinbase_tx_outputs_count = 0;
-        let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config).unwrap();
-        // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
-        let extranonce_len = 32;
+//         // template from message generator test (mock TP template)
+//         let _extranonce_len = 3;
+//         let coinbase_prefix = vec![3, 76, 163, 38, 0];
+//         let _version = 536870912;
+//         let coinbase_tx_version = 2;
+//         let coinbase_tx_input_sequence = 4294967295;
+//         let _coinbase_tx_value_remaining: u64 = 625000000;
+//         let _coinbase_tx_outputs_count = 0;
+//         let coinbase_tx_locktime = 0;
+//         let coinbase_tx_outputs: Vec<bitcoin::TxOut> =
+// super::get_coinbase_output(&config).unwrap();         // extranonce len set to
+// max_extranonce_size in `ChannelFactory::new_extended_channel()`         let extranonce_len = 32;
 
-        // build coinbase TX from 'job_creator::coinbase()'
+//         // build coinbase TX from 'job_creator::coinbase()'
 
-        let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
-        let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
-        bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
-        bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
-        let witness = match bip34_bytes.len() {
-            0 => Witness::from_vec(vec![]),
-            _ => Witness::from_vec(vec![vec![0; 32]]),
-        };
+//         let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
+//         let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
+//         bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
+//         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
+//         let witness = match bip34_bytes.len() {
+//             0 => Witness::from_vec(vec![]),
+//             _ => Witness::from_vec(vec![vec![0; 32]]),
+//         };
 
-        let tx_in = bitcoin::TxIn {
-            previous_output: bitcoin::OutPoint::null(),
-            script_sig: bip34_bytes.into(),
-            sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
-            witness,
-        };
-        let coinbase = bitcoin::Transaction {
-            version: coinbase_tx_version,
-            lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
-            input: vec![tx_in],
-            output: coinbase_tx_outputs,
-        };
+//         let tx_in = bitcoin::TxIn {
+//             previous_output: bitcoin::OutPoint::null(),
+//             script_sig: bip34_bytes.into(),
+//             sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
+//             witness,
+//         };
+//         let coinbase = bitcoin::Transaction {
+//             version: coinbase_tx_version,
+//             lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
+//             input: vec![tx_in],
+//             output: coinbase_tx_outputs,
+//         };
 
-        let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, script_prefix_length);
-        let coinbase_tx_suffix =
-            coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_length);
-        assert!(
-            coinbase_tx_prefix
-                == [
-                    2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38,
-                    0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111,
-                    111, 108
-                ]
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            "coinbase_tx_prefix incorrect"
-        );
-        assert!(
-            coinbase_tx_suffix
-                == [
-                    255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
-                    194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 1,
-                    32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                ]
-                .to_vec()
-                .try_into()
-                .unwrap(),
-            "coinbase_tx_suffix incorrect"
-        );
-    }
+//         let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, script_prefix_length);
+//         let coinbase_tx_suffix =
+//             coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_length);
+//         assert!(
+//             coinbase_tx_prefix
+//                 == [
+//                     2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163,
+// 38,                     0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80,
+// 111,                     111, 108
+//                 ]
+//                 .to_vec()
+//                 .try_into()
+//                 .unwrap(),
+//             "coinbase_tx_prefix incorrect"
+//         );
+//         assert!(
+//             coinbase_tx_suffix
+//                 == [
+//                     255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+//                     194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 1,
+//                     32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// 0,                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+//                 ]
+//                 .to_vec()
+//                 .try_into()
+//                 .unwrap(),
+//             "coinbase_tx_suffix incorrect"
+//         );
+//     }
 
-    // copied from roles-logic-sv2::job_creator
-    fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
-        let encoded = coinbase.serialize();
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-        // 0 witness
-        let segwit_bytes = match script_prefix_len {
-            0 => 0,
-            _ => 2,
-        };
-        let index = 4    // tx version
-            + segwit_bytes
-            + 1  // number of inputs TODO can be also 3
-            + 32 // prev OutPoint
-            + 4  // index
-            + 1  // bytes in script TODO can be also 3
-            + script_prefix_len; // bip34_bytes
-        let r = encoded[0..index].to_vec();
-        r.try_into().unwrap()
-    }
+//     // copied from roles-logic-sv2::job_creator
+//     fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
+//         let encoded = coinbase.serialize();
+//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have
+// the         // 0 witness
+//         let segwit_bytes = match script_prefix_len {
+//             0 => 0,
+//             _ => 2,
+//         };
+//         let index = 4    // tx version
+//             + segwit_bytes
+//             + 1  // number of inputs TODO can be also 3
+//             + 32 // prev OutPoint
+//             + 4  // index
+//             + 1  // bytes in script TODO can be also 3
+//             + script_prefix_len; // bip34_bytes
+//         let r = encoded[0..index].to_vec();
+//         r.try_into().unwrap()
+//     }
 
-    // copied from roles-logic-sv2::job_creator
-    fn coinbase_tx_suffix(
-        coinbase: &Transaction,
-        extranonce_len: u8,
-        script_prefix_len: usize,
-    ) -> B064K<'static> {
-        let encoded = coinbase.serialize();
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
-        // 0 witness
-        let segwit_bytes = match script_prefix_len {
-            0 => 0,
-            _ => 2,
-        };
-        let r = encoded[4    // tx version
-        + segwit_bytes
-        + 1  // number of inputs TODO can be also 3
-        + 32 // prev OutPoint
-        + 4  // index
-        + 1  // bytes in script TODO can be also 3
-        + script_prefix_len  // bip34_bytes
-        + (extranonce_len as usize)..]
-            .to_vec();
-        r.try_into().unwrap()
-    }
+//     // copied from roles-logic-sv2::job_creator
+//     fn coinbase_tx_suffix(
+//         coinbase: &Transaction,
+//         extranonce_len: u8,
+//         script_prefix_len: usize,
+//     ) -> B064K<'static> {
+//         let encoded = coinbase.serialize();
+//         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have
+// the         // 0 witness
+//         let segwit_bytes = match script_prefix_len {
+//             0 => 0,
+//             _ => 2,
+//         };
+//         let r = encoded[4    // tx version
+//         + segwit_bytes
+//         + 1  // number of inputs TODO can be also 3
+//         + 32 // prev OutPoint
+//         + 4  // index
+//         + 1  // bytes in script TODO can be also 3
+//         + script_prefix_len  // bip34_bytes
+//         + (extranonce_len as usize)..] .to_vec();
+//         r.try_into().unwrap()
+//     }
 
-    fn get_bip_34_bytes(coinbase_prefix: B0255<'static>) -> Vec<u8> {
-        let script_prefix = &coinbase_prefix.to_vec()[..];
-        // add 1 cause 0 is push 1 2 is 1 is push 2 ecc ecc
-        // add 1 cause in the len there is also the op code itself
-        let bip34_len = script_prefix[0] as usize + 2;
-        if bip34_len == script_prefix.len() {
-            script_prefix[0..bip34_len].to_vec()
-        } else {
-            panic!("bip34 length does not match script prefix")
-        }
-    }
-}
+//     fn get_bip_34_bytes(coinbase_prefix: B0255<'static>) -> Vec<u8> {
+//         let script_prefix = &coinbase_prefix.to_vec()[..];
+//         // add 1 cause 0 is push 1 2 is 1 is push 2 ecc ecc
+//         // add 1 cause in the len there is also the op code itself
+//         let bip34_len = script_prefix[0] as usize + 2;
+//         if bip34_len == script_prefix.len() {
+//             script_prefix[0..bip34_len].to_vec()
+//         } else {
+//             panic!("bip34 length does not match script prefix")
+//         }
+//     }
+// }

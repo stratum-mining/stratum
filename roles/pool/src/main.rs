@@ -68,8 +68,19 @@ mod args {
     }
 }
 
+// use tracing_subscriber::prelude::*;
+
+// fn init_tracing() {
+//     let console_layer = console_subscriber::spawn();
+//     tracing_subscriber::registry()
+//         .with(console_layer)
+//         .with(tracing_subscriber::fmt::layer())
+//         .init();
+// }
+
 #[tokio::main]
 async fn main() {
+    // init_tracing();
     tracing_subscriber::fmt::init();
 
     let args = match args::Args::from_args() {
