@@ -1,4 +1,5 @@
 use crate::{sniffer::*, template_provider::*};
+use corepc_node::{ConnectParams, CookieValues};
 use jd_client::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -166,7 +167,7 @@ pub async fn start_jdc(
     (ret, jdc_address)
 }
 
-pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAddr) {
+pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, SocketAddr) {
     use jd_server::{CoinbaseOutput, Configuration, CoreRpc};
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
@@ -182,28 +183,32 @@ pub async fn start_jds(tp_address: SocketAddr) -> (JobDeclaratorServer, SocketAd
         "P2WPKH".to_string(),
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
     )];
-    let core_rpc = CoreRpc::new(
-        tp_address.ip().to_string(),
-        tp_address.port(),
-        "tp_username".to_string(),
-        "tp_password".to_string(),
-    );
-    let config = Configuration::new(
-        listen_jd_address.to_string(),
-        authority_public_key,
-        authority_secret_key,
-        cert_validity_sec,
-        coinbase_outputs,
-        core_rpc,
-        std::time::Duration::from_secs(1),
-    );
-    let job_declarator_server = JobDeclaratorServer::new(config);
-    let job_declarator_server_clone = job_declarator_server.clone();
-    tokio::spawn(async move {
-        job_declarator_server_clone.start().await;
-    });
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    (job_declarator_server, listen_jd_address)
+    if let Ok(Some(CookieValues { user, password })) = tp_rpc_connection.get_cookie_values() {
+        let core_rpc = CoreRpc::new(
+            format!("http://{}", tp_rpc_connection.rpc_socket.ip()).to_string(),
+            tp_rpc_connection.rpc_socket.port(),
+            user,
+            password,
+        );
+        let config = Configuration::new(
+            listen_jd_address.to_string(),
+            authority_public_key,
+            authority_secret_key,
+            cert_validity_sec,
+            coinbase_outputs,
+            core_rpc,
+            std::time::Duration::from_secs(1),
+        );
+        let job_declarator_server = JobDeclaratorServer::new(config).unwrap();
+        let job_declarator_server_clone = job_declarator_server.clone();
+        tokio::spawn(async move {
+            job_declarator_server_clone.start().await.unwrap();
+        });
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        (job_declarator_server, listen_jd_address)
+    } else {
+        panic!("Failed to get TP cookie values");
+    }
 }
 
 pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
