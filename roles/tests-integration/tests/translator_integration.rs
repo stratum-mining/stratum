@@ -13,7 +13,7 @@ use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
 // the pool exchange the correct messages upon connection. And that the miner is able to submit
 // shares.
 #[tokio::test]
-async fn translation_proxy() {
+async fn translate_sv1_to_sv2_successfully() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
