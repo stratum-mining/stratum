@@ -38,10 +38,10 @@ pub struct JobDeclaratorServer {
 }
 
 impl JobDeclaratorServer {
-    pub fn new(config: Configuration) -> Result<Self, JdsError> {
+    pub fn new(config: Configuration) -> Result<Self, Box<JdsError>> {
         let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
         if !is_valid_url(&url) {
-            return Err(JdsError::InvalidRPCUrl);
+            return Err(Box::new(JdsError::InvalidRPCUrl));
         }
         Ok(Self { config })
     }
