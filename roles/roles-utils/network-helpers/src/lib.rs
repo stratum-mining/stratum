@@ -1,20 +1,9 @@
 #![allow(dead_code)]
-#[cfg(feature = "async_std")]
-mod noise_connection_async_std;
-#[cfg(feature = "async_std")]
-mod plain_connection_async_std;
 use binary_sv2::{Deserialize, GetSize, Serialize};
-#[cfg(feature = "async_std")]
-pub use noise_connection_async_std::{connect, listen, Connection};
-#[cfg(feature = "async_std")]
-pub use plain_connection_async_std::{plain_connect, plain_listen, PlainConnection};
 
-#[cfg(feature = "tokio")]
-pub mod noise_connection_tokio;
-#[cfg(feature = "tokio")]
+pub mod noise_connection;
 pub mod noise_connection_tokio_with_tokio_channels;
-#[cfg(feature = "tokio")]
-pub mod plain_connection_tokio;
+pub mod plain_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
@@ -56,14 +45,12 @@ impl<T> From<SendError<T>> for Error {
     }
 }
 
-#[cfg(feature = "tokio")]
 impl<T> From<tokio::sync::broadcast::error::SendError<T>> for Error {
     fn from(_: tokio::sync::broadcast::error::SendError<T>) -> Self {
         Error::SendErrorTokio
     }
 }
 
-#[cfg(feature = "tokio")]
 impl From<tokio::sync::broadcast::error::RecvError> for Error {
     fn from(_: tokio::sync::broadcast::error::RecvError) -> Self {
         Error::RecvErrorTokio
