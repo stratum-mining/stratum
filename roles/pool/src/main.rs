@@ -1,6 +1,8 @@
 #![allow(special_module_name)]
 
 mod lib;
+use std::{thread, time::Duration};
+
 use ext_config::{Config, File, FileFormat};
 pub use lib::{mining_pool::Configuration, status, PoolSv2};
 use tracing::error;
