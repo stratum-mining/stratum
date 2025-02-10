@@ -195,6 +195,7 @@ pub struct Pool {
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
     last_prev_hash_template_id: u64,
     status_tx: status::Sender,
+    shutdown: Arc<tokio::sync::Notify>,
 }
 
 impl Downstream {
@@ -470,8 +471,14 @@ impl Pool {
             );
             match responder {
                 Ok(resp) => {
-                    if let Ok((receiver, sender, _, _)) =
-                        Connection::new(stream, HandshakeRole::Responder(resp), 10).await
+                    let shutdown = self_.safe_lock(|x| x.shutdown.clone())?;
+                    if let Ok((receiver, sender, _, _)) = Connection::new(
+                        stream,
+                        HandshakeRole::Responder(resp),
+                        10,
+                        shutdown.clone(),
+                    )
+                    .await
                     {
                         handle_result!(
                             status_tx,
@@ -662,6 +669,7 @@ impl Pool {
             channel_factory,
             last_prev_hash_template_id: 0,
             status_tx: status_tx.clone(),
+            shutdown: shutdown.clone(),
         }));
 
         let cloned = pool.clone();

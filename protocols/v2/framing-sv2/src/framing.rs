@@ -36,7 +36,6 @@ type Slice = buffer_sv2::Slice;
 pub enum Frame<T, B> {
     HandShake(HandShakeFrame),
     Sv2(Sv2Frame<T, B>),
-    Shutdown,
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<T, B> {
@@ -44,7 +43,6 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<T, B> {
         match &self {
             Self::HandShake(frame) => frame.encoded_length(),
             Self::Sv2(frame) => frame.encoded_length(),
-            Self::Shutdown => 0,
         }
     }
 }
@@ -226,7 +224,6 @@ impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
         match v {
             Frame::Sv2(frame) => Ok(frame),
             Frame::HandShake(_) => Err(Error::ExpectedSv2Frame),
-            Frame::Shutdown => Err(Error::ExpectedSv2Frame),
         }
     }
 }
@@ -273,7 +270,6 @@ impl<T, B> TryFrom<Frame<T, B>> for HandShakeFrame {
         match v {
             Frame::HandShake(frame) => Ok(frame),
             Frame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
-            Frame::Shutdown => Err(Error::ExpectedHandshakeFrame),
         }
     }
 }

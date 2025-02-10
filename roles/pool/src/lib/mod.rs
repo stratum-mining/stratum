@@ -5,8 +5,6 @@ pub mod template_receiver;
 
 use std::sync::Arc;
 
-use async_channel::{bounded, unbounded};
-
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Configuration, Pool};
 use template_receiver::TemplateRx;
@@ -66,6 +64,7 @@ impl PoolSv2 {
             status::Sender::UpstreamTokio(status_tx.clone()),
             coinbase_output_len,
             tp_authority_public_key,
+            self.shutdown.clone(),
         )
         .await?;
         let pool = Pool::start(

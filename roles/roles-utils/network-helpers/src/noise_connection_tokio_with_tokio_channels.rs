@@ -47,6 +47,7 @@ impl Connection {
         stream: TcpStream,
         role: HandshakeRole,
         capacity: usize,
+        shutdown: Arc<tokio::sync::Notify>,
     ) -> Result<
         (
             tokio::sync::broadcast::Sender<StandardEitherFrame<Message>>,
@@ -80,69 +81,45 @@ impl Connection {
         let cloned2 = connection.clone();
         let sender_incoming_clone = sender_incoming.clone();
         // RECEIVE AND PARSE INCOMING MESSAGES FROM TCP STREAM
+        let shutdown1 = shutdown.clone();
         let recv_task = task::spawn(async move {
+            let shutdown = shutdown1;
             let mut decoder = StandardNoiseDecoder::<Message>::new();
-
             loop {
                 let writable = decoder.writable();
-                match reader.read_exact(writable).await {
-                    Ok(_) => {
-                        let mut connection = cloned1.lock().await;
-                        let decoded = decoder.next_frame(&mut connection.state);
-                        drop(connection);
+                tokio::select! {
+                    _ = shutdown.notified() => {
+                        error!("Breaking from recv task handler");
+                        break;
+                    }
 
-                        match decoded {
-                            Ok(x) => {
-                                if sender_incoming_clone.send(x).is_err() {
-                                    error!("Shutting down noise stream reader!");
-                                    // Removing yield as no point in having them
-                                    // task::yield_now().await;
-                                    break;
+                    result = reader.read_exact(writable) => {
+                        match result {
+                            Ok(_) => {
+                                let mut connection = cloned1.lock().await;
+                                let decoded = decoder.next_frame(&mut connection.state);
+                                drop(connection);
+
+                                match decoded {
+                                    Ok(frame) => {
+                                        if sender_incoming_clone.send(frame).is_err() {
+                                            error!("Shutting down noise stream reader!");
+                                            break;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        if !matches!(e, codec_sv2::Error::MissingBytes(_)) {
+                                            error!("Shutting down noise stream reader! {:#?}", e);
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                             Err(e) => {
-                                if let codec_sv2::Error::MissingBytes(_) = e {
-                                } else {
-                                    error!("Shutting down noise stream reader! {:#?}", e);
-                                    // ---------------------------------------------------
-                                    // close not available, and dropping the sender_incoming is
-                                    // also off the table as one require senders to create
-                                    // receivers,
-                                    // Sending a shutdown message to receiver should be appropriate
-                                    // way to handle this.
-                                    // -----------------------------------------------------------
-                                    // sender_incoming.close();
-                                    // sender_incoming_clone
-                                    //     .send(StandardEitherFrame::Shutdown)
-                                    //     .unwrap();
-                                    // Removing yield as no point in having them
-                                    // task::yield_now().await;
-                                    break;
-                                }
+                                error!("Disconnected from client while reading: {} - {}", e, address);
+                                break;
                             }
                         }
-                    }
-                    Err(e) => {
-                        error!(
-                            "Disconnected from client while reading : {} - {}",
-                            e, &address
-                        );
-
-                        //kill thread without a panic - don't need to panic everytime a client
-                        // disconnects
-                        // ---------------------------------------------------
-                        // close not available, and dropping the sender_incoming is
-                        // also off the table as one require senders to create receivers,
-                        // Sending a shutdown message to receiver should be appropriate
-                        // way to handle this.
-                        // -----------------------------------------------------------
-                        // sender_incoming.close();
-                        // sender_incoming_clone
-                        //     .send(StandardEitherFrame::Shutdown)
-                        //     .unwrap();
-                        // Removing yield as no point in having them
-                        // task::yield_now().await;
-                        break;
                     }
                 }
             }
@@ -153,46 +130,41 @@ impl Connection {
             let mut encoder = codec_sv2::NoiseEncoder::<Message>::new();
 
             loop {
-                let received = receiver_outgoing.recv().await;
+                tokio::select! {
+                    _ = shutdown.notified() => {
+                        error!("Breaking from send task handler");
+                        break;
+                    }
 
-                match received {
-                    Ok(frame) => {
-                        let mut connection = cloned2.lock().await;
+                    received = receiver_outgoing.recv() => {
+                        match received {
+                            Ok(frame) => {
+                                let mut connection = cloned2.lock().await;
+                                let encoded_data = encoder.encode(frame, &mut connection.state)
+                                    .expect("Encoding should not fail");
+                                drop(connection);
 
-                        let b = encoder.encode(frame, &mut connection.state).unwrap();
-
-                        drop(connection);
-
-                        let b = b.as_ref();
-
-                        match (writer).write_all(b).await {
-                            Ok(_) => (),
+                                if let Err(e) = writer.write_all(encoded_data.as_ref()).await {
+                                    let _ = writer.shutdown().await;
+                                    error!(
+                                        "Disconnecting from client due to write error: {} - {}",
+                                        e, address
+                                    );
+                                    break;
+                                }
+                            }
                             Err(e) => {
                                 let _ = writer.shutdown().await;
-                                // Just fail and force to reinitialize everything
                                 error!(
-                                    "Disconnecting from client due to error writing: {} - {}",
-                                    e, &address
+                                    "Disconnecting from client due to receive error: {} - {}",
+                                    e, address
                                 );
-                                // Removing yield as no point in having them
-                                // task::yield_now().await;
                                 break;
                             }
                         }
+                        crate::HANDSHAKE_READY.store(true, std::sync::atomic::Ordering::Relaxed);
                     }
-                    Err(e) => {
-                        // Just fail and force to reinitialize everything
-                        let _ = writer.shutdown().await;
-                        error!(
-                            "Disconnecting from client due to error receiving: {} - {}",
-                            e, &address
-                        );
-                        // Removing yield as no point in having them
-                        // task::yield_now().await;
-                        break;
-                    }
-                };
-                crate::HANDSHAKE_READY.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
             }
         });
 

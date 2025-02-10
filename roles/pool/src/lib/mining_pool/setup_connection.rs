@@ -51,10 +51,6 @@ impl SetupConnectionHandler {
                 );
                 panic!()
             }
-            Ok(EitherFrame::Shutdown) => {
-                debug!("Shutdown message received");
-                return Err(PoolError::RolesLogic(Error::Shutdown));
-            }
             Err(e) => {
                 error!("Error receiving message: {:?}", e);
                 return Err(Error::NoDownstreamsConnected.into());
