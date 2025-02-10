@@ -40,6 +40,10 @@ jobs:
         run: |
           cargo run --manifest-path=protocols/v1/Cargo.toml --example client_and_server 30
 
+      - name: Run framing-sv2 example
+        run: |
+          cargo run --manifest-path=protocols/v2/framing-sv2/Cargo.toml --example sv2_frame
+
       - name: interop-test
         run: |
           if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
