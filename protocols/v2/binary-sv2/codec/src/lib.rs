@@ -1,4 +1,4 @@
-//! Defines types, encodings, and conversions between Serde and SV2 protocols,
+//! Defines types, encodings, and conversions between custom datatype and standard Rust type,
 //! providing abstractions for encoding, decoding, and error handling of SV2 data types.
 //!
 //! # Overview
@@ -8,11 +8,9 @@
 //! specifications.
 //!
 //! ## Type Mappings
-//! The following table illustrates how standard Rust types or serde data model map to their SV2
-//! counterparts:
+//! The following table illustrates how standard Rust types map to their SV2 counterparts:
 //!
 //! ```txt
-//! SERDE    <-> Sv2
 //! bool     <-> BOOL
 //! u8       <-> U8
 //! u16      <-> U16

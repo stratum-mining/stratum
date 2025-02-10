@@ -182,10 +182,12 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
+    dbg!(&coinbase.len());
     let coinbase = match Transaction::deserialize(&coinbase[..]) {
         Ok(trans) => trans,
         Err(e) => {
             error!("ERROR: {}", e);
+            dbg!(e);
             return None;
         }
     };
@@ -1059,23 +1061,20 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "serde")]
-    use super::*;
-    use super::{hash_rate_from_target, hash_rate_to_target};
-    #[cfg(feature = "serde")]
+
+    use super::{hash_rate_from_target, hash_rate_to_target, *};
+
     use binary_sv2::{Seq0255, B064K, U256};
     use rand::Rng;
-    #[cfg(feature = "serde")]
+
     use serde::Deserialize;
 
-    #[cfg(feature = "serde")]
     use std::convert::TryInto;
-    #[cfg(feature = "serde")]
+
     use std::num::ParseIntError;
 
     use stratum_common::bitcoin;
 
-    #[cfg(feature = "serde")]
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         (0..s.len())
             .step_by(2)
@@ -1083,7 +1082,6 @@ mod tests {
             .collect()
     }
 
-    #[cfg(feature = "serde")]
     #[derive(Debug, Deserialize)]
     struct TestBlockToml {
         block_hash: String,
@@ -1099,7 +1097,6 @@ mod tests {
         path: Vec<String>,
     }
 
-    #[cfg(feature = "serde")]
     #[derive(Debug)]
     struct TestBlock<'decoder> {
         block_hash: U256<'decoder>,
@@ -1114,9 +1111,9 @@ mod tests {
         coinbase_tx_suffix: B064K<'decoder>,
         path: Seq0255<'decoder, U256<'decoder>>,
     }
-    #[cfg(feature = "serde")]
+
     fn get_test_block<'decoder>() -> TestBlock<'decoder> {
-        let test_file = std::fs::read_to_string("../../../test_data/reg-test-block.toml")
+        let test_file = std::fs::read_to_string("reg-test-block.toml")
             .expect("Could not read file from string");
         let block: TestBlockToml =
             toml::from_str(&test_file).expect("Could not parse toml file as `TestBlockToml`");
@@ -1187,23 +1184,25 @@ mod tests {
             path,
         }
     }
+
     #[test]
-    #[cfg(feature = "serde")]
     fn gets_merkle_root_from_path() {
         let block = get_test_block();
         let expect: Vec<u8> = block.merkle_root;
 
         let actual = merkle_root_from_path(
             block.coinbase_tx_prefix.inner_as_ref(),
+            &block.coinbase_tx_suffix.inner_as_ref(),
             &block.coinbase_script,
-            block.coinbase_tx_suffix.inner_as_ref(),
             &block.path.inner_as_ref(),
-        );
+        )
+        .unwrap();
+
         assert_eq!(expect, actual);
     }
 
     #[test]
-    #[cfg(feature = "serde")]
+
     fn gets_new_header() -> Result<(), Error> {
         let block = get_test_block();
 
@@ -1244,7 +1243,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "serde")]
+
     fn gets_new_header_hash() {
         let block = get_test_block();
         let expect = block.block_hash;

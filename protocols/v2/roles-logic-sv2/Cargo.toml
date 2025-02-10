@@ -14,7 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 stratum-common = { path = "../../../common", features=["bitcoin"]}
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution" }
@@ -32,6 +32,7 @@ quickcheck = "1.0.3"
 quickcheck_macros = "1"
 rand = "0.8.5"
 toml =  {git = "https://github.com/diondokter/toml-rs", default-features = false, rev="c4161aa"}
+serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false}
 
 [features]
 prop_test = ["template_distribution_sv2/prop_test"]

@@ -34,10 +34,6 @@ This crate can be built with the following feature flags:
 
 - `debug`: Provides additional tracking for debugging memory management issues.
 - `fuzz`: Enables support for fuzz testing.
-- `with_serde`: builds [`binary_sv2`](https://crates.io/crates/binary_sv2) and
-  [`buffer_sv2`](https://crates.io/crates/buffer_sv2) crates with `serde`-based encoding and
-  decoding. Note that this feature flag is only used for the Message Generator, and deprecated
-  for any other kind of usage. It will likely be fully deprecated in the future.
 
 ### Unsafe Code
 There are four unsafe code blocks instances:

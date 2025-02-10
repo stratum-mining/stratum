@@ -36,12 +36,6 @@
 // - `impl_into_encodable_field_for_seq!`: Implements conversions to `EncodableField` for a
 //   sequence, adapting the sequence for inclusion in serialized structures.
 //
-// ## Notes on Serialization
-//
-// Types are designed to interoperate with the `serde-sv2` framework, using lifetimes
-// (`'a`) for compatibility with external lifetimes and ensuring the types can be converted into
-// various serialized forms with or without `serde` support.
-//
 // ## Build Options
 //
 // - `prop_test`: Enables property-based testing compatibility by implementing `TryFrom` for `Vec`
@@ -60,7 +54,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq0255<'a, super::inner::Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>>
 {
@@ -74,7 +68,7 @@ impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     }
 }
 
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize> Seq0255<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
     /// Converts the inner types to owned vector, and collects.
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
@@ -86,7 +80,7 @@ impl<'a, const SIZE: usize> Seq0255<'a, super::inner::Inner<'a, true, SIZE, 0, 0
         self.0.iter().map(|x| x.inner_as_ref()).collect()
     }
 }
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq064K<'a, super::inner::Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>>
 {
@@ -101,7 +95,7 @@ impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     }
 }
 
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize> Seq064K<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
     /// Converts the inner types to owned vector, and collects.
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
@@ -118,8 +112,7 @@ impl<'a, const SIZE: usize> Seq064K<'a, super::inner::Inner<'a, true, SIZE, 0, 0
 use std::io::Read;
 
 /// [`Seq0255`] represents a sequence with a maximum length of 255 elements.
-/// This structure uses a generic type `T` and a lifetime parameter `'a`
-/// to ensure compatibility with `serde-sv2`.
+/// This structure uses a generic type `T` and a lifetime parameter `'a`.
 #[repr(C)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Seq0255<'a, T>(pub Vec<T>, PhantomData<&'a T>);
@@ -163,8 +156,7 @@ impl<'a, T: GetSize> GetSize for Seq0255<'a, T> {
 }
 
 /// [`Seq064K`] represents a sequence with a maximum length of 65535 elements.
-/// This structure uses a generic type `T` and a lifetime parameter `'a`
-/// to ensure compatibility with `serde-sv2`.
+/// This structure uses a generic type `T` and a lifetime parameter `'a`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Seq064K<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
 
@@ -455,12 +447,12 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-/// The liftime is here only for type compatibility with serde-sv2
+/// The lifetime 'a is defined.
 #[repr(C)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
 
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize> Sv2Option<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
     /// Gets the owned first element of the sequence, if present
     pub fn to_option(&self) -> Option<Vec<u8>> {

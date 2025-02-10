@@ -37,21 +37,17 @@ jobs:
         run: |
           ./scripts/release-libs.sh utils/buffer
 
-      - name: Publish crate no_serde_sv2_derive_codec
+      - name: Publish crate binary_sv2 derive_codec
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/no-serde-sv2/derive_codec
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/derive_codec
 
-      - name: Publish crate no_serde_sv2_codec
+      - name: Publish crate binary_sv2 codec
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/no-serde-sv2/codec
-
-      - name: Publish crate serde_sv2
-        run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/serde-sv2
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/codec
 
       - name: Publish crate binary_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/binary-sv2
+          ./scripts/release-libs.sh protocols/v2/binary-sv2
 
       - name: Publish crate const_sv2
         run: |
