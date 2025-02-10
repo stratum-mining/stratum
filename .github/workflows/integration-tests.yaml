@@ -14,7 +14,7 @@ jobs:
           - ubuntu-latest
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
 
     steps:
       - name: Use stable toolchain
