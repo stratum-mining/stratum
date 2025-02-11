@@ -9,7 +9,11 @@ use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
-use tokio::{select, task};
+use tokio::{
+    select,
+    sync::Notify,
+    task::{self, JoinHandle},
+};
 use tracing::{error, info, warn};
 
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
@@ -31,11 +35,44 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorServer {
     config: Configuration,
+    shutdown: Arc<Notify>,
+}
+
+struct TaskHandler {
+    handles: Vec<JoinHandle<()>>,
+}
+
+impl TaskHandler {
+    fn new() -> Self {
+        TaskHandler {
+            handles: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
+    }
+
+    fn abort_all(&mut self) {
+        for handle in self.handles.drain(..) {
+            handle.abort();
+        }
+    }
+}
+
+impl Drop for TaskHandler {
+    fn drop(&mut self) {
+        info!("Aborting all child task.");
+        self.abort_all();
+    }
 }
 
 impl JobDeclaratorServer {
     pub fn new(config: Configuration) -> Self {
-        Self { config }
+        Self {
+            config,
+            shutdown: Arc::new(Notify::new()),
+        }
     }
     pub async fn start(&self) {
         let config = self.config.clone();
@@ -58,13 +95,25 @@ impl JobDeclaratorServer {
         let mut last_empty_mempool_warning =
             std::time::Instant::now().sub(std::time::Duration::from_secs(60));
 
+        let mut task_handler = TaskHandler::new();
+
+        tokio::spawn({
+            let shutdown_signal = self.shutdown.clone();
+            async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    info!("Interrupt received");
+                    shutdown_signal.notify_one();
+                }
+            }
+        });
+
         // TODO if the jd-server is launched with core_rpc_url empty, the following flow is never
         // taken. Consequentally new_block_receiver in JDsMempool::on_submit is never read, possibly
         // reaching the channel bound. The new_block_sender is given as input to
         // JobDeclarator::start()
         if url.contains("http") {
             let sender_update_mempool = sender.clone();
-            task::spawn(async move {
+            task_handler.add(task::spawn(async move {
                 loop {
                     let update_mempool_result: Result<(), mempool::error::JdsMempoolError> =
                         mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
@@ -96,11 +145,11 @@ impl JobDeclaratorServer {
                     //let _transactions =
                     // mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
                 }
-            });
+            }));
 
             let mempool_cloned = mempool.clone();
             let sender_submit_solution = sender.clone();
-            task::spawn(async move {
+            task_handler.add(task::spawn(async move {
                 loop {
                     let result = mempool::JDsMempool::on_submit(mempool_cloned.clone()).await;
                     if let Err(err) = result {
@@ -120,13 +169,13 @@ impl JobDeclaratorServer {
                         }
                     }
                 }
-            });
+            }));
         };
 
         let cloned = config.clone();
         let mempool_cloned = mempool.clone();
         let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
-        task::spawn(async move {
+        task_handler.add(task::spawn(async move {
             JobDeclarator::start(
                 cloned,
                 sender,
@@ -135,8 +184,8 @@ impl JobDeclaratorServer {
                 sender_add_txs_to_mempool,
             )
             .await
-        });
-        task::spawn(async move {
+        }));
+        task_handler.add(task::spawn(async move {
             loop {
                 if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                     let mempool_cloned = mempool.clone();
@@ -157,23 +206,15 @@ impl JobDeclaratorServer {
                     });
                 }
             }
-        });
+        }));
 
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
         loop {
             let task_status = select! {
                 task_status = status_rx.recv() => task_status,
-                interrupt_signal = tokio::signal::ctrl_c() => {
-                    match interrupt_signal {
-                        Ok(()) => {
-                            info!("Interrupt received");
-                        },
-                        Err(err) => {
-                            error!("Unable to listen for interrupt signal: {}", err);
-                            // we also shut down in case of error
-                        },
-                    }
+                _ = self.shutdown.notified() => {
+                    info!("Shutting down gracefully...");
                     break;
                 }
             };
@@ -199,6 +240,16 @@ impl JobDeclaratorServer {
                 }
             }
         }
+    }
+
+    /// Notifies the JD-Server to shut down gracefully.
+    ///
+    /// This method triggers the shutdown process by sending a notification.
+    /// It ensures that any ongoing operations are properly handled before
+    /// the jd-server stops functioning.
+    #[allow(dead_code)]
+    pub fn shutdown(&self) {
+        self.shutdown.notify_one();
     }
 }
 
@@ -417,5 +468,34 @@ mod tests {
         };
         let result: Result<CoinbaseOutput_, _> = (&input).try_into();
         assert!(matches!(result, Err(Error::UnknownOutputScriptType)));
+    }
+
+    #[tokio::test]
+    async fn test_shutdown() {
+        let config_path = "config-examples/jds-config-local-example.toml";
+        let config: Configuration = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<Configuration>() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to deserialize config: {}", e);
+                    return;
+                }
+            },
+            Err(e) => {
+                error!("Failed to build config: {}", e);
+                return;
+            }
+        };
+        let jds = JobDeclaratorServer::new(config.clone());
+        let cloned = jds.clone();
+        tokio::spawn(async move {
+            cloned.start().await;
+        });
+        jds.shutdown();
+        let jds_addr = config.listen_jd_address.clone();
+        assert!(std::net::TcpListener::bind(jds_addr).is_ok());
     }
 }
