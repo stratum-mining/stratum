@@ -1,6 +1,9 @@
+#[cfg(feature = "std")]
 use ::key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+#[cfg(feature = "std")]
 use secp256k1::{rand, Keypair, Secp256k1};
 
+#[cfg(feature = "std")]
 fn generate_key() -> (Secp256k1SecretKey, Secp256k1PublicKey) {
     let secp = Secp256k1::new();
     let (secret_key, _) = secp.generate_keypair(&mut rand::thread_rng());
@@ -15,6 +18,7 @@ fn generate_key() -> (Secp256k1SecretKey, Secp256k1PublicKey) {
     }
 }
 
+#[cfg(feature = "std")]
 fn main() {
     let (secret, public) = generate_key();
     let secret: String = secret.into();
@@ -22,3 +26,6 @@ fn main() {
     println!("Secret Key: {}", secret);
     println!("Public Key: {}", public);
 }
+
+#[cfg(not(feature = "std"))]
+fn main() {}

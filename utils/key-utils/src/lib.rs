@@ -1,11 +1,18 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use bs58::{decode, decode::Error as Bs58DecodeError};
-use core::convert::TryFrom;
+use core::{convert::TryFrom, fmt::Display, str::FromStr};
 use secp256k1::{
     schnorr::Signature, Keypair, Message as SecpMessage, Secp256k1, SecretKey, SignOnly,
     VerifyOnly, XOnlyPublicKey,
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug)]
 pub enum Error {
@@ -17,7 +24,7 @@ pub enum Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Bs58Decode(error) => write!(f, "Base58 code error: {error}"),
             Self::Secp256k1(error) => write!(f, "Secp256k1 error: {error}"),
@@ -30,7 +37,11 @@ impl Display for Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for Error {}
+#[cfg(not(feature = "std"))]
+#[rustversion::since(1.81)]
+impl core::error::Error for Error {}
 
 impl From<Bs58DecodeError> for Error {
     fn from(e: Bs58DecodeError) -> Self {
@@ -73,7 +84,7 @@ impl From<Secp256k1SecretKey> for String {
 }
 
 impl Display for Secp256k1SecretKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let bytes = self.0.secret_bytes();
         f.write_str(&bs58::encode(bytes).with_check().into_string())
     }
@@ -116,7 +127,7 @@ impl From<Secp256k1PublicKey> for String {
 }
 
 impl Display for Secp256k1PublicKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut output = [0_u8; 34];
         output[0] = 1;
         let bytes = self.0.serialize();
@@ -157,12 +168,26 @@ impl SignatureService {
         }
     }
 
+    #[cfg(feature = "std")]
     pub fn sign(&self, message: Vec<u8>, private_key: SecretKey) -> Signature {
+        self.sign_with_rng(message, private_key, &mut rand::thread_rng())
+    }
+
+    #[inline]
+    pub fn sign_with_rng<R: rand::Rng + rand::CryptoRng>(
+        &self,
+        message: Vec<u8>,
+        private_key: SecretKey,
+        rng: &mut R,
+    ) -> Signature {
         let secret_key = private_key;
         let kp = Keypair::from_secret_key(&self.secp_sign, &secret_key);
 
-        self.secp_sign
-            .sign_schnorr(&SecpMessage::from_digest_slice(&message).unwrap(), &kp)
+        self.secp_sign.sign_schnorr_with_rng(
+            &SecpMessage::from_digest_slice(&message).unwrap(),
+            &kp,
+            rng,
+        )
     }
 
     pub fn verify(
