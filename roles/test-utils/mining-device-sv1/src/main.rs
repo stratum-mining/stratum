@@ -13,6 +13,7 @@ async fn main() {
     Client::connect(
         80,
         SocketAddr::from_str(ADDR).expect("Invalid upstream address"),
+        false,
     )
     .await
 }
