@@ -87,6 +87,18 @@ impl MiniRpcClient {
         }
     }
 
+    /// Checks the health of the RPC connection by sending a request to the blockchain info
+    /// endpoint
+    pub async fn health(&self) -> Result<(), RpcError> {
+        let response = self
+            .send_json_rpc_request("getblockchaininfo", json!([]))
+            .await;
+        match response {
+            Ok(_) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
     async fn send_json_rpc_request(
         &self,
         method: &str,
