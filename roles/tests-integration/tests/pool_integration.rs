@@ -1,10 +1,15 @@
-use integration_tests_sv2::*;
-
+// This file contains integration tests for the `PoolSv2` module.
+//
+// `PoolSv2` is a module that implements the Pool role in the Stratum V2 protocol.
+//
+// Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
+// all tests. This is because tracing is a global setting.
 use crate::sniffer::MessageDirection;
 use const_sv2::{
     MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
     MESSAGE_TYPE_NEW_TEMPLATE,
 };
+use integration_tests_sv2::*;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     parsers::{AnyMessage, CommonMessages, Mining, PoolMessages, TemplateDistribution},
@@ -16,6 +21,7 @@ use roles_logic_sv2::{
 // Pool will connect to the Sniffer, and the Sniffer will connect to the Template Provider.
 #[tokio::test]
 async fn success_pool_template_provider_connection() {
+    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, true, None).await;
     let _ = start_pool(Some(sniffer_addr)).await;
