@@ -13,7 +13,7 @@ async fn translation_proxy() {
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
         start_sniffer("0".to_string(), pool_addr, false, None).await;
     let (_, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr).await;
-    let _mining_device = start_mining_device_sv1(tproxy_addr).await;
+    let _mining_device = start_mining_device_sv1(tproxy_addr, false).await;
     pool_translator_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
