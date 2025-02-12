@@ -1,6 +1,6 @@
 use std::{convert::TryInto, net::SocketAddr, ops::Div};
 
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{unbounded, Receiver, Sender};
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use roles_logic_sv2::utils::Mutex;
@@ -77,14 +77,14 @@ impl Client {
 
         // `sender_incoming` listens on socket for incoming messages from the Upstream and sends
         // messages to the `receiver_incoming` to be parsed and handled by the `Client`
-        let (sender_incoming, receiver_incoming) = bounded(10);
+        let (sender_incoming, receiver_incoming) = unbounded();
         // `sender_outgoing` sends the message parsed by the `Client` to the `receiver_outgoing`
         // which writes the messages to the socket to the Upstream
-        let (sender_outgoing, receiver_outgoing) = bounded(10);
+        let (sender_outgoing, receiver_outgoing) = unbounded();
         // `sender_share` sends job share results to the `receiver_share` where the job share
         // results are formated into a "mining.submit" messages that is then sent to the
         // Upstream via `sender_outgoing`
-        let (sender_share, receiver_share) = bounded(10);
+        let (sender_share, receiver_share) = unbounded();
 
         // Instantiates a new `Miner` (a mock of an actual Mining Device) with a job id of 0.
         let miner = Arc::new(Mutex::new(Miner::new(0)));
