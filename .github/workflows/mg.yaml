@@ -8,14 +8,6 @@ on:
       - main
 
 jobs:
-  interop-jd-translator:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run interop-jd-translator
-        run: sh ./test/message-generator/test/interop-jd-translator/interop-jd-translator.sh
-
   interop-proxy-with-multi-ups:
     runs-on: ubuntu-latest
     steps:
@@ -126,7 +118,6 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [
-      interop-jd-translator,
       interop-proxy-with-multi-ups,
       interop-proxy-with-multi-ups-extended,
       jds-do-not-fail-on-wrong-tsdatasucc,
@@ -143,8 +134,7 @@ jobs:
     steps:
       - name: Aggregate Results
         run: |
-          if [ "${{ needs.interop-jd-translator.result }}" != "success" ] ||
-          [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
+          if [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
           [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||

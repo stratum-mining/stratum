@@ -94,7 +94,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "../../test/config/interop-jd-translator/pool-config.toml"
+                        "../../test/config/sv1-test/pool-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
