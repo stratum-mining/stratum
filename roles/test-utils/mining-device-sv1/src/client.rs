@@ -71,7 +71,7 @@ impl Client {
     ///    the information from `sender_share`, it is formatted as a `v1::client_to_server::Submit`
     ///    and then serialized into a json message that is sent to the Upstream via
     ///    `sender_outgoing`.
-    pub async fn connect(client_id: u32, upstream_addr: SocketAddr) {
+    pub async fn connect(client_id: u32, upstream_addr: SocketAddr, single_submit: bool) {
         let stream = TcpStream::connect(upstream_addr).await.unwrap();
         let (reader, mut writer) = stream.into_split();
 
@@ -86,6 +86,7 @@ impl Client {
         // Upstream via `sender_outgoing`
         let (sender_share, receiver_share) = unbounded();
 
+        let (send_stop_submitting, mut recv_stop_submitting) = tokio::sync::watch::channel(false);
         // Instantiates a new `Miner` (a mock of an actual Mining Device) with a job id of 0.
         let miner = Arc::new(Mutex::new(Miner::new(0)));
 
@@ -128,6 +129,9 @@ impl Client {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
                 (writer).write_all(message.as_bytes()).await.unwrap();
+                if message.contains("mining.submit") && single_submit {
+                    send_stop_submitting.send(true).unwrap();
+                }
             }
         });
 
@@ -170,43 +174,53 @@ impl Client {
                 // Sends relevant candidate block header values needed to construct a
                 // `mining.submit` message to the `receiver_share` in the task that is responsible
                 // for sending messages to the Upstream node.
-                sender_share
+                if sender_share
                     .try_send((nonce, job_id.unwrap(), version.unwrap(), time))
-                    .unwrap();
+                    .is_err()
+                {
+                    warn!("Share channel is not available");
+                    break;
+                }
             }
             miner_cloned
                 .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
                 .unwrap();
         });
-
         // Task to receive relevant candidate block header values needed to construct a
         // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
         // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
         let cloned = client.clone();
         task::spawn(async move {
-            let recv = receiver_share.clone();
-            loop {
-                let (nonce, job_id, _version, ntime) = recv.recv().await.unwrap();
-                if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
-                    continue;
-                }
-                let extra_nonce2: Extranonce =
-                    vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
-                        .try_into()
-                        .unwrap();
-                let submit = client_to_server::Submit {
-                    id: 0,
-                    user_name: "user".into(), // TODO: user name should NOT be hardcoded
-                    job_id: job_id.to_string(),
-                    extra_nonce2,
-                    time: HexU32Be(ntime),
-                    nonce: HexU32Be(nonce),
-                    version_bits: None,
-                };
-                let message: json_rpc::Message = submit.into();
-                let message = format!("{}\n", serde_json::to_string(&message).unwrap());
-                sender_outgoing_clone.send(message).await.unwrap();
-            }
+            tokio::select!(
+              _ = recv_stop_submitting.changed() => {
+                warn!("Stopping miner")
+              },
+              _ = async {
+              let recv = receiver_share.clone();
+              loop {
+                  let (nonce, job_id, _version, ntime) = recv.recv().await.unwrap();
+                  if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
+                      continue;
+                  }
+                  let extra_nonce2: Extranonce =
+                      vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
+                          .try_into()
+                          .unwrap();
+                  let submit = client_to_server::Submit {
+                      id: 0,
+                      user_name: "user".into(), // TODO: user name should NOT be hardcoded
+                      job_id: job_id.to_string(),
+                      extra_nonce2,
+                      time: HexU32Be(ntime),
+                      nonce: HexU32Be(nonce),
+                      version_bits: None,
+                  };
+                  let message: json_rpc::Message = submit.into();
+                  let message = format!("{}\n", serde_json::to_string(&message).unwrap());
+                  sender_outgoing_clone.send(message).await.unwrap();
+              }
+              } => {}
+            )
         });
         let recv_incoming = client.safe_lock(|c| c.receiver_incoming.clone()).unwrap();
 
@@ -226,8 +240,11 @@ impl Client {
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
         loop {
-            let incoming = recv_incoming.recv().await.unwrap();
-            Self::parse_message(client.clone(), Ok(incoming)).await;
+            if let Ok(incoming) = recv_incoming.clone().recv().await {
+                Self::parse_message(client.clone(), Ok(incoming)).await;
+            } else {
+                warn!("Error reading from socket via `recv_incoming` channel")
+            }
         }
     }
 
