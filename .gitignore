@@ -6,7 +6,6 @@
 /ignore
 /vendor/ed25519-dalek/target
 /utils/buffer/target
-/utils/message-generator/Cargo.lock
 /sv2.h
 /test/bitcoin_data/regtest
 lcov.info
@@ -19,3 +18,4 @@ cobertura.xml
 /examples/*/Cargo.lock
 /scripts/sv2.h
 /roles/tests-integration/template-provider
+stratum-message-generator
