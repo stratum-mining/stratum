@@ -44,6 +44,7 @@ pub use codec_sv2::framing_sv2::Error as FramingError;
 pub use codec_sv2::Initiator;
 pub use codec_sv2::Responder;
 pub use codec_sv2::HandshakeRole;
+pub use codec_sv2::noise_sv2::Error as NoiseError;
 
 pub use codec_sv2::StandardEitherFrame;
 pub use codec_sv2::StandardSv2Frame;
