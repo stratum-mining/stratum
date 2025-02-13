@@ -10,11 +10,11 @@ use super::super::{
     PoolChangerTrigger,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, U256};
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
+use roles_logic_sv2::{Seq0255, B0255, U256};
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_messages_sv2::{Protocol, SetupConnection},
@@ -259,9 +259,9 @@ impl Upstream {
         declare_mining_job: DeclareMiningJob<'static>,
         set_new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
         merkle_path: Seq0255<'static, U256<'static>>,
-        signed_token: binary_sv2::B0255<'static>,
+        signed_token: B0255<'static>,
         coinbase_tx_version: u32,
-        coinbase_prefix: binary_sv2::B0255<'static>,
+        coinbase_prefix: B0255<'static>,
         coinbase_tx_input_n_sequence: u32,
         coinbase_tx_value_remaining: u64,
         coinbase_tx_outs: Vec<u8>,

@@ -1,7 +1,7 @@
 use ext_config::ConfigError;
 use std::fmt;
 
-use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
+use roles_logic_sv2::{mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob}, BinaryError};
 use stratum_common::bitcoin::util::uint::ParseLengthError;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
@@ -36,7 +36,7 @@ pub enum Error<'a> {
     /// Errors on bad `config` TOML deserialize.
     BadConfigDeserialize(ConfigError),
     /// Errors from `binary_sv2` crate.
-    BinarySv2(binary_sv2::Error),
+    BinarySv2(BinaryError),
     /// Errors on bad noise handshake.
     CodecNoise(codec_sv2::noise_sv2::Error),
     /// Errors from `framing_sv2` crate.
@@ -86,8 +86,8 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-impl<'a> From<binary_sv2::Error> for Error<'a> {
-    fn from(e: binary_sv2::Error) -> Self {
+impl<'a> From<BinaryError> for Error<'a> {
+    fn from(e: BinaryError) -> Self {
         Error::BinarySv2(e)
     }
 }

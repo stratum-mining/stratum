@@ -37,6 +37,9 @@ pub use binary_sv2::Error as BinaryError;
 pub use binary_sv2::U256;
 pub use binary_sv2::B064K;
 pub use binary_sv2::B0255;
+pub use binary_sv2::Seq064K;
+pub use binary_sv2::B016M;
+pub use binary_sv2::Seq0255;
 
 pub use codec_sv2::Error as CodecError;
 pub use codec_sv2::framing_sv2::Error as FramingError;
