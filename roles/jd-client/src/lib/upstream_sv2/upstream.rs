@@ -13,7 +13,7 @@ use async_channel::{Receiver, Sender};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{HandshakeRole, Initiator, NoiseError, Seq0255, Slice, Sv2Frame, B0255, U256};
+use roles_logic_sv2::{FramingError, HandshakeRole, Initiator, NoiseError, Seq0255, Slice, Sv2Frame, B0255, U256};
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_messages_sv2::{Protocol, SetupConnection},
@@ -236,7 +236,7 @@ impl Upstream {
         let message_type = if let Some(header) = incoming.get_header() {
             header.msg_type()
         } else {
-            return Err(framing_sv2::Error::ExpectedHandshakeFrame.into());
+            return Err(FramingError::ExpectedHandshakeFrame.into());
         };
         // Gets the message payload
         let payload = incoming.payload();
@@ -330,7 +330,7 @@ impl Upstream {
                         incoming
                             .get_header()
                             .ok_or(super::super::error::Error::FramingSv2(
-                                framing_sv2::Error::ExpectedSv2Frame,
+                                FramingError::ExpectedSv2Frame,
                             ));
 
                     let message_type = handle_result!(tx_status, message_type).msg_type();

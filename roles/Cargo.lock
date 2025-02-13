@@ -1427,7 +1427,6 @@ dependencies = [
  "async-recursion 0.3.2",
  "config",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
