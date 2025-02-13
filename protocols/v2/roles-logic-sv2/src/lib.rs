@@ -48,3 +48,5 @@ pub use codec_sv2::HandshakeRole;
 pub use codec_sv2::StandardEitherFrame;
 pub use codec_sv2::StandardSv2Frame;
 
+pub use const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED;
+

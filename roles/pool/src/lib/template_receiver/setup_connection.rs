@@ -10,7 +10,7 @@ use roles_logic_sv2::{
     parsers::{AnyMessage, CommonMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
-    CodecError,
+    CodecError, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
@@ -102,7 +102,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         Err(Error::UnexpectedMessage(
-            const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
     }
 }
