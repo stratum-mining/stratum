@@ -33,7 +33,7 @@ pub use job_declaration_sv2;
 pub use mining_sv2;
 pub use template_distribution_sv2;
 
-pub use binary_sv2::{Error as BinaryError, B0255, B064K, U256};
+pub use binary_sv2::{Error as BinaryError, Seq0255, Seq064K, B016M, B0255, B064K, U256};
 
 pub use codec_sv2::{framing_sv2::Error as FramingError, Error as CodecError};
 

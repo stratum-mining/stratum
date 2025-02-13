@@ -1,6 +1,5 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
@@ -10,6 +9,7 @@ use roles_logic_sv2::{
     parsers::{AnyMessage, JobDeclaration},
     template_distribution_sv2::SetNewPrevHash,
     utils::{hash_lists_tuple, Mutex},
+    Seq0255, Seq064K, B016M, B064K, U256,
 };
 use std::{collections::HashMap, convert::TryInto};
 use stratum_common::bitcoin::{consensus, Transaction};
