@@ -1,7 +1,7 @@
 use ext_config::ConfigError;
 use std::fmt;
 
-use roles_logic_sv2::{mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob}, BinaryError};
+use roles_logic_sv2::{mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob}, BinaryError, NoiseError};
 use stratum_common::bitcoin::util::uint::ParseLengthError;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
@@ -38,7 +38,7 @@ pub enum Error<'a> {
     /// Errors from `binary_sv2` crate.
     BinarySv2(BinaryError),
     /// Errors on bad noise handshake.
-    CodecNoise(codec_sv2::noise_sv2::Error),
+    CodecNoise(NoiseError),
     /// Errors from `framing_sv2` crate.
     FramingSv2(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
@@ -92,8 +92,8 @@ impl<'a> From<BinaryError> for Error<'a> {
     }
 }
 
-impl<'a> From<codec_sv2::noise_sv2::Error> for Error<'a> {
-    fn from(e: codec_sv2::noise_sv2::Error) -> Self {
+impl<'a> From<NoiseError> for Error<'a> {
+    fn from(e: NoiseError) -> Self {
         Error::CodecNoise(e)
     }
 }

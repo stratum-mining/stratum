@@ -52,6 +52,7 @@ pub use codec_sv2::buffer_sv2::Slice;
 
 pub use codec_sv2::StandardEitherFrame;
 pub use codec_sv2::StandardSv2Frame;
+pub use codec_sv2::Sv2Frame;
 
 pub use const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED;
 
