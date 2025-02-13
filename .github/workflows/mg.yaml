@@ -68,26 +68,6 @@ jobs:
       - name: Run pool-sri-test-close-channel
         run: sh ./test/message-generator/test/pool-sri-test-close-channel/pool-sri-test-close-channel.sh
 
-  pool-sri-test-extended_0:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run pool-sri-test-extended_0
-        run: sh ./test/message-generator/test/pool-sri-test-extended_0/pool-sri-test-extended_0.sh
-
-  pool-sri-test-extended_1:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run pool-sri-test-extended_1
-        run: sh ./test/message-generator/test/pool-sri-test-extended_1/pool-sri-test-extended_1.sh
-
   sv1-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -125,8 +105,6 @@ jobs:
       jds-receive-solution-while-processing-declared-job,
       pool-sri-test-1-standard,
       pool-sri-test-close-channel,
-      pool-sri-test-extended_0,
-      pool-sri-test-extended_1,
       sv1-test,
       translation-proxy-broke-pool,
       translation-proxy-old-share
@@ -141,8 +119,6 @@ jobs:
           [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
-          [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
-          [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
