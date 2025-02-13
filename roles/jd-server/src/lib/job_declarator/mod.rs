@@ -1,21 +1,15 @@
 pub mod message_handler;
 use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use binary_sv2::{B0255, U256};
-use codec_sv2::{HandshakeRole, Responder};
 use core::panic;
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
-    common_messages_sv2::{
+    binary_sv2_from_bytes, common_messages_sv2::{
         Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
-    },
-    handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd},
-    parsers::{JobDeclaration, PoolMessages as JdsMessages},
-    utils::{Id, Mutex},
+    }, handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo}, job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd}, parsers::{JobDeclaration, PoolMessages as JdsMessages}, utils::{Id, Mutex}, HandshakeRole, Responder, B0255, U256
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::{net::TcpListener, time::Duration};
@@ -472,7 +466,7 @@ impl JobDeclarator {
                         let payload = sv2_message.payload();
 
                         if let Ok(setup_connection) =
-                            binary_sv2::from_bytes::<SetupConnection>(payload)
+                            binary_sv2_from_bytes::<SetupConnection>(payload)
                         {
                             let flag = setup_connection.flags;
                             let is_valid = SetupConnection::check_flags(

@@ -4,7 +4,7 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
+use roles_logic_sv2::{parsers::Mining, BinaryError, CodecError, FramingError, NoiseError};
 
 use crate::mempool::error::JdsMempoolError;
 
@@ -13,11 +13,11 @@ pub enum JdsError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
-    BinarySv2(binary_sv2::Error),
-    Codec(codec_sv2::Error),
-    Noise(noise_sv2::Error),
+    BinarySv2(BinaryError),
+    Codec(CodecError),
+    Noise(NoiseError),
     RolesLogic(roles_logic_sv2::Error),
-    Framing(codec_sv2::framing_sv2::Error),
+    Framing(FramingError),
     PoisonLock(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
@@ -64,20 +64,20 @@ impl From<async_channel::RecvError> for JdsError {
     }
 }
 
-impl From<binary_sv2::Error> for JdsError {
-    fn from(e: binary_sv2::Error) -> JdsError {
+impl From<BinaryError> for JdsError {
+    fn from(e: BinaryError) -> JdsError {
         JdsError::BinarySv2(e)
     }
 }
 
-impl From<codec_sv2::Error> for JdsError {
-    fn from(e: codec_sv2::Error) -> JdsError {
+impl From<CodecError> for JdsError {
+    fn from(e: CodecError) -> JdsError {
         JdsError::Codec(e)
     }
 }
 
-impl From<noise_sv2::Error> for JdsError {
-    fn from(e: noise_sv2::Error) -> JdsError {
+impl From<NoiseError> for JdsError {
+    fn from(e: NoiseError) -> JdsError {
         JdsError::Noise(e)
     }
 }
@@ -99,8 +99,8 @@ impl From<String> for JdsError {
         JdsError::Custom(e)
     }
 }
-impl From<codec_sv2::framing_sv2::Error> for JdsError {
-    fn from(e: codec_sv2::framing_sv2::Error) -> JdsError {
+impl From<FramingError> for JdsError {
+    fn from(e: FramingError) -> JdsError {
         JdsError::Framing(e)
     }
 }

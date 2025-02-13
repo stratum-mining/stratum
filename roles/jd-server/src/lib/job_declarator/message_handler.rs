@@ -1,4 +1,3 @@
-use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
@@ -7,7 +6,7 @@ use roles_logic_sv2::{
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
-    utils::Mutex,
+    utils::Mutex, ShortTxId,
 };
 use std::{convert::TryInto, io::Cursor, sync::Arc};
 use stratum_common::bitcoin::{Transaction, Txid};

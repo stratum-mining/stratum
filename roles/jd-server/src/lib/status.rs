@@ -137,7 +137,7 @@ mod tests {
 
     use super::*;
     use async_channel::{bounded, RecvError};
-    use roles_logic_sv2::mining_sv2::OpenMiningChannelError;
+    use roles_logic_sv2::{mining_sv2::OpenMiningChannelError, BinaryError, CodecError, FramingError, NoiseError};
 
     #[tokio::test]
     async fn test_send_status_downstream_listener_shutdown() {
@@ -229,7 +229,7 @@ mod tests {
     async fn test_handle_error_binary_sv2_error() {
         let (tx, rx) = bounded(1);
         let sender = Sender::Downstream(tx);
-        let error = JdsError::BinarySv2(binary_sv2::Error::IoError);
+        let error = JdsError::BinarySv2(BinaryError::IoError);
         let error_string = error.to_string();
         handle_error(&sender, error).await;
         match rx.recv().await {
@@ -245,7 +245,7 @@ mod tests {
     async fn test_handle_error_codec_error() {
         let (tx, rx) = bounded(1);
         let sender = Sender::Downstream(tx);
-        let error = JdsError::Codec(codec_sv2::Error::InvalidStepForInitiator);
+        let error = JdsError::Codec(CodecError::InvalidStepForInitiator);
         let error_string = error.to_string();
         handle_error(&sender, error).await;
         match rx.recv().await {
@@ -261,7 +261,7 @@ mod tests {
     async fn test_handle_error_noise_error() {
         let (tx, rx) = bounded(1);
         let sender = Sender::Downstream(tx);
-        let error = JdsError::Noise(noise_sv2::Error::HandshakeNotFinalized);
+        let error = JdsError::Noise(NoiseError::HandshakeNotFinalized);
         let error_string = error.to_string();
         handle_error(&sender, error).await;
         match rx.recv().await {
@@ -309,7 +309,7 @@ mod tests {
     async fn test_handle_error_framing_error() {
         let (tx, rx) = bounded(1);
         let sender = Sender::Downstream(tx);
-        let error = JdsError::Framing(codec_sv2::framing_sv2::Error::ExpectedHandshakeFrame);
+        let error = JdsError::Framing(FramingError::ExpectedHandshakeFrame);
         let error_string = error.to_string();
         handle_error(&sender, error).await;
         match rx.recv().await {

@@ -6,23 +6,22 @@ pub mod status;
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use mempool::error::JdsMempoolError;
 use roles_logic_sv2::utils::Mutex;
-use std::{ops::Sub, sync::Arc};
-use tokio::{select, task};
-use tracing::{error, info, warn};
-
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
+    StandardEitherFrame, StandardSv2Frame,
 };
 use serde::Deserialize;
 use std::{
     convert::{TryFrom, TryInto},
     time::Duration,
 };
+use std::{ops::Sub, sync::Arc};
 use stratum_common::bitcoin::{Script, TxOut};
+use tokio::{select, task};
+use tracing::{error, info, warn};
 
 pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
