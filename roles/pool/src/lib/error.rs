@@ -1,4 +1,4 @@
-use roles_logic_sv2::{parsers::Mining, BinaryError};
+use roles_logic_sv2::{parsers::Mining, BinaryError, CodecError, FramingError};
 use std::{
     convert::From,
     fmt::Debug,
@@ -11,10 +11,10 @@ pub enum PoolError {
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
     BinarySv2(BinaryError),
-    Codec(codec_sv2::Error),
+    Codec(CodecError),
     Noise(noise_sv2::Error),
     RolesLogic(roles_logic_sv2::Error),
-    Framing(codec_sv2::framing_sv2::Error),
+    Framing(FramingError),
     PoisonLock(String),
     ComponentShutdown(String),
     Custom(String),
@@ -63,8 +63,8 @@ impl From<BinaryError> for PoolError {
     }
 }
 
-impl From<codec_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::Error) -> PoolError {
+impl From<CodecError> for PoolError {
+    fn from(e: CodecError) -> PoolError {
         PoolError::Codec(e)
     }
 }
@@ -92,8 +92,8 @@ impl From<String> for PoolError {
         PoolError::Custom(e)
     }
 }
-impl From<codec_sv2::framing_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::framing_sv2::Error) -> PoolError {
+impl From<FramingError> for PoolError {
+    fn from(e: FramingError) -> PoolError {
         PoolError::Framing(e)
     }
 }
