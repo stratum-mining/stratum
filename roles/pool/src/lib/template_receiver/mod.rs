@@ -4,10 +4,10 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
+use noise_sv2::Initiator;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{AnyMessage, TemplateDistribution},
@@ -15,6 +15,7 @@ use roles_logic_sv2::{
         CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
     },
     utils::Mutex,
+    CodecError, HandshakeRole,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, task};
@@ -114,7 +115,7 @@ impl TemplateRx {
                 status_tx,
                 message_from_tp
                     .try_into()
-                    .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
+                    .map_err(|e| PoolError::Codec(CodecError::FramingSv2Error(e)))
             );
             let message_type_res = message_from_tp
                 .get_header()

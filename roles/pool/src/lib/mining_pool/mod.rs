@@ -5,11 +5,11 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::SignatureService;
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
+use noise_sv2::Responder;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -21,7 +21,7 @@ use roles_logic_sv2::{
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
-    U256,
+    CodecError, HandshakeRole, StandardEitherFrame, StandardSv2Frame, U256,
 };
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
@@ -137,7 +137,7 @@ impl Downstream {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
                             .try_into()
-                            .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)));
+                            .map_err(|e| PoolError::Codec(CodecError::FramingSv2Error(e)));
                         let std_frame = handle_result!(status_tx, received);
                         handle_result!(
                             status_tx,
