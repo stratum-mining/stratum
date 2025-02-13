@@ -19,7 +19,6 @@ path = "src/lib/mod.rs"
 [dependencies]
 stratum-common = { path = "../../common" }
 async-channel = "1.5.1"
-binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 buffer_sv2 = { path = "../../utils/buffer" }
 codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 const_sv2 = { path = "../../protocols/v2/const-sv2" }

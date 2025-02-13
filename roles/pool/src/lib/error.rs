@@ -1,17 +1,16 @@
+use roles_logic_sv2::{parsers::Mining, BinaryError};
 use std::{
     convert::From,
     fmt::Debug,
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
-
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
-    BinarySv2(binary_sv2::Error),
+    BinarySv2(BinaryError),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
     RolesLogic(roles_logic_sv2::Error),
@@ -58,8 +57,8 @@ impl From<async_channel::RecvError> for PoolError {
     }
 }
 
-impl From<binary_sv2::Error> for PoolError {
-    fn from(e: binary_sv2::Error) -> PoolError {
+impl From<BinaryError> for PoolError {
+    fn from(e: BinaryError) -> PoolError {
         PoolError::BinarySv2(e)
     }
 }
