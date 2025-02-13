@@ -9,7 +9,8 @@ use roles_logic_sv2::{
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
     parsers::{CommonMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
-    utils::Mutex, CodecError, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+    utils::Mutex,
+    CodecError, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
