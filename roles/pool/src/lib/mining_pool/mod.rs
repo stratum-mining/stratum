@@ -9,7 +9,6 @@ use error_handling::handle_result;
 use key_utils::SignatureService;
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
-use noise_sv2::Responder;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -21,7 +20,7 @@ use roles_logic_sv2::{
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
-    CodecError, HandshakeRole, StandardEitherFrame, StandardSv2Frame, U256,
+    CodecError, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame, U256,
 };
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
