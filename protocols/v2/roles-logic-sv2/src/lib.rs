@@ -32,3 +32,9 @@ pub use errors::Error;
 pub use job_declaration_sv2;
 pub use mining_sv2;
 pub use template_distribution_sv2;
+
+pub use binary_sv2::Error as BinaryError;
+pub use binary_sv2::U256;
+pub use binary_sv2::B064K;
+pub use binary_sv2::B0255;
+

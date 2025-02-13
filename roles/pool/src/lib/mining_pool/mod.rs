@@ -3,7 +3,6 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::U256;
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
@@ -20,6 +19,7 @@ use roles_logic_sv2::{
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
+    U256,
 };
 use serde::Deserialize;
 use std::{
@@ -732,8 +732,8 @@ impl Pool {
 
 #[cfg(test)]
 mod test {
-    use binary_sv2::{B0255, B064K};
     use ext_config::{Config, File, FileFormat};
+    use roles_logic_sv2::{B0255, B064K};
     use std::convert::TryInto;
     use tracing::error;
 
