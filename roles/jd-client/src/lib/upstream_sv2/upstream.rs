@@ -14,7 +14,7 @@ use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{Seq0255, B0255, U256};
+use roles_logic_sv2::{Seq0255, Slice, B0255, U256};
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_messages_sv2::{Protocol, SetupConnection},
@@ -360,7 +360,7 @@ impl Upstream {
                         Ok(SendTo::RelaySameMessageToRemote(downstream_mutex)) => {
                             let sv2_frame: codec_sv2::Sv2Frame<
                                 MiningDeviceMessages,
-                                buffer_sv2::Slice,
+                                Slice,
                             > = incoming.map(|payload| payload.try_into().unwrap());
                             Downstream::send(&downstream_mutex, sv2_frame)
                                 .await

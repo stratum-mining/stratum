@@ -37,7 +37,9 @@ pub use binary_sv2::{Error as BinaryError, Seq0255, Seq064K, B016M, B0255, B064K
 
 pub use codec_sv2::{framing_sv2::Error as FramingError, Error as CodecError};
 
-pub use codec_sv2::{noise_sv2::Error as NoiseError, HandshakeRole, Initiator, Responder};
+pub use codec_sv2::{
+    buffer_sv2::Slice, noise_sv2::Error as NoiseError, HandshakeRole, Initiator, Responder,
+};
 
 pub use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 
