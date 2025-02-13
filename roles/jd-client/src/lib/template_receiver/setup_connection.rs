@@ -1,11 +1,11 @@
 use async_channel::{Receiver, Sender};
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
     parsers::AnyMessage,
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
+    StandardEitherFrame, StandardSv2Frame
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 pub type Message = AnyMessage<'static>;

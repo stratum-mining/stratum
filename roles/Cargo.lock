@@ -1489,7 +1489,6 @@ version = "0.1.4"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",

@@ -10,11 +10,10 @@ use super::super::{
     PoolChangerTrigger,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{Seq0255, Slice, B0255, U256};
+use roles_logic_sv2::{HandshakeRole, Initiator, NoiseError, Seq0255, Slice, Sv2Frame, B0255, U256};
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_messages_sv2::{Protocol, SetupConnection},
@@ -172,7 +171,7 @@ impl Upstream {
         };
 
         let pub_key: Secp256k1PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
+        let initiator = Initiator::from_raw_k(pub_key.into_bytes()).expect("Unable to create initiator");
 
         info!(
             "PROXY SERVER - ACCEPTING FROM UPSTREAM: {}",
@@ -228,7 +227,7 @@ impl Upstream {
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
                 return Err(CodecNoise(
-                    codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    NoiseError::ExpectedIncomingHandshakeMessage,
                 ));
             }
         };
@@ -358,7 +357,7 @@ impl Upstream {
                     match next_message_to_send {
                         // This is a transparent proxy it will only relay messages as received
                         Ok(SendTo::RelaySameMessageToRemote(downstream_mutex)) => {
-                            let sv2_frame: codec_sv2::Sv2Frame<
+                            let sv2_frame: Sv2Frame<
                                 MiningDeviceMessages,
                                 Slice,
                             > = incoming.map(|payload| payload.try_into().unwrap());

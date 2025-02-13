@@ -1,5 +1,4 @@
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::parsers::AnyMessage;
+use roles_logic_sv2::{parsers::AnyMessage, StandardEitherFrame, StandardSv2Frame};
 
 pub mod upstream;
 pub use upstream::Upstream;

@@ -41,6 +41,6 @@ pub use codec_sv2::{
     buffer_sv2::Slice, noise_sv2::Error as NoiseError, HandshakeRole, Initiator, Responder,
 };
 
-pub use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+pub use codec_sv2::{StandardEitherFrame, StandardSv2Frame, Sv2Frame};
 
 pub use const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED;

@@ -18,11 +18,10 @@ use roles_logic_sv2::{
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
-    Slice,
+    HandshakeRole, Responder, Slice, StandardEitherFrame, StandardSv2Frame, Sv2Frame,
 };
 use tracing::{debug, error, info, warn};
 
-use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 use stratum_common::bitcoin::{consensus::Decodable, TxOut};
@@ -276,7 +275,7 @@ impl DownstreamMiningNode {
     ) {
         match next_message_to_send {
             Ok(SendTo::RelaySameMessageToRemote(upstream_mutex)) => {
-                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, Slice> =
+                let sv2_frame: Sv2Frame<AnyMessage, Slice> =
                     incoming.unwrap().map(|payload| payload.try_into().unwrap());
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
@@ -306,14 +305,14 @@ impl DownstreamMiningNode {
                 );
                 let message = Mining::SubmitSharesExtended(share);
                 let message: AnyMessage = AnyMessage::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, Slice> = message.try_into().unwrap();
+                let sv2_frame: Sv2Frame<AnyMessage, Slice> = message.try_into().unwrap();
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
                     .unwrap();
             }
             Ok(SendTo::RelayNewMessage(message)) => {
                 let message: AnyMessage = AnyMessage::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, Slice> = message.try_into().unwrap();
+                let sv2_frame: Sv2Frame<AnyMessage, Slice> = message.try_into().unwrap();
                 let upstream_mutex = self_mutex.safe_lock(|s| s.status.get_upstream().expect("We should return RelayNewMessage only if we are not in solo mining mode")).unwrap();
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
@@ -326,8 +325,7 @@ impl DownstreamMiningNode {
             }
             Ok(SendTo::Respond(message)) => {
                 let message = MiningDeviceMessages::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, Slice> =
-                    message.try_into().unwrap();
+                let sv2_frame: Sv2Frame<MiningDeviceMessages, Slice> = message.try_into().unwrap();
                 Self::send(&self_mutex, sv2_frame).await.unwrap();
             }
             Ok(SendTo::None(None)) => (),
