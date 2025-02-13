@@ -1,4 +1,4 @@
-use roles_logic_sv2::{parsers::Mining, BinaryError, CodecError, FramingError};
+use roles_logic_sv2::{parsers::Mining, BinaryError, CodecError, FramingError, NoiseError};
 use std::{
     convert::From,
     fmt::Debug,
@@ -12,7 +12,7 @@ pub enum PoolError {
     ChannelRecv(async_channel::RecvError),
     BinarySv2(BinaryError),
     Codec(CodecError),
-    Noise(noise_sv2::Error),
+    Noise(NoiseError),
     RolesLogic(roles_logic_sv2::Error),
     Framing(FramingError),
     PoisonLock(String),
@@ -69,8 +69,8 @@ impl From<CodecError> for PoolError {
     }
 }
 
-impl From<noise_sv2::Error> for PoolError {
-    fn from(e: noise_sv2::Error) -> PoolError {
+impl From<NoiseError> for PoolError {
+    fn from(e: NoiseError) -> PoolError {
         PoolError::Noise(e)
     }
 }
