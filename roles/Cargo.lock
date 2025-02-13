@@ -2105,7 +2105,6 @@ dependencies = [
  "async-channel 1.9.0",
  "async-recursion 1.1.1",
  "config",
- "const_sv2",
  "error_handling",
  "hex",
  "key-utils",
