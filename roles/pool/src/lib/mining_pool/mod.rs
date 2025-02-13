@@ -8,7 +8,17 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
-    channel_logic::channel_factory::PoolChannelFactory, common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream}, errors::Error, handlers::mining::{ParseDownstreamMiningMessages, SendTo}, job_creator::JobsCreators, mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH}, parsers::{Mining, PoolMessages}, routing_logic::MiningRoutingLogic, template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution}, utils::{CoinbaseOutput as CoinbaseOutput_, Mutex}, CodecError, HandshakeRole, StandardEitherFrame, StandardSv2Frame, U256
+    channel_logic::channel_factory::PoolChannelFactory,
+    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
+    errors::Error,
+    handlers::mining::{ParseDownstreamMiningMessages, SendTo},
+    job_creator::JobsCreators,
+    mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
+    parsers::{Mining, PoolMessages},
+    routing_logic::MiningRoutingLogic,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
+    utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
+    CodecError, HandshakeRole, StandardEitherFrame, StandardSv2Frame, U256,
 };
 use serde::Deserialize;
 use std::{
