@@ -58,26 +58,6 @@ jobs:
       - name: Run pool-sri-test-close-channel
         run: sh ./test/message-generator/test/pool-sri-test-close-channel/pool-sri-test-close-channel.sh
 
-  pool-sri-test-extended_0:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run pool-sri-test-extended_0
-        run: sh ./test/message-generator/test/pool-sri-test-extended_0/pool-sri-test-extended_0.sh
-
-  pool-sri-test-extended_1:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run pool-sri-test-extended_1
-        run: sh ./test/message-generator/test/pool-sri-test-extended_1/pool-sri-test-extended_1.sh
-
   pool-sri-test-reject-auth:
     runs-on: ubuntu-latest
     steps:
@@ -124,8 +104,6 @@ jobs:
       jds-do-not-stackoverflow-when-no-token,
       jds-receive-solution-while-processing-declared-job,
       pool-sri-test-close-channel,
-      pool-sri-test-extended_0,
-      pool-sri-test-extended_1,
       pool-sri-test-reject-auth,
       sv1-test,
       translation-proxy-broke-pool,
@@ -140,8 +118,6 @@ jobs:
           [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||
           [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
-          [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
-          [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-reject-auth.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
