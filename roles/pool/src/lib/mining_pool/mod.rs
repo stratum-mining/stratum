@@ -3,23 +3,12 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
-    channel_logic::channel_factory::PoolChannelFactory,
-    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
-    errors::Error,
-    handlers::mining::{ParseDownstreamMiningMessages, SendTo},
-    job_creator::JobsCreators,
-    mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
-    parsers::{Mining, PoolMessages},
-    routing_logic::MiningRoutingLogic,
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
-    utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
-    U256,
+    channel_logic::channel_factory::PoolChannelFactory, common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream}, errors::Error, handlers::mining::{ParseDownstreamMiningMessages, SendTo}, job_creator::JobsCreators, mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH}, parsers::{Mining, PoolMessages}, routing_logic::MiningRoutingLogic, template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution}, utils::{CoinbaseOutput as CoinbaseOutput_, Mutex}, CodecError, HandshakeRole, StandardEitherFrame, StandardSv2Frame, U256
 };
 use serde::Deserialize;
 use std::{
@@ -253,7 +242,7 @@ impl Downstream {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
                             .try_into()
-                            .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)));
+                            .map_err(|e| PoolError::Codec(CodecError::FramingSv2Error(e)));
                         let std_frame = handle_result!(status_tx, received);
                         handle_result!(
                             status_tx,
@@ -429,7 +418,7 @@ impl Pool {
                 stream.peer_addr().map_err(PoolError::Io)
             );
 
-            let responder = Responder::from_authority_kp(
+            let responder = roles_logic_sv2::Responder::from_authority_kp(
                 &config.authority_public_key.into_bytes(),
                 &config.authority_secret_key.into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),

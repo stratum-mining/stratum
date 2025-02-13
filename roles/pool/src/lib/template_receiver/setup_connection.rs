@@ -9,7 +9,7 @@ use roles_logic_sv2::{
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
     parsers::{CommonMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
-    utils::Mutex,
+    utils::Mutex, CodecError,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
@@ -52,7 +52,7 @@ impl SetupConnectionHandler {
             .recv()
             .await?
             .try_into()
-            .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))?;
+            .map_err(|e| PoolError::Codec(CodecError::FramingSv2Error(e)))?;
         let message_type = incoming
             .get_header()
             .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
