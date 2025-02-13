@@ -17,7 +17,7 @@ use roles_logic_sv2::{
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
-    utils::Mutex,
+    utils::Mutex, Slice,
 };
 use tracing::{debug, error, info, warn};
 
@@ -275,7 +275,7 @@ impl DownstreamMiningNode {
     ) {
         match next_message_to_send {
             Ok(SendTo::RelaySameMessageToRemote(upstream_mutex)) => {
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, Slice> =
                     incoming.unwrap().map(|payload| payload.try_into().unwrap());
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
@@ -305,7 +305,7 @@ impl DownstreamMiningNode {
                 );
                 let message = Mining::SubmitSharesExtended(share);
                 let message: PoolMessages = PoolMessages::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, Slice> =
                     message.try_into().unwrap();
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
@@ -313,7 +313,7 @@ impl DownstreamMiningNode {
             }
             Ok(SendTo::RelayNewMessage(message)) => {
                 let message: PoolMessages = PoolMessages::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, Slice> =
                     message.try_into().unwrap();
                 let upstream_mutex = self_mutex.safe_lock(|s| s.status.get_upstream().expect("We should return RelayNewMessage only if we are not in solo mining mode")).unwrap();
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
@@ -327,7 +327,7 @@ impl DownstreamMiningNode {
             }
             Ok(SendTo::Respond(message)) => {
                 let message = MiningDeviceMessages::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
+                let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, Slice> =
                     message.try_into().unwrap();
                 Self::send(&self_mutex, sv2_frame).await.unwrap();
             }
