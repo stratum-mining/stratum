@@ -7,7 +7,6 @@ use async_channel::{Receiver, Sender};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
-use noise_sv2::Initiator;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{AnyMessage, TemplateDistribution},
@@ -15,7 +14,7 @@ use roles_logic_sv2::{
         CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
     },
     utils::Mutex,
-    CodecError, HandshakeRole,
+    CodecError, HandshakeRole, Initiator,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, task};
