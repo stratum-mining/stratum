@@ -1,3 +1,9 @@
+// This file contains integration tests for the `TranslatorSv2` module.
+//
+// `TranslatorSv2` is a module that implements the Translator role in the Stratum V2 protocol.
+//
+// Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
+// all tests. This is because tracing is a global setting.
 use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 use integration_tests_sv2::{sniffer::*, *};
 use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
@@ -7,7 +13,8 @@ use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
 // the pool exchange the correct messages upon connection. And that the miner is able to submit
 // shares.
 #[tokio::test]
-async fn translation_proxy() {
+async fn translate_sv1_to_sv2_successfully() {
+    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None).await;
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
