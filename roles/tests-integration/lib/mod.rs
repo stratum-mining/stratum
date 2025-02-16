@@ -16,7 +16,7 @@ use utils::get_available_address;
 
 pub mod sniffer;
 pub mod template_provider;
-mod utils;
+pub(crate) mod utils;
 
 static LOGGER: Once = Once::new();
 
@@ -97,7 +97,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     (pool, listening_address)
 }
 
-pub async fn start_template_provider(sv2_interval: Option<u32>) -> (TemplateProvider, SocketAddr) {
+pub fn start_template_provider(sv2_interval: Option<u32>) -> (TemplateProvider, SocketAddr) {
     let address = get_available_address();
     let sv2_interval = sv2_interval.unwrap_or(20);
     let template_provider = TemplateProvider::start(address.port(), sv2_interval);

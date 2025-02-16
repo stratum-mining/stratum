@@ -22,7 +22,7 @@ use roles_logic_sv2::{
 #[tokio::test]
 async fn success_pool_template_provider_connection() {
     start_tracing();
-    let (_tp, tp_addr) = start_template_provider(None).await;
+    let (_tp, tp_addr) = start_template_provider(None);
     let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, true, None).await;
     let _ = start_pool(Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
@@ -73,7 +73,7 @@ async fn success_pool_template_provider_connection() {
 #[tokio::test]
 async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     let sv2_interval = Some(5);
-    let (_tp, tp_addr) = start_template_provider(sv2_interval).await;
+    let (_tp, tp_addr) = start_template_provider(sv2_interval);
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer".to_string();
     let (tp_pool_sniffer, tp_pool_sniffer_addr) =
