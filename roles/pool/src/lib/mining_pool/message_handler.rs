@@ -21,14 +21,6 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         true
     }
 
-    #[cfg(feature = "MG_reject_auth")]
-    fn is_downstream_authorized(
-        _self_mutex: Arc<Mutex<Self>>,
-        _user_identity: &binary_sv2::Str0255,
-    ) -> Result<bool, Error> {
-        Ok(false)
-    }
-
     fn handle_open_standard_mining_channel(
         &mut self,
         incoming: OpenStandardMiningChannel,
