@@ -25,12 +25,12 @@ use stratum_common::{
         secp256k1::{All, Secp256k1},
         util::{
             psbt::serialize::Deserialize,
-            uint::{Uint128, Uint256},
             BitArray,
         },
         PublicKey, Script, Transaction, XOnlyPublicKey,
     },
 };
+use primitive_types::U256 as U256Primitive;
 use tracing::error;
 
 use crate::errors::Error;
@@ -402,19 +402,19 @@ pub fn hash_rate_to_target(
     // must calculate (h*s+1)*100
     let h_times_s_plus_one = h_times_s + 1;
 
-    let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
+    let h_times_s_plus_one = from_u128_to_u256(h_times_s_plus_one);
     let denominator = h_times_s_plus_one;
 
     // We calculate the numerator: 2^256-sh
     let two_to_256_minus_one = [255_u8; 32];
-    let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
+    let two_to_256_minus_one = U256Primitive::from_big_endian(two_to_256_minus_one.as_ref());
 
     let mut h_times_s_array = [0u8; 32];
     h_times_s_array[16..].copy_from_slice(&h_times_s.to_be_bytes());
     let numerator =
-        two_to_256_minus_one - bitcoin::util::uint::Uint256::from_be_bytes(h_times_s_array);
+        two_to_256_minus_one - U256Primitive::from_big_endian(h_times_s_array.as_ref());
 
-    let mut target = numerator.div(denominator).to_be_bytes();
+    let mut target = numerator.div(denominator).to_big_endian();
     target.reverse();
     Ok(U256::<'static>::from(target))
 }
@@ -448,15 +448,16 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     }
 
     let mut target_arr: [u8; 32] = [0; 32];
-    target_arr.as_mut().copy_from_slice(target.inner_as_ref());
+    let slice: &mut [u8] = &mut target_arr;
+    slice.copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
-    let target = Uint256::from_be_bytes(target_arr);
+    let target = U256Primitive::from_big_endian(target_arr.as_ref());
 
     // we calculate the numerator 2^256-t
     // note that [255_u8,;32] actually is 2^256 -1, but 2^256 -t = (2^256-1) - (t-1)
     let max_target = [255_u8; 32];
-    let max_target = Uint256::from_be_bytes(max_target);
-    let numerator = max_target - (target - Uint256::one());
+    let max_target = U256Primitive::from_big_endian(max_target.as_ref());
+    let numerator = max_target - (target - U256Primitive::one());
 
     // now we calculate the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
@@ -467,32 +468,24 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     if shares_occurrency_frequence == 0_u128 {
         return Err(Error::HashrateError(InputError::DivisionByZero));
     }
-    let shares_occurrency_frequence = u128_as_u256(shares_occurrency_frequence);
-    let mut target_plus_one = Uint256::from_be_bytes(target_arr);
-    target_plus_one.increment();
+    let shares_occurrency_frequence = from_u128_to_u256(shares_occurrency_frequence);
+    let target_plus_one = U256Primitive::from_big_endian(target_arr.as_ref()) + U256Primitive::one();
     let denominator = shares_occurrency_frequence
         .mul(target_plus_one)
-        .div(Uint256::from_u64(100).unwrap());
-
-    let result = from_uint128_to_u128(numerator.div(denominator).low_128());
+        .div(U256Primitive::from(100));
+    let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
 }
 
-// Converts a [`Uint128`] to a `u128`.
-fn from_uint128_to_u128(input: Uint128) -> u128 {
-    let input = input.to_be_bytes();
-    u128::from_be_bytes(input)
-}
-
-/// Converts a `u128` to a [`Uint256`].
-pub fn from_u128_to_uint256(input: u128) -> Uint256 {
+/// Converts a `u128` to a [`U256`].
+pub fn from_u128_to_u256(input: u128) -> U256Primitive {
     let input: [u8; 16] = input.to_be_bytes();
     let mut be_bytes = [0_u8; 32];
     for (i, b) in input.iter().enumerate() {
         be_bytes[16 + i] = *b;
     }
-    Uint256::from_be_bytes(be_bytes)
+    U256Primitive::from_big_endian(be_bytes.as_ref())
 }
 
 /// Generates and manages unique IDs for groups and channels.
@@ -852,14 +845,6 @@ pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
     hash.try_into().unwrap()
 }
 
-fn u128_as_u256(v: u128) -> Uint256 {
-    let u128_min = [0_u8; 16];
-    let u128_b = v.to_be_bytes();
-    let u256 = [&u128_min[..], &u128_b[..]].concat();
-    // below never panic
-    Uint256::from_be_slice(&u256).unwrap()
-}
-
 /// TODO: Not used, to be removed.
 ///
 /// target = u256_max * (shar_per_min / 60) * (2^32 / hash_per_second)
@@ -869,8 +854,8 @@ pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'
     let operand = (share_per_min as f64 / 60.0) * (u32::MAX as f64 / hash_per_second as f64);
     assert!(operand <= 1.0);
     let operand = operand * (u128::MAX as f64);
-    let target = u128_as_u256(u128::MAX) * u128_as_u256(operand as u128);
-    let mut target: [u8; 32] = target.to_be_bytes();
+    let target = from_u128_to_u256(u128::MAX) * from_u128_to_u256(operand as u128);
+    let mut target: [u8; 32] = target.to_big_endian();
     target.reverse();
     target.into()
 }
@@ -1274,7 +1259,7 @@ mod tests {
         let hrs = hr * 60.0; // number of hashes in 1 minute
         let mut target = hash_rate_to_target(hr, 1.0).unwrap().to_vec();
         target.reverse();
-        let target = bitcoin::util::uint::Uint256::from_be_slice(&target[..]).unwrap();
+        let target = U256Primitive::from_big_endian(&target[..]);
 
         let mut i: i64 = 0;
         let mut results = vec![];
@@ -1286,7 +1271,7 @@ mod tests {
             let b = b.to_be_bytes();
             let concat = [&a[..], &b[..]].concat().to_vec();
             i += 1;
-            if bitcoin::util::uint::Uint256::from_be_slice(&concat[..]).unwrap() <= target {
+            if U256Primitive::from_big_endian(&concat[..]) <= target {
                 results.push(i);
                 i = 0;
                 successes += 1;

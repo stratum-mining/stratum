@@ -12,7 +12,6 @@ use std::{
     time::Duration,
 };
 use tokio::net::TcpStream;
-
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
@@ -33,8 +32,9 @@ use roles_logic_sv2::{
 };
 use std::time::Instant;
 use stratum_common::bitcoin::{
-    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
+    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash,
 };
+use primitive_types::U256;
 use tracing::{error, info};
 
 pub async fn connect(
@@ -535,7 +535,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
 #[derive(Debug, Clone)]
 struct Miner {
     header: Option<BlockHeader>,
-    target: Option<Uint256>,
+    target: Option<U256>,
     job_id: Option<u32>,
     version: Option<u32>,
     handicap: u32,
@@ -559,7 +559,7 @@ impl Miner {
             .iter()
             .fold("".to_string(), |acc, b| acc + format!("{:02x}", b).as_str());
         info!("Set target to {}", hex_string);
-        self.target = Some(Uint256::from_be_bytes(target.try_into().unwrap()));
+        self.target = Some(U256::from_big_endian(target.as_slice()));
     }
 
     fn new_header(&mut self, set_new_prev_hash: &SetNewPrevHash, new_job: &NewMiningJob) {
@@ -590,7 +590,6 @@ impl Miner {
         if let Some(header) = self.header.as_ref() {
             let mut hash = header.block_hash().as_hash().into_inner();
             hash.reverse();
-            let hash = Uint256::from_be_bytes(hash);
             if hash < *self.target.as_ref().unwrap() {
                 info!(
                     "Found share with nonce: {}, for target: {:?}, with hash: {:?}",

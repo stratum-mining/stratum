@@ -1,7 +1,7 @@
 use bitcoin::{
-    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
+    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash,
 };
-
+use primitive_types::U256;
 use async_channel::{Receiver, Sender};
 use async_std::channel::unbounded;
 use binary_sv2::u256_from_int;
@@ -328,7 +328,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
 #[derive(Debug)]
 pub struct Miner {
     header: Option<BlockHeader>,
-    target: Option<Uint256>,
+    target: Option<U256>,
     job_id: Option<u32>,
     version: Option<u32>,
     handicap: u32,
@@ -348,7 +348,7 @@ impl Miner {
     fn new_target(&mut self, mut target: Vec<u8>) {
         // target is sent in LE and comparisons in this file are done in BE
         target.reverse();
-        self.target = Some(Uint256::from_be_bytes(target.try_into().unwrap()));
+        self.target = Some(U256::from_big_endian(target.try_into().unwrap()));
     }
 
     fn new_header(&mut self, set_new_prev_hash: &SetNewPrevHash, new_job: &NewMiningJob) {

@@ -4,8 +4,8 @@ use stratum_common::bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
     hashes::{sha256d::Hash as DHash, Hash},
-    util::uint::Uint256,
 };
+use primitive_types::U256;
 use tracing::info;
 
 /// A mock representation of a Mining Device that produces block header hashes to be submitted by
@@ -16,7 +16,7 @@ pub(crate) struct Miner {
     /// Mock of mined candidate block header.
     pub(crate) header: Option<BlockHeader>,
     /// Current mining target.
-    pub(crate) target: Option<Uint256>,
+    pub(crate) target: Option<U256>,
     /// ID of the job used while submitting share generated from this job.
     pub(crate) job_id: Option<u32>,
     /// Block header version
@@ -38,7 +38,7 @@ impl Miner {
     }
 
     /// Updates target when a new target is received by the SV1 `Client`.
-    pub(crate) fn new_target(&mut self, target: Uint256) {
+    pub(crate) fn new_target(&mut self, target: U256) {
         self.target = Some(target);
     }
 
@@ -74,7 +74,7 @@ impl Miner {
         let header = self.header.as_ref().ok_or(())?;
         let mut hash = header.block_hash().as_hash().into_inner();
         hash.reverse();
-        let hash = Uint256::from_be_bytes(hash);
+        let hash = U256::from_big_endian(hash.as_ref());
         if hash < *self.target.as_ref().ok_or(())? {
             info!(
                 "Found share with nonce: {}, for target: {:?}, hash: {:?}",

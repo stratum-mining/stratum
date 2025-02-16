@@ -21,6 +21,7 @@ codec_sv2 = { path = "../protocols/v2/codec-sv2", features=["noise_sv2"] }
 binary_sv2 = { path = "../protocols/v2/binary-sv2" }
 network_helpers_sv2 = { path = "../roles/roles-utils/network-helpers" }
 rand = "0.8.4"
+primitive-types = "0.13.1"
 
 [[bench]]
 name = "criterion_sv1_benchmark"
