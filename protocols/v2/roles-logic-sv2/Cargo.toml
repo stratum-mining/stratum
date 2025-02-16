@@ -25,9 +25,9 @@ tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}
 nohash-hasher = "0.2.0"
 siphasher = "1"
+codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 
 [dev-dependencies]
-codec_sv2 = { path = "../../../protocols/v2/codec-sv2" }
 quickcheck = "1.0.3"
 quickcheck_macros = "1"
 rand = "0.8.5"
