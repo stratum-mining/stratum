@@ -129,9 +129,6 @@ pub async fn handle_error(
         Error::ChannelErrorSender(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        Error::Uint256Conversion(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
         Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
     }
 }

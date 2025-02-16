@@ -46,7 +46,7 @@ pub fn extended_to_standard_job_for_group_channel<'a>(
 
 // helper struct to easily calculate block hashes from headers
 #[allow(dead_code)]
-struct BlockHeader<'a> {
+struct Header<'a> {
     version: u32,
     prev_hash: &'a [u8],
     merkle_root: &'a [u8],
@@ -55,7 +55,7 @@ struct BlockHeader<'a> {
     nonce: u32,
 }
 
-impl<'a> BlockHeader<'a> {
+impl<'a> Header<'a> {
     // calculates the sha256 blockhash of the header
     #[allow(dead_code)]
     pub fn hash(&self) -> Target {
@@ -66,7 +66,7 @@ impl<'a> BlockHeader<'a> {
         engine.input(&self.timestamp.to_be_bytes());
         engine.input(&self.nbits.to_be_bytes());
         engine.input(&self.nonce.to_be_bytes());
-        let hashed = sha256d::Hash::from_engine(engine).into_inner();
+        let hashed: [u8; 32] = *sha256d::Hash::from_engine(engine).as_ref();
         hashed.into()
     }
 }
@@ -244,7 +244,7 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
     use std::convert::TryFrom;
 
-    use stratum_common::bitcoin::{Script, TxOut};
+    use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
 
     const BLOCK_REWARD: u64 = 625_000_000_000;
 
@@ -271,7 +271,7 @@ mod tests {
         let le_prev_hash = be_prev_hash.as_slice();
         let le_merkle_root = be_merkle_root.as_slice();
 
-        let block_header: BlockHeader = BlockHeader {
+        let block_header: Header = Header {
             version: le_version,
             prev_hash: le_prev_hash,
             merkle_root: le_merkle_root,
@@ -295,8 +295,8 @@ mod tests {
     #[test]
     fn test_group_channel_job_dispatcher() {
         let out = TxOut {
-            value: BLOCK_REWARD,
-            script_pubkey: Script::new_p2pk(&new_pub_key()),
+            value: Amount::from_sat(BLOCK_REWARD),
+            script_pubkey: ScriptBuf::new_p2pk(&new_pub_key()),
         };
         let additional_coinbase_script_data = "Stratum v2 SRI Pool".as_bytes().to_vec();
         let mut jobs_creators = JobsCreators::new(32);

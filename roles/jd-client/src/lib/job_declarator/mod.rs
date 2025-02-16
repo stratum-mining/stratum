@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     utils::{hash_lists_tuple, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use stratum_common::bitcoin::{util::psbt::serialize::Deserialize, Transaction};
+use stratum_common::bitcoin::{consensus, Transaction};
 use tokio::task::AbortHandle;
 use tracing::{error, info};
 
@@ -252,7 +252,7 @@ impl JobDeclarator {
         let mut tx_list: Vec<Transaction> = Vec::new();
         for tx in tx_list_.to_vec() {
             //TODO remove unwrap
-            let tx = Transaction::deserialize(&tx).unwrap();
+            let tx = consensus::deserialize(&tx).unwrap();
             tx_list.push(tx);
         }
         let declare_job = DeclareMiningJob {

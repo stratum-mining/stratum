@@ -29,3 +29,4 @@ num-traits = "0.2.15"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tokio = { version = "1.43.0", features = ["full"] }
+primitive-types = "0.13.1"
