@@ -1,5 +1,5 @@
+use bitcoin::util::bip32::ExtendedPubKey;
 use std::env;
-use stratum_common::bitcoin::util::bip32::ExtendedPubKey;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
