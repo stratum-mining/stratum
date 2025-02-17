@@ -24,6 +24,7 @@ pub enum JdsError {
     MempoolError(JdsMempoolError),
     ImpossibleToReconstructBlock(String),
     NoLastDeclaredJob,
+    InvalidRPCUrl,
 }
 
 impl std::fmt::Display for JdsError {
@@ -48,6 +49,7 @@ impl std::fmt::Display for JdsError {
                 write!(f, "Error in reconstructing the block: {:?}", e)
             }
             NoLastDeclaredJob => write!(f, "Last declared job not found"),
+            InvalidRPCUrl => write!(f, "Invalid Template Provider RPC URL"),
         }
     }
 }

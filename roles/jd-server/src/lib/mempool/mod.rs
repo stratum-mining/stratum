@@ -59,6 +59,14 @@ impl JDsMempool {
         }
     }
 
+    /// Checks if the rpc client is accessible.
+    pub async fn health(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
+        let client = self_
+            .safe_lock(|a| a.get_client())?
+            .ok_or(JdsMempoolError::NoClient)?;
+        client.health().await.map_err(JdsMempoolError::Rpc)
+    }
+
     // this functions fill in the mempool the transactions with the given txid and insert the given
     // transactions. The ids are for the transactions that are already known to the node, the
     // unknown transactions are provided directly as a vector
