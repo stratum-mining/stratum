@@ -1,10 +1,6 @@
 use crate::job::Job;
 use std::convert::TryInto;
-use stratum_common::bitcoin::{
-    blockdata::block::BlockHeader,
-    hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d::Hash as DHash, Hash},
-};
+use stratum_common::bitcoin::{blockdata::block::{Header,Version}, hash_types::{BlockHash, TxMerkleNode}, hashes::{sha256d::Hash as DHash, Hash}, CompactTarget};
 use primitive_types::U256;
 use tracing::info;
 
@@ -14,7 +10,7 @@ use tracing::info;
 #[derive(Debug)]
 pub(crate) struct Miner {
     /// Mock of mined candidate block header.
-    pub(crate) header: Option<BlockHeader>,
+    pub(crate) header: Option<Header>,
     /// Current mining target.
     pub(crate) target: Option<U256>,
     /// ID of the job used while submitting share generated from this job.
@@ -52,8 +48,8 @@ impl Miner {
         let prev_hash = DHash::from_inner(prev_hash);
         let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
         let merkle_root = DHash::from_inner(merkle_root);
-        let header = BlockHeader {
-            version: new_job.version as i32,
+        let header = Header {
+            version: Version::from_consensus(new_job.version as i32),
             prev_blockhash: BlockHash::from_hash(prev_hash),
             merkle_root: TxMerkleNode::from_hash(merkle_root),
             time: std::time::SystemTime::now()
@@ -62,7 +58,7 @@ impl Miner {
                 )
                 .unwrap()
                 .as_secs() as u32,
-            bits: new_job.nbits,
+            bits: CompactTarget::from_consensus(new_job.nbits),
             nonce: 0,
         };
         self.header = Some(header);

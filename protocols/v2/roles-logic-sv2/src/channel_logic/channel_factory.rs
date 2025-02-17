@@ -27,6 +27,8 @@ use tracing::{debug, error, info, trace, warn};
 use stratum_common::{
     bitcoin,
     bitcoin::{
+        block::{Header, Version},
+        CompactTarget,
         hash_types,
         hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
         TxOut,
@@ -832,12 +834,12 @@ impl ChannelFactory {
             Share::Standard(share) => share.0.version as i32,
         };
 
-        let header = bitcoin::blockdata::block::BlockHeader {
-            version,
+        let header = Header {
+            version: Version::from_consensus(version),
             prev_blockhash,
             merkle_root: Hash::from_inner(merkle_root).into(),
             time: m.get_n_time(),
-            bits,
+            bits: CompactTarget::from_consensus(bits),
             nonce: m.get_nonce(),
         };
 
@@ -1827,7 +1829,7 @@ impl ExtendedChannelKind {
 mod test {
     use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
-    use bitcoin::{hash_types::WPubkeyHash, PublicKey, TxOut};
+    use bitcoin::{Amount, hash_types::WPubkeyHash, PublicKey, Target, TxOut};
     use mining_sv2::OpenStandardMiningChannel;
 
     const BLOCK_REWARD: u64 = 2_000_000_000;
@@ -1900,7 +1902,7 @@ mod test {
     }
 
     fn nbit_to_target(nbit: u32) -> U256<'static> {
-        let mut target = bitcoin::blockdata::block::BlockHeader::u256_from_compact_target(nbit)
+        let mut target = Target::from_compact(CompactTarget::from_consensus(nbit))
             .to_be_bytes()
             .to_vec();
         target.reverse();
@@ -1919,7 +1921,7 @@ mod test {
         let (prefix, coinbase_extranonce, _) = get_coinbase();
 
         // Initialize a Channel of type Pool
-        let out = TxOut {value: BLOCK_REWARD, script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
+        let out = TxOut {value: Amount::from_sat(BLOCK_REWARD), script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
         let additional_coinbase_script_data = "".as_bytes().to_vec();
         let creator = JobsCreators::new(7);
         let share_per_min = 1.0;

@@ -1,11 +1,8 @@
-use bitcoin::{
-    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash,
-};
-use primitive_types::U256;
 use async_channel::{Receiver, Sender};
 use async_std::channel::unbounded;
 use binary_sv2::u256_from_int;
-use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use primitive_types::U256;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -21,6 +18,7 @@ use roles_logic_sv2::{
     utils::{Id, Mutex},
 };
 use std::{net::SocketAddr, sync::Arc};
+use stratum_common::bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash};
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -327,7 +325,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
 
 #[derive(Debug)]
 pub struct Miner {
-    header: Option<BlockHeader>,
+    header: Option<Header>,
     target: Option<U256>,
     job_id: Option<u32>,
     version: Option<u32>,
@@ -360,7 +358,7 @@ impl Miner {
         let merkle_root = Hash::from_inner(merkle_root);
         // fields need to be added as BE and the are converted to LE in the background before
         // hashing
-        let header = BlockHeader {
+        let header = Header {
             version: new_job.version as i32,
             prev_blockhash: BlockHash::from_hash(prev_hash),
             merkle_root,

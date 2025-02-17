@@ -46,7 +46,7 @@ pub fn extended_to_standard_job_for_group_channel<'a>(
 
 // helper struct to easily calculate block hashes from headers
 #[allow(dead_code)]
-struct BlockHeader<'a> {
+struct Header<'a> {
     version: u32,
     prev_hash: &'a [u8],
     merkle_root: &'a [u8],
@@ -55,7 +55,7 @@ struct BlockHeader<'a> {
     nonce: u32,
 }
 
-impl<'a> BlockHeader<'a> {
+impl<'a> Header<'a> {
     // calculates the sha256 blockhash of the header
     #[allow(dead_code)]
     pub fn hash(&self) -> Target {
@@ -271,7 +271,7 @@ mod tests {
         let le_prev_hash = be_prev_hash.as_slice();
         let le_merkle_root = be_merkle_root.as_slice();
 
-        let block_header: BlockHeader = BlockHeader {
+        let block_header: Header = Header {
             version: le_version,
             prev_hash: le_prev_hash,
             merkle_root: le_merkle_root,
