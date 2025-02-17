@@ -1,10 +1,10 @@
 use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};
+use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;
-use primitive_types::U256;
 
 impl Downstream {
     /// initializes the timestamp and resets the number of submits for a connection.

@@ -1,6 +1,6 @@
 use ext_config::ConfigError;
-use std::fmt;
 use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
+use std::fmt;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 

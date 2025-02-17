@@ -7,21 +7,21 @@ use binary_sv2::B064K;
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
-use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
-use tracing::debug;
 use stratum_common::{
     bitcoin,
     bitcoin::{
         absolute::LockTime,
-        Amount,
         blockdata::{
             transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
             witness::Witness,
         },
         consensus,
         consensus::Decodable,
+        Amount,
     },
 };
+use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
+use tracing::debug;
 
 #[derive(Debug)]
 pub struct JobsCreators {

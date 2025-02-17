@@ -18,21 +18,18 @@ use mining_sv2::{
     SubmitSharesStandard, Target,
 };
 
+use hex::DisplayHex;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
-use hex::DisplayHex;
 
 use tracing::{debug, error, info, trace, warn};
 
-use stratum_common::{
-    bitcoin::{
-        block::{Header, Version},
-        CompactTarget,
-        hash_types,
-        hashes::sha256d::Hash,
-        TxOut,
-    },
+use stratum_common::bitcoin::{
+    block::{Header, Version},
+    hash_types,
+    hashes::sha256d::Hash,
+    CompactTarget, TxOut,
 };
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`)
@@ -1829,8 +1826,8 @@ impl ExtendedChannelKind {
 mod test {
     use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
-    use stratum_common::bitcoin::{Amount, PublicKey, Target, TxOut, WPubkeyHash};
     use mining_sv2::OpenStandardMiningChannel;
+    use stratum_common::bitcoin::{Amount, PublicKey, Target, TxOut, WPubkeyHash};
 
     const BLOCK_REWARD: u64 = 2_000_000_000;
 

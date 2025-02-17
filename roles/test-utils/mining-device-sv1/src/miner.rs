@@ -1,7 +1,12 @@
 use crate::job::Job;
-use std::convert::TryInto;
-use stratum_common::bitcoin::{blockdata::block::{Header,Version}, hash_types::{BlockHash, TxMerkleNode}, hashes::{sha256d::Hash as DHash, Hash}, CompactTarget};
 use primitive_types::U256;
+use std::convert::TryInto;
+use stratum_common::bitcoin::{
+    blockdata::block::{Header, Version},
+    hash_types::{BlockHash, TxMerkleNode},
+    hashes::{sha256d::Hash as DHash, Hash},
+    CompactTarget,
+};
 use tracing::info;
 
 /// A mock representation of a Mining Device that produces block header hashes to be submitted by

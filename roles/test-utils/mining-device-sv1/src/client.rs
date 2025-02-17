@@ -1,16 +1,16 @@
-use std::{convert::TryInto, net::SocketAddr, ops::Div};
+use crate::{job::Job, miner::Miner};
 use async_channel::{bounded, Receiver, Sender};
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
+use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
-use std::{sync::Arc, time};
+use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
     task,
 };
 use tracing::{error, info, warn};
-use primitive_types::U256;
 use v1::{
     client_to_server,
     error::Error,
@@ -18,7 +18,6 @@ use v1::{
     utils::{Extranonce, HexU32Be},
     ClientStatus, IsClient,
 };
-use crate::{job::Job, miner::Miner};
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).

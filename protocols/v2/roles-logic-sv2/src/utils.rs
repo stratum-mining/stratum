@@ -15,19 +15,19 @@ use std::{
 use binary_sv2::{Seq064K, ShortTxId, U256};
 use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
+use primitive_types::U256 as U256Primitive;
 use siphasher::sip::SipHasher24;
 use stratum_common::{
     bitcoin,
     bitcoin::{
         blockdata::block::{Header, Version},
+        consensus,
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        CompactTarget, consensus, PublicKey, ScriptBuf, Transaction, XOnlyPublicKey,
-        ScriptHash, WScriptHash,
+        CompactTarget, PublicKey, ScriptBuf, ScriptHash, Transaction, WScriptHash, XOnlyPublicKey,
     },
 };
-use primitive_types::U256 as U256Primitive;
 use tracing::error;
 
 use crate::errors::Error;
@@ -403,8 +403,7 @@ pub fn hash_rate_to_target(
 
     let mut h_times_s_array = [0u8; 32];
     h_times_s_array[16..].copy_from_slice(&h_times_s.to_be_bytes());
-    let numerator =
-        two_to_256_minus_one - U256Primitive::from_big_endian(h_times_s_array.as_ref());
+    let numerator = two_to_256_minus_one - U256Primitive::from_big_endian(h_times_s_array.as_ref());
 
     let mut target = numerator.div(denominator).to_big_endian();
     target.reverse();
@@ -461,7 +460,8 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
         return Err(Error::HashrateError(InputError::DivisionByZero));
     }
     let shares_occurrency_frequence = from_u128_to_u256(shares_occurrency_frequence);
-    let target_plus_one = U256Primitive::from_big_endian(target_arr.as_ref()) + U256Primitive::one();
+    let target_plus_one =
+        U256Primitive::from_big_endian(target_arr.as_ref()) + U256Primitive::one();
     let denominator = shares_occurrency_frequence
         .mul(target_plus_one)
         .div(U256Primitive::from(100));
@@ -971,8 +971,7 @@ mod tests {
     use binary_sv2::{Seq0255, B064K, U256};
     use rand::Rng;
     use serde::Deserialize;
-    use std::convert::TryInto;
-    use std::num::ParseIntError;
+    use std::{convert::TryInto, num::ParseIntError};
 
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         (0..s.len())

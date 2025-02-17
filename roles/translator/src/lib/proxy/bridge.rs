@@ -1,15 +1,3 @@
-use async_channel::{Receiver, Sender};
-use roles_logic_sv2::{
-    channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},
-    mining_sv2::{
-        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target,
-    },
-    parsers::Mining,
-    utils::{GroupId, Mutex},
-};
-use std::sync::Arc;
-use tokio::{sync::broadcast, task::AbortHandle};
-use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
     error::{
@@ -18,9 +6,23 @@ use super::super::{
     },
     status,
 };
+use async_channel::{Receiver, Sender};
 use error_handling::handle_result;
-use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
+use roles_logic_sv2::{
+    channel_logic::channel_factory::{
+        ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share,
+    },
+    mining_sv2::{
+        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target,
+    },
+    parsers::Mining,
+    utils::{GroupId, Mutex},
+    Error as RolesLogicError,
+};
+use std::sync::Arc;
+use tokio::{sync::broadcast, task::AbortHandle};
 use tracing::{debug, error, info, warn};
+use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
@@ -534,8 +536,7 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
-    use stratum_common::bitcoin::{consensus, transaction::Version};
-    use stratum_common::bitcoin::absolute::LockTime;
+    use stratum_common::bitcoin::{absolute::LockTime, consensus, transaction::Version};
 
     pub mod test_utils {
         use super::*;

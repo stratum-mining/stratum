@@ -739,7 +739,7 @@ mod test {
 
     use stratum_common::{
         bitcoin,
-        bitcoin::{absolute::LockTime, consensus, Transaction, transaction::Version, Witness},
+        bitcoin::{absolute::LockTime, consensus, transaction::Version, Transaction, Witness},
     };
 
     use super::Configuration;

@@ -1,20 +1,10 @@
 #![allow(clippy::option_map_unit_fn)]
-use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::utils::Id;
-use std::{
-    net::{SocketAddr, ToSocketAddrs},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::available_parallelism,
-    time::Duration,
-};
-use tokio::net::TcpStream;
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
+use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_connection::Connection;
+use primitive_types::U256;
 use rand::{thread_rng, Rng};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
@@ -28,11 +18,21 @@ use roles_logic_sv2::{
     parsers::{Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::Mutex,
+    utils::{Id, Mutex},
 };
-use std::time::Instant;
-use stratum_common::bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget};
-use primitive_types::U256;
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::available_parallelism,
+    time::{Duration, Instant},
+};
+use stratum_common::bitcoin::{
+    blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
+};
+use tokio::net::TcpStream;
 use tracing::{error, info};
 
 pub async fn connect(
