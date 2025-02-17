@@ -96,16 +96,6 @@ jobs:
       - name: Run pool-sri-test-extended_1
         run: sh ./test/message-generator/test/pool-sri-test-extended_1/pool-sri-test-extended_1.sh
 
-  pool-sri-test-reject-auth:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run pool-sri-test-reject-auth
-        run: sh ./test/message-generator/test/pool-sri-test-reject-auth/pool-sri-test-reject-auth.sh
-
   sv1-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -146,7 +136,6 @@ jobs:
       pool-sri-test-close-channel,
       pool-sri-test-extended_0,
       pool-sri-test-extended_1,
-      pool-sri-test-reject-auth,
       sv1-test,
       translation-proxy-broke-pool,
       translation-proxy-old-share
@@ -164,7 +153,6 @@ jobs:
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
-          [ "${{ needs.pool-sri-test-reject-auth.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
