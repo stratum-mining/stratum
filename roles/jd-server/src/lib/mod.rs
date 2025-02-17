@@ -2,7 +2,6 @@ pub mod error;
 pub mod job_declarator;
 pub mod mempool;
 pub mod status;
-
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use error::JdsError;
 use error_handling::handle_result;
@@ -12,7 +11,6 @@ use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
-
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
@@ -24,7 +22,7 @@ use std::{
     time::Duration,
 };
 use stratum_common::{
-    bitcoin::{Script, TxOut},
+    bitcoin::{Amount, ScriptBuf, TxOut},
     url::is_valid_url,
 };
 
@@ -214,9 +212,9 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> 
     let mut result = Vec::new();
     for coinbase_output_pool in &config.coinbase_outputs {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-        let output_script: Script = coinbase_output.try_into()?;
+        let output_script: ScriptBuf = coinbase_output.try_into()?;
         result.push(TxOut {
-            value: 0,
+            value: Amount::from_sat(0),
             script_pubkey: output_script,
         });
     }
@@ -399,9 +397,9 @@ mod tests {
             output_script_value:
                 "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
         };
-        let expected_script: Script = expected_output.try_into().unwrap();
+        let expected_script: ScriptBuf = expected_output.try_into().unwrap();
         let expected_transaction_output = TxOut {
-            value: 0,
+            value: Amount::from_sat(0),
             script_pubkey: expected_script,
         };
 
