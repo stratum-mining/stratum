@@ -174,7 +174,7 @@ impl Downstream {
         if Downstream::is_zero(target) {
             return Ok(0.0);
         }
-        let target = U256::from_big_endian(target)?;
+        let target = U256::from_big_endian(target);
         let pdiff: [u8; 32] = [
             0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,

@@ -588,9 +588,9 @@ impl Miner {
     pub fn next_share(&mut self) -> NextShareOutcome {
         if let Some(header) = self.header.as_ref() {
             let hash_ = header.block_hash();
-            let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
+            let mut hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
             hash.reverse();
-            if hash < *self.target.as_ref().unwrap() {
+            if hash < self.target.unwrap().to_little_endian() {
                 info!(
                     "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
                     header.nonce, self.target, hash,

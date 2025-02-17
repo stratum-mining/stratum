@@ -69,7 +69,7 @@ impl Miner {
     pub(crate) fn next_share(&mut self) -> Result<(), ()> {
         let header = self.header.as_ref().ok_or(())?;
         let hash_ = header.block_hash();
-        let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
+        let mut hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
         hash.reverse();
         let hash = U256::from_big_endian(hash.as_ref());
         if hash < *self.target.as_ref().ok_or(())? {

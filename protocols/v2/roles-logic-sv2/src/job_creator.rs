@@ -413,7 +413,7 @@ impl StrippedCoinbaseTx {
                 .iter()
                 .map(|txin| {
                     let mut ser: Vec<u8> = vec![];
-                    ser.extend_from_slice((&txin.previous_output.txid).as_ref());
+                    ser.extend_from_slice(txin.previous_output.txid.as_ref());
                     ser.extend_from_slice(&txin.previous_output.vout.to_le_bytes());
                     ser.push(txin.script_sig.len() as u8);
                     ser.extend_from_slice(txin.script_sig.as_bytes());
@@ -421,7 +421,7 @@ impl StrippedCoinbaseTx {
                     ser
                 })
                 .collect(),
-            outputs: tx.output.iter().map(|o| consensus::serialize(o)).collect(),
+            outputs: tx.output.iter().map(consensus::serialize).collect(),
             lock_time: tx.lock_time.to_consensus_u32(),
             bip141_bytes_len,
         })
@@ -718,7 +718,7 @@ pub mod tests {
             235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let coinbase = consensus::deserialize(encoded).unwrap();
+        let coinbase: Transaction = consensus::deserialize(encoded).unwrap();
         let stripped = StrippedCoinbaseTx::from_coinbase(coinbase.clone(), 32).unwrap();
         let prefix = stripped.into_coinbase_tx_prefix().unwrap().to_vec();
         let suffix = stripped.into_coinbase_tx_suffix().unwrap().to_vec();
@@ -726,7 +726,9 @@ pub mod tests {
         let path: &[binary_sv2::U256] = &[];
         let stripped_merkle_root =
             merkle_root_from_path(&prefix[..], &suffix[..], extranonce, path).unwrap();
-        let og_merkle_root = coinbase.txid().to_vec();
+        let txid = coinbase.compute_txid();
+        let txid_bytes: &[u8; 32] = txid.as_ref();
+        let og_merkle_root = txid_bytes.to_vec();
         assert!(
             stripped_merkle_root == og_merkle_root,
             "stripped tx hash is not the same as bitcoin crate"
@@ -765,6 +767,6 @@ pub mod tests {
         //     i+=1;
         // }
         // println!("SIZE: {:?}", i);
-        consensus::deserialize(&encoded_clone).unwrap();
+        let _tx: Transaction = consensus::deserialize(&encoded_clone).unwrap();
     }
 }

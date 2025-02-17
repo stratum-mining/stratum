@@ -29,7 +29,7 @@ use std::{
     sync::Arc,
 };
 use stratum_common::{
-    bitcoin::{absolute::LockTime, Amount, ScriptBuf, TxOut, transaction::Version},
+    bitcoin::{Amount, ScriptBuf, TxOut},
     secp256k1,
 };
 use tokio::{net::TcpListener, task};
