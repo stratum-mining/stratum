@@ -45,13 +45,13 @@ impl Miner {
         self.job_id = Some(new_job.job_id);
         self.version = Some(new_job.version);
         let prev_hash: [u8; 32] = new_job.prev_hash;
-        let prev_hash = DHash::from_inner(prev_hash);
+        let prev_hash = DHash::from_byte_array(prev_hash);
         let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = DHash::from_inner(merkle_root);
+        let merkle_root = DHash::from_byte_array(merkle_root);
         let header = Header {
             version: Version::from_consensus(new_job.version as i32),
-            prev_blockhash: BlockHash::from_hash(prev_hash),
-            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            prev_blockhash: BlockHash::from_raw_hash(prev_hash),
+            merkle_root: TxMerkleNode::from_raw_hash(merkle_root),
             time: std::time::SystemTime::now()
                 .duration_since(
                     std::time::SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(60),
@@ -68,7 +68,8 @@ impl Miner {
     /// incrementing of the nonce is mocked out in a thread in `Client::new()`.
     pub(crate) fn next_share(&mut self) -> Result<(), ()> {
         let header = self.header.as_ref().ok_or(())?;
-        let mut hash = header.block_hash().as_hash().into_inner();
+        let hash_ = header.block_hash();
+        let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
         hash.reverse();
         let hash = U256::from_big_endian(hash.as_ref());
         if hash < *self.target.as_ref().ok_or(())? {

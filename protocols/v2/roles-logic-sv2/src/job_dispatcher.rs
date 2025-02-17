@@ -66,7 +66,7 @@ impl<'a> Header<'a> {
         engine.input(&self.timestamp.to_be_bytes());
         engine.input(&self.nbits.to_be_bytes());
         engine.input(&self.nonce.to_be_bytes());
-        let hashed = sha256d::Hash::from_engine(engine).into_inner();
+        let hashed: [u8; 32] = *sha256d::Hash::from_engine(engine).as_ref();
         hashed.into()
     }
 }

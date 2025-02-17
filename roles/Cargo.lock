@@ -2296,6 +2296,7 @@ dependencies = [
  "common_messages_sv2",
  "const_sv2",
  "framing_sv2",
+ "hex-conservative 0.1.2",
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",

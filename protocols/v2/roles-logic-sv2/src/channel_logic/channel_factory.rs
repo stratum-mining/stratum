@@ -21,16 +21,16 @@ use mining_sv2::{
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
+use hex::DisplayHex;
 
 use tracing::{debug, error, info, trace, warn};
 
 use stratum_common::{
-    bitcoin,
     bitcoin::{
         block::{Header, Version},
         CompactTarget,
         hash_types,
-        hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
+        hashes::sha256d::Hash,
         TxOut,
     },
 };
@@ -837,7 +837,7 @@ impl ChannelFactory {
         let header = Header {
             version: Version::from_consensus(version),
             prev_blockhash,
-            merkle_root: Hash::from_inner(merkle_root).into(),
+            merkle_root: (*Hash::from_bytes_ref(&merkle_root)).into(),
             time: m.get_n_time(),
             bits: CompactTarget::from_consensus(bits),
             nonce: m.get_nonce(),
@@ -845,7 +845,7 @@ impl ChannelFactory {
 
         trace!("On checking target header is: {:?}", header);
         let hash_ = header.block_hash();
-        let hash = hash_.as_hash().into_inner();
+        let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
 
         if tracing::level_enabled!(tracing::Level::DEBUG)
             || tracing::level_enabled!(tracing::Level::TRACE)
@@ -853,24 +853,24 @@ impl ChannelFactory {
             let bitcoin_target_log: binary_sv2::U256 = bitcoin_target.clone().into();
             let mut bitcoin_target_log = bitcoin_target_log.to_vec();
             bitcoin_target_log.reverse();
-            debug!("Bitcoin target : {:?}", bitcoin_target_log.to_hex());
+            debug!("Bitcoin target : {:?}", bitcoin_target_log.as_hex());
             let upstream_target: binary_sv2::U256 = upstream_target.clone().into();
             let mut upstream_target = upstream_target.to_vec();
             upstream_target.reverse();
-            debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());
+            debug!("Upstream target: {:?}", upstream_target.to_vec().as_hex());
             let mut hash = hash;
             hash.reverse();
-            debug!("Hash           : {:?}", hash.to_vec().to_hex());
+            debug!("Hash           : {:?}", hash.to_vec().as_hex());
         }
         let hash: Target = hash.into();
 
         if hash <= bitcoin_target {
-            let mut print_hash = hash_.as_hash().into_inner();
+            let mut print_hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
             print_hash.reverse();
 
             info!(
                 "Share hash meet bitcoin target: {:?}",
-                print_hash.to_vec().to_hex()
+                print_hash.to_vec().as_hex()
             );
 
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
@@ -1829,7 +1829,7 @@ impl ExtendedChannelKind {
 mod test {
     use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
-    use bitcoin::{Amount, hash_types::WPubkeyHash, PublicKey, Target, TxOut};
+    use stratum_common::bitcoin::{Amount, PublicKey, Target, TxOut, WPubkeyHash};
     use mining_sv2::OpenStandardMiningChannel;
 
     const BLOCK_REWARD: u64 = 2_000_000_000;
@@ -1878,7 +1878,7 @@ mod test {
         let into_bin = decode_hex(_PUB_K).unwrap();
         let pk = PublicKey::from_slice(&into_bin[..]);
         let hash = pk.unwrap().pubkey_hash();
-        WPubkeyHash::from_hash(hash.as_hash())
+        WPubkeyHash::from_raw_hash(hash.to_raw_hash())
     }
 
     fn get_coinbase() -> (Vec<u8>, Vec<u8>, Vec<u8>) {

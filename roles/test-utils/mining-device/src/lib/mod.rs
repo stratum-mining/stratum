@@ -565,14 +565,14 @@ impl Miner {
         self.job_id = Some(new_job.job_id);
         self.version = Some(new_job.version);
         let prev_hash: [u8; 32] = set_new_prev_hash.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = Hash::from_inner(prev_hash);
+        let prev_hash = Hash::from_byte_array(prev_hash);
         let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = Hash::from_inner(merkle_root);
+        let merkle_root = Hash::from_byte_array(merkle_root);
         // fields need to be added as BE and the are converted to LE in the background before
         // hashing
         let header = Header {
             version: Version::from_consensus(new_job.version as i32),
-            prev_blockhash: BlockHash::from_hash(prev_hash),
+            prev_blockhash: BlockHash::from_raw_hash(prev_hash),
             merkle_root,
             time: std::time::SystemTime::now()
                 .duration_since(
@@ -587,7 +587,8 @@ impl Miner {
     }
     pub fn next_share(&mut self) -> NextShareOutcome {
         if let Some(header) = self.header.as_ref() {
-            let mut hash = header.block_hash().as_hash().into_inner();
+            let hash_ = header.block_hash();
+            let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
             hash.reverse();
             if hash < *self.target.as_ref().unwrap() {
                 info!(
@@ -620,14 +621,14 @@ impl NextShareOutcome {
 fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
     let mut rng = thread_rng();
     let prev_hash: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
-    let prev_hash = Hash::from_inner(prev_hash);
+    let prev_hash = Hash::from_byte_array(prev_hash);
     // We create a random block that we can hash, we are only interested in knowing how many hashes
     // per unit of time we can do
     let merkle_root: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
-    let merkle_root = Hash::from_inner(merkle_root);
+    let merkle_root = Hash::from_byte_array(merkle_root);
     let header = Header {
         version: Version::from_consensus(rng.gen()),
-        prev_blockhash: BlockHash::from_hash(prev_hash),
+        prev_blockhash: BlockHash::from_raw_hash(prev_hash),
         merkle_root,
         time: std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(60))

@@ -218,10 +218,8 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
     for node in path {
         let to_hash = [&root[..], node.as_ref()].concat();
-        root = bitcoin::hashes::sha256d::Hash::hash(&to_hash)
-            .to_vec()
-            .try_into()
-            .unwrap();
+        let hash = DHash::hash(&to_hash);
+        root = *hash.as_ref();
     }
     root
 }
@@ -780,8 +778,8 @@ fn test_merkle_root_from_path() {
 /// Converts a `u256` to a [`BlockHash`] type.
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
-    let hash = Hash::from_inner(hash);
-    BlockHash::from_hash(hash)
+    let hash = Hash::from_slice(&hash).unwrap();
+    BlockHash::from_raw_hash(hash)
 }
 
 // Returns a new `Header`.
@@ -810,16 +808,16 @@ pub(crate) fn new_header(
     }
     let mut prev_hash_arr = [0u8; 32];
     prev_hash_arr.copy_from_slice(prev_hash);
-    let prev_hash = DHash::from_inner(prev_hash_arr);
+    let prev_hash = DHash::from_bytes_ref(&prev_hash_arr);
 
     let mut merkle_root_arr = [0u8; 32];
     merkle_root_arr.copy_from_slice(merkle_root);
-    let merkle_root = DHash::from_inner(merkle_root_arr);
+    let merkle_root = DHash::from_bytes_ref(&merkle_root_arr);
 
     Ok(Header {
         version: Version::from_consensus(version),
-        prev_blockhash: BlockHash::from_hash(prev_hash),
-        merkle_root: TxMerkleNode::from_hash(merkle_root),
+        prev_blockhash: BlockHash::from_raw_hash(*prev_hash),
+        merkle_root: TxMerkleNode::from_raw_hash(*merkle_root),
         time,
         bits: CompactTarget::from_consensus(bits),
         nonce,
@@ -869,7 +867,7 @@ pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxI
     let k1 = u64::from_le_bytes(nonce_hash[8..16].try_into().unwrap());
     // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
     let hasher = SipHasher24::new_with_keys(k0, k1);
-    let tx_hashed = hasher.hash(&txid);
+    let tx_hashed = hasher.hash(&txid.as_ref());
     let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes()[2..].to_vec();
     let short_tx_id: ShortTxId = tx_hashed_bytes.try_into().unwrap();
     short_tx_id
@@ -887,8 +885,9 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
         let txid_as_byte_array: &[u8; 32] = &txid.as_ref();
         vec_u8.extend_from_slice(txid_as_byte_array);
     }
-    let hash = Hash::hash(&vec_u8).as_inner().to_owned();
-    hash.to_vec().try_into().unwrap()
+    let hash: sha256::Hash = sha256::Hash::hash(&vec_u8);
+    let hash_arr: [u8; 32] = *hash.as_ref();
+    U256::from(hash_arr)
 }
 
 /// Creates a block from a solution submission.
@@ -942,7 +941,7 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
         let merkle_root =
             merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
                 .expect("Invalid coinbase");
-        let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
+        let merkle_root = Hash::from_slice(merkle_root.as_slice()).unwrap();
 
         let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
         let header = Header {
@@ -1123,16 +1122,16 @@ mod tests {
         }
         let mut prev_hash_arr = [0u8; 32];
         prev_hash_arr.copy_from_slice(&block.prev_hash);
-        let prev_hash = DHash::from_inner(prev_hash_arr);
+        let prev_hash = DHash::from_bytes_ref(&prev_hash_arr);
 
         let mut merkle_root_arr = [0u8; 32];
         merkle_root_arr.copy_from_slice(&block.merkle_root);
-        let merkle_root = DHash::from_inner(merkle_root_arr);
+        let merkle_root = DHash::from_bytes_ref(&merkle_root_arr);
 
         let expect = Header {
             version: Version::from_consensus(block.version as i32),
-            prev_blockhash: BlockHash::from_hash(prev_hash),
-            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            prev_blockhash: BlockHash::from_raw_hash(*prev_hash),
+            merkle_root: TxMerkleNode::from_raw_hash(*merkle_root),
             time: block.time,
             bits: CompactTarget::from_consensus(block.nbits),
             nonce: block.nonce,
