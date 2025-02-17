@@ -9,7 +9,6 @@ use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
-
 use stratum_common::{
     bitcoin,
     bitcoin::{

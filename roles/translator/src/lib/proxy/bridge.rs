@@ -10,7 +10,6 @@ use roles_logic_sv2::{
 use std::sync::Arc;
 use tokio::{sync::broadcast, task::AbortHandle};
 use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
-
 use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
     error::{
@@ -535,8 +534,8 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
-
-    use stratum_common::bitcoin::util::psbt::serialize::Serialize;
+    use stratum_common::bitcoin::{consensus, transaction::Version};
+    use stratum_common::bitcoin::absolute::LockTime;
 
     pub mod test_utils {
         use super::*;
@@ -618,22 +617,22 @@ mod test {
                 ])
                 .unwrap();
                 let p_out = bitcoin::OutPoint {
-                    txid: bitcoin::Txid::from_hash(out_id),
+                    txid: bitcoin::Txid::from_raw_hash(out_id),
                     vout: 0xffff_ffff,
                 };
                 let in_ = bitcoin::TxIn {
                     previous_output: p_out,
                     script_sig: vec![89_u8; 16].into(),
                     sequence: bitcoin::Sequence(0),
-                    witness: Witness::from_vec(vec![]),
+                    witness: Witness::from(vec![] as Vec<Vec<u8>>),
                 };
                 let tx = bitcoin::Transaction {
-                    version: 1,
-                    lock_time: bitcoin::PackedLockTime(0),
+                    version: Version::ONE,
+                    lock_time: LockTime::from_consensus(0),
                     input: vec![in_],
                     output: vec![],
                 };
-                let tx = tx.serialize();
+                let tx = consensus::serialize(&tx);
                 let _down = bridge
                     .channel_factory
                     .add_standard_channel(0, 10_000_000_000.0, true, 1)

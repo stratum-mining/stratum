@@ -188,10 +188,8 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
         }
     };
 
-    let coinbase_id: [u8; 32] = match coinbase.compute_txid().try_into() {
-        Ok(id) => id,
-        Err(_e) => return None,
-    };
+    let coinbase_id: [u8; 32] = *coinbase.compute_txid().as_ref();
+
     Some(merkle_root_from_path_(coinbase_id, path).to_vec())
 }
 
