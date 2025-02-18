@@ -6,7 +6,7 @@ pub mod template_receiver;
 
 use async_channel::{bounded, unbounded};
 
-use config::Configuration;
+use config::PoolConfig;
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Pool};
 use template_receiver::TemplateRx;
@@ -16,11 +16,11 @@ use tokio::select;
 
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
-    config: Configuration,
+    config: PoolConfig,
 }
 
 impl PoolSv2 {
-    pub fn new(config: Configuration) -> PoolSv2 {
+    pub fn new(config: PoolConfig) -> PoolSv2 {
         PoolSv2 { config }
     }
 
@@ -116,11 +116,11 @@ mod tests {
             "wrong".to_string(),
         )];
         let config_path = "config-examples/pool-config-hosted-tp-example.toml";
-        let mut config: Configuration = match Config::builder()
+        let mut config: PoolConfig = match Config::builder()
             .add_source(File::new(config_path, FileFormat::Toml))
             .build()
         {
-            Ok(settings) => match settings.try_deserialize::<Configuration>() {
+            Ok(settings) => match settings.try_deserialize::<PoolConfig>() {
                 Ok(c) => c,
                 Err(e) => {
                     error!("Failed to deserialize config: {}", e);
