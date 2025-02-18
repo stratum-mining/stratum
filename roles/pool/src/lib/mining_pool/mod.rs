@@ -1,3 +1,5 @@
+use crate::config::Configuration;
+
 use super::{
     error::{PoolError, PoolResult},
     status,
@@ -6,7 +8,7 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
+use key_utils::SignatureService;
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
@@ -21,13 +23,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
-use serde::Deserialize;
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
     bitcoin::{Amount, ScriptBuf, TxOut},
     secp256k1,
@@ -46,7 +42,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
     let mut result = Vec::new();
-    for coinbase_output_pool in &config.coinbase_outputs {
+    for coinbase_output_pool in config.coinbase_outputs() {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
         let output_script: ScriptBuf = coinbase_output.try_into()?;
         result.push(TxOut {
@@ -57,113 +53,6 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> 
     match result.is_empty() {
         true => Err(Error::EmptyCoinbaseOutputs),
         _ => Ok(result),
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct CoinbaseOutput {
-    output_script_type: String,
-    output_script_value: String,
-}
-
-impl CoinbaseOutput {
-    pub fn new(output_script_type: String, output_script_value: String) -> Self {
-        Self {
-            output_script_type,
-            output_script_value,
-        }
-    }
-}
-
-impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
-
-    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
-        match pool_output.output_script_type.as_str() {
-            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
-                Ok(CoinbaseOutput_ {
-                    output_script_type: pool_output.clone().output_script_type,
-                    output_script_value: pool_output.clone().output_script_value,
-                })
-            }
-            _ => Err(Error::UnknownOutputScriptType),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct Configuration {
-    pub listen_address: String,
-    pub tp_address: String,
-    pub tp_authority_public_key: Option<Secp256k1PublicKey>,
-    pub authority_public_key: Secp256k1PublicKey,
-    pub authority_secret_key: Secp256k1SecretKey,
-    pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<CoinbaseOutput>,
-    pub pool_signature: String,
-}
-
-pub struct TemplateProviderConfig {
-    address: String,
-    authority_public_key: Option<Secp256k1PublicKey>,
-}
-
-impl TemplateProviderConfig {
-    pub fn new(address: String, authority_public_key: Option<Secp256k1PublicKey>) -> Self {
-        Self {
-            address,
-            authority_public_key,
-        }
-    }
-}
-
-pub struct AuthorityConfig {
-    pub public_key: Secp256k1PublicKey,
-    pub secret_key: Secp256k1SecretKey,
-}
-
-impl AuthorityConfig {
-    pub fn new(public_key: Secp256k1PublicKey, secret_key: Secp256k1SecretKey) -> Self {
-        Self {
-            public_key,
-            secret_key,
-        }
-    }
-}
-
-pub struct ConnectionConfig {
-    listen_address: String,
-    cert_validity_sec: u64,
-    signature: String,
-}
-
-impl ConnectionConfig {
-    pub fn new(listen_address: String, cert_validity_sec: u64, signature: String) -> Self {
-        Self {
-            listen_address,
-            cert_validity_sec,
-            signature,
-        }
-    }
-}
-
-impl Configuration {
-    pub fn new(
-        pool_connection: ConnectionConfig,
-        template_provider: TemplateProviderConfig,
-        authority_config: AuthorityConfig,
-        coinbase_outputs: Vec<CoinbaseOutput>,
-    ) -> Self {
-        Self {
-            listen_address: pool_connection.listen_address,
-            tp_address: template_provider.address,
-            tp_authority_public_key: template_provider.authority_public_key,
-            authority_public_key: authority_config.public_key,
-            authority_secret_key: authority_config.secret_key,
-            cert_validity_sec: pool_connection.cert_validity_sec,
-            coinbase_outputs,
-            pool_signature: pool_connection.signature,
-        }
     }
 }
 
@@ -383,10 +272,10 @@ impl Pool {
         config: Configuration,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
-        let listener = TcpListener::bind(&config.listen_address).await?;
+        let listener = TcpListener::bind(&config.listen_address()).await?;
         info!(
             "Listening for encrypted connection on: {}",
-            config.listen_address
+            config.listen_address()
         );
         while let Ok((stream, _)) = listener.accept().await {
             let address = stream.peer_addr().unwrap();
@@ -396,9 +285,9 @@ impl Pool {
             );
 
             let responder = Responder::from_authority_kp(
-                &config.authority_public_key.into_bytes(),
-                &config.authority_secret_key.into_bytes(),
-                std::time::Duration::from_secs(config.cert_validity_sec),
+                &config.authority_public_key().into_bytes(),
+                &config.authority_secret_key().into_bytes(),
+                std::time::Duration::from_secs(config.cert_validity_sec()),
             );
             match responder {
                 Ok(resp) => {
@@ -584,7 +473,7 @@ impl Pool {
             share_per_min,
             kind,
             pool_coinbase_outputs.expect("Invalid coinbase output in config"),
-            config.pool_signature.clone().into(),
+            config.pool_signature().clone().into(),
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
@@ -726,8 +615,8 @@ mod test {
         // build coinbase TX from 'job_creator::coinbase()'
 
         let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
-        let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
-        bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
+        let script_prefix_length = bip34_bytes.len() + config.pool_signature().as_bytes().len();
+        bip34_bytes.extend_from_slice(config.pool_signature().as_bytes());
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {
             0 => Witness::from(vec![] as Vec<Vec<u8>>),
