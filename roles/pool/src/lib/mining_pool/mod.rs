@@ -101,8 +101,6 @@ pub struct Configuration {
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
     pub pool_signature: String,
-    #[cfg(feature = "test_only_allow_unencrypted")]
-    pub test_only_listen_adress_plain: String,
 }
 
 pub struct TemplateProviderConfig {
@@ -155,7 +153,6 @@ impl Configuration {
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
         coinbase_outputs: Vec<CoinbaseOutput>,
-        #[cfg(feature = "test_only_allow_unencrypted")] test_only_listen_adress_plain: String,
     ) -> Self {
         Self {
             listen_address: pool_connection.listen_address,
@@ -166,8 +163,6 @@ impl Configuration {
             cert_validity_sec: pool_connection.cert_validity_sec,
             coinbase_outputs,
             pool_signature: pool_connection.signature,
-            #[cfg(feature = "test_only_allow_unencrypted")]
-            test_only_listen_adress_plain,
         }
     }
 }
@@ -383,35 +378,6 @@ impl IsDownstream for Downstream {
 impl IsMiningDownstream for Downstream {}
 
 impl Pool {
-    #[cfg(feature = "test_only_allow_unencrypted")]
-    async fn accept_incoming_plain_connection(
-        self_: Arc<Mutex<Pool>>,
-        config: Configuration,
-    ) -> PoolResult<()> {
-        let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
-            .await
-            .unwrap();
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
-
-        info!(
-            "Listening for unencrypted connection on: {}",
-            config.test_only_listen_adress_plain
-        );
-        while let Ok((stream, _)) = listner.accept().await {
-            let address = stream.peer_addr().unwrap();
-            debug!("New connection from {}", address);
-
-            let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                network_helpers_sv2::plain_connection_tokio::PlainConnection::new(stream).await;
-
-            handle_result!(
-                status_tx,
-                Self::accept_incoming_connection_(self_.clone(), receiver, sender, address).await
-            );
-        }
-        Ok(())
-    }
-
     async fn accept_incoming_connection(
         self_: Arc<Mutex<Pool>>,
         config: Configuration,
@@ -632,31 +598,6 @@ impl Pool {
         let cloned = pool.clone();
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
-
-        #[cfg(feature = "test_only_allow_unencrypted")]
-        {
-            let cloned4 = pool.clone();
-            let status_tx_clone_unenc = status_tx.clone();
-            let config_unenc = config.clone();
-
-            task::spawn(async move {
-                if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config_unenc).await
-                {
-                    error!("{}", e);
-                }
-                if status_tx_clone_unenc
-                    .send(status::Status {
-                        state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
-                            "Downstream no longer accepting incoming connections".to_string(),
-                        )),
-                    })
-                    .await
-                    .is_err()
-                {
-                    error!("Downstream shutdown and Status Channel dropped");
-                }
-            });
-        }
 
         info!("Starting up pool listener");
         let status_tx_clone = status_tx.clone();
