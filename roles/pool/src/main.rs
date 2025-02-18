@@ -83,11 +83,11 @@ async fn main() {
     let config_path = args.config_path.to_str().expect("Invalid config path");
 
     // Load config
-    let config: config::Configuration = match Config::builder()
+    let config: config::PoolConfig = match Config::builder()
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()
     {
-        Ok(settings) => match settings.try_deserialize::<config::Configuration>() {
+        Ok(settings) => match settings.try_deserialize::<config::PoolConfig>() {
             Ok(c) => c,
             Err(e) => {
                 error!("Failed to deserialize config: {}", e);

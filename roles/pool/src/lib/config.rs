@@ -3,7 +3,7 @@ use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
 use std::convert::TryFrom;
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub struct Configuration {
+pub struct PoolConfig {
     listen_address: String,
     tp_address: String,
     tp_authority_public_key: Option<Secp256k1PublicKey>,
@@ -14,7 +14,7 @@ pub struct Configuration {
     pool_signature: String,
 }
 
-impl Configuration {
+impl PoolConfig {
     pub fn new(
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
