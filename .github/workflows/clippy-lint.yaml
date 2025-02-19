@@ -34,4 +34,3 @@ jobs:
           cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
           cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
           cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=utils/message-generator/Cargo.toml -- -D warnings -A dead-code
