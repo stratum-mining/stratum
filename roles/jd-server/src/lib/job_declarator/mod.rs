@@ -56,6 +56,7 @@ pub struct JobDeclaratorDownstream {
     #[allow(dead_code)]
     // TODO: use coinbase output
     coinbase_output: Vec<u8>,
+    coinbase_output_sigops: u16,
     token_to_job_map: HashMap<u32, Option<u8>, BuildNoHashHasher<u32>>,
     tokens: Id,
     public_key: Secp256k1PublicKey,
@@ -93,12 +94,18 @@ impl JobDeclaratorDownstream {
             .expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
+        let coinbase_output_sigops = config
+            .get_txout()
+            .expect("Invalid coinbase output in config")[0]
+            .script_pubkey
+            .count_sigops() as u16;
 
         Self {
             async_mining_allowed,
             receiver,
             sender,
             coinbase_output,
+            coinbase_output_sigops,
             token_to_job_map,
             tokens,
             public_key: *config.authority_public_key(),
