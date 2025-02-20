@@ -71,7 +71,12 @@ impl Client {
     ///    the information from `sender_share`, it is formatted as a `v1::client_to_server::Submit`
     ///    and then serialized into a json message that is sent to the Upstream via
     ///    `sender_outgoing`.
-    pub async fn connect(client_id: u32, upstream_addr: SocketAddr, single_submit: bool) {
+    pub async fn connect(
+        client_id: u32,
+        upstream_addr: SocketAddr,
+        single_submit: bool,
+        custom_target: Option<[u8; 32]>,
+    ) {
         let stream = TcpStream::connect(upstream_addr).await.unwrap();
         let (reader, mut writer) = stream.into_split();
 
@@ -93,10 +98,10 @@ impl Client {
         // Sets an initial target for the `Miner`.
         // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
         // `mining.set_difficulty` message received from the Upstream role
-        let target_vec: [u8; 32] = [
+        let target_vec: [u8; 32] = custom_target.unwrap_or([
             0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
-        ];
+        ]);
         let default_target = Uint256::from_be_bytes(target_vec);
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
 

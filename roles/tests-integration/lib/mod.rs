@@ -297,9 +297,14 @@ pub fn measure_hashrate(duration_secs: u64) -> f64 {
     hashes as f64 / elapsed_secs
 }
 
-pub async fn start_mining_device_sv1(upstream_addr: SocketAddr, single_submit: bool) {
+pub async fn start_mining_device_sv1(
+    upstream_addr: SocketAddr,
+    single_submit: bool,
+    custom_target: Option<[u8; 32]>,
+) {
     tokio::spawn(async move {
-        mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit).await;
+        mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
+            .await;
     });
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 }
