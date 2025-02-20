@@ -316,12 +316,11 @@ where
     Sel: DownstreamMiningSelector<Down> + D,
 {
     ups.iter()
-        .filter(
-            |up_mutex| match up_mutex.safe_lock(|up| !up.is_header_only()) {
-                Ok(header_only) => header_only,
-                Err(_e) => false,
-            },
-        )
+        .filter(|up_mutex| {
+            up_mutex
+                .safe_lock(|up| !up.is_header_only())
+                .unwrap_or_default()
+        })
         .cloned()
         .collect()
 }

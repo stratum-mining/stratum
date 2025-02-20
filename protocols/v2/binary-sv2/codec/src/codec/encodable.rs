@@ -104,7 +104,7 @@ pub enum EncodablePrimitive<'a> {
     B016M(B016M<'a>),
 }
 
-impl<'a> EncodablePrimitive<'a> {
+impl EncodablePrimitive<'_> {
     // Provides the encoding logic for each primitive type.
     //
     // The `encode` method takes the `EncodablePrimitive` variant and serializes it
@@ -160,7 +160,7 @@ impl<'a> EncodablePrimitive<'a> {
 }
 
 // Provides the logic for calculating the size of the encodable field.
-impl<'a> GetSize for EncodablePrimitive<'a> {
+impl GetSize for EncodablePrimitive<'_> {
     fn get_size(&self) -> usize {
         match self {
             Self::U8(v) => v.get_size(),
@@ -200,7 +200,7 @@ pub enum EncodableField<'a> {
     Struct(Vec<EncodableField<'a>>),
 }
 
-impl<'a> EncodableField<'a> {
+impl EncodableField<'_> {
     /// The `encode` method serializes a field into the destination buffer `dst`, starting
     /// at the provided `offset`. If the field is a structure, it recursively encodes
     /// each contained field. If the buffer is too small or encoding fails, the method
@@ -235,7 +235,7 @@ impl<'a> EncodableField<'a> {
     }
 }
 
-impl<'a> GetSize for EncodableField<'a> {
+impl GetSize for EncodableField<'_> {
     fn get_size(&self) -> usize {
         match self {
             Self::Primitive(p) => p.get_size(),

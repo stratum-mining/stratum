@@ -1980,7 +1980,7 @@ mod test {
             request_id: 100.into(),
             user_identity: "Gigi".to_string().try_into().unwrap(),
             nominal_hash_rate: 100_000_000_000_000.0,
-            max_target: [255; 32].try_into().unwrap(),
+            max_target: [255; 32].into(),
         };
 
         // "Send" the OpenStandardMiningChannel to channel

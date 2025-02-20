@@ -31,7 +31,7 @@ use crate::{
 /// * Bitcoin block version: Used in the block header.
 ///     * nBits: The encoded network difficulty. Used in the block header.
 ///     * nTime: The current time. nTime rolling should be supported, but should not increase faster
-///     than actual time.
+///       than actual time.
 /// * Clean Jobs: If true, miners should abort their current work and immediately use the new job.
 ///   If false, they can still use the current job, but should move to the new one after exhausting
 ///   the current nonce range.
@@ -48,7 +48,7 @@ pub struct Notify<'a> {
     pub clean_jobs: bool,
 }
 
-impl<'a> From<Notify<'a>> for Message {
+impl From<Notify<'_>> for Message {
     fn from(notify: Notify) -> Self {
         let prev_hash: Value = notify.prev_hash.into();
         let coin_base1: Value = notify.coin_base1.into();
@@ -80,7 +80,7 @@ impl<'a> From<Notify<'a>> for Message {
     }
 }
 
-impl<'a> TryFrom<Notification> for Notify<'a> {
+impl TryFrom<Notification> for Notify<'_> {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -197,7 +197,7 @@ pub struct SetExtranonce<'a> {
     pub extra_nonce2_size: usize,
 }
 
-impl<'a> From<SetExtranonce<'a>> for Message {
+impl From<SetExtranonce<'_>> for Message {
     fn from(se: SetExtranonce) -> Self {
         let extra_nonce1: Value = se.extra_nonce1.into();
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
@@ -208,7 +208,7 @@ impl<'a> From<SetExtranonce<'a>> for Message {
     }
 }
 
-impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
+impl TryFrom<Notification> for SetExtranonce<'_> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
@@ -356,7 +356,7 @@ pub struct Subscribe<'a> {
     pub subscriptions: Vec<(String, String)>,
 }
 
-impl<'a> From<Subscribe<'a>> for Message {
+impl From<Subscribe<'_>> for Message {
     fn from(su: Subscribe) -> Self {
         let extra_nonce1: Value = su.extra_nonce1.into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
@@ -374,7 +374,7 @@ impl<'a> From<Subscribe<'a>> for Message {
     }
 }
 
-impl<'a> TryFrom<&Response> for Subscribe<'a> {
+impl TryFrom<&Response> for Subscribe<'_> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
@@ -561,12 +561,12 @@ fn configure_response_parsing_all_fields() {
                 "minimum-difficulty":false
             }
         }"#;
-    let client_response = serde_json::from_str(&client_response_str).unwrap();
+    let client_response = serde_json::from_str(client_response_str).unwrap();
     let server_configure = Configure::try_from(&client_response).unwrap();
     println!("{:?}", server_configure);
 
     let version_rolling = server_configure.version_rolling.unwrap();
-    assert_eq!(version_rolling.version_rolling, true);
+    assert!(version_rolling.version_rolling);
     assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
     assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(5));
 
@@ -582,12 +582,12 @@ fn configure_response_parsing_no_vr_min_bit_count() {
                 "minimum-difficulty":false
             }
         }"#;
-    let client_response = serde_json::from_str(&client_response_str).unwrap();
+    let client_response = serde_json::from_str(client_response_str).unwrap();
     let server_configure = Configure::try_from(&client_response).unwrap();
     println!("{:?}", server_configure);
 
     let version_rolling = server_configure.version_rolling.unwrap();
-    assert_eq!(version_rolling.version_rolling, true);
+    assert!(version_rolling.version_rolling);
     assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
     assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(0));
 

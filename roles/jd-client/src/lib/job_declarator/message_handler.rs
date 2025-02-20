@@ -67,7 +67,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
                     None
                 }
             })
-            .ok_or_else(|| Error::UnknownRequestId(message.request_id))?;
+            .ok_or(Error::UnknownRequestId(message.request_id))?;
 
         let unknown_tx_position_list: Vec<u16> = message.unknown_tx_position_list.into_inner();
         let missing_transactions: Vec<binary_sv2::B016M> = unknown_tx_position_list

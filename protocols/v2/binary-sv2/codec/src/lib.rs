@@ -473,7 +473,7 @@ impl GetSize for Vec<u8> {
 }
 
 // Only needed for implement encodable for Frame never called
-impl<'a> From<Vec<u8>> for EncodableField<'a> {
+impl From<Vec<u8>> for EncodableField<'_> {
     fn from(_v: Vec<u8>) -> Self {
         unreachable!()
     }

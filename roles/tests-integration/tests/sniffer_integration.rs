@@ -122,22 +122,20 @@ async fn test_sniffer_wait_for_message_type_with_remove() {
             )
             .await
     );
-    assert_eq!(
-        sniffer
+    assert!(
+        !(sniffer
             .includes_message_type(
                 MessageDirection::ToDownstream,
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS
             )
-            .await,
-        false
+            .await)
     );
-    assert_eq!(
-        sniffer
+    assert!(
+        !(sniffer
             .includes_message_type(
                 MessageDirection::ToDownstream,
                 MESSAGE_TYPE_SET_NEW_PREV_HASH
             )
-            .await,
-        false
+            .await)
     );
 }

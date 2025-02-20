@@ -69,7 +69,7 @@ pub enum ParsingMethodError {
     Todo,
 }
 
-impl<'a> From<Error<'a>> for ParsingMethodError {
+impl From<Error<'_>> for ParsingMethodError {
     fn from(inner: Error) -> Self {
         match inner {
             Error::HexError(e) => ParsingMethodError::HexError(Box::new(e)),
@@ -79,8 +79,8 @@ impl<'a> From<Error<'a>> for ParsingMethodError {
     }
 }
 
-impl<'a> ParsingMethodError {
-    pub fn as_method_error(self, msg: Message) -> MethodError<'a> {
+impl ParsingMethodError {
+    pub fn as_method_error(self, msg: Message) -> MethodError<'static> {
         MethodError::ParsingMethodError((self, msg))
     }
 }
@@ -294,7 +294,7 @@ impl<'a> TryFrom<Message> for Method<'a> {
     }
 }
 
-impl<'a> TryFrom<crate::json_rpc::Response> for Server2ClientResponse<'a> {
+impl TryFrom<crate::json_rpc::Response> for Server2ClientResponse<'_> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Response) -> Result<Self, Self::Error> {

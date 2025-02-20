@@ -102,7 +102,6 @@ impl<'a> From<NewTemplate<'a>> for CNewTemplate {
 
 impl<'a> CNewTemplate {
     /// Converts from C to Rust representation.
-
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
         let coinbase_prefix: B0255 = self.coinbase_prefix.as_mut_slice().try_into()?;

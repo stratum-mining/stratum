@@ -33,7 +33,7 @@ pub enum Error<'a> {
     InvalidVersionMask(HexU32Be),
 }
 
-impl<'a> std::fmt::Display for Error<'a> {
+impl std::fmt::Display for Error<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Error::BadBytesConvert(ref e) => write!(
@@ -78,19 +78,19 @@ impl<'a> std::fmt::Display for Error<'a> {
     }
 }
 
-impl<'a> From<bitcoin_hashes::Error> for Error<'a> {
+impl From<bitcoin_hashes::Error> for Error<'_> {
     fn from(e: bitcoin_hashes::Error) -> Self {
         Error::BTCHashError(e)
     }
 }
 
-impl<'a> From<hex::FromHexError> for Error<'a> {
+impl From<hex::FromHexError> for Error<'_> {
     fn from(e: hex::FromHexError) -> Self {
         Error::HexError(e)
     }
 }
 
-impl<'a> From<std::convert::Infallible> for Error<'a> {
+impl From<std::convert::Infallible> for Error<'_> {
     fn from(e: std::convert::Infallible) -> Self {
         Error::Infallible(e)
     }
@@ -102,7 +102,7 @@ impl<'a> From<MethodError<'a>> for Error<'a> {
     }
 }
 
-impl<'a> From<binary_sv2::Error> for Error<'a> {
+impl From<binary_sv2::Error> for Error<'_> {
     fn from(inner: binary_sv2::Error) -> Self {
         Error::BadBytesConvert(inner)
     }
