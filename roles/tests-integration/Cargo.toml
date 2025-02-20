@@ -33,7 +33,7 @@ tracing = "0.1.40"
 translator_sv2 = { path = "../translator" }
 rand = "0.8.4"
 stratum-common = { path = "../../common" }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.19"}
 
 [lib]
 path = "lib/mod.rs"
