@@ -5,18 +5,18 @@
 //! management, mutex management, difficulty target calculations, merkle root calculations, and
 //! more.
 
-use std::{
-    convert::{TryFrom, TryInto},
-    ops::{Div, Mul},
-    str::FromStr,
-    sync::{Mutex as Mutex_, MutexGuard, PoisonError},
-};
-
 use binary_sv2::{Seq064K, ShortTxId, U256};
 use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use primitive_types::U256 as U256Primitive;
 use siphasher::sip::SipHasher24;
+use std::{
+    cmp::max,
+    convert::{TryFrom, TryInto},
+    ops::{Div, Mul},
+    str::FromStr,
+    sync::{Mutex as Mutex_, MutexGuard, PoisonError},
+};
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -392,7 +392,7 @@ pub fn hash_rate_to_target(
     // this means that the denominator can never be zero
     // we add 100 in place of 1 because h*s is actually h*s*100, we in order to simplify later we
     // must calculate (h*s+1)*100
-    let h_times_s_plus_one = h_times_s + 1;
+    let h_times_s_plus_one = max(h_times_s, h_times_s + 1);
 
     let h_times_s_plus_one = from_u128_to_u256(h_times_s_plus_one);
     let denominator = h_times_s_plus_one;
