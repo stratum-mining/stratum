@@ -47,7 +47,7 @@ async fn success_pool_template_provider_connection() {
     );
     assert_tp_message!(
         &sniffer.next_message_from_downstream(),
-        CoinbaseOutputDataSize
+        CoinbaseOutputConstraints
     );
     sniffer
         .wait_for_message_type(MessageDirection::ToDownstream, MESSAGE_TYPE_NEW_TEMPLATE)

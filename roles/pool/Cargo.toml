@@ -17,7 +17,7 @@ name = "pool_sv2"
 path = "src/lib/mod.rs"
 
 [dependencies]
-stratum-common = { path = "../../common" }
+stratum-common = { path = "../../common", features=["bitcoin"]}
 async-channel = "1.5.1"
 binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 buffer_sv2 = { path = "../../utils/buffer" }
