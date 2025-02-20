@@ -51,7 +51,6 @@ pub struct CSubmitSolution {
 
 impl<'a> CSubmitSolution {
     /// Converts CSubmitSolution(C representation) to SubmitSolution(Rust representation).
-
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {
         let coinbase_tx: B064K = self.coinbase_tx.as_mut_slice().try_into()?;

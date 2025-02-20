@@ -1024,9 +1024,7 @@ mod tests {
             .try_into()
             .expect("Slice is incorrect length");
         block_hash_vec.reverse();
-        let block_hash: U256 = block_hash_vec
-            .try_into()
-            .expect("Could not convert `[u8; 32]` to `U256`");
+        let block_hash: U256 = block_hash_vec.into();
 
         // Get prev hash
         let mut prev_hash: Vec<u8> =
@@ -1044,9 +1042,7 @@ mod tests {
         for p in block.path {
             let p_vec = decode_hex(&p).expect("Could not decode hex string to `Vec<u8>`");
             let p_arr: [u8; 32] = p_vec.try_into().expect("Slice is incorrect length");
-            let p_u256: U256 = (p_arr)
-                .try_into()
-                .expect("Could not convert to `U256` from `[u8; 32]`");
+            let p_u256: U256 = (p_arr).into();
             path_vec.push(p_u256);
         }
 
@@ -1091,7 +1087,7 @@ mod tests {
 
         let actual = merkle_root_from_path(
             block.coinbase_tx_prefix.inner_as_ref(),
-            &block.coinbase_tx_suffix.inner_as_ref(),
+            block.coinbase_tx_suffix.inner_as_ref(),
             &block.coinbase_script,
             &block.path.inner_as_ref(),
         )
@@ -1171,7 +1167,7 @@ mod tests {
 
         let mut average: f64 = 0.0;
         for i in &results {
-            average = average + (*i as f64) / attempts as f64;
+            average += (*i as f64) / attempts as f64;
         }
         let delta = (hrs - average) as i64;
         assert!(delta.abs() < 100);

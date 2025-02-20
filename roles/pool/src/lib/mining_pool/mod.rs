@@ -583,7 +583,7 @@ mod test {
 
         // Load config
         let config: PoolConfig = match Config::builder()
-            .add_source(File::new(&config_path, FileFormat::Toml))
+            .add_source(File::new(config_path, FileFormat::Toml))
             .build()
         {
             Ok(settings) => match settings.try_deserialize::<PoolConfig>() {
@@ -615,7 +615,7 @@ mod test {
         // build coinbase TX from 'job_creator::coinbase()'
 
         let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
-        let script_prefix_length = bip34_bytes.len() + config.pool_signature().as_bytes().len();
+        let script_prefix_length = bip34_bytes.len() + config.pool_signature().len();
         bip34_bytes.extend_from_slice(config.pool_signature().as_bytes());
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {

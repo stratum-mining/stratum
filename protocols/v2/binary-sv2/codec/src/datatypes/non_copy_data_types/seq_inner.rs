@@ -144,7 +144,7 @@ impl<'a, T: 'a> Seq0255<'a, T> {
     }
 }
 
-impl<'a, T: GetSize> GetSize for Seq0255<'a, T> {
+impl<T: GetSize> GetSize for Seq0255<'_, T> {
     // Calculates the total size of the sequence in bytes.
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
@@ -187,7 +187,7 @@ impl<'a, T: 'a> Seq064K<'a, T> {
     }
 }
 
-impl<'a, T: GetSize> GetSize for Seq064K<'a, T> {
+impl<T: GetSize> GetSize for Seq064K<'_, T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
@@ -372,26 +372,26 @@ impl<'a, T> core::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
     }
 }
 
-impl<'a, T> From<Vec<T>> for Seq0255<'a, T> {
+impl<T> From<Vec<T>> for Seq0255<'_, T> {
     fn from(v: Vec<T>) -> Self {
         Seq0255(v, PhantomData)
     }
 }
 
-impl<'a, T> From<Vec<T>> for Seq064K<'a, T> {
+impl<T> From<Vec<T>> for Seq064K<'_, T> {
     fn from(v: Vec<T>) -> Self {
         Seq064K(v, PhantomData)
     }
 }
 
-impl<'a, T: Fixed> Seq0255<'a, T> {
+impl<T: Fixed> Seq0255<'_, T> {
     /// converts the lifetime to static
     pub fn into_static(self) -> Seq0255<'static, T> {
         // Safe unwrap cause the initial value is a valid Seq0255
         Seq0255::new(self.0).unwrap()
     }
 }
-impl<'a, T: Fixed> Sv2Option<'a, T> {
+impl<T: Fixed> Sv2Option<'_, T> {
     /// converts the lifetime to static
     pub fn into_static(self) -> Sv2Option<'static, T> {
         Sv2Option::new(self.into_inner())
@@ -425,7 +425,7 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, T: Fixed> Seq064K<'a, T> {
+impl<T: Fixed> Seq064K<'_, T> {
     /// converts the lifetime to static
     pub fn into_static(self) -> Seq064K<'static, T> {
         // Safe unwrap cause the initial value is a valid Seq064K
@@ -513,7 +513,7 @@ impl<'a, T: 'a> Sv2Option<'a, T> {
     }
 }
 
-impl<'a, T: GetSize> GetSize for Sv2Option<'a, T> {
+impl<T: GetSize> GetSize for Sv2Option<'_, T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
