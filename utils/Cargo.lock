@@ -119,8 +119,8 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 name = "bip32_derivation"
 version = "1.0.0"
 dependencies = [
+ "bitcoin",
  "slip132",
- "stratum-common",
  "toml",
 ]
 
@@ -771,14 +771,6 @@ checksum = "25cbc5035a82511d65570e5731ad66fc69893ad0adc3fbbf1a0bb7aa534e89fb"
 dependencies = [
  "amplify",
  "bitcoin",
-]
-
-[[package]]
-name = "stratum-common"
-version = "1.0.0"
-dependencies = [
- "bitcoin",
- "secp256k1 0.28.2",
 ]
 
 [[package]]

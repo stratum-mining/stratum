@@ -1,8 +1,6 @@
 use ext_config::ConfigError;
-use std::fmt;
-
 use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
-use stratum_common::bitcoin::util::uint::ParseLengthError;
+use std::fmt;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
@@ -57,7 +55,6 @@ pub enum Error<'a> {
     TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
     // Channel Sender Errors
     ChannelErrorSender(ChannelSendError<'a>),
-    Uint256Conversion(ParseLengthError),
     Infallible(std::convert::Infallible),
 }
 
@@ -79,7 +76,6 @@ impl<'a> fmt::Display for Error<'a> {
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
-            Uint256Conversion(ref e) => write!(f, "U256 Conversion Error: `{:?}`", e),
             VecToSlice32(ref e) => write!(f, "Standard Error: `{:?}`", e),
             Infallible(ref e) => write!(f, "Infallible Error:`{:?}`", e),
         }
@@ -209,12 +205,6 @@ impl<'a>
         )>,
     ) -> Self {
         Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))
-    }
-}
-
-impl<'a> From<ParseLengthError> for Error<'a> {
-    fn from(e: ParseLengthError) -> Self {
-        Error::Uint256Conversion(e)
     }
 }
 

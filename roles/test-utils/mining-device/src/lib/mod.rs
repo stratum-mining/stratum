@@ -1,21 +1,10 @@
 #![allow(clippy::option_map_unit_fn)]
-use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::utils::Id;
-use std::{
-    net::{SocketAddr, ToSocketAddrs},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::available_parallelism,
-    time::Duration,
-};
-use tokio::net::TcpStream;
-
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
+use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_connection::Connection;
+use primitive_types::U256;
 use rand::{thread_rng, Rng};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
@@ -29,12 +18,21 @@ use roles_logic_sv2::{
     parsers::{Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::Mutex,
+    utils::{Id, Mutex},
 };
-use std::time::Instant;
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::available_parallelism,
+    time::{Duration, Instant},
+};
 use stratum_common::bitcoin::{
-    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
+    blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
+use tokio::net::TcpStream;
 use tracing::{error, info};
 
 pub async fn connect(
@@ -97,6 +95,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
 use std::convert::TryInto;
+use stratum_common::bitcoin::block::Version;
 
 impl SetupConnectionHandler {
     pub fn new() -> Self {
@@ -534,8 +533,8 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
 
 #[derive(Debug, Clone)]
 struct Miner {
-    header: Option<BlockHeader>,
-    target: Option<Uint256>,
+    header: Option<Header>,
+    target: Option<U256>,
     job_id: Option<u32>,
     version: Option<u32>,
     handicap: u32,
@@ -559,21 +558,21 @@ impl Miner {
             .iter()
             .fold("".to_string(), |acc, b| acc + format!("{:02x}", b).as_str());
         info!("Set target to {}", hex_string);
-        self.target = Some(Uint256::from_be_bytes(target.try_into().unwrap()));
+        self.target = Some(U256::from_big_endian(target.as_slice()));
     }
 
     fn new_header(&mut self, set_new_prev_hash: &SetNewPrevHash, new_job: &NewMiningJob) {
         self.job_id = Some(new_job.job_id);
         self.version = Some(new_job.version);
         let prev_hash: [u8; 32] = set_new_prev_hash.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = Hash::from_inner(prev_hash);
+        let prev_hash = Hash::from_byte_array(prev_hash);
         let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = Hash::from_inner(merkle_root);
+        let merkle_root = Hash::from_byte_array(merkle_root);
         // fields need to be added as BE and the are converted to LE in the background before
         // hashing
-        let header = BlockHeader {
-            version: new_job.version as i32,
-            prev_blockhash: BlockHash::from_hash(prev_hash),
+        let header = Header {
+            version: Version::from_consensus(new_job.version as i32),
+            prev_blockhash: BlockHash::from_raw_hash(prev_hash),
             merkle_root,
             time: std::time::SystemTime::now()
                 .duration_since(
@@ -581,17 +580,17 @@ impl Miner {
                 )
                 .unwrap()
                 .as_secs() as u32,
-            bits: set_new_prev_hash.nbits,
+            bits: CompactTarget::from_consensus(set_new_prev_hash.nbits),
             nonce: 0,
         };
         self.header = Some(header);
     }
     pub fn next_share(&mut self) -> NextShareOutcome {
         if let Some(header) = self.header.as_ref() {
-            let mut hash = header.block_hash().as_hash().into_inner();
+            let hash_ = header.block_hash();
+            let mut hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
             hash.reverse();
-            let hash = Uint256::from_be_bytes(hash);
-            if hash < *self.target.as_ref().unwrap() {
+            if hash < self.target.unwrap().to_little_endian() {
                 info!(
                     "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
                     header.nonce, self.target, hash,
@@ -622,20 +621,20 @@ impl NextShareOutcome {
 fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
     let mut rng = thread_rng();
     let prev_hash: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
-    let prev_hash = Hash::from_inner(prev_hash);
+    let prev_hash = Hash::from_byte_array(prev_hash);
     // We create a random block that we can hash, we are only interested in knowing how many hashes
     // per unit of time we can do
     let merkle_root: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
-    let merkle_root = Hash::from_inner(merkle_root);
-    let header = BlockHeader {
-        version: rng.gen(),
-        prev_blockhash: BlockHash::from_hash(prev_hash),
+    let merkle_root = Hash::from_byte_array(merkle_root);
+    let header = Header {
+        version: Version::from_consensus(rng.gen()),
+        prev_blockhash: BlockHash::from_raw_hash(prev_hash),
         merkle_root,
         time: std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(60))
             .unwrap()
             .as_secs() as u32,
-        bits: rng.gen(),
+        bits: CompactTarget::from_consensus(rng.gen()),
         nonce: 0,
     };
     let start_time = Instant::now();
