@@ -11,7 +11,6 @@ use std::{
     str::FromStr,
     sync::Once,
 };
-use tracing_subscriber::EnvFilter;
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
@@ -23,9 +22,7 @@ static LOGGER: Once = Once::new();
 
 pub fn start_tracing() {
     LOGGER.call_once(|| {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            .init();
+        tracing_subscriber::fmt::init();
     });
 }
 
