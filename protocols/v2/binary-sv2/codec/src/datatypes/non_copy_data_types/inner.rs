@@ -74,7 +74,7 @@ pub enum Inner<
     Owned(Vec<u8>),
 }
 
-impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
+impl<const SIZE: usize> Inner<'_, true, SIZE, 0, 0> {
     // Converts the inner data to a vector, either by cloning the referenced slice or
     // returning a clone of the owned vector.
     pub fn to_vec(&self) -> Vec<u8> {
@@ -101,8 +101,8 @@ impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
     }
 }
 
-impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>
+impl<const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Inner<'_, false, SIZE, HEADERSIZE, MAXSIZE>
 {
     // Similar to the fixed-size variant, this method converts the inner data into a vector.
     // The data is either cloned from the referenced slice or returned as a clone of the
@@ -123,8 +123,8 @@ impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    PartialEq for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    PartialEq for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     // Provides equality comparison between two `Inner` instances by checking the equality
     // of their data, regardless of whether they are references or owned vectors.
@@ -138,13 +138,13 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> Eq
-    for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> Eq
+    for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     // Calculates the expected length of the data based on the type's parameters (fixed-size
     // or variable-size). It checks if the length conforms to the specified constraints like
@@ -267,8 +267,8 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    TryFrom<Vec<u8>> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    TryFrom<Vec<u8>> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     type Error = Error;
 
@@ -299,8 +299,8 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    GetSize for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> GetSize
+    for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn get_size(&self) -> usize {
         match self {
@@ -310,8 +310,8 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const HEADERSIZE: usize, const SIZE: usize, const MAXSIZE: usize>
-    SizeHint for Inner<'a, ISFIXED, HEADERSIZE, SIZE, MAXSIZE>
+impl<const ISFIXED: bool, const HEADERSIZE: usize, const SIZE: usize, const MAXSIZE: usize> SizeHint
+    for Inner<'_, ISFIXED, HEADERSIZE, SIZE, MAXSIZE>
 {
     fn size_hint(data: &[u8], offset: usize) -> Result<usize, Error> {
         if offset >= data.len() {
@@ -391,8 +391,8 @@ where
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    IntoOwned for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    IntoOwned for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn into_owned(self) -> Self {
         match self {
@@ -405,8 +405,8 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     pub fn into_static(self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
         match self {
@@ -420,8 +420,8 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Clone for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> Clone
+    for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn clone(&self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
         match self {
@@ -435,8 +435,8 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    AsRef<[u8]> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    AsRef<[u8]> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn as_ref(&self) -> &[u8] {
         match self {

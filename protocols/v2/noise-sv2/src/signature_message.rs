@@ -87,7 +87,6 @@ impl SignatureNoiseMessage {
     ///
     /// The current system time should be provided to avoid relying on `std` and allow `no_std`
     /// environments to use another source of time.
-
     #[inline]
     pub fn verify_with_now(
         self,

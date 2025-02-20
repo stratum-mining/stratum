@@ -1,4 +1,4 @@
-/// This file contains utility functions for working with URLs.
+//! This file contains utility functions for working with URLs.
 
 /// Checks if a given string is a valid URL.
 ///

@@ -104,7 +104,7 @@ pub struct SubmitSharesError<'decoder> {
     pub error_code: Str0255<'decoder>,
 }
 
-impl<'a> SubmitSharesError<'a> {
+impl SubmitSharesError<'_> {
     pub fn invalid_channel_error_code() -> &'static str {
         "invalid-channel-id"
     }
