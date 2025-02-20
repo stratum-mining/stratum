@@ -7,7 +7,7 @@ use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::noise_connection_tokio_with_tokio_channels::Connection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
@@ -44,6 +44,7 @@ impl TemplateRx {
         status_tx: status::Sender,
         coinbase_out_len: u32,
         expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
+        shutdown: Arc<tokio::sync::Notify>,
     ) -> PoolResult<()> {
         let stream = loop {
             match TcpStream::connect(address).await {
@@ -62,10 +63,14 @@ impl TemplateRx {
             }
             None => Initiator::without_pk(),
         }?;
-        let (mut receiver, mut sender, _, _) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator))
-                .await
-                .unwrap();
+        let (mut receiver, mut sender, _, _) = Connection::new(
+            stream,
+            HandshakeRole::Initiator(initiator),
+            10,
+            shutdown.clone(),
+        )
+        .await
+        .unwrap();
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
