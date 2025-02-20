@@ -16,7 +16,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.75.0
+          toolchain: ${{ matrix.toolchain }}
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates

@@ -46,7 +46,7 @@ pub struct NewMiningJob<'decoder> {
     pub merkle_root: U256<'decoder>,
 }
 
-impl<'d> NewMiningJob<'d> {
+impl NewMiningJob<'_> {
     pub fn is_future(&self) -> bool {
         self.min_ntime.clone().into_inner().is_none()
     }
@@ -111,7 +111,7 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
-impl<'d> NewExtendedMiningJob<'d> {
+impl NewExtendedMiningJob<'_> {
     pub fn is_future(&self) -> bool {
         self.min_ntime.clone().into_inner().is_none()
     }
@@ -128,9 +128,9 @@ mod tests {
     use super::*;
     use crate::tests::from_arbitrary_vec_to_array;
     use core::convert::TryFrom;
-    use quickcheck_macros;
 
     #[quickcheck_macros::quickcheck]
+    #[allow(clippy::too_many_arguments)]
     fn test_new_extended_mining_job(
         channel_id: u32,
         job_id: u32,
@@ -138,12 +138,12 @@ mod tests {
         version: u32,
         version_rolling_allowed: bool,
         merkle_path: Vec<u8>,
-        mut coinbase_tx_prefix: Vec<u8>,
-        mut coinbase_tx_suffix: Vec<u8>,
+        coinbase_tx_prefix: Vec<u8>,
+        coinbase_tx_suffix: Vec<u8>,
     ) -> bool {
         let merkle_path = helpers::scan_to_u256_sequence(&merkle_path);
-        let coinbase_tx_prefix = helpers::bytes_to_b064k(&mut coinbase_tx_prefix);
-        let coinbase_tx_suffix = helpers::bytes_to_b064k(&mut coinbase_tx_suffix);
+        let coinbase_tx_prefix = helpers::bytes_to_b064k(&coinbase_tx_prefix);
+        let coinbase_tx_suffix = helpers::bytes_to_b064k(&coinbase_tx_suffix);
         let nemj = NewExtendedMiningJob {
             channel_id,
             job_id,
@@ -192,20 +192,21 @@ mod tests {
 
     pub mod helpers {
         use super::*;
+        use alloc::borrow::ToOwned;
 
-        pub fn scan_to_u256_sequence(bytes: &Vec<u8>) -> Seq0255<U256> {
+        pub fn scan_to_u256_sequence(bytes: &[u8]) -> Seq0255<U256> {
             let inner: Vec<U256> = bytes
                 .chunks(32)
                 .map(|chunk| {
                     let data = from_arbitrary_vec_to_array(chunk.to_vec());
-                    return U256::from(data);
+                    U256::from(data)
                 })
                 .collect();
             Seq0255::new(inner).expect("Could not convert bytes to SEQ0255<U256")
         }
 
-        pub fn bytes_to_b064k(bytes: &Vec<u8>) -> B064K {
-            B064K::try_from(bytes.clone()).expect("Failed to convert to B064K")
+        pub fn bytes_to_b064k(bytes: &[u8]) -> B064K {
+            B064K::try_from(bytes.to_owned()).expect("Failed to convert to B064K")
         }
     }
 }

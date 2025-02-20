@@ -538,8 +538,8 @@ pub mod tests {
     pub fn new_pub_key() -> PublicKey {
         let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
         let secp = Secp256k1::default();
-        let pub_k = PublicKey::from_private_key(&secp, &priv_k);
-        pub_k
+
+        PublicKey::from_private_key(&secp, &priv_k)
     }
 
     #[cfg(feature = "prop_test")]
@@ -697,7 +697,7 @@ pub mod tests {
         encoded.append(&mut encoded1.clone());
         encoded.append(&mut encoded2.clone());
         let outs = tx_outputs_to_costum_scripts(&encoded[..]);
-        assert!(&outs[0] == &tx1);
+        assert!(outs[0] == tx1);
         assert!(outs[1] == tx2);
     }
 
@@ -750,7 +750,7 @@ pub mod tests {
             65, 241, 216, 46, 82, 223, 150, 0, 97, 103, 2, 82, 186, 233, 145, 90, 210, 231, 35,
             100, 107, 52, 171, 233, 50, 200, 0, 0, 0, 0,
         ];
-        let extranonce = vec![0_u8; 15]; // braiins pool requires 15 bytes for extranonce
+        let extranonce = [0_u8; 15]; // braiins pool requires 15 bytes for extranonce
         encoded.extend_from_slice(coinbase_prefix);
         let mut encoded_clone = encoded.clone();
         encoded_clone.extend_from_slice(&extranonce[..]);

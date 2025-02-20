@@ -47,42 +47,42 @@ impl GetMarker for u64 {
         FieldMarker::Primitive(PrimitiveMarker::U64)
     }
 }
-impl<'a> GetMarker for U256<'a> {
+impl GetMarker for U256<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::U256)
     }
 }
-impl<'a> GetMarker for ShortTxId<'a> {
+impl GetMarker for ShortTxId<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::ShortTxId)
     }
 }
-impl<'a> GetMarker for Signature<'a> {
+impl GetMarker for Signature<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::Signature)
     }
 }
-impl<'a> GetMarker for B032<'a> {
+impl GetMarker for B032<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::B032)
     }
 }
-impl<'a> GetMarker for B0255<'a> {
+impl GetMarker for B0255<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::B0255)
     }
 }
-impl<'a> GetMarker for B064K<'a> {
+impl GetMarker for B064K<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::B064K)
     }
 }
-impl<'a> GetMarker for B016M<'a> {
+impl GetMarker for B016M<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::B016M)
     }
 }
-impl<'a> GetMarker for U32AsRef<'a> {
+impl GetMarker for U32AsRef<'_> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::U32AsRef)
     }
@@ -536,7 +536,7 @@ impl<'a> TryFrom<DecodableField<'a>> for U32AsRef<'a> {
 
 // IMPL FROM PRIMITIVES FOR ENCODED FIELD
 
-impl<'a> From<bool> for EncodableField<'a> {
+impl From<bool> for EncodableField<'_> {
     fn from(v: bool) -> Self {
         EncodableField::Primitive(EncodablePrimitive::Bool(v))
     }
@@ -551,7 +551,7 @@ impl<'a> TryFrom<EncodableField<'a>> for bool {
         }
     }
 }
-impl<'a> From<u8> for EncodableField<'a> {
+impl From<u8> for EncodableField<'_> {
     fn from(v: u8) -> Self {
         EncodableField::Primitive(EncodablePrimitive::U8(v))
     }
@@ -566,7 +566,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u8 {
         }
     }
 }
-impl<'a> From<u16> for EncodableField<'a> {
+impl From<u16> for EncodableField<'_> {
     fn from(v: u16) -> Self {
         EncodableField::Primitive(EncodablePrimitive::U16(v))
     }
@@ -581,7 +581,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u16 {
         }
     }
 }
-impl<'a> From<U24> for EncodableField<'a> {
+impl From<U24> for EncodableField<'_> {
     fn from(v: U24) -> Self {
         EncodableField::Primitive(EncodablePrimitive::U24(v))
     }
@@ -596,7 +596,7 @@ impl<'a> TryFrom<EncodableField<'a>> for U24 {
         }
     }
 }
-impl<'a> From<u32> for EncodableField<'a> {
+impl From<u32> for EncodableField<'_> {
     fn from(v: u32) -> Self {
         EncodableField::Primitive(EncodablePrimitive::U32(v))
     }
@@ -611,7 +611,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u32 {
         }
     }
 }
-impl<'a> From<f32> for EncodableField<'a> {
+impl From<f32> for EncodableField<'_> {
     fn from(v: f32) -> Self {
         EncodableField::Primitive(EncodablePrimitive::F32(v))
     }
@@ -626,7 +626,7 @@ impl<'a> TryFrom<EncodableField<'a>> for f32 {
         }
     }
 }
-impl<'a> From<u64> for EncodableField<'a> {
+impl From<u64> for EncodableField<'_> {
     fn from(v: u64) -> Self {
         EncodableField::Primitive(EncodablePrimitive::U64(v))
     }

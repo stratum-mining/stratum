@@ -205,7 +205,7 @@ pub enum Mining<'a> {
     UpdateChannelError(UpdateChannelError<'a>),
 }
 
-impl<'a> Mining<'a> {
+impl Mining<'_> {
     /// converter into static lifetime
     pub fn into_static(self) -> Mining<'static> {
         match self {
@@ -254,7 +254,7 @@ pub trait IsSv2Message {
     fn channel_bit(&self) -> bool;
 }
 
-impl<'a> IsSv2Message for CommonMessages<'a> {
+impl IsSv2Message for CommonMessages<'_> {
     fn message_type(&self) -> u8 {
         match self {
             Self::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
@@ -274,7 +274,7 @@ impl<'a> IsSv2Message for CommonMessages<'a> {
     }
 }
 
-impl<'a> IsSv2Message for TemplateDistribution<'a> {
+impl IsSv2Message for TemplateDistribution<'_> {
     fn message_type(&self) -> u8 {
         match self {
             Self::CoinbaseOutputDataSize(_) => MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
@@ -298,7 +298,7 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
         }
     }
 }
-impl<'a> IsSv2Message for JobDeclaration<'a> {
+impl IsSv2Message for JobDeclaration<'_> {
     fn message_type(&self) -> u8 {
         match self {
             Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
@@ -334,7 +334,7 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
         }
     }
 }
-impl<'a> IsSv2Message for Mining<'a> {
+impl IsSv2Message for Mining<'_> {
     fn message_type(&self) -> u8 {
         match self {
             Self::CloseChannel(_) => MESSAGE_TYPE_CLOSE_CHANNEL,
@@ -490,7 +490,7 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-impl<'a> GetSize for JobDeclaration<'a> {
+impl GetSize for JobDeclaration<'_> {
     fn get_size(&self) -> usize {
         match self {
             JobDeclaration::AllocateMiningJobToken(a) => a.get_size(),
@@ -1074,7 +1074,7 @@ impl GetSize for PoolMessages<'_> {
     }
 }
 
-impl<'a> IsSv2Message for PoolMessages<'a> {
+impl IsSv2Message for PoolMessages<'_> {
     fn message_type(&self) -> u8 {
         match self {
             PoolMessages::Common(a) => a.message_type(),
@@ -1094,7 +1094,7 @@ impl<'a> IsSv2Message for PoolMessages<'a> {
     }
 }
 
-impl<'a> IsSv2Message for MiningDeviceMessages<'a> {
+impl IsSv2Message for MiningDeviceMessages<'_> {
     fn message_type(&self) -> u8 {
         match self {
             MiningDeviceMessages::Common(a) => a.message_type(),
@@ -1141,7 +1141,7 @@ impl<'a> From<SetupConnection<'a>> for CommonMessages<'a> {
     }
 }
 
-impl<'a> From<SetupConnectionSuccess> for CommonMessages<'a> {
+impl From<SetupConnectionSuccess> for CommonMessages<'_> {
     fn from(v: SetupConnectionSuccess) -> Self {
         CommonMessages::SetupConnectionSuccess(v)
     }
@@ -1251,7 +1251,7 @@ mod test {
 
     #[test]
     fn new_mining_job_serialization() {
-        const CORRECTLY_SERIALIZED_MSG: &'static [u8] = &[
+        const CORRECTLY_SERIALIZED_MSG: &[u8] = &[
             0, 128, 21, 49, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 1, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
             19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
             41, 42, 43, 44, 45, 46, 47, 48,
@@ -1273,25 +1273,25 @@ mod test {
         let mut buffer = [0; 0xffff];
         frame.serialize(&mut buffer).unwrap();
         check_length_consistency(&buffer[..encoded_frame_length]);
-        check_length_consistency(&expected_result);
+        check_length_consistency(expected_result);
         assert_eq!(
             is_channel_msg(&buffer),
-            is_channel_msg(&expected_result),
+            is_channel_msg(expected_result),
             "Unexpected channel_message flag",
         );
         assert_eq!(
             extract_extension_type(&buffer),
-            extract_extension_type(&expected_result),
+            extract_extension_type(expected_result),
             "Unexpected extension type",
         );
         assert_eq!(
             extract_message_type(&buffer),
-            extract_message_type(&expected_result),
+            extract_message_type(expected_result),
             "Unexpected message type",
         );
         assert_eq!(
             extract_payload_length(&buffer),
-            extract_payload_length(&expected_result),
+            extract_payload_length(expected_result),
             "Unexpected message length",
         );
         assert_eq!(
@@ -1301,7 +1301,7 @@ mod test {
         );
         assert_eq!(
             extract_payload(&buffer[..encoded_frame_length]),
-            extract_payload(&expected_result),
+            extract_payload(expected_result),
             "Unexpected payload",
         )
     }

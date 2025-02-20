@@ -12,7 +12,7 @@ use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Extranonce<'a>(pub B032<'a>);
 
-impl<'a> Extranonce<'a> {
+impl Extranonce<'_> {
     pub fn len(&self) -> usize {
         self.0.inner_as_ref().len()
     }
@@ -183,18 +183,16 @@ impl<'a> TryFrom<&str> for PrevHash<'a> {
                         .write_u32::<LittleEndian>(prev_hash_word)
                         .expect("Internal error: Could not write buffer");
                 }
-                return Ok(PrevHash(prev_hash_arr.into()));
+                Ok(PrevHash(prev_hash_arr.into()))
             }
-            _ => {
-                return Err(error::Error::BadBytesConvert(
-                    binary_sv2::Error::InvalidU256(prev_hash_stratum_order.len()),
-                ))
-            }
+            _ => Err(error::Error::BadBytesConvert(
+                binary_sv2::Error::InvalidU256(prev_hash_stratum_order.len()),
+            )),
         }
     }
 }
 
-impl<'a> From<PrevHash<'a>> for Value {
+impl From<PrevHash<'_>> for Value {
     fn from(ph: PrevHash) -> Self {
         Into::<String>::into(ph).into()
     }
@@ -202,7 +200,7 @@ impl<'a> From<PrevHash<'a>> for Value {
 
 /// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
 /// ordering
-impl<'a> From<PrevHash<'a>> for String {
+impl From<PrevHash<'_>> for String {
     fn from(v: PrevHash) -> Self {
         let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());
         // swap every u32 from little endian to big endian
@@ -217,7 +215,7 @@ impl<'a> From<PrevHash<'a>> for String {
 }
 
 // / Referencing the internal part of hex bytes
-impl<'a> AsRef<[u8]> for PrevHash<'a> {
+impl AsRef<[u8]> for PrevHash<'_> {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }
@@ -231,7 +229,7 @@ impl<'a> AsRef<U256<'a>> for PrevHash<'a> {
 }
 
 /// Referencing the internal part of hex bytes
-impl<'a> AsRef<[u8]> for Extranonce<'a> {
+impl AsRef<[u8]> for Extranonce<'_> {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }
@@ -240,7 +238,7 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleNode<'a>(pub U256<'a>);
 
-impl<'a> MerkleNode<'a> {
+impl MerkleNode<'_> {
     pub fn is_empty(&self) -> bool {
         self.0.inner_as_ref().is_empty()
     }
@@ -268,7 +266,7 @@ impl<'a> From<MerkleNode<'a>> for Value {
 }
 
 /// Referencing the internal part of hex bytes
-impl<'a> AsRef<[u8]> for MerkleNode<'a> {
+impl AsRef<[u8]> for MerkleNode<'_> {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }

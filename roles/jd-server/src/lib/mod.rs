@@ -367,7 +367,7 @@ mod tests {
         let config_path = config_path.to_str().unwrap();
 
         let settings = Config::builder()
-            .add_source(File::new(&config_path, FileFormat::Toml))
+            .add_source(File::new(config_path, FileFormat::Toml))
             .build()
             .expect("Failed to build config");
 
