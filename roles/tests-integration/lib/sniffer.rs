@@ -493,6 +493,21 @@ impl Sniffer {
             }
         }
     }
+
+    pub async fn includes_message_type_with_message(
+        &self,
+        message_direction: MessageDirection,
+        message_type: u8,
+    ) -> Option<AnyMessage<'static>> {
+        match message_direction {
+            MessageDirection::ToDownstream => self
+                .messages_from_upstream
+                .has_message_type_with_message(message_type),
+            MessageDirection::ToUpstream => self
+                .messages_from_downstream
+                .has_message_type_with_message(message_type),
+        }
+    }
 }
 
 // Utility macro to assert that the downstream and upstream roles have sent specific messages.
@@ -688,6 +703,22 @@ impl MessagesAggregator {
                     }
                 }
                 false // Default value if no match is found
+            })
+            .unwrap();
+        has_message
+    }
+
+    // returns true if contains message_type
+    fn has_message_type_with_message(&self, message_type: u8) -> Option<AnyMessage<'static>> {
+        let has_message = self
+            .messages
+            .safe_lock(|messages| {
+                for (t, m) in messages.iter() {
+                    if *t == message_type {
+                        return Some(m.clone());
+                    }
+                }
+                None
             })
             .unwrap();
         has_message
