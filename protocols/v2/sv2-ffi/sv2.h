@@ -137,7 +137,7 @@ static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR = 89;
 
 static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION_JD = 96;
 
-static const uint8_t MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE = 112;
+static const uint8_t MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS = 112;
 
 static const uint8_t MESSAGE_TYPE_NEW_TEMPLATE = 113;
 
@@ -159,7 +159,7 @@ static const bool CHANNEL_BIT_SETUP_CONNECTION_ERROR = false;
 
 static const bool CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED = true;
 
-static const bool CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE = false;
+static const bool CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS = false;
 
 static const bool CHANNEL_BIT_NEW_TEMPLATE = false;
 
@@ -419,6 +419,7 @@ void free_setup_connection_error(CSetupConnectionError s);
 struct CoinbaseOutputConstraints {
   /// Additional serialized bytes needed in coinbase transaction outputs.
   uint32_t coinbase_output_max_additional_size;
+  /// Additional sigops needed in coinbase transaction outputs.
   uint16_t coinbase_output_max_additional_sigops;
 };
 
