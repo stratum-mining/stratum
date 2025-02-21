@@ -98,7 +98,13 @@ async fn translation_proxy_and_jd() {
         _ => panic!("Unexpected message type"),
     };
     let mut target = [0; 32];
-    target.copy_from_slice(open_extended_mining_channel_success.target.inner_as_ref());
+    target.copy_from_slice(
+        open_extended_mining_channel_success
+            .target
+            .to_vec()
+            .as_slice(),
+    );
+    // let _mining_device = start_mining_device_sv1(tproxy_addr, true, Some(target)).await;
     let _mining_device = start_mining_device_sv1(tproxy_addr, true, None).await;
     assert_mining_message!(
         &jdc_pool_sniffer.next_message_from_upstream(),
