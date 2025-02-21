@@ -32,3 +32,13 @@ pub use errors::Error;
 pub use job_declaration_sv2;
 pub use mining_sv2;
 pub use template_distribution_sv2;
+
+pub use binary_sv2::{Error as BinaryError, B0255, B064K, U256};
+
+pub use codec_sv2::{framing_sv2::Error as FramingError, Error as CodecError};
+
+pub use codec_sv2::{noise_sv2::Error as NoiseError, HandshakeRole, Initiator, Responder};
+
+pub use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+
+pub use const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED;

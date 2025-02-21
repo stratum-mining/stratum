@@ -3,7 +3,7 @@ on:
     branches:
       - main
 
-name: Clippy Lint
+name: Clippy Checks
 
 jobs:
   clippy-check:
@@ -11,27 +11,63 @@ jobs:
     strategy:
       matrix:
         os:
-          - macos-latest
           - ubuntu-latest
         include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.75.0
+          toolchain: stable
           override: true
           components: clippy
-      - name: Run Clippy on different workspaces and crates
+      - name: Run Clippy on benches workspace
         run: |
           cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
+
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - name: Run Clippy on core workspace
+        run: |
           cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
+
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - name: Run Clippy on protocol workspace
+        run: |
           cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
+
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - name: Run Clippy on roles workspace
+        run: |
           cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
+
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - name: Run Clippy on utils workspace
+        run: |
           cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=utils/message-generator/Cargo.toml -- -D warnings -A dead-code

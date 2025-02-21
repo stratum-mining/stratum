@@ -1,21 +1,20 @@
+use roles_logic_sv2::{parsers::Mining, BinaryError, CodecError, FramingError, NoiseError};
 use std::{
     convert::From,
     fmt::Debug,
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
-
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
-    BinarySv2(binary_sv2::Error),
-    Codec(codec_sv2::Error),
-    Noise(noise_sv2::Error),
+    BinarySv2(BinaryError),
+    Codec(CodecError),
+    Noise(NoiseError),
     RolesLogic(roles_logic_sv2::Error),
-    Framing(codec_sv2::framing_sv2::Error),
+    Framing(FramingError),
     PoisonLock(String),
     ComponentShutdown(String),
     Custom(String),
@@ -58,20 +57,20 @@ impl From<async_channel::RecvError> for PoolError {
     }
 }
 
-impl From<binary_sv2::Error> for PoolError {
-    fn from(e: binary_sv2::Error) -> PoolError {
+impl From<BinaryError> for PoolError {
+    fn from(e: BinaryError) -> PoolError {
         PoolError::BinarySv2(e)
     }
 }
 
-impl From<codec_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::Error) -> PoolError {
+impl From<CodecError> for PoolError {
+    fn from(e: CodecError) -> PoolError {
         PoolError::Codec(e)
     }
 }
 
-impl From<noise_sv2::Error> for PoolError {
-    fn from(e: noise_sv2::Error) -> PoolError {
+impl From<NoiseError> for PoolError {
+    fn from(e: NoiseError) -> PoolError {
         PoolError::Noise(e)
     }
 }
@@ -93,8 +92,8 @@ impl From<String> for PoolError {
         PoolError::Custom(e)
     }
 }
-impl From<codec_sv2::framing_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::framing_sv2::Error) -> PoolError {
+impl From<FramingError> for PoolError {
+    fn from(e: FramingError) -> PoolError {
         PoolError::Framing(e)
     }
 }

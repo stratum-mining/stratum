@@ -216,7 +216,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
 
         // Since the frame length is already validated during the handshake process, this
         // operation is infallible
-        let frame = HandShakeFrame::from_bytes_unchecked(src.into());
+        let frame = HandShakeFrame::from_bytes_unchecked(src);
 
         frame.into()
     }
