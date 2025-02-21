@@ -4,8 +4,6 @@
 //! It includes the [`Error`] enum for representing various errors, a C-compatible [`CError`] enum
 //! for FFI, and a `Result` type alias for convenience.
 
-#[cfg(test)]
-use core::cmp;
 use core::fmt;
 use framing_sv2::Error as FramingError;
 #[cfg(feature = "noise_sv2")]

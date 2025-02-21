@@ -54,6 +54,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             coinbase_output_max_additional_size: 100,
             async_mining_allowed: self.async_mining_allowed,
             coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
+            coinbase_output_max_additional_sigops: self.coinbase_output_sigops,
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         info!(
@@ -188,7 +189,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                                 )))? as usize;
                         // insert the missing transactions in the mempool
                         transactions_with_state[index] =
-                            TransactionState::PresentInMempool(transaction.txid());
+                            TransactionState::PresentInMempool(transaction.compute_txid());
                     }
                     self.add_txs_to_mempool
                         .add_txs_to_mempool_inner

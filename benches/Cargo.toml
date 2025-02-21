@@ -4,6 +4,7 @@ version = "1.0.1"
 edition = "2021"
 
 [dependencies]
+stratum-common = { path = "../common", features=["bitcoin"]}
 async-std={version = "1.10.0", features = ["attributes"]}
 criterion = "0.5.1"
 async-channel = "1.4.0"
@@ -16,11 +17,11 @@ framing_sv2 = { path = "../protocols/v2/framing-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 num-bigint = "0.4.3"
 num-traits = "0.2.15"
-bitcoin="0.28.1"
 codec_sv2 = { path = "../protocols/v2/codec-sv2", features=["noise_sv2"] }
 binary_sv2 = { path = "../protocols/v2/binary-sv2" }
 network_helpers_sv2 = { path = "../roles/roles-utils/network-helpers" }
 rand = "0.8.4"
+primitive-types = "0.13.1"
 
 [[bench]]
 name = "criterion_sv1_benchmark"
