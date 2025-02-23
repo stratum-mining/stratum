@@ -101,6 +101,7 @@ pub struct Configuration {
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
     pub pool_signature: String,
+    pub shares_per_minute: f32,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }
@@ -155,6 +156,7 @@ impl Configuration {
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
         coinbase_outputs: Vec<CoinbaseOutput>,
+        shares_per_minute: f32,
         #[cfg(feature = "test_only_allow_unencrypted")] test_only_listen_adress_plain: String,
     ) -> Self {
         Self {
@@ -166,6 +168,7 @@ impl Configuration {
             cert_validity_sec: pool_connection.cert_validity_sec,
             coinbase_outputs,
             pool_signature: pool_connection.signature,
+            shares_per_minute,
             #[cfg(feature = "test_only_allow_unencrypted")]
             test_only_listen_adress_plain,
         }
