@@ -13,3 +13,4 @@ coinbase_outputs = [
 ]
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum v2 SRI Pool"
+shares_per_minute = 1.0

@@ -21,3 +21,5 @@ pool_signature = "Stratum v2 SRI Pool - gitgab19"
 # Template Provider config
 # hosted testnet TP
 tp_address = "75.119.150.111:8442"
+
+shares_per_minute = 1.0

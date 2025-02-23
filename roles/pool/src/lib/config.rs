@@ -16,6 +16,7 @@ pub struct PoolConfig {
     cert_validity_sec: u64,
     coinbase_outputs: Vec<CoinbaseOutput>,
     pool_signature: String,
+    shares_per_minute: f32,
 }
 
 impl PoolConfig {
@@ -25,6 +26,7 @@ impl PoolConfig {
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
         coinbase_outputs: Vec<CoinbaseOutput>,
+        shares_per_minute: f32,
     ) -> Self {
         Self {
             listen_address: pool_connection.listen_address,
@@ -35,6 +37,7 @@ impl PoolConfig {
             cert_validity_sec: pool_connection.cert_validity_sec,
             coinbase_outputs,
             pool_signature: pool_connection.signature,
+            shares_per_minute,
         }
     }
 
@@ -81,6 +84,11 @@ impl PoolConfig {
     /// Sets the coinbase outputs.
     pub fn set_coinbase_outputs(&mut self, coinbase_outputs: Vec<CoinbaseOutput>) {
         self.coinbase_outputs = coinbase_outputs;
+    }
+
+    /// Returns the shares per minute.
+    pub fn shares_per_minute(&self) -> f32 {
+        self.shares_per_minute
     }
 }
 
