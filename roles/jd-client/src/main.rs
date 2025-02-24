@@ -3,8 +3,8 @@ mod args;
 mod lib;
 
 use lib::{
+    config::JobDeclaratorClientConfig,
     error::{Error, ProxyResult},
-    proxy_config::JobDeclaratorClientConfig,
     status, JobDeclaratorClient,
 };
 

@@ -107,7 +107,7 @@ pub async fn start_jdc(
     tp_address: SocketAddr,
     jds_address: SocketAddr,
 ) -> (JobDeclaratorClient, SocketAddr) {
-    use jd_client::proxy_config::{
+    use jd_client::config::{
         CoinbaseOutput, JobDeclaratorClientConfig, PoolConfig, ProtocolConfig, TPConfig, Upstream,
     };
     let jdc_address = get_available_address();
