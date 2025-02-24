@@ -164,7 +164,7 @@ pub async fn start_jdc(
 }
 
 pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, SocketAddr) {
-    use jd_server::{CoinbaseOutput, Configuration, CoreRpc};
+    use jd_server::config::{CoinbaseOutput, Configuration, CoreRpc};
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
