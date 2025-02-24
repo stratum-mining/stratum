@@ -1,5 +1,6 @@
 pub mod message_handler;
 use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
+use crate::config::get_coinbase_output;
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{HandshakeRole, Responder};
@@ -86,7 +87,7 @@ impl JobDeclaratorDownstream {
             known_transactions: vec![],
             unknown_transactions: vec![],
         };
-        super::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
+        get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
 
