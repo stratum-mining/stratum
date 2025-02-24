@@ -36,7 +36,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-use super::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
+use super::{error::Error, proxy_config::JobDeclaratorClientConfig, upstream_sv2::Upstream};
 
 #[derive(Debug, Clone)]
 pub struct LastDeclareJob {
@@ -79,7 +79,7 @@ impl JobDeclarator {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        config: ProxyConfig,
+        config: JobDeclaratorClientConfig,
         up: Arc<Mutex<Upstream>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) -> Result<Arc<Mutex<Self>>, Error<'static>> {
