@@ -8,7 +8,7 @@ use std::{
 use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
 
 #[derive(Debug, serde::Deserialize, Clone)]
-pub struct Configuration {
+pub struct JobDeclaratorServerConfig {
     #[serde(default = "default_true")]
     pub async_mining_allowed: bool,
     pub listen_jd_address: String,
@@ -24,7 +24,7 @@ pub struct Configuration {
     pub mempool_update_interval: Duration,
 }
 
-impl Configuration {
+impl JobDeclaratorServerConfig {
     pub fn new(
         listen_jd_address: String,
         authority_public_key: Secp256k1PublicKey,
@@ -112,7 +112,9 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
     }
 }
 
-pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
+pub fn get_coinbase_output(
+    config: &JobDeclaratorServerConfig,
+) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
     let mut result = Vec::new();
     for coinbase_output_pool in &config.coinbase_outputs {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
@@ -158,7 +160,7 @@ mod tests {
 
     use super::*;
 
-    fn load_config(path: &str) -> Configuration {
+    fn load_config(path: &str) -> JobDeclaratorServerConfig {
         let config_path = PathBuf::from(path);
         assert!(
             config_path.exists(),
