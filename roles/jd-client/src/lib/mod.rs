@@ -9,7 +9,7 @@ pub mod upstream_sv2;
 use std::{sync::atomic::AtomicBool, time::Duration};
 
 use job_declarator::JobDeclarator;
-use proxy_config::ProxyConfig;
+use proxy_config::JobDeclaratorClientConfig;
 use template_receiver::TemplateRx;
 
 use async_channel::{bounded, unbounded};
@@ -57,13 +57,13 @@ pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorClient {
     /// Configuration of the proxy server [`JobDeclaratorClient`] is connected to.
-    config: ProxyConfig,
+    config: JobDeclaratorClientConfig,
     // Used for notifying the [`JobDeclaratorClient`] to shutdown gracefully.
     shutdown: Arc<Notify>,
 }
 
 impl JobDeclaratorClient {
-    pub fn new(config: ProxyConfig) -> Self {
+    pub fn new(config: JobDeclaratorClientConfig) -> Self {
         Self {
             config,
             shutdown: Arc::new(Notify::new()),
@@ -195,7 +195,7 @@ impl JobDeclaratorClient {
     }
 
     async fn initialize_jd_as_solo_miner(
-        proxy_config: ProxyConfig,
+        proxy_config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
@@ -250,7 +250,7 @@ impl JobDeclaratorClient {
     }
 
     async fn initialize_jd(
-        proxy_config: ProxyConfig,
+        proxy_config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: proxy_config::Upstream,
@@ -442,11 +442,11 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown() {
         let config_path = "config-examples/jdc-config-hosted-example.toml";
-        let config: ProxyConfig = match Config::builder()
+        let config: JobDeclaratorClientConfig = match Config::builder()
             .add_source(File::new(config_path, FileFormat::Toml))
             .build()
         {
-            Ok(settings) => match settings.try_deserialize::<ProxyConfig>() {
+            Ok(settings) => match settings.try_deserialize::<JobDeclaratorClientConfig>() {
                 Ok(c) => c,
                 Err(e) => {
                     dbg!(&e);

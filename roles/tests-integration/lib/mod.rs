@@ -108,7 +108,7 @@ pub async fn start_jdc(
     jds_address: SocketAddr,
 ) -> (JobDeclaratorClient, SocketAddr) {
     use jd_client::proxy_config::{
-        CoinbaseOutput, PoolConfig, ProtocolConfig, ProxyConfig, TPConfig, Upstream,
+        CoinbaseOutput, JobDeclaratorClientConfig, PoolConfig, ProtocolConfig, TPConfig, Upstream,
     };
     let jdc_address = get_available_address();
     let max_supported_version = 2;
@@ -147,7 +147,7 @@ pub async fn start_jdc(
         min_extranonce2_size,
         coinbase_outputs,
     );
-    let jd_client_proxy = ProxyConfig::new(
+    let jd_client_proxy = JobDeclaratorClientConfig::new(
         jdc_address,
         protocol_config,
         withhold,
