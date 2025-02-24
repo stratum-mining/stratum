@@ -1,8 +1,10 @@
 #![allow(special_module_name)]
 pub use crate::lib::{
+    config,
     mempool::{self},
-    status, Configuration,
+    status,
 };
+use lib::config::Configuration;
 use tracing::error;
 mod lib;
 
