@@ -4,7 +4,7 @@ pub use crate::lib::{
     mempool::{self},
     status,
 };
-use lib::config::Configuration;
+use lib::config::JobDeclaratorServerConfig;
 use tracing::error;
 mod lib;
 
@@ -87,11 +87,11 @@ async fn main() {
     let config_path = args.config_path.to_str().expect("Invalid config path");
 
     // Load config
-    let config: Configuration = match Config::builder()
+    let config: JobDeclaratorServerConfig = match Config::builder()
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()
     {
-        Ok(settings) => match settings.try_deserialize::<Configuration>() {
+        Ok(settings) => match settings.try_deserialize::<JobDeclaratorServerConfig>() {
             Ok(c) => c,
             Err(e) => {
                 error!("Failed to deserialize config: {}", e);

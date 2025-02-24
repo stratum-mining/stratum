@@ -5,7 +5,7 @@ pub mod mempool;
 pub mod status;
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use config::Configuration;
+use config::JobDeclaratorServerConfig;
 use error::JdsError;
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
@@ -22,11 +22,11 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorServer {
-    config: Configuration,
+    config: JobDeclaratorServerConfig,
 }
 
 impl JobDeclaratorServer {
-    pub fn new(config: Configuration) -> Result<Self, Box<JdsError>> {
+    pub fn new(config: JobDeclaratorServerConfig) -> Result<Self, Box<JdsError>> {
         let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
         if !is_valid_url(&url) {
             return Err(Box::new(JdsError::InvalidRPCUrl));
