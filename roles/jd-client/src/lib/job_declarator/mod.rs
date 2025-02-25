@@ -91,8 +91,8 @@ impl JobDeclarator {
                 .expect("impossible to connect");
 
         let proxy_address = SocketAddr::new(
-            IpAddr::from_str(&config.downstream_address).unwrap(),
-            config.downstream_port,
+            IpAddr::from_str(config.downstream_address()).unwrap(),
+            config.downstream_port(),
         );
 
         info!(
@@ -106,7 +106,7 @@ impl JobDeclarator {
 
         info!("JD CONNECTED");
 
-        let min_extranonce_size = config.min_extranonce2_size;
+        let min_extranonce_size = config.min_extranonce2_size();
 
         let self_ = Arc::new(Mutex::new(JobDeclarator {
             receiver,
