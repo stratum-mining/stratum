@@ -19,8 +19,6 @@ pub struct JobDeclaratorClientConfig {
     cert_validity_sec: u64,
     tp_address: String,
     tp_authority_public_key: Option<Secp256k1PublicKey>,
-    #[allow(dead_code)]
-    retry: u32,
     upstreams: Vec<Upstream>,
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     timeout: Duration,
@@ -49,7 +47,6 @@ impl JobDeclaratorClientConfig {
             cert_validity_sec: tp_config.cert_validity_sec,
             tp_address: tp_config.tp_address,
             tp_authority_public_key: tp_config.tp_authority_public_key,
-            retry: 0,
             upstreams,
             timeout,
             coinbase_outputs: protocol_config.coinbase_outputs,
