@@ -206,15 +206,9 @@ impl JobDeclaratorClient {
         // SubmitSolution and send it to the TemplateReceiver
         let (send_solution, recv_solution) = bounded(10);
 
-        // Format `Downstream` connection address
-        let downstream_addr = SocketAddr::new(
-            IpAddr::from_str(config.downstream_address()).unwrap(),
-            config.downstream_port(),
-        );
-
         // Wait for downstream to connect
         let downstream = downstream::listen_for_downstream_mining(
-            downstream_addr,
+            *config.listening_address(),
             None,
             send_solution,
             config.withhold(),
@@ -315,12 +309,6 @@ impl JobDeclaratorClient {
             panic!()
         }
 
-        // Format `Downstream` connection address
-        let downstream_addr = SocketAddr::new(
-            IpAddr::from_str(config.downstream_address()).unwrap(),
-            config.downstream_port(),
-        );
-
         // Initialize JD part
         let mut parts = config.tp_address().split(':');
         let ip_tp = parts.next().unwrap().to_string();
@@ -351,7 +339,7 @@ impl JobDeclaratorClient {
 
         // Wait for downstream to connect
         let downstream = match downstream::listen_for_downstream_mining(
-            downstream_addr,
+            *config.listening_address(),
             Some(upstream),
             send_solution,
             config.withhold(),
@@ -459,8 +447,8 @@ mod tests {
             cloned.start().await;
         });
         jdc.shutdown();
-        let ip = config.downstream_address();
-        let port = config.downstream_port();
+        let ip = config.listening_address().ip();
+        let port = config.listening_address().port();
         let jdc_addr = format!("{}:{}", ip, port);
         assert!(std::net::TcpListener::bind(jdc_addr).is_ok());
     }
