@@ -36,24 +36,111 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct JobDeclaratorClientConfig {
-    pub downstream_address: String,
-    pub downstream_port: u16,
-    pub max_supported_version: u16,
-    pub min_supported_version: u16,
-    pub min_extranonce2_size: u16,
-    pub withhold: bool,
-    pub authority_public_key: Secp256k1PublicKey,
-    pub authority_secret_key: Secp256k1SecretKey,
-    pub cert_validity_sec: u64,
-    pub tp_address: String,
-    pub tp_authority_public_key: Option<Secp256k1PublicKey>,
+    downstream_address: String,
+    downstream_port: u16,
+    max_supported_version: u16,
+    min_supported_version: u16,
+    min_extranonce2_size: u16,
+    withhold: bool,
+    authority_public_key: Secp256k1PublicKey,
+    authority_secret_key: Secp256k1SecretKey,
+    cert_validity_sec: u64,
+    tp_address: String,
+    tp_authority_public_key: Option<Secp256k1PublicKey>,
     #[allow(dead_code)]
-    pub retry: u32,
-    pub upstreams: Vec<Upstream>,
+    retry: u32,
+    upstreams: Vec<Upstream>,
     #[serde(deserialize_with = "duration_from_toml")]
-    pub timeout: Duration,
-    pub coinbase_outputs: Vec<CoinbaseOutput>,
-    pub test_only_do_not_send_solution_to_tp: Option<bool>,
+    timeout: Duration,
+    coinbase_outputs: Vec<CoinbaseOutput>,
+    test_only_do_not_send_solution_to_tp: Option<bool>,
+}
+
+impl JobDeclaratorClientConfig {
+    pub fn new(
+        listening_address: std::net::SocketAddr,
+        protocol_config: ProtocolConfig,
+        withhold: bool,
+        pool_config: PoolConfig,
+        tp_config: TPConfig,
+        upstreams: Vec<Upstream>,
+        timeout: Duration,
+    ) -> Self {
+        Self {
+            downstream_address: listening_address.ip().to_string(),
+            downstream_port: listening_address.port(),
+            max_supported_version: protocol_config.max_supported_version,
+            min_supported_version: protocol_config.min_supported_version,
+            min_extranonce2_size: protocol_config.min_extranonce2_size,
+            withhold,
+            authority_public_key: pool_config.authority_public_key,
+            authority_secret_key: pool_config.authority_secret_key,
+            cert_validity_sec: tp_config.cert_validity_sec,
+            tp_address: tp_config.tp_address,
+            tp_authority_public_key: tp_config.tp_authority_public_key,
+            retry: 0,
+            upstreams,
+            timeout,
+            coinbase_outputs: protocol_config.coinbase_outputs,
+            test_only_do_not_send_solution_to_tp: None,
+        }
+    }
+
+    pub fn downstream_address(&self) -> &str {
+        &self.downstream_address
+    }
+
+    pub fn downstream_port(&self) -> u16 {
+        self.downstream_port
+    }
+
+    pub fn min_extranonce2_size(&self) -> u16 {
+        self.min_extranonce2_size
+    }
+
+    pub fn upstreams(&self) -> &Vec<Upstream> {
+        &self.upstreams
+    }
+
+    pub fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    pub fn withhold(&self) -> bool {
+        self.withhold
+    }
+
+    pub fn authority_public_key(&self) -> &Secp256k1PublicKey {
+        &self.authority_public_key
+    }
+
+    pub fn authority_secret_key(&self) -> &Secp256k1SecretKey {
+        &self.authority_secret_key
+    }
+
+    pub fn cert_validity_sec(&self) -> u64 {
+        self.cert_validity_sec
+    }
+
+    pub fn tp_address(&self) -> &str {
+        &self.tp_address
+    }
+
+    pub fn tp_authority_public_key(&self) -> Option<&Secp256k1PublicKey> {
+        self.tp_authority_public_key.as_ref()
+    }
+
+    pub fn test_only_do_not_send_solution_to_tp(&self) -> Option<bool> {
+        self.test_only_do_not_send_solution_to_tp
+    }
+
+    pub fn min_supported_version(&self) -> u16 {
+        self.min_supported_version
+    }
+
+    pub fn max_supported_version(&self) -> u16 {
+        self.max_supported_version
+    }
 }
 
 pub struct PoolConfig {
@@ -112,37 +199,6 @@ impl ProtocolConfig {
             min_supported_version,
             min_extranonce2_size,
             coinbase_outputs,
-        }
-    }
-}
-
-impl JobDeclaratorClientConfig {
-    pub fn new(
-        listening_address: std::net::SocketAddr,
-        protocol_config: ProtocolConfig,
-        withhold: bool,
-        pool_config: PoolConfig,
-        tp_config: TPConfig,
-        upstreams: Vec<Upstream>,
-        timeout: Duration,
-    ) -> Self {
-        Self {
-            downstream_address: listening_address.ip().to_string(),
-            downstream_port: listening_address.port(),
-            max_supported_version: protocol_config.max_supported_version,
-            min_supported_version: protocol_config.min_supported_version,
-            min_extranonce2_size: protocol_config.min_extranonce2_size,
-            withhold,
-            authority_public_key: pool_config.authority_public_key,
-            authority_secret_key: pool_config.authority_secret_key,
-            cert_validity_sec: tp_config.cert_validity_sec,
-            tp_address: tp_config.tp_address,
-            tp_authority_public_key: tp_config.tp_authority_public_key,
-            retry: 0,
-            upstreams,
-            timeout,
-            coinbase_outputs: protocol_config.coinbase_outputs,
-            test_only_do_not_send_solution_to_tp: None,
         }
     }
 }
