@@ -6,7 +6,16 @@ use serde::Deserialize;
 use std::{net::SocketAddr, time::Duration};
 use stratum_common::bitcoin::{Amount, TxOut};
 
-/// Represents the configuration of a job declarator client.
+/// Represents the configuration of a Job Declarator Client(JDC).
+///
+/// JDC can act as both, an upstream and a downstream.
+///
+/// When acting as a downstream, JDC connects to a pool server, where each pool have its own Job
+/// Declarator Server (JDS).  It also connects to a Template Provider through the
+/// [`JobDeclaratorClientConfig::tp_address`] field.
+///
+/// When acting as an upstream, JDC listens for connections from downstreams on the address
+/// specified in [`JobDeclaratorClientConfig::listening_address`].
 #[derive(Debug, Deserialize, Clone)]
 pub struct JobDeclaratorClientConfig {
     listening_address: SocketAddr,
@@ -26,6 +35,7 @@ pub struct JobDeclaratorClientConfig {
 }
 
 impl JobDeclaratorClientConfig {
+    /// Creates a new instance of [`JobDeclaratorClientConfig`].
     pub fn new(
         listening_address: SocketAddr,
         protocol_config: ProtocolConfig,
@@ -52,50 +62,64 @@ impl JobDeclaratorClientConfig {
         }
     }
 
+    /// Returns the listening address of the Job Declartor Client.
     pub fn listening_address(&self) -> &SocketAddr {
         &self.listening_address
     }
 
+    /// Returns "Minimum extranonce2" size.
     pub fn min_extranonce2_size(&self) -> u16 {
         self.min_extranonce2_size
     }
 
+    /// Returns the list of upstreams.
+    ///
+    /// JDC will try to fallback to the next upstream in case of failure of the current one.
     pub fn upstreams(&self) -> &Vec<Upstream> {
         &self.upstreams
     }
 
+    /// Returns the timeout duration.
     pub fn timeout(&self) -> Duration {
         self.timeout
     }
 
+    /// Returns the withhold flag.
     pub fn withhold(&self) -> bool {
         self.withhold
     }
 
+    /// Returns the authority public key.
     pub fn authority_public_key(&self) -> &Secp256k1PublicKey {
         &self.authority_public_key
     }
 
+    /// Returns the authority secret key.
     pub fn authority_secret_key(&self) -> &Secp256k1SecretKey {
         &self.authority_secret_key
     }
 
+    /// Returns the certificate validity in seconds.
     pub fn cert_validity_sec(&self) -> u64 {
         self.cert_validity_sec
     }
 
+    /// Returns Template Provider address.
     pub fn tp_address(&self) -> &str {
         &self.tp_address
     }
 
+    /// Returns Template Provider authority public key.
     pub fn tp_authority_public_key(&self) -> Option<&Secp256k1PublicKey> {
         self.tp_authority_public_key.as_ref()
     }
 
+    /// Returns the minimum supported version.
     pub fn min_supported_version(&self) -> u16 {
         self.min_supported_version
     }
 
+    /// Returns the maximum supported version.
     pub fn max_supported_version(&self) -> u16 {
         self.max_supported_version
     }
