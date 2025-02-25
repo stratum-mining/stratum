@@ -1,6 +1,5 @@
 # SRI JDC config
-downstream_address = "127.0.0.1"
-downstream_port = 34265
+listening_address = "127.0.0.1:34264"
 
 # Version support
 max_supported_version = 2
