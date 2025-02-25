@@ -10,18 +10,18 @@ use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
     #[serde(default = "default_true")]
-    pub async_mining_allowed: bool,
-    pub listen_jd_address: String,
-    pub authority_public_key: Secp256k1PublicKey,
-    pub authority_secret_key: Secp256k1SecretKey,
-    pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<CoinbaseOutput>,
-    pub core_rpc_url: String,
-    pub core_rpc_port: u16,
-    pub core_rpc_user: String,
-    pub core_rpc_pass: String,
+    async_mining_allowed: bool,
+    listen_jd_address: String,
+    authority_public_key: Secp256k1PublicKey,
+    authority_secret_key: Secp256k1SecretKey,
+    cert_validity_sec: u64,
+    coinbase_outputs: Vec<CoinbaseOutput>,
+    core_rpc_url: String,
+    core_rpc_port: u16,
+    core_rpc_user: String,
+    core_rpc_pass: String,
     #[serde(deserialize_with = "duration_from_toml")]
-    pub mempool_update_interval: Duration,
+    mempool_update_interval: Duration,
 }
 
 impl JobDeclaratorServerConfig {
@@ -47,6 +47,58 @@ impl JobDeclaratorServerConfig {
             core_rpc_pass: core_rpc.pass,
             mempool_update_interval,
         }
+    }
+
+    pub fn listen_jd_address(&self) -> &str {
+        &self.listen_jd_address
+    }
+
+    pub fn authority_public_key(&self) -> &Secp256k1PublicKey {
+        &self.authority_public_key
+    }
+
+    pub fn authority_secret_key(&self) -> &Secp256k1SecretKey {
+        &self.authority_secret_key
+    }
+
+    pub fn core_rpc_url(&self) -> &str {
+        &self.core_rpc_url
+    }
+
+    pub fn core_rpc_port(&self) -> u16 {
+        self.core_rpc_port
+    }
+
+    pub fn core_rpc_user(&self) -> &str {
+        &self.core_rpc_user
+    }
+
+    pub fn core_rpc_pass(&self) -> &str {
+        &self.core_rpc_pass
+    }
+
+    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseOutput> {
+        &self.coinbase_outputs
+    }
+
+    pub fn cert_validity_sec(&self) -> u64 {
+        self.cert_validity_sec
+    }
+
+    pub fn async_mining_allowed(&self) -> bool {
+        self.async_mining_allowed
+    }
+
+    pub fn mempool_update_interval(&self) -> Duration {
+        self.mempool_update_interval
+    }
+
+    pub fn set_core_rpc_url(&mut self, url: String) {
+        self.core_rpc_url = url;
+    }
+
+    pub fn set_coinbase_outputs(&mut self, outputs: Vec<CoinbaseOutput>) {
+        self.coinbase_outputs = outputs;
     }
 }
 
@@ -151,14 +203,13 @@ impl CoreRpc {
 
 #[cfg(test)]
 mod tests {
+    use super::super::JobDeclaratorServer;
     use ext_config::{Config, File, FileFormat};
     use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
     use std::{convert::TryInto, path::PathBuf};
     use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
 
-    use super::super::JobDeclaratorServer;
-
-    use super::*;
+    use crate::config::{self, get_coinbase_output, JobDeclaratorServerConfig};
 
     fn load_config(path: &str) -> JobDeclaratorServerConfig {
         let config_path = PathBuf::from(path);
@@ -171,7 +222,7 @@ mod tests {
         let config_path = config_path.to_str().unwrap();
 
         let settings = Config::builder()
-            .add_source(File::new(&config_path, FileFormat::Toml))
+            .add_source(File::new(config_path, FileFormat::Toml))
             .build()
             .expect("Failed to build config");
 
@@ -181,14 +232,14 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_rpc_url() {
         let mut config = load_config("config-examples/jds-config-hosted-example.toml");
-        config.core_rpc_url = "invalid".to_string();
+        config.set_core_rpc_url("invalid".to_string());
         assert!(JobDeclaratorServer::new(config).is_err());
     }
 
     #[tokio::test]
     async fn test_offline_rpc_url() {
         let mut config = load_config("config-examples/jds-config-hosted-example.toml");
-        config.core_rpc_url = "http://127.0.0.1".to_string();
+        config.set_core_rpc_url("http://127.0.0.1".to_string());
         let jd = JobDeclaratorServer::new(config).unwrap();
         assert!(jd.start().await.is_err());
     }
@@ -215,7 +266,7 @@ mod tests {
     #[test]
     fn test_get_coinbase_output_empty() {
         let mut config = load_config("config-examples/jds-config-hosted-example.toml");
-        config.coinbase_outputs.clear();
+        config.set_coinbase_outputs(Vec::new());
 
         let result = get_coinbase_output(&config);
         assert!(
@@ -226,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_try_from_valid_input() {
-        let input = CoinbaseOutput::new(
+        let input = config::CoinbaseOutput::new(
             "P2PKH".to_string(),
             "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
         );
@@ -236,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_try_from_invalid_input() {
-        let input = CoinbaseOutput::new(
+        let input = config::CoinbaseOutput::new(
             "INVALID".to_string(),
             "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
         );
