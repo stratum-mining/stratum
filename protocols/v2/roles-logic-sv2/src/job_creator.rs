@@ -2,23 +2,18 @@
 //!
 //! This module provides logic to create extended mining jobs given a template from
 //! a template provider as well as logic to clean up old templates when new blocks are mined.
-use crate::{errors, utils::Id, Error};
-use binary_sv2::B064K;
+use crate::{
+    utils::{Coinbase, Id},
+    Error,
+};
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::{
-    bitcoin,
-    bitcoin::{
-        absolute::LockTime,
-        blockdata::{
-            transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
-            witness::Witness,
-        },
-        consensus,
-        consensus::Decodable,
-        Amount,
-    },
+use stratum_common::bitcoin::{
+    blockdata::transaction::{Transaction, TxOut},
+    consensus,
+    consensus::Decodable,
+    Amount,
 };
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
@@ -205,17 +200,16 @@ fn new_extended_job(
         .map_err(|_| Error::TxVersionTooBig)?;
 
     let script_sig_prefix = new_template.coinbase_prefix.to_vec();
-    let script_sig_prefix_len = script_sig_prefix.len() + additional_coinbase_script_data.len();
 
-    let coinbase = coinbase(
+    let coinbase = Coinbase::new(
         script_sig_prefix,
         tx_version,
         new_template.coinbase_tx_locktime,
         new_template.coinbase_tx_input_sequence,
-        coinbase_outputs,
+        coinbase_outputs.to_vec(),
         additional_coinbase_script_data,
         extranonce_len,
-    )?;
+    );
 
     let min_ntime = binary_sv2::Sv2Option::new(if new_template.future_template {
         None
@@ -230,8 +224,8 @@ fn new_extended_job(
         version: new_template.version,
         version_rolling_allowed,
         merkle_path: new_template.merkle_path.clone().into_static(),
-        coinbase_tx_prefix: coinbase_tx_prefix(&coinbase, script_sig_prefix_len)?,
-        coinbase_tx_suffix: coinbase_tx_suffix(&coinbase, extranonce_len, script_sig_prefix_len)?,
+        coinbase_tx_prefix: coinbase.coinbase_tx_prefix()?,
+        coinbase_tx_suffix: coinbase.coinbase_tx_suffix()?,
     };
 
     debug!(
@@ -239,89 +233,6 @@ fn new_extended_job(
         new_extended_mining_job
     );
     Ok(new_extended_mining_job)
-}
-
-// Used to extract the coinbase transaction prefix for extended jobs
-// so the extranonce search space can be introduced
-fn coinbase_tx_prefix(
-    coinbase: &Transaction,
-    script_sig_prefix_len: usize,
-) -> Result<B064K<'static>, Error> {
-    let encoded = consensus::serialize(coinbase);
-    // If script_prefix_len is not 0 we are not in a test environment and the coinbase will have the
-    // 0 witness
-    let segwit_bytes = match script_sig_prefix_len {
-        0 => 0,
-        _ => 2,
-    };
-    let index = 4    // tx version
-        + segwit_bytes
-        + 1  // number of inputs TODO can be also 3
-        + 32 // prev OutPoint
-        + 4  // index
-        + 1  // bytes in script TODO can be also 3
-        + script_sig_prefix_len; // script_sig_prefix
-    let r = encoded[0..index].to_vec();
-    r.try_into().map_err(Error::BinarySv2Error)
-}
-
-// Used to extract the coinbase transaction suffix for extended jobs
-// so the extranonce search space can be introduced
-fn coinbase_tx_suffix(
-    coinbase: &Transaction,
-    extranonce_len: u8,
-    script_sig_prefix_len: usize,
-) -> Result<B064K<'static>, Error> {
-    let encoded = consensus::serialize(coinbase);
-    // If script_sig_prefix_len is not 0 we are not in a test environment and the coinbase have the
-    // 0 witness
-    let segwit_bytes = match script_sig_prefix_len {
-        0 => 0,
-        _ => 2,
-    };
-    let r = encoded[4    // tx version
-        + segwit_bytes
-        + 1  // number of inputs TODO can be also 3
-        + 32 // prev OutPoint
-        + 4  // index
-        + 1  // bytes in script TODO can be also 3
-        + script_sig_prefix_len  // script_sig_prefix
-        + (extranonce_len as usize)..]
-        .to_vec();
-    r.try_into().map_err(Error::BinarySv2Error)
-}
-
-// try to build a Transaction coinbase
-fn coinbase(
-    script_sig_prefix: Vec<u8>,
-    version: i32,
-    lock_time: u32,
-    sequence: u32,
-    coinbase_outputs: &[TxOut],
-    additional_coinbase_script_data: Vec<u8>,
-    extranonce_len: u8,
-) -> Result<Transaction, Error> {
-    // If script_sig_prefix_len is not 0 we are not in a test environment and the coinbase have the
-    // 0 witness
-    let witness = match script_sig_prefix.len() {
-        0 => Witness::from(vec![] as Vec<Vec<u8>>),
-        _ => Witness::from(vec![vec![0; 32]]),
-    };
-    let mut script_sig = script_sig_prefix;
-    script_sig.extend_from_slice(&additional_coinbase_script_data);
-    script_sig.extend_from_slice(&vec![0; extranonce_len as usize]);
-    let tx_in = TxIn {
-        previous_output: OutPoint::null(),
-        script_sig: script_sig.into(),
-        sequence: bitcoin::Sequence(sequence),
-        witness,
-    };
-    Ok(Transaction {
-        version: Version::non_standard(version),
-        lock_time: LockTime::from_consensus(lock_time),
-        input: vec![tx_in],
-        output: coinbase_outputs.to_vec(),
-    })
 }
 
 /// Helper type to strip a segwit data from the coinbase_tx_prefix and coinbase_tx_suffix
@@ -336,8 +247,20 @@ pub fn extended_job_to_non_segwit(
     let extranonce = vec![0_u8; full_extranonce_len];
     encoded.extend_from_slice(&extranonce[..]);
     encoded.extend_from_slice(job.coinbase_tx_suffix.inner_as_ref());
-    let coinbase = consensus::deserialize(&encoded).map_err(|_| Error::InvalidCoinbase)?;
-    let stripped_tx = StrippedCoinbaseTx::from_coinbase(coinbase, full_extranonce_len)?;
+    let tx: Transaction = consensus::deserialize(&encoded).map_err(|_| Error::InvalidCoinbase)?;
+
+    let coinbase = Coinbase {
+        tx,
+        script_sig_prefix_len: job.coinbase_tx_prefix.len()
+            - (
+                4 + // version
+                1 + // input count
+                32 + // outpoint
+                4 + // input index
+                1
+                // script length byte
+            ),
+    };
 
     Ok(NewExtendedMiningJob {
         channel_id: job.channel_id,
@@ -346,94 +269,9 @@ pub fn extended_job_to_non_segwit(
         version: job.version,
         version_rolling_allowed: job.version_rolling_allowed,
         merkle_path: job.merkle_path,
-        coinbase_tx_prefix: stripped_tx.into_coinbase_tx_prefix()?,
-        coinbase_tx_suffix: stripped_tx.into_coinbase_tx_suffix()?,
+        coinbase_tx_prefix: coinbase.coinbase_tx_prefix()?,
+        coinbase_tx_suffix: coinbase.coinbase_tx_suffix()?,
     })
-}
-// Helper type to strip a segwit data from the coinbase_tx_prefix and coinbase_tx_suffix
-// to ensure miners are hashing with the correct coinbase
-struct StrippedCoinbaseTx {
-    version: u32,
-    inputs: Vec<Vec<u8>>,
-    outputs: Vec<Vec<u8>>,
-    lock_time: u32,
-    // helper field
-    bip141_bytes_len: usize,
-}
-
-impl StrippedCoinbaseTx {
-    // create
-    fn from_coinbase(tx: Transaction, full_extranonce_len: usize) -> Result<Self, Error> {
-        let bip141_bytes_len = tx
-            .input
-            .last()
-            .ok_or(Error::BadPayloadSize)?
-            .script_sig
-            .len()
-            - full_extranonce_len;
-        Ok(Self {
-            version: tx.version.0 as u32,
-            inputs: tx
-                .input
-                .iter()
-                .map(|txin| {
-                    let mut ser: Vec<u8> = vec![];
-                    ser.extend_from_slice(txin.previous_output.txid.as_ref());
-                    ser.extend_from_slice(&txin.previous_output.vout.to_le_bytes());
-                    ser.push(txin.script_sig.len() as u8);
-                    ser.extend_from_slice(txin.script_sig.as_bytes());
-                    ser.extend_from_slice(&txin.sequence.0.to_le_bytes());
-                    ser
-                })
-                .collect(),
-            outputs: tx.output.iter().map(consensus::serialize).collect(),
-            lock_time: tx.lock_time.to_consensus_u32(),
-            bip141_bytes_len,
-        })
-    }
-
-    // The coinbase tx prefix is the LE bytes concatenation of the tx version and all
-    // of the tx inputs minus the 32 bytes after the script_sig_prefix bytes
-    // and the last input's sequence (used as the first entry in the coinbase tx suffix).
-    // The last 32 bytes after the bip34 bytes in the script will be used to allow extranonce
-    // space for the miner. We remove the bip141 marker and flag since it is only used for
-    // computing the `wtxid` and the legacy `txid` is what is used for computing the merkle root
-    // clippy allow because we don't want to consume self
-    #[allow(clippy::wrong_self_convention)]
-    fn into_coinbase_tx_prefix(&self) -> Result<B064K<'static>, errors::Error> {
-        let mut inputs = self.inputs.clone();
-        let last_input = inputs.last_mut().ok_or(Error::BadPayloadSize)?;
-        let new_last_input_len =
-            32 // outpoint
-                + 4 // vout
-                + 1 // script length byte -> TODO can be also 3 (based on TODO in `coinbase_tx_prefix()`)
-                + self.bip141_bytes_len // space for bip34 bytes
-            ;
-        last_input.truncate(new_last_input_len);
-        let mut prefix: Vec<u8> = vec![];
-        prefix.extend_from_slice(&self.version.to_le_bytes());
-        prefix.push(self.inputs.len() as u8);
-        prefix.extend_from_slice(&inputs.concat());
-        prefix.try_into().map_err(Error::BinarySv2Error)
-    }
-
-    // This coinbase tx suffix is the sequence of the last tx input plus
-    // the serialized tx outputs and the lock time. Note we do not use the witnesses
-    // (placed between txouts and lock time) since it is only used for
-    // computing the `wtxid` and the legacy `txid` is what is used for computing the merkle root
-    // clippy allow because we don't want to consume self
-    #[allow(clippy::wrong_self_convention)]
-    fn into_coinbase_tx_suffix(&self) -> Result<B064K<'static>, errors::Error> {
-        let mut suffix: Vec<u8> = vec![];
-        let last_input = self.inputs.last().ok_or(Error::BadPayloadSize)?;
-        // only take the last intput's sequence u32 (bytes after the extranonce space)
-        let last_input_sequence = &last_input[last_input.len() - 4..];
-        suffix.extend_from_slice(last_input_sequence);
-        suffix.push(self.outputs.len() as u8);
-        suffix.extend_from_slice(&self.outputs.concat());
-        suffix.extend_from_slice(&self.lock_time.to_le_bytes());
-        suffix.try_into().map_err(Error::BinarySv2Error)
-    }
 }
 
 // Test
@@ -529,12 +367,7 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         let job = jobs_creators
-            .on_new_template(
-                template.borrow_mut(),
-                false,
-                vec![out],
-                "".as_bytes().to_vec(),
-            )
+            .on_new_template(template.borrow_mut(), false, vec![out], 0)
             .unwrap();
 
         assert_eq!(
@@ -558,12 +391,7 @@ pub mod tests {
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
-        let _ = jobs_creators.on_new_template(
-            template.borrow_mut(),
-            false,
-            vec![out],
-            "".as_bytes().to_vec(),
-        );
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], 0);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
@@ -597,12 +425,7 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         //Create a template
-        let _ = jobs_creators.on_new_template(
-            template.borrow_mut(),
-            false,
-            vec![out],
-            "".as_bytes().to_vec(),
-        );
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], 0);
         let test_id = template.template_id;
 
         // Create a SetNewPrevHash with matching template_id
@@ -683,19 +506,32 @@ pub mod tests {
             235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let coinbase: Transaction = consensus::deserialize(encoded).unwrap();
-        let stripped = StrippedCoinbaseTx::from_coinbase(coinbase.clone(), 32).unwrap();
-        let prefix = stripped.into_coinbase_tx_prefix().unwrap().to_vec();
-        let suffix = stripped.into_coinbase_tx_suffix().unwrap().to_vec();
+        let tx: Transaction = consensus::deserialize(encoded).unwrap();
+
+        // Calculate script_sig_prefix_len by examining the actual script_sig length
+        // and subtracting the extranonce length (32 in this case)
+        let extranonce_len = 32;
+        let script_sig_len = tx.input[0].script_sig.len();
+        let script_sig_prefix_len = script_sig_len - extranonce_len;
+
+        let coinbase = Coinbase {
+            tx,
+            script_sig_prefix_len,
+        };
+
+        let prefix = coinbase.coinbase_tx_prefix().unwrap().to_vec();
+        let suffix = coinbase.coinbase_tx_suffix().unwrap().to_vec();
         let extranonce = &[0_u8; 32];
         let path: &[binary_sv2::U256] = &[];
         let stripped_merkle_root =
             merkle_root_from_path(&prefix[..], &suffix[..], extranonce, path).unwrap();
-        let txid = coinbase.compute_txid();
-        let txid_bytes: &[u8; 32] = txid.as_ref();
-        let og_merkle_root = txid_bytes.to_vec();
-        assert!(
-            stripped_merkle_root == og_merkle_root,
+
+        let og_merkle_root = coinbase.tx.compute_txid();
+        let og_merkle_root_bytes = og_merkle_root.as_raw_hash();
+
+        assert_eq!(
+            stripped_merkle_root.as_slice(),
+            &og_merkle_root_bytes[..],
             "stripped tx hash is not the same as bitcoin crate"
         );
     }
@@ -723,15 +559,23 @@ pub mod tests {
         let mut encoded_clone = encoded.clone();
         encoded_clone.extend_from_slice(&extranonce);
         encoded_clone.extend_from_slice(coinbase_suffix);
-        // let mut i = 1;
-        // while let Err(_) = Transaction::deserialize(&encoded_clone) {
-        //     encoded_clone = encoded.clone();
-        //     extranonce.push(0);
-        //     encoded_clone.extend_from_slice(&extranonce[..]);
-        //     encoded_clone.extend_from_slice(coinbase_suffix);
-        //     i+=1;
-        // }
-        // println!("SIZE: {:?}", i);
-        let _tx: Transaction = consensus::deserialize(&encoded_clone).unwrap();
+        let parsed_tx: Transaction = consensus::deserialize(&encoded_clone).unwrap();
+
+        let coinbase = Coinbase {
+            tx: parsed_tx.clone(),
+            script_sig_prefix_len: 60,
+        };
+
+        let prefix = coinbase.coinbase_tx_prefix().unwrap().to_vec();
+        let suffix = coinbase.coinbase_tx_suffix().unwrap().to_vec();
+
+        let mut encoded_b = vec![];
+        encoded_b.extend_from_slice(&prefix);
+        encoded_b.extend_from_slice(&extranonce[..]);
+        encoded_b.extend_from_slice(&suffix);
+
+        // parse one last time to ensure that Coinbase::coinbase_tx_prefix and
+        // Coinbase::coinbase_tx_suffix functions are sane
+        let _parsed_tx_b: Transaction = consensus::deserialize(&encoded_b).unwrap();
     }
 }
