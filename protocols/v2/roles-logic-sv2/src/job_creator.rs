@@ -9,12 +9,7 @@ use crate::{
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{
-    blockdata::transaction::{Transaction, TxOut},
-    consensus,
-    consensus::Decodable,
-    Amount,
-};
+use stratum_common::bitcoin::{blockdata::transaction::TxOut, consensus::Decodable, Amount};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -235,45 +230,6 @@ fn new_extended_job(
     Ok(new_extended_mining_job)
 }
 
-/// Helper type to strip a segwit data from the coinbase_tx_prefix and coinbase_tx_suffix
-/// to ensure miners are hashing with the correct coinbase
-pub fn extended_job_to_non_segwit(
-    job: NewExtendedMiningJob<'static>,
-    full_extranonce_len: usize,
-) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let mut encoded = job.coinbase_tx_prefix.to_vec();
-    // just add empty extranonce space so it can be deserialized. The real extranonce
-    // should be inserted based on the miner's shares
-    let extranonce = vec![0_u8; full_extranonce_len];
-    encoded.extend_from_slice(&extranonce[..]);
-    encoded.extend_from_slice(job.coinbase_tx_suffix.inner_as_ref());
-    let tx: Transaction = consensus::deserialize(&encoded).map_err(|_| Error::InvalidCoinbase)?;
-
-    let coinbase = Coinbase {
-        tx,
-        script_sig_prefix_len: job.coinbase_tx_prefix.len()
-            - (
-                4 + // version
-                1 + // input count
-                32 + // outpoint
-                4 + // input index
-                1
-                // script length byte
-            ),
-    };
-
-    Ok(NewExtendedMiningJob {
-        channel_id: job.channel_id,
-        job_id: job.job_id,
-        min_ntime: job.min_ntime,
-        version: job.version,
-        version_rolling_allowed: job.version_rolling_allowed,
-        merkle_path: job.merkle_path,
-        coinbase_tx_prefix: coinbase.coinbase_tx_prefix()?,
-        coinbase_tx_suffix: coinbase.coinbase_tx_suffix()?,
-    })
-}
-
 // Test
 #[cfg(test)]
 
@@ -284,6 +240,7 @@ pub mod tests {
     use binary_sv2::u256_from_int;
     use quickcheck::{Arbitrary, Gen};
     use std::{cmp, vec};
+    use stratum_common::bitcoin::{blockdata::transaction::Transaction, consensus};
 
     #[cfg(feature = "prop_test")]
     use std::borrow::BorrowMut;
