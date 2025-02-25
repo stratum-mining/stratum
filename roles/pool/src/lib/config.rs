@@ -2,6 +2,10 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
 use std::convert::TryFrom;
 
+/// Represents the configuration of a Pool.
+///
+/// Pool acts an upstream throug hthe [`PoolConfig::listen_address`] and a downstream to the
+/// Template Provider through the [`PoolConfig::tp_address`].
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct PoolConfig {
     listen_address: String,
@@ -15,6 +19,7 @@ pub struct PoolConfig {
 }
 
 impl PoolConfig {
+    /// Creates a new instance of the [`PoolConfig`].
     pub fn new(
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
@@ -33,38 +38,47 @@ impl PoolConfig {
         }
     }
 
+    /// Returns the coinbase outputs.
     pub fn coinbase_outputs(&self) -> &Vec<CoinbaseOutput> {
         self.coinbase_outputs.as_ref()
     }
 
+    /// Returns Pool listenining address.
     pub fn listen_address(&self) -> &String {
         &self.listen_address
     }
 
+    /// Returns the authority public key.
     pub fn authority_public_key(&self) -> &Secp256k1PublicKey {
         &self.authority_public_key
     }
 
+    /// Returns the authority secret key.
     pub fn authority_secret_key(&self) -> &Secp256k1SecretKey {
         &self.authority_secret_key
     }
 
+    /// Returns the certificate validity in seconds.
     pub fn cert_validity_sec(&self) -> u64 {
         self.cert_validity_sec
     }
 
+    /// Returns the Pool signature.
     pub fn pool_signature(&self) -> &String {
         &self.pool_signature
     }
 
+    /// Return the Template Provider authority public key.
     pub fn tp_authority_public_key(&self) -> Option<&Secp256k1PublicKey> {
         self.tp_authority_public_key.as_ref()
     }
 
+    /// Returns the Template Provider address.
     pub fn tp_address(&self) -> &String {
         &self.tp_address
     }
 
+    /// Sets the coinbase outputs.
     pub fn set_coinbase_outputs(&mut self, coinbase_outputs: Vec<CoinbaseOutput>) {
         self.coinbase_outputs = coinbase_outputs;
     }
