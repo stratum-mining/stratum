@@ -29,7 +29,7 @@ use std::{
     sync::Arc,
 };
 use stratum_common::{
-    bitcoin::{Script, TxOut},
+    bitcoin::{Amount, ScriptBuf, TxOut},
     secp256k1,
 };
 use tokio::{net::TcpListener, task};
@@ -48,9 +48,9 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> 
     let mut result = Vec::new();
     for coinbase_output_pool in &config.coinbase_outputs {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-        let output_script: Script = coinbase_output.try_into()?;
+        let output_script: ScriptBuf = coinbase_output.try_into()?;
         result.push(TxOut {
-            value: 0,
+            value: Amount::from_sat(0),
             script_pubkey: output_script,
         });
     }
@@ -739,7 +739,7 @@ mod test {
 
     use stratum_common::{
         bitcoin,
-        bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
+        bitcoin::{absolute::LockTime, consensus, transaction::Version, Transaction, Witness},
     };
 
     use super::Configuration;
@@ -789,8 +789,8 @@ mod test {
         bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {
-            0 => Witness::from_vec(vec![]),
-            _ => Witness::from_vec(vec![vec![0; 32]]),
+            0 => Witness::from(vec![] as Vec<Vec<u8>>),
+            _ => Witness::from(vec![vec![0; 32]]),
         };
 
         let tx_in = bitcoin::TxIn {
@@ -799,9 +799,9 @@ mod test {
             sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
             witness,
         };
-        let coinbase = bitcoin::Transaction {
-            version: coinbase_tx_version,
-            lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
+        let coinbase = Transaction {
+            version: Version::non_standard(coinbase_tx_version),
+            lock_time: LockTime::from_consensus(coinbase_tx_locktime),
             input: vec![tx_in],
             output: coinbase_tx_outputs,
         };
@@ -839,7 +839,7 @@ mod test {
 
     // copied from roles-logic-sv2::job_creator
     fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
-        let encoded = coinbase.serialize();
+        let encoded = consensus::serialize(coinbase);
         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
         // 0 witness
         let segwit_bytes = match script_prefix_len {
@@ -863,7 +863,7 @@ mod test {
         extranonce_len: u8,
         script_prefix_len: usize,
     ) -> B064K<'static> {
-        let encoded = coinbase.serialize();
+        let encoded = consensus::serialize(coinbase);
         // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
         // 0 witness
         let segwit_bytes = match script_prefix_len {

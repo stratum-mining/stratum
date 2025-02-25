@@ -188,7 +188,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                                 )))? as usize;
                         // insert the missing transactions in the mempool
                         transactions_with_state[index] =
-                            TransactionState::PresentInMempool(transaction.txid());
+                            TransactionState::PresentInMempool(transaction.compute_txid());
                     }
                     self.add_txs_to_mempool
                         .add_txs_to_mempool_inner

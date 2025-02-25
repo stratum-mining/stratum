@@ -37,4 +37,4 @@ tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
 sha2 = "0.10.6"
 tokio = "^1.38.0"
-
+primitive-types = "0.13.1"

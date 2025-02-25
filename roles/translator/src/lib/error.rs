@@ -6,8 +6,6 @@ use roles_logic_sv2::{
 use std::{fmt, sync::PoisonError};
 use v1::server_to_client::{Notify, SetDifficulty};
 
-use stratum_common::bitcoin::util::uint::ParseLengthError;
-
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
 #[derive(Debug)]
@@ -67,7 +65,6 @@ pub enum Error<'a> {
     TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
     // Channel Sender Errors
     ChannelErrorSender(ChannelSendError<'a>),
-    Uint256Conversion(ParseLengthError),
     SetDifficultyToMessage(SetDifficulty),
     Infallible(std::convert::Infallible),
     // used to handle SV2 protocol error messages from pool
@@ -99,7 +96,6 @@ impl<'a> fmt::Display for Error<'a> {
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
-            Uint256Conversion(ref e) => write!(f, "U256 Conversion Error: `{:?}`", e),
             SetDifficultyToMessage(ref e) => {
                 write!(f, "Error converting SetDifficulty to Message: `{:?}`", e)
             }
@@ -261,12 +257,6 @@ impl<'a>
 impl<'a> From<Vec<u8>> for Error<'a> {
     fn from(e: Vec<u8>) -> Self {
         Error::VecToSlice32(e)
-    }
-}
-
-impl<'a> From<ParseLengthError> for Error<'a> {
-    fn from(e: ParseLengthError) -> Self {
-        Error::Uint256Conversion(e)
     }
 }
 

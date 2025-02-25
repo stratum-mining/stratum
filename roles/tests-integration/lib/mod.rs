@@ -281,7 +281,7 @@ pub fn measure_hashrate(duration_secs: u64) -> f64 {
         share[0..8].copy_from_slice(&nonce.to_le_bytes());
         let mut engine = sha256d::Hash::engine();
         engine.input(share);
-        sha256d::Hash::from_engine(engine).into_inner();
+        sha256d::Hash::from_engine(engine);
     };
 
     loop {

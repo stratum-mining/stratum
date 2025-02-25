@@ -1,18 +1,16 @@
-use std::{convert::TryInto, net::SocketAddr, ops::Div};
-
+use crate::{job::Job, miner::Miner};
 use async_channel::{unbounded, Receiver, Sender};
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
+use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
-use std::{sync::Arc, time};
+use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
     task,
 };
 use tracing::{error, info, warn};
-
-use stratum_common::bitcoin::util::uint::Uint256;
 use v1::{
     client_to_server,
     error::Error,
@@ -20,8 +18,6 @@ use v1::{
     utils::{Extranonce, HexU32Be},
     ClientStatus, IsClient,
 };
-
-use crate::{job::Job, miner::Miner};
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
@@ -102,7 +98,7 @@ impl Client {
             0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0,
         ]);
-        let default_target = Uint256::from_be_bytes(target_vec);
+        let default_target = U256::from_big_endian(target_vec.as_ref());
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
 
         let miner_cloned = miner.clone();
@@ -474,10 +470,10 @@ impl IsClient<'static> for Client {
     }
 }
 
-fn target_from_difficulty(diff: f64) -> Option<Uint256> {
+fn target_from_difficulty(diff: f64) -> Option<U256> {
     let pdiff = 26959946667150639794667015087019630673637144422540572481103610249215.0;
     if diff == 0.0 {
-        Some(Uint256::from_be_bytes([0; 32]))
+        Some(U256::from_big_endian(&[0; 32]))
     } else {
         let t = pdiff.div(diff);
         let as_big_int: BigUint = match t > 0.0 {
@@ -491,7 +487,7 @@ fn target_from_difficulty(diff: f64) -> Option<Uint256> {
             let mut front_padding = vec![0; 32 - bytes.len()];
             front_padding.append(&mut bytes);
             let as_u256: [u8; 32] = front_padding.try_into().unwrap();
-            Some(Uint256::from_be_bytes(as_u256))
+            Some(U256::from_big_endian(as_u256.as_ref()))
         }
     }
 }

@@ -1,11 +1,10 @@
 use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};
+use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;
-
-use stratum_common::bitcoin::util::uint::Uint256;
 
 impl Downstream {
     /// initializes the timestamp and resets the number of submits for a connection.
@@ -175,12 +174,12 @@ impl Downstream {
         if Downstream::is_zero(target) {
             return Ok(0.0);
         }
-        let target = Uint256::from_be_slice(target)?;
+        let target = U256::from_big_endian(target);
         let pdiff: [u8; 32] = [
             0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         ];
-        let pdiff = Uint256::from_be_bytes(pdiff);
+        let pdiff = U256::from_big_endian(pdiff.as_ref());
 
         if pdiff > target {
             let diff = pdiff.div(target);
