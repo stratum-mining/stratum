@@ -244,7 +244,6 @@ impl JobDeclaratorClient {
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
             miner_tx_out.clone(),
             config.tp_authority_public_key().cloned(),
-            false,
         )
         .await;
     }
@@ -256,9 +255,6 @@ impl JobDeclaratorClient {
         upstream_config: config::Upstream,
     ) {
         let timeout = config.timeout();
-        let test_only_do_not_send_solution_to_tp = config
-            .test_only_do_not_send_solution_to_tp()
-            .unwrap_or(false);
 
         // Format `Upstream` connection address
         let mut parts = upstream_config.pool_address.split(':');
@@ -383,7 +379,6 @@ impl JobDeclaratorClient {
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
             vec![],
             config.tp_authority_public_key().cloned(),
-            test_only_do_not_send_solution_to_tp,
         )
         .await;
     }
