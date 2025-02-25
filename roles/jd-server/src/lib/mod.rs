@@ -27,7 +27,7 @@ pub struct JobDeclaratorServer {
 
 impl JobDeclaratorServer {
     pub fn new(config: JobDeclaratorServerConfig) -> Result<Self, Box<JdsError>> {
-        let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
+        let url = config.core_rpc_url().to_string() + ":" + &config.core_rpc_port().to_string();
         if !is_valid_url(&url) {
             return Err(Box::new(JdsError::InvalidRPCUrl));
         }
@@ -35,19 +35,19 @@ impl JobDeclaratorServer {
     }
     pub async fn start(&self) -> Result<(), JdsError> {
         let config = self.config.clone();
-        let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
-        let username = config.core_rpc_user.clone();
-        let password = config.core_rpc_pass.clone();
+        let url = config.core_rpc_url().to_string() + ":" + &config.core_rpc_port().to_string();
+        let username = config.core_rpc_user();
+        let password = config.core_rpc_pass();
         // TODO should we manage what to do when the limit is reaced?
         let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) =
             bounded(10);
         let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
             url.clone(),
-            username,
-            password,
+            username.to_string(),
+            password.to_string(),
             new_block_receiver,
         )));
-        let mempool_update_interval = config.mempool_update_interval;
+        let mempool_update_interval = config.mempool_update_interval();
         let mempool_cloned_ = mempool.clone();
         let mempool_cloned_1 = mempool.clone();
         if let Err(e) = mempool::JDsMempool::health(mempool_cloned_1.clone()).await {
