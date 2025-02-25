@@ -94,7 +94,7 @@ impl JobDeclaratorClient {
             let tx_status = tx_status.clone();
             let config = config.clone();
             let root_handler;
-            if let Some(upstream) = config.upstreams.get(upstream_index) {
+            if let Some(upstream) = config.upstreams().get(upstream_index) {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
                 let upstream = upstream.clone();
@@ -199,7 +199,7 @@ impl JobDeclaratorClient {
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
-        let timeout = config.timeout;
+        let timeout = config.timeout();
         let miner_tx_out = config::get_coinbase_output(&config).unwrap();
 
         // When Downstream receive a share that meets bitcoin target it transformit in a
@@ -208,8 +208,8 @@ impl JobDeclaratorClient {
 
         // Format `Downstream` connection address
         let downstream_addr = SocketAddr::new(
-            IpAddr::from_str(&config.downstream_address).unwrap(),
-            config.downstream_port,
+            IpAddr::from_str(config.downstream_address()).unwrap(),
+            config.downstream_port(),
         );
 
         // Wait for downstream to connect
@@ -217,10 +217,10 @@ impl JobDeclaratorClient {
             downstream_addr,
             None,
             send_solution,
-            config.withhold,
-            config.authority_public_key,
-            config.authority_secret_key,
-            config.cert_validity_sec,
+            config.withhold(),
+            *config.authority_public_key(),
+            *config.authority_secret_key(),
+            config.cert_validity_sec(),
             task_collector.clone(),
             status::Sender::Downstream(tx_status.clone()),
             miner_tx_out.clone(),
@@ -230,7 +230,7 @@ impl JobDeclaratorClient {
         .unwrap();
 
         // Initialize JD part
-        let mut parts = config.tp_address.split(':');
+        let mut parts = config.tp_address().split(':');
         let ip_tp = parts.next().unwrap().to_string();
         let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
 
@@ -243,7 +243,7 @@ impl JobDeclaratorClient {
             task_collector,
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
             miner_tx_out.clone(),
-            config.tp_authority_public_key,
+            config.tp_authority_public_key().cloned(),
             false,
         )
         .await;
@@ -255,9 +255,10 @@ impl JobDeclaratorClient {
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: config::Upstream,
     ) {
-        let timeout = config.timeout;
-        let test_only_do_not_send_solution_to_tp =
-            config.test_only_do_not_send_solution_to_tp.unwrap_or(false);
+        let timeout = config.timeout();
+        let test_only_do_not_send_solution_to_tp = config
+            .test_only_do_not_send_solution_to_tp()
+            .unwrap_or(false);
 
         // Format `Upstream` connection address
         let mut parts = upstream_config.pool_address.split(':');
@@ -300,8 +301,8 @@ impl JobDeclaratorClient {
 
         match upstream_sv2::Upstream::setup_connection(
             upstream.clone(),
-            config.min_supported_version,
-            config.max_supported_version,
+            config.min_supported_version(),
+            config.max_supported_version(),
         )
         .await
         {
@@ -320,12 +321,12 @@ impl JobDeclaratorClient {
 
         // Format `Downstream` connection address
         let downstream_addr = SocketAddr::new(
-            IpAddr::from_str(&config.downstream_address).unwrap(),
-            config.downstream_port,
+            IpAddr::from_str(config.downstream_address()).unwrap(),
+            config.downstream_port(),
         );
 
         // Initialize JD part
-        let mut parts = config.tp_address.split(':');
+        let mut parts = config.tp_address().split(':');
         let ip_tp = parts.next().unwrap().to_string();
         let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
 
@@ -357,10 +358,10 @@ impl JobDeclaratorClient {
             downstream_addr,
             Some(upstream),
             send_solution,
-            config.withhold,
-            config.authority_public_key,
-            config.authority_secret_key,
-            config.cert_validity_sec,
+            config.withhold(),
+            *config.authority_public_key(),
+            *config.authority_secret_key(),
+            config.cert_validity_sec(),
             task_collector.clone(),
             status::Sender::Downstream(tx_status.clone()),
             vec![],
@@ -381,7 +382,7 @@ impl JobDeclaratorClient {
             task_collector,
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
             vec![],
-            config.tp_authority_public_key,
+            config.tp_authority_public_key().cloned(),
             test_only_do_not_send_solution_to_tp,
         )
         .await;
@@ -463,8 +464,8 @@ mod tests {
             cloned.start().await;
         });
         jdc.shutdown();
-        let ip = config.downstream_address.clone();
-        let port = config.downstream_port;
+        let ip = config.downstream_address();
+        let port = config.downstream_port();
         let jdc_addr = format!("{}:{}", ip, port);
         assert!(std::net::TcpListener::bind(jdc_addr).is_ok());
     }
