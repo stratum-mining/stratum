@@ -14,7 +14,7 @@ use roles_logic_sv2::{
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use stratum_common::bitcoin::{consensus, Transaction};
 use tokio::task::AbortHandle;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use async_recursion::async_recursion;
 use nohash_hasher::BuildNoHashHasher;
@@ -387,17 +387,34 @@ impl JobDeclarator {
         tokio::task::spawn(async move {
             let id = set_new_prev_hash.template_id;
             let _ = self_mutex.safe_lock(|s| {
-                s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
-                s.set_new_prev_hash_counter += 1;
+                debug!("Before update - last_set_new_prev_hash: {:?}, set_new_prev_hash_counter: {}",
+                s.last_set_new_prev_hash, s.set_new_prev_hash_counter);
+                let should_update = s
+                    .last_set_new_prev_hash
+                    .as_ref()
+                    .map(|prev| set_new_prev_hash.template_id > prev.template_id)
+                    .unwrap_or(true);
+
+                if should_update {
+                    s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
+                    s.set_new_prev_hash_counter += 1;
+                    debug!("After update - last_set_new_prev_hash updated to: {:?}, set_new_prev_hash_counter: {}",
+                    s.last_set_new_prev_hash, s.set_new_prev_hash_counter);
+                } else {
+                    debug!("Received outdated SetNewPrevHash: {:?} compared to current: {:?}",
+                    set_new_prev_hash, s.last_set_new_prev_hash);
+                }
             });
             let (job, up, merkle_path, template, mut pool_outs) = loop {
                 match self_mutex
                     .safe_lock(|s| {
                         if s.set_new_prev_hash_counter > 1
                             && s.last_set_new_prev_hash != Some(set_new_prev_hash.clone())
-                        //it means that a new prev_hash is arrived while the previous hasn't exited
-                        // the loop yet
                         {
+                            debug!(
+                                "Declared job {} skipped due to set_new_prev_hash_counter",
+                                id
+                            );
                             s.set_new_prev_hash_counter -= 1;
                             Some(None)
                         } else {
