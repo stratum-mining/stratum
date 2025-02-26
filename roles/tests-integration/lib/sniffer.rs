@@ -62,7 +62,8 @@ pub struct Sniffer {
     actions: Vec<Action>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Action {
     BlockFromMessage(BlockFromMessage) = 0,
     InterceptMessage(InterceptMessage) = 1,
@@ -78,16 +79,14 @@ impl Ord for Action {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (Action::BlockFromMessage(_), Action::InterceptMessage(_)) => std::cmp::Ordering::Less,
-            (Action::InterceptMessage(_), Action::BlockFromMessage(_)) => {
-                std::cmp::Ordering::Greater
-            }
+            (Action::InterceptMessage(_), Action::BlockFromMessage(_)) => std::cmp::Ordering::Greater,
             _ => std::cmp::Ordering::Equal,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct BlockMessage {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockFromMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
 }
@@ -108,6 +107,15 @@ pub struct InterceptMessage {
     expected_message_type: MsgType,
     replacement_message: PoolMessages<'static>,
 }
+
+impl PartialEq for InterceptMessage {
+    fn eq(&self, other: &Self) -> bool {
+        self.direction == other.direction
+            && self.expected_message_type == other.expected_message_type
+    }
+}
+
+impl Eq for InterceptMessage {}
 
 impl InterceptMessage {
     /// Constructor of `InterceptMessage`
@@ -144,6 +152,10 @@ impl Sniffer {
         check_on_drop: bool,
         actions: Option<Vec<Action>>,
     ) -> Self {
+        let actions = actions.map_or_else(Vec::new, |mut a| {
+            a.sort();
+            a
+        });
         Self {
             identifier,
             listening_address,
@@ -151,7 +163,7 @@ impl Sniffer {
             messages_from_downstream: MessagesAggregator::new(),
             messages_from_upstream: MessagesAggregator::new(),
             check_on_drop,
-            actions: actions.unwrap_or_default(),
+            actions,
         }
     }
 
@@ -259,7 +271,7 @@ impl Sniffer {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             let action_message = actions.iter().find(|action| match action {
-                Action::BlockMessage(bm) => {
+                Action::BlockFromMessage(bm) => {
                     bm.direction == MessageDirection::ToUpstream
                         && bm.expected_message_type == msg_type
                 }
@@ -270,7 +282,7 @@ impl Sniffer {
             });
             if let Some(action) = action_message {
                 match action {
-                    Action::BlockMessage(_) => break,
+                    Action::BlockFromMessage(_) => break,
                     Action::InterceptMessage(intercept_message) => {
                         let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                             Sv2Frame::from_message(
@@ -309,7 +321,7 @@ impl Sniffer {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             let action_message = actions.iter().find(|action| match action {
-                Action::BlockMessage(bm) => {
+                Action::BlockFromMessage(bm) => {
                     bm.direction == MessageDirection::ToDownstream
                         && bm.expected_message_type == msg_type
                 }
@@ -321,7 +333,7 @@ impl Sniffer {
 
             if let Some(action) = action_message {
                 match action {
-                    Action::BlockMessage(_) => break,
+                    Action::BlockFromMessage(_) => break,
                     Action::InterceptMessage(intercept_message) => {
                         let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                             Sv2Frame::from_message(
