@@ -79,7 +79,9 @@ impl Ord for Action {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (Action::BlockFromMessage(_), Action::InterceptMessage(_)) => std::cmp::Ordering::Less,
-            (Action::InterceptMessage(_), Action::BlockFromMessage(_)) => std::cmp::Ordering::Greater,
+            (Action::InterceptMessage(_), Action::BlockFromMessage(_)) => {
+                std::cmp::Ordering::Greater
+            }
             _ => std::cmp::Ordering::Equal,
         }
     }
@@ -268,7 +270,11 @@ impl Sniffer {
         downstream_messages: MessagesAggregator,
         actions: Vec<Action>,
     ) -> Result<(), SnifferError> {
+        let mut blocked = false;
         while let Ok(mut frame) = recv.recv().await {
+            if blocked {
+                continue;
+            }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             let action_message = actions.iter().find(|action| match action {
                 Action::BlockFromMessage(bm) => {
@@ -282,7 +288,10 @@ impl Sniffer {
             });
             if let Some(action) = action_message {
                 match action {
-                    Action::BlockFromMessage(_) => break,
+                    Action::BlockFromMessage(_) => {
+                        blocked = true;
+                        continue;
+                    }
                     Action::InterceptMessage(intercept_message) => {
                         let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                             Sv2Frame::from_message(
@@ -318,7 +327,11 @@ impl Sniffer {
         upstream_messages: MessagesAggregator,
         actions: Vec<Action>,
     ) -> Result<(), SnifferError> {
+        let mut blocked = false;
         while let Ok(mut frame) = recv.recv().await {
+            if blocked {
+                continue;
+            }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             let action_message = actions.iter().find(|action| match action {
                 Action::BlockFromMessage(bm) => {
@@ -333,7 +346,10 @@ impl Sniffer {
 
             if let Some(action) = action_message {
                 match action {
-                    Action::BlockFromMessage(_) => break,
+                    Action::BlockFromMessage(_) => {
+                        blocked = true;
+                        continue;
+                    }
                     Action::InterceptMessage(intercept_message) => {
                         let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                             Sv2Frame::from_message(
