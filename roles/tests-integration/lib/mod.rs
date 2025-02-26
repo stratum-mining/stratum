@@ -33,7 +33,7 @@ pub async fn start_sniffer(
     identifier: String,
     upstream: SocketAddr,
     check_on_drop: bool,
-    intercept_message: Option<Vec<sniffer::InterceptMessage>>,
+    actions: Option<Vec<sniffer::Action>>,
 ) -> (Sniffer, SocketAddr) {
     let listening_address = get_available_address();
     let sniffer = Sniffer::new(
@@ -41,7 +41,7 @@ pub async fn start_sniffer(
         listening_address,
         upstream,
         check_on_drop,
-        intercept_message,
+        actions,
     )
     .await;
     let sniffer_clone = sniffer.clone();
