@@ -69,8 +69,15 @@ async fn jds_do_not_stackoverflow_when_no_token() {
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
-    let (jds_jdc_sniffer, jds_jdc_sniffer_addr) =
-        start_sniffer("JDS-JDC-sniffer".to_string(), jds_addr, false, None).await;
+    let block_from_message =
+        sniffer::BlockFromMessage::new(sniffer::MessageDirection::ToDownstream, 81);
+    let (jds_jdc_sniffer, jds_jdc_sniffer_addr) = start_sniffer(
+        "JDS-JDC-sniffer".to_string(),
+        jds_addr,
+        false,
+        Some(vec![sniffer::Action::BlockFromMessage(block_from_message)]),
+    )
+    .await;
     let (_jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_jdc_sniffer_addr).await;
     let (_, _) = start_sv2_translator(jdc_addr).await;
     assert_common_message!(
@@ -86,7 +93,7 @@ async fn jds_do_not_stackoverflow_when_no_token() {
         AllocateMiningJobToken
     );
     // I need sniffer to block messages from JDS to JDC after receiving token request.
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    tokio::time::sleep(Duration::from_secs(20)).await;
     dbg!(&jdc_addr);
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_err());
 }
