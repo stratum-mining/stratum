@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 // This file contains integration tests for the `JDC/S` module.
 //
 // `JDC/S` are modules that implements the Job Decleration roles in the Stratum V2 protocol.
@@ -6,7 +8,7 @@
 // all tests. This is because tracing is a global setting.
 use integration_tests_sv2::*;
 
-use roles_logic_sv2::parsers::{CommonMessages, PoolMessages};
+use roles_logic_sv2::parsers::{CommonMessages, JobDeclaration, PoolMessages};
 
 // This test verifies that jd-server does not exit when a connected jd-client shuts down.
 //
@@ -25,4 +27,44 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
     let (sniffer, sniffer_addr) = start_sniffer("0".to_string(), jds_addr, false, None).await;
     let (_jdc_1, _jdc_addr_1) = start_jdc(pool_addr, tp_addr, sniffer_addr).await;
     assert_common_message!(sniffer.next_message_from_downstream(), SetupConnection);
+}
+
+/// This test ensures that `jd-client` does not panic even if `jd-server` leaves the connection open
+/// after receiving the request for token.
+///
+/// The test verifies whether `jdc` has crashed by attempting to bind to the `jdc` port after 10
+/// seconds of no response from `jd-server`.
+#[tokio::test]
+async fn jds_do_not_stackoverflow_when_no_token() {
+    start_tracing();
+    let (tp, tp_addr) = start_template_provider(None);
+    let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
+    let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
+    let block_from_message =
+        sniffer::BlockFromMessage::new(sniffer::MessageDirection::ToDownstream, 81);
+    let (jds_jdc_sniffer, jds_jdc_sniffer_addr) = start_sniffer(
+        "JDS-JDC-sniffer".to_string(),
+        jds_addr,
+        false,
+        Some(vec![sniffer::Action::BlockFromMessage(block_from_message)]),
+    )
+    .await;
+    let (_jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_jdc_sniffer_addr).await;
+    let (_, _) = start_sv2_translator(jdc_addr).await;
+    assert_common_message!(
+        jds_jdc_sniffer.next_message_from_downstream(),
+        SetupConnection
+    );
+    assert_common_message!(
+        jds_jdc_sniffer.next_message_from_upstream(),
+        SetupConnectionSuccess
+    );
+    assert_jd_message!(
+        jds_jdc_sniffer.next_message_from_downstream(),
+        AllocateMiningJobToken
+    );
+    // I need sniffer to block messages from JDS to JDC after receiving token request.
+    tokio::time::sleep(Duration::from_secs(20)).await;
+    dbg!(&jdc_addr);
+    assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_err());
 }

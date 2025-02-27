@@ -42,8 +42,13 @@ async fn test_sniffer_intercept_to_downstream() {
     );
 
     // this sniffer will replace SetupConnectionSuccess with SetupConnectionError
-    let (_sniffer_a, sniffer_a_addr) =
-        start_sniffer("A".to_string(), tp_addr, false, Some(vec![intercept])).await;
+    let (_sniffer_a, sniffer_a_addr) = start_sniffer(
+        "A".to_string(),
+        tp_addr,
+        false,
+        Some(vec![sniffer::Action::InterceptMessage(intercept)]),
+    )
+    .await;
 
     // this sniffer will assert SetupConnectionSuccess was correctly replaced with
     // SetupConnectionError
@@ -82,8 +87,13 @@ async fn test_sniffer_intercept_to_upstream() {
         message_replacement,
     );
 
-    let (sniffer_a, sniffer_a_addr) =
-        start_sniffer("A".to_string(), tp_addr, false, Some(vec![intercept])).await;
+    let (sniffer_a, sniffer_a_addr) = start_sniffer(
+        "A".to_string(),
+        tp_addr,
+        false,
+        Some(vec![sniffer::Action::InterceptMessage(intercept)]),
+    )
+    .await;
 
     let (_sniffer_b, sniffer_b_addr) =
         start_sniffer("B".to_string(), sniffer_a_addr, false, None).await;
