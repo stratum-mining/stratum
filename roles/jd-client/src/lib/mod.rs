@@ -200,7 +200,7 @@ impl JobDeclaratorClient {
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
         let timeout = config.timeout();
-        let miner_tx_out = config::get_coinbase_output(&config).unwrap();
+        let miner_tx_out = config.get_txout().expect("Failed to get txout");
 
         // When Downstream receive a share that meets bitcoin target it transformit in a
         // SubmitSolution and send it to the TemplateReceiver
