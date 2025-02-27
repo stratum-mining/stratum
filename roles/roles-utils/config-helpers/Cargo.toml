@@ -1,0 +1,16 @@
+[package]
+name = "config-helpers"
+authors = ["The Stratum V2 Developers"]
+version = "0.1.0"
+edition = "2018"
+description = "Helpers for working with Stratum V2 configuration files"
+documentation = ""
+readme = "README.md"
+homepage = "https://stratumprotocol.org"
+repository = "https://github.com/stratum-mining/stratum"
+license = "MIT OR Apache-2.0"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
+[dependencies]
+serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
+roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
