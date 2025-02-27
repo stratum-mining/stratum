@@ -35,5 +35,7 @@ rand = "0.8.4"
 stratum-common = { path = "../../common" }
 tracing-subscriber = { version = "0.3.19"}
 mining_device = { path = "../test-utils/mining-device" }
+config-helpers = { path = "../roles-utils/config-helpers" }
+
 [lib]
 path = "lib/mod.rs"

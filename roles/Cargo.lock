@@ -712,6 +712,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "config-helpers"
+version = "0.1.0"
+dependencies = [
+ "roles_logic_sv2",
+ "serde",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1439,6 +1447,7 @@ dependencies = [
  "async-channel 1.9.0",
  "binary_sv2",
  "codec_sv2",
+ "config-helpers",
  "const_sv2",
  "corepc-node",
  "flate2",
@@ -1484,6 +1493,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
+ "config-helpers",
  "error_handling",
  "framing_sv2",
  "futures",
@@ -1508,6 +1518,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
+ "config-helpers",
  "const_sv2",
  "error_handling",
  "hashbrown 0.11.2",
