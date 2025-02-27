@@ -39,6 +39,3 @@ key-utils = { path = "../../utils/key-utils" }
 
 [dev-dependencies]
 hex = "0.4.3"
-
-[features]
-test_only_allow_unencrypted = []

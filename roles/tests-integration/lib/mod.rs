@@ -52,7 +52,7 @@ pub async fn start_sniffer(
 }
 
 pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolSv2, SocketAddr) {
-    use pool_sv2::mining_pool::{CoinbaseOutput, Configuration};
+    use pool_sv2::config::{CoinbaseOutput, PoolConfig};
     let listening_address = get_available_address();
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
@@ -73,16 +73,15 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     } else {
         "127.0.0.1:8442".to_string()
     };
-    let connection_config = pool_sv2::mining_pool::ConnectionConfig::new(
+    let connection_config = pool_sv2::config::ConnectionConfig::new(
         listening_address.to_string(),
         cert_validity_sec,
         pool_signature,
     );
-    let template_provider_config =
-        pool_sv2::mining_pool::TemplateProviderConfig::new(tp_address, None);
+    let template_provider_config = pool_sv2::config::TemplateProviderConfig::new(tp_address, None);
     let authority_config =
-        pool_sv2::mining_pool::AuthorityConfig::new(authority_public_key, authority_secret_key);
-    let config = Configuration::new(
+        pool_sv2::config::AuthorityConfig::new(authority_public_key, authority_secret_key);
+    let config = PoolConfig::new(
         connection_config,
         template_provider_config,
         authority_config,
