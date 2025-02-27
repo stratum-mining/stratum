@@ -101,6 +101,7 @@ pub struct Configuration {
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
     pub pool_signature: String,
+    pub shares_per_minute: f32,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }
@@ -155,6 +156,7 @@ impl Configuration {
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
         coinbase_outputs: Vec<CoinbaseOutput>,
+        shares_per_minute: f32,
         #[cfg(feature = "test_only_allow_unencrypted")] test_only_listen_adress_plain: String,
     ) -> Self {
         Self {
@@ -166,6 +168,7 @@ impl Configuration {
             cert_validity_sec: pool_connection.cert_validity_sec,
             coinbase_outputs,
             pool_signature: pool_connection.signature,
+            shares_per_minute,
             #[cfg(feature = "test_only_allow_unencrypted")]
             test_only_listen_adress_plain,
         }
@@ -596,6 +599,7 @@ impl Pool {
         solution_sender: Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
+        shares_per_minute: f32,
     ) -> Arc<Mutex<Self>> {
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
@@ -609,13 +613,12 @@ impl Pool {
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
-        let share_per_min = 1.0;
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
         let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(
             ids,
             extranonces,
             creator,
-            share_per_min,
+            shares_per_minute,
             kind,
             pool_coinbase_outputs.expect("Invalid coinbase output in config"),
             config.pool_signature.clone().into(),
