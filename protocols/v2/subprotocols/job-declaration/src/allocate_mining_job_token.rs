@@ -25,11 +25,12 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     /// A token that makes the JDC eligible for committing a mining job for approval/transactions
     /// declaration or for identifying custom mining job on mining connection.
     pub mining_job_token: B0255<'decoder>,
-    /// The maximum additional size that can be added to the coinbase output.
-    ///
     /// The maximum additional serialized bytes which the JDS will add in coinbase transaction
     /// outputs.
     pub coinbase_output_max_additional_size: u32,
+    /// The maximum additional sigops which the JDS will add in coinbase transaction
+    /// outputs.
+    pub coinbase_output_max_additional_sigops: u16,
     /// Bitcoin transaction outputs added by JDS.
     pub coinbase_output: B064K<'decoder>,
     /// Whether the client is allowed to mine asynchronously.
