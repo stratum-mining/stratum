@@ -10,7 +10,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_declarator"
+            "message_id": "../../test/message-generator/messages/common_messages.json::setup_connection_job_declarator"
         }
     ],
     "actions": [

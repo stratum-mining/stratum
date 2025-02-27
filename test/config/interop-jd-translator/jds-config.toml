@@ -10,10 +10,10 @@ coinbase_outputs = [
 
 listen_jd_address = "127.0.0.1:34264"
 
-core_rpc_url =  ""
-core_rpc_port = 18332
-core_rpc_user =  ""
-core_rpc_pass =  ""
+core_rpc_url =  "http://75.119.150.111"
+core_rpc_port = 48332
+core_rpc_user =  "username"
+core_rpc_pass =  "password"
 # Time interval used for JDS mempool update 
 [mempool_update_interval]
 unit = "secs"

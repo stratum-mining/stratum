@@ -13,11 +13,11 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+            "message_id": "../../test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::openEMC_success_tproxy_bad_extranonce"
+            "message_id": "../../test/message-generator/messages/mining_messages.json::openEMC_success_tproxy_bad_extranonce"
         }
     ],
     "actions": [
@@ -65,11 +65,13 @@
             "command": "cargo",
             "args": [
                         "run",
+                        "--manifest-path",
+                        "../../roles/Cargo.toml",
                         "-p",
                         "translator_sv2",
                         "--",
                         "-c",
-                        "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
+                        "../../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
 
             ],
             "conditions": {

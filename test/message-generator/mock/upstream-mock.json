@@ -13,27 +13,27 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+            "message_id": "../../test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::open_extended_mining_channel_success"
+            "message_id": "../../test/message-generator/messages/mining_messages.json::open_extended_mining_channel_success"
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::set_custom_mining_job_success"
+            "message_id": "../../test/message-generator/messages/mining_messages.json::set_custom_mining_job_success"
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::submit_shares_error"
+            "message_id": "../../test/message-generator/messages/mining_messages.json::submit_shares_error"
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::new_extended_mining_job"
+            "message_id": "../../test/message-generator/messages/mining_messages.json::new_extended_mining_job"
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::set_new_prev_hash"
+            "message_id": "../../test/message-generator/messages/mining_messages.json::set_new_prev_hash"
         }
     ],
     "actions": [
