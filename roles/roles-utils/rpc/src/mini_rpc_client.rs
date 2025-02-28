@@ -21,12 +21,12 @@ use super::BlockHash;
 #[derive(Clone, Debug)]
 pub struct MiniRpcClient {
     client: Client<HttpConnector, Full<Bytes>>,
-    url: String,
+    url: hyper::Uri,
     auth: Auth,
 }
 
 impl MiniRpcClient {
-    pub fn new(url: String, auth: Auth) -> MiniRpcClient {
+    pub fn new(url: hyper::Uri, auth: Auth) -> MiniRpcClient {
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build_http();
         MiniRpcClient { client, url, auth }
     }
@@ -120,7 +120,7 @@ impl MiniRpcClient {
 
         let req = Request::builder()
             .method("POST")
-            .uri(self.url.as_str())
+            .uri(self.url.clone())
             .header(CONTENT_TYPE, "application/json")
             .header(
                 AUTHORIZATION,
