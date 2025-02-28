@@ -39,6 +39,7 @@ use super::{config::JobDeclaratorClientConfig, error::Error, upstream_sv2::Upstr
 pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
     template: NewTemplate<'static>,
+    prev_hash: Option<SetNewPrevHash<'static>>,
     coinbase_pool_output: Vec<u8>,
     tx_list: Seq064K<'static, B016M<'static>>,
 }
@@ -262,9 +263,16 @@ impl JobDeclarator {
             tx_hash_list_hash: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).1,
             excess_data, // request transaction data
         };
+
+        let prev_hash = self_mutex
+            .safe_lock(|s| s.last_set_new_prev_hash.clone())
+            .unwrap()
+            .filter(|_| !template.future_template);
+
         let last_declare = LastDeclareJob {
             declare_job: declare_job.clone(),
             template,
+            prev_hash,
             coinbase_pool_output,
             tx_list: tx_list_.clone(),
         };
@@ -296,6 +304,7 @@ impl JobDeclarator {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
                             let last_declare = Self::get_last_declare_job_sent(&self_mutex, m.request_id).unwrap_or_else(|| panic!("Failed to get last declare job: job not found, Request Id: {:?}.", m.request_id));
+                            debug!("LastDeclareJob.prev_hash: {:?}", last_declare.prev_hash);
                             let mut last_declare_mining_job_sent = last_declare.declare_job;
                             let is_future = last_declare.template.future_template;
                             let id = last_declare.template.template_id;
@@ -321,9 +330,7 @@ impl JobDeclarator {
                                     })
                                     .unwrap();
                             } else {
-                                let set_new_prev_hash = self_mutex
-                                    .safe_lock(|s| s.last_set_new_prev_hash.clone())
-                                    .unwrap();
+                                let set_new_prev_hash = last_declare.prev_hash;
                                 let mut template_outs = template.coinbase_tx_outputs.to_vec();
                                 let mut pool_outs = last_declare.coinbase_pool_output;
                                 pool_outs.append(&mut template_outs);
