@@ -15,6 +15,7 @@ use sniffer::MessageDirection;
 // starting a new jd-client that connects to the same jd-server successfully.
 #[tokio::test]
 async fn jds_should_not_panic_if_jdc_shutsdown() {
+    start_tracing();
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;

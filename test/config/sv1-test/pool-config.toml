@@ -14,10 +14,10 @@ coinbase_outputs = [
     #{ output_script_type = "P2WPKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
     #{ output_script_type = "P2TR", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
 ]
-# Pool signature (string to be included in coinbase tx) 
+# Pool signature (string to be included in coinbase tx)
 # e.g. "Foundry USA", "Antpool", "/ViaBTC/Mined by gitgab19", etc
 pool_signature = "Stratum v2 SRI Pool - gitgab19"
 
 # Template Provider config
-# hosted testnet TP 
+# hosted testnet TP
 tp_address = "75.119.150.111:8442"
