@@ -180,12 +180,14 @@ pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServe
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
     )];
     if let Ok(Some(CookieValues { user, password })) = tp_rpc_connection.get_cookie_values() {
-        let core_rpc = CoreRpc::new(
-            format!("http://{}", tp_rpc_connection.rpc_socket.ip()).to_string(),
-            tp_rpc_connection.rpc_socket.port(),
-            user,
-            password,
-        );
+        let ip = tp_rpc_connection.rpc_socket.ip().to_string();
+        let url = jd_server::Uri::builder()
+            .scheme("http")
+            .authority(ip)
+            .path_and_query("")
+            .build()
+            .unwrap();
+        let core_rpc = CoreRpc::new(url, tp_rpc_connection.rpc_socket.port(), user, password);
         let config = Configuration::new(
             listen_jd_address.to_string(),
             authority_public_key,
@@ -195,7 +197,7 @@ pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServe
             core_rpc,
             std::time::Duration::from_secs(1),
         );
-        let job_declarator_server = JobDeclaratorServer::new(config).unwrap();
+        let job_declarator_server = JobDeclaratorServer::new(config);
         let job_declarator_server_clone = job_declarator_server.clone();
         tokio::spawn(async move {
             job_declarator_server_clone.start().await.unwrap();

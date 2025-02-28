@@ -10,3 +10,5 @@ pub struct Amount(f64);
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockHash(Hash);
+
+pub use hyper::Uri;
