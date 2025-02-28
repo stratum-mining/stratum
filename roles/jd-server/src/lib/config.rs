@@ -186,17 +186,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_invalid_rpc_url() {
-        let mut config = load_config("config-examples/jds-config-hosted-example.toml");
-        config.set_core_rpc_url("invalid".to_string());
-        assert!(JobDeclaratorServer::new(config).is_err());
-    }
-
-    #[tokio::test]
     async fn test_offline_rpc_url() {
         let mut config = load_config("config-examples/jds-config-hosted-example.toml");
         config.set_core_rpc_url("http://127.0.0.1".to_string());
-        let jd = JobDeclaratorServer::new(config).unwrap();
+        let jd = JobDeclaratorServer::new(config);
         assert!(jd.start().await.is_err());
     }
 
