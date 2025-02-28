@@ -65,34 +65,59 @@ pub struct Sniffer {
 #[derive(Debug, Clone)]
 pub enum Action {
     /// Blocks the message stream after encountering a specific message.
-    BlockFromMessage(BlockFromMessage),
+    IgnoreFromMessage(IgnoreFromMessage),
     /// Intercepts and modifies a message before forwarding it.
     InterceptMessage(Box<InterceptMessage>),
 }
 
+impl Action {
+    /// Returns the action if it is a downstream `IgnoreFromMessage` or `InterceptMessage`  
+    /// with the specified message type.
+    pub fn filter_downstream(
+        action: &Option<Action>,
+        msg_type: MsgType,
+        direction: MessageDirection,
+    ) -> Option<&Self> {
+        action.as_ref().and_then(|action| match action {
+            Action::IgnoreFromMessage(bm)
+                if bm.direction == direction && bm.expected_message_type == msg_type =>
+            {
+                Some(action)
+            }
+
+            Action::InterceptMessage(im)
+                if im.direction == direction && im.expected_message_type == msg_type =>
+            {
+                Some(action)
+            }
+
+            _ => None,
+        })
+    }
+}
 /// Defines an action that blocks the message stream after detecting a specific message.
 #[derive(Debug, Clone)]
-pub struct BlockFromMessage {
+pub struct IgnoreFromMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
 }
 
-impl BlockFromMessage {
-    /// Creates a new [`BlockFromMessage`] action.
+impl IgnoreFromMessage {
+    /// Creates a new [`IgnoreFromMessage`] action.
     ///
     /// - `direction`: The direction of the message stream to block.
     /// - `expected_message_type`: The type of message after which the stream should be blocked.
     pub fn new(direction: MessageDirection, expected_message_type: MsgType) -> Self {
-        BlockFromMessage {
+        IgnoreFromMessage {
             direction,
             expected_message_type,
         }
     }
 }
 
-impl From<BlockFromMessage> for Action {
-    fn from(value: BlockFromMessage) -> Self {
-        Action::BlockFromMessage(value)
+impl From<IgnoreFromMessage> for Action {
+    fn from(value: IgnoreFromMessage) -> Self {
+        Action::IgnoreFromMessage(value)
     }
 }
 
@@ -282,7 +307,7 @@ impl Sniffer {
             });
             if let Some(ref action) = action {
                 match action {
-                    Action::BlockFromMessage(_) => {
+                    Action::IgnoreFromMessage(_) => {
                         blocked = true;
                         continue;
                     }
@@ -348,7 +373,7 @@ impl Sniffer {
 
             if let Some(ref action) = action {
                 match action {
-                    Action::BlockFromMessage(_) => {
+                    Action::IgnoreFromMessage(_) => {
                         blocked = true;
                         continue;
                     }
