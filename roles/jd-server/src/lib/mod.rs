@@ -11,8 +11,8 @@ use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
 use roles_logic_sv2::{parsers::AnyMessage as JdsMessages, utils::Mutex};
-use std::{ops::Sub, sync::Arc};
-use stratum_common::url::is_valid_url;
+pub use rpc_sv2::Uri;
+use std::{ops::Sub, str::FromStr, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
 
@@ -26,23 +26,25 @@ pub struct JobDeclaratorServer {
 }
 
 impl JobDeclaratorServer {
-    pub fn new(config: JobDeclaratorServerConfig) -> Result<Self, Box<JdsError>> {
-        let url = config.core_rpc_url().to_string() + ":" + &config.core_rpc_port().to_string();
-        if !is_valid_url(&url) {
-            return Err(Box::new(JdsError::InvalidRPCUrl));
-        }
-        Ok(Self { config })
+    pub fn new(config: JobDeclaratorServerConfig) -> Self {
+        Self { config }
     }
     pub async fn start(&self) -> Result<(), JdsError> {
-        let config = self.config.clone();
+        let mut config = self.config.clone();
+        // In case the url came with a trailing slash, we remove it to make sure we end up with
+        // `{scheme}://{host}:{port}` format.
+        if config.core_rpc_url().ends_with('/') {
+            config.set_core_rpc_url(config.core_rpc_url().trim_end_matches('/').to_string());
+        }
         let url = config.core_rpc_url().to_string() + ":" + &config.core_rpc_port().to_string();
         let username = config.core_rpc_user();
         let password = config.core_rpc_pass();
         // TODO should we manage what to do when the limit is reaced?
         let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) =
             bounded(10);
+        let url = Uri::from_str(&url.clone()).expect("Invalid core rpc url");
         let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
-            url.clone(),
+            url,
             username.to_string(),
             password.to_string(),
             new_block_receiver,
@@ -51,7 +53,7 @@ impl JobDeclaratorServer {
         let mempool_cloned_ = mempool.clone();
         let mempool_cloned_1 = mempool.clone();
         if let Err(e) = mempool::JDsMempool::health(mempool_cloned_1.clone()).await {
-            error!("{:?}", e);
+            error!("JDS Connection with bitcoin core failed {:?}", e);
             return Err(JdsError::MempoolError(e));
         }
         let (status_tx, status_rx) = unbounded();
