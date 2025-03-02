@@ -71,9 +71,9 @@ pub enum Action {
 }
 
 impl Action {
-    /// Returns the action if it is a downstream `IgnoreFromMessage` or `InterceptMessage`  
+    /// Returns the action if it is `IgnoreFromMessage` or `InterceptMessage`  
     /// with the specified message type.
-    pub fn filter_downstream(
+    pub fn find_matching_action(
         action: &Option<Action>,
         msg_type: MsgType,
         direction: MessageDirection,
@@ -288,23 +288,8 @@ impl Sniffer {
                 continue;
             }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
-            let action = action.as_ref().and_then(|action| match action {
-                Action::BlockFromMessage(bm)
-                    if bm.direction == MessageDirection::ToUpstream
-                        && bm.expected_message_type == msg_type =>
-                {
-                    Some(action)
-                }
-
-                Action::InterceptMessage(im)
-                    if im.direction == MessageDirection::ToUpstream
-                        && im.expected_message_type == msg_type =>
-                {
-                    Some(action)
-                }
-
-                _ => None,
-            });
+            let action =
+                Action::find_matching_action(&action, msg_type, MessageDirection::ToUpstream);
             if let Some(ref action) = action {
                 match action {
                     Action::IgnoreFromMessage(_) => {
@@ -353,23 +338,8 @@ impl Sniffer {
             }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
 
-            let action = action.as_ref().and_then(|action| match action {
-                Action::BlockFromMessage(bm)
-                    if bm.direction == MessageDirection::ToDownstream
-                        && bm.expected_message_type == msg_type =>
-                {
-                    Some(action)
-                }
-
-                Action::InterceptMessage(im)
-                    if im.direction == MessageDirection::ToDownstream
-                        && im.expected_message_type == msg_type =>
-                {
-                    Some(action)
-                }
-
-                _ => None,
-            });
+            let action =
+                Action::find_matching_action(&action, msg_type, MessageDirection::ToDownstream);
 
             if let Some(ref action) = action {
                 match action {
