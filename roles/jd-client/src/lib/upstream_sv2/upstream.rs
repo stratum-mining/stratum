@@ -570,7 +570,10 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         let range_1 = prefix_len..prefix_len + self_len;
         let range_2 = prefix_len + self_len..total_len;
 
-        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extranonces =
+            ExtendedExtranonce::new(range_0, range_1, range_2, None).map_err(|err| {
+                RolesLogicError::ExtendedExtranonceCreationFailed(format!("{:?}", err))
+            })?;
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
         let share_per_min = 1.0;
         let channel_kind =

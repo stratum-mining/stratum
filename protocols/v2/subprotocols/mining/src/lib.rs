@@ -345,7 +345,24 @@ pub struct ExtendedExtranonce {
     range_0: core::ops::Range<usize>,
     range_1: core::ops::Range<usize>,
     range_2: core::ops::Range<usize>,
+    additional_coinbase_script_data: Option<alloc::vec::Vec<u8>>,
 }
+
+/// Error type for ExtendedExtranonce operations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExtendedExtranonceError {
+    /// The range_2.end is greater than MAX_EXTRANONCE_LEN
+    ExceedsMaxLength,
+    /// The ranges are invalid (e.g. range_0.end != range_1.start)
+    InvalidRanges,
+    /// The downstream extranonce length doesn't match the expected length
+    InvalidDownstreamLength,
+    /// The extranonce bytes in range_1 are at maximum value and can't be incremented
+    MaxValueReached,
+    /// The additional coinbase script data length is invalid
+    InvalidAdditionalCoinbaseScriptDataLength,
+}
+
 /// the trait PartialEq is implemented in such a way that only the relevant bytes are compared.
 /// If range_2.end is set to 20, then the following ExtendedExtranonces are equal
 /// ExtendedExtranonce {
@@ -372,16 +389,52 @@ impl PartialEq for ExtendedExtranonce {
 
 impl ExtendedExtranonce {
     /// every extranonce start from zero.
-    pub fn new(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>) -> Self {
-        debug_assert!(range_0.start == 0);
-        debug_assert!(range_0.end == range_1.start);
-        debug_assert!(range_1.end == range_2.start);
-        Self {
-            inner: [0; MAX_EXTRANONCE_LEN],
+    pub fn new(
+        range_0: Range<usize>,
+        range_1: Range<usize>,
+        range_2: Range<usize>,
+        additional_coinbase_script_data: Option<alloc::vec::Vec<u8>>,
+    ) -> Result<Self, ExtendedExtranonceError> {
+        // Validate ranges
+        if range_0.start != 0
+            || range_0.end != range_1.start
+            || range_1.end != range_2.start
+            || range_1.end < range_1.start
+            || range_2.end < range_2.start
+        {
+            return Err(ExtendedExtranonceError::InvalidRanges);
+        }
+
+        if let Some(additional_coinbase_script_data) = additional_coinbase_script_data.clone() {
+            if additional_coinbase_script_data.len() > range_1.end - range_1.start {
+                return Err(ExtendedExtranonceError::InvalidAdditionalCoinbaseScriptDataLength);
+            }
+        }
+
+        // Check if range_2.end exceeds MAX_EXTRANONCE_LEN
+        if range_2.end > MAX_EXTRANONCE_LEN {
+            return Err(ExtendedExtranonceError::ExceedsMaxLength);
+        }
+
+        let inner = match additional_coinbase_script_data.clone() {
+            Some(additional_coinbase_script_data) => {
+                let mut inner = vec![0; MAX_EXTRANONCE_LEN];
+                inner[range_1.start..range_1.start + additional_coinbase_script_data.len()]
+                    .copy_from_slice(&additional_coinbase_script_data);
+                inner.try_into().expect("should never fail")
+            }
+            None => vec![0; MAX_EXTRANONCE_LEN]
+                .try_into()
+                .expect("should never fail"),
+        };
+
+        Ok(Self {
+            inner,
             range_0,
             range_1,
             range_2,
-        }
+            additional_coinbase_script_data,
+        })
     }
 
     pub fn new_with_inner_only_test(
@@ -389,15 +442,31 @@ impl ExtendedExtranonce {
         range_1: Range<usize>,
         range_2: Range<usize>,
         mut inner: alloc::vec::Vec<u8>,
-    ) -> Self {
+    ) -> Result<Self, ExtendedExtranonceError> {
+        // Validate ranges
+        if range_0.start != 0
+            || range_0.end != range_1.start
+            || range_1.end != range_2.start
+            || range_1.end < range_1.start
+            || range_2.end < range_2.start
+        {
+            return Err(ExtendedExtranonceError::InvalidRanges);
+        }
+
+        // Check if range_2.end exceeds MAX_EXTRANONCE_LEN
+        if range_2.end > MAX_EXTRANONCE_LEN {
+            return Err(ExtendedExtranonceError::ExceedsMaxLength);
+        }
+
         inner.resize(MAX_EXTRANONCE_LEN, 0);
         let inner = inner.try_into().unwrap();
-        Self {
+        Ok(Self {
             inner,
             range_0,
             range_1,
             range_2,
-        }
+            additional_coinbase_script_data: None,
+        })
     }
 
     pub fn get_len(&self) -> usize {
@@ -427,25 +496,33 @@ impl ExtendedExtranonce {
         range_0: Range<usize>,
         range_1: Range<usize>,
         range_2: Range<usize>,
-    ) -> Option<Self> {
-        debug_assert!(range_0.start <= range_0.end);
-        debug_assert!(range_0.end <= range_1.start);
-        debug_assert!(range_1.start <= range_1.end);
-        debug_assert!(range_1.end <= range_2.start);
-        debug_assert!(range_2.start <= range_2.end);
-        if range_2.end > MAX_EXTRANONCE_LEN {
-            return None;
+    ) -> Result<Self, ExtendedExtranonceError> {
+        // Validate ranges
+        if range_0.start != 0
+            || range_0.end != range_1.start
+            || range_1.end != range_2.start
+            || range_1.end < range_1.start
+            || range_2.end < range_2.start
+        {
+            return Err(ExtendedExtranonceError::InvalidRanges);
         }
+
+        // Check if range_2.end exceeds MAX_EXTRANONCE_LEN
+        if range_2.end > MAX_EXTRANONCE_LEN {
+            return Err(ExtendedExtranonceError::ExceedsMaxLength);
+        }
+
         let mut inner = v.extranonce;
         inner.resize(range_2.end, 0);
         let rest = vec![0; MAX_EXTRANONCE_LEN - inner.len()];
         // below unwraps never panics
         let inner: [u8; MAX_EXTRANONCE_LEN] = [inner, rest].concat().try_into().unwrap();
-        Some(Self {
+        Ok(Self {
             inner,
             range_0,
             range_1,
             range_2,
+            additional_coinbase_script_data: None,
         })
     }
 
@@ -453,47 +530,63 @@ impl ExtendedExtranonce {
     pub fn extranonce_from_downstream_extranonce(
         &self,
         dowstream_extranonce: Extranonce,
-    ) -> Option<Extranonce> {
+    ) -> Result<Extranonce, ExtendedExtranonceError> {
         if dowstream_extranonce.extranonce.len() != self.range_2.end - self.range_2.start {
-            return None;
+            return Err(ExtendedExtranonceError::InvalidDownstreamLength);
         }
         let mut res = self.inner[self.range_0.start..self.range_1.end].to_vec();
         for b in dowstream_extranonce.extranonce {
             res.push(b)
         }
-        res.try_into().ok()
+        res.try_into()
+            .map_err(|_| ExtendedExtranonceError::ExceedsMaxLength)
     }
 
-    /// This function takes in input an ExtendedExtranonce for the extended channel. The number
-    /// represented by the bytes in range_2 is incremented by 1 and the ExtendedExtranonce is
-    /// converted in an Extranonce. If range_2 is at maximum value, the output is None.
-    pub fn next_standard(&mut self) -> Option<Extranonce> {
+    /// Calculates the next extranonce for standard channels.
+    pub fn next_standard(&mut self) -> Result<Extranonce, ExtendedExtranonceError> {
         let reserved_extranonce_bytes = &mut self.inner[self.range_1.start..self.range_1.end];
         for b in reserved_extranonce_bytes {
             *b = 0
         }
+
         let non_reserved_extranonces_bytes = &mut self.inner[self.range_2.start..self.range_2.end];
         match increment_bytes_be(non_reserved_extranonces_bytes) {
-            Ok(_) => Some(self.into()),
-            Err(_) => None,
+            Ok(_) => Ok(self.into()),
+            Err(_) => Err(ExtendedExtranonceError::MaxValueReached),
         }
     }
 
-    /// This function calculates the next extranonce, but the output is ExtendedExtranonce. The
-    /// required_len variable represents the range requested by the downstream to use. The part
-    /// incremented is range_1, as every downstream must have different jobs.
-    pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
+    /// Calculates the next extranonce for extended channels.
+    /// The required_len variable represents the range requested by the downstream to use.
+    /// The part that is incremented is range_1, as every downstream must have different jobs.
+    pub fn next_extended(
+        &mut self,
+        required_len: usize,
+    ) -> Result<Extranonce, ExtendedExtranonceError> {
         if required_len > self.range_2.end - self.range_2.start {
-            return None;
+            return Err(ExtendedExtranonceError::InvalidDownstreamLength);
         };
-        let extended_part = &mut self.inner[self.range_1.start..self.range_1.end];
+
+        // Determine the start position for extended_part based on additional_coinbase_script_data
+        // If additional_coinbase_script_data is Some, some bytes are meant to be fixed and not
+        // incremented
+        let extended_part_start =
+            if let Some(additional_data) = &self.additional_coinbase_script_data {
+                self.range_1.start + additional_data.len()
+            } else {
+                self.range_1.start
+            };
+
+        let extended_part = &mut self.inner[extended_part_start..self.range_1.end];
         match increment_bytes_be(extended_part) {
             Ok(_) => {
                 let result = self.inner[..self.range_1.end].to_vec();
                 // Safe unwrap result will be always less the MAX_EXTRANONCE_LEN
-                Some(result.try_into().unwrap())
+                result
+                    .try_into()
+                    .map_err(|_| ExtendedExtranonceError::ExceedsMaxLength)
             }
-            Err(_) => None,
+            Err(_) => Err(ExtendedExtranonceError::MaxValueReached),
         }
     }
 
@@ -503,22 +596,23 @@ impl ExtendedExtranonce {
     pub fn without_upstream_part(
         &self,
         downstream_extranonce: Option<Extranonce>,
-    ) -> Option<Extranonce> {
+    ) -> Result<Extranonce, ExtendedExtranonceError> {
         match downstream_extranonce {
             Some(downstream_extranonce) => {
                 if downstream_extranonce.extranonce.len() != self.range_2.end - self.range_2.start {
-                    return None;
+                    return Err(ExtendedExtranonceError::InvalidDownstreamLength);
                 }
                 let mut res = self.inner[self.range_1.start..self.range_1.end].to_vec();
                 for b in downstream_extranonce.extranonce {
                     res.push(b)
                 }
-                Some(res.try_into().ok()?)
+                res.try_into()
+                    .map_err(|_| ExtendedExtranonceError::ExceedsMaxLength)
             }
             None => self.inner[self.range_1.start..self.range_2.end]
                 .to_vec()
                 .try_into()
-                .ok(),
+                .map_err(|_| ExtendedExtranonceError::ExceedsMaxLength),
         }
     }
 
@@ -571,7 +665,29 @@ pub mod tests {
 
         let extended_extranonce =
             ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
-        assert!(extended_extranonce.is_none());
+        assert!(extended_extranonce.is_err());
+        assert_eq!(
+            extended_extranonce.unwrap_err(),
+            ExtendedExtranonceError::ExceedsMaxLength
+        );
+    }
+
+    #[test]
+    fn test_invalid_ranges() {
+        // Test with range_0.start != 0
+        let result = ExtendedExtranonce::new(1..2, 2..3, 3..10, None);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), ExtendedExtranonceError::InvalidRanges);
+
+        // Test with range_0.end != range_1.start
+        let result = ExtendedExtranonce::new(0..2, 3..4, 4..10, None);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), ExtendedExtranonceError::InvalidRanges);
+
+        // Test with range_1.end != range_2.start
+        let result = ExtendedExtranonce::new(0..2, 2..4, 5..10, None);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), ExtendedExtranonceError::InvalidRanges);
     }
 
     #[test]
@@ -584,12 +700,16 @@ pub mod tests {
         let range_1 = 4..downstream_len;
         let range_2 = downstream_len..(downstream_len * 2 + 1);
 
-        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
 
         let extranonce =
             extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
 
-        assert!(extranonce.is_none());
+        assert!(extranonce.is_err());
+        assert_eq!(
+            extranonce.unwrap_err(),
+            ExtendedExtranonceError::InvalidDownstreamLength
+        );
 
         // Test with a valid downstream extranonce
         let extra_content: Vec<u8> = vec![5; downstream_len];
@@ -600,12 +720,12 @@ pub mod tests {
         let range_1 = 4..downstream_len;
         let range_2 = downstream_len..(downstream_len * 2);
 
-        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
 
         let extranonce =
             extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
 
-        assert!(extranonce.is_some());
+        assert!(extranonce.is_ok());
 
         //validate that the extranonce is the concatenation of the upstream part and the downstream
         // part
@@ -633,11 +753,11 @@ pub mod tests {
         let range_1 = 4..downstream_len;
         let range_2 = downstream_len..(downstream_len * 2 + 1);
 
-        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
 
         assert_eq!(
             extended_extraonce.without_upstream_part(Some(downstream_extranonce.clone())),
-            None
+            Err(ExtendedExtranonceError::InvalidDownstreamLength)
         );
 
         let range_0 = 0..4;
@@ -724,12 +844,14 @@ pub mod tests {
         let range_0 = 0..ranges[0];
         let range_1 = ranges[0]..ranges[1];
         let range_2 = ranges[1]..extranonce_len;
-        let mut extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
+
+        let mut extended_extranonce_start = ExtendedExtranonce::new_with_inner_only_test(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            inner.to_vec(),
+        )
+        .unwrap();
 
         assert_eq!(extended_extranonce_start.get_len(), extranonce_len);
         assert_eq!(
@@ -737,10 +859,14 @@ pub mod tests {
             extranonce_len - ranges[1]
         );
 
-        let extranonce = match extended_extranonce_start.next_extended(0) {
-            Some(x) => x,
-            None => return true,
-        };
+        let extranonce_result = extended_extranonce_start.next_extended(0);
+
+        // todo: refactor this test to avoid skipping the test if next_extended fails
+        if extranonce_result.is_err() {
+            return true; // Skip test if next_extended fails
+        }
+
+        let extranonce = extranonce_result.unwrap();
 
         let extended_extranonce_final = ExtendedExtranonce::from_upstream_extranonce(
             extranonce,
@@ -748,8 +874,9 @@ pub mod tests {
             range_1.clone(),
             range_2.clone(),
         );
+
         match extended_extranonce_final {
-            Some(extended_extranonce_final) => {
+            Ok(extended_extranonce_final) => {
                 for b in extended_extranonce_final.inner[range_2.start..range_2.end].iter() {
                     if b != &0 {
                         return false;
@@ -758,7 +885,9 @@ pub mod tests {
                 extended_extranonce_final.inner[range_0.clone().start..range_1.end]
                     == extended_extranonce_start.inner[range_0.start..range_1.end]
             }
-            None => {
+            Err(_) => {
+                // If from_upstream_extranonce fails, it should be because the inner bytes in
+                // range_1..range_2 are not zero
                 for b in inner[range_1.start..range_2.end].iter() {
                     if b != &0 {
                         return true;
@@ -768,6 +897,7 @@ pub mod tests {
             }
         }
     }
+
     // test next_standard_method
     #[quickcheck_macros::quickcheck]
     fn test_next_standard_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
@@ -782,17 +912,21 @@ pub mod tests {
         let range_0 = 0..ranges[0];
         let range_1 = ranges[0]..ranges[1];
         let range_2 = ranges[1]..extranonce_len;
-        let extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
+
+        let extended_extranonce_start = ExtendedExtranonce::new_with_inner_only_test(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            inner.to_vec(),
+        )
+        .unwrap();
+
         let mut extranonce_copy: Extranonce =
             Extranonce::from(&mut extended_extranonce_start.clone());
         let extranonce_expected_b032: Option<B032> = extranonce_copy.next();
+
         match extended_extranonce_start.clone().next_standard() {
-            Some(extranonce_next) => match extranonce_expected_b032 {
+            Ok(extranonce_next) => match extranonce_expected_b032 {
                 Some(b032) =>
                 // the range_2 of extranonce_next must be equal to the range_2 of the
                 // conversion of extranonce_copy.next() converted in extranonce
@@ -808,7 +942,7 @@ pub mod tests {
             },
             // if .next_standard() method falls in None case, this means that the range_2 is at
             // maximum value, so every entry must be 255 as u8
-            None => {
+            Err(ExtendedExtranonceError::MaxValueReached) => {
                 for b in inner[range_2.start..range_2.end].iter() {
                     if b != &255_u8 {
                         return false;
@@ -816,8 +950,10 @@ pub mod tests {
                 }
                 true
             }
+            Err(_) => false, // Other errors are not expected in this test
         }
     }
+
     #[quickcheck_macros::quickcheck]
     fn test_next_stndard2(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
@@ -831,20 +967,23 @@ pub mod tests {
         let range_0 = 0..ranges[0];
         let range_1 = ranges[0]..ranges[1];
         let range_2 = ranges[1]..extranonce_len;
-        let mut extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
+
+        let mut extended_extranonce_start = ExtendedExtranonce::new_with_inner_only_test(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            inner.to_vec(),
+        )
+        .unwrap();
+
         match extended_extranonce_start.next_standard() {
-            Some(v) => {
+            Ok(v) => {
                 extended_extranonce_start.inner[range_2.clone()] == v.extranonce[range_2]
                     && extended_extranonce_start.inner[range_0.clone()]
                         == v.extranonce[range_0.clone()]
                     && v.extranonce[range_1.clone()] == vec![0; range_1.end - range_1.start]
             }
-            None => true,
+            Err(_) => true, // Any error is acceptable for this test
         }
     }
 
@@ -862,25 +1001,28 @@ pub mod tests {
         let range_0 = 0..ranges[0];
         let range_1 = ranges[0]..ranges[1];
         let range_2 = ranges[1]..extranonce_len;
-        let mut extended_extranonce = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
+
+        let mut extended_extranonce = ExtendedExtranonce::new_with_inner_only_test(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            inner.to_vec(),
+        )
+        .unwrap();
+
         match extended_extranonce.next_extended(required_len) {
-            Some(extranonce) => {
-                extended_extranonce.inner[..range_1.end] == extranonce.extranonce[..]
+            Ok(extranonce) => extended_extranonce.inner[..range_1.end] == extranonce.extranonce[..],
+            Err(ExtendedExtranonceError::InvalidDownstreamLength) => {
+                required_len > range_2.end - range_2.start
             }
-            None => {
-                if required_len > range_2.end - range_2.start {
-                    return true;
-                };
+            Err(ExtendedExtranonceError::MaxValueReached) => {
                 let mut range_1_start = inner[range_1.clone()].to_vec();
                 increment_bytes_be(&mut range_1_start).is_err()
             }
+            Err(_) => false, // Other errors are not expected in this test
         }
     }
+
     #[quickcheck_macros::quickcheck]
     fn test_target_from_u256(input: (u128, u128)) -> bool {
         let target_expected = Target {
@@ -1012,8 +1154,132 @@ pub mod tests {
         let range_0 = 0..2;
         let range_1 = 2..4;
         let range_2 = 4..9;
-        let extended = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extended = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
         let prefix_len = extended.get_prefix_len();
         assert!(prefix_len == 4);
+    }
+
+    #[test]
+    fn test_extended_extranonce_with_additional_coinbase_script_data() {
+        let range_0 = 0..0;
+        let range_1 = 0..4;
+        let range_2 = 4..8;
+        let additional_data = vec![0x42, 0x43, 0x44]; // Some fixed data
+
+        // Create an ExtendedExtranonce with additional_coinbase_script_data
+        let extended = ExtendedExtranonce::new(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            Some(additional_data.clone()),
+        )
+        .unwrap();
+
+        // Verify the additional data was stored
+        assert_eq!(
+            extended.additional_coinbase_script_data,
+            Some(additional_data.clone())
+        );
+
+        // Verify the inner data contains the additional data
+        assert_eq!(
+            extended.inner[range_1.start..range_1.start + additional_data.len()],
+            additional_data[..]
+        );
+    }
+
+    #[test]
+    fn test_extended_extranonce_invalid_additional_coinbase_script_data_length() {
+        let range_0 = 0..0;
+        let range_1 = 0..2; // Range length is 2
+        let range_2 = 2..4;
+        let additional_data = vec![0x42, 0x43, 0x44]; // Length 3 > range_1 length
+
+        // Create an ExtendedExtranonce with additional_coinbase_script_data that's too long
+        let result = ExtendedExtranonce::new(range_0, range_1, range_2, Some(additional_data));
+
+        // Verify the correct error is returned
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ExtendedExtranonceError::InvalidAdditionalCoinbaseScriptDataLength
+        );
+    }
+
+    #[test]
+    fn test_next_extended_with_additional_coinbase_script_data() {
+        let range_0 = 0..0;
+        let range_1 = 0..4;
+        let range_2 = 4..8;
+        let additional_data = vec![0x42, 0x43]; // Fixed data of length 2
+
+        // Create an ExtendedExtranonce with additional_coinbase_script_data
+        let mut extended = ExtendedExtranonce::new(
+            range_0,
+            range_1.clone(),
+            range_2,
+            Some(additional_data.clone()),
+        )
+        .unwrap();
+
+        // Call next_extended
+        let result = extended.next_extended(3).unwrap();
+
+        // Verify the result contains the additional data
+        assert_eq!(
+            result.extranonce[0..additional_data.len()],
+            additional_data[..]
+        );
+
+        // Call next_extended again
+        let result2 = extended.next_extended(3).unwrap();
+
+        // Verify the fixed part remains unchanged
+        assert_eq!(
+            result2.extranonce[0..additional_data.len()],
+            additional_data[..]
+        );
+
+        // Verify the incremented part has changed
+        assert_ne!(result.extranonce, result2.extranonce);
+    }
+
+    #[test]
+    fn test_multiple_next_extended_with_additional_coinbase_script_data() {
+        let range_0 = 0..0;
+        let range_1 = 0..4;
+        let range_2 = 4..8;
+        let additional_data = vec![0x42, 0x43]; // Fixed data of length 2
+
+        // Create an ExtendedExtranonce with additional_coinbase_script_data
+        let mut extended = ExtendedExtranonce::new(
+            range_0,
+            range_1.clone(),
+            range_2,
+            Some(additional_data.clone()),
+        )
+        .unwrap();
+
+        // Generate multiple extranonces and verify they all have the same fixed part
+        let mut results = Vec::new();
+        for _ in 0..5 {
+            let result = extended.next_extended(3).unwrap();
+            results.push(result);
+        }
+
+        // Verify all results have the same fixed part
+        for result in &results {
+            assert_eq!(
+                result.extranonce[0..additional_data.len()],
+                additional_data[..]
+            );
+        }
+
+        // Verify all results have different incremented parts
+        for i in 0..results.len() {
+            for j in i + 1..results.len() {
+                assert_ne!(results[i].extranonce, results[j].extranonce);
+            }
+        }
     }
 }

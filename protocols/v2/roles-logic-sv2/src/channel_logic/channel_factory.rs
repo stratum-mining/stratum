@@ -379,7 +379,7 @@ impl ChannelFactory {
         let extranonce = self
             .extranonces
             .next_standard()
-            .ok_or(Error::ExtranonceSpaceEnded)?;
+            .map_err(|_| Error::ExtranonceSpaceEnded)?;
         let standard_channel = StandardChannel {
             channel_id,
             group_id: hom_group_id,
@@ -434,7 +434,7 @@ impl ChannelFactory {
         let extranonce = self
             .extranonces
             .next_standard()
-            .ok_or(Error::ExtranonceSpaceEnded)?;
+            .map_err(|_| Error::ExtranonceSpaceEnded)?;
         let standard_channel = StandardChannel {
             channel_id,
             group_id,
@@ -1267,6 +1267,7 @@ impl PoolChannelFactory {
         self.inner
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
+            .ok()
     }
 
     /// Called when a new custom mining job arrives
@@ -1746,6 +1747,7 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
+            .ok()
     }
 
     /// Returns the most recent prev hash
@@ -1929,7 +1931,8 @@ mod test {
         // reserve space for downstream
         let mut inner = coinbase_extranonce.clone();
         inner[6] = 0;
-        let extranonces = ExtendedExtranonce::new_with_inner_only_test(0..0, 0..0, 0..7, inner);
+        let extranonces = ExtendedExtranonce::new_with_inner_only_test(0..0, 0..0, 0..7, inner)
+            .expect("Failed to create ExtendedExtranonce with valid ranges");
 
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let channel_kind = ExtendedChannelKind::Pool;
