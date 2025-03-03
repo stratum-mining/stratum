@@ -98,7 +98,7 @@ fn server_pool_listen(listener: TcpListener) {
     }
 }
 
-impl<'a> Server<'a> {
+impl Server<'_> {
     pub fn new(stream: TcpStream) -> Arc<Mutex<Server<'static>>> {
         let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
         let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
@@ -109,11 +109,9 @@ impl<'a> Server<'a> {
         // read thread
         thread::spawn(move || {
             let reader = BufReader::new(reader_stream);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    if sender_incoming.send(line).is_err() {
-                        break;
-                    }
+            for line in reader.lines().map_while(Result::ok) {
+                if sender_incoming.send(line).is_err() {
+                    break;
                 }
             }
         });
@@ -144,16 +142,11 @@ impl<'a> Server<'a> {
                         println!("SERVER - message: {}", line);
                         let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
                         if let Ok(message) = message {
-                            match self_.handle_message(message) {
-                                Ok(response) => {
-                                    if let Some(resp) = response {
-                                        Self::send_message(
-                                            &self_.sender_outgoing,
-                                            json_rpc::Message::OkResponse(resp),
-                                        );
-                                    }
-                                }
-                                Err(_) => {}
+                            if let Ok(Some(resp)) = self_.handle_message(message) {
+                                Self::send_message(
+                                    &self_.sender_outgoing,
+                                    json_rpc::Message::OkResponse(resp),
+                                );
                             }
                         }
                     }
@@ -306,7 +299,7 @@ struct Client<'a> {
     sender_outgoing: Sender<String>,
 }
 
-impl<'a> Client<'static> {
+impl Client<'static> {
     pub fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client<'static>>> {
         loop {
             thread::sleep(Duration::from_secs(1));
@@ -321,11 +314,9 @@ impl<'a> Client<'static> {
 
                     thread::spawn(move || {
                         let reader = BufReader::new(reader_stream);
-                        for line in reader.lines() {
-                            if let Ok(line) = line {
-                                if sender_incoming.send(line).is_err() {
-                                    break;
-                                }
+                        for line in reader.lines().map_while(Result::ok) {
+                            if sender_incoming.send(line).is_err() {
+                                break;
                             }
                         }
                     });

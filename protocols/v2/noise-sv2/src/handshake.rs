@@ -286,7 +286,7 @@ mod test {
     use alloc::string::ToString;
     use core::convert::TryInto;
     use quickcheck::{Arbitrary, TestResult};
-    use quickcheck_macros;
+
     use secp256k1::SecretKey;
 
     struct TestHandShake {

@@ -79,7 +79,7 @@ pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
 /// represented using the `Inner` type with a 3-byte header.
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
 
-impl<'decoder> From<[u8; 32]> for U256<'decoder> {
+impl From<[u8; 32]> for U256<'_> {
     fn from(v: [u8; 32]) -> Self {
         Inner::Owned(v.into())
     }
@@ -107,7 +107,7 @@ impl<'a> B016M<'a> {
 use core::convert::{TryFrom, TryInto};
 
 // Attempts to convert a `String` into a `Str0255<'a>`.
-impl<'a> TryFrom<String> for Str0255<'a> {
+impl TryFrom<String> for Str0255<'_> {
     type Error = crate::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -117,7 +117,7 @@ impl<'a> TryFrom<String> for Str0255<'a> {
 
 /// Represents a reference to a 32-bit unsigned integer (`u32`),
 /// providing methods for convenient conversions.
-impl<'a> U32AsRef<'a> {
+impl U32AsRef<'_> {
     /// Returns the `u32` value represented by this reference.
     pub fn as_u32(&self) -> u32 {
         let inner = self.inner_as_ref();
@@ -125,7 +125,7 @@ impl<'a> U32AsRef<'a> {
     }
 }
 
-impl<'a> From<u32> for U32AsRef<'a> {
+impl From<u32> for U32AsRef<'_> {
     fn from(v: u32) -> Self {
         let bytes = v.to_le_bytes();
         let inner = vec![bytes[0], bytes[1], bytes[2], bytes[3]];

@@ -24,13 +24,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.75.0
+          toolchain: stable
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates
-        run: |
-          cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
-          cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
+        run: ./scripts/rust/clippy.sh

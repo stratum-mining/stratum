@@ -54,7 +54,7 @@ pub struct SetupConnection<'decoder> {
     pub device_id: Str0255<'decoder>,
 }
 
-impl<'decoder> SetupConnection<'decoder> {
+impl SetupConnection<'_> {
     /// Set the flag to indicate that the downstream requires a standard job
     pub fn set_requires_standard_job(&mut self) {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
@@ -246,7 +246,7 @@ impl Drop for CSetupConnection {
     }
 }
 
-impl<'a> From<SetupConnection<'a>> for CSetupConnection {
+impl From<SetupConnection<'_>> for CSetupConnection {
     fn from(v: SetupConnection) -> Self {
         Self {
             protocol: v.protocol,
@@ -365,7 +365,7 @@ pub enum Protocol {
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 }
 
-impl<'a> From<Protocol> for binary_sv2::encodable::EncodableField<'a> {
+impl From<Protocol> for binary_sv2::encodable::EncodableField<'_> {
     fn from(v: Protocol) -> Self {
         let val = v as u8;
         val.into()
@@ -439,25 +439,25 @@ mod test {
     #[test]
     fn test_has_requires_std_job() {
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
-        assert_eq!(has_requires_std_job(flags), true);
+        assert!(has_requires_std_job(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
-        assert_eq!(has_requires_std_job(flags), false);
+        assert!(!has_requires_std_job(flags));
     }
 
     #[test]
     fn test_has_version_rolling() {
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
-        assert_eq!(has_version_rolling(flags), true);
+        assert!(has_version_rolling(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
-        assert_eq!(has_version_rolling(flags), false);
+        assert!(!has_version_rolling(flags));
     }
 
     #[test]
     fn test_has_work_selection() {
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0100;
-        assert_eq!(has_work_selection(flags), true);
+        assert!(has_work_selection(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
-        assert_eq!(has_work_selection(flags), false);
+        assert!(!has_work_selection(flags));
     }
 
     fn create_setup_connection() -> SetupConnection<'static> {

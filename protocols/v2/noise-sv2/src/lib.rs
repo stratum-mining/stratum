@@ -13,12 +13,12 @@
 //! - AEAD: Ensures confidentiality and integrity of the data.
 //! - `AES-GCM` and `ChaCha20-Poly1305`: Provides encryption, with hardware-optimized and
 //!   software-optimized options.
-//! - Schnorr Signatures: Authenticates messages and verifies the identity of the Sv2 roles.
-//! In practice, the primitives exposed by this crate should be used to secure communication
-//! channels between Sv2 roles. Securing communication between two Sv2 roles on the same local
-//! network (e.g., local mining devices communicating with a local mining proxy) is optional.
-//! However, it is mandatory to secure the communication between two Sv2 roles communicating over a
-//! remote network (e.g., a local mining proxy communicating with a remote pool sever).
+//! - Schnorr Signatures: Authenticates messages and verifies the identity of the Sv2 roles. In
+//!   practice, the primitives exposed by this crate should be used to secure communication channels
+//!   between Sv2 roles. Securing communication between two Sv2 roles on the same local network
+//!   (e.g., local mining devices communicating with a local mining proxy) is optional. However, it
+//!   is mandatory to secure the communication between two Sv2 roles communicating over a remote
+//!   network (e.g., a local mining proxy communicating with a remote pool sever).
 //!
 //! The Noise protocol establishes secure communication between two Sv2 roles via a handshake
 //! performed at the beginning of the connection. The initiator (e.g., a local mining proxy) and
