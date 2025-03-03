@@ -87,9 +87,21 @@ impl TemplateProvider {
         env::set_var("BITCOIND_EXE", bitcoin_exe_home.join("bitcoind"));
         let exe_path = corepc_node::exe_path().expect("Failed to get bitcoind path");
 
-        let bitcoind = Node::with_conf(exe_path, &conf).expect("Failed to create Node");
-
-        TemplateProvider { bitcoind }
+        let timeout = std::time::Duration::from_secs(60);
+        let current_time = std::time::Instant::now();
+        loop {
+            match Node::with_conf(&exe_path, &conf) {
+                Ok(bitcoind) => {
+                    break TemplateProvider { bitcoind };
+                }
+                Err(e) => {
+                    if current_time.elapsed() > timeout {
+                        panic!("Failed to start bitcoind: {}", e);
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
+            }
+        }
     }
 
     pub fn generate_blocks(&self, n: u64) {
