@@ -13,7 +13,6 @@ use roles_logic_sv2::{
             IdentifyTransactionsSuccess, ProvideMissingTransactions,
             ProvideMissingTransactionsSuccess, SubmitSolution,
         },
-        PoolMessages,
         TemplateDistribution::{self, CoinbaseOutputDataSize},
     },
     utils::Mutex,
@@ -67,7 +66,7 @@ pub struct Sniffer {
 pub struct InterceptMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
-    replacement_message: PoolMessages<'static>,
+    replacement_message: AnyMessage<'static>,
 }
 
 impl InterceptMessage {
@@ -79,7 +78,7 @@ impl InterceptMessage {
     pub fn new(
         direction: MessageDirection,
         expected_message_type: MsgType,
-        replacement_message: PoolMessages<'static>,
+        replacement_message: AnyMessage<'static>,
     ) -> Self {
         Self {
             direction,
@@ -510,9 +509,9 @@ impl Sniffer {
 //  $expected_property, $expected_property_value, ...);`.
 //  Note that you can provide any number of properties and values.
 //
-//  In both cases, the `$message_group` could be any variant of `PoolMessages::$message_group` and
+//  In both cases, the `$message_group` could be any variant of `AnyMessage::$message_group` and
 //  the `$nested_message_group` could be any variant of
-//  `PoolMessages::$message_group($nested_message_group)`.
+//  `AnyMessage::$message_group($nested_message_group)`.
 //
 //  If you dont want to provide the `$message_group` and `$nested_message_group` arguments, you can
 //  utilize `assert_common_message!`, `assert_tp_message!`, `assert_mining_message!`, and
@@ -525,7 +524,7 @@ macro_rules! assert_message {
    $($expected_property:ident, $expected_property_value:expr),*) => { match $msg {
 	  Some((_, message)) => {
 		match message {
-		  PoolMessages::$message_group($nested_message_group::$expected_message_variant(
+		  AnyMessage::$message_group($nested_message_group::$expected_message_variant(
 			  $expected_message_variant {
 				$($expected_property,)*
 				  ..
@@ -550,7 +549,7 @@ macro_rules! assert_message {
 	match $msg {
 	  Some((_, message)) => {
 		match message {
-		  PoolMessages::$message_group($nested_message_group::$expected_message_variant(_)) => {}
+		  AnyMessage::$message_group($nested_message_group::$expected_message_variant(_)) => {}
 		  _ => {
 			panic!(
 			  "Sent wrong message: {:?}",

@@ -7,7 +7,7 @@ use roles_logic_sv2::{
     handlers::SendTo_,
     job_declaration_sv2::{AllocateMiningJobTokenSuccess, SubmitSolutionJd},
     mining_sv2::SubmitSharesExtended,
-    parsers::{JobDeclaration, PoolMessages},
+    parsers::{AnyMessage, JobDeclaration},
     template_distribution_sv2::SetNewPrevHash,
     utils::{hash_lists_tuple, Mutex},
 };
@@ -29,7 +29,7 @@ use std::{
     sync::Arc,
 };
 
-pub type Message = PoolMessages<'static>;
+pub type Message = AnyMessage<'static>;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 pub type StdFrame = StandardSv2Frame<Message>;
 
@@ -48,8 +48,8 @@ pub struct LastDeclareJob {
 
 #[derive(Debug)]
 pub struct JobDeclarator {
-    receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
-    sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    receiver: Receiver<StandardEitherFrame<AnyMessage<'static>>>,
+    sender: Sender<StandardEitherFrame<AnyMessage<'static>>>,
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
     min_extranonce_size: u16,
@@ -278,7 +278,7 @@ impl JobDeclarator {
         };
         Self::update_last_declare_job_sent(self_mutex, id, last_declare);
         let frame: StdFrame =
-            PoolMessages::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
+            AnyMessage::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
                 .try_into()
                 .unwrap();
         sender.send(frame.into()).await.unwrap();
@@ -360,7 +360,7 @@ impl JobDeclarator {
                         Ok(SendTo::None(None)) => (),
                         Ok(SendTo::Respond(m)) => {
                             let sv2_frame: StdFrame =
-                                PoolMessages::JobDeclaration(m).try_into().unwrap();
+                                AnyMessage::JobDeclaration(m).try_into().unwrap();
                             let sender =
                                 self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
                             sender.send(sv2_frame.into()).await.unwrap();
@@ -466,7 +466,7 @@ impl JobDeclarator {
             });
             let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
             // Safe unwrap message is build above and is valid, below can never panic
-            let frame: StdFrame = PoolMessages::JobDeclaration(message).try_into().unwrap();
+            let frame: StdFrame = AnyMessage::JobDeclaration(message).try_into().unwrap();
             // TODO join re
             sender.send(frame.into()).await.unwrap();
         }
@@ -487,10 +487,9 @@ impl JobDeclarator {
             nbits: prev_hash.n_bits,
             version: solution.version,
         };
-        let frame: StdFrame =
-            PoolMessages::JobDeclaration(JobDeclaration::SubmitSolution(solution))
-                .try_into()
-                .unwrap();
+        let frame: StdFrame = AnyMessage::JobDeclaration(JobDeclaration::SubmitSolution(solution))
+            .try_into()
+            .unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
         sender.send(frame.into()).await.unwrap();
     }

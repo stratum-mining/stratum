@@ -13,7 +13,7 @@ use const_sv2::{
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
-    parsers::{CommonMessages, PoolMessages},
+    parsers::{AnyMessage, CommonMessages},
 };
 use sniffer::{InterceptMessage, MessageDirection};
 use std::convert::TryInto;
@@ -27,7 +27,7 @@ async fn test_sniffer_intercept_to_downstream() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
     let message_replacement =
-        PoolMessages::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
+        AnyMessage::Common(CommonMessages::SetupConnectionError(SetupConnectionError {
             flags: 0,
             error_code: "unsupported-feature-flags"
                 .to_string()
@@ -74,8 +74,7 @@ async fn test_sniffer_intercept_to_upstream() {
         firmware: "abcX".to_string().into_bytes().try_into().unwrap(),
         device_id: "89567".to_string().into_bytes().try_into().unwrap(),
     };
-    let message_replacement =
-        PoolMessages::Common(CommonMessages::SetupConnection(setup_connection));
+    let message_replacement = AnyMessage::Common(CommonMessages::SetupConnection(setup_connection));
     let intercept = InterceptMessage::new(
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_SETUP_CONNECTION,

@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     common_properties::CommonDownstreamData,
     errors::Error,
     handlers::common::ParseDownstreamCommonMessages,
-    parsers::{CommonMessages, PoolMessages},
+    parsers::{AnyMessage, CommonMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
@@ -74,7 +74,7 @@ impl SetupConnectionHandler {
             roles_logic_sv2::Error::NoDownstreamsConnected,
         ))?;
 
-        let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
+        let sv2_frame: StdFrame = AnyMessage::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).await?;
         self_.safe_lock(|s| s.header_only)?;

@@ -4,8 +4,7 @@
 //! module. It includes the [`Error`] enum for representing various errors.
 
 use crate::{
-    common_properties::CommonDownstreamData, parsers::PoolMessages as AllMessages,
-    utils::InputError,
+    common_properties::CommonDownstreamData, parsers::AnyMessage as AllMessages, utils::InputError,
 };
 use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};

@@ -7,7 +7,7 @@ use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
-    parsers::{PoolMessages, TemplateDistribution},
+    parsers::{AnyMessage, TemplateDistribution},
     template_distribution_sv2::{
         CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, SubmitSolution,
     },
@@ -23,7 +23,7 @@ mod message_handler;
 mod setup_connection;
 
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
-pub type Message = PoolMessages<'static>;
+pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
@@ -116,7 +116,7 @@ impl TemplateRx {
     }
 
     pub async fn send_max_coinbase_size(self_mutex: &Arc<Mutex<Self>>, size: u32) {
-        let coinbase_output_data_size = PoolMessages::TemplateDistribution(
+        let coinbase_output_data_size = AnyMessage::TemplateDistribution(
             TemplateDistribution::CoinbaseOutputDataSize(CoinbaseOutputDataSize {
                 coinbase_output_max_additional_size: size,
             }),
@@ -129,7 +129,7 @@ impl TemplateRx {
         self_mutex: &Arc<Mutex<Self>>,
         new_template: NewTemplate<'static>,
     ) {
-        let tx_data_request = PoolMessages::TemplateDistribution(
+        let tx_data_request = AnyMessage::TemplateDistribution(
             TemplateDistribution::RequestTransactionData(RequestTransactionData {
                 template_id: new_template.template_id,
             }),
@@ -319,7 +319,7 @@ impl TemplateRx {
                 .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
                 .unwrap()
             {
-                let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
+                let sv2_frame: StdFrame = AnyMessage::TemplateDistribution(
                     TemplateDistribution::SubmitSolution(solution),
                 )
                 .try_into()

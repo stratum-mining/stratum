@@ -11,7 +11,7 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use mempool::error::JdsMempoolError;
 use roles_logic_sv2::{
     errors::Error,
-    parsers::PoolMessages as JdsMessages,
+    parsers::AnyMessage as JdsMessages,
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
 use serde::Deserialize;

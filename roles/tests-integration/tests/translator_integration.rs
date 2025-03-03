@@ -9,7 +9,7 @@ use const_sv2::{
     MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
 };
 use integration_tests_sv2::{sniffer::*, *};
-use roles_logic_sv2::parsers::{CommonMessages, Mining, PoolMessages};
+use roles_logic_sv2::parsers::{AnyMessage, CommonMessages, Mining};
 
 // This test runs an sv2 translator between an sv1 mining device and a pool. the connection between
 // the translator and the pool is intercepted by a sniffer. The test checks if the translator and

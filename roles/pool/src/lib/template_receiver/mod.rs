@@ -10,7 +10,7 @@ use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
-    parsers::{PoolMessages, TemplateDistribution},
+    parsers::{AnyMessage, TemplateDistribution},
     template_distribution_sv2::{
         CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
     },
@@ -82,9 +82,9 @@ impl TemplateRx {
         let c_additional_size = CoinbaseOutputDataSize {
             coinbase_output_max_additional_size: coinbase_out_len,
         };
-        let frame = PoolMessages::TemplateDistribution(
-            TemplateDistribution::CoinbaseOutputDataSize(c_additional_size),
-        )
+        let frame = AnyMessage::TemplateDistribution(TemplateDistribution::CoinbaseOutputDataSize(
+            c_additional_size,
+        ))
         .try_into()?;
 
         Self::send(self_.clone(), frame).await?;
@@ -170,7 +170,7 @@ impl TemplateRx {
         while let Ok(solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
             let sv2_frame_res: Result<StdFrame, _> =
-                PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
+                AnyMessage::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
                     .try_into();
             match sv2_frame_res {
                 Ok(frame) => {

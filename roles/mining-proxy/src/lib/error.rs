@@ -1,9 +1,9 @@
 use async_channel::SendError;
 use codec_sv2::StandardEitherFrame;
-use roles_logic_sv2::parsers::PoolMessages;
+use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
 
-pub type Message = PoolMessages<'static>;
+pub type Message = AnyMessage<'static>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 #[derive(Debug)]

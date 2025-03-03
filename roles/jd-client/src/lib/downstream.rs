@@ -15,7 +15,7 @@ use roles_logic_sv2::{
     },
     job_creator::JobsCreators,
     mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages, PoolMessages},
+    parsers::{AnyMessage, Mining, MiningDeviceMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
@@ -275,7 +275,7 @@ impl DownstreamMiningNode {
     ) {
         match next_message_to_send {
             Ok(SendTo::RelaySameMessageToRemote(upstream_mutex)) => {
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, buffer_sv2::Slice> =
                     incoming.unwrap().map(|payload| payload.try_into().unwrap());
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
@@ -304,16 +304,16 @@ impl DownstreamMiningNode {
                     job_id
                 );
                 let message = Mining::SubmitSharesExtended(share);
-                let message: PoolMessages = PoolMessages::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let message: AnyMessage = AnyMessage::Mining(message);
+                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, buffer_sv2::Slice> =
                     message.try_into().unwrap();
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)
                     .await
                     .unwrap();
             }
             Ok(SendTo::RelayNewMessage(message)) => {
-                let message: PoolMessages = PoolMessages::Mining(message);
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let message: AnyMessage = AnyMessage::Mining(message);
+                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, buffer_sv2::Slice> =
                     message.try_into().unwrap();
                 let upstream_mutex = self_mutex.safe_lock(|s| s.status.get_upstream().expect("We should return RelayNewMessage only if we are not in solo mining mode")).unwrap();
                 UpstreamMiningNode::send(&upstream_mutex, sv2_frame)

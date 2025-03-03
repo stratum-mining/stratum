@@ -21,18 +21,14 @@
 //!   submission).
 
 use crate::Error;
-
 use binary_sv2::{
     decodable::{DecodableField, FieldMarker},
     encodable::EncodableField,
+    from_bytes, Deserialize, GetSize,
 };
-
-use binary_sv2::GetSize;
-
-use binary_sv2::{from_bytes, Deserialize};
-
-use framing_sv2::framing::Sv2Frame;
-
+use common_messages_sv2::{
+    ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+};
 use const_sv2::{
     CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
@@ -76,22 +72,13 @@ use const_sv2::{
     MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_SUBMIT_SOLUTION_JD, MESSAGE_TYPE_UPDATE_CHANNEL,
     MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
 };
-
-use common_messages_sv2::{
-    ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
-};
-
-use template_distribution_sv2::{
-    CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
-    RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
-};
-
+use core::convert::{TryFrom, TryInto};
+use framing_sv2::framing::Sv2Frame;
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
     DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
     ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
 };
-
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
     OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
@@ -100,13 +87,11 @@ use mining_sv2::{
     SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
     SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
 };
-
-use core::convert::{TryFrom, TryInto};
+use template_distribution_sv2::{
+    CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
+    RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
+};
 use tracing::error;
-
-// TODO: Fix this, PoolMessages shouldn't be a generic parser.
-/// An alias to a generic parser
-pub type AnyMessage<'a> = PoolMessages<'a>;
 
 /// Common Sv2 protocol messages used across all subprotocols.
 ///
@@ -118,13 +103,10 @@ pub type AnyMessage<'a> = PoolMessages<'a>;
 pub enum CommonMessages<'a> {
     /// Notifies about changes in channel endpoint configuration.
     ChannelEndpointChanged(ChannelEndpointChanged),
-
     /// Initiates a connection between a client and server.
     SetupConnection(SetupConnection<'a>),
-
     /// Indicates an error during connection setup.
     SetupConnectionError(SetupConnectionError<'a>),
-
     /// Acknowledges successful connection setup.
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
@@ -576,7 +558,7 @@ impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
     }
 }
 
-impl<'decoder> Deserialize<'decoder> for PoolMessages<'decoder> {
+impl<'decoder> Deserialize<'decoder> for AnyMessage<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
@@ -1032,64 +1014,63 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
     }
 }
 
-// todo: fix this, PoolMessages should only contain Mining and Common
-/// A parser of all messages a Pool could send
+/// A parser of all possible SV2 messages
 #[derive(Clone, Debug)]
-pub enum PoolMessages<'a> {
+pub enum AnyMessage<'a> {
     Common(CommonMessages<'a>),
     Mining(Mining<'a>),
     JobDeclaration(JobDeclaration<'a>),
     TemplateDistribution(TemplateDistribution<'a>),
 }
 
-impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
+impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {
     type Error = Error;
 
     fn try_from(value: MiningDeviceMessages<'a>) -> Result<Self, Self::Error> {
         match value {
-            MiningDeviceMessages::Common(m) => Ok(PoolMessages::Common(m)),
-            MiningDeviceMessages::Mining(m) => Ok(PoolMessages::Mining(m)),
+            MiningDeviceMessages::Common(m) => Ok(AnyMessage::Common(m)),
+            MiningDeviceMessages::Mining(m) => Ok(AnyMessage::Mining(m)),
         }
     }
 }
 
-impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
-    fn from(m: PoolMessages<'decoder>) -> Self {
+impl<'decoder> From<AnyMessage<'decoder>> for EncodableField<'decoder> {
+    fn from(m: AnyMessage<'decoder>) -> Self {
         match m {
-            PoolMessages::Common(a) => a.into(),
-            PoolMessages::Mining(a) => a.into(),
-            PoolMessages::JobDeclaration(a) => a.into(),
-            PoolMessages::TemplateDistribution(a) => a.into(),
+            AnyMessage::Common(a) => a.into(),
+            AnyMessage::Mining(a) => a.into(),
+            AnyMessage::JobDeclaration(a) => a.into(),
+            AnyMessage::TemplateDistribution(a) => a.into(),
         }
     }
 }
-impl GetSize for PoolMessages<'_> {
+impl GetSize for AnyMessage<'_> {
     fn get_size(&self) -> usize {
         match self {
-            PoolMessages::Common(a) => a.get_size(),
-            PoolMessages::Mining(a) => a.get_size(),
-            PoolMessages::JobDeclaration(a) => a.get_size(),
-            PoolMessages::TemplateDistribution(a) => a.get_size(),
+            AnyMessage::Common(a) => a.get_size(),
+            AnyMessage::Mining(a) => a.get_size(),
+            AnyMessage::JobDeclaration(a) => a.get_size(),
+            AnyMessage::TemplateDistribution(a) => a.get_size(),
         }
     }
 }
 
-impl<'a> IsSv2Message for PoolMessages<'a> {
+impl<'a> IsSv2Message for AnyMessage<'a> {
     fn message_type(&self) -> u8 {
         match self {
-            PoolMessages::Common(a) => a.message_type(),
-            PoolMessages::Mining(a) => a.message_type(),
-            PoolMessages::JobDeclaration(a) => a.message_type(),
-            PoolMessages::TemplateDistribution(a) => a.message_type(),
+            AnyMessage::Common(a) => a.message_type(),
+            AnyMessage::Mining(a) => a.message_type(),
+            AnyMessage::JobDeclaration(a) => a.message_type(),
+            AnyMessage::TemplateDistribution(a) => a.message_type(),
         }
     }
 
     fn channel_bit(&self) -> bool {
         match self {
-            PoolMessages::Common(a) => a.channel_bit(),
-            PoolMessages::Mining(a) => a.channel_bit(),
-            PoolMessages::JobDeclaration(a) => a.channel_bit(),
-            PoolMessages::TemplateDistribution(a) => a.channel_bit(),
+            AnyMessage::Common(a) => a.channel_bit(),
+            AnyMessage::Mining(a) => a.channel_bit(),
+            AnyMessage::JobDeclaration(a) => a.channel_bit(),
+            AnyMessage::TemplateDistribution(a) => a.channel_bit(),
         }
     }
 }
@@ -1110,7 +1091,7 @@ impl<'a> IsSv2Message for MiningDeviceMessages<'a> {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for PoolMessages<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for AnyMessage<'a> {
     type Error = Error;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1169,9 +1150,9 @@ impl<'a> From<OpenStandardMiningChannelSuccess<'a>> for Mining<'a> {
     }
 }
 
-impl<'a, T: Into<CommonMessages<'a>>> From<T> for PoolMessages<'a> {
+impl<'a, T: Into<CommonMessages<'a>>> From<T> for AnyMessage<'a> {
     fn from(v: T) -> Self {
-        PoolMessages::Common(v.into())
+        AnyMessage::Common(v.into())
     }
 }
 
@@ -1181,12 +1162,12 @@ impl<'a, T: Into<CommonMessages<'a>>> From<T> for MiningDeviceMessages<'a> {
     }
 }
 
-impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<PoolMessages<'decoder>>
-    for Sv2Frame<PoolMessages<'decoder>, B>
+impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage<'decoder>>
+    for Sv2Frame<AnyMessage<'decoder>, B>
 {
     type Error = Error;
 
-    fn try_from(v: PoolMessages<'decoder>) -> Result<Self, Error> {
+    fn try_from(v: AnyMessage<'decoder>) -> Result<Self, Error> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
@@ -1223,15 +1204,15 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decod
     }
 }
 
-impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
+impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
     type Error = Error;
 
-    fn try_from(value: PoolMessages<'a>) -> Result<Self, Error> {
+    fn try_from(value: AnyMessage<'a>) -> Result<Self, Error> {
         match value {
-            PoolMessages::Common(message) => Ok(Self::Common(message)),
-            PoolMessages::Mining(message) => Ok(Self::Mining(message)),
-            PoolMessages::JobDeclaration(_) => Err(Error::UnexpectedPoolMessage),
-            PoolMessages::TemplateDistribution(_) => Err(Error::UnexpectedPoolMessage),
+            AnyMessage::Common(message) => Ok(Self::Common(message)),
+            AnyMessage::Mining(message) => Ok(Self::Mining(message)),
+            AnyMessage::JobDeclaration(_) => Err(Error::UnexpectedPoolMessage),
+            AnyMessage::TemplateDistribution(_) => Err(Error::UnexpectedPoolMessage),
         }
     }
 }
@@ -1240,13 +1221,13 @@ impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
 mod test {
     use crate::{
         mining_sv2::NewMiningJob,
-        parsers::{Mining, PoolMessages},
+        parsers::{AnyMessage, Mining},
     };
     use binary_sv2::{Sv2Option, U256};
     use codec_sv2::StandardSv2Frame;
     use std::convert::{TryFrom, TryInto};
 
-    pub type Message = PoolMessages<'static>;
+    pub type Message = AnyMessage<'static>;
     pub type StdFrame = StandardSv2Frame<Message>;
 
     #[test]
@@ -1256,7 +1237,7 @@ mod test {
             19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
             41, 42, 43, 44, 45, 46, 47, 48,
         ];
-        let mining_message = PoolMessages::Mining(Mining::NewMiningJob(NewMiningJob {
+        let mining_message = AnyMessage::Mining(Mining::NewMiningJob(NewMiningJob {
             channel_id: u32::from_le_bytes([1, 2, 3, 4]),
             job_id: u32::from_le_bytes([5, 6, 7, 8]),
             min_ntime: Sv2Option::new(Some(u32::from_le_bytes([9, 10, 11, 12]))),
@@ -1266,7 +1247,7 @@ mod test {
         message_serialization_check(mining_message, CORRECTLY_SERIALIZED_MSG);
     }
 
-    fn message_serialization_check(message: PoolMessages<'static>, expected_result: &[u8]) {
+    fn message_serialization_check(message: AnyMessage<'static>, expected_result: &[u8]) {
         let frame = StdFrame::try_from(message).unwrap();
         let encoded_frame_length = frame.encoded_length();
 
