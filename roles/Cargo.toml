@@ -1,5 +1,5 @@
 [workspace]
-
+exclude = ["roles-utils/config-helpers"]
 resolver="2"
 
 members = [

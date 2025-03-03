@@ -3,8 +3,8 @@ mod args;
 mod lib;
 
 use lib::{
+    config::JobDeclaratorClientConfig,
     error::{Error, ProxyResult},
-    proxy_config::ProxyConfig,
     status, JobDeclaratorClient,
 };
 
@@ -14,7 +14,7 @@ use tracing::error;
 
 /// Process CLI args and load configuration.
 #[allow(clippy::result_large_err)]
-fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
     // Parse CLI arguments
     let args = Args::from_args().map_err(|help| {
         error!("{}", help);
@@ -31,8 +31,8 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()?;
 
-    // Deserialize settings into ProxyConfig
-    let config = settings.try_deserialize::<ProxyConfig>()?;
+    // Deserialize settings into JobDeclaratorClientConfig
+    let config = settings.try_deserialize::<JobDeclaratorClientConfig>()?;
     Ok(config)
 }
 
