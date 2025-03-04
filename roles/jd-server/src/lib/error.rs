@@ -1,13 +1,12 @@
+use crate::mempool::error::JdsMempoolError;
+use roles_logic_sv2::parsers::Mining;
 use std::{
     convert::From,
     fmt::Debug,
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
-
-use crate::mempool::error::JdsMempoolError;
-
+/// Represents an error that can occur in the JDS.
 #[derive(std::fmt::Debug)]
 pub enum JdsError {
     Io(std::io::Error),
