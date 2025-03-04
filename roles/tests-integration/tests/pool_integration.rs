@@ -12,7 +12,7 @@ use const_sv2::{
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
-    parsers::{AnyMessage, CommonMessages, Mining, PoolMessages, TemplateDistribution},
+    parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},
 };
 
 // This test starts a Template Provider and a Pool, and checks if they exchange the correct

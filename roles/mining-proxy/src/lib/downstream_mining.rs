@@ -15,7 +15,7 @@ use roles_logic_sv2::{
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages, PoolMessages},
+    parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::MiningProxyRoutingLogic,
     utils::Mutex,
 };
@@ -204,14 +204,14 @@ impl DownstreamMiningNode {
 
         match next_message_to_send {
             Ok(SendTo::RelaySameMessageToRemote(upstream_mutex)) => {
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                let sv2_frame: codec_sv2::Sv2Frame<AnyMessage, buffer_sv2::Slice> =
                     incoming.map(|payload| payload.try_into().unwrap());
                 UpstreamMiningNode::send(upstream_mutex.clone(), sv2_frame)
                     .await
                     .unwrap();
             }
             Ok(SendTo::RelayNewMessageToRemote(upstream_mutex, message)) => {
-                let message = PoolMessages::Mining(message);
+                let message = AnyMessage::Mining(message);
                 let frame: UpstreamFrame = message.try_into().unwrap();
                 UpstreamMiningNode::send(upstream_mutex.clone(), frame)
                     .await

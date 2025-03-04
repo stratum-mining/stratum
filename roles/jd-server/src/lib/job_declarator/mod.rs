@@ -14,7 +14,7 @@ use roles_logic_sv2::{
     },
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
     job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd},
-    parsers::{JobDeclaration, PoolMessages as JdsMessages},
+    parsers::{AnyMessage as JdsMessages, JobDeclaration},
     utils::{Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};

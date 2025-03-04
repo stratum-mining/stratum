@@ -3,12 +3,12 @@ use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
-    parsers::PoolMessages,
+    parsers::AnyMessage,
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-pub type Message = PoolMessages<'static>;
+pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 pub struct SetupConnectionHandler {}
@@ -48,7 +48,7 @@ impl SetupConnectionHandler {
     ) -> Result<(), ()> {
         let setup_connection = Self::get_setup_connection_message(proxy_address);
 
-        let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
+        let sv2_frame: StdFrame = AnyMessage::Common(setup_connection.into())
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();

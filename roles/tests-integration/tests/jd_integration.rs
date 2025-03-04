@@ -6,7 +6,7 @@
 // all tests. This is because tracing is a global setting.
 use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
 use integration_tests_sv2::*;
-use roles_logic_sv2::parsers::{CommonMessages, PoolMessages};
+use roles_logic_sv2::parsers::{AnyMessage, CommonMessages};
 use sniffer::MessageDirection;
 
 // This test verifies that jd-server does not exit when a connected jd-client shuts down.

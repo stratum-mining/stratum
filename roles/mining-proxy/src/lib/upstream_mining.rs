@@ -24,7 +24,7 @@ use roles_logic_sv2::{
     handlers::mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
-    parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
+    parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
     routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     template_distribution_sv2::SubmitSolution,
@@ -37,7 +37,7 @@ use super::{
     EXTRANONCE_RANGE_1_LENGTH,
 };
 
-pub type Message = PoolMessages<'static>;
+pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
@@ -531,7 +531,7 @@ impl UpstreamMiningNode {
                     .unwrap();
             }
             Ok(SendTo::Respond(message)) => {
-                let message = PoolMessages::Mining(message);
+                let message = AnyMessage::Mining(message);
                 let frame: StdFrame = message.try_into().unwrap();
                 UpstreamMiningNode::send(self_mutex, frame).await.unwrap();
             }
@@ -555,7 +555,7 @@ impl UpstreamMiningNode {
                                 .unwrap();
                         }
                         SendTo::Respond(message) => {
-                            let message = PoolMessages::Mining(message);
+                            let message = AnyMessage::Mining(message);
                             let frame: StdFrame = message.try_into().unwrap();
                             UpstreamMiningNode::send(self_mutex.clone(), frame)
                                 .await
@@ -657,7 +657,7 @@ impl UpstreamMiningNode {
     }
 
     async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>, nominal_hash_rate: f32) {
-        let message = PoolMessages::Mining(Mining::OpenExtendedMiningChannel(
+        let message = AnyMessage::Mining(Mining::OpenExtendedMiningChannel(
             OpenExtendedMiningChannel {
                 request_id: 0,
                 user_identity: "proxy".to_string().try_into().unwrap(),
@@ -703,7 +703,7 @@ impl UpstreamMiningNode {
         let hardware_version = String::new().try_into().unwrap();
         let firmware = String::new().try_into().unwrap();
         let device_id = String::new().try_into().unwrap();
-        let setup_connection: PoolMessages = SetupConnection {
+        let setup_connection: AnyMessage = SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version,
             max_version,
@@ -770,7 +770,7 @@ impl UpstreamMiningNode {
                 OnNewShare::SendSubmitShareUpstream((s, _)) => match s {
                     Share::Extended(s) => {
                         let message = Mining::SubmitSharesExtended(s);
-                        let message = PoolMessages::Mining(message);
+                        let message = AnyMessage::Mining(message);
                         let frame: StdFrame = message.try_into().unwrap();
                         tokio::task::spawn(async move {
                             UpstreamMiningNode::send(self_.clone(), frame)
@@ -807,7 +807,7 @@ impl UpstreamMiningNode {
                             sender.send_blocking(solution).unwrap();
 
                             let message = Mining::SubmitSharesExtended(s);
-                            let message = PoolMessages::Mining(message);
+                            let message = AnyMessage::Mining(message);
                             let frame: StdFrame = message.try_into().unwrap();
                             tokio::task::spawn(async move {
                                 UpstreamMiningNode::send(self_.clone(), frame)

@@ -18,7 +18,7 @@ use roles_logic_sv2::{
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
-    parsers::{Mining, PoolMessages},
+    parsers::{AnyMessage, Mining},
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
@@ -36,7 +36,7 @@ use setup_connection::SetupConnectionHandler;
 
 pub mod message_handler;
 
-pub type Message = PoolMessages<'static>;
+pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
@@ -231,7 +231,7 @@ impl Downstream {
         //} else {
         //    message
         //};
-        let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
+        let sv2_frame: StdFrame = AnyMessage::Mining(message).try_into()?;
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
         sender.send(sv2_frame.into()).await?;
         Ok(())

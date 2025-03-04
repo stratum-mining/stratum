@@ -25,7 +25,7 @@ use roles_logic_sv2::{
     },
     job_declaration_sv2::DeclareMiningJob,
     mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob},
-    parsers::{Mining, MiningDeviceMessages, PoolMessages},
+    parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
@@ -299,7 +299,7 @@ impl Upstream {
             merkle_path,
             extranonce_size: 0,
         };
-        let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));
+        let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();
         self_
             .safe_lock(|s| {

@@ -7,7 +7,7 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     errors::Error,
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
-    parsers::{CommonMessages, PoolMessages},
+    parsers::{AnyMessage, CommonMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
@@ -44,7 +44,7 @@ impl SetupConnectionHandler {
     ) -> PoolResult<()> {
         let setup_connection = Self::get_setup_connection_message(address)?;
 
-        let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into()).try_into()?;
+        let sv2_frame: StdFrame = AnyMessage::Common(setup_connection.into()).try_into()?;
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).await?;
 
