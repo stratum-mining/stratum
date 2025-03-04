@@ -19,15 +19,15 @@ pub struct TransactionWithHash {
 pub struct JDsMempool {
     pub mempool: HashMap<Txid, Option<(Transaction, u32)>>,
     auth: mini_rpc_client::Auth,
-    url: String,
+    url: rpc_sv2::Uri,
     new_block_receiver: Receiver<String>,
 }
 
 impl JDsMempool {
     pub fn get_client(&self) -> Option<mini_rpc_client::MiniRpcClient> {
-        let url = self.url.as_str();
+        let url = self.url.to_string();
         if url.contains("http") {
-            let client = mini_rpc_client::MiniRpcClient::new(url.to_string(), self.auth.clone());
+            let client = mini_rpc_client::MiniRpcClient::new(self.url.clone(), self.auth.clone());
             Some(client)
         } else {
             None
@@ -44,7 +44,7 @@ impl JDsMempool {
     }
 
     pub fn new(
-        url: String,
+        url: rpc_sv2::Uri,
         username: String,
         password: String,
         new_block_receiver: Receiver<String>,
