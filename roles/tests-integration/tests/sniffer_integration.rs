@@ -154,7 +154,6 @@ async fn test_sniffer_wait_for_message_type_with_remove() {
 /// `TP -> sniffer_a -> sniffer_b -> sniffer_c -> Pool`  
 #[tokio::test]
 async fn test_sniffer_blocks_message() {
-    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
 
     // Define an action to block SetupConnectionSuccess messages going downstream.

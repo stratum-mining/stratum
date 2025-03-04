@@ -282,6 +282,8 @@ impl Sniffer {
         downstream_messages: MessagesAggregator,
         action: Option<Action>,
     ) -> Result<(), SnifferError> {
+        // Blocking flag used in the IgnoreFromMessage action to stop processing messages after the
+        // desired interception.
         let mut blocked = false;
         while let Ok(mut frame) = recv.recv().await {
             if blocked {
@@ -331,6 +333,8 @@ impl Sniffer {
         upstream_messages: MessagesAggregator,
         action: Option<Action>,
     ) -> Result<(), SnifferError> {
+        // Blocking flag used in the IgnoreFromMessage action to stop processing messages after the
+        // desired interception.
         let mut blocked = false;
         while let Ok(mut frame) = recv.recv().await {
             if blocked {
