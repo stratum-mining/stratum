@@ -15,6 +15,11 @@ pub struct TransactionWithHash {
     pub tx: Option<(Transaction, u32)>,
 }
 
+/// A struct that represents the mempool version of JDS.
+///
+/// This struct is used in order to maintain an internal copy of the mempool of the JDS. This is
+/// useful in order to keep track of the transactions that are in the mempool and to be able to
+/// provide the transactions to JDCs when they request them.
 #[derive(Clone, Debug)]
 pub struct JDsMempool {
     pub mempool: HashMap<Txid, Option<(Transaction, u32)>>,
@@ -24,6 +29,9 @@ pub struct JDsMempool {
 }
 
 impl JDsMempool {
+    /// Return Bitcoin node RPC client.
+    ///
+    /// This will return none if the URL is not an http or https URL.
     pub fn get_client(&self) -> Option<mini_rpc_client::MiniRpcClient> {
         let url = self.url.as_str();
         if url.contains("http") {
@@ -43,6 +51,7 @@ impl JDsMempool {
         tx_list_
     }
 
+    /// Create a new [`JDsMempool`] instance.
     pub fn new(
         url: String,
         username: String,
@@ -59,7 +68,7 @@ impl JDsMempool {
         }
     }
 
-    /// Checks if the rpc client is accessible.
+    /// Checks if Bitcoin node RPC client is accessible.
     pub async fn health(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let client = self_
             .safe_lock(|a| a.get_client())?
@@ -67,9 +76,7 @@ impl JDsMempool {
         client.health().await.map_err(JdsMempoolError::Rpc)
     }
 
-    // this functions fill in the mempool the transactions with the given txid and insert the given
-    // transactions. The ids are for the transactions that are already known to the node, the
-    // unknown transactions are provided directly as a vector
+    /// Publish transactions to the Bitcoin node.
     pub async fn add_tx_data_to_mempool(
         self_: Arc<Mutex<Self>>,
         add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
@@ -123,6 +130,7 @@ impl JDsMempool {
         Ok(())
     }
 
+    /// Get the latest version of the mempool from the Bitcoin node and update the internal copy.
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let client = self_
             .safe_lock(|x| x.get_client())?
@@ -155,6 +163,7 @@ impl JDsMempool {
         }
     }
 
+    /// Handle a new block received from downstream connections.
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> =
             self_.safe_lock(|x| x.new_block_receiver.clone())?;
@@ -171,6 +180,7 @@ impl JDsMempool {
         Ok(())
     }
 
+    /// will be deprecated soon
     pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], TransactionWithHash>> {
         let mut ret = HashMap::new();
         for tx in &self.mempool {

@@ -47,6 +47,10 @@ pub struct AddTrasactionsToMempool {
     pub sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
 }
 
+/// Represents a downstream connection.
+///
+/// This struct is used in order to give a representation to each downstream connection that the
+/// JDS has.
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
     async_mining_allowed: bool,
@@ -72,6 +76,7 @@ pub struct JobDeclaratorDownstream {
 }
 
 impl JobDeclaratorDownstream {
+    /// Create a new [`JobDeclaratorDownstream`] instance.
     pub fn new(
         async_mining_allowed: bool,
         receiver: Receiver<EitherFrame>,
@@ -193,6 +198,7 @@ impl JobDeclaratorDownstream {
         known_transactions
     }
 
+    /// Send a message to the downstream connection.
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::JobDeclaration<'static>,
@@ -202,6 +208,8 @@ impl JobDeclaratorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
+
+    /// Start the downstream connection handler.
     pub fn start(
         self_mutex: Arc<Mutex<Self>>,
         tx_status: status::Sender,
@@ -425,9 +433,13 @@ fn _get_random_token() -> B0255<'static> {
     inner.to_vec().try_into().unwrap()
 }
 
+/// Represents a server that JDS uses to communicate with downstream(usually JDC) connections.
 pub struct JobDeclarator {}
 
 impl JobDeclarator {
+    /// Start a TCP server that listens for incoming connections.
+    ///
+    /// The server will accept incoming connections and spawn a new task for each new one.
     pub async fn start(
         config: JobDeclaratorServerConfig,
         status_tx: crate::status::Sender,

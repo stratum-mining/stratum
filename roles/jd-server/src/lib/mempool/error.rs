@@ -2,6 +2,7 @@ use rpc_sv2::mini_rpc_client::RpcError;
 use std::{convert::From, sync::PoisonError};
 use tracing::{error, warn};
 
+/// Represents the possible errors that can occur in the JDS mempool.
 #[derive(Debug)]
 pub enum JdsMempoolError {
     EmptyMempool,
