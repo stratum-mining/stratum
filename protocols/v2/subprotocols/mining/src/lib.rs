@@ -252,71 +252,47 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 }
 
 #[derive(Debug, Clone)]
-/// Downstram and upstream are relative to an actor of the protocol P. In simple terms, upstream is
-/// the part of the protocol that a user P sees when he looks above and downstream when he looks
-/// beneath.
+/// Downstream and upstream are relative to user P. In simple terms, upstream is
+/// the part of the protocol that a user P sees when looking above, and downstream is what they see
+/// when looking below.
 ///
-/// An ExtendedExtranonce is defined by 3 ranges:
+/// An `ExtendedExtranonce` is defined by 3 ranges:
 ///
-///  - range_0: is the range that represents the extended extranonce part that reserved by upstream
-///    relative to P (for most upstreams nodes, e.g. a pool, this is [0..0]) and it is fixed for P.
-///  - range_1: is the range that represents the extended extranonce part reserved to P. P assigns
-///    to every relative downstream an extranonce with different value in the range 1 in the
-///    following way: if D_i is the (i+1)-th downstream that connected to P, then D_i gets from P
-///    and extranonce with range_1=i (note that the concatenation of range_1 and range_1 is the
-///    range_0 relative to D_i and range_2 of P is the range_1 of D_i).
-///  - range_2: is the range that P reserve for the downstreams.
+/// - `range_0`: Represents the extended extranonce part reserved by upstream relative to P (for
+///   most upstream nodes, e.g., a pool, this is `[0..0]`) and it is fixed for P.
 ///
+/// - `range_1`: Represents the extended extranonce part reserved for P. P assigns to every relative
+///   downstream a unique extranonce with different values in range_1 in the following way: if D_i
+///   is the (i+1)-th downstream that connected to P, then D_i gets from P an extranonce with
+///   range_1=i (note that the concatenation of range_0 and range_1 is the range_0 relative to D_i,
+///   and range_2 of P is the range_1 of D_i).
 ///
-/// In the following examples, we examine the extended extranonce in some cases.
-///
-/// The user P is the pool.
-///  - range_0 -> 0..0, there is no upstream relative to the pool P, so no space reserved by the
-///    upstream
-///  - range_1 -> 0..16 the pool P increments the first 16 bytes to be sure the each pool's
-///    downstream get a different extranonce or a different extended extranoce search space (more on
-///    that below*)
-///  - range_2 -> 16..32 this bytes are not changed by the pool but are changed by the pool's
-///    downstream
-///
-/// The user P is the translator.
-///  - range_0 -> 0..16 these bytes are set by the pool and P shouldn't change them
-///  - range_1 -> 16..24 these bytes are modified by P each time that a sv1 mining device connect,
-///    so we can be sure that each connected sv1 mining device get a different extended extranonce
-///    search space
-///  - range_2 -> 24..32 these bytes are left free for the sv1 miniing device
-///
-/// The user P is a sv1 mining device.
-///  - range_0 -> 0..24 these byteshadd set by the device's upstreams
-///  - range_1 -> 24..32 these bytes are changed by P (if capable) in order to increment the search
-///    space
-///  - range_2 -> 32..32 no more downstream
+/// - `range_2`: Represents the range that P reserves for the downstreams.
 ///
 ///
-/// About how the pool work having both extended and standard downstreams:
+/// In the following scenarios, we examine the extended extranonce in some cases:
 ///
-/// the pool reserve the first 16 bytes for herself and let downstreams change the lase 16, so
-/// each one of the possible 2^16 number represent an extended channel
-/// pool space                               | downstream space
-/// 0000 0000 0000 0000      0000 0000 0000 0000    extended channel number 0
-/// 0000 0000 0000 0001      0000 0000 0000 0000    extended channel number 1
-/// 0000 0000 0000 0002      0000 0000 0000 0000    extended channel number 2
-/// 0000 0000 0000 0003      0000 0000 0000 0000    extended channel number 3
-/// ....
-/// In order to assign extranonces to standard channels the pool reserve to herself the first
-/// extended channel, so the extended extranonce received by the first open extended channel wont
-/// be the channel 0 but the channel 1
-/// 0000 0000 0000 0001      0000 0000 0000 0000
-/// and all the extranonces for standard channel are generate from the extended channel number 0
-/// so the first standard cahnnel will be
-/// 0000 0000 0000 0000      0000 0000 0000 0000
-/// where the second will be
-/// 0000 0000 0000 0000      0000 0000 0000 0001 ecc ecc
+/// **Scenario 1: P is a pool**
+/// - `range_0` → `0..0`: There is no upstream relative to the pool P, so no space is reserved by
+///   the upstream.
+/// - `range_1` → `0..16`: The pool P increments these bytes to ensure each downstream gets a unique
+///   extended extranonce search space. The pool could optionally choose to set some fixed bytes as
+///   `additional_coinbase_script_data` (smaller than 16 bytes), which are set on the beginning of
+///   this range and will not be incremented. Usually, these bytes are used to add an identifier for
+///   the pool.
+/// - `range_2` → `16..32`: These bytes are not changed by the pool but are changed by the pool's
+///   downstream.
 ///
+/// **Scenario 2: P is a translator proxy**
+/// - `range_0` → `0..16`: These bytes are set by the upstream and P shouldn't change them.
+/// - `range_1` → `16..24`: These bytes are modified by P each time an Sv1 mining device connects,
+///   ensuring each connected Sv1 mining device gets a different extended extranonce search space.
+/// - `range_2` → `24..32`: These bytes are left free for the Sv1 mining device.
 ///
-/// ExtendedExtranonce type is meant to be used in cases where the extranonce length is not
-/// 32bytes. So, the inner part is an array of 32bytes, but only the firsts corresponding to the
-/// range_2.end are used by the pool
+/// **Scenario 3: P is an Sv1 mining device**
+/// - `range_0` → `0..24`: These bytes are set by the device's upstreams.
+/// - `range_1` → `24..32`: These bytes are changed by P (if capable) to increment the search space.
+/// - `range_2` → `32..32`: No more downstream.
 ///
 /// # Examples
 ///
