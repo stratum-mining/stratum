@@ -310,7 +310,7 @@ mod tests {
                 &mut template,
                 false,
                 vec![out],
-                additional_coinbase_script_data,
+                additional_coinbase_script_data.len(),
             )
             .expect("Failed to create new job");
 

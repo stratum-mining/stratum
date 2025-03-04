@@ -1106,7 +1106,7 @@ impl PoolChannelFactory {
             m,
             true,
             self.pool_coinbase_outputs.clone(),
-            self.additional_coinbase_script_data.clone(),
+            self.additional_coinbase_script_data.len(),
         )?;
         self.inner.on_new_extended_mining_job(new_job)
     }
@@ -1187,7 +1187,7 @@ impl PoolChannelFactory {
             let additional_coinbase_script_data = self.additional_coinbase_script_data.clone();
             let extended_job = job_creator::extended_job_from_custom_job(
                 referenced_job,
-                additional_coinbase_script_data,
+                additional_coinbase_script_data.len(),
                 32,
             )
             .unwrap();
@@ -1483,7 +1483,7 @@ impl ProxyExtendedChannelFactory {
                 m,
                 true,
                 pool_coinbase_outputs.clone(),
-                self.additional_coinbase_script_data.clone(),
+                self.additional_coinbase_script_data.len(),
             )?;
             let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
