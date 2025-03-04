@@ -48,7 +48,7 @@ enum SnifferError {
 /// queues via [`Sniffer::next_message_from_downstream`] and
 /// [`Sniffer::next_message_from_upstream`], respectively.
 ///
-/// In order to replace the messages sent between the roles, a set of [`InterceptMessage`] can be
+/// In order to replace or ignore the messages sent between the roles, [`InterceptAction`] can be
 /// used in [`Sniffer::new`].
 #[derive(Debug, Clone)]
 pub struct Sniffer {
@@ -58,34 +58,34 @@ pub struct Sniffer {
     messages_from_downstream: MessagesAggregator,
     messages_from_upstream: MessagesAggregator,
     check_on_drop: bool,
-    action: Option<Action>,
+    action: Option<InterceptAction>,
 }
 
 /// Represents an action that [`Sniffer`] can take on intercepted messages.
 #[derive(Debug, Clone)]
-pub enum Action {
+pub enum InterceptAction {
     /// Blocks the message stream after encountering a specific message.
     IgnoreFromMessage(IgnoreFromMessage),
     /// Intercepts and modifies a message before forwarding it.
-    InterceptMessage(Box<InterceptMessage>),
+    ReplaceMessage(Box<ReplaceMessage>),
 }
 
-impl Action {
-    /// Returns the action if it is `IgnoreFromMessage` or `InterceptMessage`  
+impl InterceptAction {
+    /// Returns the action if it is `IgnoreFromMessage` or `ReplaceMessage`  
     /// with the specified message type.
     pub fn find_matching_action(
-        action: &Option<Action>,
+        action: &Option<InterceptAction>,
         msg_type: MsgType,
         direction: MessageDirection,
     ) -> Option<&Self> {
         action.as_ref().and_then(|action| match action {
-            Action::IgnoreFromMessage(bm)
+            InterceptAction::IgnoreFromMessage(bm)
                 if bm.direction == direction && bm.expected_message_type == msg_type =>
             {
                 Some(action)
             }
 
-            Action::InterceptMessage(im)
+            InterceptAction::ReplaceMessage(im)
                 if im.direction == direction && im.expected_message_type == msg_type =>
             {
                 Some(action)
@@ -115,22 +115,22 @@ impl IgnoreFromMessage {
     }
 }
 
-impl From<IgnoreFromMessage> for Action {
+impl From<IgnoreFromMessage> for InterceptAction {
     fn from(value: IgnoreFromMessage) -> Self {
-        Action::IgnoreFromMessage(value)
+        InterceptAction::IgnoreFromMessage(value)
     }
 }
 
 /// Allows [`Sniffer`] to replace some intercepted message before forwarding it.
 #[derive(Debug, Clone)]
-pub struct InterceptMessage {
+pub struct ReplaceMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
     replacement_message: AnyMessage<'static>,
 }
 
-impl InterceptMessage {
-    /// Constructor of `InterceptMessage`
+impl ReplaceMessage {
+    /// Constructor of `ReplaceMessage`
     /// - `direction`: direction of message to be intercepted and replaced
     /// - `expected_message_type`: type of message to be intercepted and replaced
     /// - `replacement_message`: message to replace the intercepted one
@@ -148,9 +148,9 @@ impl InterceptMessage {
     }
 }
 
-impl From<InterceptMessage> for Action {
-    fn from(value: InterceptMessage) -> Self {
-        Action::InterceptMessage(Box::new(value))
+impl From<ReplaceMessage> for InterceptAction {
+    fn from(value: ReplaceMessage) -> Self {
+        InterceptAction::ReplaceMessage(Box::new(value))
     }
 }
 
@@ -168,7 +168,7 @@ impl Sniffer {
         listening_address: SocketAddr,
         upstream_address: SocketAddr,
         check_on_drop: bool,
-        action: Option<Action>,
+        action: Option<InterceptAction>,
     ) -> Self {
         Self {
             identifier,
@@ -280,7 +280,7 @@ impl Sniffer {
         recv: Receiver<MessageFrame>,
         send: Sender<MessageFrame>,
         downstream_messages: MessagesAggregator,
-        action: Option<Action>,
+        action: Option<InterceptAction>,
     ) -> Result<(), SnifferError> {
         // Blocking flag used in the IgnoreFromMessage action to stop processing messages after the
         // desired interception.
@@ -290,15 +290,18 @@ impl Sniffer {
                 continue;
             }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
-            let action =
-                Action::find_matching_action(&action, msg_type, MessageDirection::ToUpstream);
+            let action = InterceptAction::find_matching_action(
+                &action,
+                msg_type,
+                MessageDirection::ToUpstream,
+            );
             if let Some(ref action) = action {
                 match action {
-                    Action::IgnoreFromMessage(_) => {
+                    InterceptAction::IgnoreFromMessage(_) => {
                         blocked = true;
                         continue;
                     }
-                    Action::InterceptMessage(intercept_message) => {
+                    InterceptAction::ReplaceMessage(intercept_message) => {
                         let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                             Sv2Frame::from_message(
                                 intercept_message.replacement_message.clone(),
@@ -331,7 +334,7 @@ impl Sniffer {
         recv: Receiver<MessageFrame>,
         send: Sender<MessageFrame>,
         upstream_messages: MessagesAggregator,
-        action: Option<Action>,
+        action: Option<InterceptAction>,
     ) -> Result<(), SnifferError> {
         // Blocking flag used in the IgnoreFromMessage action to stop processing messages after the
         // desired interception.
@@ -342,16 +345,19 @@ impl Sniffer {
             }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
 
-            let action =
-                Action::find_matching_action(&action, msg_type, MessageDirection::ToDownstream);
+            let action = InterceptAction::find_matching_action(
+                &action,
+                msg_type,
+                MessageDirection::ToDownstream,
+            );
 
             if let Some(ref action) = action {
                 match action {
-                    Action::IgnoreFromMessage(_) => {
+                    InterceptAction::IgnoreFromMessage(_) => {
                         blocked = true;
                         continue;
                     }
-                    Action::InterceptMessage(intercept_message) => {
+                    InterceptAction::ReplaceMessage(intercept_message) => {
                         let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
                             Sv2Frame::from_message(
                                 intercept_message.replacement_message.clone(),

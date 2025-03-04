@@ -15,7 +15,7 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     parsers::{AnyMessage, CommonMessages},
 };
-use sniffer::{InterceptMessage, MessageDirection};
+use sniffer::{MessageDirection, ReplaceMessage};
 use std::convert::TryInto;
 
 // This test aims to assert that Sniffer is able to intercept and replace some messages.
@@ -35,7 +35,7 @@ async fn test_sniffer_intercept_to_downstream() {
                 .try_into()
                 .unwrap(),
         }));
-    let intercept = InterceptMessage::new(
+    let intercept = ReplaceMessage::new(
         MessageDirection::ToDownstream,
         MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         message_replacement,
@@ -75,7 +75,7 @@ async fn test_sniffer_intercept_to_upstream() {
         device_id: "89567".to_string().into_bytes().try_into().unwrap(),
     };
     let message_replacement = AnyMessage::Common(CommonMessages::SetupConnection(setup_connection));
-    let intercept = InterceptMessage::new(
+    let intercept = ReplaceMessage::new(
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_SETUP_CONNECTION,
         message_replacement,
