@@ -1,5 +1,6 @@
-use bitcoin::util::bip32::ExtendedPubKey;
-use std::env;
+use bip32_derivation::derive_child_public_key;
+use stratum_common::bitcoin::bip32::Xpub;
+use std::{env, str::FromStr};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -9,16 +10,15 @@ fn main() {
         std::process::exit(1);
     }
 
-    let slip132_master_pub_key = &args[1];
+    let master_pub_key = &args[1];
     let derivation_path = &args[2];
-    let bip32_extended_pub_key: ExtendedPubKey =
-        slip132::FromSlip132::from_slip132_str(slip132_master_pub_key).unwrap();
+    let bip32_extended_pub_key: Xpub =
+        Xpub::from_str(&master_pub_key).unwrap();
     let child_pub_key =
-        bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, derivation_path)
-            .unwrap();
+        derive_child_public_key(&bip32_extended_pub_key, derivation_path).unwrap();
     println!(
         "\nPublic key derived from your Master Public Key -> {:?}",
-        child_pub_key.to_pub().inner.to_string()
+        child_pub_key.to_pub().0.to_string()
     );
     println!(
         "\nCopy/paste it in your configuration file (filling the output_script_value field)!\n"
