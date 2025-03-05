@@ -34,6 +34,6 @@ translator_sv2 = { path = "../translator" }
 rand = "0.8.4"
 stratum-common = { path = "../../common" }
 tracing-subscriber = { version = "0.3.19"}
-
+mining_device = { path = "../test-utils/mining-device" }
 [lib]
 path = "lib/mod.rs"
