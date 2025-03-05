@@ -244,7 +244,8 @@ impl Client {
             if let Ok(incoming) = recv_incoming.clone().recv().await {
                 Self::parse_message(client.clone(), Ok(incoming)).await;
             } else {
-                warn!("Error reading from socket via `recv_incoming` channel")
+                warn!("Error reading from socket via `recv_incoming` channel");
+                break;
             }
         }
     }
