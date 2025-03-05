@@ -5,7 +5,7 @@
 //! management, mutex management, difficulty target calculations, merkle root calculations, and
 //! more.
 
-use binary_sv2::{Seq064K, ShortTxId, U256};
+use binary_sv2::{Seq064K, ShortTxId, B064K, U256};
 use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use primitive_types::U256 as U256Primitive;
@@ -20,15 +20,18 @@ use std::{
 use stratum_common::{
     bitcoin,
     bitcoin::{
+        absolute::LockTime,
         blockdata::block::{Header, Version},
         consensus,
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        CompactTarget, PublicKey, ScriptBuf, ScriptHash, Transaction, WScriptHash, XOnlyPublicKey,
+        transaction::Version as TxVersion,
+        CompactTarget, OutPoint, PublicKey, ScriptBuf, ScriptHash, Transaction, TxIn, TxOut,
+        WScriptHash, Witness, XOnlyPublicKey,
     },
 };
-use tracing::error;
+use tracing::{debug, error, warn};
 
 use crate::errors::Error;
 
@@ -155,10 +158,186 @@ impl<T> Mutex<T> {
     }
 }
 
+#[derive(Clone)]
+pub struct Coinbase {
+    pub tx: Transaction,
+    // used to truncate the coinbase_tx_prefix
+    pub script_sig_prefix_len: usize,
+}
+
+impl Coinbase {
+    pub fn new(
+        script_sig_prefix: Vec<u8>,
+        version: i32,
+        lock_time: u32,
+        sequence: u32,
+        coinbase_outputs: Vec<TxOut>,
+        additional_coinbase_script_data: Vec<u8>,
+        extranonce_len: u8,
+    ) -> Self {
+        let mut script_sig = script_sig_prefix.clone();
+        script_sig.extend_from_slice(&additional_coinbase_script_data);
+        script_sig.extend_from_slice(&vec![0; extranonce_len as usize]);
+        let tx_in = TxIn {
+            previous_output: OutPoint::null(),
+            script_sig: script_sig.into(),
+            sequence: bitcoin::Sequence(sequence),
+            witness: Witness::from(vec![vec![0; 32]]),
+        };
+        let tx = Transaction {
+            version: TxVersion::non_standard(version),
+            lock_time: LockTime::from_consensus(lock_time),
+            input: vec![tx_in],
+            output: coinbase_outputs.to_vec(),
+        };
+
+        Self {
+            tx,
+            // TODO: move additional_coinbase_script_data to extranonce_prefix
+            // (part of original PR #1248)
+            script_sig_prefix_len: script_sig_prefix.len() + additional_coinbase_script_data.len(),
+        }
+    }
+
+    // serialize input from Transaction object
+    pub fn serialized_input(&self) -> Vec<u8> {
+        let input = self.tx.input[0].clone(); // coinbase only has one input
+        let mut serialized_input = Vec::new();
+        serialized_input.extend_from_slice(input.previous_output.txid.as_byte_array());
+        serialized_input.extend_from_slice(&input.previous_output.vout.to_le_bytes());
+        serialized_input.push(input.script_sig.len() as u8);
+        serialized_input.extend_from_slice(input.script_sig.as_bytes());
+        serialized_input.extend_from_slice(&input.sequence.0.to_le_bytes());
+        serialized_input
+    }
+
+    // serialize outputs from Transaction object
+    fn serialized_outputs(&self) -> Vec<Vec<u8>> {
+        self.tx.output.iter().map(consensus::serialize).collect()
+    }
+
+    // coinbase_tx_prefix is the LE bytes concatenation of the following coinbase fields:
+    // - tx version
+    // - input count
+    // - input outPoint
+    // - input index (vout)
+    // - scriptSig length
+    // - scriptSig prefix
+    //
+    // we skip the bip141 marker and flag (which usually come after tx version)
+    // because those are only used for computing the `wtxid`
+    // while the legacy `txid` is what is actually used for computing the merkle root
+    pub fn coinbase_tx_prefix(&self) -> Result<B064K<'static>, Error> {
+        let mut coinbase_tx_prefix: Vec<u8> = Vec::new();
+        coinbase_tx_prefix.extend_from_slice(&self.tx.version.0.to_le_bytes());
+        // skip BIP141/segwit marker and flag bytes
+        coinbase_tx_prefix.push(1u8); // input count
+
+        // truncate serialized input since coinbase_tx_prefix ends:
+        // - right after script_sig_prefix ends
+        // - right before extranonce starts
+        let mut truncated_serialized_input = self.serialized_input();
+        let truncated_input_len =
+            32 // outpoint
+                + 4 // input index
+                + 1 // script length byte
+                + self.script_sig_prefix_len // space for script_sig_prefix
+            ;
+        truncated_serialized_input.truncate(truncated_input_len);
+
+        coinbase_tx_prefix.extend_from_slice(&truncated_serialized_input);
+        coinbase_tx_prefix.try_into().map_err(Error::BinarySv2Error)
+    }
+
+    // coinbase_tx_suffix is the LE bytes concatenation of the following coinbase fields:
+    // - input sequence
+    // - serialized outputs
+    // - locktime
+    //
+    // we do not use the witnesses (usually placed between outputs and lock time)
+    // because it is only used for computing the `wtxid`
+    // while the legacy `txid` is what is used for computing the merkle root
+    pub fn coinbase_tx_suffix(&self) -> Result<B064K<'static>, Error> {
+        let serialized_input = self.serialized_input();
+        let input_sequence: &[u8] = &serialized_input[serialized_input.len() - 4..];
+
+        let serialized_outputs = self.serialized_outputs();
+        let lock_time_u32: u32 = self.tx.lock_time.to_consensus_u32();
+
+        let mut coinbase_tx_suffix = Vec::new();
+        coinbase_tx_suffix.extend_from_slice(input_sequence);
+        coinbase_tx_suffix.push(serialized_outputs.len() as u8);
+        coinbase_tx_suffix.extend_from_slice(&serialized_outputs.concat());
+        coinbase_tx_suffix.extend_from_slice(&lock_time_u32.to_le_bytes());
+        coinbase_tx_suffix.try_into().map_err(Error::BinarySv2Error)
+    }
+
+    /// Reconstructs the coinbase transaction with BIP141 marker and flag bytes.
+    /// This is needed when constructing a block with SegWit transactions.
+    ///
+    /// The function takes the coinbase_tx_prefix, extranonce, and coinbase_tx_suffix
+    /// and constructs a new coinbase transaction with the BIP141 marker and flag bytes
+    /// inserted after the version bytes.
+    pub fn reconstruct_with_bip141(
+        coinbase_tx_prefix: &[u8],
+        extranonce: &[u8],
+        coinbase_tx_suffix: &[u8],
+    ) -> Result<Self, Error> {
+        if coinbase_tx_prefix.len() < 4 {
+            return Err(Error::InvalidCoinbase);
+        }
+
+        let mut coinbase_bytes = Vec::new();
+        // First 4 bytes are the version
+        coinbase_bytes.extend_from_slice(&coinbase_tx_prefix[0..4]);
+        // Add BIP141 marker and flag
+        coinbase_bytes.push(0x00); // BIP141 marker
+        coinbase_bytes.push(0x01); // BIP141 flag
+                                   // Add the rest of the prefix (skipping the first 4 bytes)
+        coinbase_bytes.extend_from_slice(&coinbase_tx_prefix[4..]);
+        // Add extranonce
+        coinbase_bytes.extend_from_slice(extranonce);
+
+        // Find where the witness data should be inserted
+        // The suffix contains: sequence (4 bytes) + output count (1 byte) + outputs + locktime (4
+        // bytes) We need to insert the witness data before the locktime
+        let locktime_position = coinbase_tx_suffix.len() - 4;
+
+        // Add the suffix up to the locktime
+        coinbase_bytes.extend_from_slice(&coinbase_tx_suffix[0..locktime_position]);
+
+        // Add witness data - a single 32-byte witness item
+        // This is the standard witness commitment for coinbase transactions
+        coinbase_bytes.push(0x01); // 1 witness stack item for the single input
+        coinbase_bytes.push(0x20); // 32 bytes
+        coinbase_bytes.extend_from_slice(&[0; 32]); // 32 bytes of zeros as placeholder
+
+        // Add the locktime
+        coinbase_bytes.extend_from_slice(&coinbase_tx_suffix[locktime_position..]);
+
+        // Deserialize the coinbase transaction
+        let tx: Transaction = consensus::deserialize(&coinbase_bytes).map_err(|e| {
+            Error::TxDecodingError(format!("Failed to deserialize coinbase: {}", e))
+        })?;
+
+        let script_sig = tx.input[0].script_sig.as_bytes();
+        let script_sig_prefix_len = if script_sig.len() >= extranonce.len() {
+            script_sig.len() - extranonce.len()
+        } else {
+            0
+        };
+
+        Ok(Self {
+            tx,
+            script_sig_prefix_len,
+        })
+    }
+}
+
 /// Computes the Merkle root from coinbase transaction components and a path of transaction hashes.
 ///
 /// Validates and deserializes a coinbase transaction before building the 32-byte Merkle root.
-/// Returns [`None`] is the arguments are invalid.
+/// Returns [`None`] if the arguments are invalid.
 ///
 /// ## Components
 /// * `coinbase_tx_prefix`: First part of the coinbase transaction (the part before the extranonce).
@@ -174,22 +353,36 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     extranonce: &[u8],
     path: &[T],
 ) -> Option<Vec<u8>> {
+    debug!("Computing merkle root with:");
+    debug!("- prefix len: {}", coinbase_tx_prefix.len());
+    debug!("- prefix: {:?}", coinbase_tx_prefix);
+    debug!("- suffix len: {}", coinbase_tx_suffix.len());
+    debug!("- suffix: {:?}", coinbase_tx_suffix);
+    debug!("- extranonce len: {}", extranonce.len());
+    debug!("- extranonce: {:?}", extranonce);
+    debug!("- path len: {}", path.len());
+
     let mut coinbase =
         Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
     dbg!(&coinbase.len());
+
+    debug!("- total coinbase len: {}", coinbase.len());
+    debug!("- full coinbase: {:?}", coinbase);
+
     let coinbase: Transaction = match consensus::deserialize(&coinbase[..]) {
         Ok(trans) => trans,
         Err(e) => {
             error!("ERROR: {}", e);
-            dbg!(e);
             return None;
         }
     };
 
     let coinbase_id: [u8; 32] = *coinbase.compute_txid().as_ref();
+
+    debug!("- coinbase_id: {:?}", coinbase_id);
 
     Some(merkle_root_from_path_(coinbase_id, path).to_vec())
 }
@@ -950,8 +1143,24 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
             nonce: message.nonce,
         };
 
-        let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
-        let coinbase = consensus::deserialize(&coinbase[..]).unwrap();
+        // Try to reconstruct the coinbase with BIP141 marker and flag
+        let coinbase =
+            match Coinbase::reconstruct_with_bip141(&coinbase_pre, &extranonce, &coinbase_suf) {
+                Ok(coinbase) => {
+                    // Successfully reconstructed with BIP141 marker and flag
+                    coinbase.tx
+                }
+                Err(e) => {
+                    // If reconstruction fails, fall back to the original method
+                    warn!(
+                        "Failed to reconstruct coinbase with BIP141 marker and flag: {}",
+                        e
+                    );
+                    let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
+                    consensus::deserialize(&coinbase[..]).unwrap()
+                }
+            };
+
         tx_list.insert(0, coinbase);
 
         let mut block = Block {
@@ -1194,5 +1403,60 @@ mod tests {
         m.safe_lock(|i| *i += 1).unwrap();
         // m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap()); // will not compile
         m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap_or_default()); // compiles
+    }
+
+    #[test]
+    fn test_reconstruct_with_bip141() {
+        use bitcoin::{Amount, TxOut};
+        
+        // Create a simple coinbase transaction using Coinbase::new
+        let script_sig_prefix = b"coinbase script".to_vec();
+        let version = 1;
+        let lock_time = 0;
+        let sequence = 0xffffffff;
+        
+        // Create a P2PKH output
+        let pubkey_hash = [0x01; 20];
+        let script = ScriptBuf::new_p2pkh(&bitcoin::PubkeyHash::from_slice(&pubkey_hash).unwrap());
+        let output = TxOut {
+            value: Amount::from_sat(5000000000), // 50 BTC
+            script_pubkey: script,
+        };
+        
+        let additional_coinbase_script_data = Vec::new();
+        let extranonce_len = 8; // 8 bytes for extranonce
+        
+        // Create the coinbase transaction
+        let coinbase = Coinbase::new(
+            script_sig_prefix.clone(),
+            version,
+            lock_time,
+            sequence,
+            vec![output],
+            additional_coinbase_script_data,
+            extranonce_len,
+        );
+        
+        // Get the prefix and suffix
+        let prefix_b064k = coinbase.coinbase_tx_prefix().unwrap();
+        let suffix_b064k = coinbase.coinbase_tx_suffix().unwrap();
+        
+        // Convert B064K to byte slices
+        let prefix = prefix_b064k.as_ref();
+        let suffix = suffix_b064k.as_ref();
+        
+        // Create an extranonce
+        let extranonce = b"12345678".to_vec(); // 8 bytes
+        
+        // Test the reconstruct_with_bip141 function
+        let reconstructed_with_bip141 = Coinbase::reconstruct_with_bip141(prefix, &extranonce, suffix).unwrap();
+        
+        // Check that the transaction has the correct structure
+        assert_eq!(reconstructed_with_bip141.tx.version.0, version, "Transaction version should match");
+        assert_eq!(reconstructed_with_bip141.tx.input.len(), 1, "Transaction should have 1 input");
+        assert_eq!(reconstructed_with_bip141.tx.output.len(), 1, "Transaction should have 1 output");
+        
+        // Check that it has witness data
+        assert!(!reconstructed_with_bip141.tx.input[0].witness.is_empty(), "Transaction should have witness data");
     }
 }
