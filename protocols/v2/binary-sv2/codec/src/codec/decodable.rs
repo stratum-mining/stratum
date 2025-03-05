@@ -315,7 +315,7 @@ impl PrimitiveMarker {
     }
 }
 
-impl<'a> GetSize for DecodablePrimitive<'a> {
+impl GetSize for DecodablePrimitive<'_> {
     fn get_size(&self) -> usize {
         match self {
             DecodablePrimitive::U8(v) => v.get_size(),

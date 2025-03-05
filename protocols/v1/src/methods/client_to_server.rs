@@ -127,7 +127,7 @@ pub struct Submit<'a> {
 //"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"],
 //"{"params": "id": 2196, "method": "mining.submit"}"
 
-impl<'a> Submit<'a> {
+impl Submit<'_> {
     pub fn respond(self, is_ok: bool) -> Response {
         // infallibel
         let result = serde_json::to_value(is_ok).unwrap();
@@ -139,7 +139,7 @@ impl<'a> Submit<'a> {
     }
 }
 
-impl<'a> From<Submit<'a>> for Message {
+impl From<Submit<'_>> for Message {
     fn from(submit: Submit) -> Self {
         let ex: String = submit.extra_nonce2.0.inner_as_ref().to_hex();
         let mut params: Vec<Value> = vec![
@@ -161,7 +161,7 @@ impl<'a> From<Submit<'a>> for Message {
     }
 }
 
-impl<'a> TryFrom<StandardRequest> for Submit<'a> {
+impl TryFrom<StandardRequest> for Submit<'_> {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -230,7 +230,7 @@ impl Arbitrary for Submit<'static> {
         let bits = Option::<u32>::arbitrary(g);
         println!("\nBITS: {:?}\n", bits);
         let extra: Extranonce = extra.try_into().unwrap();
-        let bits = bits.map(|x| HexU32Be(x));
+        let bits = bits.map(HexU32Be);
         println!("\nBITS: {:?}\n", bits);
         Submit {
             user_name: String::arbitrary(g),
@@ -308,7 +308,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
     }
 }
 
-impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
+impl TryFrom<StandardRequest> for Subscribe<'_> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
@@ -669,7 +669,7 @@ fn test_version_extension_with_broken_bit_count() {
                 "version-rolling.min-bit-count":"16"}
             ]
         }"#;
-    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
@@ -688,7 +688,7 @@ fn test_version_extension_with_non_string_bit_count() {
                 "version-rolling.min-bit-count":16}
             ]
         }"#;
-    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
@@ -707,11 +707,11 @@ fn test_version_extension_with_no_bit_count() {
                 {"version-rolling.mask":"ffffffff"}
             ]
         }"#;
-    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
-            assert!(params.min_bit_count.as_ref() == None);
+            assert!(params.min_bit_count.as_ref().is_none());
         }
         _ => panic!(),
     };

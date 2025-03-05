@@ -152,7 +152,7 @@ impl<'a> From<U256<'a>> for Extranonce {
 }
 
 // This function converts an Extranonce type to U256n little endian
-impl<'a> From<Extranonce> for U256<'a> {
+impl From<Extranonce> for U256<'_> {
     fn from(v: Extranonce) -> Self {
         let inner = v.extranonce;
         debug_assert!(inner.len() <= 32);
@@ -170,7 +170,7 @@ impl<'a> From<B032<'a>> for Extranonce {
 }
 
 // this function converts an Extranonce type in B032 in little endian
-impl<'a> From<Extranonce> for B032<'a> {
+impl From<Extranonce> for B032<'_> {
     fn from(v: Extranonce) -> Self {
         let inner = v.extranonce.to_vec();
         // below unwraps never panics
@@ -261,12 +261,12 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// An ExtendedExtranonce is defined by 3 ranges:
 ///
 ///  - range_0: is the range that represents the extended extranonce part that reserved by upstream
-/// relative to P (for most upstreams nodes, e.g. a pool, this is [0..0]) and it is fixed for P.
+///    relative to P (for most upstreams nodes, e.g. a pool, this is [0..0]) and it is fixed for P.
 ///  - range_1: is the range that represents the extended extranonce part reserved to P. P assigns
-/// to every relative downstream an extranonce with different value in the range 1 in the
-/// following way: if D_i is the (i+1)-th downstream that connected to P, then D_i gets from P and
-/// extranonce with range_1=i (note that the concatenation of range_1 and range_1 is the range_0
-/// relative to D_i and range_2 of P is the range_1 of D_i).
+///    to every relative downstream an extranonce with different value in the range 1 in the
+///    following way: if D_i is the (i+1)-th downstream that connected to P, then D_i gets from P
+///    and extranonce with range_1=i (note that the concatenation of range_1 and range_1 is the
+///    range_0 relative to D_i and range_2 of P is the range_1 of D_i).
 ///  - range_2: is the range that P reserve for the downstreams.
 ///
 ///
@@ -274,25 +274,25 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 ///
 /// The user P is the pool.
 ///  - range_0 -> 0..0, there is no upstream relative to the pool P, so no space reserved by the
-/// upstream
+///    upstream
 ///  - range_1 -> 0..16 the pool P increments the first 16 bytes to be sure the each pool's
-/// downstream get a different extranonce or a different extended extranoce search space (more
-/// on that below*)
+///    downstream get a different extranonce or a different extended extranoce search space (more on
+///    that below*)
 ///  - range_2 -> 16..32 this bytes are not changed by the pool but are changed by the pool's
-/// downstream
+///    downstream
 ///
 /// The user P is the translator.
 ///  - range_0 -> 0..16 these bytes are set by the pool and P shouldn't change them
 ///  - range_1 -> 16..24 these bytes are modified by P each time that a sv1 mining device connect,
-///  so we can be sure that each connected sv1 mining device get a different extended extranonce
-///  search space
+///    so we can be sure that each connected sv1 mining device get a different extended extranonce
+///    search space
 ///  - range_2 -> 24..32 these bytes are left free for the sv1 miniing device
 ///
 /// The user P is a sv1 mining device.
 ///  - range_0 -> 0..24 these byteshadd set by the device's upstreams
-/// range_1 -> 24..32 these bytes are changed by P (if capable) in order to increment the
-/// search space
-/// range_2 -> 32..32 no more downstream
+///  - range_1 -> 24..32 these bytes are changed by P (if capable) in order to increment the search
+///    space
+///  - range_2 -> 32..32 no more downstream
 ///
 ///
 /// About how the pool work having both extended and standard downstreams:
@@ -585,7 +585,7 @@ pub mod tests {
         let extranonce = Extranonce::try_from(vec![0; MAX_EXTRANONCE_LEN + 1]);
         assert!(extranonce.is_err());
 
-        assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1) == None);
+        assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1).is_none());
     }
 
     #[test]
@@ -740,7 +740,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_extended_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);
@@ -790,7 +790,7 @@ pub mod tests {
                         return true;
                     }
                 }
-                return false;
+                false
             }
         }
     }
@@ -798,7 +798,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_next_standard_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);
@@ -828,7 +828,7 @@ pub mod tests {
                     // extranonce must remain unchanged
                     && Extranonce::from(b032.clone()).extranonce[range_1.start..range_1.end]== extended_extranonce_start.inner[range_1.start..range_1.end]
                     // the range_1 if extranonce_next is set to zero by the method .next_standard()
-                    && extranonce_next.extranonce[range_1.start..range_1.end]==vec![0 as u8; range_1.len()]
+                    && extranonce_next.extranonce[range_1.start..range_1.end]==vec![0_u8; range_1.len()]
                 }
                 None => false,
             },
@@ -847,7 +847,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_next_stndard2(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);
@@ -877,7 +877,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_next_extended_extranonce(input: (u8, u8, Vec<u8>, usize, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);

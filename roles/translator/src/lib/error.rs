@@ -75,7 +75,7 @@ pub enum Error<'a> {
     Sv1MessageTooLong,
 }
 
-impl<'a> fmt::Display for Error<'a> {
+impl fmt::Display for Error<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
@@ -114,49 +114,49 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-impl<'a> From<binary_sv2::Error> for Error<'a> {
+impl From<binary_sv2::Error> for Error<'_> {
     fn from(e: binary_sv2::Error) -> Self {
         Error::BinarySv2(e)
     }
 }
 
-impl<'a> From<codec_sv2::noise_sv2::Error> for Error<'a> {
+impl From<codec_sv2::noise_sv2::Error> for Error<'_> {
     fn from(e: codec_sv2::noise_sv2::Error) -> Self {
         Error::CodecNoise(e)
     }
 }
 
-impl<'a> From<framing_sv2::Error> for Error<'a> {
+impl From<framing_sv2::Error> for Error<'_> {
     fn from(e: framing_sv2::Error) -> Self {
         Error::FramingSv2(e)
     }
 }
 
-impl<'a> From<std::io::Error> for Error<'a> {
+impl From<std::io::Error> for Error<'_> {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
     }
 }
 
-impl<'a> From<std::num::ParseIntError> for Error<'a> {
+impl From<std::num::ParseIntError> for Error<'_> {
     fn from(e: std::num::ParseIntError) -> Self {
         Error::ParseInt(e)
     }
 }
 
-impl<'a> From<roles_logic_sv2::errors::Error> for Error<'a> {
+impl From<roles_logic_sv2::errors::Error> for Error<'_> {
     fn from(e: roles_logic_sv2::errors::Error) -> Self {
         Error::RolesSv2Logic(e)
     }
 }
 
-impl<'a> From<serde_json::Error> for Error<'a> {
+impl From<serde_json::Error> for Error<'_> {
     fn from(e: serde_json::Error) -> Self {
         Error::BadSerdeJson(e)
     }
 }
 
-impl<'a> From<ConfigError> for Error<'a> {
+impl From<ConfigError> for Error<'_> {
     fn from(e: ConfigError) -> Self {
         Error::BadConfigDeserialize(e)
     }
@@ -168,20 +168,20 @@ impl<'a> From<v1::error::Error<'a>> for Error<'a> {
     }
 }
 
-impl<'a> From<async_channel::RecvError> for Error<'a> {
+impl From<async_channel::RecvError> for Error<'_> {
     fn from(e: async_channel::RecvError) -> Self {
         Error::ChannelErrorReceiver(e)
     }
 }
 
-impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
+impl From<tokio::sync::broadcast::error::RecvError> for Error<'_> {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
         Error::TokioChannelErrorRecv(e)
     }
 }
 
 //*** LOCK ERRORS ***
-impl<'a, T> From<PoisonError<T>> for Error<'a> {
+impl<T> From<PoisonError<T>> for Error<'_> {
     fn from(_e: PoisonError<T>) -> Self {
         Error::PoisonLock
     }
@@ -212,13 +212,13 @@ impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for Error<'a
     }
 }
 
-impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
+impl From<async_channel::SendError<v1::Message>> for Error<'_> {
     fn from(e: async_channel::SendError<v1::Message>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::V1Message(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
+impl From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'_> {
     fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
     }
@@ -254,19 +254,19 @@ impl<'a>
     }
 }
 
-impl<'a> From<Vec<u8>> for Error<'a> {
+impl From<Vec<u8>> for Error<'_> {
     fn from(e: Vec<u8>) -> Self {
         Error::VecToSlice32(e)
     }
 }
 
-impl<'a> From<SetDifficulty> for Error<'a> {
+impl From<SetDifficulty> for Error<'_> {
     fn from(e: SetDifficulty) -> Self {
         Error::SetDifficultyToMessage(e)
     }
 }
 
-impl<'a> From<std::convert::Infallible> for Error<'a> {
+impl From<std::convert::Infallible> for Error<'_> {
     fn from(e: std::convert::Infallible) -> Self {
         Error::Infallible(e)
     }

@@ -36,7 +36,7 @@ pub struct OpenStandardMiningChannel<'decoder> {
     pub max_target: U256<'decoder>,
 }
 
-impl<'decoder> OpenStandardMiningChannel<'decoder> {
+impl OpenStandardMiningChannel<'_> {
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
@@ -73,7 +73,7 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
     pub group_channel_id: u32,
 }
 
-impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
+impl OpenStandardMiningChannelSuccess<'_> {
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
@@ -128,7 +128,7 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     pub min_extranonce_size: u16,
 }
 
-impl<'decoder> OpenExtendedMiningChannel<'decoder> {
+impl OpenExtendedMiningChannel<'_> {
     pub fn get_request_id_as_u32(&self) -> u32 {
         self.request_id
     }
@@ -172,7 +172,7 @@ pub struct OpenMiningChannelError<'decoder> {
     pub error_code: Str0255<'decoder>,
 }
 
-impl<'a> OpenMiningChannelError<'a> {
+impl OpenMiningChannelError<'_> {
     pub fn new_max_target_out_of_range(request_id: u32) -> Self {
         Self {
             request_id,
@@ -203,7 +203,6 @@ mod tests {
     use crate::tests::from_arbitrary_vec_to_array;
     use alloc::{string::String, vec::Vec};
     use core::convert::TryFrom;
-    use quickcheck_macros;
 
     // *** OPEN STANDARD MINING CHANNEL ***
     #[quickcheck_macros::quickcheck]
@@ -216,11 +215,11 @@ mod tests {
     ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let mut osmc = OpenStandardMiningChannel {
-            request_id: U32AsRef::from(request_id.clone()),
-            user_identity: Str0255::try_from(String::from(user_identity.clone()))
+            request_id: U32AsRef::from(request_id),
+            user_identity: Str0255::try_from(user_identity.clone())
                 .expect("could not convert string to Str0255"),
-            nominal_hash_rate: nominal_hash_rate.clone(),
-            max_target: U256::from(max_target.clone()),
+            nominal_hash_rate,
+            max_target: U256::from(max_target),
         };
         let test_request_id_1 = osmc.get_request_id_as_u32();
         osmc.update_id(new_request_id);
@@ -242,9 +241,9 @@ mod tests {
         let target = from_arbitrary_vec_to_array(target);
         let extranonce_prefix = from_arbitrary_vec_to_array(extranonce_prefix);
         let mut osmcs = OpenStandardMiningChannelSuccess {
-            request_id: U32AsRef::from(request_id.clone()),
+            request_id: U32AsRef::from(request_id),
             channel_id,
-            target: U256::from(target.clone()),
+            target: U256::from(target),
             extranonce_prefix: B032::try_from(extranonce_prefix.to_vec()).expect(
                 "OpenStandardMiningChannelSuccess: failed to convert extranonce_prefix to B032",
             ),
@@ -266,11 +265,11 @@ mod tests {
     ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let oemc = OpenExtendedMiningChannel {
-            request_id: request_id.clone(),
-            user_identity: Str0255::try_from(String::from(user_identity.clone()))
+            request_id,
+            user_identity: Str0255::try_from(user_identity.clone())
                 .expect("could not convert string to Str0255"),
-            nominal_hash_rate: nominal_hash_rate.clone(),
-            max_target: U256::from(max_target.clone()),
+            nominal_hash_rate,
+            max_target: U256::from(max_target),
             min_extranonce_size,
         };
         let test_request_id_1 = oemc.get_request_id_as_u32();
@@ -290,8 +289,7 @@ mod tests {
         }
     }
 
+    // "placeholder to allow in file unit tests for quickcheck";
     #[test]
-    fn test() {
-        "placeholder to allow in file unit tests for quickcheck";
-    }
+    fn test() {}
 }

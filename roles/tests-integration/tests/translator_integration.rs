@@ -5,8 +5,8 @@
 // Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
 // all tests. This is because tracing is a global setting.
 use const_sv2::{
-    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_SETUP_CONNECTION,
-    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
 };
 use integration_tests_sv2::{sniffer::*, *};
 use roles_logic_sv2::parsers::{AnyMessage, CommonMessages, Mining};

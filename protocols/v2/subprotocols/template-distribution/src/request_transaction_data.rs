@@ -72,7 +72,6 @@ pub struct CRequestTransactionDataSuccess {
 
 impl<'a> CRequestTransactionDataSuccess {
     /// Converts C struct to Rust struct.
-
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataSuccess<'a>, Error> {
         let excess_data: B064K = self.excess_data.as_mut_slice().try_into()?;
@@ -135,7 +134,6 @@ pub struct CRequestTransactionDataError {
 
 impl<'a> CRequestTransactionDataError {
     /// Converts C struct to Rust struct.
-
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataError<'a>, Error> {
         let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;

@@ -52,7 +52,7 @@ pub enum Sv2Message<'a> {
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
-impl<'a> Sv2Message<'a> {
+impl Sv2Message<'_> {
     pub fn message_type(&self) -> u8 {
         match self {
             Sv2Message::CoinbaseOutputDataSize(_) => MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
@@ -94,7 +94,7 @@ impl<'a> Sv2Message<'a> {
     }
 }
 
-impl<'a> Display for Sv2Message<'a> {
+impl Display for Sv2Message<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", *self)
     }

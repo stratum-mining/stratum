@@ -55,7 +55,7 @@ struct Header<'a> {
     nonce: u32,
 }
 
-impl<'a> Header<'a> {
+impl Header<'_> {
     // calculates the sha256 blockhash of the header
     #[allow(dead_code)]
     pub fn hash(&self) -> Target {
@@ -303,7 +303,7 @@ mod tests {
         let group_channel_id = 1;
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
-        template.template_id = template.template_id % u64::MAX;
+        template.template_id %= u64::MAX;
         template.future_template = true;
         let extended_mining_job = jobs_creators
             .on_new_template(
@@ -506,7 +506,7 @@ mod tests {
         let mut faulty_shares = shares.clone();
         faulty_shares.job_id += 1;
 
-        for (index, shares) in vec![shares, faulty_shares].iter().enumerate() {
+        for (index, shares) in [shares, faulty_shares].iter().enumerate() {
             match group_channel_job_dispatcher.on_submit_shares(shares.clone()) {
                 SendSharesResponse::Valid(resp) => {
                     assert_eq!(
