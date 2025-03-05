@@ -305,6 +305,28 @@ pub async fn start_mining_device_sv1(
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 }
 
+pub async fn start_mining_device_sv2(
+    upstream: SocketAddr,
+    pub_key: Option<Secp256k1PublicKey>,
+    device_id: Option<String>,
+    user_id: Option<String>,
+    handicap: u32,
+    nominal_hashrate_multiplier: Option<f32>,
+) {
+    tokio::spawn(async move {
+        mining_device::connect(
+            upstream.to_string(),
+            pub_key,
+            device_id,
+            user_id,
+            handicap,
+            nominal_hashrate_multiplier,
+        )
+        .await;
+    });
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+}
+
 pub async fn start_mining_sv2_proxy(upstream: SocketAddr) -> SocketAddr {
     use mining_proxy_sv2::{ChannelKind, UpstreamMiningValues};
     let upstreams = vec![UpstreamMiningValues {
