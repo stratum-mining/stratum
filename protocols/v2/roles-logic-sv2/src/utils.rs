@@ -31,7 +31,7 @@ use stratum_common::{
         WScriptHash, Witness, XOnlyPublicKey,
     },
 };
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::errors::Error;
 
@@ -270,6 +270,67 @@ impl Coinbase {
         coinbase_tx_suffix.extend_from_slice(&serialized_outputs.concat());
         coinbase_tx_suffix.extend_from_slice(&lock_time_u32.to_le_bytes());
         coinbase_tx_suffix.try_into().map_err(Error::BinarySv2Error)
+    }
+
+    /// Reconstructs the coinbase transaction with BIP141 marker and flag bytes.
+    /// This is needed when constructing a block with SegWit transactions.
+    ///
+    /// The function takes the coinbase_tx_prefix, extranonce, and coinbase_tx_suffix
+    /// and constructs a new coinbase transaction with the BIP141 marker and flag bytes
+    /// inserted after the version bytes.
+    pub fn reconstruct_with_bip141(
+        coinbase_tx_prefix: &[u8],
+        extranonce: &[u8],
+        coinbase_tx_suffix: &[u8],
+    ) -> Result<Self, Error> {
+        if coinbase_tx_prefix.len() < 4 {
+            return Err(Error::InvalidCoinbase);
+        }
+
+        let mut coinbase_bytes = Vec::new();
+        // First 4 bytes are the version
+        coinbase_bytes.extend_from_slice(&coinbase_tx_prefix[0..4]);
+        // Add BIP141 marker and flag
+        coinbase_bytes.push(0x00); // BIP141 marker
+        coinbase_bytes.push(0x01); // BIP141 flag
+                                   // Add the rest of the prefix (skipping the first 4 bytes)
+        coinbase_bytes.extend_from_slice(&coinbase_tx_prefix[4..]);
+        // Add extranonce
+        coinbase_bytes.extend_from_slice(extranonce);
+
+        // Find where the witness data should be inserted
+        // The suffix contains: sequence (4 bytes) + output count (1 byte) + outputs + locktime (4
+        // bytes) We need to insert the witness data before the locktime
+        let locktime_position = coinbase_tx_suffix.len() - 4;
+
+        // Add the suffix up to the locktime
+        coinbase_bytes.extend_from_slice(&coinbase_tx_suffix[0..locktime_position]);
+
+        // Add witness data - a single 32-byte witness item
+        // This is the standard witness commitment for coinbase transactions
+        coinbase_bytes.push(0x01); // 1 witness stack item for the single input
+        coinbase_bytes.push(0x20); // 32 bytes
+        coinbase_bytes.extend_from_slice(&[0; 32]); // 32 bytes of zeros as placeholder
+
+        // Add the locktime
+        coinbase_bytes.extend_from_slice(&coinbase_tx_suffix[locktime_position..]);
+
+        // Deserialize the coinbase transaction
+        let tx: Transaction = consensus::deserialize(&coinbase_bytes).map_err(|e| {
+            Error::TxDecodingError(format!("Failed to deserialize coinbase: {}", e))
+        })?;
+
+        let script_sig = tx.input[0].script_sig.as_bytes();
+        let script_sig_prefix_len = if script_sig.len() >= extranonce.len() {
+            script_sig.len() - extranonce.len()
+        } else {
+            0
+        };
+
+        Ok(Self {
+            tx,
+            script_sig_prefix_len,
+        })
     }
 }
 
@@ -1082,8 +1143,24 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
             nonce: message.nonce,
         };
 
-        let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
-        let coinbase = consensus::deserialize(&coinbase[..]).unwrap();
+        // Try to reconstruct the coinbase with BIP141 marker and flag
+        let coinbase =
+            match Coinbase::reconstruct_with_bip141(&coinbase_pre, &extranonce, &coinbase_suf) {
+                Ok(coinbase) => {
+                    // Successfully reconstructed with BIP141 marker and flag
+                    coinbase.tx
+                }
+                Err(e) => {
+                    // If reconstruction fails, fall back to the original method
+                    warn!(
+                        "Failed to reconstruct coinbase with BIP141 marker and flag: {}",
+                        e
+                    );
+                    let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
+                    consensus::deserialize(&coinbase[..]).unwrap()
+                }
+            };
+
         tx_list.insert(0, coinbase);
 
         let mut block = Block {
@@ -1330,5 +1407,60 @@ mod tests {
         m.safe_lock(|i| *i += 1).unwrap();
         // m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap()); // will not compile
         m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap_or_default()); // compiles
+    }
+
+    #[test]
+    fn test_reconstruct_with_bip141() {
+        use bitcoin::{Amount, TxOut};
+        
+        // Create a simple coinbase transaction using Coinbase::new
+        let script_sig_prefix = b"coinbase script".to_vec();
+        let version = 1;
+        let lock_time = 0;
+        let sequence = 0xffffffff;
+        
+        // Create a P2PKH output
+        let pubkey_hash = [0x01; 20];
+        let script = ScriptBuf::new_p2pkh(&bitcoin::PubkeyHash::from_slice(&pubkey_hash).unwrap());
+        let output = TxOut {
+            value: Amount::from_sat(5000000000), // 50 BTC
+            script_pubkey: script,
+        };
+        
+        let additional_coinbase_script_data = Vec::new();
+        let extranonce_len = 8; // 8 bytes for extranonce
+        
+        // Create the coinbase transaction
+        let coinbase = Coinbase::new(
+            script_sig_prefix.clone(),
+            version,
+            lock_time,
+            sequence,
+            vec![output],
+            additional_coinbase_script_data,
+            extranonce_len,
+        );
+        
+        // Get the prefix and suffix
+        let prefix_b064k = coinbase.coinbase_tx_prefix().unwrap();
+        let suffix_b064k = coinbase.coinbase_tx_suffix().unwrap();
+        
+        // Convert B064K to byte slices
+        let prefix = prefix_b064k.as_ref();
+        let suffix = suffix_b064k.as_ref();
+        
+        // Create an extranonce
+        let extranonce = b"12345678".to_vec(); // 8 bytes
+        
+        // Test the reconstruct_with_bip141 function
+        let reconstructed_with_bip141 = Coinbase::reconstruct_with_bip141(prefix, &extranonce, suffix).unwrap();
+        
+        // Check that the transaction has the correct structure
+        assert_eq!(reconstructed_with_bip141.tx.version.0, version, "Transaction version should match");
+        assert_eq!(reconstructed_with_bip141.tx.input.len(), 1, "Transaction should have 1 input");
+        assert_eq!(reconstructed_with_bip141.tx.output.len(), 1, "Transaction should have 1 output");
+        
+        // Check that it has witness data
+        assert!(!reconstructed_with_bip141.tx.input[0].witness.is_empty(), "Transaction should have witness data");
     }
 }
