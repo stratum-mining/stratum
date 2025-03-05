@@ -1445,6 +1445,7 @@ dependencies = [
  "jd_client",
  "jd_server",
  "key-utils",
+ "mining_device",
  "mining_device_sv1",
  "mining_proxy_sv2",
  "minreq",
