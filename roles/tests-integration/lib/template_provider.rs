@@ -87,9 +87,25 @@ impl TemplateProvider {
         env::set_var("BITCOIND_EXE", bitcoin_exe_home.join("bitcoind"));
         let exe_path = corepc_node::exe_path().expect("Failed to get bitcoind path");
 
-        let bitcoind = Node::with_conf(exe_path, &conf).expect("Failed to create Node");
-
-        TemplateProvider { bitcoind }
+        // this timeout is used to avoid potential racing conditions
+        // on the bitcoind executable while executing Integration Tests in parallel
+        // for more context, see https://github.com/stratum-mining/stratum/issues/1278#issuecomment-2692316174
+        let timeout = std::time::Duration::from_secs(10);
+        let current_time = std::time::Instant::now();
+        loop {
+            match Node::with_conf(&exe_path, &conf) {
+                Ok(bitcoind) => {
+                    break TemplateProvider { bitcoind };
+                }
+                Err(e) => {
+                    if current_time.elapsed() > timeout {
+                        panic!("Failed to start bitcoind: {}", e);
+                    }
+                    println!("Failed to start bitcoind, retrying in two seconds: {}", e);
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
+            }
+        }
     }
 
     pub fn generate_blocks(&self, n: u64) {
