@@ -1,8 +1,8 @@
-use stratum_common::bitcoin::{
-    secp256k1::Secp256k1,
-    bip32::{DerivationPath, Error, Xpub},
-};
 use std::str::FromStr;
+use stratum_common::bitcoin::{
+    bip32::{DerivationPath, Error, Xpub},
+    secp256k1::Secp256k1,
+};
 
 pub fn derive_child_public_key(xpub: &Xpub, path: &str) -> Result<Xpub, Error> {
     let secp = Secp256k1::new();
