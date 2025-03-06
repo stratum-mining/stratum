@@ -116,8 +116,6 @@ pub struct Upstream {
     pub min_extranonce_size: u16,
     #[allow(dead_code)]
     pub upstream_extranonce1_size: usize,
-    /// String be included in coinbase tx input scriptsig
-    pub pool_signature: String,
     /// Receives messages from the SV2 Upstream role
     pub receiver: Receiver<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
@@ -153,7 +151,6 @@ impl Upstream {
         address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
         min_extranonce_size: u16,
-        pool_signature: String,
         tx_status: status::Sender,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
@@ -191,7 +188,6 @@ impl Upstream {
             min_extranonce_size,
             upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
                                             * pool supports currently */
-            pool_signature,
             tx_status,
             receiver,
             sender,

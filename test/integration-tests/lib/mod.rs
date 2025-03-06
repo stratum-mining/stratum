@@ -132,7 +132,6 @@ pub async fn start_jdc(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
     .unwrap();
-    let pool_signature = "Stratum v2 SRI Pool".to_string();
     let upstreams = pool
         .iter()
         .map(|(pool_addr, jds_addr)| {
@@ -140,7 +139,6 @@ pub async fn start_jdc(
                 authority_pubkey,
                 pool_addr.to_string(),
                 jds_addr.to_string(),
-                pool_signature.clone(),
             )
         })
         .collect();

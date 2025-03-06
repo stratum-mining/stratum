@@ -206,7 +206,6 @@ pub struct Upstream {
     pub authority_pubkey: Secp256k1PublicKey,
     pub pool_address: String,
     pub jd_address: String,
-    pub pool_signature: String, // string be included in coinbase tx input scriptsig
 }
 
 impl Upstream {
@@ -214,13 +213,11 @@ impl Upstream {
         authority_pubkey: Secp256k1PublicKey,
         pool_address: String,
         jd_address: String,
-        pool_signature: String,
     ) -> Self {
         Self {
             authority_pubkey,
             pool_address,
             jd_address,
-            pool_signature,
         }
     }
 }
