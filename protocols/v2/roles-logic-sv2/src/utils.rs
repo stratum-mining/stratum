@@ -13,7 +13,7 @@ use siphasher::sip::SipHasher24;
 use std::{
     cmp::max,
     convert::{TryFrom, TryInto},
-    ops::{Div, Mul},
+    ops::Div,
     str::FromStr,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
@@ -314,6 +314,7 @@ impl TryFrom<CoinbaseOutput> for ScriptBuf {
 pub enum InputError {
     NegativeInput,
     DivisionByZero,
+    ArithmeticOverflow,
 }
 
 /// Calculates the mining target threshold for a mining device based on its hashrate (H/s) and
@@ -437,19 +438,16 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     if share_per_min.is_sign_negative() {
         return Err(Error::HashrateError(InputError::NegativeInput));
     }
-
     let mut target_arr: [u8; 32] = [0; 32];
     let slice: &mut [u8] = &mut target_arr;
     slice.copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
     let target = U256Primitive::from_big_endian(target_arr.as_ref());
-
     // we calculate the numerator 2^256-t
     // note that [255_u8,;32] actually is 2^256 -1, but 2^256 -t = (2^256-1) - (t-1)
     let max_target = [255_u8; 32];
     let max_target = U256Primitive::from_big_endian(max_target.as_ref());
     let numerator = max_target - (target - U256Primitive::one());
-
     // now we calculate the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
     let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
@@ -462,9 +460,10 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let shares_occurrency_frequence = from_u128_to_u256(shares_occurrency_frequence);
     let target_plus_one =
         U256Primitive::from_big_endian(target_arr.as_ref()) + U256Primitive::one();
-    let denominator = shares_occurrency_frequence
-        .mul(target_plus_one)
-        .div(U256Primitive::from(100));
+    let denominator = target_plus_one
+        .checked_mul(shares_occurrency_frequence)
+        .and_then(|e| e.checked_div(U256Primitive::from(100)))
+        .ok_or(Error::HashrateError(InputError::ArithmeticOverflow))?;
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
