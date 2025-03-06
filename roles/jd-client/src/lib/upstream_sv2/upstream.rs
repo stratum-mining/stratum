@@ -564,7 +564,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
         info!("Receive open extended mining channel success");
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let pool_signature = self.pool_signature.clone();
         let prefix_len = m.extranonce_prefix.to_vec().len();
         let self_len = 0;
         let total_len = prefix_len + m.extranonce_size as usize;
@@ -589,7 +588,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             share_per_min,
             channel_kind,
             vec![],
-            pool_signature.into(),
         );
         let extranonce: Extranonce = m
             .extranonce_prefix

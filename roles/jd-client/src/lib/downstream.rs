@@ -501,7 +501,6 @@ impl
                 share_per_min,
                 kind,
                 coinbase_outputs,
-                "SOLO".into(),
             );
             self.status.set_channel(channel_factory);
 
