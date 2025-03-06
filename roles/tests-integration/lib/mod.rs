@@ -5,7 +5,7 @@ use jd_client::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use pool_sv2::PoolSv2;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::{
     convert::{TryFrom, TryInto},
     net::SocketAddr,
@@ -263,7 +263,7 @@ pub fn measure_hashrate(duration_secs: u64) -> f64 {
     use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
     let mut share = {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let mut arr = [0u8; 80];
         rng.fill(&mut arr[..]);
         arr
