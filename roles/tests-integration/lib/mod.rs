@@ -136,12 +136,10 @@ pub async fn start_jdc(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
     .unwrap();
-    let pool_signature = "Stratum v2 SRI Pool".to_string();
     let upstreams = vec![Upstream::new(
         authority_pubkey,
         pool_address.to_string(),
         jds_address.to_string(),
-        pool_signature,
     )];
     let pool_config = PoolConfig::new(authority_public_key, authority_secret_key);
     let tp_config = TPConfig::new(1000, tp_address.to_string(), None);
