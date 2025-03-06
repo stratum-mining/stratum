@@ -1,5 +1,5 @@
 # SRI JDC config
-listening_address = "127.0.0.1:34264"
+listening_address = "127.0.0.1:34265"
 
 # Version support
 max_supported_version = 2
