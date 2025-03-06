@@ -35,3 +35,4 @@ error_handling = { path = "../../utils/error-handling" }
 nohash-hasher = "0.2.0"
 key-utils = { path = "../../utils/key-utils" }
 primitive-types = "0.13.1"
+config-helpers = { path = "../roles-utils/config-helpers" }

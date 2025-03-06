@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::SetNewPrevHash,
     utils::{hash_lists_tuple, Mutex},
 };
-use std::{collections::HashMap, convert::TryInto, str::FromStr};
+use std::{collections::HashMap, convert::TryInto};
 use stratum_common::bitcoin::{consensus, Transaction};
 use tokio::task::AbortHandle;
 use tracing::{debug, error, info};
@@ -24,10 +24,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::NewTemplate,
     utils::Id,
 };
-use std::{
-    net::{IpAddr, SocketAddr},
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc};
 
 pub type Message = AnyMessage<'static>;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
@@ -36,7 +33,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-use super::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
+use super::{config::JobDeclaratorClientConfig, error::Error, upstream_sv2::Upstream};
 
 #[derive(Debug, Clone)]
 pub struct LastDeclareJob {
@@ -79,7 +76,7 @@ impl JobDeclarator {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        config: ProxyConfig,
+        config: JobDeclaratorClientConfig,
         up: Arc<Mutex<Upstream>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) -> Result<Arc<Mutex<Self>>, Error<'static>> {
@@ -90,23 +87,18 @@ impl JobDeclarator {
                 .await
                 .expect("impossible to connect");
 
-        let proxy_address = SocketAddr::new(
-            IpAddr::from_str(&config.downstream_address).unwrap(),
-            config.downstream_port,
-        );
-
         info!(
-            "JD proxy: setupconnection Proxy address: {:?}",
-            proxy_address
+            "JD Client: SETUP_CONNECTION address: {:?}",
+            config.listening_address()
         );
 
-        SetupConnectionHandler::setup(&mut receiver, &mut sender, proxy_address)
+        SetupConnectionHandler::setup(&mut receiver, &mut sender, *config.listening_address())
             .await
             .unwrap();
 
         info!("JD CONNECTED");
 
-        let min_extranonce_size = config.min_extranonce2_size;
+        let min_extranonce_size = config.min_extranonce2_size();
 
         let self_ = Arc::new(Mutex::new(JobDeclarator {
             receiver,

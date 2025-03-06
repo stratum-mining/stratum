@@ -39,3 +39,4 @@ hashbrown = { version = "0.11", default-features = false, features = ["ahash", "
 key-utils = { path = "../../utils/key-utils" }
 rpc_sv2 = { path = "../roles-utils/rpc" }
 hex = "0.4.3"
+config-helpers = { path = "../roles-utils/config-helpers" }
