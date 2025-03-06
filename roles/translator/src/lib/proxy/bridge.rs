@@ -102,7 +102,6 @@ impl Bridge {
                 share_per_min,
                 ExtendedChannelKind::Proxy { upstream_target },
                 None,
-                "".into(),
                 up_id,
             ),
             future_jobs: vec![],
