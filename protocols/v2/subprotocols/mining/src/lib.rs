@@ -296,50 +296,115 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 ///
 /// # Examples
 ///
+/// Basic usage without additional coinbase script data:
+///
 /// ```
 /// use mining_sv2::*;
 /// use core::convert::TryInto;
-/// // Cretae an extended extranonce of len 32 reserve the first 7 bytes for the pool.
-/// let mut pool_extended_extranonce = ExtendedExtranonce::new(0..0, 0..7, 7..32);
 ///
-/// // On open extended channel the pool do
+/// // Create an extended extranonce of len 32, reserving the first 7 bytes for the pool
+/// let mut pool_extended_extranonce = ExtendedExtranonce::new(0..0, 0..7, 7..32, None).unwrap();
+///
+/// // On open extended channel (requesting to use a range of 3 bytes), the pool does:
 /// let new_extended_channel_extranonce = pool_extended_extranonce.next_extended(3).unwrap();
-/// let new_extended_channel_extranonce_inner = vec![0,0,0,0,0,0,1];
-/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), new_extended_channel_extranonce_inner);
+/// let expected_extranonce = vec![0, 0, 0, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
 ///
-/// // Then the pool receive a request to open a standard channel
+/// // Then the pool receives a request to open a standard channel
 /// let new_standard_channel_extranonce = pool_extended_extranonce.next_standard().unwrap();
-/// let new_standard_channel_extranonce_inner = vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1];
-/// assert_eq!(new_standard_channel_extranonce.to_vec(), new_standard_channel_extranonce_inner);
+/// // For standard channels, only the bytes in range_2 are incremented
+/// let expected_standard_extranonce = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+/// assert_eq!(new_standard_channel_extranonce.to_vec(), expected_standard_extranonce);
 ///
-/// // Now the proxy receive the ExtdendedExtranonce previously created
-/// // The proxy know the extranonce space reserved to the pool is 7 bytes and that the total
-/// // extranonce len is 32 bytes and decide to reserve 4 bytes for him and leave the remaining 21 do
-/// // futher downstreams.
+/// // Now the proxy receives the ExtendedExtranonce previously created
+/// // The proxy knows the extranonce space reserved to the pool is 7 bytes and that the total
+/// // extranonce len is 32 bytes and decides to reserve 4 bytes for itself and leave the remaining 21 for
+/// // further downstreams.
 /// let range_0 = 0..7;
 /// let range_1 = 7..11;
 /// let range_2 = 11..32;
-/// let mut proxy_extended_extranonce = ExtendedExtranonce::from_upstream_extranonce(new_extended_channel_extranonce,range_0, range_1, range_2).unwrap();
+/// let mut proxy_extended_extranonce = ExtendedExtranonce::from_upstream_extranonce(
+///     new_extended_channel_extranonce,
+///     range_0,
+///     range_1,
+///     range_2
+/// ).unwrap();
 ///
-/// // The proxy generate an extended extranonce for downstream
+/// // The proxy generates an extended extranonce for downstream (allowing it to use a range of 3 bytes)
 /// let new_extended_channel_extranonce = proxy_extended_extranonce.next_extended(3).unwrap();
-/// let new_extended_channel_extranonce_inner = vec![0,0,0,0,0,0,1,0,0,0,1];
-/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), new_extended_channel_extranonce_inner);
+/// let expected_extranonce = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
 ///
-/// // When the proxy receive a share from downstream and want to recreate the all extranonce eg
-/// // cause it want to check the share's work
-/// let received_extranonce: Extranonce = vec![0_u8,0,0,0,0,0,0,8,0,50,0,0,0,0,0,0,0,0,0,0,0].try_into().unwrap();
+/// // When the proxy receives a share from downstream and wants to recreate the full extranonce
+/// // e.g., because it wants to check the share's work
+/// let received_extranonce: Extranonce = vec![0_u8, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap();
 /// let share_complete_extranonce = proxy_extended_extranonce.extranonce_from_downstream_extranonce(received_extranonce.clone()).unwrap();
-/// let share_complete_extranonce_inner = vec![0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,8,0,50,0,0,0,0,0,0,0,0,0,0,0];
-/// assert_eq!(share_complete_extranonce.to_vec(), share_complete_extranonce_inner);
+/// let expected_complete_extranonce = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/// assert_eq!(share_complete_extranonce.to_vec(), expected_complete_extranonce);
 ///
-///
-/// // Now the proxy want to send the extranonce received from downstream and the part of extranonce
-/// // owned by him to the pool
+/// // Now the proxy wants to send the extranonce received from downstream and the part of extranonce
+/// // owned by itself to the pool
 /// let extranonce_to_send = proxy_extended_extranonce.without_upstream_part(Some(received_extranonce)).unwrap();
-/// let extranonce_to_send_inner = vec![0,0,0,1,0,0,0,0,0,0,0,8,0,50,0,0,0,0,0,0,0,0,0,0,0];
-/// assert_eq!(extranonce_to_send.to_vec(),extranonce_to_send_inner);
+/// let expected_extranonce_to_send = vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/// assert_eq!(extranonce_to_send.to_vec(), expected_extranonce_to_send);
 /// ```
+///
+/// Using additional coinbase script data:
+///
+/// ```
+/// use mining_sv2::*;
+/// use core::convert::TryInto;
+///
+/// // Create an extended extranonce with additional coinbase script data
+/// let additional_data = vec![0x42, 0x43]; // Example additional coinbase script data
+/// let mut pool_extended_extranonce = ExtendedExtranonce::new(
+///     0..0,
+///     0..7,
+///     7..32,
+///     Some(additional_data.clone())
+/// ).unwrap();
+///
+/// // When using additional coinbase script data, only bytes after the data are incremented
+/// let new_extended_channel_extranonce = pool_extended_extranonce.next_extended(3).unwrap();
+/// let expected_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
+///
+/// // For standard channels, only range_2 is incremented while range_1 (including additional data) is preserved
+/// let new_standard_channel_extranonce = pool_extended_extranonce.next_standard().unwrap();
+/// // Note that the additional data (0x42, 0x43) and the incremented bytes in range_1 are preserved
+/// let expected_standard_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+/// assert_eq!(new_standard_channel_extranonce.to_vec(), expected_standard_extranonce);
+///
+/// // Now the proxy receives the ExtendedExtranonce previously created
+/// // The proxy knows the extranonce space reserved to the pool is 7 bytes and that the total
+/// // extranonce len is 32 bytes and decides to reserve 4 bytes for itself and leave the remaining 21 for
+/// // further downstreams.
+/// let range_0 = 0..7;
+/// let range_1 = 7..11;
+/// let range_2 = 11..32;
+/// let mut proxy_extended_extranonce = ExtendedExtranonce::from_upstream_extranonce(
+///     new_extended_channel_extranonce,
+///     range_0,
+///     range_1,
+///     range_2
+/// ).unwrap();
+///
+/// // The proxy generates an extended extranonce for downstream
+/// let new_extended_channel_extranonce = proxy_extended_extranonce.next_extended(3).unwrap();
+/// let expected_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
+///
+/// // When the proxy receives a share from downstream and wants to recreate the full extranonce
+/// // e.g., because it wants to check the share's work
+/// let received_extranonce: Extranonce = vec![0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap();
+/// let share_complete_extranonce = proxy_extended_extranonce.extranonce_from_downstream_extranonce(received_extranonce.clone()).unwrap();
+/// let expected_complete_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/// assert_eq!(share_complete_extranonce.to_vec(), expected_complete_extranonce);
+///
+/// // Now the proxy wants to send the extranonce received from downstream and the part of extranonce
+/// // owned by itself to the pool
+/// let extranonce_to_send = proxy_extended_extranonce.without_upstream_part(Some(received_extranonce)).unwrap();
+/// let expected_extranonce_to_send = vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 pub struct ExtendedExtranonce {
     inner: [u8; MAX_EXTRANONCE_LEN],
     range_0: core::ops::Range<usize>,
