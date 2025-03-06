@@ -239,13 +239,18 @@ impl Upstream {
             })
             .map_err(|_e| PoisonLock)??;
         let user_identity = "ABC".to_string().try_into()?;
+
+        // Get the min_extranonce_size from the instance
+        let min_extranonce_size = self_
+            .safe_lock(|u| u.min_extranonce_size)
+            .map_err(|_e| PoisonLock)?;
+
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0, // TODO
             user_identity, // TODO
             nominal_hash_rate,
             max_target: u256_from_int(u64::MAX), // TODO
-            min_extranonce_size: 8,              /* 8 is the max extranonce2 size the braiins
-                                                  * pool supports */
+            min_extranonce_size,
         });
 
         // reset channel hashrate so downstreams can manage from now on out
