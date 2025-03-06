@@ -1188,6 +1188,43 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_rate_from_target_zero_share_per_min() {
+        // Test division by zero error handling when share_per_min is 0.
+        let hr = 202470.828;
+        let expected_share_per_min = 1.0;
+        let target = hash_rate_to_target(hr, expected_share_per_min).unwrap();
+        let share_per_min = 0.0;
+        let result = hash_rate_from_target(target, share_per_min);
+
+        assert!(
+            matches!(
+                result,
+                Err(Error::HashrateError(InputError::DivisionByZero))
+            ),
+            "Should return division by zero error"
+        );
+    }
+
+    #[test]
+    fn test_hash_rate_from_target_arithmetic_overflow() {
+        // Test arithmetic overflow error handling with extremely low share_per_min and maximal
+        // target.
+        let mut target_bytes = [0xff; 32];
+        target_bytes[0] = 0x7f; // Reduce the magnitude to avoid direct overflow
+        let target_sv2 = U256::from(target_bytes);
+        let share_per_min = 0.001;
+        let result = hash_rate_from_target(target_sv2, share_per_min);
+
+        assert!(
+            matches!(
+                result,
+                Err(Error::HashrateError(InputError::ArithmeticOverflow))
+            ),
+            "Should return arithmetic overflow error"
+        );
+    }
+
+    #[test]
     fn test_super_safe_lock() {
         let m = super::Mutex::new(1u32);
         m.safe_lock(|i| *i += 1).unwrap();
