@@ -227,10 +227,11 @@ impl Downstream {
                 if delta_time <= 15 {
                     return Ok(None);
                 }
-                tracing::debug!("\nDELTA TIME: {:?}", delta_time);
+                tracing::debug!("DELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f64 / (delta_time as f64 / 60.0);
-                tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
+                tracing::debug!("REALIZED SHARES PER MINUTE: {:?}", realized_share_per_min);
+                tracing::debug!("CURRENT MINER TARGET: {:?}", miner_target);
                 let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
