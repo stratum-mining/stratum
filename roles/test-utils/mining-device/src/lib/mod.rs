@@ -42,6 +42,7 @@ pub async fn connect(
     user_id: Option<String>,
     handicap: u32,
     nominal_hashrate_multiplier: Option<f32>,
+    single_submit: bool,
 ) {
     let address = address
         .clone()
@@ -85,6 +86,7 @@ pub async fn connect(
         user_id,
         handicap,
         nominal_hashrate_multiplier,
+        single_submit,
     )
     .await
 }
@@ -228,6 +230,7 @@ fn open_channel(
 }
 
 impl Device {
+    #[allow(clippy::too_many_arguments)]
     async fn start(
         mut receiver: Receiver<EitherFrame>,
         mut sender: Sender<EitherFrame>,
@@ -236,6 +239,7 @@ impl Device {
         user_id: Option<String>,
         handicap: u32,
         nominal_hashrate_multiplier: Option<f32>,
+        single_submit: bool,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         SetupConnectionHandler::setup(
@@ -279,6 +283,9 @@ impl Device {
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
                 Self::send_share(cloned.clone(), nonce, job_id, version, ntime).await;
+                if single_submit {
+                    break;
+                }
             }
         });
 
@@ -727,7 +734,10 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                     .try_send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
-            miner.header.as_mut().map(|h| h.nonce = h.nonce.wrapping_add(1));
+            miner
+                .header
+                .as_mut()
+                .map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     } else {
         loop {
@@ -743,7 +753,10 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                     .try_send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
-            miner.header.as_mut().map(|h| h.nonce = h.nonce.wrapping_add(1));
+            miner
+                .header
+                .as_mut()
+                .map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     }
 }
