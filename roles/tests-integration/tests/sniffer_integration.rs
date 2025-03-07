@@ -162,10 +162,10 @@ async fn test_sniffer_blocks_message() {
         MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     );
 
-    // `sniffer_a` intercepts and blocks `SetupConnectionSuccess` messages.
+    // `sniffer_a` intercepts and receives `SetupConnectionSuccess` message.
     let (sniffer_a, sniffer_a_addr) = start_sniffer("A".to_string(), tp_addr, false, None).await;
 
-    // `sniffer_b` is placed downstream of `sniffer_a` and should receive nothing.
+    // `sniffer_b` is placed downstream of `sniffer_a` and blocks `SetupConnectionSuccess` message.
     let (_sniffer_b, sniffer_b_addr) = start_sniffer(
         "B".to_string(),
         sniffer_a_addr,

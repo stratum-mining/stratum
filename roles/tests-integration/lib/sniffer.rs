@@ -74,25 +74,25 @@ impl InterceptAction {
     /// Returns the action if it is `IgnoreFromMessage` or `ReplaceMessage`  
     /// with the specified message type.
     pub fn find_matching_action(
-        action: &Option<InterceptAction>,
+        &self,
         msg_type: MsgType,
         direction: MessageDirection,
     ) -> Option<&Self> {
-        action.as_ref().and_then(|action| match action {
+        match self {
             InterceptAction::IgnoreFromMessage(bm)
                 if bm.direction == direction && bm.expected_message_type == msg_type =>
             {
-                Some(action)
+                Some(self)
             }
 
             InterceptAction::ReplaceMessage(im)
                 if im.direction == direction && im.expected_message_type == msg_type =>
             {
-                Some(action)
+                Some(self)
             }
 
             _ => None,
-        })
+        }
     }
 }
 /// Defines an action that blocks the message stream after detecting a specific message.
@@ -290,11 +290,9 @@ impl Sniffer {
                 continue;
             }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
-            let action = InterceptAction::find_matching_action(
-                &action,
-                msg_type,
-                MessageDirection::ToUpstream,
-            );
+            let action = action.as_ref().and_then(|action| {
+                action.find_matching_action(msg_type, MessageDirection::ToUpstream)
+            });
             if let Some(ref action) = action {
                 match action {
                     InterceptAction::IgnoreFromMessage(_) => {
@@ -345,11 +343,9 @@ impl Sniffer {
             }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
 
-            let action = InterceptAction::find_matching_action(
-                &action,
-                msg_type,
-                MessageDirection::ToDownstream,
-            );
+            let action = action.as_ref().and_then(|action| {
+                action.find_matching_action(msg_type, MessageDirection::ToDownstream)
+            });
 
             if let Some(ref action) = action {
                 match action {
