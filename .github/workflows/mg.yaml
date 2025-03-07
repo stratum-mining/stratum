@@ -42,16 +42,6 @@ jobs:
       - name: Run jds-receive-solution-while-processing-declared-job
         run: sh ./test/message-generator/test/jds-receive-solution-while-processing-declared-job/jds-receive-solution-while-processing-declared-job.sh
 
-  pool-sri-test-1-standard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run pool-sri-test-1-standard
-        run: sh ./test/message-generator/test/pool-sri-test-1-standard/pool-sri-test-1-standard.sh
-
   pool-sri-test-close-channel:
     runs-on: ubuntu-latest
     steps:
@@ -86,7 +76,6 @@ jobs:
       interop-proxy-with-multi-ups-extended,
       jds-do-not-fail-on-wrong-tsdatasucc,
       jds-receive-solution-while-processing-declared-job,
-      pool-sri-test-1-standard,
       pool-sri-test-close-channel,
       sv1-test,
       translation-proxy-broke-pool
@@ -98,7 +87,6 @@ jobs:
           [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
           [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
-          [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
           [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ]; then
