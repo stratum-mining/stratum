@@ -7,7 +7,10 @@
 use crate::sniffer::MessageDirection;
 use const_sv2::{
     MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-    MESSAGE_TYPE_NEW_TEMPLATE,
+    MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
+    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
 };
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
@@ -128,4 +131,68 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         Some(header_timestamp_to_check),
         "The `minntime` field of the second NewExtendedMiningJob does not match the `header_timestamp`!"
     );
+}
+
+/// This test starts a Pool, a Sniffer, and a Sv2 Mining Device.
+/// It then checks if the Pool receives a share from the Sv2 Mining Device.
+/// While also checking all the messages exchanged between
+/// the Pool and the Mining Device in between.
+#[tokio::test]
+async fn pool_standard_channel_receives_share() {
+    start_tracing();
+    let (_tp, tp_addr) = start_template_provider(None);
+    let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
+    let (sniffer, sniffer_addr) = start_sniffer("A".to_string(), pool_addr, false, None).await;
+    let _sv2_mining_device =
+        start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true).await;
+
+    sniffer
+        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
+        .await;
+
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
+
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+        )
+        .await;
+
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+        )
+        .await;
+
+    sniffer
+        .wait_for_message_type(MessageDirection::ToDownstream, MESSAGE_TYPE_NEW_MINING_JOB)
+        .await;
+
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+        )
+        .await;
+
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+        )
+        .await;
+
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+        )
+        .await;
 }
