@@ -61,6 +61,7 @@ async fn main() {
         args.id_user,
         args.handicap,
         args.nominal_hashrate_multiplier,
+        false,
     )
     .await;
 }
