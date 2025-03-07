@@ -727,7 +727,7 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                     .try_send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
-            miner.header.as_mut().map(|h| h.nonce += 1);
+            miner.header.as_mut().map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     } else {
         loop {
@@ -743,7 +743,7 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                     .try_send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
-            miner.header.as_mut().map(|h| h.nonce += 1);
+            miner.header.as_mut().map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     }
 }
