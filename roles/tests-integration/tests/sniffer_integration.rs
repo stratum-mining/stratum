@@ -10,12 +10,12 @@ use const_sv2::{
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     MESSAGE_TYPE_SET_NEW_PREV_HASH,
 };
-use integration_tests_sv2::*;
+use integration_tests_sv2::{sniffer::IgnoreFromMessage, *};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     parsers::{AnyMessage, CommonMessages},
 };
-use sniffer::{InterceptMessage, MessageDirection};
+use sniffer::{MessageDirection, ReplaceMessage};
 use std::convert::TryInto;
 
 // This test aims to assert that Sniffer is able to intercept and replace some messages.
@@ -35,7 +35,7 @@ async fn test_sniffer_intercept_to_downstream() {
                 .try_into()
                 .unwrap(),
         }));
-    let intercept = InterceptMessage::new(
+    let intercept = ReplaceMessage::new(
         MessageDirection::ToDownstream,
         MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         message_replacement,
@@ -43,7 +43,7 @@ async fn test_sniffer_intercept_to_downstream() {
 
     // this sniffer will replace SetupConnectionSuccess with SetupConnectionError
     let (_sniffer_a, sniffer_a_addr) =
-        start_sniffer("A".to_string(), tp_addr, false, Some(vec![intercept])).await;
+        start_sniffer("A".to_string(), tp_addr, false, Some(intercept.into())).await;
 
     // this sniffer will assert SetupConnectionSuccess was correctly replaced with
     // SetupConnectionError
@@ -75,14 +75,14 @@ async fn test_sniffer_intercept_to_upstream() {
         device_id: "89567".to_string().into_bytes().try_into().unwrap(),
     };
     let message_replacement = AnyMessage::Common(CommonMessages::SetupConnection(setup_connection));
-    let intercept = InterceptMessage::new(
+    let intercept = ReplaceMessage::new(
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_SETUP_CONNECTION,
         message_replacement,
     );
 
     let (sniffer_a, sniffer_a_addr) =
-        start_sniffer("A".to_string(), tp_addr, false, Some(vec![intercept])).await;
+        start_sniffer("A".to_string(), tp_addr, false, Some(intercept.into())).await;
 
     let (_sniffer_b, sniffer_b_addr) =
         start_sniffer("B".to_string(), sniffer_a_addr, false, None).await;
@@ -138,4 +138,57 @@ async fn test_sniffer_wait_for_message_type_with_remove() {
             )
             .await)
     );
+}
+
+/// Verifies that [`Sniffer`] can intercept and block a message stream.
+///
+/// This test sets up a chain where a message from the Template Provider (TP)  
+/// passes through three sniffers (`sniffer_a`, `sniffer_b` and `sniffer_c`) before reaching the
+/// Pool.
+///
+/// - `sniffer_a` is configured to intercept `SetupConnectionSuccess` messages directed downstream.
+/// - `sniffer_b` is configured to block `SetupConnectionSuccess` messages directed downstream.
+/// - `sniffer_c` should receive no messages after initial setup, ensuring the block works.
+///
+/// **Flow:**  
+/// `TP -> sniffer_a -> sniffer_b -> sniffer_c -> Pool`  
+#[tokio::test]
+async fn test_sniffer_blocks_message() {
+    let (_tp, tp_addr) = start_template_provider(None);
+
+    // Define an action to block SetupConnectionSuccess messages going downstream.
+    let block_from_message = IgnoreFromMessage::new(
+        MessageDirection::ToDownstream,
+        MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+    );
+
+    // `sniffer_a` intercepts and receives `SetupConnectionSuccess` message.
+    let (sniffer_a, sniffer_a_addr) = start_sniffer("A".to_string(), tp_addr, false, None).await;
+
+    // `sniffer_b` is placed downstream of `sniffer_a` and blocks `SetupConnectionSuccess` message.
+    let (_sniffer_b, sniffer_b_addr) = start_sniffer(
+        "B".to_string(),
+        sniffer_a_addr,
+        false,
+        Some(block_from_message.into()),
+    )
+    .await;
+
+    // `sniffer_c` is placed downstream of `sniffer_b` and should receive nothing.
+    let (sniffer_c, sniffer_c_addr) =
+        start_sniffer("C".to_string(), sniffer_b_addr, false, None).await;
+
+    // Start the Pool, connected to `sniffer_c`.
+    let _ = start_pool(Some(sniffer_c_addr)).await;
+
+    // Waiting for intercepting setup connection success on sniffer_a
+    sniffer_a
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
+
+    // Assert that `sniffer_c` does not receive any messages, confirming `sniffer_b`'s block works.
+    assert!(sniffer_c.next_message_from_upstream().is_none());
 }
