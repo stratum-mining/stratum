@@ -551,14 +551,14 @@ impl Miner {
         }
     }
 
-    fn new_target(&mut self, mut target: Vec<u8>) {
-        // target is sent in LE and comparisons in this file are done in BE
-        target.reverse();
+    fn new_target(&mut self, target: Vec<u8>) {
+        // target is sent in LE format, we'll keep it that way
         let hex_string = target
             .iter()
             .fold("".to_string(), |acc, b| acc + format!("{:02x}", b).as_str());
         info!("Set target to {}", hex_string);
-        self.target = Some(U256::from_big_endian(target.as_slice()));
+        // Store the target as U256 in little-endian format
+        self.target = Some(U256::from_little_endian(target.as_slice()));
     }
 
     fn new_header(&mut self, set_new_prev_hash: &SetNewPrevHash, new_job: &NewMiningJob) {
@@ -588,9 +588,18 @@ impl Miner {
     pub fn next_share(&mut self) -> NextShareOutcome {
         if let Some(header) = self.header.as_ref() {
             let hash_ = header.block_hash();
-            let mut hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
-            hash.reverse();
-            if hash < self.target.unwrap().to_little_endian() {
+            let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
+
+            // Convert both hash and target to Target type for comparison
+            let hash_target: Target = hash.into();
+
+            // Convert U256 target to [u8; 32] array and then to Target
+            let target_bytes = self.target.unwrap().to_little_endian();
+            let mut target_array = [0u8; 32];
+            target_array.copy_from_slice(&target_bytes);
+            let target: Target = target_array.into();
+
+            if hash_target <= target {
                 info!(
                     "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
                     header.nonce, self.target, hash,
