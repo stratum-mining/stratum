@@ -324,6 +324,7 @@ pub async fn start_mining_device_sv2(
     user_id: Option<String>,
     handicap: u32,
     nominal_hashrate_multiplier: Option<f32>,
+    single_submit: bool,
 ) {
     tokio::spawn(async move {
         mining_device::connect(
@@ -333,6 +334,7 @@ pub async fn start_mining_device_sv2(
             user_id,
             handicap,
             nominal_hashrate_multiplier,
+            single_submit,
         )
         .await;
     });
