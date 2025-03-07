@@ -19,6 +19,8 @@ pub mod sniffer;
 pub mod template_provider;
 pub(crate) mod utils;
 
+const SHARES_PER_MINUTE: f32 = 60.0;
+
 static LOGGER: Once = Once::new();
 
 pub fn start_tracing() {
@@ -79,13 +81,12 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     let template_provider_config = pool_sv2::config::TemplateProviderConfig::new(tp_address, None);
     let authority_config =
         pool_sv2::config::AuthorityConfig::new(authority_public_key, authority_secret_key);
-    let shares_per_minute = 60.0;
     let config = PoolConfig::new(
         connection_config,
         template_provider_config,
         authority_config,
         coinbase_outputs,
-        shares_per_minute,
+        SHARES_PER_MINUTE,
     );
     let pool = PoolSv2::new(config);
     let pool_clone = pool.clone();
@@ -219,15 +220,13 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     .expect("failed");
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
-    let hashrate = measure_hashrate(1) as f32 / 1000.0;
-    let min_individual_miner_hashrate = hashrate;
-    let shares_per_minute = 1.0;
+    let min_individual_miner_hashrate = measure_hashrate(1) as f32;
     let channel_diff_update_interval = 60;
-    let channel_nominal_hashrate = hashrate;
+    let channel_nominal_hashrate = min_individual_miner_hashrate;
     let downstream_difficulty_config =
         translator_sv2::proxy_config::DownstreamDifficultyConfig::new(
             min_individual_miner_hashrate,
-            shares_per_minute,
+            SHARES_PER_MINUTE,
             0,
             0,
         );
