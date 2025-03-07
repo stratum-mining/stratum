@@ -217,9 +217,9 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     .expect("failed");
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
-    let hashrate = measure_hashrate(1) as f32 / 100.0;
+    let hashrate = measure_hashrate(1) as f32 / 1000.0;
     let min_individual_miner_hashrate = hashrate;
-    let shares_per_minute = 60.0;
+    let shares_per_minute = 1.0;
     let channel_diff_update_interval = 60;
     let channel_nominal_hashrate = hashrate;
     let downstream_difficulty_config =
