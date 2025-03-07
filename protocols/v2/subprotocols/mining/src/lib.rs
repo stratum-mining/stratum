@@ -544,11 +544,6 @@ impl ExtendedExtranonce {
 
     /// Calculates the next extranonce for standard channels.
     pub fn next_standard(&mut self) -> Result<Extranonce, ExtendedExtranonceError> {
-        let reserved_extranonce_bytes = &mut self.inner[self.range_1.start..self.range_1.end];
-        for b in reserved_extranonce_bytes {
-            *b = 0
-        }
-
         let non_reserved_extranonces_bytes = &mut self.inner[self.range_2.start..self.range_2.end];
         match increment_bytes_be(non_reserved_extranonces_bytes) {
             Ok(_) => Ok(self.into()),
@@ -935,8 +930,6 @@ pub mod tests {
                     // the range_1 of the conversion of extranonce_copy.next() converted in
                     // extranonce must remain unchanged
                     && Extranonce::from(b032.clone()).extranonce[range_1.start..range_1.end]== extended_extranonce_start.inner[range_1.start..range_1.end]
-                    // the range_1 if extranonce_next is set to zero by the method .next_standard()
-                    && extranonce_next.extranonce[range_1.start..range_1.end]==vec![0_u8; range_1.len()]
                 }
                 None => false,
             },
@@ -981,7 +974,6 @@ pub mod tests {
                 extended_extranonce_start.inner[range_2.clone()] == v.extranonce[range_2]
                     && extended_extranonce_start.inner[range_0.clone()]
                         == v.extranonce[range_0.clone()]
-                    && v.extranonce[range_1.clone()] == vec![0; range_1.end - range_1.start]
             }
             Err(_) => true, // Any error is acceptable for this test
         }
