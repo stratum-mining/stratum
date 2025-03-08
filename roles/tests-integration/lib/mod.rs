@@ -135,12 +135,10 @@ pub async fn start_jdc(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
     .unwrap();
-    let pool_signature = "Stratum v2 SRI Pool".to_string();
     let upstreams = vec![Upstream::new(
         authority_pubkey,
         pool_address.to_string(),
         jds_address.to_string(),
-        pool_signature,
     )];
     let pool_config = PoolConfig::new(authority_public_key, authority_secret_key);
     let tp_config = TPConfig::new(1000, tp_address.to_string(), None);
@@ -249,8 +247,15 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
         downstream_difficulty_config,
     );
 
-    let config =
-        translator_sv2::proxy_config::ProxyConfig::new(upstream_conf, downstream_conf, 2, 2, 8);
+    let min_extranonce2_size = 4;
+
+    let config = translator_sv2::proxy_config::ProxyConfig::new(
+        upstream_conf,
+        downstream_conf,
+        2,
+        2,
+        min_extranonce2_size,
+    );
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
     let clone_translator_v2 = translator_v2.clone();
     tokio::spawn(async move {
