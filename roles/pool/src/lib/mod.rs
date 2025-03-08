@@ -1,3 +1,10 @@
+//! # Pool Module
+//! Core logic for running the mining pool server.
+//!
+//! Responsibilities:
+//! - Spawns the Template Receiver client.
+//! - Starts the Pool server for downstream miners.
+//! - Monitors Pool status and handles shutdowns.
 pub mod config;
 pub mod error;
 pub mod mining_pool;
@@ -12,6 +19,10 @@ use template_receiver::TemplateRx;
 use tokio::select;
 use tracing::{error, info, warn};
 
+/// Represents the PoolSv2 instance, which manages the pool's operations.
+///
+/// This struct holds the pool configuration and provides functionality to start
+/// and manage the pool, handling both upstream (Template Provider) and downstream connections.
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
     config: PoolConfig,
@@ -19,6 +30,7 @@ pub struct PoolSv2 {
 }
 
 impl PoolSv2 {
+    /// Creates a new PoolSv2 instance with the given configuration.
     pub fn new(config: PoolConfig) -> PoolSv2 {
         PoolSv2 {
             config,
@@ -26,9 +38,16 @@ impl PoolSv2 {
         }
     }
 
+    /// Starts the Pool-SV2 server and manages upstream and downstream connections.
+    ///
+    /// - Initializes a Template Receiver client to connect with the Template Provider.
+    /// - Sets up a server for downstream miners to connect.
+    /// - Creates multiple channels for communication between components.
+    /// - Monitors system health and handles shutdown conditions.
     pub async fn start(&self) -> Result<(), PoolError> {
         let config = self.config.clone();
-        let (status_tx, status_rx) = unbounded();
+        // Channels for internal communication between Template Receiver and downstream miners.
+        let (status_tx, status_rx) = unbounded(); // Monitors status of both upstream and downstream.
 
         if let Ok(mut s_tx) = self.status_tx.lock() {
             *s_tx = Some(status_tx.clone());
@@ -38,11 +57,20 @@ impl PoolSv2 {
                 "Failed to access Pool status lock".to_string(),
             ));
         }
+        // Watch channel used to signal the downstream Pool listener to stop.
         let (send_stop_signal, recv_stop_signal) = tokio::sync::watch::channel(());
-        let (s_new_t, r_new_t) = bounded(10);
-        let (s_prev_hash, r_prev_hash) = bounded(10);
-        let (s_solution, r_solution) = bounded(10);
+
+        // Bounded channels for specific data flow between TemplateRx and Pool.
+        let (s_new_t, r_new_t) = bounded(10); // New template updates.
+        let (s_prev_hash, r_prev_hash) = bounded(10); // Previous hash updates.
+        let (s_solution, r_solution) = bounded(10); // Share solution submissions from downstream.
+
+        // This channel does something weird, it sends zero sized data from downstream upon
+        // retrieval of any message from template receiver, and make the template receiver
+        // wait until it receivers confirmation from downstream. Can be removed.
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
+
+        // Prepare coinbase output information required by TemplateRx.
         let coinbase_output_result = get_coinbase_output(&config)?;
         let coinbase_output_len = coinbase_output_result.len() as u32;
         let tp_authority_public_key = config.tp_authority_public_key().cloned();
@@ -51,6 +79,7 @@ impl PoolSv2 {
             .map(|output| output.script_pubkey.count_sigops() as u16)
             .sum::<u16>();
 
+        // --- Spawn Template Receiver Task ---
         let tp_address = config.tp_address().clone();
         let cloned_status_tx = status_tx.clone();
         tokio::spawn(async move {
@@ -67,6 +96,8 @@ impl PoolSv2 {
             )
             .await;
         });
+
+        // --- Start Downstream Pool Listener ---
         let pool = Pool::start(
             config.clone(),
             r_new_t,
@@ -78,8 +109,10 @@ impl PoolSv2 {
             recv_stop_signal,
         )
         .await?;
+        // Monitor the status of Template Receiver and downstream connections.
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
+        // --- Spawn Status Monitoring and Shutdown Handling Loop ---
         tokio::spawn(async move {
             loop {
                 let task_status = select! {
@@ -138,6 +171,11 @@ impl PoolSv2 {
         Ok(())
     }
 
+    /// Initiates a graceful shutdown of the running pool instance.
+    ///
+    /// It attempts to acquire the lock on the `status_tx` mutex. If successful
+    /// and the pool is running (i.e., `status_tx` contains a `Some(sender)`),
+    /// it sends a `State::Shutdown` message via the status channel.
     pub fn shutdown(&self) {
         info!("Attempting to shutdown pool");
         if let Ok(status_tx) = &self.status_tx.lock() {

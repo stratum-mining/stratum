@@ -1,3 +1,24 @@
+//! ## Mining Pool
+//!
+//! The core functionality for a mining pool, including
+//! management of downstream miners, job templates, and solution submissions.
+//!
+//! The [`Pool`] struct maintains the state of active downstream connections, handles
+//! the acceptance of new connections, distributes new mining jobs, and processes
+//! solutions submitted by miners.
+//!
+//! The [`Downstream`] struct represents a single connected miner, managing its
+//! communication channels, incoming messages, and assigned mining jobs.
+//!
+//! Key functionalities include:
+//! - Secure handshake and connection setup for downstream miners
+//! - Broadcasting new mining templates and previous hash updates
+//! - Handling mining shares submitted by downstreams
+//!
+//! Components:
+//! - `Pool`: Central manager for all downstream connections and job updates.
+//! - `Downstream`: Represents a miner and handles its connection lifecycle.
+//! - `PoolChannelFactory`: Manages the creation and tracking of mining channels.
 use crate::config::PoolConfig;
 
 use super::{
@@ -34,11 +55,19 @@ pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub mod message_handler;
-
+/// Represents a generic SV2 message with a static lifetime.
 pub type Message = AnyMessage<'static>;
+/// A standard SV2 frame containing a message.
 pub type StdFrame = StandardSv2Frame<Message>;
+/// A standard SV2 frame that can contain either type of frame.
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+/// Parses the coinbase output configurations from the [`PoolConfig`] and converts them
+/// into `bitcoin::TxOut` objects required by the pool logic.
+///
+/// It iterates through the configured outputs, attempts to convert them into the
+/// internal `CoinbaseOutput_` representation and then into `bitcoin::ScriptBuf`.
+/// Sets the value to 0 sats as per SV2 pool requirements (actual value determined later)
 pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
     let mut result = Vec::new();
     for coinbase_output_pool in config.coinbase_outputs() {
@@ -55,28 +84,64 @@ pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
     }
 }
 
+/// Represents a single connection to a downstream miner.
+///
+/// Encapsulates the state and communication channels for one miner. An instance
+/// is created for each accepted TCP connection after the Noise handshake and SV2
+/// setup messages are successfully exchanged. Each `Downstream` runs its own message
+/// receiving loop in a separate Tokio task.
 #[derive(Debug)]
 pub struct Downstream {
-    // Either group or channel id
+    // The unique identifier for this downstream connection's channel or group.
+    // Assigned by the [`PoolChannelFactory`]
     id: u32,
+    // Channel receiver for incoming SV2 frames from the network connection task.
     receiver: Receiver<EitherFrame>,
+    // Channel sender for outgoing SV2 frames to the network connection task.
     sender: Sender<EitherFrame>,
+    // Common data negotiated during the connection setup (e.g., protocol version, flags).
     downstream_data: CommonDownstreamData,
+    // Sender channel to forward valid `SubmitSolution` messages received from this
+    // downstream miner to the main [`Pool`] task, which then sends them upstream.
     solution_sender: Sender<SubmitSolution<'static>>,
+    // A shared reference to the central [`PoolChannelFactory`] used to manage
+    // channel state and generate jobs.
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
 }
 
-/// Accept downstream connection
+/// The central state manager for the mining pool.
+///
+/// Holds all active downstream connections and manages the overall pool logic.
+/// It receives job updates (templates, prev_hashes) from template receiver and distributes
+/// them to the appropriate downstreams. It also receives solutions from downstreams
+/// and forwards them upstream.
 pub struct Pool {
+    // A map storing all active downstream connections.
+    // Keyed by the downstream's channel/group ID (`u32`).
     downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
+    // Sender channel to forward solutions received from any downstream connection
+    // to the upstream Template Provider connection task.
     solution_sender: Sender<SubmitSolution<'static>>,
+    // Flag indicating whether at least one `NewTemplate` has been received and processed.
+    // Might be used to ensure initial jobs are sent before accepting solutions??.
     new_template_processed: bool,
+    // Shared reference to the factory responsible for creating/managing mining channels
+    // and generating job-related messages.
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
+    // Stores the template ID associated with the most recently received `SetNewPrevHash` message.
     last_prev_hash_template_id: u64,
+    // Sender channel for reporting status updates and errors to the main monitoring loop.
     status_tx: status::Sender,
 }
 
 impl Downstream {
+    /// Creates a new `Downstream` instance representing a miner connection.
+    ///
+    /// This function orchestrates the setup of a new downstream connection after the
+    /// underlying TCP and Noise handshake are complete. It handles the initial SV2
+    /// message exchange (`SetupConnection`), assigns a channel ID using the `channel_factory`,
+    /// stores the connection, and spawns a dedicated Tokio task (`Downstream::run_receiver`)
+    /// to handle incoming messages from this specific miner.
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mut receiver: Receiver<EitherFrame>,
@@ -87,16 +152,19 @@ impl Downstream {
         status_tx: status::Sender,
         address: SocketAddr,
     ) -> PoolResult<Arc<Mutex<Self>>> {
+        // Handle the SV2 SetupConnection message exchange.
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         let downstream_data =
             SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
                 .await?;
 
+        // Assign a unique ID based on whether it's a standard or header-only miner.
         let id = match downstream_data.header_only {
             false => channel_factory.safe_lock(|c| c.new_group_id())?,
             true => channel_factory.safe_lock(|c| c.new_standard_id_for_hom())?,
         };
 
+        // Create the Downstream instance, wrapped for shared access.
         let self_ = Arc::new(Mutex::new(Downstream {
             id,
             receiver,
@@ -108,6 +176,7 @@ impl Downstream {
 
         let cloned = self_.clone();
 
+        // Spawn a dedicated task to continuously receive and process messages from this downstream.
         task::spawn(async move {
             debug!("Starting up downstream receiver");
             let receiver_res = cloned
@@ -138,12 +207,14 @@ impl Downstream {
                             .try_into()
                             .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)));
                         let std_frame = handle_result!(status_tx, received);
+                        // Process the valid standard frame using the `next` handler.
                         handle_result!(
                             status_tx,
                             Downstream::next(cloned.clone(), std_frame).await
                         );
                     }
                     _ => {
+                        // Attempt to remove the downstream from the main pool's map.
                         let res = pool
                             .safe_lock(|p| p.downstreams.remove(&id))
                             .map_err(|e| PoolError::PoisonLock(e.to_string()));
@@ -158,7 +229,14 @@ impl Downstream {
         Ok(self_)
     }
 
+    /// Processes a single incoming message (`StdFrame`) received from the downstream miner.
+    ///
+    /// It extracts the message type and payload, then uses the `roles_logic_sv2`
+    /// (`ParseMiningMessagesFromDownstream`) to determine the appropriate
+    /// response. Finally, it dispatches any necessary response(s) using
+    /// `Downstream::match_send_to`.
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) -> PoolResult<()> {
+        // Extract message type and payload.
         let message_type = incoming
             .get_header()
             .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
@@ -168,14 +246,25 @@ impl Downstream {
             "Received downstream message type: {:?}, payload: {:?}",
             message_type, payload
         );
+
+        // Use the message handler implementation to parse the message and determine the response.
         let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
         );
+
+        // Send the determined response(s) back to the miner.
         Self::match_send_to(self_mutex, next_message_to_send).await
     }
 
+    /// Dispatches messages back to the downstream miner based on the `SendTo` directive.
+    ///
+    /// Handles different scenarios: sending a single response, sending multiple messages,
+    /// or doing nothing. It recursively calls itself for `SendTo::Multiple`.
+    /// If an `OpenMiningChannelError` is encountered, it sends the error message and
+    /// then returns a specific `PoolError` to signal that this downstream connection
+    /// should be dropped by the caller (the receiver loop).
     #[async_recursion::async_recursion]
     async fn match_send_to(
         self_: Arc<Mutex<Self>>,
@@ -199,6 +288,7 @@ impl Downstream {
             }
             Ok(SendTo::Multiple(messages)) => {
                 debug!("Sending multiple messages to downstream");
+                // Recursively call match_send_to for each message in the sequence.
                 for message in messages {
                     debug!("Sending downstream message: {:?}", message);
                     Self::match_send_to(self_.clone(), Ok(message)).await?;
@@ -218,6 +308,7 @@ impl Downstream {
         Ok(())
     }
 
+    /// This method is used to send message to downstream.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::Mining<'static>,
@@ -235,7 +326,7 @@ impl Downstream {
 }
 
 // Verifies token for a custom job which is the signed tx_hash_list_hash by Job Declarator Server
-//TODO: implement the use of this fuction in main.rs
+//TODO: implement the use of this function in main.rs
 #[allow(dead_code)]
 pub fn verify_token(
     tx_hash_list_hash: U256,
@@ -255,36 +346,47 @@ pub fn verify_token(
 }
 
 impl IsDownstream for Downstream {
+    // Returns the `CommonDownstreamData` negotiated during connection setup.
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
         self.downstream_data
     }
 }
 
+// Marker trait implementation indicating this struct represents a mining downstream. Do we really
+// need this?
 impl IsMiningDownstream for Downstream {}
 
 impl Pool {
+    /// Binds to the configured listen address and starts accepting incoming TCP connections.
+    ///
+    /// Runs in a loop, accepting connections, performing the Noise handshake, and then
+    /// calling `Pool::accept_incoming_connection_` to handle the SV2 setup and downstream
+    /// creation for each successful connection.
     async fn accept_incoming_connection(
         self_: Arc<Mutex<Pool>>,
         config: PoolConfig,
         mut recv_stop_signal: tokio::sync::watch::Receiver<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
+        // Bind the TCP listener to the address specified in the config.
         let listener = TcpListener::bind(&config.listen_address()).await?;
         info!("Pool is running on: {}", config.listen_address());
-        // Run the listener in the background
+        // Spawn the main accept loop in a separate task.
         task::spawn(async move {
             loop {
                 tokio::select! {
+                    // Listen for the shutdown signal.
                     _ = recv_stop_signal.changed() => {
                         info!("Pool is stopping the server after stop shutdown signal received");
                         break;
                     },
-
+                    // Accept new incoming TCP connections.
                     result = listener.accept() => {
                         match result {
                             Ok((stream, _)) => {
                                 let address = stream.peer_addr().unwrap();
                                 info!("New connection from {:?}", stream.peer_addr().map_err(PoolError::Io));
+                                // Create a Noise protocol Responder using the pool's authority keys.
                                 let responder = Responder::from_authority_kp(
                                     &config.authority_public_key().into_bytes(),
                                     &config.authority_secret_key().into_bytes(),
@@ -321,6 +423,11 @@ impl Pool {
         Ok(())
     }
 
+    /// Handles the post-handshake setup for a newly connected miner.
+    ///
+    /// Called by `accept_incoming_connection` after TCP and Noise handshake succeed.
+    /// It creates the `Downstream` instance (which includes SV2 setup), and adds the
+    /// new downstream to the pool's central `downstreams` map.
     async fn accept_incoming_connection_(
         self_: Arc<Mutex<Pool>>,
         receiver: Receiver<EitherFrame>,
@@ -331,6 +438,7 @@ impl Pool {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
 
+        // Create the Downstream instance
         let downstream = Downstream::new(
             receiver,
             sender,
@@ -343,14 +451,23 @@ impl Pool {
         )
         .await?;
 
+        // Extract the assigned ID after successful creation.
         let (_, channel_id) = downstream.safe_lock(|d| (d.downstream_data.header_only, d.id))?;
 
+        // Add the new downstream to the central map.
         self_.safe_lock(|p| {
             p.downstreams.insert(channel_id, downstream);
         })?;
         Ok(())
     }
 
+    /// Task to handle incoming `SetNewPrevHash` messages from the upstream source.
+    ///
+    /// Runs in a loop, receiving messages from the `rx` channel. For each message,
+    /// it updates the pool's `last_prev_hash_template_id`, uses the `channel_factory`
+    /// to generate the appropriate `SetNewPrevHash` message for downstream miners,
+    /// and broadcasts it to all connected downstreams. Sends an acknowledgement signal
+    /// on `sender_message_received_signal` after processing each message.
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<SetNewPrevHash<'static>>,
@@ -407,6 +524,14 @@ impl Pool {
         Ok(())
     }
 
+    /// Task to handle incoming `NewTemplate` messages from the upstream source.
+    ///
+    /// Runs in a loop, receiving messages from the `rx` channel. For each template,
+    /// it uses the `channel_factory` to generate the appropriate mining job messages
+    /// (e.g., `NewMiningJob`, `SetExtranoncePrefix`) for each relevant downstream channel.
+    /// It then sends these specific messages to the corresponding downstream miners.
+    /// Sets the `new_template_processed` flag and sends an acknowledgement signal
+    /// on `sender_message_received_signal` after processing.
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<NewTemplate<'static>>,
@@ -420,6 +545,8 @@ impl Pool {
                 new_template
             );
 
+            // Use the channel factory to process the template and generate downstream-specific
+            // messages. This returns a map of {channel_id: MiningMessage}.
             let messages = channel_factory
                 .safe_lock(|cf| cf.on_new_template(&mut new_template))
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
@@ -431,6 +558,7 @@ impl Pool {
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             let downstreams = handle_result!(status_tx, downstreams);
 
+            // Iterate over the current downstreams.
             for (channel_id, downtream) in downstreams {
                 if let Some(to_send) = messages.remove(&channel_id) {
                     if let Err(e) =
@@ -451,6 +579,13 @@ impl Pool {
         Ok(())
     }
 
+    /// Starts the main pool logic, including the connection listener and message handling tasks.
+    ///
+    /// Initializes the `PoolChannelFactory` and the `Pool` state struct. Spawns three key
+    /// background tasks:
+    /// 1. `accept_incoming_connection`: Listens for and handles new downstream connections.
+    /// 2. `on_new_prev_hash`: Processes previous hash updates from upstream.
+    /// 3. `on_new_template`: Processes new job templates from upstream.
     #[allow(clippy::too_many_arguments)]
     pub async fn start(
         config: PoolConfig,
@@ -462,6 +597,9 @@ impl Pool {
         shares_per_minute: f32,
         recv_stop_signal: tokio::sync::watch::Receiver<()>,
     ) -> Result<Arc<Mutex<Self>>, PoolError> {
+        // --- Initialize PoolChannelFactory ---
+        // Define extranonce ranges based on config/constants.
+        // TODO: Make extranonce length configurable or use constants.
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
 
@@ -496,6 +634,8 @@ impl Pool {
             kind,
             pool_coinbase_outputs.expect("Invalid coinbase output in config"),
         )));
+
+        // --- Initialize Pool State ---
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             solution_sender,
@@ -511,6 +651,7 @@ impl Pool {
 
         info!("Starting up Pool server");
         let status_tx_clone = status_tx.clone();
+        // Task to handle multiple downstream connection.
         if let Err(e) = Self::accept_incoming_connection(cloned, config, recv_stop_signal).await {
             error!("Pool stopped accepting connections due to: {}", &e);
             let _ = status_tx_clone
@@ -526,6 +667,7 @@ impl Pool {
 
         let cloned = sender_message_received_signal.clone();
         let status_tx_clone = status_tx.clone();
+        // Task to handle new prev hash message from template provider.
         task::spawn(async move {
             if let Err(e) = Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await {
                 error!("{}", e);
@@ -545,6 +687,7 @@ impl Pool {
         });
 
         let status_tx_clone = status_tx;
+        // Task to handle new template message from template provider.
         task::spawn(async move {
             if let Err(e) =
                 Self::on_new_template(pool, new_template_rx, sender_message_received_signal).await
@@ -567,11 +710,15 @@ impl Pool {
         Ok(cloned3)
     }
 
-    /// This removes the downstream from the list of downstreams
-    /// due to a race condition it's possible for downstreams to have been cloned right before
-    /// this remove happens which will cause the cloning task to still attempt to communicate with
-    /// the downstream. This is going to be rare and will won't cause any issues as the attempt
-    /// to communicate will fail but continue with the next downstream.
+    /// Removes a downstream connection from the pool's active map.
+    ///
+    /// Called when a downstream disconnects or needs to be removed for other reasons
+    /// (e.g., protocol error signaled via `PoolError::Sv2ProtocolError`).
+    ///
+    /// **Note:** There's a potential race condition. If job distribution tasks clone the
+    /// `downstreams` map just before this removal happens, they might still attempt
+    /// to send a message to the removed downstream. This attempt will likely fail
+    /// harmlessly when `Downstream::send` tries to use the closed channel.
     pub fn remove_downstream(&mut self, downstream_id: u32) {
         self.downstreams.remove(&downstream_id);
     }

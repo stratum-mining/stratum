@@ -1,3 +1,8 @@
+//! Handles the setup connection handshake with the Template Provider.
+//!
+//! [`SetupConnectionHandler`] builds and sends a `SetupConnection` message,
+//! processes the response, and implements `ParseCommonMessagesFromUpstream` for
+//! handling common upstream messages.
 use super::super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
@@ -13,9 +18,11 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{error, info};
 
+/// Handles the connection setup process with the Template Provider.
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
+    // Creates a `SetupConnection` message for the given network address.
     #[allow(clippy::result_large_err)]
     fn get_setup_connection_message(address: SocketAddr) -> PoolResult<SetupConnection<'static>> {
         let endpoint_host = address.ip().to_string().into_bytes().try_into()?;
@@ -37,6 +44,8 @@ impl SetupConnectionHandler {
         })
     }
 
+    /// Establishes a connection with the Template Provider by sending a `SetupConnection` message
+    /// and validating the response.
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
@@ -69,6 +78,7 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
+    // Handles a successful setup connection response from the template provider.
     fn handle_setup_connection_success(
         &mut self,
         m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -80,6 +90,7 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
         Ok(SendTo::None(None))
     }
 
+    // Handles an error response during the setup connection process.
     fn handle_setup_connection_error(&mut self, m: SetupConnectionError) -> Result<SendTo, Error> {
         error!(
             "Received `SetupConnectionError` from TP with error code {}",
@@ -100,6 +111,8 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
             CommonMessages::SetupConnectionError(message),
         ))
     }
+
+    // Handles a channel endpoint change notification from the template provider.
     fn handle_channel_endpoint_changed(
         &mut self,
         m: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
@@ -113,6 +126,7 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
         ))
     }
 
+    // Handles a reconnect request from the template provider (not implemented yet).
     fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo, Error> {
         todo!()
     }

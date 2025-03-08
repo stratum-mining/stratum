@@ -1,3 +1,11 @@
+//! ## Pool Status Reporting
+//!
+//! This module handles status updates from Pool components.
+//!
+//! Tasks send a [`Status`] through a channel, tagged with a [`Sender`] to show where it came from.
+//! Centralizes and simplifies error handling across the system.
+
+/// Identifies which component sent a status update.
 use roles_logic_sv2::parsers::Mining;
 
 use super::error::PoolError;
@@ -23,6 +31,7 @@ impl Sender {
         }
     }
 
+    /// Sends a status message.
     pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {
         match self {
             Self::Downstream(inner) => inner.send(status).await,
@@ -42,24 +51,32 @@ impl Clone for Sender {
     }
 }
 
+/// Represents the possible connection states for both upstream (Template Provider)
+/// and downstream.
 #[derive(Debug)]
 pub enum State {
+    /// Indicates that the downstream connection has shut down due to an error.
     DownstreamShutdown(PoolError),
+    /// Indicates that the upstream connection (Template Provider) has shut down due to an error.
     TemplateProviderShutdown(PoolError),
+    /// Indicates that a specific downstream miner instance has disconnected.
+    /// The `u32` value represents the ID of the disconnected instance.
     DownstreamInstanceDropped(u32),
+    /// Represents a healthy state with an accompanying status message.
     Healthy(String),
     Shutdown,
 }
 
-/// message to be sent to the status loop on the main thread
+/// Status message sent to the main thread's status loop for monitoring connection states.
 #[derive(Debug)]
 pub struct Status {
+    /// The current connection state of the pool.
     pub state: State,
 }
 
-/// this function is used to discern which componnent experienced the event.
-/// With this knowledge we can wrap the status message with information (`State` variants) so
-/// the main status loop can decide what should happen
+// This function is used to discern which component experienced the event.
+// With this knowledge we can wrap the status message with information (`State` variants) so
+// the main status loop can decide what should happen
 async fn send_status(
     sender: &Sender,
     e: PoolError,
@@ -110,7 +127,7 @@ async fn send_status(
     outcome
 }
 
-// this is called by `error_handling::handle_result!`
+/// This function is called by `error_handling::handle_result!`
 // todo: as described in issue #777, we should replace every generic *(_) with specific errors and
 // cover every possible combination
 pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::ErrorBranch {

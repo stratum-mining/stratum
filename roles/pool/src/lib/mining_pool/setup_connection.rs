@@ -1,3 +1,9 @@
+//! ## Setup Connection Handler Module
+//! Handles the setup connection handshake with the Downstream.
+//!
+//! [`SetupConnectionHandler`] builds and receives a `SetupConnection` message,
+//! processes the response, and implements `ParseCommonMessagesFromDownstream` for
+//! handling common downstream messages.
 use super::super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
@@ -17,7 +23,9 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{debug, error, info};
 
+/// Handles the `SetupConnection` message for downstream connections.
 pub struct SetupConnectionHandler {
+    // Whether only block headers are required for this connection.
     header_only: Option<bool>,
 }
 
@@ -28,9 +36,12 @@ impl Default for SetupConnectionHandler {
 }
 
 impl SetupConnectionHandler {
+    /// Creates a new `SetupConnectionHandler` instance.
     pub fn new() -> Self {
         Self { header_only: None }
     }
+
+    /// Handles the `SetupConnection` message from a downstream connection.
     pub async fn setup(
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
@@ -92,6 +103,10 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromDownstream for SetupConnectionHandler {
+    // Handles the specific SetupConnection message received from the downstream.
+    //
+    // Returns
+    // - `Ok(SendTo::RelayNewMessageToRemote)` - Containing either `SetupConnectionSuccess`.
     fn handle_setup_connection(
         &mut self,
         incoming: SetupConnection,

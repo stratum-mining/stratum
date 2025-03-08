@@ -1,3 +1,10 @@
+//! Pool CLI entry point.
+//!
+//! This binary parses CLI arguments, loads the TOML configuration,
+//! and starts the main runtime via `lib::start`.
+//!
+//! Task orchestration and shutdown are handled in `lib/mod.rs`.
+
 #![allow(special_module_name)]
 
 mod lib;
@@ -9,17 +16,20 @@ use tracing::{error, info};
 mod args {
     use std::path::PathBuf;
 
+    /// Args representing the config path.
     #[derive(Debug)]
     pub struct Args {
         pub config_path: PathBuf,
     }
 
+    /// Internal state machine for CLI argument parsing.
     enum ArgsState {
         Next,
         ExpectPath,
         Done,
     }
 
+    /// Parsing result for CLI arguments.
     enum ArgsResult {
         Config(PathBuf),
         None,
@@ -30,7 +40,9 @@ mod args {
         const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
         const HELP_MSG: &'static str =
             "Usage: -h/--help, -c/--config <path|default pool-config.toml>";
-
+        /// Parses CLI arguments and returns the selected configuration path.
+        ///
+        /// Displays help message if requested or defaults to a predefined path.
         pub fn from_args() -> Result<Self, String> {
             let cli_args = std::env::args();
 
@@ -69,6 +81,7 @@ mod args {
     }
 }
 
+/// Initializes logging, parses arguments, loads configuration, and starts the Pool runtime.
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
