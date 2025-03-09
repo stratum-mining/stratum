@@ -10,7 +10,7 @@ use common_messages_sv2::{
 };
 use template_distribution_sv2::{
     CNewTemplate, CRequestTransactionDataError, CRequestTransactionDataSuccess, CSetNewPrevHash,
-    CSubmitSolution, CoinbaseOutputDataSize, NewTemplate, RequestTransactionData,
+    CSubmitSolution, CoinbaseOutputConstraints, NewTemplate, RequestTransactionData,
     RequestTransactionDataError, RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
@@ -22,13 +22,13 @@ use binary_sv2::{
 };
 
 use const_sv2::{
-    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
+    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS,
     CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
     CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
     CHANNEL_BIT_SETUP_CONNECTION, CHANNEL_BIT_SETUP_CONNECTION_ERROR,
     CHANNEL_BIT_SETUP_CONNECTION_SUCCESS, CHANNEL_BIT_SET_NEW_PREV_HASH,
     CHANNEL_BIT_SUBMIT_SOLUTION, EXTENSION_TYPE_NO_EXTENSION,
-    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
     MESSAGE_TYPE_NEW_TEMPLATE, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
@@ -39,7 +39,7 @@ use core::convert::{TryFrom, TryInto};
 
 #[derive(Clone, Debug)]
 pub enum Sv2Message<'a> {
-    CoinbaseOutputDataSize(CoinbaseOutputDataSize),
+    CoinbaseOutputConstraints(CoinbaseOutputConstraints),
     NewTemplate(NewTemplate<'a>),
     RequestTransactionData(RequestTransactionData),
     RequestTransactionDataError(RequestTransactionDataError<'a>),
@@ -55,7 +55,7 @@ pub enum Sv2Message<'a> {
 impl Sv2Message<'_> {
     pub fn message_type(&self) -> u8 {
         match self {
-            Sv2Message::CoinbaseOutputDataSize(_) => MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+            Sv2Message::CoinbaseOutputConstraints(_) => MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
             Sv2Message::NewTemplate(_) => MESSAGE_TYPE_NEW_TEMPLATE,
             Sv2Message::RequestTransactionData(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
             Sv2Message::RequestTransactionDataError(_) => {
@@ -75,7 +75,7 @@ impl Sv2Message<'_> {
 
     pub fn channel_bit(&self) -> bool {
         match self {
-            Sv2Message::CoinbaseOutputDataSize(_) => CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
+            Sv2Message::CoinbaseOutputConstraints(_) => CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS,
             Sv2Message::NewTemplate(_) => CHANNEL_BIT_NEW_TEMPLATE,
             Sv2Message::RequestTransactionData(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
             Sv2Message::RequestTransactionDataError(_) => {
@@ -102,7 +102,7 @@ impl Display for Sv2Message<'_> {
 
 #[repr(C)]
 pub enum CSv2Message {
-    CoinbaseOutputDataSize(CoinbaseOutputDataSize),
+    CoinbaseOutputConstraints(CoinbaseOutputConstraints),
     NewTemplate(CNewTemplate),
     RequestTransactionData(RequestTransactionData),
     RequestTransactionDataError(CRequestTransactionDataError),
@@ -118,7 +118,7 @@ pub enum CSv2Message {
 #[no_mangle]
 pub extern "C" fn drop_sv2_message(s: CSv2Message) {
     match s {
-        CSv2Message::CoinbaseOutputDataSize(_) => (),
+        CSv2Message::CoinbaseOutputConstraints(_) => (),
         CSv2Message::NewTemplate(a) => drop(a),
         CSv2Message::RequestTransactionData(_) => (),
         CSv2Message::RequestTransactionDataError(a) => drop(a),
@@ -151,7 +151,7 @@ pub extern "C" fn drop_sv2_error(s: Sv2Error) {
 impl<'a> From<Sv2Message<'a>> for CSv2Message {
     fn from(v: Sv2Message<'a>) -> Self {
         match v {
-            Sv2Message::CoinbaseOutputDataSize(a) => Self::CoinbaseOutputDataSize(a),
+            Sv2Message::CoinbaseOutputConstraints(a) => Self::CoinbaseOutputConstraints(a),
             Sv2Message::NewTemplate(a) => Self::NewTemplate(a.into()),
             Sv2Message::RequestTransactionData(a) => Self::RequestTransactionData(a),
             Sv2Message::RequestTransactionDataError(a) => {
@@ -181,7 +181,9 @@ impl<'a> CSv2Message {
                 Ok(Sv2Message::SetupConnectionError(v.to_rust_rep_mut()?))
             }
             CSv2Message::SetupConnectionSuccess(v) => Ok(Sv2Message::SetupConnectionSuccess(*v)),
-            CSv2Message::CoinbaseOutputDataSize(v) => Ok(Sv2Message::CoinbaseOutputDataSize(*v)),
+            CSv2Message::CoinbaseOutputConstraints(v) => {
+                Ok(Sv2Message::CoinbaseOutputConstraints(*v))
+            }
             CSv2Message::RequestTransactionData(v) => Ok(Sv2Message::RequestTransactionData(*v)),
             CSv2Message::RequestTransactionDataError(v) => Ok(
                 Sv2Message::RequestTransactionDataError(v.to_rust_rep_mut()?),
@@ -200,7 +202,7 @@ impl<'a> CSv2Message {
 impl<'decoder> From<Sv2Message<'decoder>> for EncodableField<'decoder> {
     fn from(m: Sv2Message<'decoder>) -> Self {
         match m {
-            Sv2Message::CoinbaseOutputDataSize(a) => a.into(),
+            Sv2Message::CoinbaseOutputConstraints(a) => a.into(),
             Sv2Message::NewTemplate(a) => a.into(),
             Sv2Message::RequestTransactionData(a) => a.into(),
             Sv2Message::RequestTransactionDataError(a) => a.into(),
@@ -218,7 +220,7 @@ impl<'decoder> From<Sv2Message<'decoder>> for EncodableField<'decoder> {
 impl binary_sv2::GetSize for Sv2Message<'_> {
     fn get_size(&self) -> usize {
         match self {
-            Sv2Message::CoinbaseOutputDataSize(a) => a.get_size(),
+            Sv2Message::CoinbaseOutputConstraints(a) => a.get_size(),
             Sv2Message::NewTemplate(a) => a.get_size(),
             Sv2Message::RequestTransactionData(a) => a.get_size(),
             Sv2Message::RequestTransactionDataError(a) => a.get_size(),
@@ -266,9 +268,9 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Sv2Message<'a> {
                 let message: ChannelEndpointChanged = from_bytes(v.1)?;
                 Ok(Sv2Message::ChannelEndpointChanged(message))
             }
-            MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE => {
-                let message: CoinbaseOutputDataSize = from_bytes(v.1)?;
-                Ok(Sv2Message::CoinbaseOutputDataSize(message))
+            MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS => {
+                let message: CoinbaseOutputConstraints = from_bytes(v.1)?;
+                Ok(Sv2Message::CoinbaseOutputConstraints(message))
             }
             MESSAGE_TYPE_NEW_TEMPLATE => {
                 let message: NewTemplate<'a> = from_bytes(v.1)?;
@@ -491,13 +493,14 @@ mod tests {
     use core::convert::TryInto;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
+    use template_distribution_sv2::CoinbaseOutputConstraints;
 
     #[derive(Clone, Debug)]
-    pub struct RandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
+    pub struct RandomCoinbaseOutputConstraints(pub CoinbaseOutputConstraints);
 
-    impl Arbitrary for RandomCoinbaseOutputDataSize {
+    impl Arbitrary for RandomCoinbaseOutputConstraints {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomCoinbaseOutputDataSize(CoinbaseOutputDataSize::from_gen(g))
+            RandomCoinbaseOutputConstraints(CoinbaseOutputConstraints::from_gen(g))
         }
     }
 
@@ -544,11 +547,12 @@ mod tests {
 
     #[test]
     fn test_message_type_cb_output_data_size() {
-        let expect = MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE;
-        let cb_output_data_size = CoinbaseOutputDataSize {
+        let expect = MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS;
+        let cb_output_data_size = CoinbaseOutputConstraints {
             coinbase_output_max_additional_size: 0,
+            coinbase_output_max_additional_sigops: 0,
         };
-        let sv2_message = Sv2Message::CoinbaseOutputDataSize(cb_output_data_size);
+        let sv2_message = Sv2Message::CoinbaseOutputConstraints(cb_output_data_size);
         let actual = sv2_message.message_type();
 
         assert_eq!(expect, actual);
@@ -730,15 +734,15 @@ mod tests {
     // RR
 
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_coinbase_output_data_size(message: RandomCoinbaseOutputDataSize) -> bool {
+    fn encode_with_c_coinbase_output_data_size(message: RandomCoinbaseOutputConstraints) -> bool {
         let expected = message.clone().0;
 
-        let mut encoder = Encoder::<CoinbaseOutputDataSize>::new();
+        let mut encoder = Encoder::<CoinbaseOutputConstraints>::new();
         let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
 
         let frame = StandardSv2Frame::from_message(
             message.0,
-            MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+            MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
             0,
             false,
         )
@@ -762,7 +766,7 @@ mod tests {
         let payload = decoded.payload();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
-            Sv2Message::CoinbaseOutputDataSize(m) => m,
+            Sv2Message::CoinbaseOutputConstraints(m) => m,
             _ => panic!(),
         };
 
