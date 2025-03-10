@@ -6,7 +6,7 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     parsers::{
-        AnyMessage, CommonMessages, IsSv2Message,
+        message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
         JobDeclaration::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
             DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactions,
@@ -205,8 +205,8 @@ impl Sniffer {
         let upstream_messages = self.messages_from_upstream.clone();
         let action = self.action.clone();
         let _ = select! {
-            r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, downstream_messages, action.clone()) => r,
-            r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, upstream_messages, action) => r,
+            r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, downstream_messages, action.clone(), &self.identifier) => r,
+            r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, upstream_messages, action, &self.identifier) => r,
         };
         // wait a bit so we dont drop the sniffer before the test has finished
         sleep(std::time::Duration::from_secs(1)).await;
@@ -285,6 +285,7 @@ impl Sniffer {
         send: Sender<MessageFrame>,
         downstream_messages: MessagesAggregator,
         action: Option<InterceptAction>,
+        identifier: &str,
     ) -> Result<(), SnifferError> {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
@@ -294,7 +295,11 @@ impl Sniffer {
             if let Some(ref action) = action {
                 match action {
                     InterceptAction::IgnoreMessage(_) => {
-                        // do not store or forward it
+                        tracing::info!(
+                            "🔍 Sniffer {} | Ignored: {} | Direction: ⬆",
+                            identifier,
+                            message_type_to_name(msg_type)
+                        );
                         continue;
                     }
                     InterceptAction::ReplaceMessage(intercept_message) => {
@@ -314,6 +319,14 @@ impl Sniffer {
                         send.send(intercept_frame)
                             .await
                             .map_err(|_| SnifferError::UpstreamClosed)?;
+                        tracing::info!(
+                            "🔍 Sniffer {} | Replaced: {} with {} | Direction: ⬆",
+                            identifier,
+                            message_type_to_name(msg_type),
+                            message_type_to_name(
+                                intercept_message.replacement_message.message_type()
+                            )
+                        );
                     }
                 }
             } else {
@@ -321,6 +334,11 @@ impl Sniffer {
                 send.send(frame)
                     .await
                     .map_err(|_| SnifferError::UpstreamClosed)?;
+                tracing::info!(
+                    "🔍 Sniffer {} | Forwarded: {} | Direction: ⬆",
+                    identifier,
+                    message_type_to_name(msg_type)
+                );
             }
         }
         Err(SnifferError::DownstreamClosed)
@@ -331,6 +349,7 @@ impl Sniffer {
         send: Sender<MessageFrame>,
         upstream_messages: MessagesAggregator,
         action: Option<InterceptAction>,
+        identifier: &str,
     ) -> Result<(), SnifferError> {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
@@ -342,7 +361,11 @@ impl Sniffer {
             if let Some(ref action) = action {
                 match action {
                     InterceptAction::IgnoreMessage(_) => {
-                        // do not store or forward it
+                        tracing::info!(
+                            "🔍 Sniffer {} | Ignored: {} | Direction: ⬇",
+                            identifier,
+                            message_type_to_name(msg_type)
+                        );
                         continue;
                     }
                     InterceptAction::ReplaceMessage(intercept_message) => {
@@ -362,6 +385,14 @@ impl Sniffer {
                         send.send(intercept_frame)
                             .await
                             .map_err(|_| SnifferError::DownstreamClosed)?;
+                        tracing::info!(
+                            "🔍 Sniffer {} | Replaced: {} with {} | Direction: ⬇",
+                            identifier,
+                            message_type_to_name(msg_type),
+                            message_type_to_name(
+                                intercept_message.replacement_message.message_type()
+                            )
+                        );
                     }
                 }
             } else {
@@ -369,6 +400,11 @@ impl Sniffer {
                 send.send(frame)
                     .await
                     .map_err(|_| SnifferError::DownstreamClosed)?;
+                tracing::info!(
+                    "🔍 Sniffer {} | Forwarded: {} | Direction: ⬇",
+                    identifier,
+                    message_type_to_name(msg_type)
+                );
             }
         }
         Err(SnifferError::UpstreamClosed)
