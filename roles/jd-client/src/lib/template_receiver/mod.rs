@@ -9,13 +9,16 @@ use roles_logic_sv2::{
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
     parsers::{AnyMessage, TemplateDistribution},
     template_distribution_sv2::{
-        CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, SubmitSolution,
+        CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, SubmitSolution,
     },
     utils::Mutex,
 };
 use setup_connection::SetupConnectionHandler;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use stratum_common::bitcoin::{consensus::Encodable, TxOut};
+use stratum_common::bitcoin::{
+    consensus::{deserialize, Encodable},
+    Transaction, TxOut,
+};
 use tokio::task::AbortHandle;
 use tracing::{error, info, warn};
 
@@ -112,10 +115,15 @@ impl TemplateRx {
         }
     }
 
-    pub async fn send_max_coinbase_size(self_mutex: &Arc<Mutex<Self>>, size: u32) {
+    pub async fn send_coinbase_output_constraints(
+        self_mutex: &Arc<Mutex<Self>>,
+        size: u32,
+        sigops: u16,
+    ) {
         let coinbase_output_data_size = AnyMessage::TemplateDistribution(
-            TemplateDistribution::CoinbaseOutputDataSize(CoinbaseOutputDataSize {
+            TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
                 coinbase_output_max_additional_size: size,
+                coinbase_output_max_additional_sigops: sigops,
             }),
         );
         let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
@@ -140,12 +148,22 @@ impl TemplateRx {
         miner_coinbase_output: &[u8],
     ) -> AllocateMiningJobTokenSuccess<'static> {
         if let Some(jd) = jd {
-            super::job_declarator::JobDeclarator::get_last_token(&jd).await
+            JobDeclarator::get_last_token(&jd).await
         } else {
+            // This is when JDC is doing solo mining
+            let deserialized_miner_coinbase_output: Transaction =
+                deserialize(miner_coinbase_output).expect("Invalid coinbase output");
+            let miner_coinbase_output_sigops = deserialized_miner_coinbase_output
+                .output
+                .iter()
+                .map(|output| output.script_pubkey.count_sigops() as u16)
+                .sum::<u16>();
+
             AllocateMiningJobTokenSuccess {
                 request_id: 0,
                 mining_job_token: vec![0; 32].try_into().unwrap(),
                 coinbase_output_max_additional_size: 100,
+                coinbase_output_max_additional_sigops: miner_coinbase_output_sigops,
                 coinbase_output: miner_coinbase_output.to_vec().try_into().unwrap(),
                 async_mining_allowed: true,
             }
@@ -156,7 +174,7 @@ impl TemplateRx {
         let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap();
         let down = self_mutex.safe_lock(|s| s.down.clone()).unwrap();
         let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-        let mut coinbase_output_max_additional_size_sent = false;
+        let mut coinbase_output_constraints_sent = false;
         let mut last_token = None;
         let miner_coinbase_output = self_mutex
             .safe_lock(|s| s.miner_coinbase_output.clone())
@@ -164,21 +182,25 @@ impl TemplateRx {
         let main_task = {
             let self_mutex = self_mutex.clone();
             tokio::task::spawn(async move {
-                // Send CoinbaseOutputDataSize size to TP
+                // Send CoinbaseOutputConstraints to TP
                 loop {
                     if last_token.is_none() {
                         let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap();
                         last_token =
                             Some(Self::get_last_token(jd, &miner_coinbase_output[..]).await);
                     }
-                    if !coinbase_output_max_additional_size_sent {
-                        coinbase_output_max_additional_size_sent = true;
-                        Self::send_max_coinbase_size(
+                    if !coinbase_output_constraints_sent {
+                        coinbase_output_constraints_sent = true;
+                        Self::send_coinbase_output_constraints(
                             &self_mutex,
                             last_token
                                 .clone()
                                 .unwrap()
                                 .coinbase_output_max_additional_size,
+                            last_token
+                                .clone()
+                                .unwrap()
+                                .coinbase_output_max_additional_sigops,
                         )
                         .await;
                     }
