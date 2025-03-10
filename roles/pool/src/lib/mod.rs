@@ -30,24 +30,28 @@ impl PoolSv2 {
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
         let coinbase_output_result = get_coinbase_output(&config)?;
         let coinbase_output_len = coinbase_output_result.len() as u32;
-        let tp_authority_public_key = config.tp_authority_public_key();
+        let tp_authority_public_key = config.tp_authority_public_key().cloned();
         let coinbase_output_sigops = coinbase_output_result
             .iter()
             .map(|output| output.script_pubkey.count_sigops() as u16)
             .sum::<u16>();
 
-        TemplateRx::connect(
-            config.tp_address().parse().unwrap(),
-            s_new_t,
-            s_prev_hash,
-            r_solution,
-            r_message_recv_signal,
-            status::Sender::Upstream(status_tx.clone()),
-            coinbase_output_len,
-            coinbase_output_sigops,
-            tp_authority_public_key.cloned(),
-        )
-        .await?;
+        let tp_address = config.tp_address().clone();
+        let cloned_status_tx = status_tx.clone();
+        tokio::spawn(async move {
+            let _ = TemplateRx::connect(
+                tp_address.parse().unwrap(),
+                s_new_t,
+                s_prev_hash,
+                r_solution,
+                r_message_recv_signal,
+                status::Sender::Upstream(cloned_status_tx),
+                coinbase_output_len,
+                coinbase_output_sigops,
+                tp_authority_public_key,
+            )
+            .await;
+        });
         let pool = Pool::start(
             config.clone(),
             r_new_t,
@@ -60,51 +64,54 @@ impl PoolSv2 {
 
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
-        loop {
-            let task_status = select! {
-                task_status = status_rx.recv() => task_status,
-                interrupt_signal = tokio::signal::ctrl_c() => {
-                    match interrupt_signal {
-                        Ok(()) => {
-                            info!("Interrupt received");
-                        },
-                        Err(err) => {
-                            error!("Unable to listen for interrupt signal: {}", err);
-                            // we also shut down in case of error
-                        },
+        tokio::spawn(async move {
+            loop {
+                let task_status = select! {
+                    task_status = status_rx.recv() => task_status,
+                    interrupt_signal = tokio::signal::ctrl_c() => {
+                        match interrupt_signal {
+                            Ok(()) => {
+                                info!("Interrupt received");
+                            },
+                            Err(err) => {
+                                error!("Unable to listen for interrupt signal: {}", err);
+                                // we also shut down in case of error
+                            },
+                        }
+                        break;
                     }
-                    break Ok(());
-                }
-            };
-            let task_status: status::Status = task_status.unwrap();
+                };
+                let task_status: status::Status = task_status.unwrap();
 
-            match task_status.state {
-                // Should only be sent by the downstream listener
-                status::State::DownstreamShutdown(err) => {
-                    error!(
-                        "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
-                        err
-                    );
-                    break Ok(());
-                }
-                status::State::TemplateProviderShutdown(err) => {
-                    error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
-                    break Ok(());
-                }
-                status::State::Healthy(msg) => {
-                    info!("HEALTHY message: {}", msg);
-                }
-                status::State::DownstreamInstanceDropped(downstream_id) => {
-                    warn!("Dropping downstream instance {} from pool", downstream_id);
-                    if pool
-                        .safe_lock(|p| p.remove_downstream(downstream_id))
-                        .is_err()
-                    {
-                        break Ok(());
+                match task_status.state {
+                    // Should only be sent by the downstream listener
+                    status::State::DownstreamShutdown(err) => {
+                        error!(
+                            "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
+                            err
+                        );
+                        break;
+                    }
+                    status::State::TemplateProviderShutdown(err) => {
+                        error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
+                        break;
+                    }
+                    status::State::Healthy(msg) => {
+                        info!("HEALTHY message: {}", msg);
+                    }
+                    status::State::DownstreamInstanceDropped(downstream_id) => {
+                        warn!("Dropping downstream instance {} from pool", downstream_id);
+                        if pool
+                            .safe_lock(|p| p.remove_downstream(downstream_id))
+                            .is_err()
+                        {
+                            break;
+                        }
                     }
                 }
             }
-        }
+        });
+        Ok(())
     }
 }
 

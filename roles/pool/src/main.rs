@@ -3,7 +3,8 @@
 mod lib;
 use ext_config::{Config, File, FileFormat};
 pub use lib::{config, status, PoolSv2};
-use tracing::error;
+use tokio::select;
+use tracing::{error, info};
 
 mod args {
     use std::path::PathBuf;
@@ -100,4 +101,18 @@ async fn main() {
         }
     };
     let _ = PoolSv2::new(config).start().await;
+    select! {
+        interrupt_signal = tokio::signal::ctrl_c() => {
+            match interrupt_signal {
+                Ok(()) => {
+                    info!("Pool(bin): Caught interrupt signal. Shutting down...");
+                    return;
+                },
+                Err(err) => {
+                    error!("Pool(bin): Unable to listen for interrupt signal: {}", err);
+                    return;
+                },
+            }
+        }
+    };
 }
