@@ -10,7 +10,7 @@ use const_sv2::{
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     MESSAGE_TYPE_SET_NEW_PREV_HASH,
 };
-use integration_tests_sv2::{sniffer::IgnoreFromMessage, *};
+use integration_tests_sv2::{sniffer::IgnoreMessage, *};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
     parsers::{AnyMessage, CommonMessages},
@@ -154,10 +154,11 @@ async fn test_sniffer_wait_for_message_type_with_remove() {
 /// `TP -> sniffer_a -> sniffer_b -> sniffer_c -> Pool`  
 #[tokio::test]
 async fn test_sniffer_blocks_message() {
+    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
 
-    // Define an action to block SetupConnectionSuccess messages going downstream.
-    let block_from_message = IgnoreFromMessage::new(
+    // Define an action to ignore SetupConnectionSuccess messages going downstream.
+    let ignore_message = IgnoreMessage::new(
         MessageDirection::ToDownstream,
         MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     );
@@ -165,29 +166,32 @@ async fn test_sniffer_blocks_message() {
     // `sniffer_a` intercepts and receives `SetupConnectionSuccess` message.
     let (sniffer_a, sniffer_a_addr) = start_sniffer("A".to_string(), tp_addr, false, None).await;
 
-    // `sniffer_b` is placed downstream of `sniffer_a` and blocks `SetupConnectionSuccess` message.
+    // `sniffer_b` is placed downstream of `sniffer_a` and ignores `SetupConnectionSuccess` message.
     let (_sniffer_b, sniffer_b_addr) = start_sniffer(
         "B".to_string(),
         sniffer_a_addr,
         false,
-        Some(block_from_message.into()),
+        Some(ignore_message.into()),
     )
     .await;
 
-    // `sniffer_c` is placed downstream of `sniffer_b` and should receive nothing.
+    // `sniffer_c` is placed downstream of `sniffer_b` and should not receive the ignored message.
     let (sniffer_c, sniffer_c_addr) =
         start_sniffer("C".to_string(), sniffer_b_addr, false, None).await;
 
     // Start the Pool, connected to `sniffer_c`.
     let _ = start_pool(Some(sniffer_c_addr)).await;
 
-    // Waiting for intercepting setup connection success on sniffer_a
+    // Block waiting for intercepting setup connection success on sniffer_a
     sniffer_a
         .wait_for_message_type(
             MessageDirection::ToDownstream,
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         )
         .await;
+
+    // Allow time for the message to be intercepted and blocked
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     // Assert that `sniffer_c` does not receive any messages, confirming `sniffer_b`'s block works.
     assert!(sniffer_c.next_message_from_upstream().is_none());
