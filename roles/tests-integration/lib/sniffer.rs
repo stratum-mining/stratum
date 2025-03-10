@@ -64,14 +64,15 @@ pub struct Sniffer {
 /// Represents an action that [`Sniffer`] can take on intercepted messages.
 #[derive(Debug, Clone)]
 pub enum InterceptAction {
-    /// Blocks the message stream after encountering a specific message.
-    IgnoreFromMessage(IgnoreFromMessage),
+    /// Prevents a message from being forwarded.
+    /// The message will be added to the message aggregator but not sent to the destination.
+    IgnoreMessage(IgnoreMessage),
     /// Intercepts and modifies a message before forwarding it.
     ReplaceMessage(Box<ReplaceMessage>),
 }
 
 impl InterceptAction {
-    /// Returns the action if it is `IgnoreFromMessage` or `ReplaceMessage`  
+    /// Returns the action if it is `IgnoreMessage` or `ReplaceMessage`
     /// with the specified message type.
     pub fn find_matching_action(
         &self,
@@ -79,7 +80,7 @@ impl InterceptAction {
         direction: MessageDirection,
     ) -> Option<&Self> {
         match self {
-            InterceptAction::IgnoreFromMessage(bm)
+            InterceptAction::IgnoreMessage(bm)
                 if bm.direction == direction && bm.expected_message_type == msg_type =>
             {
                 Some(self)
@@ -95,29 +96,36 @@ impl InterceptAction {
         }
     }
 }
-/// Defines an action that blocks the message stream after detecting a specific message.
+/// Defines an action that prevents a message from being forwarded.
+///
+/// When a message matching the specified type and direction is intercepted,
+/// it will be added to the message aggregator for inspection but will not be
+/// forwarded to the destination. All other messages will continue to be forwarded normally.
 #[derive(Debug, Clone)]
-pub struct IgnoreFromMessage {
+pub struct IgnoreMessage {
     direction: MessageDirection,
     expected_message_type: MsgType,
 }
 
-impl IgnoreFromMessage {
-    /// Creates a new [`IgnoreFromMessage`] action.
+impl IgnoreMessage {
+    /// Creates a new [`IgnoreMessage`] action.
     ///
-    /// - `direction`: The direction of the message stream to block.
-    /// - `expected_message_type`: The type of message after which the stream should be blocked.
+    /// - `direction`: The direction of the message to be ignored.
+    /// - `expected_message_type`: The type of message to be ignored.
+    ///
+    /// When a message matching these criteria is intercepted, it will be
+    /// added to the message aggregator but not forwarded to the destination.
     pub fn new(direction: MessageDirection, expected_message_type: MsgType) -> Self {
-        IgnoreFromMessage {
+        IgnoreMessage {
             direction,
             expected_message_type,
         }
     }
 }
 
-impl From<IgnoreFromMessage> for InterceptAction {
-    fn from(value: IgnoreFromMessage) -> Self {
-        InterceptAction::IgnoreFromMessage(value)
+impl From<IgnoreMessage> for InterceptAction {
+    fn from(value: IgnoreMessage) -> Self {
+        InterceptAction::IgnoreMessage(value)
     }
 }
 
@@ -282,21 +290,17 @@ impl Sniffer {
         downstream_messages: MessagesAggregator,
         action: Option<InterceptAction>,
     ) -> Result<(), SnifferError> {
-        // Blocking flag used in the IgnoreFromMessage action to stop processing messages after the
-        // desired interception.
-        let mut blocked = false;
         while let Ok(mut frame) = recv.recv().await {
-            if blocked {
-                continue;
-            }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
             let action = action.as_ref().and_then(|action| {
                 action.find_matching_action(msg_type, MessageDirection::ToUpstream)
             });
             if let Some(ref action) = action {
                 match action {
-                    InterceptAction::IgnoreFromMessage(_) => {
-                        blocked = true;
+                    InterceptAction::IgnoreMessage(_) => {
+                        // store the message in the message aggregator
+                        downstream_messages.add_message(msg_type, msg);
+                        // but do not forward it
                         continue;
                     }
                     InterceptAction::ReplaceMessage(intercept_message) => {
@@ -334,13 +338,7 @@ impl Sniffer {
         upstream_messages: MessagesAggregator,
         action: Option<InterceptAction>,
     ) -> Result<(), SnifferError> {
-        // Blocking flag used in the IgnoreFromMessage action to stop processing messages after the
-        // desired interception.
-        let mut blocked = false;
         while let Ok(mut frame) = recv.recv().await {
-            if blocked {
-                continue;
-            }
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
 
             let action = action.as_ref().and_then(|action| {
@@ -349,8 +347,10 @@ impl Sniffer {
 
             if let Some(ref action) = action {
                 match action {
-                    InterceptAction::IgnoreFromMessage(_) => {
-                        blocked = true;
+                    InterceptAction::IgnoreMessage(_) => {
+                        // store the message in the message aggregator
+                        upstream_messages.add_message(msg_type, msg);
+                        // but do not forward it
                         continue;
                     }
                     InterceptAction::ReplaceMessage(intercept_message) => {
