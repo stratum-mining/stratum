@@ -73,7 +73,8 @@ jobs:
           cargo test --manifest-path=benches/Cargo.toml
           cargo test --manifest-path=common/Cargo.toml
           cargo test --manifest-path=protocols/Cargo.toml
-          cargo test --manifest-path=roles/Cargo.toml
+          # Integration tests are run in a separate job
+          cargo test --manifest-path=roles/Cargo.toml --workspace --exclude integration_tests_sv2
           cargo test --manifest-path=utils/Cargo.toml
           cargo test --manifest-path=roles/roles-utils/config-helpers/Cargo.toml
 
