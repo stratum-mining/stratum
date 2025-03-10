@@ -37,6 +37,8 @@ impl SetupConnectionHandler {
         })
     }
 
+    /// Establishes a connection with the template provider by sending a `SetupConnection` message
+    /// and validating the response.
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
