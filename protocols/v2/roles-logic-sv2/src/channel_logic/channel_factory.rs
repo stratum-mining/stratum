@@ -7,7 +7,7 @@ use crate::{
     common_properties::StandardChannel,
     job_creator::{self, JobsCreators},
     parsers::Mining,
-    utils::{GroupId, Id, Mutex},
+    utils::{Coinbase, GroupId, Id, Mutex},
     Error,
 };
 
@@ -31,6 +31,8 @@ use stratum_common::bitcoin::{
     hashes::sha256d::Hash,
     CompactTarget, TxOut,
 };
+
+use stratum_common::bitcoin::consensus;
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`)
 /// fields
@@ -870,9 +872,23 @@ impl ChannelFactory {
                 print_hash.to_vec().as_hex()
             );
 
-            let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
-                .concat()
-                .to_vec();
+            // Use the Coinbase::reconstruct_with_bip141 function to create a coinbase transaction
+            // with BIP141 marker and flag bytes
+            let coinbase_tx = match Coinbase::reconstruct_with_bip141(
+                coinbase_tx_prefix,
+                &extranonce[..],
+                coinbase_tx_suffix,
+            ) {
+                Ok(coinbase) => coinbase,
+                Err(e) => {
+                    error!("Failed to reconstruct coinbase with witness: {}", e);
+                    return Err(Error::InvalidCoinbase);
+                }
+            };
+
+            // Serialize the coinbase transaction to bytes
+            let coinbase = consensus::serialize(&coinbase_tx.tx);
+
             match self.kind {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
