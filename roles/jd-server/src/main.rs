@@ -104,8 +104,5 @@ async fn main() {
         }
     };
 
-    let _ = lib::JobDeclaratorServer::new(config)
-        .expect("Failed to start JDS")
-        .start()
-        .await;
+    let _ = lib::JobDeclaratorServer::new(config).start().await;
 }
