@@ -270,47 +270,58 @@ impl Pool {
     async fn accept_incoming_connection(
         self_: Arc<Mutex<Pool>>,
         config: PoolConfig,
+        mut recv_stop_signal: tokio::sync::watch::Receiver<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let listener = TcpListener::bind(&config.listen_address()).await?;
-        info!(
-            "Listening for encrypted connection on: {}",
-            config.listen_address()
-        );
-        while let Ok((stream, _)) = listener.accept().await {
-            let address = stream.peer_addr().unwrap();
-            debug!(
-                "New connection from {:?}",
-                stream.peer_addr().map_err(PoolError::Io)
-            );
+        info!("Pool is running on: {}", config.listen_address());
+        // Run the listener in the background
+        task::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = recv_stop_signal.changed() => {
+                        info!("Pool is stopping the server after stop shutdown signal received");
+                        break;
+                    },
 
-            let responder = Responder::from_authority_kp(
-                &config.authority_public_key().into_bytes(),
-                &config.authority_secret_key().into_bytes(),
-                std::time::Duration::from_secs(config.cert_validity_sec()),
-            );
-            match responder {
-                Ok(resp) => {
-                    if let Ok((receiver, sender, _, _)) =
-                        Connection::new(stream, HandshakeRole::Responder(resp)).await
-                    {
-                        handle_result!(
-                            status_tx,
-                            Self::accept_incoming_connection_(
-                                self_.clone(),
-                                receiver,
-                                sender,
-                                address
-                            )
-                            .await
-                        );
+                    result = listener.accept() => {
+                        match result {
+                            Ok((stream, _)) => {
+                                let address = stream.peer_addr().unwrap();
+                                info!("New connection from {:?}", stream.peer_addr().map_err(PoolError::Io));
+                                let responder = Responder::from_authority_kp(
+                                    &config.authority_public_key().into_bytes(),
+                                    &config.authority_secret_key().into_bytes(),
+                                    std::time::Duration::from_secs(config.cert_validity_sec()),
+                                );
+
+                                match responder {
+                                    Ok(resp) => {
+                                        if let Ok((receiver, sender, _, _)) = Connection::new(stream, HandshakeRole::Responder(resp)).await {
+                                            handle_result!(
+                                                status_tx,
+                                                Self::accept_incoming_connection_(
+                                                    self_.clone(),
+                                                    receiver,
+                                                    sender,
+                                                    address
+                                                ).await
+                                            );
+                                        }
+                                    }
+                                    Err(_) => {
+                                        return;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("Error accepting connection: {:?}", e);
+                            }
+                        }
                     }
                 }
-                Err(_e) => {
-                    todo!()
-                }
             }
-        }
+        });
         Ok(())
     }
 
@@ -444,7 +455,8 @@ impl Pool {
         Ok(())
     }
 
-    pub fn start(
+    #[allow(clippy::too_many_arguments)]
+    pub async fn start(
         config: PoolConfig,
         new_template_rx: Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
@@ -452,7 +464,8 @@ impl Pool {
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
         shares_per_minute: f32,
-    ) -> Arc<Mutex<Self>> {
+        recv_stop_signal: tokio::sync::watch::Receiver<()>,
+    ) -> Result<Arc<Mutex<Self>>, PoolError> {
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
         let range_1 = std::ops::Range { start: 0, end: 16 };
@@ -488,24 +501,20 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
-        info!("Starting up pool listener");
+        info!("Starting up Pool server");
         let status_tx_clone = status_tx.clone();
-        task::spawn(async move {
-            if let Err(e) = Self::accept_incoming_connection(cloned, config).await {
-                error!("{}", e);
-            }
-            if status_tx_clone
+        if let Err(e) = Self::accept_incoming_connection(cloned, config, recv_stop_signal).await {
+            error!("Pool stopped accepting connections due to: {}", &e);
+            let _ = status_tx_clone
                 .send(status::Status {
                     state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
-                        "Downstream no longer accepting incoming connections".to_string(),
+                        "Pool stopped accepting connections".to_string(),
                     )),
                 })
-                .await
-                .is_err()
-            {
-                error!("Downstream shutdown and Status Channel dropped");
-            }
-        });
+                .await;
+
+            return Err(e);
+        }
 
         let cloned = sender_message_received_signal.clone();
         let status_tx_clone = status_tx.clone();
@@ -547,7 +556,7 @@ impl Pool {
                 error!("Downstream shutdown and Status Channel dropped");
             }
         });
-        cloned3
+        Ok(cloned3)
     }
 
     /// This removes the downstream from the list of downstreams
