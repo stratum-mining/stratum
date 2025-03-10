@@ -10,11 +10,10 @@ use super::super::{
     PoolChangerTrigger,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, U256};
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
+use roles_logic_sv2::{FramingError, HandshakeRole, Initiator, NoiseError, Seq0255, Slice, Sv2Frame, B0255, U256};
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_messages_sv2::{Protocol, SetupConnection},
@@ -172,7 +171,7 @@ impl Upstream {
         };
 
         let pub_key: Secp256k1PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
+        let initiator = Initiator::from_raw_k(pub_key.into_bytes()).expect("Unable to create initiator");
 
         info!(
             "PROXY SERVER - ACCEPTING FROM UPSTREAM: {}",
@@ -228,7 +227,7 @@ impl Upstream {
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
                 return Err(CodecNoise(
-                    codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    NoiseError::ExpectedIncomingHandshakeMessage,
                 ));
             }
         };
@@ -237,7 +236,7 @@ impl Upstream {
         let message_type = if let Some(header) = incoming.get_header() {
             header.msg_type()
         } else {
-            return Err(framing_sv2::Error::ExpectedHandshakeFrame.into());
+            return Err(FramingError::ExpectedHandshakeFrame.into());
         };
         // Gets the message payload
         let payload = incoming.payload();
@@ -259,9 +258,9 @@ impl Upstream {
         declare_mining_job: DeclareMiningJob<'static>,
         set_new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
         merkle_path: Seq0255<'static, U256<'static>>,
-        signed_token: binary_sv2::B0255<'static>,
+        signed_token: B0255<'static>,
         coinbase_tx_version: u32,
-        coinbase_prefix: binary_sv2::B0255<'static>,
+        coinbase_prefix: B0255<'static>,
         coinbase_tx_input_n_sequence: u32,
         coinbase_tx_value_remaining: u64,
         coinbase_tx_outs: Vec<u8>,
@@ -331,7 +330,7 @@ impl Upstream {
                         incoming
                             .get_header()
                             .ok_or(super::super::error::Error::FramingSv2(
-                                framing_sv2::Error::ExpectedSv2Frame,
+                                FramingError::ExpectedSv2Frame,
                             ));
 
                     let message_type = handle_result!(tx_status, message_type).msg_type();
@@ -358,9 +357,9 @@ impl Upstream {
                     match next_message_to_send {
                         // This is a transparent proxy it will only relay messages as received
                         Ok(SendTo::RelaySameMessageToRemote(downstream_mutex)) => {
-                            let sv2_frame: codec_sv2::Sv2Frame<
+                            let sv2_frame: Sv2Frame<
                                 MiningDeviceMessages,
-                                buffer_sv2::Slice,
+                                Slice,
                             > = incoming.map(|payload| payload.try_into().unwrap());
                             Downstream::send(&downstream_mutex, sv2_frame)
                                 .await

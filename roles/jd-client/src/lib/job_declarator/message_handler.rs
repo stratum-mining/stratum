@@ -6,7 +6,7 @@ use roles_logic_sv2::{
         IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
         ProvideMissingTransactionsSuccess,
     },
-    parsers::JobDeclaration,
+    parsers::JobDeclaration, Seq064K, B016M,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
@@ -70,14 +70,14 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             .ok_or(Error::UnknownRequestId(message.request_id))?;
 
         let unknown_tx_position_list: Vec<u16> = message.unknown_tx_position_list.into_inner();
-        let missing_transactions: Vec<binary_sv2::B016M> = unknown_tx_position_list
+        let missing_transactions: Vec<B016M> = unknown_tx_position_list
             .iter()
             .filter_map(|&pos| tx_list.get(pos as usize).cloned())
             .collect();
         let request_id = message.request_id;
         let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
             request_id,
-            transaction_list: binary_sv2::Seq064K::new(missing_transactions).unwrap(),
+            transaction_list: Seq064K::new(missing_transactions).unwrap(),
         };
         let message_enum =
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
