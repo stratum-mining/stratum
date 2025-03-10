@@ -42,6 +42,7 @@ pub async fn connect(
     user_id: Option<String>,
     handicap: u32,
     nominal_hashrate_multiplier: Option<f32>,
+    single_submit: bool,
 ) {
     let address = address
         .clone()
@@ -85,6 +86,7 @@ pub async fn connect(
         user_id,
         handicap,
         nominal_hashrate_multiplier,
+        single_submit,
     )
     .await
 }
@@ -228,6 +230,7 @@ fn open_channel(
 }
 
 impl Device {
+    #[allow(clippy::too_many_arguments)]
     async fn start(
         mut receiver: Receiver<EitherFrame>,
         mut sender: Sender<EitherFrame>,
@@ -236,6 +239,7 @@ impl Device {
         user_id: Option<String>,
         handicap: u32,
         nominal_hashrate_multiplier: Option<f32>,
+        single_submit: bool,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         SetupConnectionHandler::setup(
@@ -279,6 +283,9 @@ impl Device {
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
                 Self::send_share(cloned.clone(), nonce, job_id, version, ntime).await;
+                if single_submit {
+                    break;
+                }
             }
         });
 
@@ -551,14 +558,14 @@ impl Miner {
         }
     }
 
-    fn new_target(&mut self, mut target: Vec<u8>) {
-        // target is sent in LE and comparisons in this file are done in BE
-        target.reverse();
+    fn new_target(&mut self, target: Vec<u8>) {
+        // target is sent in LE format, we'll keep it that way
         let hex_string = target
             .iter()
             .fold("".to_string(), |acc, b| acc + format!("{:02x}", b).as_str());
         info!("Set target to {}", hex_string);
-        self.target = Some(U256::from_big_endian(target.as_slice()));
+        // Store the target as U256 in little-endian format
+        self.target = Some(U256::from_little_endian(target.as_slice()));
     }
 
     fn new_header(&mut self, set_new_prev_hash: &SetNewPrevHash, new_job: &NewMiningJob) {
@@ -588,20 +595,33 @@ impl Miner {
     pub fn next_share(&mut self) -> NextShareOutcome {
         if let Some(header) = self.header.as_ref() {
             let hash_ = header.block_hash();
-            let mut hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
-            hash.reverse();
-            if hash < self.target.unwrap().to_little_endian() {
-                info!(
-                    "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
-                    header.nonce, self.target, hash,
-                );
-                NextShareOutcome::ValidShare
+            let hash: [u8; 32] = *hash_.to_raw_hash().as_ref();
+
+            // Convert both hash and target to Target type for comparison
+            let hash_target: Target = hash.into();
+
+            // Convert U256 target to [u8; 32] array and then to Target
+            if let Some(target) = self.target {
+                let target_bytes = target.to_little_endian();
+                let mut target_array = [0u8; 32];
+                target_array.copy_from_slice(&target_bytes);
+                let target: Target = target_array.into();
+                if hash_target <= target {
+                    info!(
+                        "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
+                        header.nonce, self.target, hash,
+                    );
+                    NextShareOutcome::ValidShare
+                } else {
+                    NextShareOutcome::InvalidShare
+                }
             } else {
-                NextShareOutcome::InvalidShare
+                std::thread::yield_now();
+                NextShareOutcome::NoTarget
             }
         } else {
             std::thread::yield_now();
-            NextShareOutcome::InvalidShare
+            NextShareOutcome::NoHeader
         }
     }
 }
@@ -609,6 +629,8 @@ impl Miner {
 enum NextShareOutcome {
     ValidShare,
     InvalidShare,
+    NoTarget,
+    NoHeader,
 }
 
 impl NextShareOutcome {
@@ -712,7 +734,10 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                     .try_send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
-            miner.header.as_mut().map(|h| h.nonce += 1);
+            miner
+                .header
+                .as_mut()
+                .map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     } else {
         loop {
@@ -728,7 +753,10 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                     .try_send((nonce, job_id, version.unwrap(), time))
                     .unwrap();
             }
-            miner.header.as_mut().map(|h| h.nonce += 1);
+            miner
+                .header
+                .as_mut()
+                .map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     }
 }
