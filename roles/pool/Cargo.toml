@@ -39,3 +39,4 @@ key-utils = { path = "../../utils/key-utils" }
 
 [dev-dependencies]
 hex = "0.4.3"
+integration_tests_sv2 = { path = "../../test/integration-tests" }

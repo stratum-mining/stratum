@@ -48,6 +48,7 @@ pub enum State {
     TemplateProviderShutdown(PoolError),
     DownstreamInstanceDropped(u32),
     Healthy(String),
+    Shutdown,
 }
 
 /// message to be sent to the status loop on the main thread

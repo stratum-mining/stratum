@@ -7,6 +7,7 @@ use async_channel::{bounded, unbounded};
 use config::PoolConfig;
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Pool};
+use std::sync::{Arc, Mutex};
 use template_receiver::TemplateRx;
 use tokio::select;
 use tracing::{error, info, warn};
@@ -14,16 +15,30 @@ use tracing::{error, info, warn};
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
     config: PoolConfig,
+    status_tx: Arc<Mutex<Option<async_channel::Sender<status::Status>>>>,
 }
 
 impl PoolSv2 {
     pub fn new(config: PoolConfig) -> PoolSv2 {
-        PoolSv2 { config }
+        PoolSv2 {
+            config,
+            status_tx: Arc::new(Mutex::new(None)),
+        }
     }
 
     pub async fn start(&self) -> Result<(), PoolError> {
         let config = self.config.clone();
         let (status_tx, status_rx) = unbounded();
+
+        if let Ok(mut s_tx) = self.status_tx.lock() {
+            *s_tx = Some(status_tx.clone());
+        } else {
+            error!("Failed to access Pool status lock");
+            return Err(PoolError::Custom(
+                "Failed to access Pool status lock".to_string(),
+            ));
+        }
+        let (send_stop_signal, recv_stop_signal) = tokio::sync::watch::channel(());
         let (s_new_t, r_new_t) = bounded(10);
         let (s_prev_hash, r_prev_hash) = bounded(10);
         let (s_solution, r_solution) = bounded(10);
@@ -60,8 +75,9 @@ impl PoolSv2 {
             s_message_recv_signal,
             status::Sender::DownstreamListener(status_tx),
             config.shares_per_minute(),
-        );
-
+            recv_stop_signal,
+        )
+        .await?;
         // Start the error handling loop
         // See `./status.rs` and `utils/error_handling` for information on how this operates
         tokio::spawn(async move {
@@ -84,16 +100,23 @@ impl PoolSv2 {
                 let task_status: status::Status = task_status.unwrap();
 
                 match task_status.state {
+                    status::State::Shutdown => {
+                        info!("Received shutdown signal");
+                        let _ = send_stop_signal.send(());
+                        break;
+                    }
                     // Should only be sent by the downstream listener
                     status::State::DownstreamShutdown(err) => {
                         error!(
                             "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
                             err
                         );
+                        let _ = send_stop_signal.send(());
                         break;
                     }
                     status::State::TemplateProviderShutdown(err) => {
                         error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
+                        let _ = send_stop_signal.send(());
                         break;
                     }
                     status::State::Healthy(msg) => {
@@ -105,6 +128,7 @@ impl PoolSv2 {
                             .safe_lock(|p| p.remove_downstream(downstream_id))
                             .is_err()
                         {
+                            let _ = send_stop_signal.send(());
                             break;
                         }
                     }
@@ -112,6 +136,31 @@ impl PoolSv2 {
             }
         });
         Ok(())
+    }
+
+    pub fn shutdown(&self) {
+        info!("Attempting to shutdown pool");
+        if let Ok(status_tx) = &self.status_tx.lock() {
+            if let Some(status_tx) = status_tx.as_ref().cloned() {
+                info!("Pool is running, sending shutdown signal");
+                tokio::spawn(async move {
+                    if let Err(e) = status_tx
+                        .send(status::Status {
+                            state: status::State::Shutdown,
+                        })
+                        .await
+                    {
+                        error!("Failed to send shutdown signal to status loop: {:?}", e);
+                    } else {
+                        info!("Sent shutdown signal to Pool");
+                    }
+                });
+            } else {
+                info!("Pool is not running.");
+            }
+        } else {
+            error!("Failed to access Pool status lock");
+        }
     }
 }
 
@@ -147,5 +196,36 @@ mod tests {
         let pool = PoolSv2::new(config);
         let result = pool.start().await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn shutdown_pool() {
+        let template_provider = integration_tests_sv2::start_template_provider(None);
+        let config_path = "config-examples/pool-config-local-tp-example.toml";
+        let mut config: PoolConfig = match Config::builder()
+            .add_source(File::new(config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<PoolConfig>() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to deserialize config: {}", e);
+                    return;
+                }
+            },
+            Err(e) => {
+                error!("Failed to build config: {}", e);
+                return;
+            }
+        };
+        config.set_tp_address(template_provider.1.to_string());
+        let pool_0 = PoolSv2::new(config.clone());
+        let pool_1 = PoolSv2::new(config);
+        assert!(pool_0.start().await.is_ok());
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        assert!(pool_1.start().await.is_err());
+        pool_0.shutdown();
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        assert!(pool_1.start().await.is_ok());
     }
 }

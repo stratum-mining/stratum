@@ -90,10 +90,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         SHARES_PER_MINUTE,
     );
     let pool = PoolSv2::new(config);
-    let pool_clone = pool.clone();
-    tokio::task::spawn(async move {
-        assert!(pool_clone.start().await.is_ok());
-    });
+    assert!(pool.start().await.is_ok());
     // Wait a bit to let the pool exchange initial messages with the TP
     sleep(1).await;
     (pool, listening_address)

@@ -90,6 +90,11 @@ impl PoolConfig {
     pub fn shares_per_minute(&self) -> f32 {
         self.shares_per_minute
     }
+
+    /// Change TP address.
+    pub fn set_tp_address(&mut self, tp_address: String) {
+        self.tp_address = tp_address;
+    }
 }
 
 pub struct TemplateProviderConfig {
