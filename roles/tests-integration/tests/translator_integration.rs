@@ -113,6 +113,23 @@ async fn translation_proxy_and_jd() {
 // we expect it to shut down gracefully
 #[tokio::test]
 async fn tproxy_refuses_bad_extranonce_size() {
+    // ------
+    // debug with tokio-console and tracing logs
+    use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+    let subscriber = Registry::default();
+    // Layer for tokio-console
+    let console_layer = console_subscriber::spawn();
+
+    // Layer for standard tracing output with a filter
+    let fmt_layer = fmt::Layer::default()
+        .with_filter(EnvFilter::new("debug")); // Only show DEBUG and above
+
+    // Combine both layers
+    let combined = subscriber.with(console_layer).with(fmt_layer);
+    tracing::subscriber::set_global_default(combined)
+        .expect("Failed to set subscriber");
+    // ------
+
     let (_tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
 
@@ -146,4 +163,45 @@ async fn tproxy_refuses_bad_extranonce_size() {
     // make sure tProxy shut down (expected behavior)
     // we only assert that the listening port is now available
     assert!(tokio::net::TcpListener::bind(tproxy_addr).await.is_ok());
+}
+
+// tihs is a temporary test to debug the tProxy shutdown with tokio-console
+// we're supposed to manually launch the tProxy and then connect to the sniffer port that is printed on the terminal
+#[tokio::test]
+async fn debug_tproxy_shutdown() {
+    start_tracing();
+    let (_tp, tp_addr) = start_template_provider(None);
+    let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
+
+    let message_replacement = AnyMessage::Mining(Mining::OpenExtendedMiningChannelSuccess(
+        OpenExtendedMiningChannelSuccess {
+            request_id: 0,
+            channel_id: 1,
+            target: [
+                112, 123, 89, 188, 221, 164, 162, 167, 139, 39, 104, 137, 2, 111, 185, 17, 165, 85,
+                33, 115, 67, 45, 129, 197, 134, 103, 128, 151, 59, 19, 0, 0,
+            ]
+            .into(),
+            extranonce_prefix: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+                .try_into()
+                .unwrap(),
+            extranonce_size: 44, // bad extranonce size
+        },
+    ));
+    let replace_message = ReplaceMessage::new(
+        MessageDirection::ToDownstream,
+        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
+        message_replacement,
+    );
+
+    // this sniffer will replace OpenExtendedMiningChannelSuccess with a bad extranonce size
+    let (sniffer, sniffer_addr) =
+        start_sniffer("0".to_string(), pool_addr, false, Some(replace_message.into())).await;
+
+    // print so user can connect to the proxy manually to the sniffer port
+    println!("sniffer started {:?}", sniffer_addr);
+
+    // sleep for a really long time to allow for manually connecting tProxy
+    tokio::time::sleep(std::time::Duration::from_secs(10000)).await;
+
 }
