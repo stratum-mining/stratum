@@ -376,7 +376,7 @@ impl JobDeclaratorClient {
             .safe_lock(|e| (e.upstream.clone(), e.jd.clone()))
             .unwrap();
         // Wait for downstream to connect
-        let _ = downstream::listen_for_downstream_mining_modified(
+        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining_modified(
             config.clone(),
             *config.listening_address(),
             upstream,
@@ -388,8 +388,10 @@ impl JobDeclaratorClient {
             tx_status.clone(),
             vec![],
             jd.clone(),
-        )
-        .await;
+        ));
+        let _ = task_collector.safe_lock(|e| {
+            e.push(downstream_handle.abort_handle());
+        });
     }
 
     async fn initialize_jd(
