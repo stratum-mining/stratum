@@ -35,6 +35,7 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
 // a downstream connection.
 #[tokio::test]
 async fn jdc_tp_success_setup() {
+    start_tracing();
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
