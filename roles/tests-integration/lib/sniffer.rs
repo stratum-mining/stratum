@@ -13,7 +13,7 @@ use roles_logic_sv2::{
             IdentifyTransactionsSuccess, ProvideMissingTransactions,
             ProvideMissingTransactionsSuccess, SubmitSolution,
         },
-        TemplateDistribution::{self, CoinbaseOutputDataSize},
+        TemplateDistribution::{self, CoinbaseOutputConstraints},
     },
     utils::Mutex,
 };
@@ -454,8 +454,8 @@ impl Sniffer {
                 SubmitSolution(m) => AnyMessage::JobDeclaration(SubmitSolution(m.into_static())),
             },
             AnyMessage::TemplateDistribution(m) => match m {
-                CoinbaseOutputDataSize(m) => {
-                    AnyMessage::TemplateDistribution(CoinbaseOutputDataSize(m.into_static()))
+                CoinbaseOutputConstraints(m) => {
+                    AnyMessage::TemplateDistribution(CoinbaseOutputConstraints(m.into_static()))
                 }
                 TemplateDistribution::NewTemplate(m) => AnyMessage::TemplateDistribution(
                     TemplateDistribution::NewTemplate(m.into_static()),

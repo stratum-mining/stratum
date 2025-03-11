@@ -3,16 +3,13 @@ pub mod error;
 pub mod mining_pool;
 pub mod status;
 pub mod template_receiver;
-
 use async_channel::{bounded, unbounded};
-
 use config::PoolConfig;
 use error::PoolError;
 use mining_pool::{get_coinbase_output, Pool};
 use template_receiver::TemplateRx;
-use tracing::{error, info, warn};
-
 use tokio::select;
+use tracing::{error, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
@@ -31,9 +28,14 @@ impl PoolSv2 {
         let (s_prev_hash, r_prev_hash) = bounded(10);
         let (s_solution, r_solution) = bounded(10);
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
-        let coinbase_output_result = get_coinbase_output(&config);
-        let coinbase_output_len = coinbase_output_result?.len() as u32;
+        let coinbase_output_result = get_coinbase_output(&config)?;
+        let coinbase_output_len = coinbase_output_result.len() as u32;
         let tp_authority_public_key = config.tp_authority_public_key();
+        let coinbase_output_sigops = coinbase_output_result
+            .iter()
+            .map(|output| output.script_pubkey.count_sigops() as u16)
+            .sum::<u16>();
+
         TemplateRx::connect(
             config.tp_address().parse().unwrap(),
             s_new_t,
@@ -42,6 +44,7 @@ impl PoolSv2 {
             r_message_recv_signal,
             status::Sender::Upstream(status_tx.clone()),
             coinbase_output_len,
+            coinbase_output_sigops,
             tp_authority_public_key.cloned(),
         )
         .await?;

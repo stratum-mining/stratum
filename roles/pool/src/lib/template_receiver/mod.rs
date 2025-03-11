@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{AnyMessage, TemplateDistribution},
     template_distribution_sv2::{
-        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+        CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
     },
     utils::Mutex,
 };
@@ -43,6 +43,7 @@ impl TemplateRx {
         message_received_signal: Receiver<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
+        coinbase_out_sigops: u16,
         expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
     ) -> PoolResult<()> {
         let stream = loop {
@@ -79,12 +80,13 @@ impl TemplateRx {
         }));
         let cloned = self_.clone();
 
-        let c_additional_size = CoinbaseOutputDataSize {
+        let coinbase_output_constraints = CoinbaseOutputConstraints {
             coinbase_output_max_additional_size: coinbase_out_len,
+            coinbase_output_max_additional_sigops: coinbase_out_sigops,
         };
-        let frame = AnyMessage::TemplateDistribution(TemplateDistribution::CoinbaseOutputDataSize(
-            c_additional_size,
-        ))
+        let frame = AnyMessage::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputConstraints(coinbase_output_constraints),
+        )
         .try_into()?;
 
         Self::send(self_.clone(), frame).await?;
@@ -131,7 +133,7 @@ impl TemplateRx {
             );
             match msg {
                 roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
-                    TemplateDistribution::CoinbaseOutputDataSize(_) => todo!(),
+                    TemplateDistribution::CoinbaseOutputConstraints(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
                         let res = new_template_sender.send(m).await;
                         handle_result!(status_tx, res);

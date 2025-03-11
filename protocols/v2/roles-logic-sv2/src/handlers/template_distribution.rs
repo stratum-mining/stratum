@@ -28,7 +28,7 @@
 use super::SendTo_;
 use crate::{errors::Error, parsers::TemplateDistribution, utils::Mutex};
 use template_distribution_sv2::{
-    CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
+    CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
@@ -109,9 +109,9 @@ where
                     .safe_lock(|x| x.handle_request_tx_data_error(m))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(TemplateDistribution::CoinbaseOutputDataSize(_)) => Err(Error::UnexpectedMessage(
-                MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
-            )),
+            Ok(TemplateDistribution::CoinbaseOutputConstraints(_)) => Err(
+                Error::UnexpectedMessage(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
+            ),
             Ok(TemplateDistribution::RequestTransactionData(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
             )),
@@ -184,7 +184,7 @@ where
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match message {
-            Ok(TemplateDistribution::CoinbaseOutputDataSize(m)) => self_
+            Ok(TemplateDistribution::CoinbaseOutputConstraints(m)) => self_
                 .safe_lock(|x| x.handle_coinbase_out_data_size(m))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::RequestTransactionData(m)) => self_
@@ -209,11 +209,13 @@ where
         }
     }
 
-    /// Handles a `CoinbaseOutputDataSize` message.
+    /// Handles a `CoinbaseOutputConstraints` message.
     ///
     /// This method processes a message that includes the coinbase output data size.
-    fn handle_coinbase_out_data_size(&mut self, m: CoinbaseOutputDataSize)
-        -> Result<SendTo, Error>;
+    fn handle_coinbase_out_data_size(
+        &mut self,
+        m: CoinbaseOutputConstraints,
+    ) -> Result<SendTo, Error>;
 
     /// Handles a `RequestTransactionData` message.
     ///
