@@ -1,9 +1,11 @@
+use super::{config::JobDeclaratorClientConfig, template_receiver::TemplateRx, PoolChangerTrigger};
+
 use super::{
     job_declarator::JobDeclarator,
     status::{self, State},
     upstream_sv2::Upstream as UpstreamMiningNode,
 };
-use async_channel::{Receiver, SendError, Sender};
+use async_channel::{bounded, Receiver, SendError, Sender};
 use roles_logic_sv2::{
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
@@ -149,7 +151,7 @@ impl DownstreamMiningNodeStatus {
 }
 
 use core::convert::TryInto;
-use std::sync::Arc;
+use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 impl DownstreamMiningNode {
     #[allow(clippy::too_many_arguments)]
@@ -665,6 +667,117 @@ use tokio::{
     task::AbortHandle,
     time::{timeout, Duration},
 };
+
+
+/// Strat listen for downstream mining node. Return as soon as one downstream connect.
+#[allow(clippy::too_many_arguments)]
+pub async fn listen_for_downstream_mining_modified(
+    config: JobDeclaratorClientConfig,
+    address: SocketAddr,
+    upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
+    withhold: bool,
+    authority_public_key: Secp256k1PublicKey,
+    authority_secret_key: Secp256k1SecretKey,
+    cert_validity_sec: u64,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    tx_status: async_channel::Sender<status::Status<'static>>,
+    miner_coinbase_output: Vec<TxOut>,
+    jd: Option<Arc<Mutex<JobDeclarator>>>,
+){
+    info!("Listening for downstream mining connections on {}", address);
+    let listener = TcpListener::bind(address).await.unwrap();
+    while let Ok((stream, _)) = listener.accept().await {
+        let task_collector = task_collector.clone();
+        let miner_coinbase_output = miner_coinbase_output.clone();
+        let jd = jd.clone();
+        let upstream = upstream.clone();
+        let timeout = config.timeout();
+        let mut parts = config.tp_address().split(':');
+        let ip_tp = parts.next().unwrap().to_string();
+        let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
+        // When Downstream receive a share that meets bitcoin target it transformit in a
+        // SubmitSolution and send it to the TemplateReceiver
+        let (send_solution, recv_solution) = bounded(10);
+        
+        let responder = Responder::from_authority_kp(
+            &authority_public_key.into_bytes(),
+            &authority_secret_key.into_bytes(),
+            std::time::Duration::from_secs(cert_validity_sec),
+        )
+        .unwrap();
+        let (receiver, sender, recv_task_abort_handler, send_task_abort_handler) =
+            Connection::new(stream, HandshakeRole::Responder(responder))
+                .await
+                .expect("impossible to connect");
+        let tx_status_downstream = status::Sender::Downstream(tx_status.clone());
+        let node = DownstreamMiningNode::new(
+            receiver,
+            sender,
+            upstream.clone(),
+            send_solution,
+            withhold,
+            task_collector.clone(),
+            tx_status_downstream,
+            miner_coinbase_output,
+            jd.clone()
+        );
+        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+        let message_type = incoming.get_header().unwrap().msg_type();
+        let payload = incoming.payload();
+        let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;
+        let node = Arc::new(Mutex::new(node));
+        if let Some(upstream) = upstream {
+            upstream
+                .safe_lock(|s| s.downstream = Some(node.clone()))
+                .unwrap();
+        }
+
+        // Call handle_setup_connection or fail
+        match DownstreamMiningNode::handle_message_common(
+            node.clone(),
+            message_type,
+            payload,
+            routing_logic,
+        ) {
+            Ok(SendToCommon::Respond(message)) => {
+                let message = match message {
+                    roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
+                    _ => panic!(),
+                };
+                let main_task = tokio::task::spawn({
+                    let node = node.clone();
+                    async move {
+                        DownstreamMiningNode::start(&node, message).await;
+                    }
+                });
+                node.safe_lock(|n| {
+                    n.task_collector
+                        .safe_lock(|c| {
+                            c.push(main_task.abort_handle());
+                            c.push(recv_task_abort_handler);
+                            c.push(send_task_abort_handler);
+                        })
+                        .unwrap()
+                })
+                .unwrap();
+                TemplateRx::connect(
+                    SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
+                    recv_solution,
+                    status::Sender::TemplateReceiver(tx_status.clone()),
+                    jd,
+                    node,
+                    task_collector,
+                    Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
+                    vec![],
+                    config.tp_authority_public_key().cloned(),
+                )
+                .await;
+            }
+            _ => {}
+        }
+    }
+}
+
 
 /// Strat listen for downstream mining node. Return as soon as one downstream connect.
 #[allow(clippy::too_many_arguments)]

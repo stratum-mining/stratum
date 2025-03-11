@@ -4,7 +4,7 @@
 //
 // Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
 // all tests. This is because tracing is a global setting.
-use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
+use const_sv2::{MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
 use integration_tests_sv2::*;
 use roles_logic_sv2::parsers::{AnyMessage, CommonMessages};
 use sniffer::MessageDirection;
@@ -54,4 +54,45 @@ async fn jdc_tp_success_setup() {
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         )
         .await;
+}
+
+
+#[tokio::test]
+async fn jdc_does_not_stackoverflow_when_no_token() {
+    start_tracing();
+    let (tp, tp_addr) = start_template_provider(None);
+    let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
+    let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
+    let block_from_message = sniffer::IgnoreFromMessage::new(
+        sniffer::MessageDirection::ToDownstream,
+        MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+    );
+    let (jds_jdc_sniffer, jds_jdc_sniffer_addr) = start_sniffer(
+        "JDS-JDC-sniffer".to_string(),
+        jds_addr,
+        false,
+        Some(block_from_message.into()),
+    )
+    .await;
+    let (_jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_jdc_sniffer_addr).await;
+    let (tproxy, _) = start_sv2_translator(jdc_addr).await;
+    jds_jdc_sniffer
+        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
+        .await;
+    jds_jdc_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
+
+    jds_jdc_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+        )
+        .await;
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    tproxy.shutdown();
+    assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_err());
 }
