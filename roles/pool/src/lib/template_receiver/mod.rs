@@ -24,6 +24,12 @@ mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
+/// Manages communication with the template provider and relays relevant messages downstream.
+///
+/// This struct maintains connection channels to the template provider and handles:
+/// - Receiving and forwarding template-related messages to downstream.
+/// - Intercepting and forwarding solution submission messages from downstream.
+/// - Ensuring proper message flow between components.
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
@@ -34,6 +40,7 @@ pub struct TemplateRx {
 }
 
 impl TemplateRx {
+    /// Establishes a connection with the template provider and sets up communication channels.
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
@@ -89,12 +96,16 @@ impl TemplateRx {
 
         Self::send(self_.clone(), frame).await?;
 
+        // This task intercept the NewTemplate and PrevHash message from template provider and
+        // sends to downstream.
         task::spawn(async { Self::start(cloned).await });
+        // This task intercept the new solution receive from downstream to template provider.
         task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });
 
         Ok(())
     }
 
+    /// Listens for messages from the template provider and relays them downstream.
     pub async fn start(self_: Arc<Mutex<Self>>) {
         let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
             self_
@@ -156,6 +167,7 @@ impl TemplateRx {
         }
     }
 
+    /// Sends a message to the template provider.
     pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> PoolResult<()> {
         let either_frame = sv2_frame.into();
         let sender = self_
@@ -165,6 +177,7 @@ impl TemplateRx {
         Ok(())
     }
 
+    // Handles solution submission messages from downstream.
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
         while let Ok(solution) = rx.recv().await {
