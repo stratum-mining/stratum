@@ -61,6 +61,7 @@ async fn test_sniffer_intercept_to_downstream() {
 
 #[tokio::test]
 async fn test_sniffer_intercept_to_upstream() {
+    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
     let setup_connection = SetupConnection {
         protocol: Protocol::TemplateDistributionProtocol,
@@ -111,6 +112,7 @@ async fn test_sniffer_intercept_to_upstream() {
 
 #[tokio::test]
 async fn test_sniffer_wait_for_message_type_with_remove() {
+    start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
     let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, false, None).await;
     let _ = start_pool(Some(sniffer_addr)).await;
