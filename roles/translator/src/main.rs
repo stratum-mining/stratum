@@ -37,7 +37,21 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    // ------
+    // debug with tokio-console and tracing logs
+    use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+    let subscriber = Registry::default();
+    // Layer for tokio-console
+    let console_layer = console_subscriber::spawn();
+
+    // Layer for standard tracing output with a filter
+    let fmt_layer = fmt::Layer::default()
+        .with_filter(EnvFilter::new("debug")); // Only show DEBUG and above
+
+    // Combine both layers
+    let combined = subscriber.with(console_layer).with(fmt_layer);
+    tracing::subscriber::set_global_default(combined)
+        .expect("Failed to set subscriber");
 
     let proxy_config = match process_cli_args() {
         Ok(p) => p,
