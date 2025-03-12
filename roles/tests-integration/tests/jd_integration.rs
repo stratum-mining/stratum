@@ -73,7 +73,7 @@ async fn jdc_does_not_stackoverflow_when_no_token() {
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
-    let block_from_message = sniffer::IgnoreFromMessage::new(
+    let block_from_message = sniffer::IgnoreMessage::new(
         sniffer::MessageDirection::ToDownstream,
         MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     );
