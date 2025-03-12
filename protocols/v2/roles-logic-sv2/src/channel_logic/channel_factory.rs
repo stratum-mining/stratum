@@ -206,7 +206,7 @@ impl Share {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// Basic logic shared between all the channel factories
 struct ChannelFactory {
     ids: Arc<Mutex<GroupId>>,
@@ -987,7 +987,7 @@ impl ChannelFactory {
 
 /// Used by a pool to in order to manage all downstream channel. It adds job creation capabilities
 /// to ChannelFactory.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PoolChannelFactory {
     inner: ChannelFactory,
     job_creator: JobsCreators,

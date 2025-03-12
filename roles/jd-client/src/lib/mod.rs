@@ -8,12 +8,10 @@ pub mod upstream_sv2;
 
 use std::{sync::atomic::AtomicBool, time::Duration};
 
+use async_channel::unbounded;
 use config::JobDeclaratorClientConfig;
-use job_declarator::JobDeclarator;
-use template_receiver::TemplateRx;
-
-use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
+use job_declarator::JobDeclarator;
 use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
@@ -62,21 +60,6 @@ pub struct JobDeclaratorClient {
     shutdown: Arc<Notify>,
 }
 
-#[derive(Debug, Clone)]
-pub struct SomeGlobalStore {
-    upstream: Option<Arc<Mutex<upstream_sv2::upstream::Upstream>>>,
-    jd: Option<Arc<Mutex<JobDeclarator>>>,
-}
-
-impl SomeGlobalStore {
-    fn new() -> Self {
-        Self {
-            upstream: None,
-            jd: None,
-        }
-    }
-}
-
 impl JobDeclaratorClient {
     /// Instantiate JDC instance.
     pub fn new(config: JobDeclaratorClientConfig) -> Self {
@@ -94,8 +77,6 @@ impl JobDeclaratorClient {
 
         let task_collector = Arc::new(Mutex::new(vec![]));
 
-        let global_store = Arc::new(Mutex::new(SomeGlobalStore::new()));
-
         tokio::spawn({
             let shutdown_signal = self.shutdown.clone();
             async move {
@@ -107,7 +88,6 @@ impl JobDeclaratorClient {
         });
 
         let config = self.config;
-        let mut state = None;
         'outer: loop {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
@@ -117,17 +97,8 @@ impl JobDeclaratorClient {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
                 let upstream = upstream.clone();
-                let global_store = global_store.clone();
                 root_handler = tokio::spawn(async move {
-                    Self::initialize_jd(
-                        config,
-                        tx_status,
-                        task_collector,
-                        upstream,
-                        &state,
-                        global_store,
-                    )
-                    .await;
+                    Self::initialize_jd(config, tx_status, task_collector, upstream).await;
                 });
             } else {
                 let tx_status = tx_status.clone();
@@ -159,7 +130,6 @@ impl JobDeclaratorClient {
                                         })
                                         .unwrap();
                                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    state = Some(status::State::DownstreamShutdown(err));
                                     break;
                                 }
                                 status::State::UpstreamShutdown(err) => {
@@ -173,7 +143,6 @@ impl JobDeclaratorClient {
                                         })
                                         .unwrap();
                                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    state = Some(status::State::UpstreamShutdown(err));
                                     break;
                                 }
                                 status::State::UpstreamRogue => {
@@ -187,7 +156,6 @@ impl JobDeclaratorClient {
                                         })
                                         .unwrap();
                                     upstream_index += 1;
-                                    state = Some(status::State::UpstreamRogue);
                                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                                     break;
                                 }
@@ -230,55 +198,32 @@ impl JobDeclaratorClient {
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
-        let timeout = config.timeout();
         let miner_tx_out = config.get_txout().expect("Failed to get txout");
 
-        // When Downstream receive a share that meets bitcoin target it transformit in a
-        // SubmitSolution and send it to the TemplateReceiver
-        let (send_solution, recv_solution) = bounded(10);
-
         // Wait for downstream to connect
-        let downstream = downstream::listen_for_downstream_mining(
+        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
             *config.listening_address(),
             None,
-            send_solution,
             config.withhold(),
             *config.authority_public_key(),
             *config.authority_secret_key(),
             config.cert_validity_sec(),
             task_collector.clone(),
-            status::Sender::Downstream(tx_status.clone()),
+            tx_status.clone(),
             miner_tx_out.clone(),
             None,
-        )
-        .await
-        .unwrap();
-
-        // Initialize JD part
-        let mut parts = config.tp_address().split(':');
-        let ip_tp = parts.next().unwrap().to_string();
-        let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-
-        TemplateRx::connect(
-            SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
-            recv_solution,
-            status::Sender::TemplateReceiver(tx_status.clone()),
-            None,
-            downstream,
-            task_collector,
-            Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
-            miner_tx_out.clone(),
-            config.tp_authority_public_key().cloned(),
-        )
-        .await;
+            config.clone(),
+        ));
+        let _ = task_collector.safe_lock(|e| {
+            e.push(downstream_handle.abort_handle());
+        });
     }
 
-    async fn initiate_upstream(
+    async fn initialize_jd(
         config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: config::Upstream,
-        global_store: Arc<Mutex<SomeGlobalStore>>,
     ) {
         let timeout = config.timeout();
 
@@ -360,26 +305,10 @@ impl JobDeclaratorClient {
             }
         };
 
-        _ = global_store.safe_lock(|e| {
-            e.upstream = Some(upstream);
-            e.jd = Some(jd);
-        });
-    }
-
-    async fn initiate_downstream(
-        config: JobDeclaratorClientConfig,
-        tx_status: async_channel::Sender<status::Status<'static>>,
-        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-        global_store: Arc<Mutex<SomeGlobalStore>>,
-    ) {
-        let (upstream, jd) = global_store
-            .safe_lock(|e| (e.upstream.clone(), e.jd.clone()))
-            .unwrap();
         // Wait for downstream to connect
-        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining_modified(
-            config.clone(),
+        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
             *config.listening_address(),
-            upstream,
+            Some(upstream),
             config.withhold(),
             *config.authority_public_key(),
             *config.authority_secret_key(),
@@ -387,46 +316,12 @@ impl JobDeclaratorClient {
             task_collector.clone(),
             tx_status.clone(),
             vec![],
-            jd.clone(),
+            Some(jd),
+            config.clone(),
         ));
         let _ = task_collector.safe_lock(|e| {
             e.push(downstream_handle.abort_handle());
         });
-    }
-
-    async fn initialize_jd(
-        config: JobDeclaratorClientConfig,
-        tx_status: async_channel::Sender<status::Status<'static>>,
-        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-        upstream_config: config::Upstream,
-        state: &Option<status::State<'_>>,
-        global_store: Arc<Mutex<SomeGlobalStore>>,
-    ) {
-        let init_upstream = || {
-            Self::initiate_upstream(
-                config.clone(),
-                tx_status.clone(),
-                task_collector.clone(),
-                upstream_config,
-                global_store.clone(),
-            )
-        };
-
-        let init_downstream = || {
-            Self::initiate_downstream(
-                config.clone(),
-                tx_status.clone(),
-                task_collector.clone(),
-                global_store.clone(),
-            )
-        };
-
-        if matches!(state, Some(status::State::DownstreamShutdown(_))) {
-            init_downstream().await;
-        } else {
-            init_upstream().await;
-            init_downstream().await;
-        }
     }
 
     /// Closes JDC role and any open connection associated with it.

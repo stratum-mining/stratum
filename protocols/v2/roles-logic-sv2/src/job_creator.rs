@@ -23,7 +23,7 @@ use stratum_common::{
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct JobsCreators {
     lasts_new_template: Vec<NewTemplate<'static>>,
     job_to_template_id: HashMap<u32, u64, BuildNoHashHasher<u32>>,

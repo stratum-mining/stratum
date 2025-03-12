@@ -37,7 +37,7 @@ use tracing::{error, info, warn};
 
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct CircularBuffer {
     buffer: VecDeque<(u64, u32)>,
     capacity: usize,
@@ -71,7 +71,7 @@ impl std::default::Default for CircularBuffer {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 struct TemplateToJobId {
     template_id_to_job_id: CircularBuffer,
     request_id_to_template_id: HashMap<u32, u64>,
@@ -100,7 +100,7 @@ impl TemplateToJobId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
     /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.

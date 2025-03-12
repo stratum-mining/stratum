@@ -668,10 +668,9 @@ use tokio::{
     time::{timeout, Duration},
 };
 
-/// Strat listen for downstream mining node. Return as soon as one downstream connect.
+/// Start listen for downstream mining node. Return as soon as one downstream connect.
 #[allow(clippy::too_many_arguments)]
-pub async fn listen_for_downstream_mining_modified(
-    config: JobDeclaratorClientConfig,
+pub async fn listen_for_downstream_mining(
     address: SocketAddr,
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
     withhold: bool,
@@ -682,6 +681,7 @@ pub async fn listen_for_downstream_mining_modified(
     tx_status: async_channel::Sender<status::Status<'static>>,
     miner_coinbase_output: Vec<TxOut>,
     jd: Option<Arc<Mutex<JobDeclarator>>>,
+    config: JobDeclaratorClientConfig,
 ) {
     info!("Listening for downstream mining connections on {}", address);
     let listener = TcpListener::bind(address).await.unwrap();
@@ -771,96 +771,6 @@ pub async fn listen_for_downstream_mining_modified(
             )
             .await;
         }
-    }
-}
-
-/// Strat listen for downstream mining node. Return as soon as one downstream connect.
-#[allow(clippy::too_many_arguments)]
-pub async fn listen_for_downstream_mining(
-    address: SocketAddr,
-    upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
-    solution_sender: Sender<SubmitSolution<'static>>,
-    withhold: bool,
-    authority_public_key: Secp256k1PublicKey,
-    authority_secret_key: Secp256k1SecretKey,
-    cert_validity_sec: u64,
-    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    tx_status: status::Sender,
-    miner_coinbase_output: Vec<TxOut>,
-    jd: Option<Arc<Mutex<JobDeclarator>>>,
-) -> Result<Arc<Mutex<DownstreamMiningNode>>, Error> {
-    info!("Listening for downstream mining connections on {}", address);
-    let listner = TcpListener::bind(address).await?;
-
-    if let Ok((stream, _)) = listner.accept().await {
-        let responder = Responder::from_authority_kp(
-            &authority_public_key.into_bytes(),
-            &authority_secret_key.into_bytes(),
-            std::time::Duration::from_secs(cert_validity_sec),
-        )
-        .unwrap();
-        let (receiver, sender, recv_task_abort_handler, send_task_abort_handler) =
-            Connection::new(stream, HandshakeRole::Responder(responder))
-                .await
-                .expect("impossible to connect");
-        let node = DownstreamMiningNode::new(
-            receiver,
-            sender,
-            upstream.clone(),
-            solution_sender,
-            withhold,
-            task_collector,
-            tx_status,
-            miner_coinbase_output,
-            jd,
-        );
-
-        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-        let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;
-        let node = Arc::new(Mutex::new(node));
-        if let Some(upstream) = upstream {
-            upstream
-                .safe_lock(|s| s.downstream = Some(node.clone()))
-                .unwrap();
-        }
-
-        // Call handle_setup_connection or fail
-        match DownstreamMiningNode::handle_message_common(
-            node.clone(),
-            message_type,
-            payload,
-            routing_logic,
-        ) {
-            Ok(SendToCommon::Respond(message)) => {
-                let message = match message {
-                    roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
-                    _ => panic!(),
-                };
-                let main_task = tokio::task::spawn({
-                    let node = node.clone();
-                    async move {
-                        DownstreamMiningNode::start(&node, message).await;
-                    }
-                });
-                node.safe_lock(|n| {
-                    n.task_collector
-                        .safe_lock(|c| {
-                            c.push(main_task.abort_handle());
-                            c.push(recv_task_abort_handler);
-                            c.push(send_task_abort_handler);
-                        })
-                        .unwrap()
-                })
-                .unwrap();
-                Ok(node)
-            }
-            Ok(_) => todo!(),
-            Err(e) => Err(e),
-        }
-    } else {
-        todo!()
     }
 }
 
