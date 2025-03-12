@@ -17,5 +17,5 @@ cobertura.xml
 /roles/*/*-config.toml
 /examples/*/Cargo.lock
 /scripts/sv2.h
-/roles/tests-integration/template-provider
+/test/tests-integration/template-provider
 stratum-message-generator

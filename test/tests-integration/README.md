@@ -19,7 +19,7 @@ In order to run the integration tests, you can use the following command:
 
 ```bash
 $ git clone git@github.com:stratum-mining/stratum.git
-$ cargo test --manifest-path=roles/Cargo.toml --verbose --test '*' -- --nocapture
+$ cargo test --manifest-path=test/tests-integration/Cargo.toml --verbose --test '*' -- --nocapture
 ```
 
 Note: during the execution of the tests, a new directory called `template-provider` is created.

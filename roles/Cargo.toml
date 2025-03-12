@@ -9,8 +9,7 @@ members = [
     "test-utils/mining-device-sv1",
     "translator",
     "jd-client",
-    "jd-server",
-    "tests-integration",
+    "jd-server"
 ]
 
 [profile.dev]
