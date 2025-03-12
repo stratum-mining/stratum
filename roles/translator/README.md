@@ -56,3 +56,7 @@ There are two files in `roles/translator/config-examples`:
 ```bash
 cd roles/translator/config-examples/
 cargo run -- -c tproxy-config-local-jdc-example.toml
+
+### Limitations
+
+The current implementation always replies to Sv1 `mining.submit` with `"result": true`, regardless of whether the share was rejected on Sv2 upstream.
