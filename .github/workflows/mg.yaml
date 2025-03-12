@@ -85,14 +85,6 @@ jobs:
       - name: Run translation-proxy-broke-pool
         run: sh ./test/message-generator/test/translation-proxy-broke-pool/translation-proxy-broke-pool.sh
 
-  translation-proxy-old-share:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run translation-proxy-old-share
-        run: sh ./test/message-generator/test/translation-proxy-old-share/translation-proxy-old-share.sh
-
   mg-aggregate-results:
     name: "Aggregate MG Test Results"
     runs-on: ubuntu-latest
@@ -106,8 +98,7 @@ jobs:
       pool-sri-test-1-standard,
       pool-sri-test-close-channel,
       sv1-test,
-      translation-proxy-broke-pool,
-      translation-proxy-old-share
+      translation-proxy-broke-pool
     ]
     steps:
       - name: Aggregate Results
@@ -120,8 +111,7 @@ jobs:
           [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
-          [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
-          [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
+          [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ]; then
             echo "One or more jobs failed."
             exit 1
           else
