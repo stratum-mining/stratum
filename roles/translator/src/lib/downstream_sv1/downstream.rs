@@ -61,7 +61,6 @@ pub struct Downstream {
     extranonce2_len: usize,
     pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
-    last_job_id: String, // we usually receive a String on SV1 messages, no need to cast to u32
 }
 
 impl Downstream {
@@ -92,7 +91,6 @@ impl Downstream {
             extranonce2_len,
             difficulty_mgmt,
             upstream_difficulty_config,
-            last_job_id,
         }
     }
     /// Instantiate a new `Downstream`.
@@ -128,7 +126,6 @@ impl Downstream {
             extranonce2_len,
             difficulty_mgmt: difficulty_config,
             upstream_difficulty_config,
-            last_job_id: "".to_string(),
         }));
         let self_ = downstream.clone();
 
@@ -287,10 +284,6 @@ impl Downstream {
 
                     let sv1_mining_notify_msg = last_notify.clone().unwrap();
 
-                    self_
-                        .safe_lock(|s| s.last_job_id = sv1_mining_notify_msg.clone().job_id)
-                        .unwrap();
-
                     let message: json_rpc::Message = sv1_mining_notify_msg.into();
                     handle_result!(
                         tx_status_notify,
@@ -313,8 +306,6 @@ impl Downstream {
 
                             let sv1_mining_notify_msg = handle_result!(tx_status_notify, res);
                             let message: json_rpc::Message = sv1_mining_notify_msg.clone().into();
-
-                            self_.safe_lock(|s| s.last_job_id = sv1_mining_notify_msg.job_id).unwrap();
 
                             handle_result!(tx_status_notify, Downstream::send_message_downstream(downstream.clone(), message).await);
                         },
@@ -538,23 +529,19 @@ impl IsServer<'static> for Downstream {
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 
-        if request.job_id == self.last_job_id {
-            let to_send = SubmitShareWithChannelId {
-                channel_id: self.connection_id,
-                share: request.clone(),
-                extranonce: self.extranonce1.clone(),
-                extranonce2_len: self.extranonce2_len,
-                version_rolling_mask: self.version_rolling_mask.clone(),
-            };
+        let to_send = SubmitShareWithChannelId {
+            channel_id: self.connection_id,
+            share: request.clone(),
+            extranonce: self.extranonce1.clone(),
+            extranonce2_len: self.extranonce2_len,
+            version_rolling_mask: self.version_rolling_mask.clone(),
+        };
 
-            self.tx_sv1_bridge
-                .try_send(DownstreamMessages::SubmitShares(to_send))
-                .unwrap();
+        self.tx_sv1_bridge
+            .try_send(DownstreamMessages::SubmitShares(to_send))
+            .unwrap();
 
-            true
-        } else {
-            false
-        }
+        true
     }
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
