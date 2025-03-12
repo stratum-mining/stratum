@@ -5,4 +5,3 @@
 #[cfg(feature = "bitcoin")]
 pub use bitcoin;
 pub use secp256k1;
-pub mod url;
