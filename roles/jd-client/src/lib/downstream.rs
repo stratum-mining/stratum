@@ -685,7 +685,13 @@ pub async fn listen_for_downstream_mining(
 ) {
     info!("Listening for downstream mining connections on {}", address);
     let listener = TcpListener::bind(address).await.unwrap();
+    let mut has_downstream = false;
     while let Ok((stream, _)) = listener.accept().await {
+        if has_downstream {
+            error!("A downstream connection is already active. Ignoring additional connections.");
+            continue;
+        }
+        has_downstream = true;
         let task_collector = task_collector.clone();
         let miner_coinbase_output = miner_coinbase_output.clone();
         let jd = jd.clone();

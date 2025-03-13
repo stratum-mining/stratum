@@ -185,7 +185,7 @@ impl JobDeclaratorClient {
                                 }
                             })
                             .unwrap();
-                        // root_handler.abort();
+                        root_handler.abort();
                         break 'outer;
                     }
                 };
