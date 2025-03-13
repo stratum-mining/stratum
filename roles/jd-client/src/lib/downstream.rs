@@ -484,7 +484,13 @@ impl
             };
             let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
             let coinbase_outputs = self.miner_coinbase_output.clone();
-            let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+            let extranonces =
+                ExtendedExtranonce::new(range_0, range_1, range_2, None).map_err(|_| {
+                    roles_logic_sv2::Error::ExtendedExtranonceCreationFailed(
+                        "Failed to create ExtendedExtranonce".into(),
+                    )
+                })?;
             let creator = JobsCreators::new(extranonce_len as u8);
             let share_per_min = 1.0;
             let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
@@ -495,7 +501,6 @@ impl
                 share_per_min,
                 kind,
                 coinbase_outputs,
-                "SOLO".into(),
             );
             self.status.set_channel(channel_factory);
 
