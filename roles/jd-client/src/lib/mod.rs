@@ -8,12 +8,10 @@ pub mod upstream_sv2;
 
 use std::{sync::atomic::AtomicBool, time::Duration};
 
+use async_channel::unbounded;
 use config::JobDeclaratorClientConfig;
-use job_declarator::JobDeclarator;
-use template_receiver::TemplateRx;
-
-use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
+use job_declarator::JobDeclarator;
 use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
@@ -63,6 +61,7 @@ pub struct JobDeclaratorClient {
 }
 
 impl JobDeclaratorClient {
+    /// Instantiate JDC instance.
     pub fn new(config: JobDeclaratorClientConfig) -> Self {
         Self {
             config,
@@ -93,13 +92,15 @@ impl JobDeclaratorClient {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
             let config = config.clone();
+            let shutdown = self.shutdown.clone();
             let root_handler;
             if let Some(upstream) = config.upstreams().get(upstream_index) {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
                 let upstream = upstream.clone();
                 root_handler = tokio::spawn(async move {
-                    Self::initialize_jd(config, tx_status, task_collector, upstream).await;
+                    Self::initialize_jd(config, tx_status, task_collector, upstream, shutdown)
+                        .await;
                 });
             } else {
                 let tx_status = tx_status.clone();
@@ -109,6 +110,7 @@ impl JobDeclaratorClient {
                         config,
                         tx_status.clone(),
                         task_collector.clone(),
+                        shutdown,
                     )
                     .await;
                 });
@@ -198,48 +200,28 @@ impl JobDeclaratorClient {
         config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+        shutdown: Arc<Notify>,
     ) {
-        let timeout = config.timeout();
         let miner_tx_out = config.get_txout().expect("Failed to get txout");
 
-        // When Downstream receive a share that meets bitcoin target it transformit in a
-        // SubmitSolution and send it to the TemplateReceiver
-        let (send_solution, recv_solution) = bounded(10);
-
         // Wait for downstream to connect
-        let downstream = downstream::listen_for_downstream_mining(
+        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
             *config.listening_address(),
             None,
-            send_solution,
             config.withhold(),
             *config.authority_public_key(),
             *config.authority_secret_key(),
             config.cert_validity_sec(),
             task_collector.clone(),
-            status::Sender::Downstream(tx_status.clone()),
+            tx_status.clone(),
             miner_tx_out.clone(),
             None,
-        )
-        .await
-        .unwrap();
-
-        // Initialize JD part
-        let mut parts = config.tp_address().split(':');
-        let ip_tp = parts.next().unwrap().to_string();
-        let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-
-        TemplateRx::connect(
-            SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
-            recv_solution,
-            status::Sender::TemplateReceiver(tx_status.clone()),
-            None,
-            downstream,
-            task_collector,
-            Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
-            miner_tx_out.clone(),
-            config.tp_authority_public_key().cloned(),
-        )
-        .await;
+            config.clone(),
+            shutdown,
+        ));
+        let _ = task_collector.safe_lock(|e| {
+            e.push(downstream_handle.abort_handle());
+        });
     }
 
     async fn initialize_jd(
@@ -247,6 +229,7 @@ impl JobDeclaratorClient {
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: config::Upstream,
+        shutdown: Arc<Notify>,
     ) {
         let timeout = config.timeout();
 
@@ -265,10 +248,6 @@ impl JobDeclaratorClient {
             }),
             port,
         );
-
-        // When Downstream receive a share that meets bitcoin target it transformit in a
-        // SubmitSolution and send it to the TemplateReceiver
-        let (send_solution, recv_solution) = bounded(10);
 
         // Instantiate a new `Upstream` (SV2 Pool)
         let upstream = match upstream_sv2::Upstream::new(
@@ -309,11 +288,6 @@ impl JobDeclaratorClient {
             panic!()
         }
 
-        // Initialize JD part
-        let mut parts = config.tp_address().split(':');
-        let ip_tp = parts.next().unwrap().to_string();
-        let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-
         let mut parts = upstream_config.jd_address.split(':');
         let ip_jd = parts.next().unwrap().to_string();
         let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
@@ -338,37 +312,23 @@ impl JobDeclaratorClient {
         };
 
         // Wait for downstream to connect
-        let downstream = match downstream::listen_for_downstream_mining(
+        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
             *config.listening_address(),
             Some(upstream),
-            send_solution,
             config.withhold(),
             *config.authority_public_key(),
             *config.authority_secret_key(),
             config.cert_validity_sec(),
             task_collector.clone(),
-            status::Sender::Downstream(tx_status.clone()),
+            tx_status.clone(),
             vec![],
-            Some(jd.clone()),
-        )
-        .await
-        {
-            Ok(d) => d,
-            Err(_e) => return,
-        };
-
-        TemplateRx::connect(
-            SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
-            recv_solution,
-            status::Sender::TemplateReceiver(tx_status.clone()),
-            Some(jd.clone()),
-            downstream,
-            task_collector,
-            Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
-            vec![],
-            config.tp_authority_public_key().cloned(),
-        )
-        .await;
+            Some(jd),
+            config.clone(),
+            shutdown,
+        ));
+        let _ = task_collector.safe_lock(|e| {
+            e.push(downstream_handle.abort_handle());
+        });
     }
 
     /// Closes JDC role and any open connection associated with it.
