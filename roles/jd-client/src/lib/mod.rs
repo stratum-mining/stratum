@@ -92,13 +92,15 @@ impl JobDeclaratorClient {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
             let config = config.clone();
+            let shutdown = self.shutdown.clone();
             let root_handler;
             if let Some(upstream) = config.upstreams().get(upstream_index) {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
                 let upstream = upstream.clone();
                 root_handler = tokio::spawn(async move {
-                    Self::initialize_jd(config, tx_status, task_collector, upstream).await;
+                    Self::initialize_jd(config, tx_status, task_collector, upstream, shutdown)
+                        .await;
                 });
             } else {
                 let tx_status = tx_status.clone();
@@ -108,6 +110,7 @@ impl JobDeclaratorClient {
                         config,
                         tx_status.clone(),
                         task_collector.clone(),
+                        shutdown,
                     )
                     .await;
                 });
@@ -197,6 +200,7 @@ impl JobDeclaratorClient {
         config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+        shutdown: Arc<Notify>,
     ) {
         let miner_tx_out = config.get_txout().expect("Failed to get txout");
 
@@ -213,6 +217,7 @@ impl JobDeclaratorClient {
             miner_tx_out.clone(),
             None,
             config.clone(),
+            shutdown,
         ));
         let _ = task_collector.safe_lock(|e| {
             e.push(downstream_handle.abort_handle());
@@ -224,6 +229,7 @@ impl JobDeclaratorClient {
         tx_status: async_channel::Sender<status::Status<'static>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         upstream_config: config::Upstream,
+        shutdown: Arc<Notify>,
     ) {
         let timeout = config.timeout();
 
@@ -318,6 +324,7 @@ impl JobDeclaratorClient {
             vec![],
             Some(jd),
             config.clone(),
+            shutdown,
         ));
         let _ = task_collector.safe_lock(|e| {
             e.push(downstream_handle.abort_handle());
