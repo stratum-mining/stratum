@@ -216,6 +216,9 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
 
         // Since the frame length is already validated during the handshake process, this
         // operation is infallible
+        #[allow(clippy::useless_conversion)]
+        // Clippy is wrong here about the `src.into()` conversion. It is necessary to convert the
+        // `Vec<u8>` into a `B::Slice` to be able to call `from_bytes_unchecked`.
         let frame = HandShakeFrame::from_bytes_unchecked(src.into());
 
         frame.into()
