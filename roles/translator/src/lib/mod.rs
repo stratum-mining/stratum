@@ -94,6 +94,7 @@ impl TranslatorSv2 {
                         match task_status_.state {
                             State::DownstreamShutdown(err) | State::BridgeShutdown(err) | State::UpstreamShutdown(err) => {
                                 error!("SHUTDOWN from: {}", err);
+                                kill_tasks(task_collector_.clone());
                                 self.shutdown();
                             }
                             State::UpstreamTryReconnect(err) => {
