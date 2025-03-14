@@ -1175,10 +1175,6 @@ impl
     fn handle_set_target(&mut self, _m: SetTarget) -> Result<SendTo<DownstreamMiningNode>, Error> {
         todo!("570")
     }
-
-    fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
-        None
-    }
 }
 
 pub async fn scan(
