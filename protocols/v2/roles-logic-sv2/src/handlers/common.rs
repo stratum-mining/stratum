@@ -132,24 +132,6 @@ pub trait ParseDownstreamCommonMessages
 where
     Self: Sized,
 {
-    /// Used to parse a serialized downstream setup connection message into a
-    /// [`crate::parsers::CommonMessages::SetupConnection`]
-    fn parse_message(message_type: u8, payload: &mut [u8]) -> Result<SetupConnection, Error> {
-        match (message_type, payload).try_into() {
-            Ok(CommonMessages::SetupConnection(m)) => Ok(m),
-            Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
-                MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-            )),
-            Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage(
-                MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-            )),
-            Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage(
-                MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
-            )),
-            Err(e) => Err(e),
-        }
-    }
-
     /// It takes a message type and a payload, and if the message is a serialized setup connection
     /// message, it calls the `on_setup_connection` function on the routing logic, and then calls
     /// the `handle_setup_connection` function on the router
