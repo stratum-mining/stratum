@@ -65,7 +65,7 @@ async fn jdc_tp_success_setup() {
 /// This test ensures that `jd-client` does not panic even if `jd-server` leaves the connection open
 /// after receiving the request for token.
 ///
-/// The test verifies whether `jdc` has crashed by attempting to bind to the `jdc` port after 10
+/// The test verifies whether `jdc` has crashed by attempting to bind to the `jdc` port after 3
 /// seconds of no response from `jd-server`.
 #[tokio::test]
 async fn jdc_does_not_stackoverflow_when_no_token() {
@@ -85,7 +85,7 @@ async fn jdc_does_not_stackoverflow_when_no_token() {
     )
     .await;
     let (_jdc, jdc_addr) = start_jdc(pool_addr, tp_addr, jds_jdc_sniffer_addr).await;
-    let (_, _) = start_sv2_translator(jdc_addr).await;
+    let _ = start_sv2_translator(jdc_addr).await;
     jds_jdc_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
@@ -102,6 +102,12 @@ async fn jdc_does_not_stackoverflow_when_no_token() {
             MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
         )
         .await;
-    tokio::time::sleep(Duration::from_secs(10)).await;
+
+    // The 3-second delay simulates a scenario where JDC does not receive an
+    // `AllocateMiningJobTokenSuccess` response from JDS, leaving `self.allocated_tokens` empty.
+    // Without the fix introduced in [PR](https://github.com/stratum-mining/stratum/pull/720),
+    // JDC would recursively call `Self::get_last_token`, eventually causing a stack overflow.
+    // This test verifies that JDC now blocks/yields correctly instead of infinitely recursing.
+    tokio::time::sleep(Duration::from_secs(3)).await;
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_err());
 }
