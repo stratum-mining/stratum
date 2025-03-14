@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::{
-        common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
+        common::{ParseCommonMessagesFromDownstream, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
@@ -407,7 +407,7 @@ impl
     }
 }
 
-impl ParseDownstreamCommonMessages for DownstreamMiningNode {
+impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     fn handle_setup_connection(
         &mut self,
         m: SetupConnection,

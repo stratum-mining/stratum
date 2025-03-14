@@ -39,8 +39,8 @@ use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc}
 
 /// Defines routing logic for common protocol messages.
 ///
-/// Implemented by handlers (such as [`crate::handlers::common::ParseUpstreamCommonMessages`] and
-/// [`crate::handlers::common::ParseDownstreamCommonMessages`]) to determine the behavior for common
+/// Implemented by handlers (such as [`crate::handlers::common::ParseCommonMessagesFromUpstream`] and
+/// [`crate::handlers::common::ParseCommonMessagesFromDownstream`]) to determine the behavior for common
 /// protocol routing.
 pub trait CommonRouter: std::fmt::Debug {
     /// Handles a `SetupConnection` message for the common protocol.

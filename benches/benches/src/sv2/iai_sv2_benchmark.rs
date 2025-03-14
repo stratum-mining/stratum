@@ -1,7 +1,9 @@
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use iai::{black_box, main};
 use roles_logic_sv2::{
-    handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages, SendTo_},
+    handlers::{
+        common::ParseCommonMessagesFromUpstream, mining::ParseUpstreamMiningMessages, SendTo_,
+    },
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic},
     utils::Mutex,
@@ -152,7 +154,7 @@ fn client_sv2_handle_message_common() {
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
-    black_box(ParseUpstreamCommonMessages::handle_message_common(
+    black_box(ParseCommonMessagesFromUpstream::handle_message_common(
         self_.clone(),
         message_type,
         payload,
