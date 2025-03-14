@@ -9,7 +9,7 @@ use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
-    handlers::template_distribution::ParseServerTemplateDistributionMessages,
+    handlers::template_distribution::ParseTemplateDistributionMessagesFromServer,
     parsers::{AnyMessage, TemplateDistribution},
     template_distribution_sv2::{
         CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
@@ -125,7 +125,7 @@ impl TemplateRx {
             let payload = message_from_tp.payload();
             let msg = handle_result!(
                 status_tx,
-                ParseServerTemplateDistributionMessages::handle_message_template_distribution(
+                ParseTemplateDistributionMessagesFromServer::handle_message_template_distribution(
                     self_.clone(),
                     message_type,
                     payload,
