@@ -41,9 +41,9 @@ use tracing::{debug, error, info};
 /// see [`SendTo_`]
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
-/// A trait that is implemented by the downstream. It should be used to parse the common messages
-/// that are sent from the upstream to the downstream.
-pub trait ParseUpstreamCommonMessages
+/// A trait that is implemented by the downstream node, and is used to handle
+/// common messages sent by the upstream to the downstream
+pub trait ParseCommonMessagesFromUpstream
 where
     Self: Sized,
 {
@@ -126,9 +126,8 @@ where
 }
 
 /// A trait that is implemented by the upstream node, and is used to handle
-/// [`crate::parsers::CommonMessages::SetupConnection`] messages sent by the downstream to the
-/// upstream
-pub trait ParseDownstreamCommonMessages
+/// common messages sent by the downstream to the upstream
+pub trait ParseCommonMessagesFromDownstream
 where
     Self: Sized,
 {

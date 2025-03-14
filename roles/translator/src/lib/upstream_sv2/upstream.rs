@@ -18,7 +18,7 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
-        common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
+        common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
     mining_sv2::{
@@ -222,7 +222,11 @@ impl Upstream {
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
-        ParseUpstreamCommonMessages::handle_message_common(self_.clone(), message_type, payload)?;
+        ParseCommonMessagesFromUpstream::handle_message_common(
+            self_.clone(),
+            message_type,
+            payload,
+        )?;
 
         // Send open channel request before returning
         let nominal_hash_rate = self_
@@ -610,7 +614,7 @@ impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     }
 }
 
-impl ParseUpstreamCommonMessages for Upstream {
+impl ParseCommonMessagesFromUpstream for Upstream {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
