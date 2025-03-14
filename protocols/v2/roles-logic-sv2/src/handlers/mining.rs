@@ -27,7 +27,7 @@
 //! - Support for managing mining channels, extranonce prefixes, and share submissions, while
 //!   handling edge cases and ensuring the correctness of the mining process.
 
-use crate::{common_properties::RequestIdMapper, errors::Error, parsers::Mining};
+use crate::{errors::Error, parsers::Mining};
 use core::convert::TryInto;
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -352,11 +352,6 @@ pub trait ParseUpstreamMiningMessages<
 {
     /// Retrieves the type of the channel supported by this upstream parser.
     fn get_channel_type(&self) -> SupportedChannelTypes;
-
-    /// Retrieves an optional RequestIdMapper, used to manage request IDs across connections.
-    fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
-        None
-    }
 
     /// Parses and routes SV2 mining messages from the upstream based on the message type and
     /// payload. The implementor of DownstreamMining needs to pass a RequestIdMapper if changing
