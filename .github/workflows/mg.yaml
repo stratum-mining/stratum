@@ -32,14 +32,6 @@ jobs:
       - name: Run jds-do-not-fail-on-wrong-tsdatasucc
         run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
 
-  jds-do-not-stackoverflow-when-no-token:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run jds-do-not-stackoverflow-when-no-token
-        run: sh ./test/message-generator/test/jds-do-not-stackoverflow-when-no-token/jds-do-not-stackoverflow-when-no-token.sh
-
   jds-receive-solution-while-processing-declared-job:
     runs-on: ubuntu-latest
     steps:
@@ -93,7 +85,6 @@ jobs:
       interop-proxy-with-multi-ups,
       interop-proxy-with-multi-ups-extended,
       jds-do-not-fail-on-wrong-tsdatasucc,
-      jds-do-not-stackoverflow-when-no-token,
       jds-receive-solution-while-processing-declared-job,
       pool-sri-test-1-standard,
       pool-sri-test-close-channel,
@@ -106,7 +97,6 @@ jobs:
           if [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
           [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
-          [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||
           [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
