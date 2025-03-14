@@ -94,6 +94,65 @@ use template_distribution_sv2::{
 };
 use tracing::error;
 
+/// Converts a message type number to a human-readable name
+pub fn message_type_to_name(msg_type: u8) -> &'static str {
+    match msg_type {
+        // Common messages (0x00-0x0F)
+        0x00 => "SetupConnection",
+        0x01 => "SetupConnectionSuccess",
+        0x02 => "SetupConnectionError",
+        0x03 => "ChannelEndpointChanged",
+
+        // Mining messages (0x10-0x2F)
+        0x10 => "OpenStandardMiningChannel",
+        0x11 => "OpenStandardMiningChannelSuccess",
+        0x12 => "OpenMiningChannelError",
+        0x13 => "OpenExtendedMiningChannel",
+        0x14 => "OpenExtendedMiningChannelSuccess",
+        0x15 => "NewMiningJob",
+        0x16 => "UpdateChannel",
+        0x17 => "UpdateChannelError",
+        0x18 => "CloseChannel",
+        0x19 => "SetExtranoncePrefix",
+        0x1a => "SubmitSharesStandard",
+        0x1b => "SubmitSharesExtended",
+        0x1c => "SubmitSharesSuccess",
+        0x1d => "SubmitSharesError",
+        0x1f => "NewExtendedMiningJob",
+        0x20 => "SetNewPrevHash",
+        0x21 => "SetTarget",
+        0x22 => "SetCustomMiningJob",
+        0x23 => "SetCustomMiningJobSuccess",
+        0x24 => "SetCustomMiningJobError",
+        0x25 => "Reconnect", // todo: fix this like listed on `const_sv2`
+        0x26 => "SetGroupChannel",
+
+        // Job Declaration messages (0x50-0x6F)
+        0x50 => "AllocateMiningJobToken",
+        0x51 => "AllocateMiningJobTokenSuccess",
+        0x53 => "IdentifyTransactions",
+        0x54 => "IdentifyTransactionsSuccess",
+        0x55 => "ProvideMissingTransactions",
+        0x56 => "ProvideMissingTransactionsSuccess",
+        0x57 => "DeclareMiningJob",
+        0x58 => "DeclareMiningJobSuccess",
+        0x59 => "DeclareMiningJobError",
+        0x60 => "SubmitSolution",
+
+        // Template Distribution messages (0x70-0x7F)
+        0x70 => "CoinbaseOutputDataSize",
+        0x71 => "NewTemplate",
+        0x72 => "SetNewPrevHash",
+        0x73 => "RequestTransactionData",
+        0x74 => "RequestTransactionDataSuccess",
+        0x75 => "RequestTransactionDataError",
+        0x76 => "SubmitSolution",
+
+        // Unknown message type
+        _ => "Unknown Message",
+    }
+}
+
 /// Common Sv2 protocol messages used across all subprotocols.
 ///
 /// These messages are essential
