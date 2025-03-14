@@ -39,10 +39,10 @@ use core::convert::TryInto;
 use std::sync::Arc;
 use tracing::{debug, error, info, trace};
 
-/// Trait for handling template distribution messages received from upstream nodes (server side).
+/// Trait for handling template distribution messages received from server (Template Provider).
 /// Includes functions to handle messages such as new templates, previous hash updates, and
 /// transaction data requests.
-pub trait ParseServerTemplateDistributionMessages
+pub trait ParseTemplateDistributionMessagesFromServer
 where
     Self: Sized,
 {
@@ -56,7 +56,7 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_template_distribution_desrialized(
+        Self::handle_message_template_distribution_deserialized(
             self_,
             (message_type, payload).try_into(),
         )
@@ -66,7 +66,7 @@ where
     ///
     /// This function takes the deserialized message and processes it according to the specific
     /// message type, invoking the appropriate handler function.
-    fn handle_message_template_distribution_desrialized(
+    fn handle_message_template_distribution_deserialized(
         self_: Arc<Mutex<Self>>,
         message: Result<TemplateDistribution<'_>, Error>,
     ) -> Result<SendTo, Error> {
@@ -154,7 +154,7 @@ where
 /// Trait for handling template distribution messages received from downstream nodes (client side).
 /// Includes functions to handle messages such as coinbase output data size, transaction data
 /// requests, and solution submissions.
-pub trait ParseClientTemplateDistributionMessages
+pub trait ParseTemplateDistributionMessagesFromClient
 where
     Self: Sized,
 {
@@ -168,7 +168,7 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_template_distribution_desrialized(
+        Self::handle_message_template_distribution_deserialized(
             self_,
             (message_type, payload).try_into(),
         )
@@ -178,11 +178,10 @@ where
     ///
     /// This function takes the deserialized message and processes it according to the specific
     /// message type, invoking the appropriate handler function.
-    fn handle_message_template_distribution_desrialized(
+    fn handle_message_template_distribution_deserialized(
         self_: Arc<Mutex<Self>>,
         message: Result<TemplateDistribution<'_>, Error>,
     ) -> Result<SendTo, Error> {
-        // Is ok to unwrap a safe_lock result
         match message {
             Ok(TemplateDistribution::CoinbaseOutputConstraints(m)) => self_
                 .safe_lock(|x| x.handle_coinbase_out_data_size(m))

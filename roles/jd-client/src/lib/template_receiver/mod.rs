@@ -5,7 +5,7 @@ use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
-    handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
+    handlers::{template_distribution::ParseTemplateDistributionMessagesFromServer, SendTo_},
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
     parsers::{AnyMessage, TemplateDistribution},
     template_distribution_sv2::{
@@ -217,7 +217,7 @@ impl TemplateRx {
                     let payload = frame.payload();
 
                     let next_message_to_send =
-                        ParseServerTemplateDistributionMessages::handle_message_template_distribution(
+                        ParseTemplateDistributionMessagesFromServer::handle_message_template_distribution(
                             self_mutex.clone(),
                             message_type,
                             payload,
