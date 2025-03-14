@@ -35,7 +35,9 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time:
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{error, info, warn};
 
-use roles_logic_sv2::{common_messages_sv2::Reconnect, handlers::SupportedChannelTypes};
+use roles_logic_sv2::{
+    common_messages_sv2::Reconnect, handlers::SupportedChannelTypes, mining_sv2::SetGroupChannel,
+};
 use std::collections::VecDeque;
 
 #[derive(Debug)]
@@ -752,5 +754,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
+    }
+
+    fn handle_set_group_channel(
+        &mut self,
+        _m: SetGroupChannel,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        todo!()
     }
 }

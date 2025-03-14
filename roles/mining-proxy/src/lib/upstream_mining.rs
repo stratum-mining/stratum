@@ -1175,6 +1175,13 @@ impl
     fn handle_set_target(&mut self, _m: SetTarget) -> Result<SendTo<DownstreamMiningNode>, Error> {
         todo!("570")
     }
+
+    fn handle_set_group_channel(
+        &mut self,
+        _m: SetGroupChannel,
+    ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        todo!()
+    }
 }
 
 pub async fn scan(

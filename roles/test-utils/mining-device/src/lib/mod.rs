@@ -536,6 +536,10 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         self.notify_changes_to_mining_thread.should_send = true;
         Ok(SendTo::None(None))
     }
+
+    fn handle_set_group_channel(&mut self, _m: SetGroupChannel) -> Result<SendTo<()>, Error> {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone)]

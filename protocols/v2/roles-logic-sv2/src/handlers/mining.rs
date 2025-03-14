@@ -767,7 +767,5 @@ pub trait ParseUpstreamMiningMessages<
     fn handle_set_target(&mut self, m: SetTarget) -> Result<SendTo<Down>, Error>;
 
     /// Handles a request to set the group channel for mining.
-    fn handle_set_group_channel(&mut self, _m: SetGroupChannel) -> Result<SendTo<Down>, Error> {
-        Ok(SendTo::None(None))
-    }
+    fn handle_set_group_channel(&mut self, _m: SetGroupChannel) -> Result<SendTo<Down>, Error>;
 }
