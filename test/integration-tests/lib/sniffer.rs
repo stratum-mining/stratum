@@ -458,6 +458,9 @@ impl Sniffer {
                 CommonMessages::SetupConnectionSuccess(m) => {
                     AnyMessage::Common(CommonMessages::SetupConnectionSuccess(m.into_static()))
                 }
+                CommonMessages::Reconnect(m) => {
+                    AnyMessage::Common(CommonMessages::Reconnect(m.into_static()))
+                }
             },
             AnyMessage::JobDeclaration(m) => match m {
                 AllocateMiningJobToken(m) => {

@@ -32,7 +32,7 @@ use core::convert::TryInto;
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
     OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
-    OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+    OpenStandardMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
     SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel, SetNewPrevHash, SetTarget,
     SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
     UpdateChannel, UpdateChannelError,
@@ -44,7 +44,7 @@ use crate::{
     selectors::DownstreamMiningSelector,
 };
 
-use super::SendTo_;
+use super::{SendTo_, SupportedChannelTypes};
 
 use crate::utils::Mutex;
 use const_sv2::*;
@@ -53,16 +53,6 @@ use tracing::{debug, error, info, trace};
 
 /// see [`SendTo_`]
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
-
-/// Represents supported channel types in a mining connection.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SupportedChannelTypes {
-    Standard,
-    Extended,
-    Group,
-    /// Represents a connection that supports both group and extended channels.
-    GroupAndExtended,
-}
 
 /// Trait for parsing downstream mining messages in a Stratum V2 connection.
 ///
@@ -689,25 +679,6 @@ pub trait ParseUpstreamMiningMessages<
                         .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
                 }
             }
-
-            Ok(Mining::Reconnect(m)) => {
-                info!("Received Reconnect");
-                debug!("Reconnect: {:?}", m);
-                match channel_type {
-                    SupportedChannelTypes::Standard => self_mutex
-                        .safe_lock(|x| x.handle_reconnect(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    SupportedChannelTypes::Extended => self_mutex
-                        .safe_lock(|x| x.handle_reconnect(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    SupportedChannelTypes::Group => self_mutex
-                        .safe_lock(|x| x.handle_reconnect(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    SupportedChannelTypes::GroupAndExtended => self_mutex
-                        .safe_lock(|x| x.handle_reconnect(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                }
-            }
             Ok(Mining::SetGroupChannel(m)) => {
                 info!("Received SetGroupChannel");
                 debug!("SetGroupChannel: {:?}", m);
@@ -801,9 +772,6 @@ pub trait ParseUpstreamMiningMessages<
 
     /// Handles a request to set the target for mining.
     fn handle_set_target(&mut self, m: SetTarget) -> Result<SendTo<Down>, Error>;
-
-    /// Handles a request to reconnect the mining connection.
-    fn handle_reconnect(&mut self, m: Reconnect) -> Result<SendTo<Down>, Error>;
 
     /// Handles a request to set the group channel for mining.
     fn handle_set_group_channel(&mut self, _m: SetGroupChannel) -> Result<SendTo<Down>, Error> {

@@ -36,7 +36,6 @@ extern crate alloc;
 mod close_channel;
 mod new_mining_job;
 mod open_channel;
-mod reconnect;
 mod set_custom_mining_job;
 mod set_extranonce_prefix;
 mod set_group_channel;
@@ -52,7 +51,6 @@ pub use open_channel::{
     OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
     OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
 };
-pub use reconnect::Reconnect;
 pub use set_custom_mining_job::{
     SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
 };
