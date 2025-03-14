@@ -31,7 +31,6 @@ pub mod common;
 pub mod job_declaration;
 pub mod mining;
 pub mod template_distribution;
-
 use crate::utils::Mutex;
 use std::sync::Arc;
 
@@ -83,4 +82,14 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
             Self::None(_) => None,
         }
     }
+}
+
+/// Represents supported channel types in a mining connection.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum SupportedChannelTypes {
+    Standard,
+    Extended,
+    Group,
+    /// Represents a connection that supports both group and extended channels.
+    GroupAndExtended,
 }

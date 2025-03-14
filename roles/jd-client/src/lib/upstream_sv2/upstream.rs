@@ -35,6 +35,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time:
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{error, info, warn};
 
+use roles_logic_sv2::{common_messages_sv2::Reconnect, handlers::SupportedChannelTypes};
 use std::collections::VecDeque;
 
 #[derive(Debug)]
@@ -524,6 +525,10 @@ impl ParseCommonMessagesFromUpstream for Upstream {
     ) -> Result<SendToCommon, RolesLogicError> {
         todo!()
     }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendToCommon, RolesLogicError> {
+        todo!()
+    }
 }
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
@@ -531,8 +536,8 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
-    fn get_channel_type(&self) -> roles_logic_sv2::handlers::mining::SupportedChannelTypes {
-        roles_logic_sv2::handlers::mining::SupportedChannelTypes::Extended
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Extended
     }
 
     /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
@@ -744,16 +749,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 factory.update_target_for_channel(m.channel_id, m.maximum_target.into());
             });
         }
-        Ok(SendTo::RelaySameMessageToRemote(
-            self.downstream.as_ref().unwrap().clone(),
-        ))
-    }
-
-    /// Handles the SV2 `Reconnect` message (TODO).
-    fn handle_reconnect(
-        &mut self,
-        _m: roles_logic_sv2::mining_sv2::Reconnect,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))

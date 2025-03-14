@@ -35,6 +35,13 @@ use std::sync::Arc;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use super::SendTo_;
 use crate::errors::Error;
+use const_sv2::{
+    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
+    MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
+};
 use core::convert::TryInto;
 use job_declaration_sv2::*;
 use tracing::{debug, error, info, trace};
@@ -42,9 +49,9 @@ use tracing::{debug, error, info, trace};
 /// A trait for parsing and handling SV2 job declaration messages sent by a server.
 ///
 /// This trait is designed to be implemented by downstream components that need to handle
-/// various job declaration messages from an upstream SV2 server, such as job allocation,
+/// various job declaration messages from an upstream SV2 server, such as job tokens allocation,
 /// declaration success, and error messages.
-pub trait ParseServerJobDeclarationMessages
+pub trait ParseJobDeclarationMessagesFromUpstream
 where
     Self: Sized,
 {
@@ -114,7 +121,21 @@ where
                     .safe_lock(|x| x.handle_provide_missing_transactions(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(_) => todo!(),
+            Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+            )),
+            Ok(JobDeclaration::DeclareMiningJob(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_DECLARE_MINING_JOB))
+            }
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(
+                Error::UnexpectedMessage(MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS),
+            ),
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
+            )),
+            Ok(JobDeclaration::SubmitSolution(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SUBMIT_SOLUTION_JD))
+            }
             Err(e) => Err(e),
         }
     }
@@ -160,10 +181,10 @@ where
     ) -> Result<SendTo, Error>;
 }
 
-/// The `ParseClientJobDeclarationMessages` trait is responsible for handling job declaration
-/// messages sent by clients to upstream nodes. The methods process messages like job declarations,
-/// solutions, and transaction success indicators, ensuring proper routing and handling.
-pub trait ParseClientJobDeclarationMessages
+/// A trait responsible for handling job declaration messages sent by clients to upstream nodes.
+/// The methods process messages like job declarations, solutions, and transaction success
+/// indicators, ensuring proper routing and handling.
+pub trait ParseJobDeclarationMessagesFromDownstream
 where
     Self: Sized,
 {
@@ -226,7 +247,21 @@ where
                     .safe_lock(|x| x.handle_submit_solution(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(_) => todo!(),
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+            )),
+            Ok(JobDeclaration::DeclareMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
+            )),
+            Ok(JobDeclaration::DeclareMiningJobError(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+            )),
+            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+            )),
+            Ok(JobDeclaration::IdentifyTransactions(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_IDENTIFY_TRANSACTIONS))
+            }
             Err(e) => Err(e),
         }
     }

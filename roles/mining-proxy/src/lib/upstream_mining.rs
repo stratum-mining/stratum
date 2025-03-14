@@ -21,7 +21,10 @@ use roles_logic_sv2::{
         IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper, UpstreamChannel,
     },
     errors::Error,
-    handlers::mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+    handlers::{
+        mining::{ParseUpstreamMiningMessages, SendTo},
+        SupportedChannelTypes,
+    },
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
@@ -1171,10 +1174,6 @@ impl
 
     fn handle_set_target(&mut self, _m: SetTarget) -> Result<SendTo<DownstreamMiningNode>, Error> {
         todo!("570")
-    }
-
-    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        todo!("580")
     }
 
     fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
