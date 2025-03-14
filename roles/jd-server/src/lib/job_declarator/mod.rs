@@ -14,7 +14,7 @@ use roles_logic_sv2::{
     common_messages_sv2::{
         Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
     },
-    handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
+    handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
     job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd},
     parsers::{AnyMessage as JdsMessages, JobDeclaration},
     utils::{Id, Mutex},
@@ -227,7 +227,7 @@ impl JobDeclaratorDownstream {
                         let message_type = header.msg_type();
                         let payload = frame.payload();
                         let next_message_to_send =
-                            ParseClientJobDeclarationMessages::handle_message_job_declaration(
+                            ParseJobDeclarationMessagesFromDownstream::handle_message_job_declaration(
                                 self_mutex.clone(),
                                 message_type,
                                 payload,
