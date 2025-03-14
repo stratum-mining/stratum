@@ -3,7 +3,7 @@ use binary_sv2::Str0255;
 use roles_logic_sv2::{
     errors::Error,
     handlers::{
-        mining::{ParseDownstreamMiningMessages, SendTo},
+        mining::{ParseMiningMessagesFromDownstream, SendTo},
         SupportedChannelTypes,
     },
     mining_sv2::*,
@@ -16,7 +16,7 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, sync::Arc};
 use tracing::error;
 
-impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
+impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }

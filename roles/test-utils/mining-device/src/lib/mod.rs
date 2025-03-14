@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::ParseCommonMessagesFromUpstream,
-        mining::{ParseUpstreamMiningMessages, SendTo},
+        mining::{ParseMiningMessagesFromUpstream, SendTo},
         SupportedChannelTypes,
     },
     mining_sv2::*,
@@ -395,7 +395,7 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     }
 }
 
-impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Device {
+impl ParseMiningMessagesFromUpstream<(), NullDownstreamMiningSelector, NoRouting> for Device {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Standard
     }
