@@ -638,13 +638,10 @@ impl
     }
 }
 
-impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
-    for DownstreamMiningNode
-{
+impl ParseDownstreamCommonMessages for DownstreamMiningNode {
     fn handle_setup_connection(
         &mut self,
         _: SetupConnection,
-        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         let response = SetupConnectionSuccess {
             used_version: 2,
@@ -735,23 +732,20 @@ pub async fn listen_for_downstream_mining(
                     jd.clone(),
                 );
 
-                let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-                let message_type = incoming.get_header().unwrap().msg_type();
-                let payload = incoming.payload();
-                let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;
-                let node = Arc::new(Mutex::new(node));
-
-                if let Some(upstream) = upstream {
-                    upstream
-                        .safe_lock(|s| s.downstream = Some(node.clone()))
-                        .unwrap();
-                }
+        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+        let message_type = incoming.get_header().unwrap().msg_type();
+        let payload = incoming.payload();
+        let node = Arc::new(Mutex::new(node));
+        if let Some(upstream) = upstream {
+            upstream
+                .safe_lock(|s| s.downstream = Some(node.clone()))
+                .unwrap();
+        }
 
                 if let Ok(SendToCommon::Respond(message)) = DownstreamMiningNode::handle_message_common(
                     node.clone(),
                     message_type,
                     payload,
-                    routing_logic,
                 ) {
                     let message = match message {
                         roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
