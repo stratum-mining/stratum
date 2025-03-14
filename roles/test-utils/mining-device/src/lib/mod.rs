@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
-        common::ParseUpstreamCommonMessages,
+        common::ParseCommonMessagesFromUpstream,
         mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
@@ -148,11 +148,12 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(self_, message_type, payload).unwrap();
+        ParseCommonMessagesFromUpstream::handle_message_common(self_, message_type, payload)
+            .unwrap();
     }
 }
 
-impl ParseUpstreamCommonMessages for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,

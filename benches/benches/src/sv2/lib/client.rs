@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
-        common::ParseUpstreamCommonMessages,
+        common::ParseCommonMessagesFromUpstream,
         mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
@@ -71,7 +71,7 @@ impl SetupConnectionHandler {
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
