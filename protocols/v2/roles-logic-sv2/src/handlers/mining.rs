@@ -58,7 +58,7 @@ pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
 ///
 /// This trait defines methods for parsing and routing downstream messages
 /// related to mining operations.
-pub trait ParseDownstreamMiningMessages<
+pub trait ParseMiningMessagesFromDownstream<
     Up: IsMiningUpstream<Self, Selector> + D,
     Selector: DownstreamMiningSelector<Self> + D,
     Router: MiningRouter<Self, Up, Selector>,
@@ -343,7 +343,7 @@ pub trait ParseDownstreamMiningMessages<
 ///
 /// This trait provides the functionality to handle and route various types of mining messages
 /// from the upstream based on the message type and payload.
-pub trait ParseUpstreamMiningMessages<
+pub trait ParseMiningMessagesFromUpstream<
     Down: IsMiningDownstream + D,
     Selector: DownstreamMiningSelector<Down> + D,
     Router: MiningRouter<Down, Self, Selector>,
