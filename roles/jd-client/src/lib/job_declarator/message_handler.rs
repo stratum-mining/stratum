@@ -1,6 +1,6 @@
 use super::JobDeclarator;
 use roles_logic_sv2::{
-    handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
+    handlers::{job_declaration::ParseJobDeclarationMessagesFromUpstream, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
         IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
@@ -11,7 +11,7 @@ use roles_logic_sv2::{
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
-impl ParseServerJobDeclarationMessages for JobDeclarator {
+impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
     fn handle_allocate_mining_job_token_success(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
