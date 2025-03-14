@@ -2,8 +2,9 @@ use std::{convert::TryInto, sync::Arc};
 
 use async_channel::{Receiver, SendError, Sender};
 use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
-use tracing::{info, warn};
+use tracing::{info, trace, warn};
 
+use super::upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::plain_connection::PlainConnection;
 use roles_logic_sv2::{
@@ -16,11 +17,9 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::MiningProxyRoutingLogic,
+    routing_logic::{CommonRouter, CommonRoutingLogic, MiningProxyRoutingLogic},
     utils::Mutex,
 };
-
-use super::upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -408,32 +407,39 @@ impl
     }
 }
 
-impl
-    ParseDownstreamCommonMessages<
-        MiningProxyRoutingLogic<Self, UpstreamMiningNode, ProxyRemoteSelector>,
-    > for DownstreamMiningNode
-{
+impl ParseDownstreamCommonMessages for DownstreamMiningNode {
     fn handle_setup_connection(
         &mut self,
-        _: SetupConnection,
-        result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
+        m: SetupConnection,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        let (data, message) = result.unwrap().unwrap();
-        let upstream = match super::get_routing_logic() {
-            roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
-                proxy_routing
-                    .safe_lock(|r| r.downstream_to_upstream_map.get(&data).unwrap()[0].clone())
-                    .unwrap()
+        let routing_logic = super::get_common_routing_logic();
+        match routing_logic {
+            CommonRoutingLogic::Proxy(r_logic) => {
+                trace!("On SetupConnection r_logic is {:?}", r_logic);
+                let result = r_logic
+                    .safe_lock(|r_logic| r_logic.on_setup_connection(&m))
+                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                let (data, message) = result?;
+                let upstream = match super::get_routing_logic() {
+                    roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
+                        proxy_routing
+                            .safe_lock(|r| {
+                                r.downstream_to_upstream_map.get(&data).unwrap()[0].clone()
+                            })
+                            .unwrap()
+                    }
+                    _ => unreachable!(),
+                };
+                self.upstream = Some(upstream);
+
+                self.status.pair(data);
+                Ok(SendToCommon::RelayNewMessageToRemote(
+                    Arc::new(Mutex::new(())),
+                    message.into(),
+                ))
             }
             _ => unreachable!(),
-        };
-        self.upstream = Some(upstream);
-
-        self.status.pair(data);
-        Ok(SendToCommon::RelayNewMessageToRemote(
-            Arc::new(Mutex::new(())),
-            message.into(),
-        ))
+        }
     }
 }
 
@@ -454,7 +460,6 @@ pub async fn listen_for_downstream_mining(
                     node.receiver.recv().await.unwrap().try_into().unwrap();
                 let message_type = incoming.get_header().unwrap().msg_type();
                 let payload = incoming.payload();
-                let routing_logic = super::get_common_routing_logic();
                 let node = Arc::new(Mutex::new(node));
 
                 // Call handle_setup_connection or fail
@@ -462,7 +467,6 @@ pub async fn listen_for_downstream_mining(
                     node.clone(),
                     message_type,
                     payload,
-                    routing_logic
                 ).expect("failed to process downstream message");
 
 
