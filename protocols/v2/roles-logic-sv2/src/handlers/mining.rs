@@ -296,9 +296,7 @@ pub trait ParseDownstreamMiningMessages<
     fn is_downstream_authorized(
         _self_mutex: Arc<Mutex<Self>>,
         _user_identity: &binary_sv2::Str0255,
-    ) -> Result<bool, Error> {
-        Ok(true)
-    }
+    ) -> Result<bool, Error>;
 
     /// Handles an `OpenStandardMiningChannel` message.
     fn handle_open_standard_mining_channel(
