@@ -2,7 +2,7 @@ use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
-    handlers::common::{ParseUpstreamCommonMessages, SendTo},
+    handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
     parsers::AnyMessage,
     utils::Mutex,
 };
@@ -54,7 +54,7 @@ impl SetupConnectionHandler {
             .expect("Failed to parse incoming SetupConnectionResponse");
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(
+        ParseCommonMessagesFromUpstream::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
             payload,
@@ -64,7 +64,7 @@ impl SetupConnectionHandler {
     }
 }
 
-impl ParseUpstreamCommonMessages for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
