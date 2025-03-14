@@ -43,7 +43,9 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
-use roles_logic_sv2::{common_messages_sv2::Reconnect, handlers::SupportedChannelTypes};
+use roles_logic_sv2::{
+    common_messages_sv2::Reconnect, handlers::SupportedChannelTypes, mining_sv2::SetGroupChannel,
+};
 use stratum_common::bitcoin::BlockHash;
 
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
@@ -826,5 +828,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             .safe_lock(|t| *t = m.maximum_target.to_vec())
             .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
         Ok(SendTo::None(None))
+    }
+
+    fn handle_set_group_channel(
+        &mut self,
+        _m: SetGroupChannel,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        todo!()
     }
 }
