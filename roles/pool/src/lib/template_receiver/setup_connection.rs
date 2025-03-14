@@ -8,7 +8,6 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
     parsers::{AnyMessage, CommonMessages},
-    routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
@@ -63,13 +62,12 @@ impl SetupConnectionHandler {
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
             payload,
-            CommonRoutingLogic::None,
         )?;
         Ok(())
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseUpstreamCommonMessages for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,

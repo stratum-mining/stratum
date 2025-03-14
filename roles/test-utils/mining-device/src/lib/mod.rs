@@ -16,7 +16,7 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
-    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
+    routing_logic::{MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
 };
@@ -148,17 +148,11 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(
-            self_,
-            message_type,
-            payload,
-            CommonRoutingLogic::None,
-        )
-        .unwrap();
+        ParseUpstreamCommonMessages::handle_message_common(self_, message_type, payload).unwrap();
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseUpstreamCommonMessages for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,

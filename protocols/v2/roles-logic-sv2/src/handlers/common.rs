@@ -26,10 +26,8 @@
 
 use super::SendTo_;
 use crate::{
-    common_properties::CommonDownstreamData,
     errors::Error,
     parsers::CommonMessages,
-    routing_logic::{CommonRouter, CommonRoutingLogic},
     utils::Mutex,
 };
 use common_messages_sv2::{
@@ -38,14 +36,14 @@ use common_messages_sv2::{
 use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 /// see [`SendTo_`]
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
 /// A trait that is implemented by the downstream. It should be used to parse the common messages
 /// that are sent from the upstream to the downstream.
-pub trait ParseUpstreamCommonMessages<Router: CommonRouter>
+pub trait ParseUpstreamCommonMessages
 where
     Self: Sized,
 {
@@ -55,20 +53,17 @@ where
         self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
-        routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
-        Self::handle_message_common_deserilized(
+        Self::handle_message_common_deserialized(
             self_,
             (message_type, payload).try_into(),
-            routing_logic,
         )
     }
 
     /// Takes a message and it calls the appropriate handler function
-    fn handle_message_common_deserilized(
+    fn handle_message_common_deserialized(
         self_: Arc<Mutex<Self>>,
         message: Result<CommonMessages<'_>, Error>,
-        _routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
         match message {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
@@ -133,7 +128,7 @@ where
 /// A trait that is implemented by the upstream node, and is used to handle
 /// [`crate::parsers::CommonMessages::SetupConnection`] messages sent by the downstream to the
 /// upstream
-pub trait ParseDownstreamCommonMessages<Router: CommonRouter>
+pub trait ParseDownstreamCommonMessages
 where
     Self: Sized,
 {
@@ -143,13 +138,13 @@ where
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => Ok(m),
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
-                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+                MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
             )),
             Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage(
-                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+                MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             )),
             Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage(
-                const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+                MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             )),
             Err(e) => Err(e),
         }
@@ -162,22 +157,19 @@ where
         self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
-        routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
-        Self::handle_message_common_deserilized(
+        Self::handle_message_common_deserialized(
             self_,
             (message_type, payload).try_into(),
-            routing_logic,
         )
     }
 
     /// It takes a message do setup connection message, it calls
     /// the `on_setup_connection` function on the routing logic, and then calls
     /// the `handle_setup_connection` function on the router
-    fn handle_message_common_deserilized(
+    fn handle_message_common_deserialized(
         self_: Arc<Mutex<Self>>,
         message: Result<CommonMessages<'_>, Error>,
-        routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
         match message {
             Ok(CommonMessages::SetupConnection(m)) => {
@@ -186,29 +178,18 @@ where
                     m.min_version, m.flags
                 );
                 debug!("Setup connection message: {:?}", m);
-                match routing_logic {
-                    CommonRoutingLogic::Proxy(r_logic) => {
-                        trace!("On SetupConnection r_logic is {:?}", r_logic);
-                        let result = r_logic
-                            .safe_lock(|r_logic| r_logic.on_setup_connection(&m))
-                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
-                        self_
-                            .safe_lock(|x| x.handle_setup_connection(m, Some(result)))
-                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-                    }
-                    CommonRoutingLogic::None => self_
-                        .safe_lock(|x| x.handle_setup_connection(m, None))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                }
+                self_
+                    .safe_lock(|x| x.handle_setup_connection(m))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
-                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+                MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
             )),
             Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage(
-                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+                MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             )),
             Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage(
-                const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+                MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             )),
             Err(e) => Err(e),
         }
@@ -221,6 +202,5 @@ where
     fn handle_setup_connection(
         &mut self,
         m: SetupConnection,
-        result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
     ) -> Result<SendTo, Error>;
 }
