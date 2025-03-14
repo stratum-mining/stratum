@@ -1,4 +1,5 @@
 use super::super::mining_pool::Downstream;
+use binary_sv2::Str0255;
 use roles_logic_sv2::{
     errors::Error,
     handlers::{
@@ -22,6 +23,13 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
 
     fn is_work_selection_enabled(&self) -> bool {
         true
+    }
+
+    fn is_downstream_authorized(
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
     }
 
     fn handle_open_standard_mining_channel(

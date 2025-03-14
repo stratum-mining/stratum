@@ -454,6 +454,13 @@ impl
         false
     }
 
+    fn is_downstream_authorized(
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
+    }
+
     fn handle_open_standard_mining_channel(
         &mut self,
         _: OpenStandardMiningChannel,
@@ -659,6 +666,7 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     }
 }
 
+use binary_sv2::Str0255;
 use network_helpers_sv2::noise_connection::Connection;
 use std::net::SocketAddr;
 use tokio::{
