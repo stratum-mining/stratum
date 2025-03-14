@@ -12,7 +12,8 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::ParseCommonMessagesFromUpstream,
-        mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+        mining::{ParseUpstreamMiningMessages, SendTo},
+        SupportedChannelTypes,
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
@@ -94,6 +95,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
+use roles_logic_sv2::common_messages_sv2::Reconnect;
 use std::convert::TryInto;
 use stratum_common::bitcoin::block::Version;
 
@@ -152,6 +154,10 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Standard
+    }
+
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
@@ -173,6 +179,13 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        todo!()
+    }
+
+    fn handle_reconnect(
+        &mut self,
+        _m: Reconnect,
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         todo!()
     }
 }
@@ -519,10 +532,6 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
             .unwrap();
         self.notify_changes_to_mining_thread.should_send = true;
         Ok(SendTo::None(None))
-    }
-
-    fn handle_reconnect(&mut self, _: Reconnect) -> Result<SendTo<()>, Error> {
-        todo!()
     }
 }
 

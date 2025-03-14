@@ -1,12 +1,17 @@
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
-    handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
+    common_messages_sv2::{Protocol, Reconnect, SetupConnection},
+    handlers::{
+        common::{ParseCommonMessagesFromUpstream, SendTo},
+        SupportedChannelTypes,
+    },
     parsers::AnyMessage,
     utils::Mutex,
+    Error,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -69,6 +74,10 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Extended
+    }
+
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -87,6 +96,10 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        todo!()
+    }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo, Error> {
         todo!()
     }
 }

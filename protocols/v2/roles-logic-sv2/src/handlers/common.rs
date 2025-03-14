@@ -24,14 +24,11 @@
 //! - Error handling mechanisms to address edge cases and ensure reliable communication within
 //!   Stratum V2 networks.
 
-use super::SendTo_;
-use crate::{
-    errors::Error,
-    parsers::CommonMessages,
-    utils::Mutex,
-};
+use super::{SendTo_, SupportedChannelTypes};
+use crate::{errors::Error, parsers::CommonMessages, utils::Mutex};
 use common_messages_sv2::{
-    ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+    ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
+    SetupConnectionSuccess,
 };
 use const_sv2::*;
 use core::convert::TryInto;
@@ -47,6 +44,9 @@ pub trait ParseCommonMessagesFromUpstream
 where
     Self: Sized,
 {
+    /// Returns the type of channel supported by the downstream connection.
+    fn get_channel_type(&self) -> SupportedChannelTypes;
+
     /// Takes a message type and a payload, and if the message type is a
     /// [`crate::parsers::CommonMessages`], it calls the appropriate handler function
     fn handle_message_common(
@@ -54,10 +54,7 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_common_deserialized(
-            self_,
-            (message_type, payload).try_into(),
-        )
+        Self::handle_message_common_deserialized(self_, (message_type, payload).try_into())
     }
 
     /// Takes a message and it calls the appropriate handler function
@@ -65,6 +62,10 @@ where
         self_: Arc<Mutex<Self>>,
         message: Result<CommonMessages<'_>, Error>,
     ) -> Result<SendTo, Error> {
+        let channel_type = self_
+            .safe_lock(|s| s.get_channel_type())
+            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
+
         match message {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
                 info!(
@@ -92,6 +93,28 @@ where
                 self_
                     .safe_lock(|x| x.handle_channel_endpoint_changed(m))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(CommonMessages::Reconnect(m)) => {
+                info!("Received Reconnect");
+                debug!("Reconnect: {:?}", m);
+                match channel_type {
+                    SupportedChannelTypes::Standard => {
+                        self_
+                            .safe_lock(|x| x.handle_reconnect(m))
+                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+                    }
+                    SupportedChannelTypes::Extended => {
+                        self_
+                            .safe_lock(|x| x.handle_reconnect(m))
+                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+                    }
+                    SupportedChannelTypes::Group => self_
+                        .safe_lock(|x| x.handle_reconnect(m))
+                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                    SupportedChannelTypes::GroupAndExtended => self_
+                        .safe_lock(|x| x.handle_reconnect(m))
+                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                }
             }
             Ok(CommonMessages::SetupConnection(_)) => {
                 Err(Error::UnexpectedMessage(MESSAGE_TYPE_SETUP_CONNECTION))
@@ -123,6 +146,9 @@ where
         &mut self,
         m: ChannelEndpointChanged,
     ) -> Result<SendTo, Error>;
+
+    /// Handles a `Reconnect` message.
+    fn handle_reconnect(&mut self, m: Reconnect) -> Result<SendTo, Error>;
 }
 
 /// A trait that is implemented by the upstream node, and is used to handle
@@ -139,10 +165,7 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_common_deserialized(
-            self_,
-            (message_type, payload).try_into(),
-        )
+        Self::handle_message_common_deserialized(self_, (message_type, payload).try_into())
     }
 
     /// It takes a message do setup connection message, it calls
@@ -172,6 +195,9 @@ where
             Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             )),
+            Ok(CommonMessages::Reconnect(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_RECONNECT))
+            }
             Err(e) => Err(e),
         }
     }
@@ -180,8 +206,5 @@ where
     ///
     /// This method processes a `SetupConnection` message and handles it
     /// by delegating to the appropriate handler in the routing logic.
-    fn handle_setup_connection(
-        &mut self,
-        m: SetupConnection,
-    ) -> Result<SendTo, Error>;
+    fn handle_setup_connection(&mut self, m: SetupConnection) -> Result<SendTo, Error>;
 }

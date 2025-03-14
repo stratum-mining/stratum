@@ -4,9 +4,12 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
+    common_messages_sv2::{Protocol, Reconnect, SetupConnection, SetupConnectionError},
     errors::Error,
-    handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
+    handlers::{
+        common::{ParseCommonMessagesFromUpstream, SendTo},
+        SupportedChannelTypes,
+    },
     parsers::{AnyMessage, CommonMessages},
     utils::Mutex,
 };
@@ -68,6 +71,10 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::GroupAndExtended
+    }
+
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -101,5 +108,9 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
         Err(Error::UnexpectedMessage(
             const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
+    }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo, Error> {
+        todo!()
     }
 }
