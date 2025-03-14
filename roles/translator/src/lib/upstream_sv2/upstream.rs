@@ -43,6 +43,7 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
+use roles_logic_sv2::{common_messages_sv2::Reconnect, handlers::SupportedChannelTypes};
 use stratum_common::bitcoin::BlockHash;
 
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
@@ -635,6 +636,10 @@ impl ParseCommonMessagesFromUpstream for Upstream {
     ) -> Result<SendToCommon, RolesLogicError> {
         todo!()
     }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendToCommon, RolesLogicError> {
+        todo!()
+    }
 }
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
@@ -642,8 +647,8 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
-    fn get_channel_type(&self) -> roles_logic_sv2::handlers::mining::SupportedChannelTypes {
-        roles_logic_sv2::handlers::mining::SupportedChannelTypes::Extended
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Extended
     }
 
     /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
@@ -821,13 +826,5 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             .safe_lock(|t| *t = m.maximum_target.to_vec())
             .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
         Ok(SendTo::None(None))
-    }
-
-    /// Handles the SV2 `Reconnect` message (TODO).
-    fn handle_reconnect(
-        &mut self,
-        _m: roles_logic_sv2::mining_sv2::Reconnect,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        unimplemented!()
     }
 }
