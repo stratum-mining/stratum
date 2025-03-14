@@ -19,7 +19,7 @@ use roles_logic_sv2::{
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
         common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
-        mining::{ParseUpstreamMiningMessages, SendTo},
+        mining::{ParseMiningMessagesFromUpstream, SendTo},
     },
     mining_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
@@ -646,7 +646,9 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
-impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
+impl ParseMiningMessagesFromUpstream<Downstream, NullDownstreamMiningSelector, NoRouting>
+    for Upstream
+{
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
     fn get_channel_type(&self) -> SupportedChannelTypes {

@@ -2,7 +2,7 @@ use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use iai::{black_box, main};
 use roles_logic_sv2::{
     handlers::{
-        common::ParseCommonMessagesFromUpstream, mining::ParseUpstreamMiningMessages, SendTo_,
+        common::ParseCommonMessagesFromUpstream, mining::ParseMiningMessagesFromUpstream, SendTo_,
     },
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic},

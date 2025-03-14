@@ -22,7 +22,7 @@ use roles_logic_sv2::{
     },
     errors::Error,
     handlers::{
-        mining::{ParseUpstreamMiningMessages, SendTo},
+        mining::{ParseMiningMessagesFromUpstream, SendTo},
         SupportedChannelTypes,
     },
     job_dispatcher::GroupChannelJobDispatcher,
@@ -881,7 +881,7 @@ impl UpstreamMiningNode {
 }
 
 impl
-    ParseUpstreamMiningMessages<
+    ParseMiningMessagesFromUpstream<
         DownstreamMiningNode,
         ProxyRemoteSelector,
         MiningProxyRoutingLogic<DownstreamMiningNode, Self, ProxyRemoteSelector>,

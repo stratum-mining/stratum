@@ -1,7 +1,7 @@
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use criterion::{black_box, Criterion};
 use roles_logic_sv2::{
-    handlers::{common::ParseCommonMessagesFromUpstream, mining::ParseUpstreamMiningMessages},
+    handlers::{common::ParseCommonMessagesFromUpstream, mining::ParseMiningMessagesFromUpstream},
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic},
     utils::Mutex,

@@ -15,7 +15,7 @@ use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
-    handlers::mining::{ParseDownstreamMiningMessages, SendTo},
+    handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{AnyMessage, Mining},
@@ -169,7 +169,7 @@ impl Downstream {
             "Received downstream message type: {:?}, payload: {:?}",
             message_type, payload
         );
-        let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
+        let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
