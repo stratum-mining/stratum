@@ -19,7 +19,6 @@ use roles_logic_sv2::{
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{AnyMessage, Mining},
-    routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
@@ -173,7 +172,6 @@ impl Downstream {
             self_mutex.clone(),
             message_type,
             payload,
-            MiningRoutingLogic::None,
         );
         Self::match_send_to(self_mutex, next_message_to_send).await
     }

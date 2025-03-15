@@ -260,13 +260,10 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = roles_logic_sv2::routing_logic::MiningRoutingLogic::None;
-
         let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
-            routing_logic,
         );
         Self::match_send_to(self_mutex.clone(), next_message_to_send, Some(incoming)).await;
     }
@@ -464,7 +461,6 @@ impl
     fn handle_open_standard_mining_channel(
         &mut self,
         _: OpenStandardMiningChannel,
-        _: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         warn!("Ignoring OpenStandardMiningChannel");
         Ok(SendTo::None(None))

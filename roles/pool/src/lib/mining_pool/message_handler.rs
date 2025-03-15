@@ -35,7 +35,6 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
     fn handle_open_standard_mining_channel(
         &mut self,
         incoming: OpenStandardMiningChannel,
-        _m: Option<Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
         let header_only = self.downstream_data.header_only;
         let reposnses = self
