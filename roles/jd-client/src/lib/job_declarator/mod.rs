@@ -19,7 +19,7 @@ use tracing::{debug, error, info};
 use async_recursion::async_recursion;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
-    handlers::job_declaration::ParseServerJobDeclarationMessages,
+    handlers::job_declaration::ParseJobDeclarationMessagesFromUpstream,
     job_declaration_sv2::{AllocateMiningJobToken, DeclareMiningJob},
     template_distribution_sv2::NewTemplate,
     utils::Id,
@@ -295,7 +295,7 @@ impl JobDeclarator {
                     let message_type = incoming.get_header().unwrap().msg_type();
                     let payload = incoming.payload();
                     let next_message_to_send =
-                        ParseServerJobDeclarationMessages::handle_message_job_declaration(
+                        ParseJobDeclarationMessagesFromUpstream::handle_message_job_declaration(
                             self_mutex.clone(),
                             message_type,
                             payload,

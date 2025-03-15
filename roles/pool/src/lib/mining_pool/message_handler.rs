@@ -1,7 +1,11 @@
 use super::super::mining_pool::Downstream;
+use binary_sv2::Str0255;
 use roles_logic_sv2::{
     errors::Error,
-    handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
+    handlers::{
+        mining::{ParseMiningMessagesFromDownstream, SendTo},
+        SupportedChannelTypes,
+    },
     mining_sv2::*,
     parsers::Mining,
     routing_logic::NoRouting,
@@ -12,13 +16,20 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, sync::Arc};
 use tracing::error;
 
-impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
+impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
 
     fn is_work_selection_enabled(&self) -> bool {
         true
+    }
+
+    fn is_downstream_authorized(
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
     }
 
     fn handle_open_standard_mining_channel(

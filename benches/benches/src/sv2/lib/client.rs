@@ -8,8 +8,8 @@ use roles_logic_sv2::{
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
-        common::ParseUpstreamCommonMessages,
-        mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+        common::ParseCommonMessagesFromUpstream,
+        mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
@@ -71,7 +71,7 @@ impl SetupConnectionHandler {
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
@@ -186,7 +186,7 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     }
 }
 
-impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Device {
+impl ParseMiningMessagesFromUpstream<(), NullDownstreamMiningSelector, NoRouting> for Device {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Standard
     }

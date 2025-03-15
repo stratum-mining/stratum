@@ -10,9 +10,8 @@ use roles_logic_sv2::{
     },
     common_properties::CommonDownstreamData,
     errors::Error,
-    handlers::common::ParseDownstreamCommonMessages,
+    handlers::common::ParseCommonMessagesFromDownstream,
     parsers::{AnyMessage, CommonMessages},
-    routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
@@ -63,11 +62,10 @@ impl SetupConnectionHandler {
             .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
             .msg_type();
         let payload = incoming.payload();
-        let response = ParseDownstreamCommonMessages::handle_message_common(
+        let response = ParseCommonMessagesFromDownstream::handle_message_common(
             self_.clone(),
             message_type,
             payload,
-            CommonRoutingLogic::None,
         )?;
 
         let message = response.into_message().ok_or(PoolError::RolesLogic(
@@ -93,11 +91,10 @@ impl SetupConnectionHandler {
     }
 }
 
-impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromDownstream for SetupConnectionHandler {
     fn handle_setup_connection(
         &mut self,
         incoming: SetupConnection,
-        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         use roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();

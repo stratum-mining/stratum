@@ -21,7 +21,10 @@ use roles_logic_sv2::{
         IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper, UpstreamChannel,
     },
     errors::Error,
-    handlers::mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+    handlers::{
+        mining::{ParseMiningMessagesFromUpstream, SendTo},
+        SupportedChannelTypes,
+    },
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
@@ -878,7 +881,7 @@ impl UpstreamMiningNode {
 }
 
 impl
-    ParseUpstreamMiningMessages<
+    ParseMiningMessagesFromUpstream<
         DownstreamMiningNode,
         ProxyRemoteSelector,
         MiningProxyRoutingLogic<DownstreamMiningNode, Self, ProxyRemoteSelector>,
@@ -1173,12 +1176,11 @@ impl
         todo!("570")
     }
 
-    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        todo!("580")
-    }
-
-    fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
-        None
+    fn handle_set_group_channel(
+        &mut self,
+        _m: SetGroupChannel,
+    ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        todo!()
     }
 }
 
