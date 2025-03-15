@@ -94,7 +94,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         assert!(pool_clone.start().await.is_ok());
     });
     // Wait a bit to let the pool exchange initial messages with the TP
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    sleep(1).await;
     (pool, listening_address)
 }
 
@@ -107,9 +107,8 @@ pub fn start_template_provider(sv2_interval: Option<u32>) -> (TemplateProvider, 
 }
 
 pub async fn start_jdc(
-    pool_address: SocketAddr,
+    pool: &[(SocketAddr, SocketAddr)], // (pool_address, jds_address)
     tp_address: SocketAddr,
-    jds_address: SocketAddr,
 ) -> (JobDeclaratorClient, SocketAddr) {
     use jd_client::config::{
         JobDeclaratorClientConfig, PoolConfig, ProtocolConfig, TPConfig, Upstream,
@@ -127,7 +126,6 @@ pub async fn start_jdc(
         "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
     )
     .unwrap();
-    let cert_validity_sec = 3600;
     let coinbase_outputs = vec![CoinbaseOutput::new(
         "P2WPKH".to_string(),
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
@@ -137,12 +135,17 @@ pub async fn start_jdc(
     )
     .unwrap();
     let pool_signature = "Stratum v2 SRI Pool".to_string();
-    let upstreams = vec![Upstream::new(
-        authority_pubkey,
-        pool_address.to_string(),
-        jds_address.to_string(),
-        pool_signature,
-    )];
+    let upstreams = pool
+        .iter()
+        .map(|(pool_addr, jds_addr)| {
+            Upstream::new(
+                authority_pubkey,
+                pool_addr.to_string(),
+                jds_addr.to_string(),
+                pool_signature.clone(),
+            )
+        })
+        .collect();
     let pool_config = PoolConfig::new(authority_public_key, authority_secret_key);
     let tp_config = TPConfig::new(1000, tp_address.to_string(), None);
     let protocol_config = ProtocolConfig::new(
@@ -158,12 +161,12 @@ pub async fn start_jdc(
         pool_config,
         tp_config,
         upstreams,
-        std::time::Duration::from_secs(cert_validity_sec),
+        std::time::Duration::from_secs(1),
     );
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
     let ret_clone = ret.clone();
     tokio::spawn(async move { ret_clone.start().await });
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    sleep(2).await;
     (ret, jdc_address)
 }
 
@@ -211,7 +214,7 @@ pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServe
         tokio::spawn(async move {
             job_declarator_server_clone.start().await.unwrap();
         });
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        sleep(2).await;
         (job_declarator_server, listen_jd_address)
     } else {
         panic!("Failed to get TP cookie values");
@@ -262,7 +265,7 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     tokio::spawn(async move {
         clone_translator_v2.start().await;
     });
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    sleep(1).await;
     (translator_v2, listening_address)
 }
 
@@ -311,7 +314,7 @@ pub async fn start_mining_device_sv1(
         mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
             .await;
     });
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    sleep(3).await;
 }
 
 pub async fn start_mining_device_sv2(
@@ -362,4 +365,9 @@ pub async fn start_mining_sv2_proxy(upstream: SocketAddr) -> SocketAddr {
         mining_proxy_sv2::start_mining_proxy(config).await;
     });
     mining_proxy_listening_address
+}
+
+#[inline]
+pub async fn sleep(seconds: u64) {
+    tokio::time::sleep(std::time::Duration::from_secs(seconds)).await;
 }
