@@ -40,7 +40,7 @@ use mining_sv2::{
 
 use crate::{
     common_properties::{IsMiningDownstream, IsMiningUpstream},
-    routing_logic::{MiningRouter, MiningRoutingLogic},
+    routing_logic::MiningRouter,
     selectors::DownstreamMiningSelector,
 };
 
@@ -332,12 +332,10 @@ pub trait ParseMiningMessagesFromUpstream<
         self_mutex: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
-        routing_logic: MiningRoutingLogic<Down, Self, Selector, Router>,
     ) -> Result<SendTo<Down>, Error> {
         match Self::handle_message_mining_deserialized(
             self_mutex,
             (message_type, payload).try_into(),
-            routing_logic,
         ) {
             Err(Error::UnexpectedMessage(0)) => Err(Error::UnexpectedMessage(message_type)),
             result => result,
@@ -349,41 +347,26 @@ pub trait ParseMiningMessagesFromUpstream<
     fn handle_message_mining_deserialized(
         self_mutex: Arc<Mutex<Self>>,
         message: Result<Mining, Error>,
-        routing_logic: MiningRoutingLogic<Down, Self, Selector, Router>,
     ) -> Result<SendTo<Down>, Error> {
         let (channel_type, is_work_selection_enabled) = self_mutex
             .safe_lock(|s| (s.get_channel_type(), s.is_work_selection_enabled()))
             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
 
         match message {
-            Ok(Mining::OpenStandardMiningChannelSuccess(mut m)) => {
-                let remote = match routing_logic {
-                    MiningRoutingLogic::None => None,
-                    MiningRoutingLogic::Proxy(r_logic) => {
-                        let up = r_logic
-                            .safe_lock(|r_logic| {
-                                r_logic.on_open_standard_channel_success(self_mutex.clone(), &mut m)
-                            })
-                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
-                        Some(up?)
-                    }
-                    MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
-                };
-                match channel_type {
-                    SupportedChannelTypes::Standard => self_mutex
-                        .safe_lock(|s| s.handle_open_standard_mining_channel_success(m, remote))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
-                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-                    )),
-                    SupportedChannelTypes::Group => self_mutex
-                        .safe_lock(|s| s.handle_open_standard_mining_channel_success(m, remote))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    SupportedChannelTypes::GroupAndExtended => self_mutex
-                        .safe_lock(|s| s.handle_open_standard_mining_channel_success(m, remote))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                }
-            }
+            Ok(Mining::OpenStandardMiningChannelSuccess(m)) => match channel_type {
+                SupportedChannelTypes::Standard => self_mutex
+                    .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
+                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+                )),
+                SupportedChannelTypes::Group => self_mutex
+                    .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::GroupAndExtended => self_mutex
+                    .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            },
             Ok(Mining::OpenExtendedMiningChannelSuccess(m)) => {
                 info!("Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}", m.request_id, m.channel_id);
                 debug!("OpenStandardMiningChannelSuccess: {:?}", m);
@@ -673,7 +656,6 @@ pub trait ParseMiningMessagesFromUpstream<
     fn handle_open_standard_mining_channel_success(
         &mut self,
         m: OpenStandardMiningChannelSuccess,
-        remote: Option<Arc<Mutex<Down>>>,
     ) -> Result<SendTo<Down>, Error>;
 
     /// Handles a successful response for opening an extended mining channel.
