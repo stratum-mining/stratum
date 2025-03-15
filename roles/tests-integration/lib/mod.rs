@@ -10,7 +10,7 @@ use std::{
     convert::{TryFrom, TryInto},
     net::SocketAddr,
     str::FromStr,
-    sync::Once,
+    sync::{atomic::AtomicBool, Arc, Once},
 };
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
@@ -309,10 +309,17 @@ pub async fn start_mining_device_sv1(
     upstream_addr: SocketAddr,
     single_submit: bool,
     custom_target: Option<[u8; 32]>,
+    shutdown: Arc<AtomicBool>,
 ) {
     tokio::spawn(async move {
-        mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
-            .await;
+        mining_device_sv1::client::Client::connect(
+            80,
+            upstream_addr,
+            single_submit,
+            custom_target,
+            shutdown,
+        )
+        .await;
     });
     sleep(3).await;
 }

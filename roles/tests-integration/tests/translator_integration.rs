@@ -1,3 +1,5 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 // This file contains integration tests for the `TranslatorSv2` module.
 //
 // `TranslatorSv2` is a module that implements the Translator role in the Stratum V2 protocol.
@@ -23,7 +25,9 @@ async fn translate_sv1_to_sv2_successfully() {
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
         start_sniffer("0".to_string(), pool_addr, false, None).await;
     let (_, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr).await;
-    let _mining_device = start_mining_device_sv1(tproxy_addr, false, None).await;
+    let mining_device_shutdown = Arc::new(AtomicBool::new(false));
+    let _mining_device =
+        start_mining_device_sv1(tproxy_addr, false, None, mining_device_shutdown).await;
     pool_translator_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
@@ -67,7 +71,9 @@ async fn translation_proxy_and_jd() {
     let (_jds, jds_addr) = start_jds(tp.rpc_info()).await;
     let (_jdc, jdc_addr) = start_jdc(&[(jdc_pool_sniffer_addr, jds_addr)], tp_addr).await;
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
-    let _mining_device = start_mining_device_sv1(tproxy_addr, true, None).await;
+    let mining_device_shutdown = Arc::new(AtomicBool::new(false));
+    let _mining_device =
+        start_mining_device_sv1(tproxy_addr, true, None, mining_device_shutdown).await;
     jdc_pool_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;

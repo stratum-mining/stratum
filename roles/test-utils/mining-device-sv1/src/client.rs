@@ -4,7 +4,13 @@ use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
-use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
+use std::{
+    convert::TryInto,
+    net::SocketAddr,
+    ops::Div,
+    sync::{atomic::AtomicBool, Arc},
+    time,
+};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -72,6 +78,7 @@ impl Client {
         upstream_addr: SocketAddr,
         single_submit: bool,
         custom_target: Option<[u8; 32]>,
+        shutdown: Arc<AtomicBool>,
     ) {
         let stream = TcpStream::connect(upstream_addr).await.unwrap();
         let (reader, mut writer) = stream.into_split();
@@ -105,19 +112,22 @@ impl Client {
 
         // Reads messages sent by the Upstream from the socket to be passed to the
         // `receiver_incoming`
+        let shutdown1 = shutdown.clone();
         task::spawn(async move {
             let mut messages = BufReader::new(reader).lines();
-            while let Ok(message) = messages.next_line().await {
-                match message {
-                    Some(msg) => {
-                        if let Err(e) = sender_incoming.send(msg).await {
-                            error!("Failed to send message to receiver_incoming: {:?}", e);
-                            break; // Exit the loop if sending fails
+            while !shutdown1.clone().load(std::sync::atomic::Ordering::Relaxed) {
+                if let Ok(message) = messages.next_line().await {
+                    match message {
+                        Some(msg) => {
+                            if let Err(e) = sender_incoming.send(msg).await {
+                                error!("Failed to send message to receiver_incoming: {:?}", e);
+                                break; // Exit the loop if sending fails
+                            }
                         }
-                    }
-                    None => {
-                        error!("Error reading from socket");
-                        break; // Exit the loop on read failure
+                        None => {
+                            error!("Error reading from socket");
+                            break; // Exit the loop on read failure
+                        }
                     }
                 }
             }
@@ -126,8 +136,9 @@ impl Client {
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
+        let shutdown2 = shutdown.clone();
         task::spawn(async move {
-            loop {
+            while !shutdown2.load(std::sync::atomic::Ordering::Relaxed) {
                 let message: String = receiver_outgoing.recv().await.unwrap();
                 (writer).write_all(message.as_bytes()).await.unwrap();
                 if message.contains("mining.submit") && single_submit {
@@ -166,31 +177,35 @@ impl Client {
         // message to the Upstream node.
         // Is a separate thread as it can be CPU intensive and we do not want to block the reading
         // and writing of messages to the socket.
-        std::thread::spawn(move || loop {
-            if miner_cloned.safe_lock(|m| m.next_share()).unwrap().is_ok() {
-                let nonce = miner_cloned.safe_lock(|m| m.header.unwrap().nonce).unwrap();
-                let time = miner_cloned.safe_lock(|m| m.header.unwrap().time).unwrap();
-                let job_id = miner_cloned.safe_lock(|m| m.job_id).unwrap();
-                let version = miner_cloned.safe_lock(|m| m.version).unwrap();
-                // Sends relevant candidate block header values needed to construct a
-                // `mining.submit` message to the `receiver_share` in the task that is responsible
-                // for sending messages to the Upstream node.
-                if sender_share
-                    .try_send((nonce, job_id.unwrap(), version.unwrap(), time))
-                    .is_err()
-                {
-                    warn!("Share channel is not available");
-                    break;
+        let shutdown3 = shutdown.clone();
+        std::thread::spawn(move || {
+            while !shutdown3.load(std::sync::atomic::Ordering::Relaxed) {
+                if miner_cloned.safe_lock(|m| m.next_share()).unwrap().is_ok() {
+                    let nonce = miner_cloned.safe_lock(|m| m.header.unwrap().nonce).unwrap();
+                    let time = miner_cloned.safe_lock(|m| m.header.unwrap().time).unwrap();
+                    let job_id = miner_cloned.safe_lock(|m| m.job_id).unwrap();
+                    let version = miner_cloned.safe_lock(|m| m.version).unwrap();
+                    // Sends relevant candidate block header values needed to construct a
+                    // `mining.submit` message to the `receiver_share` in the task that is
+                    // responsible for sending messages to the Upstream node.
+                    if sender_share
+                        .try_send((nonce, job_id.unwrap(), version.unwrap(), time))
+                        .is_err()
+                    {
+                        warn!("Share channel is not available");
+                        break;
+                    }
                 }
+                miner_cloned
+                    .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
+                    .unwrap();
             }
-            miner_cloned
-                .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
-                .unwrap();
         });
         // Task to receive relevant candidate block header values needed to construct a
         // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
         // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
         let cloned = client.clone();
+        let shutdown4 = shutdown.clone();
         task::spawn(async move {
             tokio::select!(
               _ = recv_stop_submitting.changed() => {
@@ -198,7 +213,7 @@ impl Client {
               },
               _ = async {
               let recv = receiver_share.clone();
-              loop {
+              while !shutdown4.load(std::sync::atomic::Ordering::Relaxed) {
                   let (nonce, job_id, _version, ntime) = recv.recv().await.unwrap();
                   if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
                       continue;
@@ -225,7 +240,7 @@ impl Client {
         });
         let recv_incoming = client.safe_lock(|c| c.receiver_incoming.clone()).unwrap();
 
-        loop {
+        while !shutdown.load(std::sync::atomic::Ordering::Relaxed) {
             match client.clone().safe_lock(|c| c.status).unwrap() {
                 ClientStatus::Init => panic!("impossible state"),
                 ClientStatus::Configured => {
@@ -240,7 +255,7 @@ impl Client {
         }
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
-        loop {
+        while !shutdown.load(std::sync::atomic::Ordering::Relaxed) {
             if let Ok(incoming) = recv_incoming.clone().recv().await {
                 Self::parse_message(client.clone(), Ok(incoming)).await;
             } else {

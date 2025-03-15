@@ -5,7 +5,10 @@ use roles_logic_sv2::{
     parsers::{AnyMessage, Mining},
 };
 use sniffer::{MessageDirection, ReplaceMessage};
-use std::convert::TryInto;
+use std::{
+    convert::TryInto,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 // Tests whether JDC will switch to a new pool after receiving a `SubmitSharesError` message from
 // the currently connected pool.
@@ -60,7 +63,8 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
     let (_translator, sv2_translator_addr) = start_sv2_translator(jdc_addr).await;
-    let _ = start_mining_device_sv1(sv2_translator_addr, true, None).await;
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let _ = start_mining_device_sv1(sv2_translator_addr, true, None, shutdown).await;
     // Assert that JDC switched to the second (Pool,JDS) pair
     sniffer_2
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
