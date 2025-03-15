@@ -9,6 +9,10 @@ use nohash_hasher::BuildNoHashHasher;
 use tokio::{net::TcpStream, task};
 use tracing::{debug, error, info};
 
+use super::{
+    downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame},
+    EXTRANONCE_RANGE_1_LENGTH,
+};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
@@ -28,17 +32,12 @@ use roles_logic_sv2::{
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
-    routing_logic::MiningProxyRoutingLogic,
+    routing_logic::{MiningProxyRoutingLogic, MiningRouter, MiningRoutingLogic},
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     template_distribution_sv2::SubmitSolution,
     utils::{GroupId, Id, Mutex},
 };
 use stratum_common::bitcoin::TxOut;
-
-use super::{
-    downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame},
-    EXTRANONCE_RANGE_1_LENGTH,
-};
 
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -581,14 +580,8 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = super::get_routing_logic();
-
-        let next_message_to_send = UpstreamMiningNode::handle_message_mining(
-            self_mutex.clone(),
-            message_type,
-            payload,
-            routing_logic,
-        );
+        let next_message_to_send =
+            UpstreamMiningNode::handle_message_mining(self_mutex.clone(), message_type, payload);
         Self::match_next_message(self_mutex, next_message_to_send, incoming).await;
     }
 
@@ -898,8 +891,20 @@ impl
     fn handle_open_standard_mining_channel_success(
         &mut self,
         m: OpenStandardMiningChannelSuccess,
-        remote: Option<Arc<Mutex<DownstreamMiningNode>>>,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        let routing_logic = super::get_routing_logic();
+        let remote = match routing_logic {
+            MiningRoutingLogic::None => None,
+            MiningRoutingLogic::Proxy(r_logic) => {
+                let up = r_logic
+                    .safe_lock(|r_logic| {
+                        r_logic.on_open_standard_channel_success(self, &mut m.clone())
+                    })
+                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                Some(up?)
+            }
+            MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
+        };
         match &mut self.channel_kind {
             ChannelKind::Group(group) => {
                 let down_is_header_only = remote

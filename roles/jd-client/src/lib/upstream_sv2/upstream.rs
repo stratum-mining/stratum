@@ -26,7 +26,7 @@ use roles_logic_sv2::{
     job_declaration_sv2::DeclareMiningJob,
     mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob},
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::{MiningRoutingLogic, NoRouting},
+    routing_logic::NoRouting,
     selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
     Error as RolesLogicError,
@@ -340,21 +340,11 @@ impl Upstream {
 
                     let payload = incoming.payload();
 
-                    // Since this is not communicating with an SV2 proxy, but instead a custom SV1
-                    // proxy where the routing logic is handled via the `Upstream`'s communication
-                    // channels, we do not use the mining routing logic in the SV2 library and
-                    // specify no mining routing logic here
-                    let routing_logic = MiningRoutingLogic::None;
-
                     // Gets the response message for the received SV2 Upstream role message
                     // `handle_message_mining` takes care of the SetupConnection +
                     // SetupConnection.Success
-                    let next_message_to_send = Upstream::handle_message_mining(
-                        self_.clone(),
-                        message_type,
-                        payload,
-                        routing_logic,
-                    );
+                    let next_message_to_send =
+                        Upstream::handle_message_mining(self_.clone(), message_type, payload);
 
                     // Routes the incoming messages accordingly
                     match next_message_to_send {
@@ -556,7 +546,6 @@ impl ParseMiningMessagesFromUpstream<Downstream, NullDownstreamMiningSelector, N
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
-        _remote: Option<Arc<Mutex<Downstream>>>,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
