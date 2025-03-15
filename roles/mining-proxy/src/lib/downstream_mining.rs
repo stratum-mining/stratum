@@ -18,7 +18,9 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::{CommonRouter, CommonRoutingLogic, MiningProxyRoutingLogic},
+    routing_logic::{
+        CommonRouter, CommonRoutingLogic, MiningProxyRoutingLogic, MiningRouter, MiningRoutingLogic,
+    },
     utils::Mutex,
 };
 
@@ -30,7 +32,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// a mining device or a downstream proxy.
 /// A downstream can only be linked with an upstream at a time. Support multi upstreams for
 /// downstream do not make much sense.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DownstreamMiningNode {
     id: u32,
     receiver: Receiver<EitherFrame>,
@@ -39,7 +41,7 @@ pub struct DownstreamMiningNode {
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DownstreamMiningNodeStatus {
     Initializing,
     Paired(CommonDownstreamData),
@@ -193,13 +195,10 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = super::get_routing_logic();
-
         let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
-            routing_logic,
         );
 
         match next_message_to_send {
@@ -314,16 +313,40 @@ impl
     fn handle_open_standard_mining_channel(
         &mut self,
         req: OpenStandardMiningChannel,
-        up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        let channel_id = up
+        let downstream_mining_data = self.get_downstream_mining_data();
+        let routing_logic = super::get_routing_logic();
+
+        let upstream = match routing_logic {
+            MiningRoutingLogic::Proxy(r_logic) => {
+                trace!("On OpenStandardMiningChannel r_logic is: {:?}", r_logic);
+                let up = r_logic
+                    .safe_lock(|r_logic| {
+                        r_logic.on_open_standard_channel(
+                            Arc::new(Mutex::new(self.clone())),
+                            &mut req.clone(),
+                            &downstream_mining_data,
+                        )
+                    })
+                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                trace!("On OpenStandardMiningChannel best candidate is: {:?}", up);
+                Some(up?)
+            }
+            // Variant just used for phantom data is ok to panic
+            MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
+            _ => unreachable!()
+        };
+
+        let channel_id = upstream
             .as_ref()
             .expect("No upstream initialized")
             .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
             .unwrap();
         info!(channel_id);
-        let cloned = up.as_ref().expect("No upstream initialized").clone();
-        up.as_ref()
+        let cloned = upstream.as_ref().expect("No upstream initialized").clone();
+
+        upstream
+            .as_ref()
             .expect("No upstream initialized")
             .safe_lock(|up| {
                 if up.channel_kind.is_extended() {
