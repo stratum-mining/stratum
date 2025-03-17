@@ -519,9 +519,9 @@ impl Sniffer {
                 return;
             }
 
-            // 10 min timeout
+            // 1 min timeout
             // only for worst case, ideally should never be triggered
-            if now.elapsed().as_secs() > 10 * 60 {
+            if now.elapsed().as_secs() > 1 * 60 {
                 panic!("Timeout waiting for message type");
             }
 
