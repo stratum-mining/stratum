@@ -38,11 +38,7 @@ use mining_sv2::{
     UpdateChannel, UpdateChannelError,
 };
 
-use crate::{
-    common_properties::{IsMiningDownstream, IsMiningUpstream},
-    routing_logic::MiningRouter,
-    selectors::DownstreamMiningSelector,
-};
+use crate::common_properties::{IsMiningDownstream, IsMiningUpstream};
 
 use super::SendTo_;
 
@@ -67,11 +63,8 @@ pub enum SupportedChannelTypes {
 ///
 /// This trait defines methods for parsing and routing downstream messages
 /// related to mining operations.
-pub trait ParseMiningMessagesFromDownstream<
-    Up: IsMiningUpstream<Self, Selector> + D,
-    Selector: DownstreamMiningSelector<Self> + D,
-    Router: MiningRouter<Self, Up, Selector>,
-> where
+pub trait ParseMiningMessagesFromDownstream<Up: IsMiningUpstream<Self> + D>
+where
     Self: IsMiningDownstream + Sized + D,
 {
     /// Returns the type of channel supported by the downstream connection.
@@ -243,12 +236,9 @@ pub trait ParseMiningMessagesFromDownstream<
 ///
 /// This trait provides the functionality to handle and route various types of mining messages
 /// from the upstream based on the message type and payload.
-pub trait ParseMiningMessagesFromUpstream<
-    Down: IsMiningDownstream + D,
-    Selector: DownstreamMiningSelector<Down> + D,
-    Router: MiningRouter<Down, Self, Selector>,
-> where
-    Self: IsMiningUpstream<Down, Selector> + Sized + D,
+pub trait ParseMiningMessagesFromUpstream<Down: IsMiningDownstream + D>
+where
+    Self: IsMiningUpstream<Down> + Sized + D,
 {
     /// Retrieves the type of the channel supported by this upstream parser.
     fn get_channel_type(&self) -> SupportedChannelTypes;

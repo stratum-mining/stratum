@@ -11,6 +11,8 @@ use tracing::{debug, error, info};
 
 use super::{
     downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame},
+    routing_logic::{MiningRouter, MiningRoutingLogic},
+    selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     EXTRANONCE_RANGE_1_LENGTH,
 };
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
@@ -29,8 +31,6 @@ use roles_logic_sv2::{
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
-    routing_logic::{MiningProxyRoutingLogic, MiningRouter, MiningRoutingLogic},
-    selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     template_distribution_sv2::SubmitSolution,
     utils::{GroupId, Id, Mutex},
 };
@@ -870,13 +870,17 @@ impl UpstreamMiningNode {
     // }
 }
 
-impl
-    ParseMiningMessagesFromUpstream<
-        DownstreamMiningNode,
-        ProxyRemoteSelector,
-        MiningProxyRoutingLogic<DownstreamMiningNode, Self, ProxyRemoteSelector>,
-    > for UpstreamMiningNode
-{
+pub trait HasDownstreamSelector {
+    fn get_remote_selector(&mut self) -> &mut ProxyRemoteSelector;
+}
+
+impl HasDownstreamSelector for UpstreamMiningNode {
+    fn get_remote_selector(&mut self) -> &mut ProxyRemoteSelector {
+        &mut self.downstream_selector
+    }
+}
+
+impl ParseMiningMessagesFromUpstream<DownstreamMiningNode> for UpstreamMiningNode {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
@@ -1243,7 +1247,7 @@ pub async fn scan(
     res.safe_lock(|r| r.clone()).unwrap()
 }
 
-impl IsUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNode {
+impl IsUpstream<DownstreamMiningNode> for UpstreamMiningNode {
     fn get_version(&self) -> u16 {
         self.sv2_connection.unwrap().version
     }
@@ -1263,12 +1267,8 @@ impl IsUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNod
     fn get_mapper(&mut self) -> Option<&mut RequestIdMapper> {
         Some(&mut self.request_id_mapper)
     }
-
-    fn get_remote_selector(&mut self) -> &mut ProxyRemoteSelector {
-        &mut self.downstream_selector
-    }
 }
-impl IsMiningUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNode {
+impl IsMiningUpstream<DownstreamMiningNode> for UpstreamMiningNode {
     fn total_hash_rate(&self) -> u64 {
         self.total_hash_rate
     }

@@ -5,15 +5,13 @@ use roles_logic_sv2::{
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     mining_sv2::*,
     parsers::Mining,
-    routing_logic::NoRouting,
-    selectors::NullDownstreamMiningSelector,
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
 use tracing::{debug, error, info};
 
-impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
+impl ParseMiningMessagesFromDownstream<()> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
