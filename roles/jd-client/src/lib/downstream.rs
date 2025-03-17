@@ -432,16 +432,8 @@ impl DownstreamMiningNode {
     }
 }
 
-use roles_logic_sv2::selectors::NullDownstreamMiningSelector;
-
 /// It impl UpstreamMining cause the proxy act as an upstream node for the DownstreamMiningNode
-impl
-    ParseMiningMessagesFromDownstream<
-        UpstreamMiningNode,
-        NullDownstreamMiningSelector,
-        roles_logic_sv2::routing_logic::NoRouting,
-    > for DownstreamMiningNode
-{
+impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningNode {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }

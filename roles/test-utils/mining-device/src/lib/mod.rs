@@ -16,8 +16,6 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
-    routing_logic::NoRouting,
-    selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
 };
 use std::{
@@ -347,7 +345,7 @@ impl Device {
     }
 }
 
-impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
+impl IsUpstream<()> for Device {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -367,13 +365,9 @@ impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
     fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
         todo!()
     }
-
-    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
-        todo!()
-    }
 }
 
-impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
+impl IsMiningUpstream<()> for Device {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -392,7 +386,7 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     }
 }
 
-impl ParseMiningMessagesFromUpstream<(), NullDownstreamMiningSelector, NoRouting> for Device {
+impl ParseMiningMessagesFromUpstream<()> for Device {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Standard
     }
