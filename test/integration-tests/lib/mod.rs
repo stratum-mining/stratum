@@ -19,7 +19,7 @@ pub mod sniffer;
 pub mod template_provider;
 pub(crate) mod utils;
 
-const SHARES_PER_MINUTE: f32 = 60.0;
+const SHARES_PER_MINUTE: f32 = 120.0;
 
 static LOGGER: Once = Once::new();
 
