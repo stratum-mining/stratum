@@ -1,5 +1,6 @@
 //! https://www.jsonrpc.org/specification#response_object
 use serde::{Deserialize, Serialize};
+use std::{fmt, fmt::Display};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
@@ -27,6 +28,21 @@ impl Message {
     //        _ => None,
     //    }
     //}
+}
+
+impl Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Message::StandardRequest(sr) => write!(f, "{:?}", sr.method),
+            Message::Notification(n) => write!(f, "{:?}", n.method),
+            Message::OkResponse(_) => write!(f, "\"result\": true"),
+            Message::ErrorResponse(r) => write!(
+                f,
+                "\"result\": false, \"error\": {:?}",
+                r.error.as_ref().unwrap().message
+            ),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
