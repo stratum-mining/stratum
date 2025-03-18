@@ -4,11 +4,18 @@ use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
-use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
+use std::{
+    convert::TryInto,
+    net::SocketAddr,
+    ops::Div,
+    sync::Arc,
+    time::{self, Duration},
+};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
     task,
+    time::sleep,
 };
 use tracing::{error, info, warn};
 use v1::{
@@ -73,7 +80,16 @@ impl Client {
         single_submit: bool,
         custom_target: Option<[u8; 32]>,
     ) {
-        let stream = TcpStream::connect(upstream_addr).await.unwrap();
+        let stream = loop {
+            if let Ok(stream) = TcpStream::connect(upstream_addr).await {
+                break stream;
+            }
+            info!(
+                "SV1 Miner: Failed to connect to upstream at {} Retrying in 1 second.",
+                upstream_addr
+            );
+            sleep(Duration::from_secs(1)).await;
+        };
         let (reader, mut writer) = stream.into_split();
 
         // `sender_incoming` listens on socket for incoming messages from the Upstream and sends
