@@ -1,5 +1,6 @@
 use corepc_node::{Conf, ConnectParams, Node};
 use std::{env, fs::create_dir_all, path::PathBuf};
+use stratum_common::bitcoin::{Address, Amount, Txid};
 
 use crate::utils::{http, tarball};
 
@@ -28,6 +29,7 @@ impl TemplateProvider {
         let current_dir: PathBuf = std::env::current_dir().expect("failed to read current dir");
         let tp_dir = current_dir.join("template-provider");
         let mut conf = Conf::default();
+        conf.wallet = Some(port.to_string());
         let staticdir = format!(".bitcoin-{}", port);
         conf.staticdir = Some(tp_dir.join(staticdir));
         let port_arg = format!("-sv2port={}", port);
@@ -43,7 +45,6 @@ impl TemplateProvider {
             "-loglevel=sv2:trace",
             "-logtimemicros=1",
         ]);
-
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
         let download_filename = get_bitcoind_filename(os, arch);
@@ -122,5 +123,45 @@ impl TemplateProvider {
 
     pub fn rpc_info(&self) -> &ConnectParams {
         &self.bitcoind.params
+    }
+
+    /// Create and broadcast a transaction to the mempool.
+    ///
+    /// It is recommended to use [`TemplateProvider::fund_wallet`] before calling this method to
+    /// ensure the wallet has enough funds.
+    pub fn create_mempool_transaction(&self) -> Result<(Address, Txid), corepc_node::Error> {
+        let client = &self.bitcoind.client;
+        const MILLION_SATS: Amount = Amount::from_sat(1_000_000);
+        let address = client.new_address()?;
+        let txid = client
+            .send_to_address(&address, MILLION_SATS)?
+            .txid()
+            .expect("Unexpected behavior: txid is None");
+        Ok((address, txid))
+    }
+
+    /// Fund the node's wallet.
+    ///
+    /// This can be useful before using [`TemplateProvider::create_mempool_transaction`].
+    pub fn fund_wallet(&self) -> Result<(), corepc_node::Error> {
+        let client = &self.bitcoind.client;
+        let address = client.new_address()?;
+        client.generate_to_address(101, &address)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TemplateProvider;
+    use crate::utils::get_available_address;
+
+    #[tokio::test]
+    async fn test_create_mempool_transaction() {
+        let address = get_available_address();
+        let port = address.port();
+        let tp = TemplateProvider::start(port, 1);
+        assert!(tp.fund_wallet().is_ok());
+        assert!(tp.create_mempool_transaction().is_ok());
     }
 }
