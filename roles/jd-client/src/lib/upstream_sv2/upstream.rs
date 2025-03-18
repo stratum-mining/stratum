@@ -36,7 +36,8 @@ use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{error, info, warn};
 
 use roles_logic_sv2::{
-    common_messages_sv2::Reconnect, handlers::SupportedChannelTypes, mining_sv2::SetGroupChannel,
+    common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
+    mining_sv2::SetGroupChannel,
 };
 use std::collections::VecDeque;
 
