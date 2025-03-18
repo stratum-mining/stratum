@@ -1,6 +1,8 @@
 use binary_sv2::{Deserialize, GetSize, Serialize};
 pub mod noise_connection;
 pub mod plain_connection;
+#[cfg(feature = "sv1")]
+pub mod sv1_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};

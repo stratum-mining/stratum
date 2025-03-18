@@ -1734,7 +1734,10 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
+ "serde_json",
+ "sv1_api",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
