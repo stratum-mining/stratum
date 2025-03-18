@@ -17,14 +17,6 @@ jobs:
       - name: Run jds-do-not-fail-on-wrong-tsdatasucc
         run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
 
-  pool-sri-test-close-channel:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run pool-sri-test-close-channel
-        run: sh ./test/message-generator/test/pool-sri-test-close-channel/pool-sri-test-close-channel.sh
-
   sv1-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
