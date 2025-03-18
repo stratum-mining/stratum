@@ -106,34 +106,44 @@ impl Client {
         // Reads messages sent by the Upstream from the socket to be passed to the
         // `receiver_incoming`
         task::spawn(async move {
-            let mut messages = BufReader::new(reader).lines();
-            while let Ok(message) = messages.next_line().await {
-                match message {
-                    Some(msg) => {
-                        if let Err(e) = sender_incoming.send(msg).await {
-                            error!("Failed to send message to receiver_incoming: {:?}", e);
-                            break; // Exit the loop if sending fails
+            tokio::select!(
+                _ = tokio::signal::ctrl_c() => { },
+                _ = async {
+                    let mut messages = BufReader::new(reader).lines();
+                    while let Ok(message) = messages.next_line().await {
+                        match message {
+                            Some(msg) => {
+                                if let Err(e) = sender_incoming.send(msg).await {
+                                    error!("Failed to send message to receiver_incoming: {:?}", e);
+                                    break; // Exit the loop if sending fails
+                                }
+                            }
+                            None => {
+                                error!("Error reading from socket");
+                                break; // Exit the loop on read failure
+                            }
                         }
                     }
-                    None => {
-                        error!("Error reading from socket");
-                        break; // Exit the loop on read failure
-                    }
-                }
-            }
-            warn!("Reader task terminated.");
+                    error!("Reader task terminated.");
+                } => {}
+            )
         });
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
         task::spawn(async move {
-            loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (writer).write_all(message.as_bytes()).await.unwrap();
-                if message.contains("mining.submit") && single_submit {
-                    send_stop_submitting.send(true).unwrap();
-                }
-            }
+            tokio::select!(
+              _ = tokio::signal::ctrl_c() => { },
+              _ = async {
+                  loop {
+                      let message: String = receiver_outgoing.recv().await.expect("SV1 Miner: Failed to receive message");
+                      (writer).write_all(message.as_bytes()).await.expect("SV1 Miner: Failed to write message to socket");
+                      if message.contains("mining.submit") && single_submit {
+                          send_stop_submitting.send(true).expect("SV1 Miner: Failed to send stop submitting");
+                      }
+                  }
+              } => {}
+            )
         });
 
         // Clone the sender to the Upstream node to use it in another task below as
@@ -196,6 +206,9 @@ impl Client {
               _ = recv_stop_submitting.changed() => {
                 warn!("Stopping miner")
               },
+              _ = tokio::signal::ctrl_c() => {
+                  info!("Stopping miner");
+              },
               _ = async {
               let recv = receiver_share.clone();
               loop {
@@ -240,14 +253,21 @@ impl Client {
         }
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
-        loop {
-            if let Ok(incoming) = recv_incoming.clone().recv().await {
-                Self::parse_message(client.clone(), Ok(incoming)).await;
-            } else {
-                warn!("Error reading from socket via `recv_incoming` channel");
-                break;
-            }
-        }
+        tokio::select!(
+            _ = tokio::signal::ctrl_c() => {
+                warn!("Stopping sv1 miner");
+            },
+            _ = async {
+                loop {
+                    if let Ok(incoming) = recv_incoming.clone().recv().await {
+                        Self::parse_message(client.clone(), Ok(incoming)).await;
+                    } else {
+                        warn!("Error reading from socket via `recv_incoming` channel");
+                        break;
+                    }
+                }
+            } => {}
+        );
     }
 
     /// Parse SV1 messages received from the Upstream node.
