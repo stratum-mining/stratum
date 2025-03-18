@@ -83,13 +83,3 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
         }
     }
 }
-
-/// Represents supported channel types in a mining connection.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SupportedChannelTypes {
-    Standard,
-    Extended,
-    Group,
-    /// Represents a connection that supports both group and extended channels.
-    GroupAndExtended,
-}

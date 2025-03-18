@@ -44,7 +44,7 @@ use crate::{
     selectors::DownstreamMiningSelector,
 };
 
-use super::{SendTo_, SupportedChannelTypes};
+use super::SendTo_;
 
 use crate::utils::Mutex;
 use const_sv2::*;
@@ -53,6 +53,16 @@ use tracing::{debug, error, info, trace};
 
 /// see [`SendTo_`]
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
+
+/// Represents supported channel types in a mining connection.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum SupportedChannelTypes {
+    Standard,
+    Extended,
+    Group,
+    /// Represents a connection that supports both group and extended channels.
+    GroupAndExtended,
+}
 
 /// Trait for parsing downstream mining messages in a Stratum V2 connection.
 ///

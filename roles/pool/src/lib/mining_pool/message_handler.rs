@@ -2,10 +2,7 @@ use super::super::mining_pool::Downstream;
 use binary_sv2::Str0255;
 use roles_logic_sv2::{
     errors::Error,
-    handlers::{
-        mining::{ParseMiningMessagesFromDownstream, SendTo},
-        SupportedChannelTypes,
-    },
+    handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     mining_sv2::*,
     parsers::Mining,
     routing_logic::NoRouting,

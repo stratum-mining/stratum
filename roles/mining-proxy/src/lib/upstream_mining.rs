@@ -25,10 +25,7 @@ use roles_logic_sv2::{
         IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper, UpstreamChannel,
     },
     errors::Error,
-    handlers::{
-        mining::{ParseMiningMessagesFromUpstream, SendTo},
-        SupportedChannelTypes,
-    },
+    handlers::mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
