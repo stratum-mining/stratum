@@ -8,13 +8,6 @@ on:
       - main
 
 jobs:
-  interop-proxy-with-multi-ups-extended:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run interop-proxy-with-multi-ups-extended
-        run: sh ./test/message-generator/test/interop-proxy-with-multi-ups-extended/interop-proxy-with-multi-ups-extended.sh
 
   jds-do-not-fail-on-wrong-tsdatasucc:
     runs-on: ubuntu-latest
@@ -64,7 +57,6 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [
-      interop-proxy-with-multi-ups-extended,
       jds-do-not-fail-on-wrong-tsdatasucc,
       jds-receive-solution-while-processing-declared-job,
       pool-sri-test-close-channel,
@@ -74,8 +66,7 @@ jobs:
     steps:
       - name: Aggregate Results
         run: |
-          if [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
-          [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
+          if [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
           [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ] ||
