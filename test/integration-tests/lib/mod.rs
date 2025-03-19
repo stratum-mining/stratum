@@ -23,6 +23,7 @@ const SHARES_PER_MINUTE: f32 = 120.0;
 
 static LOGGER: Once = Once::new();
 
+/// Each test function should call `start_tracing()` to enable logging.
 pub fn start_tracing() {
     LOGGER.call_once(|| {
         tracing_subscriber::fmt::init();

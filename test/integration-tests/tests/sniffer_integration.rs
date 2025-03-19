@@ -3,9 +3,6 @@
 // `Sniffer` is a useful tool to perform Man-in-the-Middle setups for testing purposes.  It can
 // intercept messages and replace them with others, as well as assert that certain messages were
 // received.
-//
-// Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
-// all tests. This is because tracing is a global setting.
 use const_sv2::{
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     MESSAGE_TYPE_SET_NEW_PREV_HASH,
