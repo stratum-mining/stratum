@@ -68,7 +68,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         "P2WPKH".to_string(),
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
     )];
-    let pool_signature = "Stratum v2 SRI Pool".to_string();
+    let pool_signature = "Stratum V2 SRI Pool".to_string();
     let tp_address = if let Some(tp_add) = template_provider_address {
         tp_add.to_string()
     } else {

@@ -29,4 +29,4 @@ value = 1
 authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
-pool_signature = "Stratum v2 SRI Pool"
+pool_signature = "Stratum V2 SRI Pool"

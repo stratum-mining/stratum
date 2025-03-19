@@ -18,7 +18,7 @@ coinbase_outputs = [
 ]
 
 # Pool signature (string to be included in coinbase tx)
-pool_signature = "Stratum v2 SRI Pool"
+pool_signature = "Stratum V2 SRI Pool"
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
