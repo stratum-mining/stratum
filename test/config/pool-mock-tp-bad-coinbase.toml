@@ -12,4 +12,4 @@ coinbase_outputs = [
     { output_script_type = "P2PK", output_script_value = "04466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f276728176c3c6431f8eeda4538dc37c865e2784f3a9e77d044f33e407797e1278" },
 ]
 # Pool signature (string to be included in coinbase tx)
-pool_signature = "Stratum v2 SRI Pool"
+pool_signature = "Stratum V2 SRI Pool"
