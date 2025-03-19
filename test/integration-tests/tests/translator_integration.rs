@@ -54,6 +54,9 @@ async fn translate_sv1_to_sv2_successfully() {
 
 // Test full flow with Translator and Job Declarator. An SV1 mining device is connected to
 // Translator and is successfully submitting a share to the pool.
+//
+// This ignore directive can be removed once this issue is resolved: https://github.com/stratum-mining/stratum/issues/1574.
+#[ignore]
 #[tokio::test]
 async fn translation_proxy_and_jd() {
     start_tracing();
