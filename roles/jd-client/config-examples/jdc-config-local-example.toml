@@ -25,6 +25,11 @@ tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
 # tp_address = "75.119.150.111:8442"
 
+# string to be added into `extranonce_prefix`
+# note: these bytes are fixed and they effectively reduce the search space available for the extranonce
+# the bigger this field, the smaller the search space available for downstream
+jdc_signature = "JDC"
+
 # Solo Mining config
 # List of coinbase outputs used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
 # ! Put your Extended Public Key or Script as output_script_value !

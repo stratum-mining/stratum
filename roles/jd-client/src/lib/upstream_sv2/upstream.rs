@@ -126,6 +126,7 @@ pub struct Upstream {
     channel_factory: Option<PoolChannelFactory>,
     template_to_job_id: TemplateToJobId,
     req_ids: Id,
+    jdc_signature: String,
 }
 
 impl Upstream {
@@ -154,6 +155,7 @@ impl Upstream {
         tx_status: status::Sender,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
+        jdc_signature: String,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -197,6 +199,7 @@ impl Upstream {
             channel_factory: None,
             template_to_job_id: TemplateToJobId::new(),
             req_ids: Id::new(),
+            jdc_signature,
         })))
     }
 
@@ -558,17 +561,21 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         );
         debug!("OpenStandardMiningChannelSuccess: {:?}", m);
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
+        let jdc_signature_len = self.jdc_signature.len();
         let prefix_len = m.extranonce_prefix.to_vec().len();
         let self_len = 0;
         let total_len = prefix_len + m.extranonce_size as usize;
         let range_0 = 0..prefix_len;
-        let range_1 = prefix_len..prefix_len + self_len;
-        let range_2 = prefix_len + self_len..total_len;
+        let range_1 = prefix_len..prefix_len + jdc_signature_len + self_len;
+        let range_2 = prefix_len + jdc_signature_len + self_len..total_len;
 
-        let extranonces =
-            ExtendedExtranonce::new(range_0, range_1, range_2, None).map_err(|err| {
-                RolesLogicError::ExtendedExtranonceCreationFailed(format!("{:?}", err))
-            })?;
+        let extranonces = ExtendedExtranonce::new(
+            range_0,
+            range_1,
+            range_2,
+            Some(self.jdc_signature.as_bytes().to_vec()),
+        )
+        .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{:?}", err)))?;
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
         let share_per_min = 1.0;
         let channel_kind =

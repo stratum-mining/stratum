@@ -150,6 +150,7 @@ pub async fn start_jdc(
         min_extranonce2_size,
         coinbase_outputs,
     );
+    let jdc_signature = "JDC".to_string();
     let jd_client_proxy = JobDeclaratorClientConfig::new(
         jdc_address,
         protocol_config,
@@ -158,6 +159,7 @@ pub async fn start_jdc(
         tp_config,
         upstreams,
         std::time::Duration::from_secs(1),
+        jdc_signature,
     );
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
     let ret_clone = ret.clone();
