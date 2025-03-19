@@ -10,11 +10,13 @@ async fn main() {
     tracing_subscriber::fmt().init();
 
     const ADDR: &str = "127.0.0.1:34255";
+    let (_, shutdown_rx) = tokio::sync::watch::channel(());
     Client::connect(
         80,
         SocketAddr::from_str(ADDR).expect("Invalid upstream address"),
         false,
         None,
+        shutdown_rx,
     )
     .await
 }

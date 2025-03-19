@@ -8,7 +8,7 @@ use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
-    task,
+    select, task,
 };
 use tracing::{error, info, warn};
 use v1::{
@@ -72,6 +72,7 @@ impl Client {
         upstream_addr: SocketAddr,
         single_submit: bool,
         custom_target: Option<[u8; 32]>,
+        recv_shutdown_signal: tokio::sync::watch::Receiver<()>,
     ) {
         let stream = TcpStream::connect(upstream_addr).await.unwrap();
         let (reader, mut writer) = stream.into_split();
@@ -81,7 +82,7 @@ impl Client {
         let (sender_incoming, receiver_incoming) = unbounded();
         // `sender_outgoing` sends the message parsed by the `Client` to the `receiver_outgoing`
         // which writes the messages to the socket to the Upstream
-        let (sender_outgoing, receiver_outgoing) = unbounded();
+        let (sender_outgoing, receiver_outgoing) = unbounded::<String>();
         // `sender_share` sends job share results to the `receiver_share` where the job share
         // results are formated into a "mining.submit" messages that is then sent to the
         // Upstream via `sender_outgoing`
@@ -105,19 +106,32 @@ impl Client {
 
         // Reads messages sent by the Upstream from the socket to be passed to the
         // `receiver_incoming`
+        let mut recv_shutdown_signal_1 = recv_shutdown_signal.clone();
         task::spawn(async move {
             let mut messages = BufReader::new(reader).lines();
-            while let Ok(message) = messages.next_line().await {
-                match message {
-                    Some(msg) => {
-                        if let Err(e) = sender_incoming.send(msg).await {
-                            error!("Failed to send message to receiver_incoming: {:?}", e);
-                            break; // Exit the loop if sending fails
+            loop {
+                select! {
+                    result = messages.next_line() => {
+                        match result {
+                            Ok(Some(msg)) => {
+                                if sender_incoming.send(msg).await.is_err() {
+                                    error!("Failed to send message to receiver_incoming");
+                                    break;
+                                }
+                            }
+                            Ok(None) => {
+                                error!("Error reading from socket");
+                                break;
+                            }
+                            Err(e) => {
+                                error!("Failed to read from socket: {:?}", e);
+                                break;
+                            }
                         }
                     }
-                    None => {
-                        error!("Error reading from socket");
-                        break; // Exit the loop on read failure
+                    _ = recv_shutdown_signal_1.changed() => {
+                        warn!("Received stop signal, terminating reader task.");
+                        break;
                     }
                 }
             }
@@ -126,14 +140,45 @@ impl Client {
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
+        // task::spawn(async move {
+        //     loop {
+        //         let message: String = receiver_outgoing.recv().await.unwrap();
+        //         (writer).write_all(message.as_bytes()).await.unwrap();
+        //         if message.contains("mining.submit") && single_submit {
+        //             send_stop_submitting.send(true).unwrap();
+        //         }
+        //     }
+        // });
+        let mut recv_shutdown_signal_2 = recv_shutdown_signal.clone();
         task::spawn(async move {
             loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (writer).write_all(message.as_bytes()).await.unwrap();
-                if message.contains("mining.submit") && single_submit {
-                    send_stop_submitting.send(true).unwrap();
+                select! {
+                    message = receiver_outgoing.recv() => {
+                        match message {
+                            Ok(msg) => {
+                                if let Err(e) = writer.write_all(msg.as_bytes()).await {
+                                    error!("Failed to write to socket: {:?}", e);
+                                    break;
+                                }
+                                if msg.contains("mining.submit") && single_submit {
+                                    if send_stop_submitting.send(true).is_err() {
+                                        error!("Failed to send stop signal for submitting");
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                warn!("Outgoing channel closed, terminating writer task.");
+                                break;
+                            }
+                        }
+                    }
+                    _ = recv_shutdown_signal_2.changed() => {
+                        warn!("Received stop signal, terminating writer task.");
+                        break;
+                    }
                 }
             }
+            warn!("Writer task terminated.");
         });
 
         // Clone the sender to the Upstream node to use it in another task below as
@@ -190,6 +235,7 @@ impl Client {
         // Task to receive relevant candidate block header values needed to construct a
         // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
         // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
+        let mut recv_shutdown_signal_3 = recv_shutdown_signal.clone();
         let cloned = client.clone();
         task::spawn(async move {
             tokio::select!(
@@ -199,26 +245,35 @@ impl Client {
               _ = async {
               let recv = receiver_share.clone();
               loop {
-                  let (nonce, job_id, _version, ntime) = recv.recv().await.unwrap();
-                  if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
-                      continue;
-                  }
-                  let extra_nonce2: Extranonce =
-                      vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
-                          .try_into()
-                          .unwrap();
-                  let submit = client_to_server::Submit {
-                      id: 0,
-                      user_name: "user".into(), // TODO: user name should NOT be hardcoded
-                      job_id: job_id.to_string(),
-                      extra_nonce2,
-                      time: HexU32Be(ntime),
-                      nonce: HexU32Be(nonce),
-                      version_bits: None,
-                  };
-                  let message: json_rpc::Message = submit.into();
-                  let message = format!("{}\n", serde_json::to_string(&message).unwrap());
-                  sender_outgoing_clone.send(message).await.unwrap();
+
+                tokio::select! (
+                    _ = recv_shutdown_signal_3.changed() => {
+                        warn!("Received stop signal, terminating reader task.");
+                        break;
+                    }
+                    message = recv.recv() => {
+                        let (nonce, job_id, _, ntime) = message.unwrap();
+                        if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
+                            continue;
+                        }
+                        let extra_nonce2: Extranonce =
+                            vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
+                                .try_into()
+                                .unwrap();
+                        let submit = client_to_server::Submit {
+                            id: 0,
+                            user_name: "user".into(), // TODO: user name should NOT be hardcoded
+                            job_id: job_id.to_string(),
+                            extra_nonce2,
+                            time: HexU32Be(ntime),
+                            nonce: HexU32Be(nonce),
+                            version_bits: None,
+                        };
+                        let message: json_rpc::Message = submit.into();
+                        let message = format!("{}\n", serde_json::to_string(&message).unwrap());
+                        sender_outgoing_clone.send(message).await.unwrap();
+                    }
+                )
               }
               } => {}
             )

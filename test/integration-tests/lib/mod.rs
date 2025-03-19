@@ -309,12 +309,20 @@ pub async fn start_mining_device_sv1(
     upstream_addr: SocketAddr,
     single_submit: bool,
     custom_target: Option<[u8; 32]>,
-) {
+) -> tokio::sync::watch::Sender<()> {
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
     tokio::spawn(async move {
-        mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
-            .await;
+        mining_device_sv1::client::Client::connect(
+            80,
+            upstream_addr,
+            single_submit,
+            custom_target,
+            shutdown_rx,
+        )
+        .await;
     });
     sleep(3).await;
+    shutdown_tx
 }
 
 pub async fn start_mining_device_sv2(
