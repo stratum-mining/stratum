@@ -227,20 +227,6 @@ impl Extranonce {
     pub fn to_vec(self) -> alloc::vec::Vec<u8> {
         self.extranonce
     }
-
-    /// Return only the prefix part of the extranonce
-    /// If the required size is greater than the extranonce len it return None
-    pub fn into_prefix(&self, prefix_len: usize) -> Option<B032<'static>> {
-        if prefix_len > self.extranonce.len() {
-            None
-        } else {
-            let mut prefix = self.extranonce.clone();
-            prefix.resize(prefix_len, 0);
-            // unwrap is sage as prefix_len can not be greater than 32 cause is not possible to
-            // contruct Extranonce with the inner vecto greater than 32.
-            Some(prefix.try_into().unwrap())
-        }
-    }
 }
 
 impl From<&mut ExtendedExtranonce> for Extranonce {
@@ -305,15 +291,24 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// // Create an extended extranonce of len 32, reserving the first 7 bytes for the pool
 /// let mut pool_extended_extranonce = ExtendedExtranonce::new(0..0, 0..7, 7..32, None).unwrap();
 ///
-/// // On open extended channel (requesting to use a range of 3 bytes), the pool does:
-/// let new_extended_channel_extranonce = pool_extended_extranonce.next_extended(3).unwrap();
-/// let expected_extranonce = vec![0, 0, 0, 0, 0, 0, 1];
-/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
+/// // On open extended channel (requesting to use a range of 4 bytes), the pool allocates this extranonce_prefix:
+/// let new_extended_channel_extranonce_prefix = pool_extended_extranonce.next_prefix_extended(4).unwrap();
+/// let expected_extranonce_prefix = vec![0, 0, 0, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce_prefix.clone().to_vec(), expected_extranonce_prefix);
+///
+/// // On open extended channel (requesting to use a range of 20 bytes), the pool allocates this extranonce_prefix:
+/// let new_extended_channel_extranonce_prefix = pool_extended_extranonce.next_prefix_extended(20).unwrap();
+/// let expected_extranonce_prefix = vec![0, 0, 0, 0, 0, 0, 2];
+/// assert_eq!(new_extended_channel_extranonce_prefix.clone().to_vec(), expected_extranonce_prefix);
+///
+/// // On open extended channel (requesting to use a range of 26 bytes, which is too much), we get an error:
+/// let new_extended_channel_extranonce_prefix_error = pool_extended_extranonce.next_prefix_extended(26);
+/// assert!(new_extended_channel_extranonce_prefix_error.is_err());
 ///
 /// // Then the pool receives a request to open a standard channel
-/// let new_standard_channel_extranonce = pool_extended_extranonce.next_standard().unwrap();
+/// let new_standard_channel_extranonce = pool_extended_extranonce.next_prefix_standard().unwrap();
 /// // For standard channels, only the bytes in range_2 are incremented
-/// let expected_standard_extranonce = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+/// let expected_standard_extranonce = vec![0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
 /// assert_eq!(new_standard_channel_extranonce.to_vec(), expected_standard_extranonce);
 ///
 /// // Now the proxy receives the ExtendedExtranonce previously created
@@ -324,22 +319,22 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// let range_1 = 7..11;
 /// let range_2 = 11..32;
 /// let mut proxy_extended_extranonce = ExtendedExtranonce::from_upstream_extranonce(
-///     new_extended_channel_extranonce,
+///     new_extended_channel_extranonce_prefix,
 ///     range_0,
 ///     range_1,
 ///     range_2
 /// ).unwrap();
 ///
 /// // The proxy generates an extended extranonce for downstream (allowing it to use a range of 3 bytes)
-/// let new_extended_channel_extranonce = proxy_extended_extranonce.next_extended(3).unwrap();
-/// let expected_extranonce = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
-/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
+/// let new_extended_channel_extranonce_prefix = proxy_extended_extranonce.next_prefix_extended(3).unwrap();
+/// let expected_extranonce_prefix = vec![0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce_prefix.clone().to_vec(), expected_extranonce_prefix);
 ///
 /// // When the proxy receives a share from downstream and wants to recreate the full extranonce
 /// // e.g., because it wants to check the share's work
-/// let received_extranonce: Extranonce = vec![0_u8, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap();
+/// let received_extranonce: Extranonce = vec![0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap();
 /// let share_complete_extranonce = proxy_extended_extranonce.extranonce_from_downstream_extranonce(received_extranonce.clone()).unwrap();
-/// let expected_complete_extranonce = vec![0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/// let expected_complete_extranonce = vec![0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 /// assert_eq!(share_complete_extranonce.to_vec(), expected_complete_extranonce);
 ///
 /// // Now the proxy wants to send the extranonce received from downstream and the part of extranonce
@@ -365,12 +360,12 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// ).unwrap();
 ///
 /// // When using additional coinbase script data, only bytes after the data are incremented
-/// let new_extended_channel_extranonce = pool_extended_extranonce.next_extended(3).unwrap();
+/// let new_extended_channel_extranonce = pool_extended_extranonce.next_prefix_extended(3).unwrap();
 /// let expected_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1];
 /// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
 ///
 /// // For standard channels, only range_2 is incremented while range_1 (including additional data) is preserved
-/// let new_standard_channel_extranonce = pool_extended_extranonce.next_standard().unwrap();
+/// let new_standard_channel_extranonce = pool_extended_extranonce.next_prefix_standard().unwrap();
 /// // Note that the additional data (0x42, 0x43) and the incremented bytes in range_1 are preserved
 /// let expected_standard_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
 /// assert_eq!(new_standard_channel_extranonce.to_vec(), expected_standard_extranonce);
@@ -390,9 +385,9 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// ).unwrap();
 ///
 /// // The proxy generates an extended extranonce for downstream
-/// let new_extended_channel_extranonce = proxy_extended_extranonce.next_extended(3).unwrap();
-/// let expected_extranonce = vec![0x42, 0x43, 0, 0, 0, 0, 1, 0, 0, 0, 1];
-/// assert_eq!(new_extended_channel_extranonce.clone().to_vec(), expected_extranonce);
+/// let new_extended_channel_extranonce_prefix = proxy_extended_extranonce.next_prefix_extended(3).unwrap();
+/// let expected_extranonce_prefix = vec![0x42, 0x43, 0, 0, 0, 0, 1, 0, 0, 0, 1];
+/// assert_eq!(new_extended_channel_extranonce_prefix.clone().to_vec(), expected_extranonce_prefix);
 ///
 /// // When the proxy receives a share from downstream and wants to recreate the full extranonce
 /// // e.g., because it wants to check the share's work
@@ -600,7 +595,7 @@ impl ExtendedExtranonce {
     }
 
     /// Calculates the next extranonce for standard channels.
-    pub fn next_standard(&mut self) -> Result<Extranonce, ExtendedExtranonceError> {
+    pub fn next_prefix_standard(&mut self) -> Result<Extranonce, ExtendedExtranonceError> {
         let non_reserved_extranonces_bytes = &mut self.inner[self.range_2.start..self.range_2.end];
         match increment_bytes_be(non_reserved_extranonces_bytes) {
             Ok(_) => Ok(self.into()),
@@ -611,7 +606,7 @@ impl ExtendedExtranonce {
     /// Calculates the next extranonce for extended channels.
     /// The required_len variable represents the range requested by the downstream to use.
     /// The part that is incremented is range_1, as every downstream must have different jobs.
-    pub fn next_extended(
+    pub fn next_prefix_extended(
         &mut self,
         required_len: usize,
     ) -> Result<Extranonce, ExtendedExtranonceError> {
@@ -911,7 +906,7 @@ pub mod tests {
             extranonce_len - ranges[1]
         );
 
-        let extranonce_result = extended_extranonce_start.next_extended(0);
+        let extranonce_result = extended_extranonce_start.next_prefix_extended(0);
 
         // todo: refactor this test to avoid skipping the test if next_extended fails
         if extranonce_result.is_err() {
@@ -977,7 +972,7 @@ pub mod tests {
             Extranonce::from(&mut extended_extranonce_start.clone());
         let extranonce_expected_b032: Option<B032> = extranonce_copy.next();
 
-        match extended_extranonce_start.clone().next_standard() {
+        match extended_extranonce_start.clone().next_prefix_standard() {
             Ok(extranonce_next) => match extranonce_expected_b032 {
                 Some(b032) =>
                 // the range_2 of extranonce_next must be equal to the range_2 of the
@@ -1026,7 +1021,7 @@ pub mod tests {
         )
         .unwrap();
 
-        match extended_extranonce_start.next_standard() {
+        match extended_extranonce_start.next_prefix_standard() {
             Ok(v) => {
                 extended_extranonce_start.inner[range_2.clone()] == v.extranonce[range_2]
                     && extended_extranonce_start.inner[range_0.clone()]
@@ -1059,7 +1054,7 @@ pub mod tests {
         )
         .unwrap();
 
-        match extended_extranonce.next_extended(required_len) {
+        match extended_extranonce.next_prefix_extended(required_len) {
             Ok(extranonce) => extended_extranonce.inner[..range_1.end] == extranonce.extranonce[..],
             Err(ExtendedExtranonceError::InvalidDownstreamLength) => {
                 required_len > range_2.end - range_2.start
@@ -1183,22 +1178,6 @@ pub mod tests {
     }
 
     #[test]
-    fn test_extranonce_to_prefix() {
-        let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let extranone = Extranonce { extranonce: inner };
-        let prefix = extranone.into_prefix(4).unwrap();
-        assert!(vec![1, 2, 3, 4] == prefix.to_vec())
-    }
-
-    #[test]
-    fn test_extranonce_to_prefix_not_greater_than_inner() {
-        let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let extranone = Extranonce { extranonce: inner };
-        let prefix = extranone.into_prefix(20);
-        assert!(prefix.is_none())
-    }
-
-    #[test]
     fn test_extended_extranonce_get_prefix_len() {
         let range_0 = 0..2;
         let range_1 = 2..4;
@@ -1272,7 +1251,7 @@ pub mod tests {
         .unwrap();
 
         // Call next_extended
-        let result = extended.next_extended(3).unwrap();
+        let result = extended.next_prefix_extended(3).unwrap();
 
         // Verify the result contains the additional data
         assert_eq!(
@@ -1281,7 +1260,7 @@ pub mod tests {
         );
 
         // Call next_extended again
-        let result2 = extended.next_extended(3).unwrap();
+        let result2 = extended.next_prefix_extended(3).unwrap();
 
         // Verify the fixed part remains unchanged
         assert_eq!(
@@ -1312,7 +1291,7 @@ pub mod tests {
         // Generate multiple extranonces and verify they all have the same fixed part
         let mut results = Vec::new();
         for _ in 0..5 {
-            let result = extended.next_extended(3).unwrap();
+            let result = extended.next_prefix_extended(3).unwrap();
             results.push(result);
         }
 

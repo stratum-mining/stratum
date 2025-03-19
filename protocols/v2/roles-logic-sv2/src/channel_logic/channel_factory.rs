@@ -287,13 +287,11 @@ impl ChannelFactory {
                     return Err(e);
                 }
             };
-            let extranonce = self
+            let extranonce_prefix = self
                 .extranonces
-                .next_extended(max_extranonce_size as usize)
-                .unwrap();
-            let extranonce_prefix = extranonce
-                .into_prefix(self.extranonces.get_prefix_len())
-                .unwrap();
+                .next_prefix_extended(max_extranonce_size as usize)
+                .unwrap()
+                .into_b032();
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
                 channel_id,
@@ -378,7 +376,7 @@ impl ChannelFactory {
         };
         let extranonce = self
             .extranonces
-            .next_standard()
+            .next_prefix_standard()
             .map_err(|_| Error::ExtranonceSpaceEnded)?;
         let standard_channel = StandardChannel {
             channel_id,
@@ -433,7 +431,7 @@ impl ChannelFactory {
         };
         let extranonce = self
             .extranonces
-            .next_standard()
+            .next_prefix_standard()
             .map_err(|_| Error::ExtranonceSpaceEnded)?;
         let standard_channel = StandardChannel {
             channel_id,
