@@ -1178,8 +1178,11 @@ impl PoolChannelFactory {
         if self.negotiated_jobs.contains_key(&m.channel_id) {
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
             let merkle_path = referenced_job.merkle_path.to_vec();
-            let extended_job =
-                job_creator::extended_job_from_custom_job(referenced_job, 32).unwrap();
+            let extended_job = job_creator::extended_job_from_custom_job(
+                referenced_job,
+                self.inner.extranonces.get_len() as u8,
+            )
+            .unwrap();
             let prev_blockhash = crate::utils::u256_to_block_hash(referenced_job.prev_hash.clone());
             let bits = referenced_job.nbits;
             self.inner.check_target(

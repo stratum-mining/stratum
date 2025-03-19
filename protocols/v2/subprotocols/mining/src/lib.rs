@@ -406,7 +406,7 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 /// let extranonce_to_send = proxy_extended_extranonce.without_upstream_part(Some(received_extranonce)).unwrap();
 /// let expected_extranonce_to_send = vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 8, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 pub struct ExtendedExtranonce {
-    inner: [u8; MAX_EXTRANONCE_LEN],
+    inner: alloc::vec::Vec<u8>,
     range_0: core::ops::Range<usize>,
     range_1: core::ops::Range<usize>,
     range_2: core::ops::Range<usize>,
@@ -481,17 +481,11 @@ impl ExtendedExtranonce {
             return Err(ExtendedExtranonceError::ExceedsMaxLength);
         }
 
-        let inner = match additional_coinbase_script_data.clone() {
-            Some(additional_coinbase_script_data) => {
-                let mut inner = vec![0; MAX_EXTRANONCE_LEN];
-                inner[range_1.start..range_1.start + additional_coinbase_script_data.len()]
-                    .copy_from_slice(&additional_coinbase_script_data);
-                inner.try_into().expect("should never fail")
-            }
-            None => vec![0; MAX_EXTRANONCE_LEN]
-                .try_into()
-                .expect("should never fail"),
-        };
+        let mut inner = vec![0; range_2.end];
+        if let Some(additional_coinbase_script_data) = additional_coinbase_script_data.clone() {
+            inner[range_1.start..range_1.start + additional_coinbase_script_data.len()]
+                .copy_from_slice(&additional_coinbase_script_data);
+        }
 
         Ok(Self {
             inner,
@@ -524,7 +518,6 @@ impl ExtendedExtranonce {
         }
 
         inner.resize(MAX_EXTRANONCE_LEN, 0);
-        let inner = inner.try_into().unwrap();
         Ok(Self {
             inner,
             range_0,
@@ -579,9 +572,8 @@ impl ExtendedExtranonce {
 
         let mut inner = v.extranonce;
         inner.resize(range_2.end, 0);
-        let rest = vec![0; MAX_EXTRANONCE_LEN - inner.len()];
-        // below unwraps never panics
-        let inner: [u8; MAX_EXTRANONCE_LEN] = [inner, rest].concat().try_into().unwrap();
+        let rest = vec![0; range_2.end - inner.len()];
+        let inner = [inner, rest].concat();
         Ok(Self {
             inner,
             range_0,
