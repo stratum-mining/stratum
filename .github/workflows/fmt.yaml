@@ -34,3 +34,4 @@ jobs:
           cargo fmt --all --manifest-path=protocols/Cargo.toml -- --check
           cargo fmt --all --manifest-path=roles/Cargo.toml -- --check
           cargo fmt --all --manifest-path=utils/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=test/integration-tests/Cargo.toml -- --check
