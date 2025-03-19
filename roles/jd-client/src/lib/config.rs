@@ -32,10 +32,12 @@ pub struct JobDeclaratorClientConfig {
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     timeout: Duration,
     coinbase_outputs: Vec<CoinbaseOutput>,
+    jdc_signature: String,
 }
 
 impl JobDeclaratorClientConfig {
     /// Creates a new instance of [`JobDeclaratorClientConfig`].
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         listening_address: SocketAddr,
         protocol_config: ProtocolConfig,
@@ -44,6 +46,7 @@ impl JobDeclaratorClientConfig {
         tp_config: TPConfig,
         upstreams: Vec<Upstream>,
         timeout: Duration,
+        jdc_signature: String,
     ) -> Self {
         Self {
             listening_address,
@@ -59,6 +62,7 @@ impl JobDeclaratorClientConfig {
             upstreams,
             timeout,
             coinbase_outputs: protocol_config.coinbase_outputs,
+            jdc_signature,
         }
     }
 
@@ -122,6 +126,11 @@ impl JobDeclaratorClientConfig {
     /// Returns the maximum supported version.
     pub fn max_supported_version(&self) -> u16 {
         self.max_supported_version
+    }
+
+    /// Returns the JDC signature.
+    pub fn jdc_signature(&self) -> &str {
+        &self.jdc_signature
     }
 
     pub fn get_txout(&self) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
