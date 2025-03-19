@@ -3,9 +3,6 @@ use std::time::Duration;
 // This file contains integration tests for the `JDC/S` module.
 //
 // `JDC/S` are modules that implements the Job Decleration roles in the Stratum V2 protocol.
-//
-// Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
-// all tests. This is because tracing is a global setting.
 use const_sv2::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,

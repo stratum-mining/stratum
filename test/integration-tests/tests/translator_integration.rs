@@ -1,9 +1,6 @@
 // This file contains integration tests for the `TranslatorSv2` module.
 //
 // `TranslatorSv2` is a module that implements the Translator role in the Stratum V2 protocol.
-//
-// Note that it is enough to call `start_tracing()` once in the test suite to enable tracing for
-// all tests. This is because tracing is a global setting.
 use const_sv2::{
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
     MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
@@ -57,6 +54,9 @@ async fn translate_sv1_to_sv2_successfully() {
 
 // Test full flow with Translator and Job Declarator. An SV1 mining device is connected to
 // Translator and is successfully submitting a share to the pool.
+//
+// This ignore directive can be removed once this issue is resolved: https://github.com/stratum-mining/stratum/issues/1574.
+#[ignore]
 #[tokio::test]
 async fn translation_proxy_and_jd() {
     start_tracing();

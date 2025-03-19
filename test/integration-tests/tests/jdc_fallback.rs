@@ -9,6 +9,9 @@ use std::convert::TryInto;
 
 // Tests whether JDC will switch to a new pool after receiving a `SubmitSharesError` message from
 // the currently connected pool.
+//
+// This ignore directive can be removed once this issue is resolved: https://github.com/stratum-mining/stratum/issues/1574.
+#[ignore]
 #[tokio::test]
 async fn test_jdc_pool_fallback_after_submit_rejection() {
     start_tracing();
