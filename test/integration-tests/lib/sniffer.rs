@@ -106,8 +106,9 @@ impl Sniffer {
             .await
             .expect("Failed to create upstream");
             select! {
-                r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, messages_from_downstream, action.clone(), &identifier) => r,
-                r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, messages_from_upstream, action, &identifier) => r,
+                _ = tokio::signal::ctrl_c() => { },
+                _ = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, messages_from_downstream, action.clone(), &identifier) => { },
+                _ = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, messages_from_upstream, action, &identifier) => { },
             };
         });
     }
