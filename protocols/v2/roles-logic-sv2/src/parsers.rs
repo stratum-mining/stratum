@@ -92,7 +92,6 @@ use template_distribution_sv2::{
     CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
-use tracing::error;
 
 /// Converts a message type number to a human-readable name
 pub fn message_type_to_name(msg_type: u8) -> &'static str {
@@ -930,10 +929,7 @@ impl TryFrom<u8> for MiningTypes {
             MESSAGE_TYPE_UPDATE_CHANNEL => Ok(MiningTypes::UpdateChannel),
             MESSAGE_TYPE_UPDATE_CHANNEL_ERROR => Ok(MiningTypes::UpdateChannelError),
             MESSAGE_TYPE_SETUP_CONNECTION => Err(Error::UnexpectedMessage(v)),
-            _ => {
-                error!("Invalid message type: {}", v);
-                Err(Error::UnexpectedMessage(v))
-            }
+            _ => Err(Error::UnexpectedMessage(v)),
         }
     }
 }
