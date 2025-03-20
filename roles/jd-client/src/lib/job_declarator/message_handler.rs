@@ -8,6 +8,7 @@ use roles_logic_sv2::{
     },
     parsers::JobDeclaration,
 };
+use tracing::{debug, error, info, trace};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
@@ -16,6 +17,10 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `AllocateMiningJobTokenSuccess` with id: {}",
+            message.request_id
+        );
         self.allocated_tokens.push(message.into_static());
 
         Ok(SendTo::None(None))
@@ -25,14 +30,24 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
         &mut self,
         message: DeclareMiningJobSuccess,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `DeclareMiningJobSuccess` with id {}",
+            message.request_id
+        );
+        debug!("`DeclareMiningJobSuccess`: {:?}", message);
         let message = JobDeclaration::DeclareMiningJobSuccess(message.into_static());
         Ok(SendTo::None(Some(message)))
     }
 
     fn handle_declare_mining_job_error(
         &mut self,
-        _message: DeclareMiningJobError,
+        message: DeclareMiningJobError,
     ) -> Result<SendTo, Error> {
+        error!(
+            "Received `DeclareMiningJobError`, error code: {}",
+            std::str::from_utf8(message.error_code.as_ref()).unwrap_or("unknown error code")
+        );
+        debug!("`DeclareMiningJobError`: {:?}", message);
         Ok(SendTo::None(None))
     }
 
@@ -40,6 +55,11 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
         &mut self,
         message: IdentifyTransactions,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `IdentifyTransactions` with id: {}",
+            message.request_id
+        );
+        debug!("`IdentifyTransactions`: {:?}", message);
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
             tx_data_hashes: Vec::new().into(),
@@ -53,6 +73,11 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
         &mut self,
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `ProvideMissingTransactions` with id: {}",
+            message.request_id
+        );
+        debug!("`ProvideMissingTransactions`: {:?}", message);
         let tx_list = self
             .last_declare_mining_jobs_sent
             .iter()

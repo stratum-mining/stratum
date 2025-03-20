@@ -17,7 +17,7 @@ use crate::mempool::JDsMempool;
 use super::{signed_token, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::AnyMessage as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::{debug, info};
+use tracing::{debug, info, trace};
 
 use super::JobDeclaratorDownstream;
 
@@ -46,6 +46,11 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
         &mut self,
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `AllocateMiningJobToken` with id: {}",
+            message.request_id
+        );
+        debug!("`AllocateMiningJobToken`: {:?}", message.request_id);
         let token = self.tokens.next();
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
@@ -65,6 +70,11 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
     }
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
+        info!(
+            "Received `DeclareMiningJob` with id: {}",
+            message.request_id
+        );
+        debug!("`DeclareMiningJob`: {:?}", message);
         if let Some(old_mining_job) = self.declared_mining_job.0.take() {
             clear_declared_mining_job(old_mining_job, &message, self.mempool.clone())?;
         }
@@ -153,8 +163,13 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
 
     fn handle_identify_transactions_success(
         &mut self,
-        _message: IdentifyTransactionsSuccess,
+        message: IdentifyTransactionsSuccess,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `IdentifyTransactionsSuccess` with id: {}",
+            message.request_id
+        );
+        debug!("`IdentifyTransactionsSuccess`: {:?}", message);
         Ok(SendTo::None(None))
     }
 
@@ -162,6 +177,11 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
+        info!(
+            "Received `ProvideMissingTransactionsSuccess` with id: {}",
+            message.request_id
+        );
+        debug!("`ProvideMissingTransactionsSuccess`: {:?}", message);
         let (declared_mining_job, ref mut transactions_with_state, missing_indexes) =
             &mut self.declared_mining_job;
         let mut unknown_transactions: Vec<Transaction> = vec![];
@@ -223,8 +243,9 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
     }
 
     fn handle_submit_solution(&mut self, message: SubmitSolutionJd<'_>) -> Result<SendTo, Error> {
+        info!("Received `SubmitSolution`");
+        debug!("`SubmitSolution`: {:?}", message);
         let m = JobDeclaration::SubmitSolution(message.clone().into_static());
-
         Ok(SendTo::None(Some(m)))
     }
 }
