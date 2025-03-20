@@ -4,12 +4,18 @@ use stratum_common::bitcoin::{Address, Amount, Txid};
 
 use crate::utils::{http, tarball};
 
-const VERSION_TP: &str = "0.1.13";
+const VERSION_TP: &str = "0.1.15";
 
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
-        ("macos", "aarch64") => format!("bitcoin-sv2-tp-{}-arm64-apple-darwin.tar.gz", VERSION_TP),
-        ("macos", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-apple-darwin.tar.gz", VERSION_TP),
+        ("macos", "aarch64") => format!(
+            "bitcoin-sv2-tp-{}-arm64-apple-darwin-unsigned.tar.gz",
+            VERSION_TP
+        ),
+        ("macos", "x86_64") => format!(
+            "bitcoin-sv2-tp-{}-x86_64-apple-darwin-unsigned.tar.gz",
+            VERSION_TP
+        ),
         ("linux", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-linux-gnu.tar.gz", VERSION_TP),
         ("linux", "aarch64") => format!("bitcoin-sv2-tp-{}-aarch64-linux-gnu.tar.gz", VERSION_TP),
         _ => format!(
