@@ -16,6 +16,8 @@ use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
 pub mod sniffer;
+#[cfg(feature = "sv1")]
+pub mod sv1_sniffer;
 pub mod template_provider;
 pub(crate) mod utils;
 
@@ -376,4 +378,12 @@ pub async fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
 #[inline]
 pub async fn sleep(seconds: u64) {
     tokio::time::sleep(std::time::Duration::from_secs(seconds)).await;
+}
+
+#[cfg(feature = "sv1")]
+pub fn start_sv1_sniffer(upstream_address: SocketAddr) -> (sv1_sniffer::SnifferSV1, SocketAddr) {
+    let listening_address = get_available_address();
+    let sniffer_sv1 = sv1_sniffer::SnifferSV1::new(listening_address, upstream_address);
+    sniffer_sv1.start();
+    (sniffer_sv1, listening_address)
 }

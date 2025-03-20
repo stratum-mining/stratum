@@ -31,12 +31,17 @@ key-utils = { path = "../../utils/key-utils" }
 mining_device = { path = "../../roles/test-utils/mining-device" }
 mining_device_sv1 = { path = "../../roles/test-utils/mining-device-sv1" }
 mining_proxy_sv2 = { path = "../../roles/mining-proxy" }
-network_helpers_sv2 = { path = "../../roles/roles-utils/network-helpers", features =["with_buffer_pool"] }
+network_helpers_sv2 = { path = "../../roles/roles-utils/network-helpers", features = ["with_buffer_pool"] }
 pool_sv2 = { path = "../../roles/pool" }
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
 stratum-common = { path = "../../common" }
 config-helpers = { path = "../../roles/roles-utils/config-helpers" }
 translator_sv2 = { path = "../../roles/translator" }
+sv1_api = { path = "../../protocols/v1", optional = true }
 
 [lib]
 path = "lib/mod.rs"
+
+[features]
+default = []
+sv1 = ["sv1_api", "network_helpers_sv2/sv1"]

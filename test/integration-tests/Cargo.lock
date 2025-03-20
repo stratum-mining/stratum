@@ -1232,6 +1232,7 @@ dependencies = [
  "rand 0.9.0",
  "roles_logic_sv2",
  "stratum-common",
+ "sv1_api",
  "tar",
  "tokio",
  "tracing",
@@ -1523,7 +1524,10 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
+ "serde_json",
+ "sv1_api",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
