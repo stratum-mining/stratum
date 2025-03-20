@@ -11,6 +11,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tracing::{error, info};
 
 pub struct SetupConnectionHandler {}
 
@@ -70,15 +71,20 @@ impl SetupConnectionHandler {
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
+    ) -> Result<SendTo, Error> {
+        info!(
+            "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendTo::None(None))
     }
 
-    fn handle_setup_connection_error(
-        &mut self,
-        m: SetupConnectionError,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+    fn handle_setup_connection_error(&mut self, m: SetupConnectionError) -> Result<SendTo, Error> {
+        error!(
+            "Received `SetupConnectionError` from TP with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         let flags = m.flags;
         let message = SetupConnectionError {
             flags,
@@ -96,8 +102,12 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     }
     fn handle_channel_endpoint_changed(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        m: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
+    ) -> Result<SendTo, Error> {
+        info!(
+            "Received ChannelEndpointChanged with channel id: {}",
+            m.channel_id
+        );
         Err(Error::UnexpectedMessage(
             const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))

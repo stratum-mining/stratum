@@ -611,8 +611,12 @@ impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
 impl ParseCommonMessagesFromUpstream for Upstream {
     fn handle_setup_connection_success(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
+        m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendToCommon, RolesLogicError> {
+        info!(
+            "Received `SetupConnectionSuccess`: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendToCommon::None(None))
     }
 

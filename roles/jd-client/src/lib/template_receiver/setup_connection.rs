@@ -8,6 +8,7 @@ use roles_logic_sv2::{
     Error,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tracing::info;
 
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -69,8 +70,12 @@ impl SetupConnectionHandler {
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
+    ) -> Result<SendTo, Error> {
+        info!(
+            "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendTo::None(None))
     }
 

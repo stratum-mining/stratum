@@ -435,6 +435,10 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
         &mut self,
         m: SetupConnection,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        info!(
+            "Received `SetupConnection`: version={}, flags={:b}",
+            m.min_version, m.flags
+        );
         let routing_logic = super::get_common_routing_logic();
         match routing_logic {
             CommonRoutingLogic::Proxy(r_logic) => {
