@@ -19,12 +19,16 @@ fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     }
 }
 
+/// Represents a template provider node.
+///
+/// The template provider is a bitcoin node that implements the Stratum V2 protocol.
 #[derive(Debug)]
 pub struct TemplateProvider {
     bitcoind: Node,
 }
 
 impl TemplateProvider {
+    /// Start a new [`TemplateProvider`] instance.
     pub fn start(port: u16, sv2_interval: u32) -> Self {
         let current_dir: PathBuf = std::env::current_dir().expect("failed to read current dir");
         let tp_dir = current_dir.join("template-provider");
@@ -109,6 +113,7 @@ impl TemplateProvider {
         }
     }
 
+    /// Mine `n` blocks.
     pub fn generate_blocks(&self, n: u64) {
         let mining_address = self
             .bitcoind
@@ -121,6 +126,7 @@ impl TemplateProvider {
             .expect("Failed to generate blocks");
     }
 
+    /// Retrun the node's RPC info.
     pub fn rpc_info(&self) -> &ConnectParams {
         &self.bitcoind.params
     }
