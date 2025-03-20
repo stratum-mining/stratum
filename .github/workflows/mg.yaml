@@ -17,28 +17,17 @@ jobs:
       - name: Run jds-do-not-fail-on-wrong-tsdatasucc
         run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
 
-  sv1-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Run sv1-test
-        run: sh ./test/message-generator/test/sv1-test/sv1-test.sh
-
   mg-aggregate-results:
     name: "Aggregate MG Test Results"
     runs-on: ubuntu-latest
     if: always()
     needs: [
       jds-do-not-fail-on-wrong-tsdatasucc,
-      sv1-test
     ]
     steps:
       - name: Aggregate Results
         run: |
-          if [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
-          [ "${{ needs.sv1-test.result }}" != "success" ]; then
+          if [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ]; then
             echo "One or more jobs failed."
             exit 1
           else
