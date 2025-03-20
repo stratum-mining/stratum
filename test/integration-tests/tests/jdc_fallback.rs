@@ -35,18 +35,16 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
             )
             .into(),
         ),
-    )
-    .await;
+    );
     let (_pool_2, pool_addr_2) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and second pool
-    let (sniffer_2, sniffer_addr_2) =
-        start_sniffer("1".to_string(), pool_addr_2, false, None).await;
+    let (sniffer_2, sniffer_addr_2) = start_sniffer("1".to_string(), pool_addr_2, false, None);
     let (_jds_1, jds_addr_1) = start_jds(tp.rpc_info()).await;
     // Sniffer between JDC and first JDS
-    let (sniffer_3, sniffer_addr_3) = start_sniffer("2".to_string(), jds_addr_1, false, None).await;
+    let (sniffer_3, sniffer_addr_3) = start_sniffer("2".to_string(), jds_addr_1, false, None);
     let (_jds_2, jds_addr_2) = start_jds(tp.rpc_info()).await;
     // Sniffer between JDC and second JDS
-    let (sniffer_4, sniffer_addr_4) = start_sniffer("3".to_string(), jds_addr_2, false, None).await;
+    let (sniffer_4, sniffer_addr_4) = start_sniffer("3".to_string(), jds_addr_2, false, None);
     let (_jdc, jdc_addr) = start_jdc(
         &[
             (sniffer_addr_1, sniffer_addr_3),
