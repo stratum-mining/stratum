@@ -86,27 +86,30 @@ impl Sniffer {
     ///
     /// The sniffer should be started after the upstream role have been initialized and is ready to
     /// accept messages and before the downstream role starts sending messages.
-    pub async fn start(self) {
-        let (downstream_receiver, downstream_sender) =
-            Self::create_downstream(Self::wait_for_client(self.listening_address).await)
-                .await
-                .expect("Failed to create downstream");
-        let (upstream_receiver, upstream_sender) = Self::create_upstream(
-            TcpStream::connect(self.upstream_address)
-                .await
-                .expect("Failed to connect to upstream"),
-        )
-        .await
-        .expect("Failed to create upstream");
-        let downstream_messages = self.messages_from_downstream.clone();
-        let upstream_messages = self.messages_from_upstream.clone();
+    pub fn start(&self) {
+        let listening_address = self.listening_address;
+        let upstream_address = self.upstream_address;
+        let messages_from_downstream = self.messages_from_downstream.clone();
+        let messages_from_upstream = self.messages_from_upstream.clone();
         let action = self.action.clone();
-        let _ = select! {
-            r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, downstream_messages, action.clone(), &self.identifier) => r,
-            r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, upstream_messages, action, &self.identifier) => r,
-        };
-        // wait a bit so we dont drop the sniffer before the test has finished
-        sleep(std::time::Duration::from_secs(1)).await;
+        let identifier = self.identifier.clone();
+        tokio::spawn(async move {
+            let (downstream_receiver, downstream_sender) =
+                Self::create_downstream(Self::wait_for_client(listening_address).await)
+                    .await
+                    .expect("Failed to create downstream");
+            let (upstream_receiver, upstream_sender) = Self::create_upstream(
+                TcpStream::connect(upstream_address)
+                    .await
+                    .expect("Failed to connect to upstream"),
+            )
+            .await
+            .expect("Failed to create upstream");
+            select! {
+                r = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, messages_from_downstream, action.clone(), &identifier) => r,
+                r = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, messages_from_upstream, action, &identifier) => r,
+            };
+        });
     }
 
     /// Returns the oldest message sent by downstream.
@@ -516,7 +519,6 @@ impl Sniffer {
         }
     }
 }
-
 
 /// Represents an action that [`Sniffer`] can take on intercepted messages.
 #[derive(Debug, Clone)]
