@@ -100,7 +100,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_string": "Pool is running on: 0.0.0.0:34254",
                             "output_location": "StdOut",
                             "late_condition": false,
                             "condition": true
