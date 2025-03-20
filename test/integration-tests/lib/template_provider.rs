@@ -4,7 +4,7 @@ use stratum_common::bitcoin::{Address, Amount, Txid};
 
 use crate::utils::{http, tarball};
 
-const VERSION_TP: &str = "0.1.13";
+const VERSION_TP: &str = "0.1.15";
 
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
