@@ -33,7 +33,6 @@ use common_messages_sv2::{
 use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
-use tracing::{debug, error, info};
 
 /// see [`SendTo_`]
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
@@ -60,40 +59,18 @@ where
         message: Result<CommonMessages<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(CommonMessages::SetupConnectionSuccess(m)) => {
-                info!(
-                    "Received SetupConnectionSuccess: version={}, flags={:b}",
-                    m.used_version, m.flags
-                );
-                self_
-                    .safe_lock(|x| x.handle_setup_connection_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(CommonMessages::SetupConnectionError(m)) => {
-                error!(
-                    "Received SetupConnectionError with error code {}",
-                    std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
-                );
-                self_
-                    .safe_lock(|x| x.handle_setup_connection_error(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(CommonMessages::ChannelEndpointChanged(m)) => {
-                info!(
-                    "Received ChannelEndpointChanged with channel id: {}",
-                    m.channel_id
-                );
-                self_
-                    .safe_lock(|x| x.handle_channel_endpoint_changed(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(CommonMessages::Reconnect(m)) => {
-                info!("Received Reconnect");
-                debug!("Reconnect: {:?}", m);
-                self_
-                    .safe_lock(|x| x.handle_reconnect(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
+            Ok(CommonMessages::SetupConnectionSuccess(m)) => self_
+                .safe_lock(|x| x.handle_setup_connection_success(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(CommonMessages::SetupConnectionError(m)) => self_
+                .safe_lock(|x| x.handle_setup_connection_error(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(CommonMessages::ChannelEndpointChanged(m)) => self_
+                .safe_lock(|x| x.handle_channel_endpoint_changed(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(CommonMessages::Reconnect(m)) => self_
+                .safe_lock(|x| x.handle_reconnect(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(CommonMessages::SetupConnection(_)) => {
                 Err(Error::UnexpectedMessage(MESSAGE_TYPE_SETUP_CONNECTION))
             }
@@ -154,16 +131,9 @@ where
         message: Result<CommonMessages<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(CommonMessages::SetupConnection(m)) => {
-                info!(
-                    "Received SetupConnection: version={}, flags={:b}",
-                    m.min_version, m.flags
-                );
-                debug!("Setup connection message: {:?}", m);
-                self_
-                    .safe_lock(|x| x.handle_setup_connection(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
+            Ok(CommonMessages::SetupConnection(m)) => self_
+                .safe_lock(|x| x.handle_setup_connection(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
             )),

@@ -157,10 +157,13 @@ impl SetupConnectionHandler {
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
-        _: SetupConnectionSuccess,
+        m: SetupConnectionSuccess,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
         use roles_logic_sv2::handlers::common::SendTo;
-        info!("Setup connection success");
+        info!(
+            "Received `SetupConnectionSuccess`: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendTo::None(None))
     }
 

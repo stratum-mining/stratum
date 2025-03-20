@@ -644,8 +644,12 @@ impl
 impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     fn handle_setup_connection(
         &mut self,
-        _: SetupConnection,
+        m: SetupConnection,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        info!(
+            "Received `SetupConnection`: version={}, flags={:b}",
+            m.min_version, m.flags
+        );
         let response = SetupConnectionSuccess {
             used_version: 2,
             // require extended channels

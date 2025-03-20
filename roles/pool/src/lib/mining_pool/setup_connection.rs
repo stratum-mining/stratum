@@ -15,7 +15,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 pub struct SetupConnectionHandler {
     header_only: Option<bool>,
@@ -96,6 +96,10 @@ impl ParseCommonMessagesFromDownstream for SetupConnectionHandler {
         &mut self,
         incoming: SetupConnection,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        info!(
+            "Received `SetupConnection`: version={}, flags={:b}",
+            incoming.min_version, incoming.flags
+        );
         use roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();
         debug!("Handling setup connection: header_only: {}", header_only);
