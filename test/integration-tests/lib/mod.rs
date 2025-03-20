@@ -30,7 +30,7 @@ pub fn start_tracing() {
     });
 }
 
-pub async fn start_sniffer(
+pub fn start_sniffer(
     identifier: String,
     upstream: SocketAddr,
     check_on_drop: bool,
@@ -43,8 +43,7 @@ pub async fn start_sniffer(
         upstream,
         check_on_drop,
         action,
-    )
-    .await;
+    );
     sniffer.start();
     (sniffer, listening_address)
 }
