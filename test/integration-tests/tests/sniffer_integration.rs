@@ -40,12 +40,11 @@ async fn test_sniffer_intercept_to_downstream() {
 
     // this sniffer will replace SetupConnectionSuccess with SetupConnectionError
     let (_sniffer_a, sniffer_a_addr) =
-        start_sniffer("A".to_string(), tp_addr, false, Some(intercept.into())).await;
+        start_sniffer("A".to_string(), tp_addr, false, Some(intercept.into()));
 
     // this sniffer will assert SetupConnectionSuccess was correctly replaced with
     // SetupConnectionError
-    let (sniffer_b, sniffer_b_addr) =
-        start_sniffer("B".to_string(), sniffer_a_addr, false, None).await;
+    let (sniffer_b, sniffer_b_addr) = start_sniffer("B".to_string(), sniffer_a_addr, false, None);
 
     let _ = start_pool(Some(sniffer_b_addr)).await;
 
@@ -80,10 +79,9 @@ async fn test_sniffer_intercept_to_upstream() {
     );
 
     let (sniffer_a, sniffer_a_addr) =
-        start_sniffer("A".to_string(), tp_addr, false, Some(intercept.into())).await;
+        start_sniffer("A".to_string(), tp_addr, false, Some(intercept.into()));
 
-    let (_sniffer_b, sniffer_b_addr) =
-        start_sniffer("B".to_string(), sniffer_a_addr, false, None).await;
+    let (_sniffer_b, sniffer_b_addr) = start_sniffer("B".to_string(), sniffer_a_addr, false, None);
 
     let _ = start_pool(Some(sniffer_b_addr)).await;
 
@@ -111,7 +109,7 @@ async fn test_sniffer_intercept_to_upstream() {
 async fn test_sniffer_wait_for_message_type_with_remove() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
-    let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, false, None).await;
+    let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, false, None);
     let _ = start_pool(Some(sniffer_addr)).await;
     assert!(
         sniffer
@@ -163,7 +161,7 @@ async fn test_sniffer_blocks_message() {
     );
 
     // `sniffer_a` intercepts and receives `SetupConnectionSuccess` message.
-    let (sniffer_a, sniffer_a_addr) = start_sniffer("A".to_string(), tp_addr, false, None).await;
+    let (sniffer_a, sniffer_a_addr) = start_sniffer("A".to_string(), tp_addr, false, None);
 
     // `sniffer_b` is placed downstream of `sniffer_a` and ignores `SetupConnectionSuccess` message.
     let (_sniffer_b, sniffer_b_addr) = start_sniffer(
@@ -171,12 +169,10 @@ async fn test_sniffer_blocks_message() {
         sniffer_a_addr,
         false,
         Some(ignore_message.into()),
-    )
-    .await;
+    );
 
     // `sniffer_c` is placed downstream of `sniffer_b` and should not receive the ignored message.
-    let (sniffer_c, sniffer_c_addr) =
-        start_sniffer("C".to_string(), sniffer_b_addr, false, None).await;
+    let (sniffer_c, sniffer_c_addr) = start_sniffer("C".to_string(), sniffer_b_addr, false, None);
 
     // Start the Pool, connected to `sniffer_c`.
     let _ = start_pool(Some(sniffer_c_addr)).await;
