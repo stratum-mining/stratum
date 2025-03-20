@@ -296,7 +296,7 @@ impl Sniffer {
                 match action {
                     InterceptAction::IgnoreMessage(_) => {
                         tracing::info!(
-                            "🔍 Sniffer {} | Ignored: {} | Direction: ⬆",
+                            "🔍 Sv2 Sniffer {} | Ignored: {} | Direction: ⬆",
                             identifier,
                             message_type_to_name(msg_type)
                         );
@@ -320,7 +320,7 @@ impl Sniffer {
                             .await
                             .map_err(|_| SnifferError::UpstreamClosed)?;
                         tracing::info!(
-                            "🔍 Sniffer {} | Replaced: {} with {} | Direction: ⬆",
+                            "🔍 Sv2 Sniffer {} | Replaced: {} with {} | Direction: ⬆",
                             identifier,
                             message_type_to_name(msg_type),
                             message_type_to_name(
@@ -335,7 +335,7 @@ impl Sniffer {
                     .await
                     .map_err(|_| SnifferError::UpstreamClosed)?;
                 tracing::info!(
-                    "🔍 Sniffer {} | Forwarded: {} | Direction: ⬆",
+                    "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬆",
                     identifier,
                     message_type_to_name(msg_type)
                 );
@@ -362,7 +362,7 @@ impl Sniffer {
                 match action {
                     InterceptAction::IgnoreMessage(_) => {
                         tracing::info!(
-                            "🔍 Sniffer {} | Ignored: {} | Direction: ⬇",
+                            "🔍 Sv2 Sniffer {} | Ignored: {} | Direction: ⬇",
                             identifier,
                             message_type_to_name(msg_type)
                         );
@@ -386,7 +386,7 @@ impl Sniffer {
                             .await
                             .map_err(|_| SnifferError::DownstreamClosed)?;
                         tracing::info!(
-                            "🔍 Sniffer {} | Replaced: {} with {} | Direction: ⬇",
+                            "🔍 Sv2 Sniffer {} | Replaced: {} with {} | Direction: ⬇",
                             identifier,
                             message_type_to_name(msg_type),
                             message_type_to_name(
@@ -401,7 +401,7 @@ impl Sniffer {
                     .await
                     .map_err(|_| SnifferError::DownstreamClosed)?;
                 tracing::info!(
-                    "🔍 Sniffer {} | Forwarded: {} | Direction: ⬇",
+                    "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬇",
                     identifier,
                     message_type_to_name(msg_type)
                 );
