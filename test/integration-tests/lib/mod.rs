@@ -47,10 +47,7 @@ pub async fn start_sniffer(
         action,
     )
     .await;
-    let sniffer_clone = sniffer.clone();
-    tokio::spawn(async move {
-        sniffer_clone.start().await;
-    });
+    sniffer.start();
     (sniffer, listening_address)
 }
 
