@@ -4,11 +4,10 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError},
+    common_messages_sv2::{Protocol, Reconnect, SetupConnection, SetupConnectionError},
     errors::Error,
-    handlers::common::{ParseUpstreamCommonMessages, SendTo},
+    handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
     parsers::{AnyMessage, CommonMessages},
-    routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
@@ -59,17 +58,16 @@ impl SetupConnectionHandler {
             .msg_type();
         let payload = incoming.payload();
 
-        ParseUpstreamCommonMessages::handle_message_common(
+        ParseCommonMessagesFromUpstream::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
             payload,
-            CommonRoutingLogic::None,
         )?;
         Ok(())
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -103,5 +101,9 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         Err(Error::UnexpectedMessage(
             const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
+    }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo, Error> {
+        todo!()
     }
 }

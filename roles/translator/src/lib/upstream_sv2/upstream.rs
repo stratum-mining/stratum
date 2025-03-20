@@ -18,16 +18,14 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
-        common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ParseUpstreamMiningMessages, SendTo},
+        common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
+        mining::{ParseMiningMessagesFromUpstream, SendTo},
     },
     mining_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
         SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
-    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
-    selectors::NullDownstreamMiningSelector,
     utils::Mutex,
     Error as RolesLogicError,
     Error::NoUpstreamsConnected,
@@ -43,6 +41,10 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
+use roles_logic_sv2::{
+    common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
+    mining_sv2::SetGroupChannel,
+};
 use stratum_common::bitcoin::BlockHash;
 
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
@@ -222,11 +224,10 @@ impl Upstream {
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
-        ParseUpstreamCommonMessages::handle_message_common(
+        ParseCommonMessagesFromUpstream::handle_message_common(
             self_.clone(),
             message_type,
             payload,
-            CommonRoutingLogic::None,
         )?;
 
         // Send open channel request before returning
@@ -325,21 +326,11 @@ impl Upstream {
 
                 let payload = incoming.payload();
 
-                // Since this is not communicating with an SV2 proxy, but instead a custom SV1
-                // proxy where the routing logic is handled via the `Upstream`'s communication
-                // channels, we do not use the mining routing logic in the SV2 library and specify
-                // no mining routing logic here
-                let routing_logic = MiningRoutingLogic::None;
-
                 // Gets the response message for the received SV2 Upstream role message
                 // `handle_message_mining` takes care of the SetupConnection +
                 // SetupConnection.Success
-                let next_message_to_send = Upstream::handle_message_mining(
-                    self_.clone(),
-                    message_type,
-                    payload,
-                    routing_logic,
-                );
+                let next_message_to_send =
+                    Upstream::handle_message_mining(self_.clone(), message_type, payload);
 
                 // Routes the incoming messages accordingly
                 match next_message_to_send {
@@ -569,7 +560,7 @@ impl Upstream {
     }
 }
 
-impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+impl IsUpstream<Downstream> for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -589,13 +580,9 @@ impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
         todo!()
     }
-
-    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
-        todo!()
-    }
 }
 
-impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+impl IsMiningUpstream<Downstream> for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -615,7 +602,7 @@ impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
+impl ParseCommonMessagesFromUpstream for Upstream {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -636,15 +623,19 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
     ) -> Result<SendToCommon, RolesLogicError> {
         todo!()
     }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendToCommon, RolesLogicError> {
+        todo!()
+    }
 }
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
-impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
+impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
-    fn get_channel_type(&self) -> roles_logic_sv2::handlers::mining::SupportedChannelTypes {
-        roles_logic_sv2::handlers::mining::SupportedChannelTypes::Extended
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Extended
     }
 
     /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
@@ -659,7 +650,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
-        _remote: Option<Arc<Mutex<Downstream>>>,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
@@ -824,11 +814,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::None(None))
     }
 
-    /// Handles the SV2 `Reconnect` message (TODO).
-    fn handle_reconnect(
+    fn handle_set_group_channel(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::Reconnect,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        unimplemented!()
+        _m: SetGroupChannel,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        todo!()
     }
 }

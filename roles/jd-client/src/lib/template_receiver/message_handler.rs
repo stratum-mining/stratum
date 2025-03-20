@@ -1,12 +1,12 @@
 use super::TemplateRx;
 use roles_logic_sv2::{
     errors::Error,
-    handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
+    handlers::template_distribution::{ParseTemplateDistributionMessagesFromServer, SendTo},
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
 };
 
-impl ParseServerTemplateDistributionMessages for TemplateRx {
+impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         let new_template = m.into_static();
         let new_template = TemplateDistribution::NewTemplate(new_template);
