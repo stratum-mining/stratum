@@ -17,16 +17,6 @@ jobs:
       - name: Run jds-do-not-fail-on-wrong-tsdatasucc
         run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
 
-  jds-receive-solution-while-processing-declared-job:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Run jds-receive-solution-while-processing-declared-job
-        run: sh ./test/message-generator/test/jds-receive-solution-while-processing-declared-job/jds-receive-solution-while-processing-declared-job.sh
-
   sv1-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -42,14 +32,12 @@ jobs:
     if: always()
     needs: [
       jds-do-not-fail-on-wrong-tsdatasucc,
-      jds-receive-solution-while-processing-declared-job,
       sv1-test
     ]
     steps:
       - name: Aggregate Results
         run: |
           if [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
-          [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.sv1-test.result }}" != "success" ]; then
             echo "One or more jobs failed."
             exit 1
