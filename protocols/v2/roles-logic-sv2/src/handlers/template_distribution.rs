@@ -37,7 +37,6 @@ pub type SendTo = SendTo_<TemplateDistribution<'static>, ()>;
 use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
-use tracing::{debug, error, info, trace};
 
 /// Trait for handling template distribution messages received from server (Template Provider).
 /// Includes functions to handle messages such as new templates, previous hash updates, and
@@ -72,43 +71,18 @@ where
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match message {
-            Ok(TemplateDistribution::NewTemplate(m)) => {
-                info!(
-                    "Received NewTemplate with id: {}, is future: {}",
-                    m.template_id, m.future_template
-                );
-                debug!("NewTemplate: {:?}", m);
-                self_
-                    .safe_lock(|x| x.handle_new_template(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(TemplateDistribution::SetNewPrevHash(m)) => {
-                info!("Received SetNewPrevHash for template: {}", m.template_id);
-                debug!("SetNewPrevHash: {:?}", m);
-                self_
-                    .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(TemplateDistribution::RequestTransactionDataSuccess(m)) => {
-                info!(
-                    "Received RequestTransactionDataSuccess for template: {}",
-                    m.template_id
-                );
-                trace!("RequestTransactionDataSuccess: {:?}", m);
-                self_
-                    .safe_lock(|x| x.handle_request_tx_data_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(TemplateDistribution::RequestTransactionDataError(m)) => {
-                error!(
-                    "Received RequestTransactionDataError for template: {}, error: {}",
-                    m.template_id,
-                    std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
-                );
-                self_
-                    .safe_lock(|x| x.handle_request_tx_data_error(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
+            Ok(TemplateDistribution::NewTemplate(m)) => self_
+                .safe_lock(|x| x.handle_new_template(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::SetNewPrevHash(m)) => self_
+                .safe_lock(|x| x.handle_set_new_prev_hash(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::RequestTransactionDataSuccess(m)) => self_
+                .safe_lock(|x| x.handle_request_tx_data_success(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::RequestTransactionDataError(m)) => self_
+                .safe_lock(|x| x.handle_request_tx_data_error(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::CoinbaseOutputConstraints(_)) => Err(
                 Error::UnexpectedMessage(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
             ),
