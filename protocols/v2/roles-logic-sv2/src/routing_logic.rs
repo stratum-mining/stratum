@@ -39,9 +39,9 @@ use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc}
 
 /// Defines routing logic for common protocol messages.
 ///
-/// Implemented by handlers (such as [`crate::handlers::common::ParseUpstreamCommonMessages`] and
-/// [`crate::handlers::common::ParseDownstreamCommonMessages`]) to determine the behavior for common
-/// protocol routing.
+/// Implemented by handlers (such as [`crate::handlers::common::ParseCommonMessagesFromUpstream`]
+/// and [`crate::handlers::common::ParseCommonMessagesFromDownstream`]) to determine the behavior
+/// for common protocol routing.
 pub trait CommonRouter: std::fmt::Debug {
     /// Handles a `SetupConnection` message for the common protocol.
     fn on_setup_connection(
@@ -52,9 +52,10 @@ pub trait CommonRouter: std::fmt::Debug {
 
 /// Defines routing logic for mining protocol messages.
 ///
-/// Implemented by handlers (such as [`crate::handlers::mining::ParseUpstreamMiningMessages`] and
-/// [`crate::handlers::mining::ParseDownstreamMiningMessages`]) to determine the behavior for mining
-/// protocol routing. This trait extends [`CommonRouter`] to handle mining-specific routing logic.
+/// Implemented by handlers (such as [`crate::handlers::mining::ParseMiningMessagesFromUpstream`]
+/// and [`crate::handlers::mining::ParseMiningMessagesFromDownstream`]) to determine the behavior
+/// for mining protocol routing. This trait extends [`CommonRouter`] to handle mining-specific
+/// routing logic.
 pub trait MiningRouter<
     Down: IsMiningDownstream,
     Up: IsMiningUpstream<Down, Sel>,
@@ -72,7 +73,7 @@ pub trait MiningRouter<
     /// Handles an `OpenStandardMiningChannelSuccess` message from an upstream.
     fn on_open_standard_channel_success(
         &mut self,
-        upstream: Arc<Mutex<Up>>,
+        upstream: &mut Up,
         request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, Error>;
 }
@@ -108,7 +109,7 @@ impl<
 
     fn on_open_standard_channel_success(
         &mut self,
-        _upstream: Arc<Mutex<Up>>,
+        _upstream: &mut Up,
         _request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, Error> {
         unreachable!()
@@ -256,30 +257,23 @@ impl<
     // updates the associated group and channel IDs in the upstream.
     fn on_open_standard_channel_success(
         &mut self,
-        upstream: Arc<Mutex<Up>>,
+        upstream: &mut Up,
         request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, Error> {
         let upstream_request_id = request.get_request_id_as_u32();
         let original_request_id = upstream
-            .safe_lock(|u| {
-                u.get_mapper()
-                    .ok_or(crate::Error::RequestIdNotMapped(upstream_request_id))?
-                    .remove(upstream_request_id)
-                    .ok_or(Error::RequestIdNotMapped(upstream_request_id))
-            })
-            .map_err(|e| Error::PoisonLock(e.to_string()))??;
+            .get_mapper()
+            .ok_or(crate::Error::RequestIdNotMapped(upstream_request_id))?
+            .remove(upstream_request_id)
+            .ok_or(Error::RequestIdNotMapped(upstream_request_id));
 
-        request.update_id(original_request_id);
-        upstream
-            .safe_lock(|u| {
-                let selector = u.get_remote_selector();
-                selector.on_open_standard_channel_success(
-                    upstream_request_id,
-                    request.group_channel_id,
-                    request.channel_id,
-                )
-            })
-            .map_err(|e| Error::PoisonLock(e.to_string()))?
+        request.update_id(original_request_id?);
+        let selector = upstream.get_remote_selector();
+        selector.on_open_standard_channel_success(
+            upstream_request_id,
+            request.group_channel_id,
+            request.channel_id,
+        )
     }
 }
 

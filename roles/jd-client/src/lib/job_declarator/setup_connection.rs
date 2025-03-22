@@ -1,13 +1,15 @@
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
-    handlers::common::{ParseUpstreamCommonMessages, SendTo},
+    common_messages_sv2::{Protocol, Reconnect, SetupConnection},
+    handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
     parsers::AnyMessage,
-    routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
+    Error,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tracing::info;
+
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -59,22 +61,25 @@ impl SetupConnectionHandler {
 
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(
+        ParseCommonMessagesFromUpstream::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
             payload,
-            CommonRoutingLogic::None,
         )
         .unwrap();
         Ok(())
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
+    ) -> Result<SendTo, Error> {
+        info!(
+            "Received `SetupConnectionSuccess` from JDS: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendTo::None(None))
     }
 
@@ -89,6 +94,10 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        todo!()
+    }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendTo, Error> {
         todo!()
     }
 }
