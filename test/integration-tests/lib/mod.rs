@@ -30,7 +30,7 @@ pub fn start_tracing() {
     });
 }
 
-pub async fn start_sniffer(
+pub fn start_sniffer(
     identifier: String,
     upstream: SocketAddr,
     check_on_drop: bool,
@@ -43,12 +43,8 @@ pub async fn start_sniffer(
         upstream,
         check_on_drop,
         action,
-    )
-    .await;
-    let sniffer_clone = sniffer.clone();
-    tokio::spawn(async move {
-        sniffer_clone.start().await;
-    });
+    );
+    sniffer.start();
     (sniffer, listening_address)
 }
 
