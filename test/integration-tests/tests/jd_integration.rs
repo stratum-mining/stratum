@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use binary_sv2::{B032, U256};
+use binary_sv2::{Seq064K, B032, U256};
 // This file contains integration tests for the `JDC/S` module.
 //
 // `JDC/S` are modules that implements the Job Decleration roles in the Stratum V2 protocol.
@@ -14,7 +14,10 @@ use integration_tests_sv2::{
     sniffer::{MessageDirection, ReplaceMessage},
     *,
 };
-use roles_logic_sv2::{job_declaration_sv2::SubmitSolutionJd, parsers::AnyMessage};
+use roles_logic_sv2::{
+    job_declaration_sv2::{ProvideMissingTransactionsSuccess, SubmitSolutionJd},
+    parsers::AnyMessage,
+};
 
 use roles_logic_sv2::parsers::CommonMessages;
 
@@ -216,6 +219,93 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
         .wait_for_message_type(
             MessageDirection::ToUpstream,
             MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
+        )
+        .await;
+
+    assert!(tokio::net::TcpListener::bind(jds_addr).await.is_err());
+}
+
+// This test ensures that JDS does not exit upon receiving a `ProvideMissingTransactionsSuccess`
+// message containing a transaction set that differs from the `tx_short_hash_list`
+// in the Declare Mining Job.
+//
+// It is performing the verification by connecting to JDS after the message exchange
+// to check whether it remains alive
+#[tokio::test]
+async fn jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transaction_success() {
+    start_tracing();
+    let (tp_1, tp_addr_1) = start_template_provider(None);
+    let (tp_2, tp_addr_2) = start_template_provider(None);
+
+    assert!(tp_2.fund_wallet().is_ok());
+    assert!(tp_2.create_mempool_transaction().is_ok());
+
+    let (_pool, pool_addr) = start_pool(Some(tp_addr_1)).await;
+    let (_jds, jds_addr) = start_jds(tp_1.rpc_info()).await;
+
+    let provide_missing_transaction_success_replace = ReplaceMessage::new(
+        MessageDirection::ToUpstream,
+        MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
+        AnyMessage::JobDeclaration(
+            roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactionsSuccess(
+                ProvideMissingTransactionsSuccess {
+                    request_id: 1,
+                    transaction_list: Seq064K::new(Vec::new()).unwrap(),
+                },
+            ),
+        ),
+    );
+
+    // This sniffer sits between `jds` and `jdc`, replacing `ProvideMissingTransactionSuccess`
+    // with `ProvideMissingTransactionSuccess` with different transaction list.
+    let (sniffer, sniffer_addr) = start_sniffer(
+        "A".to_string(),
+        jds_addr,
+        false,
+        Some(provide_missing_transaction_success_replace.into()),
+    )
+    .await;
+
+    let (_, jdc_addr_1) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr_2).await;
+    start_sv2_translator(jdc_addr_1).await;
+
+    sniffer
+        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
+        .await;
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+        )
+        .await;
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+        )
+        .await;
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_DECLARE_MINING_JOB,
+        )
+        .await;
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+        )
+        .await;
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
         )
         .await;
 
