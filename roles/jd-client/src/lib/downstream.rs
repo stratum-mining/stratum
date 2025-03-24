@@ -22,7 +22,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use tokio::sync::Notify;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -469,6 +469,12 @@ impl
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!(
+            "Received OpenExtendedMiningChannel from: {} with id: {}",
+            std::str::from_utf8(m.user_identity.as_ref()).unwrap_or("Unknown identity"),
+            m.get_request_id_as_u32()
+        );
+        debug!("OpenExtendedMiningChannel: {:?}", m);
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -524,6 +530,7 @@ impl
         &mut self,
         m: UpdateChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received UpdateChannel message");
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -555,6 +562,8 @@ impl
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received SubmitSharesExtended message");
+        debug!("SubmitSharesExtended {:?}", m);
         match self
             .status
             .get_channel()

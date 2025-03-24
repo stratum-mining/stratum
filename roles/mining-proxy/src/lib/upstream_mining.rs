@@ -7,7 +7,7 @@ use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use nohash_hasher::BuildNoHashHasher;
 use tokio::{net::TcpStream, task};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 use super::{
     downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame},
@@ -938,6 +938,11 @@ impl
         &mut self,
         m: OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        info!(
+            "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
+            m.request_id, m.channel_id
+        );
+        debug!("OpenStandardMiningChannelSuccess: {:?}", m);
         let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
         let range_1 = range_0.end..(range_0.end + EXTRANONCE_RANGE_1_LENGTH);
@@ -992,6 +997,8 @@ impl
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        info!("Received SubmitSharesSuccess");
+        debug!("SubmitSharesSuccess: {:?}", m);
         match &self
             .downstream_selector
             .downstream_from_channel_id(m.channel_id)
@@ -1006,8 +1013,12 @@ impl
 
     fn handle_submit_shares_error(
         &mut self,
-        _m: SubmitSharesError,
+        m: SubmitSharesError,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        error!(
+            "Received SubmitSharesError with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         Ok(SendTo::None(None))
     }
 
@@ -1041,8 +1052,13 @@ impl
         &mut self,
         m: NewExtendedMiningJob,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        debug!("Handling new extended mining job: {:?} {}", m, self.id);
-
+        info!(
+            "Received new extended mining job for channel id: {} with job id: {} is_future: {}",
+            m.channel_id,
+            m.job_id,
+            m.is_future()
+        );
+        debug!("NewExtendedMiningJob: {:?}", m);
         let mut res = vec![];
         match &mut self.channel_kind {
             ChannelKind::Group(group) => {
@@ -1128,6 +1144,11 @@ impl
         &mut self,
         m: SetNewPrevHash,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        info!(
+            "Received SetNewPrevHash channel id: {}, job id: {}",
+            m.channel_id, m.job_id
+        );
+        debug!("SetNewPrevHash: {:?}", m);
         match &mut self.channel_kind {
             ChannelKind::Group(group) => {
                 group.update_new_prev_hash(&m);
@@ -1161,9 +1182,13 @@ impl
 
     fn handle_set_custom_mining_job_success(
         &mut self,
-        _m: SetCustomMiningJobSuccess,
+        m: SetCustomMiningJobSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        info!("SET CUSTOM MINIG JOB SUCCESS");
+        info!(
+            "Received SetCustomMiningJobSuccess for channel id: {} for job id: {}",
+            m.channel_id, m.job_id
+        );
+        debug!("SetCustomMiningJobSuccess: {:?}", m);
         Ok(SendTo::None(None))
     }
 

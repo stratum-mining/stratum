@@ -2,7 +2,7 @@ use std::{convert::TryInto, sync::Arc};
 
 use async_channel::{Receiver, SendError, Sender};
 use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
-use tracing::{info, trace, warn};
+use tracing::{debug, info, trace, warn};
 
 use super::upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
@@ -313,6 +313,12 @@ impl
         &mut self,
         req: OpenStandardMiningChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!(
+            "Received OpenStandardMiningChannel from: {} with id: {}",
+            std::str::from_utf8(req.user_identity.as_ref()).unwrap_or("Unknown identity"),
+            req.get_request_id_as_u32()
+        );
+        debug!("OpenStandardMiningChannel: {:?}", req);
         let downstream_mining_data = self.get_downstream_mining_data();
         let routing_logic = super::get_routing_logic();
 
@@ -341,7 +347,6 @@ impl
             .expect("No upstream initialized")
             .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
             .unwrap();
-        info!(channel_id);
         let cloned = upstream.as_ref().expect("No upstream initialized").clone();
 
         upstream
@@ -390,6 +395,8 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received SubmitSharesStandard");
+        debug!("SubmitSharesStandard {:?}", m);
         // TODO maybe we want to check if shares meet target before
         // sending them upstream If that is the case it should be
         // done by GroupChannel not here

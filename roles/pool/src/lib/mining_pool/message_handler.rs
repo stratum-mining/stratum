@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::error;
+use tracing::{debug, error, info, trace};
 
 impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
@@ -33,6 +33,12 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         &mut self,
         incoming: OpenStandardMiningChannel,
     ) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received OpenStandardMiningChannel from: {} with id: {}",
+            std::str::from_utf8(incoming.user_identity.as_ref()).unwrap_or("Unknown identity"),
+            incoming.get_request_id_as_u32()
+        );
+        debug!("OpenStandardMiningChannel: {:?}", incoming);
         let header_only = self.downstream_data.header_only;
         let reposnses = self
             .channel_factory
@@ -65,6 +71,12 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received OpenExtendedMiningChannel from: {} with id: {}",
+            std::str::from_utf8(m.user_identity.as_ref()).unwrap_or("Unknown identity"),
+            m.get_request_id_as_u32()
+        );
+        debug!("OpenExtendedMiningChannel: {:?}", m);
         let request_id = m.request_id;
         let hash_rate = m.nominal_hash_rate;
         let min_extranonce_size = m.min_extranonce_size;
@@ -82,6 +94,7 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
     }
 
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
+        info!("Received UpdateChannel message");
         let maximum_target =
             roles_logic_sv2::utils::hash_rate_to_target(m.nominal_hash_rate.into(), 10.0)?;
         self.channel_factory
@@ -100,6 +113,8 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
+        info!("Received SubmitSharesStandard");
+        debug!("SubmitSharesStandard {:?}", m);
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))
@@ -151,6 +166,8 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
+        info!("Received SubmitSharesExtended message");
+        debug!("SubmitSharesExtended {:?}", m);
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
@@ -202,6 +219,11 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
     }
 
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received SetCustomMiningJob message for channel: {}, with id: {}",
+            m.channel_id, m.request_id
+        );
+        debug!("SetCustomMiningJob: {:?}", m);
         let m = SetCustomMiningJobSuccess {
             channel_id: m.channel_id,
             request_id: m.request_id,
