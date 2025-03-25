@@ -17,29 +17,27 @@ use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
-    common_messages_sv2::{Protocol, SetupConnection},
+    common_messages_sv2::{Protocol, Reconnect, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
         common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
-        mining::{ParseMiningMessagesFromUpstream, SendTo},
+        mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
     },
     job_declaration_sv2::DeclareMiningJob,
-    mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob},
+    mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob, SetGroupChannel},
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::NoRouting,
-    selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
     Error as RolesLogicError,
 };
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
+use std::{
+    collections::{HashMap, VecDeque},
+    net::SocketAddr,
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{debug, error, info, warn};
-
-use roles_logic_sv2::{
-    common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
-    mining_sv2::SetGroupChannel,
-};
-use std::collections::VecDeque;
 
 #[derive(Debug)]
 struct CircularBuffer {
@@ -451,7 +449,7 @@ impl Upstream {
     }
 }
 
-impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+impl IsUpstream<Downstream> for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -471,13 +469,9 @@ impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
         todo!()
     }
-
-    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
-        todo!()
-    }
 }
 
-impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+impl IsMiningUpstream<Downstream> for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -530,9 +524,7 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
-impl ParseMiningMessagesFromUpstream<Downstream, NullDownstreamMiningSelector, NoRouting>
-    for Upstream
-{
+impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
     fn get_channel_type(&self) -> SupportedChannelTypes {

@@ -4,7 +4,10 @@ use async_channel::{Receiver, SendError, Sender};
 use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
 use tracing::{debug, info, trace, warn};
 
-use super::upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode};
+use super::{
+    routing_logic::{CommonRouter, CommonRoutingLogic, MiningRouter, MiningRoutingLogic},
+    upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode},
+};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::plain_connection::PlainConnection;
 use roles_logic_sv2::{
@@ -17,9 +20,6 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::{
-        CommonRouter, CommonRoutingLogic, MiningProxyRoutingLogic, MiningRouter, MiningRoutingLogic,
-    },
     utils::Mutex,
 };
 
@@ -287,13 +287,7 @@ impl DownstreamMiningNode {
 }
 
 /// It impl UpstreamMining cause the proxy act as an upstream node for the DownstreamMiningNode
-impl
-    ParseMiningMessagesFromDownstream<
-        UpstreamMiningNode,
-        ProxyRemoteSelector,
-        MiningProxyRoutingLogic<Self, UpstreamMiningNode, ProxyRemoteSelector>,
-    > for DownstreamMiningNode
-{
+impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningNode {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Group
     }
@@ -452,13 +446,9 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
                 let result = r_logic.safe_lock(|r_logic| r_logic.on_setup_connection(&m))?;
                 let (data, message) = result?;
                 let upstream = match super::get_routing_logic() {
-                    roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
-                        proxy_routing
-                            .safe_lock(|r| {
-                                r.downstream_to_upstream_map.get(&data).unwrap()[0].clone()
-                            })
-                            .unwrap()
-                    }
+                    MiningRoutingLogic::Proxy(proxy_routing) => proxy_routing
+                        .safe_lock(|r| r.downstream_to_upstream_map.get(&data).unwrap()[0].clone())
+                        .unwrap(),
                     _ => unreachable!(),
                 };
                 self.upstream = Some(upstream);

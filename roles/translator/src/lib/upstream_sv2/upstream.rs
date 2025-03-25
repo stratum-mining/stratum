@@ -26,8 +26,6 @@ use roles_logic_sv2::{
         SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
-    routing_logic::NoRouting,
-    selectors::NullDownstreamMiningSelector,
     utils::Mutex,
     Error as RolesLogicError,
     Error::NoUpstreamsConnected,
@@ -562,7 +560,7 @@ impl Upstream {
     }
 }
 
-impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+impl IsUpstream<Downstream> for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -582,13 +580,9 @@ impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
         todo!()
     }
-
-    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
-        todo!()
-    }
 }
 
-impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+impl IsMiningUpstream<Downstream> for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -641,9 +635,7 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
-impl ParseMiningMessagesFromUpstream<Downstream, NullDownstreamMiningSelector, NoRouting>
-    for Upstream
-{
+impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
     fn get_channel_type(&self) -> SupportedChannelTypes {
