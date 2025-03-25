@@ -178,7 +178,7 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender, _, _) = Connection::new(socket, HandshakeRole::Initiator(initiator))
+        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator))
             .await
             .expect("Failed to create connection");
 
