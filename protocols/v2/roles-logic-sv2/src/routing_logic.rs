@@ -243,9 +243,7 @@ impl<
         let upstream =
             Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
         let old_id = request.get_request_id_as_u32();
-        let new_req_id = upstream
-            .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
-            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        let new_req_id = upstream.safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))?;
         request.update_id(new_req_id);
         self.on_open_standard_channel_request_header_only(downstream, request)
     }
@@ -371,9 +369,7 @@ impl<
         };
         let message = SetupConnectionSuccess {
             used_version: 2,
-            flags: upstream
-                .safe_lock(|u| u.get_flags())
-                .map_err(|e| Error::PoisonLock(e.to_string()))?,
+            flags: upstream.safe_lock(|u| u.get_flags())?,
         };
         self.downstream_to_upstream_map
             .insert(downstream_data, vec![upstream]);
@@ -386,20 +382,16 @@ impl<
         downstream: Arc<Mutex<Down>>,
         request: &OpenStandardMiningChannel,
     ) -> Result<Arc<Mutex<Up>>, Error> {
-        let downstream_mining_data = downstream
-            .safe_lock(|d| d.get_downstream_mining_data())
-            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
+        let downstream_mining_data = downstream.safe_lock(|d| d.get_downstream_mining_data())?;
         let upstream = self
             .downstream_to_upstream_map
             .get(&downstream_mining_data)
             .ok_or(crate::Error::NoCompatibleUpstream(downstream_mining_data))?[0]
             .clone();
-        upstream
-            .safe_lock(|u| {
-                let selector = u.get_remote_selector();
-                selector.on_open_standard_channel_request(request.request_id.as_u32(), downstream)
-            })
-            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        upstream.safe_lock(|u| {
+            let selector = u.get_remote_selector();
+            selector.on_open_standard_channel_request(request.request_id.as_u32(), downstream)
+        })?;
         Ok(upstream)
     }
 }

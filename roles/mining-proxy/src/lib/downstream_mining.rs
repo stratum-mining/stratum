@@ -332,8 +332,7 @@ impl
                             &mut req.clone(),
                             &downstream_mining_data,
                         )
-                    })
-                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                    })?;
                 trace!("On OpenStandardMiningChannel best candidate is: {:?}", up);
                 Some(up?)
             }
@@ -450,9 +449,7 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
         match routing_logic {
             CommonRoutingLogic::Proxy(r_logic) => {
                 trace!("On SetupConnection r_logic is {:?}", r_logic);
-                let result = r_logic
-                    .safe_lock(|r_logic| r_logic.on_setup_connection(&m))
-                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                let result = r_logic.safe_lock(|r_logic| r_logic.on_setup_connection(&m))?;
                 let (data, message) = result?;
                 let upstream = match super::get_routing_logic() {
                     roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {

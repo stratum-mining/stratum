@@ -265,50 +265,48 @@ fn clear_declared_mining_job(
 
     let nonce = old_mining_job.tx_short_hash_nonce;
 
-    let result = mempool
-        .safe_lock(|mempool_| -> Result<(), Error> {
-            let short_ids_map = mempool_
-                .to_short_ids(nonce)
-                .ok_or(Error::JDSMissingTransactions)?;
+    let result = mempool.safe_lock(|mempool_| -> Result<(), Error> {
+        let short_ids_map = mempool_
+            .to_short_ids(nonce)
+            .ok_or(Error::JDSMissingTransactions)?;
 
-            for short_id in old_transactions
-                .iter()
-                .filter(|&id| !new_transactions.contains(id))
-            {
-                if let Some(transaction_with_hash) = short_ids_map.get(*short_id) {
-                    let txid = transaction_with_hash.id;
-                    match mempool_.mempool.get_mut(&txid) {
-                        Some(Some((_transaction, counter))) => {
-                            if *counter > 1 {
-                                *counter -= 1;
-                                debug!(
-                                    "Fat transaction {:?} counter decremented; job id {:?} dropped",
-                                    txid, old_mining_job.request_id
-                                );
-                            } else {
-                                mempool_.mempool.remove(&txid);
-                                debug!(
-                                    "Fat transaction {:?} with job id {:?} removed from mempool",
-                                    txid, old_mining_job.request_id
-                                );
-                            }
+        for short_id in old_transactions
+            .iter()
+            .filter(|&id| !new_transactions.contains(id))
+        {
+            if let Some(transaction_with_hash) = short_ids_map.get(*short_id) {
+                let txid = transaction_with_hash.id;
+                match mempool_.mempool.get_mut(&txid) {
+                    Some(Some((_transaction, counter))) => {
+                        if *counter > 1 {
+                            *counter -= 1;
+                            debug!(
+                                "Fat transaction {:?} counter decremented; job id {:?} dropped",
+                                txid, old_mining_job.request_id
+                            );
+                        } else {
+                            mempool_.mempool.remove(&txid);
+                            debug!(
+                                "Fat transaction {:?} with job id {:?} removed from mempool",
+                                txid, old_mining_job.request_id
+                            );
                         }
-                        Some(None) => debug!(
-                            "Thin transaction {:?} with job id {:?} removed from mempool",
-                            txid, old_mining_job.request_id
-                        ),
-                        None => {}
                     }
-                } else {
-                    debug!(
-                        "Transaction with short id {:?} not found in mempool for old jobs",
-                        short_id
-                    );
+                    Some(None) => debug!(
+                        "Thin transaction {:?} with job id {:?} removed from mempool",
+                        txid, old_mining_job.request_id
+                    ),
+                    None => {}
                 }
+            } else {
+                debug!(
+                    "Transaction with short id {:?} not found in mempool for old jobs",
+                    short_id
+                );
             }
-            Ok(())
-        })
-        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        }
+        Ok(())
+    })?;
 
     result.map_err(|err| Error::PoisonLock(err.to_string()))
 }

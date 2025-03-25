@@ -188,9 +188,7 @@ impl Downstream {
                 // and the main thread will drop the downstream from the pool
                 if let &Mining::OpenMiningChannelError(_) = &message {
                     Self::send(self_.clone(), message.clone()).await?;
-                    let downstream_id = self_
-                        .safe_lock(|d| d.id)
-                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                    let downstream_id = self_.safe_lock(|d| d.id)?;
                     return Err(PoolError::Sv2ProtocolError((
                         downstream_id,
                         message.clone(),

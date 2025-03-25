@@ -82,8 +82,7 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         let min_extranonce_size = m.min_extranonce_size;
         let messages_res = self
             .channel_factory
-            .safe_lock(|s| s.new_extended_channel(request_id, hash_rate, min_extranonce_size))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+            .safe_lock(|s| s.new_extended_channel(request_id, hash_rate, min_extranonce_size))?;
         match messages_res {
             Ok(messages) => {
                 let messages = messages.into_iter().map(SendTo::Respond).collect();
@@ -117,8 +116,7 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         debug!("SubmitSharesStandard {:?}", m);
         let res = self
             .channel_factory
-            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))?;
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
@@ -170,8 +168,7 @@ impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouti
         debug!("SubmitSharesExtended {:?}", m);
         let res = self
             .channel_factory
-            .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+            .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))?;
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {

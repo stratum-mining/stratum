@@ -71,18 +71,18 @@ where
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match message {
-            Ok(TemplateDistribution::NewTemplate(m)) => self_
-                .safe_lock(|x| x.handle_new_template(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(TemplateDistribution::SetNewPrevHash(m)) => self_
-                .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(TemplateDistribution::RequestTransactionDataSuccess(m)) => self_
-                .safe_lock(|x| x.handle_request_tx_data_success(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(TemplateDistribution::RequestTransactionDataError(m)) => self_
-                .safe_lock(|x| x.handle_request_tx_data_error(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::NewTemplate(m)) => {
+                self_.safe_lock(|x| x.handle_new_template(m))?
+            }
+            Ok(TemplateDistribution::SetNewPrevHash(m)) => {
+                self_.safe_lock(|x| x.handle_set_new_prev_hash(m))?
+            }
+            Ok(TemplateDistribution::RequestTransactionDataSuccess(m)) => {
+                self_.safe_lock(|x| x.handle_request_tx_data_success(m))?
+            }
+            Ok(TemplateDistribution::RequestTransactionDataError(m)) => {
+                self_.safe_lock(|x| x.handle_request_tx_data_error(m))?
+            }
             Ok(TemplateDistribution::CoinbaseOutputConstraints(_)) => Err(
                 Error::UnexpectedMessage(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
             ),
@@ -157,15 +157,15 @@ where
         message: Result<TemplateDistribution<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(TemplateDistribution::CoinbaseOutputConstraints(m)) => self_
-                .safe_lock(|x| x.handle_coinbase_out_data_size(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(TemplateDistribution::RequestTransactionData(m)) => self_
-                .safe_lock(|x| x.handle_request_tx_data(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(TemplateDistribution::SubmitSolution(m)) => self_
-                .safe_lock(|x| x.handle_request_submit_solution(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::CoinbaseOutputConstraints(m)) => {
+                self_.safe_lock(|x| x.handle_coinbase_out_data_size(m))?
+            }
+            Ok(TemplateDistribution::RequestTransactionData(m)) => {
+                self_.safe_lock(|x| x.handle_request_tx_data(m))?
+            }
+            Ok(TemplateDistribution::SubmitSolution(m)) => {
+                self_.safe_lock(|x| x.handle_request_submit_solution(m))?
+            }
             Ok(TemplateDistribution::NewTemplate(_)) => {
                 Err(Error::UnexpectedMessage(MESSAGE_TYPE_NEW_TEMPLATE))
             }

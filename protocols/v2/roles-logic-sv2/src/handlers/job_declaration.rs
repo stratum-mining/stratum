@@ -69,21 +69,21 @@ where
         message: Result<JobDeclaration<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::DeclareMiningJobError(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job_error(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::IdentifyTransactions(message)) => self_
-                .safe_lock(|x| x.handle_identify_transactions(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
-                .safe_lock(|x| x.handle_provide_missing_transactions(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => {
+                self_.safe_lock(|x| x.handle_allocate_mining_job_token_success(message))?
+            }
+            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => {
+                self_.safe_lock(|x| x.handle_declare_mining_job_success(message))?
+            }
+            Ok(JobDeclaration::DeclareMiningJobError(message)) => {
+                self_.safe_lock(|x| x.handle_declare_mining_job_error(message))?
+            }
+            Ok(JobDeclaration::IdentifyTransactions(message)) => {
+                self_.safe_lock(|x| x.handle_identify_transactions(message))?
+            }
+            Ok(JobDeclaration::ProvideMissingTransactions(message)) => {
+                self_.safe_lock(|x| x.handle_provide_missing_transactions(message))?
+            }
             Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
             )),
@@ -166,21 +166,21 @@ where
         message: Result<JobDeclaration<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(JobDeclaration::AllocateMiningJobToken(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_token(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::DeclareMiningJob(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.handle_identify_transactions_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::SubmitSolution(message)) => self_
-                .safe_lock(|x| x.handle_submit_solution(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::AllocateMiningJobToken(message)) => {
+                self_.safe_lock(|x| x.handle_allocate_mining_job_token(message))?
+            }
+            Ok(JobDeclaration::DeclareMiningJob(message)) => {
+                self_.safe_lock(|x| x.handle_declare_mining_job(message))?
+            }
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => {
+                self_.safe_lock(|x| x.handle_identify_transactions_success(message))?
+            }
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => {
+                self_.safe_lock(|x| x.handle_provide_missing_transactions_success(message))?
+            }
+            Ok(JobDeclaration::SubmitSolution(message)) => {
+                self_.safe_lock(|x| x.handle_submit_solution(message))?
+            }
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
             )),

@@ -59,18 +59,16 @@ where
         message: Result<CommonMessages<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(CommonMessages::SetupConnectionSuccess(m)) => self_
-                .safe_lock(|x| x.handle_setup_connection_success(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(CommonMessages::SetupConnectionError(m)) => self_
-                .safe_lock(|x| x.handle_setup_connection_error(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(CommonMessages::ChannelEndpointChanged(m)) => self_
-                .safe_lock(|x| x.handle_channel_endpoint_changed(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(CommonMessages::Reconnect(m)) => self_
-                .safe_lock(|x| x.handle_reconnect(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(CommonMessages::SetupConnectionSuccess(m)) => {
+                self_.safe_lock(|x| x.handle_setup_connection_success(m))?
+            }
+            Ok(CommonMessages::SetupConnectionError(m)) => {
+                self_.safe_lock(|x| x.handle_setup_connection_error(m))?
+            }
+            Ok(CommonMessages::ChannelEndpointChanged(m)) => {
+                self_.safe_lock(|x| x.handle_channel_endpoint_changed(m))?
+            }
+            Ok(CommonMessages::Reconnect(m)) => self_.safe_lock(|x| x.handle_reconnect(m))?,
             Ok(CommonMessages::SetupConnection(_)) => {
                 Err(Error::UnexpectedMessage(MESSAGE_TYPE_SETUP_CONNECTION))
             }
@@ -131,9 +129,9 @@ where
         message: Result<CommonMessages<'_>, Error>,
     ) -> Result<SendTo, Error> {
         match message {
-            Ok(CommonMessages::SetupConnection(m)) => self_
-                .safe_lock(|x| x.handle_setup_connection(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(CommonMessages::SetupConnection(m)) => {
+                self_.safe_lock(|x| x.handle_setup_connection(m))?
+            }
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
             )),

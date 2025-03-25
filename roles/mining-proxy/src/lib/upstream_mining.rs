@@ -896,8 +896,7 @@ impl
                 let up = r_logic
                     .safe_lock(|r_logic| {
                         r_logic.on_open_standard_channel_success(self, &mut m.clone())
-                    })
-                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                    })?;
                 Some(up?)
             }
             MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),

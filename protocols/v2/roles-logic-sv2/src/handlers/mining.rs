@@ -104,8 +104,7 @@ pub trait ParseMiningMessagesFromDownstream<
         Self: IsMiningDownstream + Sized,
     {
         let (channel_type, is_work_selection_enabled) = self_mutex
-            .safe_lock(|self_| (self_.get_channel_type(), self_.is_work_selection_enabled()))
-            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
+            .safe_lock(|self_| (self_.get_channel_type(), self_.is_work_selection_enabled()))?;
         match message {
             Ok(Mining::OpenStandardMiningChannel(m)) => {
                 // check user auth
@@ -116,17 +115,14 @@ pub trait ParseMiningMessagesFromDownstream<
                 }
                 match channel_type {
                     SupportedChannelTypes::Standard => self_mutex
-                        .safe_lock(|self_| self_.handle_open_standard_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                        .safe_lock(|self_| self_.handle_open_standard_mining_channel(m))?,
                     SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
                         MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
                     )),
                     SupportedChannelTypes::Group => self_mutex
-                        .safe_lock(|self_| self_.handle_open_standard_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                        .safe_lock(|self_| self_.handle_open_standard_mining_channel(m))?,
                     SupportedChannelTypes::GroupAndExtended => self_mutex
-                        .safe_lock(|self_| self_.handle_open_standard_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                        .safe_lock(|self_| self_.handle_open_standard_mining_channel(m))?,
                 }
             }
             Ok(Mining::OpenExtendedMiningChannel(m)) => {
@@ -141,54 +137,52 @@ pub trait ParseMiningMessagesFromDownstream<
                         MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
                     )),
                     SupportedChannelTypes::Extended => self_mutex
-                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))?,
                     SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(
                         MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
                     )),
                     SupportedChannelTypes::GroupAndExtended => self_mutex
-                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))?,
                 }
             }
-            Ok(Mining::UpdateChannel(m)) => self_mutex
-                .safe_lock(|self_| self_.handle_update_channel(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(Mining::UpdateChannel(m)) => {
+                self_mutex.safe_lock(|self_| self_.handle_update_channel(m))?
+            }
             Ok(Mining::SubmitSharesStandard(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Standard => {
+                    self_mutex.safe_lock(|self_| self_.handle_submit_shares_standard(m))?
+                }
                 SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
                     MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
                 )),
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Group => {
+                    self_mutex.safe_lock(|self_| self_.handle_submit_shares_standard(m))?
+                }
+                SupportedChannelTypes::GroupAndExtended => {
+                    self_mutex.safe_lock(|self_| self_.handle_submit_shares_standard(m))?
+                }
             },
             Ok(Mining::SubmitSharesExtended(m)) => match channel_type {
                 SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(
                     MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
                 )),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_extended(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Extended => {
+                    self_mutex.safe_lock(|self_| self_.handle_submit_shares_extended(m))?
+                }
                 SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(
                     MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
                 )),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_extended(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::GroupAndExtended => {
+                    self_mutex.safe_lock(|self_| self_.handle_submit_shares_extended(m))?
+                }
             },
             Ok(Mining::SetCustomMiningJob(m)) => match (channel_type, is_work_selection_enabled) {
-                (SupportedChannelTypes::Extended, true) => self_mutex
-                    .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
-                    .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                (SupportedChannelTypes::Extended, true) => {
+                    self_mutex.safe_lock(|self_| self_.handle_set_custom_mining_job(m))?
+                }
+                (SupportedChannelTypes::GroupAndExtended, true) => {
+                    self_mutex.safe_lock(|self_| self_.handle_set_custom_mining_job(m))?
+                }
                 _ => Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_CUSTOM_MINING_JOB)),
             },
             Ok(_) => Err(Error::UnexpectedMessage(0)),
@@ -283,62 +277,58 @@ pub trait ParseMiningMessagesFromUpstream<
         self_mutex: Arc<Mutex<Self>>,
         message: Result<Mining, Error>,
     ) -> Result<SendTo<Down>, Error> {
-        let (channel_type, is_work_selection_enabled) = self_mutex
-            .safe_lock(|s| (s.get_channel_type(), s.is_work_selection_enabled()))
-            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
+        let (channel_type, is_work_selection_enabled) =
+            self_mutex.safe_lock(|s| (s.get_channel_type(), s.is_work_selection_enabled()))?;
 
         match message {
-            Ok(Mining::OpenStandardMiningChannelSuccess(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex
-                    .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
-                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-                )),
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            },
-            Ok(Mining::OpenExtendedMiningChannelSuccess(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(
-                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
-                )),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(
-                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
-                )),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            },
-            Ok(Mining::OpenMiningChannelError(m)) => self_mutex
-                .safe_lock(|x| x.handle_open_mining_channel_error(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(Mining::UpdateChannelError(m)) => self_mutex
-                .safe_lock(|x| x.handle_update_channel_error(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(Mining::CloseChannel(m)) => self_mutex
-                .safe_lock(|x| x.handle_close_channel(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(Mining::OpenStandardMiningChannelSuccess(m)) => {
+                match channel_type {
+                    SupportedChannelTypes::Standard => self_mutex
+                        .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))?,
+                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
+                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+                    )),
+                    SupportedChannelTypes::Group => self_mutex
+                        .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))?,
+                    SupportedChannelTypes::GroupAndExtended => self_mutex
+                        .safe_lock(|s| s.handle_open_standard_mining_channel_success(m))?,
+                }
+            }
+            Ok(Mining::OpenExtendedMiningChannelSuccess(m)) => {
+                match channel_type {
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(
+                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
+                    )),
+                    SupportedChannelTypes::Extended => self_mutex
+                        .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))?,
+                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(
+                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
+                    )),
+                    SupportedChannelTypes::GroupAndExtended => self_mutex
+                        .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))?,
+                }
+            }
+            Ok(Mining::OpenMiningChannelError(m)) => {
+                self_mutex.safe_lock(|x| x.handle_open_mining_channel_error(m))?
+            }
+            Ok(Mining::UpdateChannelError(m)) => {
+                self_mutex.safe_lock(|x| x.handle_update_channel_error(m))?
+            }
+            Ok(Mining::CloseChannel(m)) => self_mutex.safe_lock(|x| x.handle_close_channel(m))?,
 
-            Ok(Mining::SetExtranoncePrefix(m)) => self_mutex
-                .safe_lock(|x| x.handle_set_extranonce_prefix(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(Mining::SubmitSharesSuccess(m)) => self_mutex
-                .safe_lock(|x| x.handle_submit_shares_success(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(Mining::SubmitSharesError(m)) => self_mutex
-                .safe_lock(|x| x.handle_submit_shares_error(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(Mining::SetExtranoncePrefix(m)) => {
+                self_mutex.safe_lock(|x| x.handle_set_extranonce_prefix(m))?
+            }
+            Ok(Mining::SubmitSharesSuccess(m)) => {
+                self_mutex.safe_lock(|x| x.handle_submit_shares_success(m))?
+            }
+            Ok(Mining::SubmitSharesError(m)) => {
+                self_mutex.safe_lock(|x| x.handle_submit_shares_error(m))?
+            }
             Ok(Mining::NewMiningJob(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex
-                    .safe_lock(|x| x.handle_new_mining_job(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Standard => {
+                    self_mutex.safe_lock(|x| x.handle_new_mining_job(m))?
+                }
                 SupportedChannelTypes::Extended => {
                     Err(Error::UnexpectedMessage(MESSAGE_TYPE_NEW_MINING_JOB))
                 }
@@ -353,27 +343,27 @@ pub trait ParseMiningMessagesFromUpstream<
                 SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(
                     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
                 )),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|x| x.handle_new_extended_mining_job(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|x| x.handle_new_extended_mining_job(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|x| x.handle_new_extended_mining_job(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Extended => {
+                    self_mutex.safe_lock(|x| x.handle_new_extended_mining_job(m))?
+                }
+                SupportedChannelTypes::Group => {
+                    self_mutex.safe_lock(|x| x.handle_new_extended_mining_job(m))?
+                }
+                SupportedChannelTypes::GroupAndExtended => {
+                    self_mutex.safe_lock(|x| x.handle_new_extended_mining_job(m))?
+                }
             },
-            Ok(Mining::SetNewPrevHash(m)) => self_mutex
-                .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(Mining::SetNewPrevHash(m)) => {
+                self_mutex.safe_lock(|x| x.handle_set_new_prev_hash(m))?
+            }
             Ok(Mining::SetCustomMiningJobSuccess(m)) => {
                 match (channel_type, is_work_selection_enabled) {
-                    (SupportedChannelTypes::Extended, true) => self_mutex
-                        .safe_lock(|x| x.handle_set_custom_mining_job_success(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
-                        .safe_lock(|x| x.handle_set_custom_mining_job_success(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                    (SupportedChannelTypes::Extended, true) => {
+                        self_mutex.safe_lock(|x| x.handle_set_custom_mining_job_success(m))?
+                    }
+                    (SupportedChannelTypes::GroupAndExtended, true) => {
+                        self_mutex.safe_lock(|x| x.handle_set_custom_mining_job_success(m))?
+                    }
                     _ => Err(Error::UnexpectedMessage(
                         MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
                     )),
@@ -382,23 +372,21 @@ pub trait ParseMiningMessagesFromUpstream<
 
             Ok(Mining::SetCustomMiningJobError(m)) => {
                 match (channel_type, is_work_selection_enabled) {
-                    (SupportedChannelTypes::Extended, true) => self_mutex
-                        .safe_lock(|x| x.handle_set_custom_mining_job_error(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    (SupportedChannelTypes::Group, true) => self_mutex
-                        .safe_lock(|x| x.handle_set_custom_mining_job_error(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                    (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
-                        .safe_lock(|x| x.handle_set_custom_mining_job_error(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                    (SupportedChannelTypes::Extended, true) => {
+                        self_mutex.safe_lock(|x| x.handle_set_custom_mining_job_error(m))?
+                    }
+                    (SupportedChannelTypes::Group, true) => {
+                        self_mutex.safe_lock(|x| x.handle_set_custom_mining_job_error(m))?
+                    }
+                    (SupportedChannelTypes::GroupAndExtended, true) => {
+                        self_mutex.safe_lock(|x| x.handle_set_custom_mining_job_error(m))?
+                    }
                     _ => Err(Error::UnexpectedMessage(
                         MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
                     )),
                 }
             }
-            Ok(Mining::SetTarget(m)) => self_mutex
-                .safe_lock(|x| x.handle_set_target(m))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(Mining::SetTarget(m)) => self_mutex.safe_lock(|x| x.handle_set_target(m))?,
             Ok(Mining::SetGroupChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_GROUP_CHANNEL))
@@ -406,12 +394,12 @@ pub trait ParseMiningMessagesFromUpstream<
                 SupportedChannelTypes::Extended => {
                     Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_GROUP_CHANNEL))
                 }
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|x| x.handle_set_group_channel(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|x| x.handle_set_group_channel(m))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+                SupportedChannelTypes::Group => {
+                    self_mutex.safe_lock(|x| x.handle_set_group_channel(m))?
+                }
+                SupportedChannelTypes::GroupAndExtended => {
+                    self_mutex.safe_lock(|x| x.handle_set_group_channel(m))?
+                }
             },
             Ok(_) => Err(Error::UnexpectedMessage(0)),
             Err(e) => Err(e),
