@@ -218,6 +218,7 @@ impl JobDeclaratorClient {
             None,
             config.clone(),
             shutdown,
+            config.jdc_signature().to_string(),
         ));
         let _ = task_collector.safe_lock(|e| {
             e.push(downstream_handle.abort_handle());
@@ -253,11 +254,10 @@ impl JobDeclaratorClient {
         let upstream = match upstream_sv2::Upstream::new(
             upstream_addr,
             upstream_config.authority_pubkey,
-            0, // TODO
-            upstream_config.pool_signature.clone(),
             status::Sender::Upstream(tx_status.clone()),
             task_collector.clone(),
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
+            config.jdc_signature().to_string(),
         )
         .await
         {
@@ -325,6 +325,7 @@ impl JobDeclaratorClient {
             Some(jd),
             config.clone(),
             shutdown,
+            config.jdc_signature().to_string(),
         ));
         let _ = task_collector.safe_lock(|e| {
             e.push(downstream_handle.abort_handle());

@@ -113,11 +113,7 @@ pub struct Upstream {
     /// Minimum `extranonce2` size. Initially requested in the `jdc-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     #[allow(dead_code)]
-    pub min_extranonce_size: u16,
-    #[allow(dead_code)]
     pub upstream_extranonce1_size: usize,
-    /// String be included in coinbase tx input scriptsig
-    pub pool_signature: String,
     /// Receives messages from the SV2 Upstream role
     pub receiver: Receiver<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
@@ -128,6 +124,7 @@ pub struct Upstream {
     channel_factory: Option<PoolChannelFactory>,
     template_to_job_id: TemplateToJobId,
     req_ids: Id,
+    jdc_signature: String,
 }
 
 impl Upstream {
@@ -152,11 +149,10 @@ impl Upstream {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
-        min_extranonce_size: u16,
-        pool_signature: String,
         tx_status: status::Sender,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
+        jdc_signature: String,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -188,10 +184,8 @@ impl Upstream {
 
         Ok(Arc::new(Mutex::new(Self {
             channel_id: None,
-            min_extranonce_size,
             upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
                                             * pool supports currently */
-            pool_signature,
             tx_status,
             receiver,
             sender,
@@ -201,6 +195,7 @@ impl Upstream {
             channel_factory: None,
             template_to_job_id: TemplateToJobId::new(),
             req_ids: Id::new(),
+            jdc_signature,
         })))
     }
 
@@ -562,15 +557,21 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         );
         debug!("OpenStandardMiningChannelSuccess: {:?}", m);
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let pool_signature = self.pool_signature.clone();
+        let jdc_signature_len = self.jdc_signature.len();
         let prefix_len = m.extranonce_prefix.to_vec().len();
         let self_len = 0;
         let total_len = prefix_len + m.extranonce_size as usize;
         let range_0 = 0..prefix_len;
-        let range_1 = prefix_len..prefix_len + self_len;
-        let range_2 = prefix_len + self_len..total_len;
+        let range_1 = prefix_len..prefix_len + jdc_signature_len + self_len;
+        let range_2 = prefix_len + jdc_signature_len + self_len..total_len;
 
-        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extranonces = ExtendedExtranonce::new(
+            range_0,
+            range_1,
+            range_2,
+            Some(self.jdc_signature.as_bytes().to_vec()),
+        )
+        .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{:?}", err)))?;
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
         let share_per_min = 1.0;
         let channel_kind =
@@ -584,7 +585,6 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             share_per_min,
             channel_kind,
             vec![],
-            pool_signature.into(),
         );
         let extranonce: Extranonce = m
             .extranonce_prefix

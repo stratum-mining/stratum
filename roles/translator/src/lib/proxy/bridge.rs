@@ -102,7 +102,6 @@ impl Bridge {
                 share_per_min,
                 ExtendedChannelKind::Proxy { upstream_target },
                 None,
-                "".into(),
                 up_id,
             ),
             future_jobs: vec![],
@@ -607,7 +606,8 @@ mod test {
             bitcoin::{blockdata::witness::Witness, hashes::Hash},
         };
 
-        let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16);
+        let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16, None)
+            .expect("Failed to create ExtendedExtranonce with valid ranges");
         let (bridge, _) = test_utils::create_bridge(extranonces);
         bridge
             .safe_lock(|bridge| {

@@ -86,7 +86,6 @@ impl ChannelKind {
                     downstream_share_per_minute,
                     kind,
                     Some(vec![]),
-                    "".into(),
                     up_id,
                 );
                 *self = Self::Extended(Some(factory));

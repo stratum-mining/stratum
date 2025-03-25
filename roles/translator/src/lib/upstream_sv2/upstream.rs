@@ -239,13 +239,18 @@ impl Upstream {
             })
             .map_err(|_e| PoisonLock)??;
         let user_identity = "ABC".to_string().try_into()?;
+
+        // Get the min_extranonce_size from the instance
+        let min_extranonce_size = self_
+            .safe_lock(|u| u.min_extranonce_size)
+            .map_err(|_e| PoisonLock)?;
+
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0, // TODO
             user_identity, // TODO
             nominal_hash_rate,
             max_target: u256_from_int(u64::MAX), // TODO
-            min_extranonce_size: 8,              /* 8 is the max extranonce2 size the braiins
-                                                  * pool supports */
+            min_extranonce_size,
         });
 
         // reset channel hashrate so downstreams can manage from now on out
@@ -382,8 +387,8 @@ impl Upstream {
                                     ..prefix_len + m.extranonce_size as usize; // extranonce2
                                 let extended = handle_result!(tx_status, ExtendedExtranonce::from_upstream_extranonce(
                                     extranonce_prefix.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
-                                ).ok_or_else(|| InvalidExtranonce(format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}",
-                                    extranonce_prefix,range_0,range_1,range_2))));
+                                ).map_err(|err| InvalidExtranonce(format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}: {:?}",
+                                    extranonce_prefix, range_0, range_1, range_2, err))));
                                 handle_result!(
                                     tx_status,
                                     tx_sv2_extranonce.send((extended, m.channel_id)).await

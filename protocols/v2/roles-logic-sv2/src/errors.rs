@@ -101,6 +101,8 @@ pub enum Error {
     NoValidTemplate(String),
     /// Invalid extranonce size. Params: (required min, requested)
     InvalidExtranonceSize(u16, u16),
+    /// Failed to create ExtendedExtranonce. Param: (error message)
+    ExtendedExtranonceCreationFailed(String),
     /// Poison Lock
     PoisonLock(String),
     /// Channel Factory did not update job. Params: (downstream_job_id, upstream_job_id)
@@ -212,6 +214,7 @@ impl Display for Error {
             LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
             IoError(e) => write!(f, "IO error: {:?}", e),
+            ExtendedExtranonceCreationFailed(e) => write!(f, "Failed to create ExtendedExtranonce: {}", e),
         }
     }
 }

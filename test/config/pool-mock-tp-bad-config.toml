@@ -21,4 +21,4 @@ coinbase_outputs = [
     #{ output_script_type = "P2TR", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
 ]
 # Pool signature (string to be included in coinbase tx)
-pool_signature = "Stratum v2 SRI Pool"
+pool_signature = "Stratum V2 SRI Pool"

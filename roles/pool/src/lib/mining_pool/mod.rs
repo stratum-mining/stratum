@@ -464,15 +464,28 @@ impl Pool {
     ) -> Result<Arc<Mutex<Self>>, PoolError> {
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
-        let range_1 = std::ops::Range { start: 0, end: 16 };
+
+        let pool_signature_len = config.pool_signature().len();
+        let range_1_end = pool_signature_len + 8;
+        let range_1 = std::ops::Range {
+            start: 0,
+            end: range_1_end,
+        };
         let range_2 = std::ops::Range {
-            start: 16,
+            start: range_1_end,
             end: extranonce_len,
         };
+
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let pool_coinbase_outputs = get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
-        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let extranonces = ExtendedExtranonce::new(
+            range_0,
+            range_1,
+            range_2,
+            Some(config.pool_signature().as_bytes().to_vec()),
+        )
+        .expect("Failed to create ExtendedExtranonce with valid ranges");
         let creator = JobsCreators::new(extranonce_len as u8);
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
         let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(
@@ -482,7 +495,6 @@ impl Pool {
             shares_per_minute,
             kind,
             pool_coinbase_outputs.expect("Invalid coinbase output in config"),
-            config.pool_signature().clone().into(),
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
@@ -649,7 +661,7 @@ mod test {
                 == [
                     2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38,
-                    0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111,
+                    0, 83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111,
                     111, 108
                 ]
                 .to_vec()

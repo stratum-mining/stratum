@@ -21,7 +21,6 @@ pub struct JobDeclaratorClientConfig {
     listening_address: SocketAddr,
     max_supported_version: u16,
     min_supported_version: u16,
-    min_extranonce2_size: u16,
     withhold: bool,
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
@@ -32,10 +31,12 @@ pub struct JobDeclaratorClientConfig {
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     timeout: Duration,
     coinbase_outputs: Vec<CoinbaseOutput>,
+    jdc_signature: String,
 }
 
 impl JobDeclaratorClientConfig {
     /// Creates a new instance of [`JobDeclaratorClientConfig`].
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         listening_address: SocketAddr,
         protocol_config: ProtocolConfig,
@@ -44,12 +45,12 @@ impl JobDeclaratorClientConfig {
         tp_config: TPConfig,
         upstreams: Vec<Upstream>,
         timeout: Duration,
+        jdc_signature: String,
     ) -> Self {
         Self {
             listening_address,
             max_supported_version: protocol_config.max_supported_version,
             min_supported_version: protocol_config.min_supported_version,
-            min_extranonce2_size: protocol_config.min_extranonce2_size,
             withhold,
             authority_public_key: pool_config.authority_public_key,
             authority_secret_key: pool_config.authority_secret_key,
@@ -59,17 +60,13 @@ impl JobDeclaratorClientConfig {
             upstreams,
             timeout,
             coinbase_outputs: protocol_config.coinbase_outputs,
+            jdc_signature,
         }
     }
 
     /// Returns the listening address of the Job Declartor Client.
     pub fn listening_address(&self) -> &SocketAddr {
         &self.listening_address
-    }
-
-    /// Returns "Minimum extranonce2" size.
-    pub fn min_extranonce2_size(&self) -> u16 {
-        self.min_extranonce2_size
     }
 
     /// Returns the list of upstreams.
@@ -122,6 +119,11 @@ impl JobDeclaratorClientConfig {
     /// Returns the maximum supported version.
     pub fn max_supported_version(&self) -> u16 {
         self.max_supported_version
+    }
+
+    /// Returns the JDC signature.
+    pub fn jdc_signature(&self) -> &str {
+        &self.jdc_signature
     }
 
     pub fn get_txout(&self) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
@@ -181,7 +183,6 @@ impl TPConfig {
 pub struct ProtocolConfig {
     max_supported_version: u16,
     min_supported_version: u16,
-    min_extranonce2_size: u16,
     coinbase_outputs: Vec<CoinbaseOutput>,
 }
 
@@ -189,13 +190,11 @@ impl ProtocolConfig {
     pub fn new(
         max_supported_version: u16,
         min_supported_version: u16,
-        min_extranonce2_size: u16,
         coinbase_outputs: Vec<CoinbaseOutput>,
     ) -> Self {
         Self {
             max_supported_version,
             min_supported_version,
-            min_extranonce2_size,
             coinbase_outputs,
         }
     }
@@ -206,7 +205,6 @@ pub struct Upstream {
     pub authority_pubkey: Secp256k1PublicKey,
     pub pool_address: String,
     pub jd_address: String,
-    pub pool_signature: String, // string be included in coinbase tx input scriptsig
 }
 
 impl Upstream {
@@ -214,13 +212,11 @@ impl Upstream {
         authority_pubkey: Secp256k1PublicKey,
         pool_address: String,
         jd_address: String,
-        pool_signature: String,
     ) -> Self {
         Self {
             authority_pubkey,
             pool_address,
             jd_address,
-            pool_signature,
         }
     }
 }
