@@ -1,7 +1,7 @@
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use criterion::{black_box, Criterion};
 use roles_logic_sv2::{
-    handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages},
+    handlers::{common::ParseCommonMessagesFromUpstream, mining::ParseMiningMessagesFromUpstream},
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic},
     utils::Mutex,
@@ -185,7 +185,7 @@ fn client_sv2_handle_message_common(c: &mut Criterion) {
     let payload: &mut [u8] = &mut [payload];
     c.bench_function("client_sv2_handle_message_common", |b| {
         b.iter(|| {
-            black_box(ParseUpstreamCommonMessages::handle_message_common(
+            black_box(ParseCommonMessagesFromUpstream::handle_message_common(
                 self_.clone(),
                 message_type,
                 payload,

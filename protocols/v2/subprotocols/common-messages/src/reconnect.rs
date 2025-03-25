@@ -19,3 +19,9 @@ pub struct Reconnect<'decoder> {
     /// When 0, downstream node should attempt to reconnect to current pool host.
     pub new_port: u16,
 }
+
+impl PartialEq for Reconnect<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.new_host.as_ref() == other.new_host.as_ref() && self.new_port == other.new_port
+    }
+}

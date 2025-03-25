@@ -15,11 +15,10 @@ use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
-    handlers::mining::{ParseDownstreamMiningMessages, SendTo},
+    handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{AnyMessage, Mining},
-    routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
@@ -169,11 +168,10 @@ impl Downstream {
             "Received downstream message type: {:?}, payload: {:?}",
             message_type, payload
         );
-        let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
+        let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
-            MiningRoutingLogic::None,
         );
         Self::match_send_to(self_mutex, next_message_to_send).await
     }
@@ -190,9 +188,7 @@ impl Downstream {
                 // and the main thread will drop the downstream from the pool
                 if let &Mining::OpenMiningChannelError(_) = &message {
                     Self::send(self_.clone(), message.clone()).await?;
-                    let downstream_id = self_
-                        .safe_lock(|d| d.id)
-                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                    let downstream_id = self_.safe_lock(|d| d.id)?;
                     return Err(PoolError::Sv2ProtocolError((
                         downstream_id,
                         message.clone(),

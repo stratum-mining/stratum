@@ -73,7 +73,8 @@ use core::convert::{TryFrom, TryInto};
 use framing_sv2::framing::Sv2Frame;
 
 use common_messages_sv2::{
-    ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+    ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
+    SetupConnectionSuccess,
 };
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
@@ -83,7 +84,7 @@ use job_declaration_sv2::{
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
     OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
-    OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+    OpenStandardMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
     SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
     SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
     SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
@@ -162,6 +163,8 @@ pub fn message_type_to_name(msg_type: u8) -> &'static str {
 pub enum CommonMessages<'a> {
     /// Notifies about changes in channel endpoint configuration.
     ChannelEndpointChanged(ChannelEndpointChanged),
+    /// Reconnects a client to a new server
+    Reconnect(Reconnect<'a>),
     /// Initiates a connection between a client and server.
     SetupConnection(SetupConnection<'a>),
     /// Indicates an error during connection setup.
@@ -230,7 +233,6 @@ pub enum Mining<'a> {
     OpenMiningChannelError(OpenMiningChannelError<'a>),
     OpenStandardMiningChannel(OpenStandardMiningChannel<'a>),
     OpenStandardMiningChannelSuccess(OpenStandardMiningChannelSuccess<'a>),
-    Reconnect(Reconnect<'a>),
     SetCustomMiningJob(SetCustomMiningJob<'a>),
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
     SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
@@ -266,7 +268,6 @@ impl Mining<'_> {
             Mining::OpenStandardMiningChannelSuccess(m) => {
                 Mining::OpenStandardMiningChannelSuccess(m.into_static())
             }
-            Mining::Reconnect(m) => Mining::Reconnect(m.into_static()),
             Mining::SetCustomMiningJob(m) => Mining::SetCustomMiningJob(m.into_static()),
             Mining::SetCustomMiningJobError(m) => Mining::SetCustomMiningJobError(m.into_static()),
             Mining::SetCustomMiningJobSuccess(m) => {
@@ -299,6 +300,7 @@ impl IsSv2Message for CommonMessages<'_> {
     fn message_type(&self) -> u8 {
         match self {
             Self::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            Self::Reconnect(_) => MESSAGE_TYPE_RECONNECT,
             Self::SetupConnection(_) => MESSAGE_TYPE_SETUP_CONNECTION,
             Self::SetupConnectionError(_) => MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             Self::SetupConnectionSuccess(_) => MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
@@ -308,6 +310,7 @@ impl IsSv2Message for CommonMessages<'_> {
     fn channel_bit(&self) -> bool {
         match self {
             Self::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED,
+            Self::Reconnect(_) => CHANNEL_BIT_RECONNECT,
             Self::SetupConnection(_) => CHANNEL_BIT_SETUP_CONNECTION,
             Self::SetupConnectionError(_) => CHANNEL_BIT_SETUP_CONNECTION_ERROR,
             Self::SetupConnectionSuccess(_) => CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
@@ -390,7 +393,6 @@ impl IsSv2Message for Mining<'_> {
             Self::OpenStandardMiningChannelSuccess(_) => {
                 MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS
             }
-            Self::Reconnect(_) => MESSAGE_TYPE_RECONNECT,
             Self::SetCustomMiningJob(_) => MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
             Self::SetCustomMiningJobError(_) => MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
             Self::SetCustomMiningJobSuccess(_) => MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
@@ -421,7 +423,6 @@ impl IsSv2Message for Mining<'_> {
             Self::OpenStandardMiningChannelSuccess(_) => {
                 CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS
             }
-            Self::Reconnect(_) => CHANNEL_BIT_RECONNECT,
             Self::SetCustomMiningJob(_) => CHANNEL_BIT_SET_CUSTOM_MINING_JOB,
             Self::SetCustomMiningJobError(_) => CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR,
             Self::SetCustomMiningJobSuccess(_) => CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS,
@@ -443,6 +444,7 @@ impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: CommonMessages<'decoder>) -> Self {
         match m {
             CommonMessages::ChannelEndpointChanged(a) => a.into(),
+            CommonMessages::Reconnect(a) => a.into(),
             CommonMessages::SetupConnection(a) => a.into(),
             CommonMessages::SetupConnectionError(a) => a.into(),
             CommonMessages::SetupConnectionSuccess(a) => a.into(),
@@ -490,7 +492,6 @@ impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
             Mining::OpenMiningChannelError(a) => a.into(),
             Mining::OpenStandardMiningChannel(a) => a.into(),
             Mining::OpenStandardMiningChannelSuccess(a) => a.into(),
-            Mining::Reconnect(a) => a.into(),
             Mining::SetCustomMiningJob(a) => a.into(),
             Mining::SetCustomMiningJobError(a) => a.into(),
             Mining::SetCustomMiningJobSuccess(a) => a.into(),
@@ -512,6 +513,7 @@ impl GetSize for CommonMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
             CommonMessages::ChannelEndpointChanged(a) => a.get_size(),
+            CommonMessages::Reconnect(a) => a.get_size(),
             CommonMessages::SetupConnection(a) => a.get_size(),
             CommonMessages::SetupConnectionError(a) => a.get_size(),
             CommonMessages::SetupConnectionSuccess(a) => a.get_size(),
@@ -558,7 +560,6 @@ impl GetSize for Mining<'_> {
             Mining::OpenMiningChannelError(a) => a.get_size(),
             Mining::OpenStandardMiningChannel(a) => a.get_size(),
             Mining::OpenStandardMiningChannelSuccess(a) => a.get_size(),
-            Mining::Reconnect(a) => a.get_size(),
             Mining::SetCustomMiningJob(a) => a.get_size(),
             Mining::SetCustomMiningJobError(a) => a.get_size(),
             Mining::SetCustomMiningJobSuccess(a) => a.get_size(),
@@ -648,6 +649,7 @@ pub enum CommonMessageTypes {
     SetupConnectionSuccess = MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     SetupConnectionError = MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
     ChannelEndpointChanged = MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+    Reconnect = MESSAGE_TYPE_RECONNECT,
 }
 
 impl TryFrom<u8> for CommonMessageTypes {
@@ -659,6 +661,7 @@ impl TryFrom<u8> for CommonMessageTypes {
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS => Ok(CommonMessageTypes::SetupConnectionSuccess),
             MESSAGE_TYPE_SETUP_CONNECTION_ERROR => Ok(CommonMessageTypes::SetupConnectionError),
             MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED => Ok(CommonMessageTypes::ChannelEndpointChanged),
+            MESSAGE_TYPE_RECONNECT => Ok(CommonMessageTypes::Reconnect),
             _ => Err(Error::UnexpectedMessage(v)),
         }
     }
@@ -685,6 +688,10 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages<'a> {
             CommonMessageTypes::ChannelEndpointChanged => {
                 let message: ChannelEndpointChanged = from_bytes(v.1)?;
                 Ok(CommonMessages::ChannelEndpointChanged(message))
+            }
+            CommonMessageTypes::Reconnect => {
+                let message: Reconnect = from_bytes(v.1)?;
+                Ok(CommonMessages::Reconnect(message))
             }
         }
     }
@@ -879,7 +886,6 @@ pub enum MiningTypes {
     OpenMiningChannelError = MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR,
     OpenStandardMiningChannel = MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
     OpenStandardMiningChannelSuccess = MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-    Reconnect = MESSAGE_TYPE_RECONNECT,
     SetCustomMiningJob = MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
     SetCustomMiningJobError = MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
     SetCustomMiningJobSuccess = MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
@@ -912,7 +918,6 @@ impl TryFrom<u8> for MiningTypes {
             MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS => {
                 Ok(MiningTypes::OpenStandardMiningChannelSuccess)
             }
-            MESSAGE_TYPE_RECONNECT => Ok(MiningTypes::Reconnect),
             MESSAGE_TYPE_SET_CUSTOM_MINING_JOB => Ok(MiningTypes::SetCustomMiningJob),
             MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR => Ok(MiningTypes::SetCustomMiningJobError),
             MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS => {
@@ -971,10 +976,6 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
             MiningTypes::OpenStandardMiningChannelSuccess => {
                 let message: OpenStandardMiningChannelSuccess = from_bytes(v.1)?;
                 Ok(Mining::OpenStandardMiningChannelSuccess(message))
-            }
-            MiningTypes::Reconnect => {
-                let message: Reconnect = from_bytes(v.1)?;
-                Ok(Mining::Reconnect(message))
             }
             MiningTypes::SetCustomMiningJob => {
                 let message: SetCustomMiningJob = from_bytes(v.1)?;

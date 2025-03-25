@@ -11,12 +11,12 @@ use roles_logic_sv2::{
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
-        common::ParseUpstreamCommonMessages,
-        mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+        common::ParseCommonMessagesFromUpstream,
+        mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
-    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
+    routing_logic::NoRouting,
     selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
 };
@@ -33,7 +33,7 @@ use stratum_common::bitcoin::{
     blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
 use tokio::net::TcpStream;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 pub async fn connect(
     address: String,
@@ -96,6 +96,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
+use roles_logic_sv2::common_messages_sv2::Reconnect;
 use std::convert::TryInto;
 use stratum_common::bitcoin::block::Version;
 
@@ -148,23 +149,21 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(
-            self_,
-            message_type,
-            payload,
-            CommonRoutingLogic::None,
-        )
-        .unwrap();
+        ParseCommonMessagesFromUpstream::handle_message_common(self_, message_type, payload)
+            .unwrap();
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
-        _: SetupConnectionSuccess,
+        m: SetupConnectionSuccess,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
         use roles_logic_sv2::handlers::common::SendTo;
-        info!("Setup connection success");
+        info!(
+            "Received `SetupConnectionSuccess`: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendTo::None(None))
     }
 
@@ -180,6 +179,13 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        todo!()
+    }
+
+    fn handle_reconnect(
+        &mut self,
+        _m: Reconnect,
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         todo!()
     }
 }
@@ -293,13 +299,8 @@ impl Device {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let next = Device::handle_message_mining(
-                self_mutex.clone(),
-                message_type,
-                payload,
-                MiningRoutingLogic::None,
-            )
-            .unwrap();
+            let next =
+                Device::handle_message_mining(self_mutex.clone(), message_type, payload).unwrap();
             let mut notify_changes_to_mining_thread = self_mutex
                 .safe_lock(|s| s.notify_changes_to_mining_thread.clone())
                 .unwrap();
@@ -394,7 +395,7 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     }
 }
 
-impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Device {
+impl ParseMiningMessagesFromUpstream<(), NullDownstreamMiningSelector, NoRouting> for Device {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Standard
     }
@@ -406,7 +407,6 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     fn handle_open_standard_mining_channel_success(
         &mut self,
         m: OpenStandardMiningChannelSuccess,
-        _: Option<std::sync::Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
         self.channel_opened = true;
         self.channel_id = Some(m.channel_id);
@@ -455,16 +455,27 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<()>, Error> {
-        info!("SUCCESS {:?}", m);
+        info!("Received SubmitSharesSuccess");
+        debug!("SubmitSharesSuccess: {:?}", m);
         Ok(SendTo::None(None))
     }
 
-    fn handle_submit_shares_error(&mut self, _: SubmitSharesError) -> Result<SendTo<()>, Error> {
-        info!("Submit shares error");
+    fn handle_submit_shares_error(&mut self, m: SubmitSharesError) -> Result<SendTo<()>, Error> {
+        error!(
+            "Received SubmitSharesError with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         Ok(SendTo::None(None))
     }
 
     fn handle_new_mining_job(&mut self, m: NewMiningJob) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received new mining job for channel id: {} with job id: {} is future: {}",
+            m.channel_id,
+            m.job_id,
+            m.is_future()
+        );
+        debug!("NewMiningJob: {:?}", m);
         match (m.is_future(), self.prev_hash.as_ref()) {
             (false, Some(p_h)) => {
                 self.miner
@@ -489,6 +500,11 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received SetNewPrevHash channel id: {}, job id: {}",
+            m.channel_id, m.job_id
+        );
+        debug!("SetNewPrevHash: {:?}", m);
         let jobs: Vec<&NewMiningJob<'static>> = self
             .jobs
             .iter()
@@ -526,6 +542,8 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_set_target(&mut self, m: SetTarget) -> Result<SendTo<()>, Error> {
+        info!("Received SetTarget for channel id: {}", m.channel_id);
+        debug!("SetTarget: {:?}", m);
         self.miner
             .safe_lock(|miner| miner.new_target(m.maximum_target.to_vec()))
             .unwrap();
@@ -533,7 +551,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         Ok(SendTo::None(None))
     }
 
-    fn handle_reconnect(&mut self, _: Reconnect) -> Result<SendTo<()>, Error> {
+    fn handle_set_group_channel(&mut self, _m: SetGroupChannel) -> Result<SendTo<()>, Error> {
         todo!()
     }
 }

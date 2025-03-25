@@ -7,7 +7,10 @@ use crate::{
     common_properties::CommonDownstreamData, parsers::AnyMessage as AllMessages, utils::InputError,
 };
 use binary_sv2::Error as BinarySv2Error;
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::{MutexGuard, PoisonError},
+};
 
 /// Error enum
 #[derive(Debug)]
@@ -210,5 +213,11 @@ impl Display for Error {
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
             IoError(e) => write!(f, "IO error: {:?}", e),
         }
+    }
+}
+
+impl<T> From<PoisonError<MutexGuard<'_, T>>> for Error {
+    fn from(value: PoisonError<MutexGuard<'_, T>>) -> Self {
+        Error::PoisonLock(value.to_string())
     }
 }

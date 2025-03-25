@@ -15,6 +15,7 @@
 
 extern crate alloc;
 mod channel_endpoint_changed;
+mod reconnect;
 mod setup_connection;
 
 #[cfg(feature = "prop_test")]
@@ -25,6 +26,7 @@ use core::convert::TryInto;
 use quickcheck::{Arbitrary, Gen};
 
 pub use channel_endpoint_changed::ChannelEndpointChanged;
+pub use reconnect::Reconnect;
 pub use setup_connection::{
     has_requires_std_job, has_version_rolling, has_work_selection, Protocol, SetupConnection,
     SetupConnectionError, SetupConnectionSuccess,

@@ -20,21 +20,25 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
-        common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ParseUpstreamMiningMessages, SendTo},
+        common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
+        mining::{ParseMiningMessagesFromUpstream, SendTo},
     },
     job_declaration_sv2::DeclareMiningJob,
     mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob},
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
+    routing_logic::NoRouting,
     selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
     Error as RolesLogicError,
 };
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tokio::{net::TcpStream, task, task::AbortHandle};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
+use roles_logic_sv2::{
+    common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
+    mining_sv2::SetGroupChannel,
+};
 use std::collections::VecDeque;
 
 #[derive(Debug)]
@@ -244,11 +248,10 @@ impl Upstream {
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
-        ParseUpstreamCommonMessages::handle_message_common(
+        ParseCommonMessagesFromUpstream::handle_message_common(
             self_.clone(),
             message_type,
             payload,
-            CommonRoutingLogic::None,
         )?;
         Ok(())
     }
@@ -338,21 +341,11 @@ impl Upstream {
 
                     let payload = incoming.payload();
 
-                    // Since this is not communicating with an SV2 proxy, but instead a custom SV1
-                    // proxy where the routing logic is handled via the `Upstream`'s communication
-                    // channels, we do not use the mining routing logic in the SV2 library and
-                    // specify no mining routing logic here
-                    let routing_logic = MiningRoutingLogic::None;
-
                     // Gets the response message for the received SV2 Upstream role message
                     // `handle_message_mining` takes care of the SetupConnection +
                     // SetupConnection.Success
-                    let next_message_to_send = Upstream::handle_message_mining(
-                        self_.clone(),
-                        message_type,
-                        payload,
-                        routing_logic,
-                    );
+                    let next_message_to_send =
+                        Upstream::handle_message_mining(self_.clone(), message_type, payload);
 
                     // Routes the incoming messages accordingly
                     match next_message_to_send {
@@ -504,11 +497,15 @@ impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
+impl ParseCommonMessagesFromUpstream for Upstream {
     fn handle_setup_connection_success(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
+        m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendToCommon, RolesLogicError> {
+        info!(
+            "Received `SetupConnectionSuccess` from Pool: version={}, flags={:b}",
+            m.used_version, m.flags
+        );
         Ok(SendToCommon::None(None))
     }
 
@@ -525,15 +522,21 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
     ) -> Result<SendToCommon, RolesLogicError> {
         todo!()
     }
+
+    fn handle_reconnect(&mut self, _m: Reconnect) -> Result<SendToCommon, RolesLogicError> {
+        todo!()
+    }
 }
 
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
-impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
+impl ParseMiningMessagesFromUpstream<Downstream, NullDownstreamMiningSelector, NoRouting>
+    for Upstream
+{
     /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
     /// always be `Extended` for a SV1/SV2 Translator Proxy.
-    fn get_channel_type(&self) -> roles_logic_sv2::handlers::mining::SupportedChannelTypes {
-        roles_logic_sv2::handlers::mining::SupportedChannelTypes::Extended
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Extended
     }
 
     /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
@@ -548,7 +551,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
-        _remote: Option<Arc<Mutex<Downstream>>>,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
@@ -562,7 +564,11 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
-        info!("Receive open extended mining channel success");
+        info!(
+            "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
+            m.request_id, m.channel_id
+        );
+        debug!("OpenStandardMiningChannelSuccess: {:?}", m);
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let pool_signature = self.pool_signature.clone();
         let prefix_len = m.extranonce_prefix.to_vec().len();
@@ -613,8 +619,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `OpenExtendedMiningChannelError` message (TODO).
     fn handle_open_mining_channel_error(
         &mut self,
-        _: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
+        m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        error!(
+            "Received OpenExtendedMiningChannelError with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -623,8 +633,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `UpdateChannelError` message (TODO).
     fn handle_update_channel_error(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::UpdateChannelError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        m: roles_logic_sv2::mining_sv2::UpdateChannelError,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        error!(
+            "Received UpdateChannelError with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -633,8 +647,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `CloseChannel` message (TODO).
     fn handle_close_channel(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::CloseChannel,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        m: roles_logic_sv2::mining_sv2::CloseChannel,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        info!("Received CloseChannel for channel id: {}", m.channel_id);
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -643,8 +658,13 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SetExtranoncePrefix` message (TODO).
     fn handle_set_extranonce_prefix(
         &mut self,
-        _: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
+        m: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        info!(
+            "Received SetExtranoncePrefix for channel id: {}",
+            m.channel_id
+        );
+        debug!("SetExtranoncePrefix: {:?}", m);
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -653,8 +673,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SubmitSharesSuccess` message.
     fn handle_submit_shares_success(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+        m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        info!("Received SubmitSharesSuccess");
+        debug!("SubmitSharesSuccess: {:?}", m);
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -663,8 +685,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SubmitSharesError` message.
     fn handle_submit_shares_error(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::SubmitSharesError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        error!(
+            "Received SubmitSharesError with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         self.pool_chaneger_trigger
             .safe_lock(|t| t.start(self.tx_status.clone()))
             .unwrap();
@@ -707,9 +733,13 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_set_custom_mining_job_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
         // TODO
-        info!("Set custom mining job success {}", m.job_id);
+        info!(
+            "Received SetCustomMiningJobSuccess for channel id: {} for job id: {}",
+            m.channel_id, m.job_id
+        );
+        debug!("SetCustomMiningJobSuccess: {:?}", m);
         if let Some(template_id) = self.template_to_job_id.take_template_id(m.request_id) {
             self.template_to_job_id
                 .register_job_id(template_id, m.job_id);
@@ -733,7 +763,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_set_target(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetTarget,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        info!("Received SetTarget for channel id: {}", m.channel_id);
+        debug!("SetTarget: {:?}", m);
         if let Some(factory) = self.channel_factory.as_mut() {
             factory.update_target_for_channel(m.channel_id, m.maximum_target.clone().into());
             factory.set_target(&mut m.maximum_target.clone().into());
@@ -750,13 +782,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         ))
     }
 
-    /// Handles the SV2 `Reconnect` message (TODO).
-    fn handle_reconnect(
+    fn handle_set_group_channel(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::Reconnect,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        Ok(SendTo::RelaySameMessageToRemote(
-            self.downstream.as_ref().unwrap().clone(),
-        ))
+        _m: SetGroupChannel,
+    ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        todo!()
     }
 }

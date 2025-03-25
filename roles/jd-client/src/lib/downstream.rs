@@ -12,8 +12,8 @@ use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::{
-        common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
+        common::{ParseCommonMessagesFromDownstream, SendTo as SendToCommon},
+        mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     },
     job_creator::JobsCreators,
     mining_sv2::*,
@@ -259,13 +259,10 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = roles_logic_sv2::routing_logic::MiningRoutingLogic::None;
-
-        let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
+        let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
-            routing_logic,
         );
         Self::match_send_to(self_mutex.clone(), next_message_to_send, Some(incoming)).await;
     }
@@ -439,7 +436,7 @@ use roles_logic_sv2::selectors::NullDownstreamMiningSelector;
 
 /// It impl UpstreamMining cause the proxy act as an upstream node for the DownstreamMiningNode
 impl
-    ParseDownstreamMiningMessages<
+    ParseMiningMessagesFromDownstream<
         UpstreamMiningNode,
         NullDownstreamMiningSelector,
         roles_logic_sv2::routing_logic::NoRouting,
@@ -453,10 +450,16 @@ impl
         false
     }
 
+    fn is_downstream_authorized(
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
+    }
+
     fn handle_open_standard_mining_channel(
         &mut self,
         _: OpenStandardMiningChannel,
-        _: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         warn!("Ignoring OpenStandardMiningChannel");
         Ok(SendTo::None(None))
@@ -466,6 +469,12 @@ impl
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!(
+            "Received OpenExtendedMiningChannel from: {} with id: {}",
+            std::str::from_utf8(m.user_identity.as_ref()).unwrap_or("Unknown identity"),
+            m.get_request_id_as_u32()
+        );
+        debug!("OpenExtendedMiningChannel: {:?}", m);
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -521,6 +530,7 @@ impl
         &mut self,
         m: UpdateChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received UpdateChannel message");
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -552,6 +562,8 @@ impl
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received SubmitSharesExtended message");
+        debug!("SubmitSharesExtended {:?}", m);
         match self
             .status
             .get_channel()
@@ -638,14 +650,15 @@ impl
     }
 }
 
-impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
-    for DownstreamMiningNode
-{
+impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     fn handle_setup_connection(
         &mut self,
-        _: SetupConnection,
-        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
+        m: SetupConnection,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        info!(
+            "Received `SetupConnection`: version={}, flags={:b}",
+            m.min_version, m.flags
+        );
         let response = SetupConnectionSuccess {
             used_version: 2,
             // require extended channels
@@ -661,6 +674,7 @@ impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
     }
 }
 
+use binary_sv2::Str0255;
 use network_helpers_sv2::noise_connection::Connection;
 use std::net::SocketAddr;
 use tokio::{
@@ -735,23 +749,20 @@ pub async fn listen_for_downstream_mining(
                     jd.clone(),
                 );
 
-                let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-                let message_type = incoming.get_header().unwrap().msg_type();
-                let payload = incoming.payload();
-                let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;
-                let node = Arc::new(Mutex::new(node));
-
-                if let Some(upstream) = upstream {
-                    upstream
-                        .safe_lock(|s| s.downstream = Some(node.clone()))
-                        .unwrap();
-                }
+        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+        let message_type = incoming.get_header().unwrap().msg_type();
+        let payload = incoming.payload();
+        let node = Arc::new(Mutex::new(node));
+        if let Some(upstream) = upstream {
+            upstream
+                .safe_lock(|s| s.downstream = Some(node.clone()))
+                .unwrap();
+        }
 
                 if let Ok(SendToCommon::Respond(message)) = DownstreamMiningNode::handle_message_common(
                     node.clone(),
                     message_type,
                     payload,
-                    routing_logic,
                 ) {
                     let message = match message {
                         roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,

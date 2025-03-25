@@ -8,8 +8,8 @@ use roles_logic_sv2::{
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
-        common::ParseUpstreamCommonMessages,
-        mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+        common::ParseCommonMessagesFromUpstream,
+        mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
@@ -19,6 +19,7 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc};
 use stratum_common::bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash};
+use tracing::{debug, error, info, trace};
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -71,7 +72,7 @@ impl SetupConnectionHandler {
     }
 }
 
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
+impl ParseCommonMessagesFromUpstream<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
@@ -186,7 +187,7 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     }
 }
 
-impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Device {
+impl ParseMiningMessagesFromUpstream<(), NullDownstreamMiningSelector, NoRouting> for Device {
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Standard
     }
@@ -246,16 +247,27 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<()>, Error> {
-        println!("SUCCESS {:?}", m);
+        info!("Received SubmitSharesSuccess");
+        debug!("SubmitSharesSuccess: {:?}", m);
         Ok(SendTo::None(None))
     }
 
-    fn handle_submit_shares_error(&mut self, _: SubmitSharesError) -> Result<SendTo<()>, Error> {
-        println!("Submit shares error");
+    fn handle_submit_shares_error(&mut self, m: SubmitSharesError) -> Result<SendTo<()>, Error> {
+        error!(
+            "Received SubmitSharesError with error code {}",
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         Ok(SendTo::None(None))
     }
 
     fn handle_new_mining_job(&mut self, m: NewMiningJob) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received new mining job for channel id: {} with job id: {} is future: {}",
+            m.channel_id,
+            m.job_id,
+            m.is_future()
+        );
+        debug!("NewMiningJob: {:?}", m);
         match (m.is_future(), self.prev_hash.as_ref()) {
             (false, Some(p_h)) => {
                 self.miner
@@ -279,6 +291,11 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo<()>, Error> {
+        info!(
+            "Received SetNewPrevHash channel id: {}, job id: {}",
+            m.channel_id, m.job_id
+        );
+        debug!("SetNewPrevHash: {:?}", m);
         let jobs: Vec<&NewMiningJob<'static>> = self
             .jobs
             .iter()

@@ -2,8 +2,9 @@ use std::{convert::TryInto, sync::Arc};
 
 use async_channel::{Receiver, SendError, Sender};
 use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
-use tracing::{info, warn};
+use tracing::{debug, info, trace, warn};
 
+use super::upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::plain_connection::PlainConnection;
 use roles_logic_sv2::{
@@ -11,16 +12,16 @@ use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::{
-        common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
+        common::{ParseCommonMessagesFromDownstream, SendTo as SendToCommon},
+        mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    routing_logic::MiningProxyRoutingLogic,
+    routing_logic::{
+        CommonRouter, CommonRoutingLogic, MiningProxyRoutingLogic, MiningRouter, MiningRoutingLogic,
+    },
     utils::Mutex,
 };
-
-use super::upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -30,7 +31,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// a mining device or a downstream proxy.
 /// A downstream can only be linked with an upstream at a time. Support multi upstreams for
 /// downstream do not make much sense.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DownstreamMiningNode {
     id: u32,
     receiver: Receiver<EitherFrame>,
@@ -39,7 +40,7 @@ pub struct DownstreamMiningNode {
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DownstreamMiningNodeStatus {
     Initializing,
     Paired(CommonDownstreamData),
@@ -193,13 +194,10 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = super::get_routing_logic();
-
-        let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
+        let next_message_to_send = ParseMiningMessagesFromDownstream::handle_message_mining(
             self_mutex.clone(),
             message_type,
             payload,
-            routing_logic,
         );
 
         match next_message_to_send {
@@ -290,7 +288,7 @@ impl DownstreamMiningNode {
 
 /// It impl UpstreamMining cause the proxy act as an upstream node for the DownstreamMiningNode
 impl
-    ParseDownstreamMiningMessages<
+    ParseMiningMessagesFromDownstream<
         UpstreamMiningNode,
         ProxyRemoteSelector,
         MiningProxyRoutingLogic<Self, UpstreamMiningNode, ProxyRemoteSelector>,
@@ -314,16 +312,44 @@ impl
     fn handle_open_standard_mining_channel(
         &mut self,
         req: OpenStandardMiningChannel,
-        up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        let channel_id = up
+        info!(
+            "Received OpenStandardMiningChannel from: {} with id: {}",
+            std::str::from_utf8(req.user_identity.as_ref()).unwrap_or("Unknown identity"),
+            req.get_request_id_as_u32()
+        );
+        debug!("OpenStandardMiningChannel: {:?}", req);
+        let downstream_mining_data = self.get_downstream_mining_data();
+        let routing_logic = super::get_routing_logic();
+
+        let upstream = match routing_logic {
+            MiningRoutingLogic::Proxy(r_logic) => {
+                trace!("On OpenStandardMiningChannel r_logic is: {:?}", r_logic);
+                let up = r_logic
+                    .safe_lock(|r_logic| {
+                        r_logic.on_open_standard_channel(
+                            Arc::new(Mutex::new(self.clone())),
+                            &mut req.clone(),
+                            &downstream_mining_data,
+                        )
+                    })?;
+                trace!("On OpenStandardMiningChannel best candidate is: {:?}", up);
+                Some(up?)
+            }
+            // Variant just used for phantom data is ok to panic
+            MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
+            _ => unreachable!()
+        };
+
+        let channel_id = upstream
             .as_ref()
             .expect("No upstream initialized")
             .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
             .unwrap();
-        info!(channel_id);
-        let cloned = up.as_ref().expect("No upstream initialized").clone();
-        up.as_ref()
+        let cloned = upstream.as_ref().expect("No upstream initialized").clone();
+
+        upstream
+            .as_ref()
             .expect("No upstream initialized")
             .safe_lock(|up| {
                 if up.channel_kind.is_extended() {
@@ -368,6 +394,8 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received SubmitSharesStandard");
+        debug!("SubmitSharesStandard {:?}", m);
         // TODO maybe we want to check if shares meet target before
         // sending them upstream If that is the case it should be
         // done by GroupChannel not here
@@ -408,32 +436,41 @@ impl
     }
 }
 
-impl
-    ParseDownstreamCommonMessages<
-        MiningProxyRoutingLogic<Self, UpstreamMiningNode, ProxyRemoteSelector>,
-    > for DownstreamMiningNode
-{
+impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     fn handle_setup_connection(
         &mut self,
-        _: SetupConnection,
-        result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
+        m: SetupConnection,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        let (data, message) = result.unwrap().unwrap();
-        let upstream = match super::get_routing_logic() {
-            roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
-                proxy_routing
-                    .safe_lock(|r| r.downstream_to_upstream_map.get(&data).unwrap()[0].clone())
-                    .unwrap()
+        info!(
+            "Received `SetupConnection`: version={}, flags={:b}",
+            m.min_version, m.flags
+        );
+        let routing_logic = super::get_common_routing_logic();
+        match routing_logic {
+            CommonRoutingLogic::Proxy(r_logic) => {
+                trace!("On SetupConnection r_logic is {:?}", r_logic);
+                let result = r_logic.safe_lock(|r_logic| r_logic.on_setup_connection(&m))?;
+                let (data, message) = result?;
+                let upstream = match super::get_routing_logic() {
+                    roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
+                        proxy_routing
+                            .safe_lock(|r| {
+                                r.downstream_to_upstream_map.get(&data).unwrap()[0].clone()
+                            })
+                            .unwrap()
+                    }
+                    _ => unreachable!(),
+                };
+                self.upstream = Some(upstream);
+
+                self.status.pair(data);
+                Ok(SendToCommon::RelayNewMessageToRemote(
+                    Arc::new(Mutex::new(())),
+                    message.into(),
+                ))
             }
             _ => unreachable!(),
-        };
-        self.upstream = Some(upstream);
-
-        self.status.pair(data);
-        Ok(SendToCommon::RelayNewMessageToRemote(
-            Arc::new(Mutex::new(())),
-            message.into(),
-        ))
+        }
     }
 }
 
@@ -454,7 +491,6 @@ pub async fn listen_for_downstream_mining(
                     node.receiver.recv().await.unwrap().try_into().unwrap();
                 let message_type = incoming.get_header().unwrap().msg_type();
                 let payload = incoming.payload();
-                let routing_logic = super::get_common_routing_logic();
                 let node = Arc::new(Mutex::new(node));
 
                 // Call handle_setup_connection or fail
@@ -462,7 +498,6 @@ pub async fn listen_for_downstream_mining(
                     node.clone(),
                     message_type,
                     payload,
-                    routing_logic
                 ).expect("failed to process downstream message");
 
 
