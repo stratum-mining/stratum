@@ -7,7 +7,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::sync::Arc;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {

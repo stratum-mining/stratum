@@ -33,7 +33,7 @@ use stratum_common::bitcoin::{
     blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
 use tokio::net::TcpStream;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 pub async fn connect(
     address: String,

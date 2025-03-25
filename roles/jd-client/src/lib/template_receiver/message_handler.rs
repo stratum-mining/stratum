@@ -5,7 +5,7 @@ use roles_logic_sv2::{
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
 };
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {

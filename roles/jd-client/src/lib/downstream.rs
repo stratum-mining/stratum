@@ -22,7 +22,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use tokio::sync::Notify;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};

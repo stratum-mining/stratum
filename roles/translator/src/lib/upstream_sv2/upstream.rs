@@ -41,7 +41,7 @@ use tokio::{
     task::AbortHandle,
     time::{sleep, Duration},
 };
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use roles_logic_sv2::{
     common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,

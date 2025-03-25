@@ -7,7 +7,7 @@ use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use nohash_hasher::BuildNoHashHasher;
 use tokio::{net::TcpStream, task};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 use super::{
     downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame},

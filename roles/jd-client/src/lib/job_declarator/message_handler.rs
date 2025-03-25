@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     },
     parsers::JobDeclaration,
 };
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 

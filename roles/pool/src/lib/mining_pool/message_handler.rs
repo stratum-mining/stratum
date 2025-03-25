@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 impl ParseMiningMessagesFromDownstream<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
