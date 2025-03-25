@@ -114,7 +114,6 @@ pub async fn start_jdc(
     let jdc_address = get_available_address();
     let max_supported_version = 2;
     let min_supported_version = 2;
-    let min_extranonce2_size = 8;
     let withhold = false;
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
@@ -147,7 +146,6 @@ pub async fn start_jdc(
     let protocol_config = ProtocolConfig::new(
         max_supported_version,
         min_supported_version,
-        min_extranonce2_size,
         coinbase_outputs,
     );
     let jdc_signature = "JDC".to_string();

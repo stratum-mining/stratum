@@ -5,12 +5,6 @@ listening_address = "127.0.0.1:34265"
 max_supported_version = 2
 min_supported_version = 2
 
-# Minimum extranonce2 size for downstream
-# Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
-# Max value for CGminer: 8
-# Min value: 2
-min_extranonce2_size = 8
-
 # Withhold
 withhold = false
 

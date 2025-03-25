@@ -113,8 +113,6 @@ pub struct Upstream {
     /// Minimum `extranonce2` size. Initially requested in the `jdc-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     #[allow(dead_code)]
-    pub min_extranonce_size: u16,
-    #[allow(dead_code)]
     pub upstream_extranonce1_size: usize,
     /// Receives messages from the SV2 Upstream role
     pub receiver: Receiver<EitherFrame>,
@@ -151,7 +149,6 @@ impl Upstream {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
-        min_extranonce_size: u16,
         tx_status: status::Sender,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
@@ -187,7 +184,6 @@ impl Upstream {
 
         Ok(Arc::new(Mutex::new(Self {
             channel_id: None,
-            min_extranonce_size,
             upstream_extranonce1_size: 16, /* 16 is the default since that is the only value the
                                             * pool supports currently */
             tx_status,

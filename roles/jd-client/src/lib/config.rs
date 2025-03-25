@@ -21,7 +21,6 @@ pub struct JobDeclaratorClientConfig {
     listening_address: SocketAddr,
     max_supported_version: u16,
     min_supported_version: u16,
-    min_extranonce2_size: u16,
     withhold: bool,
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
@@ -52,7 +51,6 @@ impl JobDeclaratorClientConfig {
             listening_address,
             max_supported_version: protocol_config.max_supported_version,
             min_supported_version: protocol_config.min_supported_version,
-            min_extranonce2_size: protocol_config.min_extranonce2_size,
             withhold,
             authority_public_key: pool_config.authority_public_key,
             authority_secret_key: pool_config.authority_secret_key,
@@ -69,11 +67,6 @@ impl JobDeclaratorClientConfig {
     /// Returns the listening address of the Job Declartor Client.
     pub fn listening_address(&self) -> &SocketAddr {
         &self.listening_address
-    }
-
-    /// Returns "Minimum extranonce2" size.
-    pub fn min_extranonce2_size(&self) -> u16 {
-        self.min_extranonce2_size
     }
 
     /// Returns the list of upstreams.
@@ -190,7 +183,6 @@ impl TPConfig {
 pub struct ProtocolConfig {
     max_supported_version: u16,
     min_supported_version: u16,
-    min_extranonce2_size: u16,
     coinbase_outputs: Vec<CoinbaseOutput>,
 }
 
@@ -198,13 +190,11 @@ impl ProtocolConfig {
     pub fn new(
         max_supported_version: u16,
         min_supported_version: u16,
-        min_extranonce2_size: u16,
         coinbase_outputs: Vec<CoinbaseOutput>,
     ) -> Self {
         Self {
             max_supported_version,
             min_supported_version,
-            min_extranonce2_size,
             coinbase_outputs,
         }
     }

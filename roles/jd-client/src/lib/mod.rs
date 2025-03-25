@@ -254,7 +254,6 @@ impl JobDeclaratorClient {
         let upstream = match upstream_sv2::Upstream::new(
             upstream_addr,
             upstream_config.authority_pubkey,
-            0, // TODO
             status::Sender::Upstream(tx_status.clone()),
             task_collector.clone(),
             Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),

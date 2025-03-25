@@ -50,7 +50,6 @@ pub struct JobDeclarator {
     sender: Sender<StandardEitherFrame<AnyMessage<'static>>>,
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
-    min_extranonce_size: u16,
     // (Sent DeclareMiningJob, is future, template id, merkle path)
     last_declare_mining_jobs_sent: [Option<(u32, LastDeclareJob)>; 2],
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
@@ -99,14 +98,11 @@ impl JobDeclarator {
 
         info!("JD CONNECTED");
 
-        let min_extranonce_size = config.min_extranonce2_size();
-
         let self_ = Arc::new(Mutex::new(JobDeclarator {
             receiver,
             sender,
             allocated_tokens: vec![],
             req_ids: Id::new(),
-            min_extranonce_size,
             last_declare_mining_jobs_sent: [None, None],
             last_set_new_prev_hash: None,
             future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
@@ -237,8 +233,8 @@ impl JobDeclarator {
         excess_data: B064K<'static>,
         coinbase_pool_output: Vec<u8>,
     ) {
-        let (id, _, sender) = self_mutex
-            .safe_lock(|s| (s.req_ids.next(), s.min_extranonce_size, s.sender.clone()))
+        let (id, sender) = self_mutex
+            .safe_lock(|s| (s.req_ids.next(), s.sender.clone()))
             .unwrap();
         // TODO: create right nonce
         let tx_short_hash_nonce = 0;
