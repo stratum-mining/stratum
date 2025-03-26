@@ -4,11 +4,18 @@ use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use primitive_types::U256;
 use roles_logic_sv2::utils::Mutex;
-use std::{convert::TryInto, net::SocketAddr, ops::Div, sync::Arc, time};
+use std::{
+    convert::TryInto,
+    net::SocketAddr,
+    ops::Div,
+    sync::Arc,
+    time::{self, Duration},
+};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
     task,
+    time::sleep,
 };
 use tracing::{error, info, warn};
 use v1::{
@@ -73,7 +80,16 @@ impl Client {
         single_submit: bool,
         custom_target: Option<[u8; 32]>,
     ) {
-        let stream = TcpStream::connect(upstream_addr).await.unwrap();
+        let stream = loop {
+            if let Ok(stream) = TcpStream::connect(upstream_addr).await {
+                break stream;
+            }
+            info!(
+                "SV1 Miner: Failed to connect to upstream at {} Retrying in 1 second.",
+                upstream_addr
+            );
+            sleep(Duration::from_secs(1)).await;
+        };
         let (reader, mut writer) = stream.into_split();
 
         // `sender_incoming` listens on socket for incoming messages from the Upstream and sends
@@ -106,34 +122,44 @@ impl Client {
         // Reads messages sent by the Upstream from the socket to be passed to the
         // `receiver_incoming`
         task::spawn(async move {
-            let mut messages = BufReader::new(reader).lines();
-            while let Ok(message) = messages.next_line().await {
-                match message {
-                    Some(msg) => {
-                        if let Err(e) = sender_incoming.send(msg).await {
-                            error!("Failed to send message to receiver_incoming: {:?}", e);
-                            break; // Exit the loop if sending fails
+            tokio::select!(
+                _ = tokio::signal::ctrl_c() => { },
+                _ = async {
+                    let mut messages = BufReader::new(reader).lines();
+                    while let Ok(message) = messages.next_line().await {
+                        match message {
+                            Some(msg) => {
+                                if let Err(e) = sender_incoming.send(msg).await {
+                                    error!("Failed to send message to receiver_incoming: {:?}", e);
+                                    break; // Exit the loop if sending fails
+                                }
+                            }
+                            None => {
+                                error!("Error reading from socket");
+                                break; // Exit the loop on read failure
+                            }
                         }
                     }
-                    None => {
-                        error!("Error reading from socket");
-                        break; // Exit the loop on read failure
-                    }
-                }
-            }
-            warn!("Reader task terminated.");
+                    error!("Reader task terminated.");
+                } => {}
+            )
         });
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
         task::spawn(async move {
-            loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (writer).write_all(message.as_bytes()).await.unwrap();
-                if message.contains("mining.submit") && single_submit {
-                    send_stop_submitting.send(true).unwrap();
-                }
-            }
+            tokio::select!(
+              _ = tokio::signal::ctrl_c() => { },
+              _ = async {
+                  loop {
+                      let message: String = receiver_outgoing.recv().await.expect("SV1 Miner: Failed to receive message");
+                      (writer).write_all(message.as_bytes()).await.expect("SV1 Miner: Failed to write message to socket");
+                      if message.contains("mining.submit") && single_submit {
+                          send_stop_submitting.send(true).expect("SV1 Miner: Failed to send stop submitting");
+                      }
+                  }
+              } => {}
+            )
         });
 
         // Clone the sender to the Upstream node to use it in another task below as
@@ -196,6 +222,9 @@ impl Client {
               _ = recv_stop_submitting.changed() => {
                 warn!("Stopping miner")
               },
+              _ = tokio::signal::ctrl_c() => {
+                  info!("Stopping miner");
+              },
               _ = async {
               let recv = receiver_share.clone();
               loop {
@@ -240,14 +269,21 @@ impl Client {
         }
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
-        loop {
-            if let Ok(incoming) = recv_incoming.clone().recv().await {
-                Self::parse_message(client.clone(), Ok(incoming)).await;
-            } else {
-                warn!("Error reading from socket via `recv_incoming` channel");
-                break;
-            }
-        }
+        tokio::select!(
+            _ = tokio::signal::ctrl_c() => {
+                warn!("Stopping sv1 miner");
+            },
+            _ = async {
+                loop {
+                    if let Ok(incoming) = recv_incoming.clone().recv().await {
+                        Self::parse_message(client.clone(), Ok(incoming)).await;
+                    } else {
+                        warn!("Error reading from socket via `recv_incoming` channel");
+                        break;
+                    }
+                }
+            } => {}
+        );
     }
 
     /// Parse SV1 messages received from the Upstream node.

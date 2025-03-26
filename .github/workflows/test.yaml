@@ -76,6 +76,7 @@ jobs:
           cargo test --manifest-path=roles/Cargo.toml
           cargo test --manifest-path=utils/Cargo.toml
           cargo test --manifest-path=roles/roles-utils/config-helpers/Cargo.toml
+          cargo test --manifest-path=roles/roles-utils/network-helpers/Cargo.toml sv1_connection::tests::test_sv1_connection --features sv1
 
       - name: Property based testing
         run: |
