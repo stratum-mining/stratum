@@ -107,7 +107,7 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
             .to_string();
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
         start_sniffer(pool_translator_sniffer_identifier, pool_addr, false, None);
-    let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr).await;
+    let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr);
 
     tp_pool_sniffer
         .wait_for_message_type(
@@ -168,8 +168,7 @@ async fn pool_standard_channel_receives_share() {
     let (_tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (sniffer, sniffer_addr) = start_sniffer("A".to_string(), pool_addr, false, None);
-    let _sv2_mining_device =
-        start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true).await;
+    let _sv2_mining_device = start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true);
     sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;

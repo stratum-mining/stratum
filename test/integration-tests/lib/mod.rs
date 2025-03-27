@@ -100,7 +100,7 @@ pub fn start_template_provider(sv2_interval: Option<u32>) -> (TemplateProvider, 
     (template_provider, address)
 }
 
-pub async fn start_jdc(
+pub fn start_jdc(
     pool: &[(SocketAddr, SocketAddr)], // (pool_address, jds_address)
     tp_address: SocketAddr,
 ) -> (JobDeclaratorClient, SocketAddr) {
@@ -161,7 +161,7 @@ pub async fn start_jdc(
     (ret, jdc_address)
 }
 
-pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, SocketAddr) {
+pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, SocketAddr) {
     use jd_server::config::{CoreRpc, JobDeclaratorServerConfig};
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
@@ -211,7 +211,7 @@ pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServe
     }
 }
 
-pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
+pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
     let upstream_address = upstream.ip().to_string();
     let upstream_port = upstream.port();
     let upstream_authority_pubkey = Secp256k1PublicKey::try_from(
@@ -301,7 +301,7 @@ pub fn measure_hashrate(duration_secs: u64) -> f64 {
     hashes as f64 / elapsed_secs
 }
 
-pub async fn start_mining_device_sv1(
+pub fn start_mining_device_sv1(
     upstream_addr: SocketAddr,
     single_submit: bool,
     custom_target: Option<[u8; 32]>,
@@ -312,7 +312,7 @@ pub async fn start_mining_device_sv1(
     });
 }
 
-pub async fn start_mining_device_sv2(
+pub fn start_mining_device_sv2(
     upstream: SocketAddr,
     pub_key: Option<Secp256k1PublicKey>,
     device_id: Option<String>,
@@ -335,7 +335,7 @@ pub async fn start_mining_device_sv2(
     });
 }
 
-pub async fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
+pub fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
     use mining_proxy_sv2::{ChannelKind, UpstreamMiningValues};
     let upstreams = upstreams
         .iter()
