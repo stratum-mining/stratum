@@ -1,6 +1,4 @@
 // This file contains integration tests for the `TranslatorSv2` module.
-//
-// `TranslatorSv2` is a module that implements the Translator role in the Stratum V2 protocol.
 use const_sv2::{
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
     MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,

@@ -112,8 +112,7 @@ impl TemplateProvider {
                     if current_time.elapsed() > timeout {
                         panic!("Failed to start bitcoind: {}", e);
                     }
-                    println!("Failed to start bitcoind, retrying in two seconds: {}", e);
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    println!("Failed to start bitcoind due to {}", e);
                 }
             }
         }
