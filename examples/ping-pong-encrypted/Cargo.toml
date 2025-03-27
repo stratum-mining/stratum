@@ -13,5 +13,5 @@ noise_sv2 = { path = "../../protocols/v2/noise-sv2" }
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 network_helpers_sv2 = { version = "3.0.0", path = "../../roles/roles-utils/network-helpers" }
 rand = "0.8"
-tokio = { version = "1", features = [ "full" ] }
+tokio = { version = "1.44.1", features = [ "full" ] }
 async-channel = "1.5.1"
