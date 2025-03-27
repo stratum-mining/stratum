@@ -63,7 +63,7 @@ impl TemplateRx {
             }
             None => Initiator::without_pk(),
         }?;
-        let (mut receiver, mut sender, _, _) =
+        let (mut receiver, mut sender) =
             Connection::new(stream, HandshakeRole::Initiator(initiator))
                 .await
                 .unwrap();

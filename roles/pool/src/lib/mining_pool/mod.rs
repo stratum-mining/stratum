@@ -293,7 +293,7 @@ impl Pool {
 
                                 match responder {
                                     Ok(resp) => {
-                                        if let Ok((receiver, sender, _, _)) = Connection::new(stream, HandshakeRole::Responder(resp)).await {
+                                        if let Ok((receiver, sender)) = Connection::new(stream, HandshakeRole::Responder(resp)).await {
                                             handle_result!(
                                                 status_tx,
                                                 Self::accept_incoming_connection_(

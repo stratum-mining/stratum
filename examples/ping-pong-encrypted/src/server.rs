@@ -36,7 +36,7 @@ pub async fn start_server(
             )?;
 
             // channels for encrypted connection
-            let (receiver, sender, _, _) =
+            let (receiver, sender) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await?;
 
             // handle encrypted connection

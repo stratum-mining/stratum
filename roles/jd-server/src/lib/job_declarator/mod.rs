@@ -474,7 +474,7 @@ impl JobDeclarator {
 
             let addr = stream.peer_addr();
 
-            if let Ok((receiver, sender, _, _)) =
+            if let Ok((receiver, sender)) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await
             {
                 match receiver.recv().await {

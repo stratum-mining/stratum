@@ -18,7 +18,7 @@ pub async fn start_client(address: &str, k_pub: String) -> Result<(), Error> {
     let initiator = Initiator::from_raw_k(k_pub.into_bytes())?;
 
     // channels for encrypted connection
-    let (receiver, sender, _, _) =
+    let (receiver, sender) =
         Connection::new(stream, HandshakeRole::Initiator(initiator)).await?;
 
     // create Ping message

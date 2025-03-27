@@ -71,7 +71,7 @@ pub async fn connect(
     info!("Pool tcp connection established at {}", address);
     let address = socket.peer_addr().unwrap();
     let initiator = Initiator::new(pub_key.map(|e| e.0));
-    let (receiver, sender, _, _): (Receiver<EitherFrame>, Sender<EitherFrame>, _, _) =
+    let (receiver, sender) =
         Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator))
             .await
             .unwrap();
