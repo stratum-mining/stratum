@@ -51,12 +51,17 @@ impl SnifferSV1 {
         let messages_from_downstream = self.messages_from_downstream.clone();
         let messages_from_upstream = self.messages_from_upstream.clone();
         tokio::spawn(async move {
-            let sniffer_to_upstream_stream = TcpStream::connect(upstream_address)
-                .await
-                .expect("Failed to connect to upstream");
             let listener = TcpListener::bind(listening_address)
                 .await
                 .expect("Failed to listen on given address");
+            let sniffer_to_upstream_stream = loop {
+                match TcpStream::connect(upstream_address).await {
+                    Ok(s) => break s,
+                    Err(_) => {
+                        continue;
+                    }
+                }
+            };
             let (downstream_stream, _) = listener
                 .accept()
                 .await
