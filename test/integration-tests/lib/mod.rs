@@ -89,8 +89,6 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     );
     let pool = PoolSv2::new(config);
     assert!(pool.start().await.is_ok());
-    // Wait a bit to let the pool exchange initial messages with the TP
-    sleep(1).await;
     (pool, listening_address)
 }
 
@@ -160,7 +158,6 @@ pub async fn start_jdc(
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
     let ret_clone = ret.clone();
     tokio::spawn(async move { ret_clone.start().await });
-    sleep(2).await;
     (ret, jdc_address)
 }
 
@@ -208,7 +205,6 @@ pub async fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServe
         tokio::spawn(async move {
             job_declarator_server_clone.start().await.unwrap();
         });
-        sleep(2).await;
         (job_declarator_server, listen_jd_address)
     } else {
         panic!("Failed to get TP cookie values");
@@ -266,7 +262,6 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
     tokio::spawn(async move {
         clone_translator_v2.start().await;
     });
-    sleep(1).await;
     (translator_v2, listening_address)
 }
 
@@ -315,7 +310,6 @@ pub async fn start_mining_device_sv1(
         mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
             .await;
     });
-    sleep(3).await;
 }
 
 pub async fn start_mining_device_sv2(
@@ -339,7 +333,6 @@ pub async fn start_mining_device_sv2(
         )
         .await;
     });
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 }
 
 pub async fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
@@ -371,11 +364,6 @@ pub async fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
         mining_proxy_sv2::start_mining_proxy(config).await;
     });
     mining_proxy_listening_address
-}
-
-#[inline]
-pub async fn sleep(seconds: u64) {
-    tokio::time::sleep(std::time::Duration::from_secs(seconds)).await;
 }
 
 #[cfg(feature = "sv1")]

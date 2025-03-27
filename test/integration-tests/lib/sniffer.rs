@@ -21,7 +21,6 @@ use std::{collections::VecDeque, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{
     net::{TcpListener, TcpStream},
     select,
-    time::{sleep, Duration},
 };
 type MessageFrame = StandardEitherFrame<AnyMessage<'static>>;
 type MsgType = u8;
@@ -165,7 +164,7 @@ impl Sniffer {
             }
 
             // sleep to reduce async lock contention
-            sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 
@@ -199,7 +198,7 @@ impl Sniffer {
             }
 
             // sleep to reduce async lock contention
-            sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 
@@ -505,7 +504,7 @@ impl Sniffer {
     }
 
     /// Checks whether the sniffer has received a message of the specified type.
-    pub async fn includes_message_type(
+    pub fn includes_message_type(
         &self,
         message_direction: MessageDirection,
         message_type: u8,
