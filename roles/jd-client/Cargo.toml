@@ -27,7 +27,7 @@ network_helpers_sv2 = { path = "../roles-utils/network-helpers", features=["with
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 futures = "0.3.25"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.44.1", features = ["full"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
