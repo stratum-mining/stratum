@@ -36,5 +36,5 @@ clap = { version = "^4.5.4", features = ["derive"] }
 tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
 sha2 = "0.10.6"
-tokio = "^1.38.0"
+tokio = "1.44.1"
 primitive-types = "0.13.1"
