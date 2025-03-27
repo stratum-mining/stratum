@@ -39,10 +39,10 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
     let (_pool_2, pool_addr_2) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and second pool
     let (sniffer_2, sniffer_addr_2) = start_sniffer("1".to_string(), pool_addr_2, false, None);
-    let (_jds_1, jds_addr_1) = start_jds(tp.rpc_info()).await;
+    let (_jds_1, jds_addr_1) = start_jds(tp.rpc_info());
     // Sniffer between JDC and first JDS
     let (sniffer_3, sniffer_addr_3) = start_sniffer("2".to_string(), jds_addr_1, false, None);
-    let (_jds_2, jds_addr_2) = start_jds(tp.rpc_info()).await;
+    let (_jds_2, jds_addr_2) = start_jds(tp.rpc_info());
     // Sniffer between JDC and second JDS
     let (sniffer_4, sniffer_addr_4) = start_sniffer("3".to_string(), jds_addr_2, false, None);
     let (_jdc, jdc_addr) = start_jdc(
@@ -51,8 +51,7 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
             (sniffer_addr_2, sniffer_addr_4),
         ],
         tp_addr,
-    )
-    .await;
+    );
     // Assert that JDC has connected to the first (Pool,JDS) pair
     sniffer_1
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
@@ -60,8 +59,8 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
     sniffer_3
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
-    let (_translator, sv2_translator_addr) = start_sv2_translator(jdc_addr).await;
-    let _ = start_mining_device_sv1(sv2_translator_addr, false, None).await;
+    let (_translator, sv2_translator_addr) = start_sv2_translator(jdc_addr);
+    let _ = start_mining_device_sv1(sv2_translator_addr, false, None);
     // Assert that JDC switched to the second (Pool,JDS) pair
     sniffer_2
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
