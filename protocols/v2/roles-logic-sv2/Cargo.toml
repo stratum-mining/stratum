@@ -13,14 +13,14 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { path = "../../../common", features=["bitcoin"]}
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2" }
-common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages" }
-mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining" }
-template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution" }
-job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration" }
-const_sv2 = { path = "../../../protocols/v2/const-sv2"}
-framing_sv2 = { path = "../../../protocols/v2/framing-sv2" }
+stratum-common = { path = "../../../common", features=["bitcoin"], version = "^1.0.0"}
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^2.0.0" }
+common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^4.0.0" }
+mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^3.0.0" }
+template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^3.0.0" }
+job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^3.0.0" }
+const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^4.0.0" }
+framing_sv2 = { path = "../../../protocols/v2/framing-sv2", version = "^4.0.0" }
 tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}
 nohash-hasher = "0.2.0"
@@ -29,7 +29,7 @@ primitive-types = "0.13.1"
 hex = {package = "hex-conservative", version = "*"}
 
 [dev-dependencies]
-codec_sv2 = { path = "../../../protocols/v2/codec-sv2" }
+codec_sv2 = { path = "../../../protocols/v2/codec-sv2", version = "^2.0.0" }
 quickcheck = "1.0.3"
 quickcheck_macros = "1"
 rand = "0.8.5"

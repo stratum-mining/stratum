@@ -20,7 +20,7 @@ name = "bip32_derivation-bin"
 path = "src/main.rs"
 
 [dependencies]
-stratum-common = { path = "../../common", features=["bitcoin"] }
+stratum-common = { path = "../../common", features=["bitcoin"], version = "^1.0.0" }
 
 [dev-dependencies]
 toml = { version = "0.5.6", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
