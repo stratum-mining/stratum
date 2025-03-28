@@ -12,16 +12,16 @@ homepage = "https://stratumprotocol.org"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
-framing_sv2 = { path = "../../../protocols/v2/framing-sv2" }
-noise_sv2 = { path = "../../../protocols/v2/noise-sv2", default-features = false, optional = true }
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2" }
-const_sv2 = { path = "../../../protocols/v2/const-sv2"}
-buffer_sv2 = { path = "../../../utils/buffer"}
+framing_sv2 = { path = "../../../protocols/v2/framing-sv2", version = "^4.0.0" }
+noise_sv2 = { path = "../../../protocols/v2/noise-sv2", default-features = false, optional = true, version = "^1.0.0" }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^2.0.0" }
+const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^4.0.0" }
+buffer_sv2 = { path = "../../../utils/buffer", version = "^2.0.0" }
 rand = { version = "0.8.5", default-features = false }
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
-key-utils = { path = "../../../utils/key-utils" }
+key-utils = { path = "../../../utils/key-utils", version = "^1.0.0" }
 
 [features]
 default = ["std"]
