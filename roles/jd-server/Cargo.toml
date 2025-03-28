@@ -17,7 +17,7 @@ name = "jd_server"
 path = "src/lib/mod.rs"
 
 [dependencies]
-stratum-common = { version = "1.0.0", path = "../../common" }
+stratum-common = { version = "2.0.0", path = "../../common" }
 async-channel = "1.5.1"
 binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 buffer_sv2 = { path = "../../utils/buffer" }
