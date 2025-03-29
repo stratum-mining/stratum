@@ -34,11 +34,14 @@ pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub mod message_handler;
-
+/// Represents a generic SV2 message with a static lifetime.
 pub type Message = AnyMessage<'static>;
+/// A standard SV2 frame containing a message.
 pub type StdFrame = StandardSv2Frame<Message>;
+/// A standard SV2 frame that can contain either type of frame.
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+/// Retrieves the coinbase output configuration from the pool settings.
 pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
     let mut result = Vec::new();
     for coinbase_output_pool in config.coinbase_outputs() {
@@ -55,6 +58,10 @@ pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
     }
 }
 
+/// Represents a downstream connection in the mining pool.
+///
+/// The `Downstream` struct maintains connection state, message channels,
+/// and pool-specific data for an individual downstream connection.
 #[derive(Debug)]
 pub struct Downstream {
     // Either group or channel id
@@ -66,7 +73,7 @@ pub struct Downstream {
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
 }
 
-/// Accept downstream connection
+/// Represents the mining pool state, managing downstream connections and job templates.
 pub struct Pool {
     downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
     solution_sender: Sender<SubmitSolution<'static>>,
@@ -77,6 +84,10 @@ pub struct Pool {
 }
 
 impl Downstream {
+    /// Establishes a new connection with a downstream miner.
+    ///
+    /// This function handles the setup process, including negotiating the connection,
+    /// assigning an appropriate ID, and spawning a task to manage incoming messages.
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mut receiver: Receiver<EitherFrame>,
@@ -108,6 +119,7 @@ impl Downstream {
 
         let cloned = self_.clone();
 
+        // task to handle incoming messages from the downstream connection.
         task::spawn(async move {
             debug!("Starting up downstream receiver");
             let receiver_res = cloned
@@ -158,6 +170,10 @@ impl Downstream {
         Ok(self_)
     }
 
+    /// Handles incoming messages from the downstream and processes them accordingly.
+    ///
+    /// This method determines the message type and dispatches it to the appropriate
+    /// handler for processing.
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) -> PoolResult<()> {
         let message_type = incoming
             .get_header()
@@ -176,6 +192,8 @@ impl Downstream {
         Self::match_send_to(self_mutex, next_message_to_send).await
     }
 
+    /// This method is responsible for sending message to downstream, or
+    /// broadcasting messages to multiple downstream.
     #[async_recursion::async_recursion]
     async fn match_send_to(
         self_: Arc<Mutex<Self>>,
@@ -218,6 +236,7 @@ impl Downstream {
         Ok(())
     }
 
+    /// This method is used to send message to downstream.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::Mining<'static>,
@@ -235,7 +254,7 @@ impl Downstream {
 }
 
 // Verifies token for a custom job which is the signed tx_hash_list_hash by Job Declarator Server
-//TODO: implement the use of this fuction in main.rs
+//TODO: implement the use of this function in main.rs
 #[allow(dead_code)]
 pub fn verify_token(
     tx_hash_list_hash: U256,
@@ -263,6 +282,10 @@ impl IsDownstream for Downstream {
 impl IsMiningDownstream for Downstream {}
 
 impl Pool {
+    /// Listens for incoming connections from downstream nodes and establishes secure communication
+    ///
+    /// This method binds the pool to the configured listening address and continuously accepts
+    /// incoming connections.
     async fn accept_incoming_connection(
         self_: Arc<Mutex<Pool>>,
         config: PoolConfig,
@@ -321,6 +344,8 @@ impl Pool {
         Ok(())
     }
 
+    // This method instantiates the downstream structures and updates the pools
+    // downstream snapshots.
     async fn accept_incoming_connection_(
         self_: Arc<Mutex<Pool>>,
         receiver: Receiver<EitherFrame>,
@@ -351,6 +376,7 @@ impl Pool {
         Ok(())
     }
 
+    /// Handles the arrival of a new previous hash message.
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<SetNewPrevHash<'static>>,
@@ -407,6 +433,7 @@ impl Pool {
         Ok(())
     }
 
+    /// Handles the arrival of a new mining template.
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<NewTemplate<'static>>,
@@ -451,6 +478,10 @@ impl Pool {
         Ok(())
     }
 
+    /// Starts the pool server and initializes downstream connections.
+    ///
+    /// This method sets up tasks to manage multiple downstream connections,
+    /// process new previous hash messages, and handle incoming mining templates.
     #[allow(clippy::too_many_arguments)]
     pub async fn start(
         config: PoolConfig,
@@ -511,6 +542,7 @@ impl Pool {
 
         info!("Starting up Pool server");
         let status_tx_clone = status_tx.clone();
+        // Task to handle multiple downstream connection.
         if let Err(e) = Self::accept_incoming_connection(cloned, config, recv_stop_signal).await {
             error!("Pool stopped accepting connections due to: {}", &e);
             let _ = status_tx_clone
@@ -526,6 +558,7 @@ impl Pool {
 
         let cloned = sender_message_received_signal.clone();
         let status_tx_clone = status_tx.clone();
+        // Task to handle new prev hash message from template provider.
         task::spawn(async move {
             if let Err(e) = Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await {
                 error!("{}", e);
@@ -545,6 +578,7 @@ impl Pool {
         });
 
         let status_tx_clone = status_tx;
+        // Task to handle new template message from template provider.
         task::spawn(async move {
             if let Err(e) =
                 Self::on_new_template(pool, new_template_rx, sender_message_received_signal).await
