@@ -4,12 +4,18 @@ use stratum_common::bitcoin::{Address, Amount, Txid};
 
 use crate::utils::{http, tarball};
 
-const VERSION_TP: &str = "0.1.13";
+const VERSION_TP: &str = "0.1.15";
 
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
-        ("macos", "aarch64") => format!("bitcoin-sv2-tp-{}-arm64-apple-darwin.tar.gz", VERSION_TP),
-        ("macos", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-apple-darwin.tar.gz", VERSION_TP),
+        ("macos", "aarch64") => format!(
+            "bitcoin-sv2-tp-{}-arm64-apple-darwin-unsigned.tar.gz",
+            VERSION_TP
+        ),
+        ("macos", "x86_64") => format!(
+            "bitcoin-sv2-tp-{}-x86_64-apple-darwin-unsigned.tar.gz",
+            VERSION_TP
+        ),
         ("linux", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-linux-gnu.tar.gz", VERSION_TP),
         ("linux", "aarch64") => format!("bitcoin-sv2-tp-{}-aarch64-linux-gnu.tar.gz", VERSION_TP),
         _ => format!(
@@ -19,12 +25,16 @@ fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     }
 }
 
+/// Represents a template provider node.
+///
+/// The template provider is a bitcoin node that implements the Stratum V2 protocol.
 #[derive(Debug)]
 pub struct TemplateProvider {
     bitcoind: Node,
 }
 
 impl TemplateProvider {
+    /// Start a new [`TemplateProvider`] instance.
     pub fn start(port: u16, sv2_interval: u32) -> Self {
         let current_dir: PathBuf = std::env::current_dir().expect("failed to read current dir");
         let tp_dir = current_dir.join("template-provider");
@@ -102,13 +112,13 @@ impl TemplateProvider {
                     if current_time.elapsed() > timeout {
                         panic!("Failed to start bitcoind: {}", e);
                     }
-                    println!("Failed to start bitcoind, retrying in two seconds: {}", e);
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    println!("Failed to start bitcoind due to {}", e);
                 }
             }
         }
     }
 
+    /// Mine `n` blocks.
     pub fn generate_blocks(&self, n: u64) {
         let mining_address = self
             .bitcoind
@@ -121,6 +131,7 @@ impl TemplateProvider {
             .expect("Failed to generate blocks");
     }
 
+    /// Retrun the node's RPC info.
     pub fn rpc_info(&self) -> &ConnectParams {
         &self.bitcoind.params
     }

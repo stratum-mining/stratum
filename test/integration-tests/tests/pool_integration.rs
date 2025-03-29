@@ -3,11 +3,12 @@
 // `PoolSv2` is a module that implements the Pool role in the Stratum V2 protocol.
 use crate::sniffer::MessageDirection;
 use const_sv2::{
-    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-    MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
+    MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+    MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
 };
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
@@ -23,12 +24,15 @@ use roles_logic_sv2::{
 async fn success_pool_template_provider_connection() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
-    let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, true, None).await;
+    let (sniffer, sniffer_addr) = start_sniffer("".to_string(), tp_addr, true, None);
     let _ = start_pool(Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
     // with the correct parameters, protocol, flags, min_version and max_version.  Note that the
     // macro can take any number of arguments after the message argument, but the order is
     // important where a property should be followed by its value.
+    sniffer
+        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
+        .await;
     assert_common_message!(
         &sniffer.next_message_from_downstream(),
         SetupConnection,
@@ -41,10 +45,22 @@ async fn success_pool_template_provider_connection() {
         max_version,
         2
     );
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
     assert_common_message!(
         &sniffer.next_message_from_upstream(),
         SetupConnectionSuccess
     );
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
+        )
+        .await;
     assert_tp_message!(
         &sniffer.next_message_from_downstream(),
         CoinbaseOutputConstraints
@@ -53,6 +69,12 @@ async fn success_pool_template_provider_connection() {
         .wait_for_message_type(MessageDirection::ToDownstream, MESSAGE_TYPE_NEW_TEMPLATE)
         .await;
     assert_tp_message!(&sniffer.next_message_from_upstream(), NewTemplate);
+    sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SET_NEW_PREV_HASH,
+        )
+        .await;
     assert_tp_message!(sniffer.next_message_from_upstream(), SetNewPrevHash);
 }
 
@@ -78,14 +100,21 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer".to_string();
     let (tp_pool_sniffer, tp_pool_sniffer_addr) =
-        start_sniffer(tp_pool_sniffer_identifier, tp_addr, false, None).await;
+        start_sniffer(tp_pool_sniffer_identifier, tp_addr, false, None);
     let (_, pool_addr) = start_pool(Some(tp_pool_sniffer_addr)).await;
     let pool_translator_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job pool_translator sniffer"
             .to_string();
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
-        start_sniffer(pool_translator_sniffer_identifier, pool_addr, false, None).await;
-    let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr).await;
+        start_sniffer(pool_translator_sniffer_identifier, pool_addr, false, None);
+    let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr);
+
+    tp_pool_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
     assert_common_message!(
         &tp_pool_sniffer.next_message_from_upstream(),
         SetupConnectionSuccess
@@ -130,30 +159,25 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     );
 }
 
-/// This test starts a Pool, a Sniffer, and a Sv2 Mining Device.
-/// It then checks if the Pool receives a share from the Sv2 Mining Device.
-/// While also checking all the messages exchanged between
-/// the Pool and the Mining Device in between.
+// This test starts a Pool, a Sniffer, and a Sv2 Mining Device.  It then checks if the Pool receives
+// a share from the Sv2 Mining Device.  While also checking all the messages exchanged between the
+// Pool and the Mining Device in between.
 #[tokio::test]
 async fn pool_standard_channel_receives_share() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
-    let (sniffer, sniffer_addr) = start_sniffer("A".to_string(), pool_addr, false, None).await;
-    let _sv2_mining_device =
-        start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true).await;
-
+    let (sniffer, sniffer_addr) = start_sniffer("A".to_string(), pool_addr, false, None);
+    let _sv2_mining_device = start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true);
     sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
-
     sniffer
         .wait_for_message_type(
             MessageDirection::ToDownstream,
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         )
         .await;
-
     sniffer
         .wait_for_message_type(
             MessageDirection::ToUpstream,
@@ -167,25 +191,21 @@ async fn pool_standard_channel_receives_share() {
             MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
         )
         .await;
-
     sniffer
         .wait_for_message_type(MessageDirection::ToDownstream, MESSAGE_TYPE_NEW_MINING_JOB)
         .await;
-
     sniffer
         .wait_for_message_type(
             MessageDirection::ToDownstream,
             MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
         )
         .await;
-
     sniffer
         .wait_for_message_type(
             MessageDirection::ToUpstream,
             MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
         )
         .await;
-
     sniffer
         .wait_for_message_type(
             MessageDirection::ToDownstream,
