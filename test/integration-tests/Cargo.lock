@@ -1069,6 +1069,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex-conservative"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4afe881d0527571892c4034822e59bb10c6c991cce6abe8199b6f5cf10766f55"
+dependencies = [
+ "arrayvec",
+]
+
+[[package]]
 name = "hex_lit"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,7 +1349,7 @@ dependencies = [
 
 [[package]]
 name = "key-utils"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "bs58",
  "rand 0.8.5",
@@ -1942,7 +1951,7 @@ dependencies = [
  "common_messages_sv2",
  "const_sv2",
  "framing_sv2",
- "hex-conservative 0.2.1",
+ "hex-conservative 0.3.0",
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",
@@ -2238,7 +2247,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-common"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitcoin",
  "secp256k1 0.28.2",
