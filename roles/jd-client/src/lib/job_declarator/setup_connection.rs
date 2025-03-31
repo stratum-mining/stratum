@@ -1,3 +1,4 @@
+//! This module caters the logic for setup connection.
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
@@ -43,6 +44,7 @@ impl SetupConnectionHandler {
         setup_connection
     }
 
+    /// This method sets up a job declarator connection.
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,

@@ -1,3 +1,4 @@
+//! This module contains logic and constructs to connect to jds and process messaging logic.
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};
@@ -35,6 +36,7 @@ use setup_connection::SetupConnectionHandler;
 
 use super::{config::JobDeclaratorClientConfig, error::Error, upstream_sv2::Upstream};
 
+/// Struct describing LastDeclareJob fields.
 #[derive(Debug, Clone)]
 pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
@@ -44,6 +46,7 @@ pub struct LastDeclareJob {
     tx_list: Seq064K<'static, B016M<'static>>,
 }
 
+/// Struct describing JobDeclarator fields.
 #[derive(Debug)]
 pub struct JobDeclarator {
     receiver: Receiver<StandardEitherFrame<AnyMessage<'static>>>,
@@ -73,6 +76,8 @@ pub struct JobDeclarator {
 }
 
 impl JobDeclarator {
+    /// This method instantiates JobDeclarator and connect to JDS.
+    /// It then allocate token and then spawn upstream message handler.
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
@@ -118,6 +123,7 @@ impl JobDeclarator {
         Ok(self_)
     }
 
+    // Utility method to get last_declare_mining_job
     fn get_last_declare_job_sent(
         self_mutex: &Arc<Mutex<Self>>,
         request_id: u32,
@@ -164,6 +170,7 @@ impl JobDeclarator {
             .unwrap();
     }
 
+    /// Utility method to get last token.
     #[async_recursion]
     pub async fn get_last_token(
         self_mutex: &Arc<Mutex<Self>>,
@@ -225,6 +232,8 @@ impl JobDeclarator {
         }
     }
 
+    /// This method just serve for the template receiver use
+    /// And called when a new template is received.
     pub async fn on_new_template(
         self_mutex: &Arc<Mutex<Self>>,
         template: NewTemplate<'static>,
@@ -280,6 +289,8 @@ impl JobDeclarator {
         sender.send(frame.into()).await.unwrap();
     }
 
+    /// The crux of JobDeclarator logic resides in this method, which is responsible of
+    /// processing messages from jds.
     pub fn on_upstream_message(self_mutex: Arc<Mutex<Self>>) {
         let up = self_mutex.safe_lock(|s| s.up.clone()).unwrap();
         let main_task = {
@@ -375,6 +386,8 @@ impl JobDeclarator {
             .unwrap();
     }
 
+    /// This method just serve for the template receiver use
+    /// And called when a new prev hash is received.
     pub fn on_set_new_prev_hash(
         self_mutex: Arc<Mutex<Self>>,
         set_new_prev_hash: SetNewPrevHash<'static>,
@@ -453,6 +466,7 @@ impl JobDeclarator {
         });
     }
 
+    // this method allocate tokens to jobs.
     async fn allocate_tokens(self_mutex: &Arc<Mutex<Self>>, token_to_allocate: u32) {
         for i in 0..token_to_allocate {
             let message = JobDeclaration::AllocateMiningJobToken(AllocateMiningJobToken {
@@ -466,6 +480,9 @@ impl JobDeclarator {
             sender.send(frame.into()).await.unwrap();
         }
     }
+
+    /// This method just serve for the template receiver use
+    /// And called when a on solution is received.
     pub async fn on_solution(
         self_mutex: &Arc<Mutex<Self>>,
         solution: SubmitSharesExtended<'static>,

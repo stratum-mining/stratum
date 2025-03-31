@@ -143,6 +143,7 @@ impl JobDeclaratorClientConfig {
     }
 }
 
+/// Represents pool specific encryption keys.
 pub struct PoolConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
@@ -160,6 +161,7 @@ impl PoolConfig {
     }
 }
 
+/// Represent template provider config for JDC to connect.
 pub struct TPConfig {
     cert_validity_sec: u64,
     tp_address: String,
@@ -180,6 +182,7 @@ impl TPConfig {
     }
 }
 
+/// Represent protocol versioning the JDC supports.
 pub struct ProtocolConfig {
     max_supported_version: u16,
     min_supported_version: u16,
@@ -200,6 +203,7 @@ impl ProtocolConfig {
     }
 }
 
+/// Represents necessary fields required to connect to JDS
 #[derive(Debug, Deserialize, Clone)]
 pub struct Upstream {
     pub authority_pubkey: Secp256k1PublicKey,

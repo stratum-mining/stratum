@@ -1,3 +1,4 @@
+//! This module contains constructs and method to connect to upstream and manage related messages.
 use super::super::downstream::DownstreamMiningNode as Downstream;
 
 use super::super::{
@@ -102,6 +103,7 @@ impl TemplateToJobId {
     }
 }
 
+/// Upstream struct representing all possible requirement for upstream instantiation.
 #[derive(Debug)]
 pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
@@ -128,6 +130,7 @@ pub struct Upstream {
 }
 
 impl Upstream {
+    /// This method sends message to upstream.
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) -> ProxyResult<'static, ()> {
         let sender = self_
             .safe_lock(|s| s.sender.clone())

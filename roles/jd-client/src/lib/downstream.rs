@@ -1,3 +1,5 @@
+//! This module contains logic and construct for JDC to spun a server and provide downstream proxy
+//! or downstream mining node ports to connect to.
 use super::{config::JobDeclaratorClientConfig, template_receiver::TemplateRx, PoolChangerTrigger};
 
 use super::{
@@ -33,6 +35,9 @@ pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+/// The current Downstream connection to JDC is only one to one, and not one to many. This is a
+/// clear conceptual mistake, during refactoring we need to come up with efforts to fix and make JDC
+/// dowstream connection to be compatible with multiple downstream connections and not just one.
 /// 1 to 1 connection with a downstream node that implement the mining (sub)protocol can be either
 /// a mining device or a downstream proxy.
 /// A downstream can only be linked with an upstream at a time. Support multi upstreams for
@@ -55,6 +60,8 @@ pub struct DownstreamMiningNode {
     jdc_signature: String,
 }
 
+/// DownstreamMiningNodeStatus represents different lifecycle of connection with a mining node or
+/// proxy.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum DownstreamMiningNodeStatus {
@@ -156,6 +163,7 @@ use core::convert::TryInto;
 use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 impl DownstreamMiningNode {
+    /// Constructs a DownstreamMiningNode object
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         receiver: Receiver<EitherFrame>,
@@ -228,7 +236,7 @@ impl DownstreamMiningNode {
         }
     }
 
-    // When we do pooled minig we create a channel factory when the pool send a open extended
+    // When we do pooled mining we create a channel factory when the pool send a open extended
     // mining channel success
     fn set_channel_factory(self_mutex: Arc<Mutex<Self>>) {
         if !self_mutex.safe_lock(|s| s.status.is_solo_miner()).unwrap() {
@@ -355,6 +363,7 @@ impl DownstreamMiningNode {
         }
     }
 
+    /// This method respond to `new_template` message from the template provider.
     pub async fn on_new_template(
         self_mutex: &Arc<Mutex<Self>>,
         mut new_template: NewTemplate<'static>,
@@ -401,6 +410,7 @@ impl DownstreamMiningNode {
         Ok(())
     }
 
+    /// This method respond to `new_template` message from the template provider.
     pub async fn on_set_new_prev_hash(
         self_mutex: &Arc<Mutex<Self>>,
         new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
@@ -696,6 +706,14 @@ use tokio::{
 };
 
 /// Start listen for downstream mining node. Return as soon as one downstream connect.
+/// Currently, we have made the JDC to listen for multiple downstream connection as we
+/// need this for a integration test. But this doesn't actually work, it do connect to
+/// downstream's but no logic flow is executed.
+/// FIX ME: fix multi downstream connection request and manage each downstream connection state
+/// properly.
+/// Another issue in this current setup is, the connection to downstream first happens and then
+/// connection with template provider is proceeded. Which should not be the case
+/// FIX ME: Make downstream node connection and template provider connection mutually exclusive.
 #[allow(clippy::too_many_arguments)]
 pub async fn listen_for_downstream_mining(
     address: SocketAddr,
@@ -763,15 +781,15 @@ pub async fn listen_for_downstream_mining(
                     jdc_signature.clone(),
                 );
 
-        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-        let node = Arc::new(Mutex::new(node));
-        if let Some(upstream) = upstream {
-            upstream
-                .safe_lock(|s| s.downstream = Some(node.clone()))
-                .unwrap();
-        }
+                let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+                let message_type = incoming.get_header().unwrap().msg_type();
+                let payload = incoming.payload();
+                let node = Arc::new(Mutex::new(node));
+                if let Some(upstream) = upstream {
+                    upstream
+                        .safe_lock(|s| s.downstream = Some(node.clone()))
+                        .unwrap();
+                }
 
                 if let Ok(SendToCommon::Respond(message)) = DownstreamMiningNode::handle_message_common(
                     node.clone(),
