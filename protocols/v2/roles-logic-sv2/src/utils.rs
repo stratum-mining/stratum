@@ -179,7 +179,6 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
-    dbg!(&coinbase.len());
     let coinbase: Transaction = match consensus::deserialize(&coinbase[..]) {
         Ok(trans) => trans,
         Err(e) => {
