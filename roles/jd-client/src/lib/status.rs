@@ -1,5 +1,9 @@
+//! This module contains constructs which orchestrate status of different components transferred to
+//! central system to make decision based on state of component.
+
 use super::error::{self, Error};
 
+/// Sender represent sender part of status channel with different component context.
 #[derive(Debug)]
 pub enum Sender {
     Downstream(async_channel::Sender<Status<'static>>),
@@ -9,6 +13,7 @@ pub enum Sender {
 }
 
 impl Sender {
+    /// The send method is used to send status of component to central status receiver.
     pub async fn send(
         &self,
         status: Status<'static>,
@@ -33,6 +38,7 @@ impl Clone for Sender {
     }
 }
 
+/// State contains possible state of components.
 #[derive(Debug)]
 pub enum State<'a> {
     DownstreamShutdown(Error<'a>),
@@ -41,11 +47,18 @@ pub enum State<'a> {
     Healthy(String),
 }
 
+/// Status is wrapper implementation on state.
 #[derive(Debug)]
 pub struct Status<'a> {
+    /// State represent current state of the component.
     pub state: State<'a>,
 }
 
+/// This function is used to send status information to respective sender based on error message
+/// encountered.
+///
+/// If there is any error in any of the components except Downstream, the procedure is of immediate
+/// shutdown, whereas in case of downstream error, we just ignore the error and continue.
 async fn send_status(
     sender: &Sender,
     e: error::Error<'static>,
@@ -84,6 +97,8 @@ async fn send_status(
     outcome
 }
 
+/// This the central error handling system which orchestrate message sending to central status
+/// receiver.
 // This is called by `error_handling::handle_result!`
 pub async fn handle_error(
     sender: &Sender,
