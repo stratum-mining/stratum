@@ -40,7 +40,7 @@ pub struct TemplateRx {
 }
 
 impl TemplateRx {
-    /// Establishes a connection with the template provider and sets up communication channels.
+    /// Establishes a connection with the Template Provider and sets up communication channels.
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
@@ -98,7 +98,7 @@ impl TemplateRx {
 
         Self::send(self_.clone(), frame).await?;
 
-        // This task intercept the NewTemplate and PrevHash message from template provider and
+        // This task intercept the NewTemplate and SetNewPrevHash message from Template Provider and
         // sends to downstream.
         task::spawn(async { Self::start(cloned).await });
         // This task intercept the new solution receive from downstream to template provider.

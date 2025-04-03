@@ -35,7 +35,7 @@ impl SetupConnectionHandler {
         Self { header_only: None }
     }
 
-    /// Handles the `SetupConnection` message from a downstream connection.
+    /// Handles the `SetupConnection` message coming from a downstream connection.
     pub async fn setup(
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,

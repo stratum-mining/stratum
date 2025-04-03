@@ -84,7 +84,7 @@ pub struct Pool {
 }
 
 impl Downstream {
-    /// Establishes a new connection with a downstream miner.
+    /// Establishes a new connection with a downstream role.
     ///
     /// This function handles the setup process, including negotiating the connection,
     /// assigning an appropriate ID, and spawning a task to manage incoming messages.
@@ -193,7 +193,7 @@ impl Downstream {
     }
 
     /// This method is responsible for sending message to downstream, or
-    /// broadcasting messages to multiple downstream.
+    /// broadcasting messages to multiple downstreams.
     #[async_recursion::async_recursion]
     async fn match_send_to(
         self_: Arc<Mutex<Self>>,
@@ -236,7 +236,7 @@ impl Downstream {
         Ok(())
     }
 
-    /// This method is used to send message to downstream.
+    /// This method is used to send messages to downstreams.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::Mining<'static>,
@@ -376,7 +376,7 @@ impl Pool {
         Ok(())
     }
 
-    /// Handles the arrival of a new previous hash message.
+    /// Handles the arrival of a SetNewPrevHash message.
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<SetNewPrevHash<'static>>,
@@ -433,7 +433,7 @@ impl Pool {
         Ok(())
     }
 
-    /// Handles the arrival of a new mining template.
+    /// Handles the arrival of a NewTemplate message.
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<NewTemplate<'static>>,

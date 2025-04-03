@@ -51,7 +51,7 @@ pub enum State {
     /// Indicates that the upstream connection (Template Provider) has shut down due to an error.
     TemplateProviderShutdown(PoolError),
     /// Indicates that a specific downstream miner instance has disconnected.
-    /// The `u32` value represents the ID of the disconnected instance.
+    /// The `u32` value represents the channel ID of the disconnected instance.
     DownstreamInstanceDropped(u32),
     /// Represents a healthy state with an accompanying status message.
     Healthy(String),
