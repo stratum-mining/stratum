@@ -69,6 +69,7 @@ mod args {
     }
 }
 
+// Main entry point for the pool CLI application,
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();

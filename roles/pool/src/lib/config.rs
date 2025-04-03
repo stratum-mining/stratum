@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 
 /// Represents the configuration of a Pool.
 ///
-/// Pool acts an upstream throug hthe [`PoolConfig::listen_address`] and a downstream to the
+/// Pool acts as an upstream through the [`PoolConfig::listen_address`] and as a downstream to the
 /// Template Provider through the [`PoolConfig::tp_address`].
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct PoolConfig {
