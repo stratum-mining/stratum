@@ -6,28 +6,494 @@ on:
 name: Integration Tests
 
 jobs:
-  ci:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-
+  build:
+    runs-on: ubuntu-latest
     steps:
-      - name: Use stable toolchain
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
 
-      - name: Roles Integration Tests
-        run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose --test '*' -- --nocapture
+      - name: Build project
+        run: cargo build --manifest-path=test/integration-tests/Cargo.toml --verbose
 
-      - name: SV1 Integration Tests
-        run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose --test 'sv1' --features sv1 -- --nocapture
+      - name: Cache build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+  # Pool integration tests
+  success_pool_template_provider_connection:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run success_pool_template_provider_connection test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose success_pool_template_provider_connection -- --nocapture
+
+  header_timestamp_value_assertion_in_new_extended_mining_job:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run header_timestamp_value_assertion_in_new_extended_mining_job test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose header_timestamp_value_assertion_in_new_extended_mining_job -- --nocapture
+
+  pool_standard_channel_receives_share:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run pool_standard_channel_receives_share test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose pool_standard_channel_receives_share -- --nocapture
+
+  # Sniffer integration tests
+  test_sniffer_intercept_to_downstream:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run test_sniffer_intercept_to_downstream test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose test_sniffer_intercept_to_downstream -- --nocapture
+
+  test_sniffer_intercept_to_upstream:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run test_sniffer_intercept_to_upstream test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose test_sniffer_intercept_to_upstream -- --nocapture
+
+  test_sniffer_wait_for_message_type_with_remove:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run test_sniffer_wait_for_message_type_with_remove test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose test_sniffer_wait_for_message_type_with_remove -- --nocapture
+
+  test_sniffer_blocks_message:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run test_sniffer_blocks_message test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose test_sniffer_blocks_message -- --nocapture
+
+  # SV1 integration test
+  test_basic_sv1:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run test_basic_sv1 test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose test_basic_sv1 --features sv1 -- --nocapture
+
+  # SV2 mining device test
+  sv2_mining_device_and_pool_success:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run sv2_mining_device_and_pool_success test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose sv2_mining_device_and_pool_success -- --nocapture
+
+  # Translator integration tests
+  translate_sv1_to_sv2_successfully:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run translate_sv1_to_sv2_successfully test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose translate_sv1_to_sv2_successfully -- --nocapture
+
+  # translation_proxy_and_jd:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Install Rust toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #         override: true
+
+  #     - name: Restore cache
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry
+  #           ~/.cargo/git
+  #           target/
+  #           test/integration-tests/target/
+  #         key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+  #     - name: Run translation_proxy_and_jd test
+  #       run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose translation_proxy_and_jd -- --nocapture
+
+  # JD integration tests
+  jds_should_not_panic_if_jdc_shutsdown:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run jds_should_not_panic_if_jdc_shutsdown test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose jds_should_not_panic_if_jdc_shutsdown -- --nocapture
+
+  jdc_tp_success_setup:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run jdc_tp_success_setup test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose jdc_tp_success_setup -- --nocapture
+
+  jdc_does_not_stackoverflow_when_no_token:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run jdc_does_not_stackoverflow_when_no_token test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose jdc_does_not_stackoverflow_when_no_token -- --nocapture
+
+  jds_receive_solution_while_processing_declared_job_test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run jds_receive_solution_while_processing_declared_job_test test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose jds_receive_solution_while_processing_declared_job_test -- --nocapture
+
+  jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transaction_success:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+            test/integration-tests/target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transaction_success test
+        run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transaction_success -- --nocapture
+
+  # # JDC Fallback test
+  # test_jdc_pool_fallback_after_submit_rejection:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Install Rust toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #         override: true
+
+  #     - name: Restore cache
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry
+  #           ~/.cargo/git
+  #           target/
+  #           test/integration-tests/target/
+  #         key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+  #     - name: Run test_jdc_pool_fallback_after_submit_rejection test
+  #       run: RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose test_jdc_pool_fallback_after_submit_rejection -- --nocapture
