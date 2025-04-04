@@ -9,7 +9,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 impl ParseMiningMessagesFromDownstream<()> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
@@ -92,18 +92,43 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
         info!("Received UpdateChannel message");
-        let maximum_target =
-            roles_logic_sv2::utils::hash_rate_to_target(m.nominal_hash_rate.into(), 10.0)?;
-        self.channel_factory
-            .safe_lock(|s| s.update_target_for_channel(m.channel_id, maximum_target.clone().into()))
-            .unwrap_or_else(|_| {
-                std::process::exit(1);
-            });
-        let set_target = SetTarget {
-            channel_id: m.channel_id,
-            maximum_target,
-        };
-        Ok(SendTo::Respond(Mining::SetTarget(set_target)))
+        let shares_per_minute = self
+            .channel_factory
+            .safe_lock(|s| s.get_shares_per_minute())
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        let current_target = self
+            .channel_factory
+            .safe_lock(|s| s.get_extended_channel_target(&m.channel_id))
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        debug!(
+            "Current target on channel with id={:?} --> {:?}",
+            m.channel_id, current_target
+        );
+        let maximum_target = roles_logic_sv2::utils::hash_rate_to_target(
+            m.nominal_hash_rate.into(),
+            shares_per_minute as f64,
+        )?;
+        let new_target: Target = maximum_target.clone().into();
+        debug!("Computed new target = {:?}", new_target);
+        if let Some(current) = current_target {
+            if new_target != current {
+                self.channel_factory
+                    .safe_lock(|s| s.update_target_for_channel(m.channel_id, new_target.clone()))
+                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+                let set_target = SetTarget {
+                    channel_id: m.channel_id,
+                    maximum_target,
+                };
+                return Ok(SendTo::Respond(Mining::SetTarget(set_target)));
+            }
+        } else {
+            warn!(
+                "No current target found for channel id={:?}, skipping update",
+                m.channel_id
+            );
+        }
+        Ok(SendTo::None(None))
     }
 
     fn handle_submit_shares_standard(
