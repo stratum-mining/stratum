@@ -94,6 +94,8 @@ pub struct Upstream {
     /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
     /// via the SV1 `mining.set_difficulty` message.
     target: Arc<Mutex<Vec<u8>>>,
+    /// Tracks the most recently sent nominal hashrate to prevent unnecessary updates.
+    pub last_sent_hashrate: Option<f32>,
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
@@ -178,6 +180,7 @@ impl Upstream {
             tx_sv2_extranonce,
             tx_status,
             target,
+            last_sent_hashrate: None,
             difficulty_config,
             task_collector,
         })))
