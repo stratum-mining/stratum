@@ -208,6 +208,8 @@ impl Client {
                     warn!("Share channel is not available");
                     break;
                 }
+                // Introduce a delay of 0.2 seconds after sending a share
+                std::thread::sleep(Duration::from_millis(200));
             }
             miner_cloned
                 .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
