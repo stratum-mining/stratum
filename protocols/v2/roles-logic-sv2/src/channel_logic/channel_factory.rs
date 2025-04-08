@@ -1292,6 +1292,10 @@ impl PoolChannelFactory {
         self.inner.extended_channels.keys().copied().collect()
     }
 
+    pub fn get_shares_per_minute(&self) -> f32 {
+        self.inner.share_per_min
+    }
+
     /// Update coinbase outputs
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = outs;

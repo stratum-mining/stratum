@@ -92,8 +92,14 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
         info!("Received UpdateChannel message");
-        let maximum_target =
-            roles_logic_sv2::utils::hash_rate_to_target(m.nominal_hash_rate.into(), 10.0)?;
+        let shares_per_minute = self
+            .channel_factory
+            .safe_lock(|s| s.get_shares_per_minute())
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+        let maximum_target = roles_logic_sv2::utils::hash_rate_to_target(
+            m.nominal_hash_rate.into(),
+            shares_per_minute.into(),
+        )?;
         self.channel_factory
             .safe_lock(|s| s.update_target_for_channel(m.channel_id, maximum_target.clone().into()))
             .unwrap_or_else(|_| {
