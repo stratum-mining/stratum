@@ -54,7 +54,7 @@ pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 /// in the market.
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorClient {
-    /// Configuration of the proxy server [`JobDeclaratorClient`] is connected to.
+    // Configuration of the proxy server [`JobDeclaratorClient`] is connected to.
     config: JobDeclaratorClientConfig,
     // Used for notifying the [`JobDeclaratorClient`] to shutdown gracefully.
     shutdown: Arc<Notify>,
@@ -103,7 +103,7 @@ impl JobDeclaratorClient {
                         .await;
                 });
             } else {
-                let tx_status = tx_status.clone();
+                let tx_status: async_channel::Sender<status::Status<'_>> = tx_status.clone();
                 let task_collector = task_collector.clone();
                 root_handler = tokio::spawn(async move {
                     Self::initialize_jd_as_solo_miner(

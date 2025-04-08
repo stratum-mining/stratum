@@ -36,6 +36,7 @@ impl SetupConnectionHandler {
         }
     }
 
+    /// processes the setup connection lifecycle.
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,

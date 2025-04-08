@@ -1,3 +1,4 @@
+//! This module contains logic and constructs required for JDC to communicate to template provider.
 use super::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
 use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
@@ -30,6 +31,7 @@ pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+/// Represents a template receiver client
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
@@ -45,6 +47,8 @@ pub struct TemplateRx {
 }
 
 impl TemplateRx {
+    /// This method connects to the template provider and
+    /// instantiates client side operations.
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
@@ -87,7 +91,7 @@ impl TemplateRx {
             .unwrap();
         info!("Template Receiver connection set up");
 
-        let self_mutex = Arc::new(Mutex::new(Self {
+        let self_mutex: Arc<Mutex<TemplateRx>> = Arc::new(Mutex::new(Self {
             receiver: receiver.clone(),
             sender: sender.clone(),
             tx_status,
@@ -106,6 +110,7 @@ impl TemplateRx {
         Self::start_templates(self_mutex);
     }
 
+    /// This method is used to send message to template provider.
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) {
         let either_frame = sv2_frame.into();
         let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
@@ -115,6 +120,7 @@ impl TemplateRx {
         }
     }
 
+    /// This method sends coinbase_output_constraints to Template provider.
     pub async fn send_coinbase_output_constraints(
         self_mutex: &Arc<Mutex<Self>>,
         size: u32,
@@ -130,6 +136,7 @@ impl TemplateRx {
         Self::send(self_mutex, frame).await;
     }
 
+    /// This method sends tx_data_request to Template provider.
     pub async fn send_tx_data_request(
         self_mutex: &Arc<Mutex<Self>>,
         new_template: NewTemplate<'static>,
@@ -170,6 +177,11 @@ impl TemplateRx {
         }
     }
 
+    /// This method contains core logic of template receiver. It provide template
+    /// provider with coinbase constraint and intercept messages by template provider
+    ///
+    /// FIX ME: Remove dependence from other modules in this. This gonna help in
+    /// removing sequential component spawning.
     pub fn start_templates(self_mutex: Arc<Mutex<Self>>) {
         let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap();
         let down = self_mutex.safe_lock(|s| s.down.clone()).unwrap();
@@ -248,7 +260,7 @@ impl TemplateRx {
                                 }
                                 Some(TemplateDistribution::SetNewPrevHash(m)) => {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                                    // See coment on the definition of the global for memory
+                                    // See comment on the definition of the global for memory
                                     // ordering
                                     while !super::IS_NEW_TEMPLATE_HANDLED
                                         .load(std::sync::atomic::Ordering::Acquire)
@@ -332,6 +344,7 @@ impl TemplateRx {
             .unwrap();
     }
 
+    /// Deals with new solution sent from upstream to template provider.
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
         while let Ok(solution) = rx.recv().await {
             let sv2_frame: StdFrame =

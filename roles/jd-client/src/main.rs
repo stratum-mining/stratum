@@ -46,7 +46,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
 ///
 /// This will start:
 /// 1. An Upstream, this will connect with the mining Pool
-/// 2. A listner that will wait for a mining downstream with ExtendedChannel capabilities (tproxy,
+/// 2. A listener that will wait for a mining downstream with ExtendedChannel capabilities (tproxy,
 ///    mining-proxy)
 /// 3. A JobDeclarator, this will connect with the job-declarator-server
 /// 4. A TemplateRx, this will connect with bitcoind
@@ -70,7 +70,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
 /// 5. Upstream: ->Share
 ///
 /// When we have a NewTemplate we send the NewExtendedMiningJob downstream and the CommitMiningJob
-/// to the JDS altoghether.
+/// to the JDS altogether.
 /// Then we receive CommitMiningJobSuccess and we use the new token to send SetCustomMiningJob to
 /// the pool.
 /// When we receive SetCustomMiningJobSuccess we set in Upstream job_id equal to the one received
@@ -80,11 +80,11 @@ fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
 /// been received this will reduce the time that pass from a NewTemplate and the mining-device
 /// starting to mine on the new job.
 ///
-/// In the case a future NewTemplate the SetCustomMiningJob is sent only if the canditate become
+/// In the case a future NewTemplate the SetCustomMiningJob is sent only if the candidate become
 /// the actual NewTemplate so that we do not send a lot of useless future Job to the pool. That
 /// means that SetCustomMiningJob is sent only when a NewTemplate become "active"
 ///
-/// The JobDeclarator always have 2 avaiable token, that means that whenever a token is used to
+/// The JobDeclarator always have 2 available token, that means that whenever a token is used to
 /// commit a job with upstream we require a new one. Having always a token when needed means that
 /// whenever we want to commit a mining job we can do that without waiting for upstream to provide
 /// a new token.
