@@ -18,11 +18,13 @@
 //!
 //! - `prop_test`: Enables support for property testing in [`template_distribution_sv2`] crate.
 pub mod channel_logic;
+pub mod channel_management;
 pub mod common_properties;
 pub mod errors;
 pub mod handlers;
 pub mod job_creator;
 pub mod job_dispatcher;
+pub mod job_management;
 pub mod parsers;
 pub mod utils;
 pub use common_messages_sv2;

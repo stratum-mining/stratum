@@ -522,6 +522,10 @@ impl ExtendedExtranonce {
         })
     }
 
+    pub fn update_additional_coinbase_script_data(&mut self, data: alloc::vec::Vec<u8>) {
+        self.additional_coinbase_script_data = Some(data);
+    }
+
     pub fn get_len(&self) -> usize {
         self.range_2.end
     }
@@ -788,6 +792,14 @@ pub mod tests {
         let extranonce = Extranonce::new(10).unwrap();
         let extranonce2 = Extranonce::from_vec_with_len(extranonce.extranonce, 22);
         assert_eq!(extranonce2.extranonce.len(), 22);
+    }
+
+    #[test]
+    fn test_extranonce_update_additional_coinbase_script_data() {
+        let mut extended_extranonce = ExtendedExtranonce::new(0..10, 10..20, 20..30, None).unwrap();
+        let data = vec![1, 2, 3];
+        extended_extranonce.update_additional_coinbase_script_data(data);
+        assert_eq!(extended_extranonce.additional_coinbase_script_data, Some(data));
     }
 
     #[test]
