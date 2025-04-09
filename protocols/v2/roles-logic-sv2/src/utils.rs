@@ -8,6 +8,7 @@
 use binary_sv2::U256;
 use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, PushSolution};
+use mining_sv2::Target;
 use primitive_types::U256 as U256Primitive;
 use std::{
     cmp::max,
@@ -377,6 +378,38 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
+}
+
+/// Converts a `Target` to a `f64` difficulty.
+pub fn target_to_difficulty(target: Target) -> f64 {
+    // Genesis block target: 0x00000000ffff0000000000000000000000000000000000000000000000000000
+    // (in little endian)
+    let max_target_bytes = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00,
+        0x00, 0x00,
+    ];
+    let max_target = U256Primitive::from_little_endian(&max_target_bytes);
+
+    // Convert input target to U256Primitive
+    let target_u256: U256<'static> = target.into();
+    let mut target_bytes = [0u8; 32];
+    target_bytes.copy_from_slice(target_u256.inner_as_ref());
+    let target = U256Primitive::from_little_endian(&target_bytes);
+
+    // Calculate difficulty = max_target / target
+    // We need to handle the full 256-bit values properly
+    // Convert to f64 by taking the ratio of the most significant bits
+    let max_target_high = (max_target >> 128).low_u128() as f64;
+    let max_target_low = max_target.low_u128() as f64;
+    let target_high = (target >> 128).low_u128() as f64;
+    let target_low = target.low_u128() as f64;
+
+    // Combine high and low parts with appropriate scaling
+    let max_target_f64 = max_target_high * (2.0f64.powi(128)) + max_target_low;
+    let target_f64 = target_high * (2.0f64.powi(128)) + target_low;
+
+    max_target_f64 / target_f64
 }
 
 /// Converts a `u128` to a [`U256`].
@@ -1074,5 +1107,46 @@ mod tests {
         m.safe_lock(|i| *i += 1).unwrap();
         // m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap()); // will not compile
         m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap_or_default()); // compiles
+    }
+
+    #[test]
+    fn test_target_to_difficulty() {
+        // Test target: 0x000000000004864c000000000000000000000000000000000000000000000000
+        let target_bytes = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4c, 0x86, 0x04, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        let target = Target::from(target_bytes);
+        let difficulty = target_to_difficulty(target);
+
+        // Expected difficulty: 14484.162361
+        let expected_difficulty = 14484.162361;
+        let epsilon = 0.000001; // Small value for floating point comparison
+
+        assert!(
+            (difficulty - expected_difficulty).abs() < epsilon,
+            "Expected difficulty {}, got {}",
+            expected_difficulty,
+            difficulty
+        );
+
+        let max_target_bytes = [
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        let max_target = Target::from(max_target_bytes);
+        let max_difficulty = target_to_difficulty(max_target);
+
+        let expected_max_difficulty = 1.0;
+        let epsilon = 0.000001; // Small value for floating point comparison
+
+        assert!(
+            (max_difficulty - expected_max_difficulty).abs() < epsilon,
+            "Expected difficulty {}, got {}",
+            expected_max_difficulty,
+            max_difficulty
+        );
     }
 }
