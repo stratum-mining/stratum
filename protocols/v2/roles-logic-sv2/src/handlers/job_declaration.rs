@@ -40,7 +40,7 @@ use const_sv2::{
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
     MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
 };
 use core::convert::TryInto;
 use job_declaration_sv2::*;
@@ -96,8 +96,8 @@ where
             Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
             )),
-            Ok(JobDeclaration::SubmitSolution(_)) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SUBMIT_SOLUTION_JD))
+            Ok(JobDeclaration::PushSolution(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_PUSH_SOLUTION))
             }
             Err(e) => Err(e),
         }
@@ -178,8 +178,8 @@ where
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => {
                 self_.safe_lock(|x| x.handle_provide_missing_transactions_success(message))?
             }
-            Ok(JobDeclaration::SubmitSolution(message)) => {
-                self_.safe_lock(|x| x.handle_submit_solution(message))?
+            Ok(JobDeclaration::PushSolution(message)) => {
+                self_.safe_lock(|x| x.handle_push_solution(message))?
             }
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
@@ -227,8 +227,8 @@ where
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error>;
 
-    /// Handles a `SubmitSolution` message.
+    /// Handles a `PushSolution` message.
     ///
-    /// This method processes a message that submits a solution for the mining job.
-    fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error>;
+    /// This method is used to process a valid block found by the miner.
+    fn handle_push_solution(&mut self, message: PushSolution) -> Result<SendTo, Error>;
 }

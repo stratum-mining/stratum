@@ -4,7 +4,7 @@ use roles_logic_sv2::{
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
-        ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
+        ProvideMissingTransactions, ProvideMissingTransactionsSuccess, PushSolution,
     },
     parsers::JobDeclaration,
     utils::Mutex,
@@ -242,10 +242,10 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
         Ok(SendTo::None(None))
     }
 
-    fn handle_submit_solution(&mut self, message: SubmitSolutionJd<'_>) -> Result<SendTo, Error> {
-        info!("Received `SubmitSolution`");
-        debug!("`SubmitSolution`: {:?}", message);
-        let m = JobDeclaration::SubmitSolution(message.clone().into_static());
+    fn handle_push_solution(&mut self, message: PushSolution<'_>) -> Result<SendTo, Error> {
+        info!("Received PushSolution from JDC");
+        debug!("`PushSolution`: {:?}", message);
+        let m = JobDeclaration::PushSolution(message.clone().into_static());
         Ok(SendTo::None(Some(m)))
     }
 }

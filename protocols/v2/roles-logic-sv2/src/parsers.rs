@@ -57,16 +57,16 @@ use const_sv2::{
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
     MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
     MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_RECONNECT,
-    MESSAGE_TYPE_REQUEST_TRANSACTION_DATA, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
-    MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,
-    MESSAGE_TYPE_SETUP_CONNECTION_ERROR, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS, MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
-    MESSAGE_TYPE_SET_GROUP_CHANNEL, MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET,
-    MESSAGE_TYPE_SUBMIT_SHARES_ERROR, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
-    MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_SUBMIT_SOLUTION_JD, MESSAGE_TYPE_UPDATE_CHANNEL,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
+    MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
+    MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+    MESSAGE_TYPE_SET_EXTRANONCE_PREFIX, MESSAGE_TYPE_SET_GROUP_CHANNEL,
+    MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET, MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED, MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL,
     MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
 };
 use core::convert::{TryFrom, TryInto};
@@ -79,7 +79,7 @@ use common_messages_sv2::{
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
     DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
-    ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
+    ProvideMissingTransactions, ProvideMissingTransactionsSuccess, PushSolution,
 };
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -197,7 +197,7 @@ pub enum JobDeclaration<'a> {
     IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
-    SubmitSolution(SubmitSolutionJd<'a>),
+    PushSolution(PushSolution<'a>),
 }
 
 /// Mining subprotocol messages: categorization, encapsulation, and parsing.
@@ -358,7 +358,7 @@ impl IsSv2Message for JobDeclaration<'_> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
-            Self::SubmitSolution(_) => MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
+            Self::PushSolution(_) => MESSAGE_TYPE_PUSH_SOLUTION,
         }
     }
     fn channel_bit(&self) -> bool {
@@ -374,7 +374,7 @@ impl IsSv2Message for JobDeclaration<'_> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
-            Self::SubmitSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION_JD,
+            Self::PushSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION_JD,
         }
     }
 }
@@ -476,7 +476,7 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.into(),
             JobDeclaration::ProvideMissingTransactions(a) => a.into(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.into(),
-            JobDeclaration::SubmitSolution(a) => a.into(),
+            JobDeclaration::PushSolution(a) => a.into(),
         }
     }
 }
@@ -545,7 +545,7 @@ impl GetSize for JobDeclaration<'_> {
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactions(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.get_size(),
-            JobDeclaration::SubmitSolution(a) => a.get_size(),
+            JobDeclaration::PushSolution(a) => a.get_size(),
         }
     }
 }
@@ -788,7 +788,7 @@ pub enum JobDeclarationTypes {
     IdentifyTransactionsSuccess = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
     ProvideMissingTransactions = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     ProvideMissingTransactionsSuccess = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-    SubmitSolution = MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
+    PushSolution = MESSAGE_TYPE_PUSH_SOLUTION,
 }
 
 impl TryFrom<u8> for JobDeclarationTypes {
@@ -817,7 +817,7 @@ impl TryFrom<u8> for JobDeclarationTypes {
             MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS => {
                 Ok(JobDeclarationTypes::ProvideMissingTransactionsSuccess)
             }
-            MESSAGE_TYPE_SUBMIT_SOLUTION_JD => Ok(JobDeclarationTypes::SubmitSolution),
+            MESSAGE_TYPE_PUSH_SOLUTION => Ok(JobDeclarationTypes::PushSolution),
             _ => Err(Error::UnexpectedMessage(v)),
         }
     }
@@ -865,9 +865,9 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
                 let message: ProvideMissingTransactionsSuccess = from_bytes(v.1)?;
                 Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message))
             }
-            JobDeclarationTypes::SubmitSolution => {
-                let message: SubmitSolutionJd = from_bytes(v.1)?;
-                Ok(JobDeclaration::SubmitSolution(message))
+            JobDeclarationTypes::PushSolution => {
+                let message: PushSolution = from_bytes(v.1)?;
+                Ok(JobDeclaration::PushSolution(message))
             }
         }
     }

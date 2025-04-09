@@ -37,7 +37,8 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     ///
     /// If set to true, the [`AllocateMiningJobTokenSuccess::mining_job_token`] can be used
     /// immediately on a mining connection in the `SetCustomMiningJob` message, even before
-    /// [`crate::DeclareMiningJob`] and [`DeclareMiningJobSuccess`] messages have been exchanged.
+    /// [`crate::DeclareMiningJob`] and [`crate::DeclareMiningJobSuccess`] messages have been
+    /// exchanged.
     ///
     /// If set to false, JDC **must** use this token for [`crate::DeclareMiningJob`] only.
     ///
