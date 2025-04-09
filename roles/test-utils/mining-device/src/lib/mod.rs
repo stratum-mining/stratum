@@ -8,7 +8,6 @@ use primitive_types::U256;
 use rand::{thread_rng, Rng};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
-    common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
         common::ParseCommonMessagesFromUpstream,
@@ -345,47 +344,6 @@ impl Device {
         let frame: StdFrame = share.try_into().unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
         sender.send(frame.into()).await.unwrap();
-    }
-}
-
-impl IsUpstream<()> for Device {
-    fn get_version(&self) -> u16 {
-        todo!()
-    }
-
-    fn get_flags(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_supported_protocols(&self) -> Vec<Protocol> {
-        todo!()
-    }
-
-    fn get_id(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
-        todo!()
-    }
-}
-
-impl IsMiningUpstream<()> for Device {
-    fn total_hash_rate(&self) -> u64 {
-        todo!()
-    }
-
-    fn add_hash_rate(&mut self, _to_add: u64) {
-        todo!()
-    }
-    fn get_opened_channels(
-        &mut self,
-    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
-        todo!()
-    }
-
-    fn update_channels(&mut self, _: roles_logic_sv2::common_properties::UpstreamChannel) {
-        todo!()
     }
 }
 

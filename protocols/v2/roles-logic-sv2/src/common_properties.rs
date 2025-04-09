@@ -8,7 +8,7 @@
 use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};
 use nohash_hasher::BuildNoHashHasher;
-use std::{collections::HashMap, fmt::Debug as D};
+use std::collections::HashMap;
 
 /// Defines a mining downstream node at the most basic level.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -69,7 +69,7 @@ pub struct PairSettings {
 }
 
 /// Properties defining behaviors common to all Sv2 upstream nodes.
-pub trait IsUpstream<Down: IsDownstream> {
+pub trait IsUpstream {
     /// Returns the protocol version used by the upstream node.
     fn get_version(&self) -> u16;
 
@@ -161,7 +161,7 @@ pub struct StandardChannel {
 ///
 /// This trait extends [`IsUpstream`] with additional functionality specific to mining, such as
 /// hashrate management and channel updates.
-pub trait IsMiningUpstream<Down: IsMiningDownstream>: IsUpstream<Down> {
+pub trait IsMiningUpstream: IsUpstream {
     /// Returns the total hashrate managed by the upstream node.
     fn total_hash_rate(&self) -> u64;
 
@@ -199,7 +199,7 @@ pub trait IsMiningDownstream: IsDownstream {
 }
 
 // Implemented for the `NullDownstreamMiningSelector`.
-impl<Down: IsDownstream + D> IsUpstream<Down> for () {
+impl IsUpstream for () {
     fn get_version(&self) -> u16 {
         unreachable!("Null upstream do not have a version");
     }
@@ -227,7 +227,7 @@ impl IsDownstream for () {
     }
 }
 
-impl<Down: IsMiningDownstream + D> IsMiningUpstream<Down> for () {
+impl IsMiningUpstream for () {
     fn total_hash_rate(&self) -> u64 {
         unreachable!("Null selector do not have hash rate");
     }
