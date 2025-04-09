@@ -5,7 +5,7 @@ use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame}
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
-    job_declaration_sv2::{AllocateMiningJobTokenSuccess, SubmitSolutionJd},
+    job_declaration_sv2::{AllocateMiningJobTokenSuccess, PushSolution},
     mining_sv2::SubmitSharesExtended,
     parsers::{AnyMessage, JobDeclaration},
     template_distribution_sv2::SetNewPrevHash,
@@ -474,7 +474,7 @@ impl JobDeclarator {
             .safe_lock(|s| s.last_set_new_prev_hash.clone())
             .unwrap()
             .expect("");
-        let solution = SubmitSolutionJd {
+        let solution = PushSolution {
             extranonce: solution.extranonce,
             prev_hash: prev_hash.prev_hash,
             ntime: solution.ntime,
@@ -482,7 +482,7 @@ impl JobDeclarator {
             nbits: prev_hash.n_bits,
             version: solution.version,
         };
-        let frame: StdFrame = AnyMessage::JobDeclaration(JobDeclaration::SubmitSolution(solution))
+        let frame: StdFrame = AnyMessage::JobDeclaration(JobDeclaration::PushSolution(solution))
             .try_into()
             .unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
