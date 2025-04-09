@@ -1246,7 +1246,7 @@ pub async fn scan(
     res.safe_lock(|r| r.clone()).unwrap()
 }
 
-impl IsUpstream<DownstreamMiningNode> for UpstreamMiningNode {
+impl IsUpstream for UpstreamMiningNode {
     fn get_version(&self) -> u16 {
         self.sv2_connection.unwrap().version
     }
@@ -1267,7 +1267,7 @@ impl IsUpstream<DownstreamMiningNode> for UpstreamMiningNode {
         Some(&mut self.request_id_mapper)
     }
 }
-impl IsMiningUpstream<DownstreamMiningNode> for UpstreamMiningNode {
+impl IsMiningUpstream for UpstreamMiningNode {
     fn total_hash_rate(&self) -> u64 {
         self.total_hash_rate
     }
