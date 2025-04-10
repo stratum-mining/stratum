@@ -3,15 +3,15 @@ use binary_sv2::{Seq064K, B032, U256};
 use const_sv2::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,
-    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
 };
 use integration_tests_sv2::{
     sniffer::{MessageDirection, ReplaceMessage},
     *,
 };
 use roles_logic_sv2::{
-    job_declaration_sv2::{ProvideMissingTransactionsSuccess, SubmitSolutionJd},
+    job_declaration_sv2::{ProvideMissingTransactionsSuccess, PushSolution},
     parsers::AnyMessage,
 };
 
@@ -142,8 +142,8 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
     let submit_solution_replace = ReplaceMessage::new(
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-        AnyMessage::JobDeclaration(roles_logic_sv2::parsers::JobDeclaration::SubmitSolution(
-            SubmitSolutionJd {
+        AnyMessage::JobDeclaration(roles_logic_sv2::parsers::JobDeclaration::PushSolution(
+            PushSolution {
                 ntime: 0,
                 nbits: 0,
                 nonce: 0,
@@ -200,10 +200,7 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
         )
         .await;
     sniffer_a
-        .wait_for_message_type(
-            MessageDirection::ToUpstream,
-            MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
-        )
+        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_PUSH_SOLUTION)
         .await;
     assert!(tokio::net::TcpListener::bind(jds_addr).await.is_err());
 }
