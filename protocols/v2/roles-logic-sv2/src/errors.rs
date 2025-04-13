@@ -116,6 +116,18 @@ pub enum Error {
     /// JD server cannot propagate the block due to missing transactions
     JDSMissingTransactions,
     IoError(std::io::Error),
+    NoActiveChainTip,
+    NoActiveJob,
+    FailedToGetExtendedChannelFromFactory,
+    FailedToGetStandardChannelFromFactory,
+    FailedToCreateGroupChannel,
+    FailedToCreateNewChannelId,
+    FailedToCheckIfChannelExists,
+    FailedToUpdateGroupChannel,
+    FailedToUpdateStandardChannel,
+    FailedToUpdateExtendedChannel,
+    FailedToValidateShare,
+    FailedToSetCustomMiningJob,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -215,6 +227,18 @@ impl Display for Error {
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
             IoError(e) => write!(f, "IO error: {:?}", e),
             ExtendedExtranonceCreationFailed(e) => write!(f, "Failed to create ExtendedExtranonce: {}", e),
+            NoActiveChainTip => write!(f, "No active chain tip"),
+            NoActiveJob => write!(f, "No active job"),
+            FailedToGetExtendedChannelFromFactory => write!(f, "Failed to get ExtendedChannel from factory"),
+            FailedToGetStandardChannelFromFactory => write!(f, "Failed to get StandardChannel from factory"),
+            FailedToCreateGroupChannel => write!(f, "Failed to create GroupChannel"),
+            FailedToCreateNewChannelId => write!(f, "Failed to create new channel id"),
+            FailedToCheckIfChannelExists => write!(f, "Failed to check if channel exists"),
+            FailedToUpdateGroupChannel => write!(f, "Failed to update GroupChannel"),
+            FailedToUpdateStandardChannel => write!(f, "Failed to update StandardChannel"),
+            FailedToUpdateExtendedChannel => write!(f, "Failed to update ExtendedChannel"),
+            FailedToValidateShare => write!(f, "Failed to validate share"),
+            FailedToSetCustomMiningJob => write!(f, "Failed to set custom mining job"),
         }
     }
 }

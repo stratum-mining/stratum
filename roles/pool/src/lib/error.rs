@@ -4,7 +4,13 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
+use roles_logic_sv2::{
+    channel_management::{
+        extended_channel_factory::ExtendedChannelFactoryError,
+        standard_channel_factory::StandardChannelFactoryError,
+    },
+    parsers::Mining,
+};
 
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
@@ -20,6 +26,8 @@ pub enum PoolError {
     ComponentShutdown(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
+    StandardChannelFactoryError(StandardChannelFactoryError),
+    ExtendedChannelFactoryError(ExtendedChannelFactoryError),
 }
 
 impl std::fmt::Display for PoolError {
@@ -39,6 +47,12 @@ impl std::fmt::Display for PoolError {
             Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+            }
+            StandardChannelFactoryError(ref e) => {
+                write!(f, "Standard Channel Factory Error: `{:?}`", e)
+            }
+            ExtendedChannelFactoryError(ref e) => {
+                write!(f, "Extended Channel Factory Error: `{:?}`", e)
             }
         }
     }

@@ -13,6 +13,10 @@ use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
+    channel_management::{
+        channel_id_factory::ChannelIdFactory, extended_channel_factory::ExtendedChannelFactory,
+        standard_channel_factory::StandardChannelFactory,
+    },
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
@@ -63,7 +67,9 @@ pub struct Downstream {
     sender: Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
     solution_sender: Sender<SubmitSolution<'static>>,
-    channel_factory: Arc<Mutex<PoolChannelFactory>>,
+    channel_id_factory: ChannelIdFactory,
+    standard_channel_factory: StandardChannelFactory,
+    extended_channel_factory: ExtendedChannelFactory,
 }
 
 /// Accept downstream connection
@@ -72,6 +78,9 @@ pub struct Pool {
     solution_sender: Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
+    channel_id_factory: ChannelIdFactory,
+    standard_channel_factory: StandardChannelFactory,
+    extended_channel_factory: ExtendedChannelFactory,
     last_prev_hash_template_id: u64,
     status_tx: status::Sender,
 }
@@ -84,6 +93,9 @@ impl Downstream {
         solution_sender: Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
+        channel_id_factory: ChannelIdFactory,
+        standard_channel_factory: StandardChannelFactory,
+        extended_channel_factory: ExtendedChannelFactory,
         status_tx: status::Sender,
         address: SocketAddr,
     ) -> PoolResult<Arc<Mutex<Self>>> {
@@ -103,7 +115,9 @@ impl Downstream {
             sender,
             downstream_data,
             solution_sender,
-            channel_factory,
+            channel_id_factory,
+            standard_channel_factory,
+            extended_channel_factory,
         }));
 
         let cloned = self_.clone();
@@ -330,13 +344,18 @@ impl Pool {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
-
+        let channel_id_factory = self_.safe_lock(|s| s.channel_id_factory.clone())?;
+        let standard_channel_factory = self_.safe_lock(|s| s.standard_channel_factory.clone())?;
+        let extended_channel_factory = self_.safe_lock(|s| s.extended_channel_factory.clone())?;
         let downstream = Downstream::new(
             receiver,
             sender,
             solution_sender,
             self_.clone(),
             channel_factory,
+            channel_id_factory,
+            standard_channel_factory,
+            extended_channel_factory,
             // convert Listener variant to Downstream variant
             status_tx.listener_to_connection(),
             address,
@@ -480,9 +499,9 @@ impl Pool {
         let pool_coinbase_outputs = get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(
-            range_0,
-            range_1,
-            range_2,
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
             Some(config.pool_signature().as_bytes().to_vec()),
         )
         .expect("Failed to create ExtendedExtranonce with valid ranges");
@@ -496,11 +515,34 @@ impl Pool {
             kind,
             pool_coinbase_outputs.expect("Invalid coinbase output in config"),
         )));
+        let channel_id_factory = ChannelIdFactory::new();
+        let standard_channel_factory = StandardChannelFactory::new(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            Some(config.pool_signature().as_bytes().to_vec()),
+            10,
+            shares_per_minute.into(),
+        )
+        .map_err(|e| PoolError::StandardChannelFactoryError(e))?;
+        let extended_channel_factory = ExtendedChannelFactory::new(
+            range_0,
+            range_1,
+            range_2,
+            Some(config.pool_signature().as_bytes().to_vec()),
+            10,
+            shares_per_minute.into(),
+            true,
+        )
+        .map_err(|e| PoolError::ExtendedChannelFactoryError(e))?;
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             solution_sender,
             new_template_processed: false,
             channel_factory,
+            channel_id_factory,
+            standard_channel_factory,
+            extended_channel_factory,
             last_prev_hash_template_id: 0,
             status_tx: status_tx.clone(),
         }));
