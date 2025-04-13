@@ -147,5 +147,11 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         PoolError::Sv2ProtocolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
+        PoolError::StandardChannelFactoryError(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        PoolError::ExtendedChannelFactoryError(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
     }
 }
