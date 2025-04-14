@@ -168,6 +168,25 @@ impl Sniffer {
         }
     }
 
+    /// Assert message is not present in the queue
+    ///
+    /// Will return true if the message is not present in the queue, false otherwise.
+    pub async fn assert_message_not_present(
+        &self,
+        message_direction: MessageDirection,
+        message_type: u8,
+    ) -> bool {
+        let has_message_type = match message_direction {
+            MessageDirection::ToDownstream => {
+                self.messages_from_upstream.has_message_type(message_type)
+            }
+            MessageDirection::ToUpstream => {
+                self.messages_from_downstream.has_message_type(message_type)
+            }
+        };
+        !has_message_type
+    }
+
     /// Similar to `[Sniffer::wait_for_message_type]` but also removes the messages from the queue
     /// including the specified message type.
     pub async fn wait_for_message_type_and_clean_queue(
