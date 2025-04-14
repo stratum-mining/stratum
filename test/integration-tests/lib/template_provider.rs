@@ -160,6 +160,13 @@ impl TemplateProvider {
         client.generate_to_address(101, &address)?;
         Ok(())
     }
+
+    /// Return the hash of the most recent block.
+    pub fn get_best_block_hash(&self) -> Result<String, corepc_node::Error> {
+        let client = &self.bitcoind.client;
+        let block_hash = client.get_best_block_hash()?.0;
+        Ok(block_hash)
+    }
 }
 
 #[cfg(test)]
