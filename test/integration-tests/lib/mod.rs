@@ -250,7 +250,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
 
     let min_extranonce2_size = 4;
 
-    let config = translator_sv2::proxy_config::ProxyConfig::new(
+    let config = translator_sv2::proxy_config::TranslatorProxyConfig::new(
         upstream_conf,
         downstream_conf,
         2,
@@ -350,7 +350,7 @@ pub fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
         })
         .collect();
     let mining_proxy_listening_address = get_available_address();
-    let config = mining_proxy_sv2::Configuration {
+    let config = mining_proxy_sv2::MiningProxyConfig {
         upstreams,
         listen_address: mining_proxy_listening_address.ip().to_string(),
         listen_mining_port: mining_proxy_listening_address.port(),
