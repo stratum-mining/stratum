@@ -99,7 +99,7 @@ pub enum ChannelKind {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Configuration {
+pub struct MiningProxyConfig {
     pub upstreams: Vec<UpstreamMiningValues>,
     pub listen_address: String,
     pub listen_mining_port: u16,
@@ -112,7 +112,7 @@ pub struct Configuration {
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
-    config: Configuration,
+    config: MiningProxyConfig,
 ) -> RLogic {
     let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
@@ -148,7 +148,7 @@ pub async fn initialize_r_logic(
     }
 }
 
-pub async fn start_mining_proxy(config: Configuration) {
+pub async fn start_mining_proxy(config: MiningProxyConfig) {
     let group_id = Arc::new(Mutex::new(GroupId::new()));
     ROUTING_LOGIC
         .set(Mutex::new(
