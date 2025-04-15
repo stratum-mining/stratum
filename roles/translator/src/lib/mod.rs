@@ -17,7 +17,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 pub use v1::server_to_client;
 
-use proxy_config::ProxyConfig;
+use proxy_config::TranslatorProxyConfig;
 
 use crate::status::State;
 
@@ -31,13 +31,13 @@ pub mod utils;
 
 #[derive(Clone, Debug)]
 pub struct TranslatorSv2 {
-    config: ProxyConfig,
+    config: TranslatorProxyConfig,
     reconnect_wait_time: u64,
     shutdown: Arc<Notify>,
 }
 
 impl TranslatorSv2 {
-    pub fn new(config: ProxyConfig) -> Self {
+    pub fn new(config: TranslatorProxyConfig) -> Self {
         let mut rng = rand::thread_rng();
         let wait_time = rng.gen_range(0..=3000);
         Self {
@@ -144,7 +144,7 @@ impl TranslatorSv2 {
     }
 
     async fn internal_start(
-        proxy_config: ProxyConfig,
+        proxy_config: TranslatorProxyConfig,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
         target: Arc<Mutex<Vec<u8>>>,
         tx_status: async_channel::Sender<Status<'static>>,
@@ -318,11 +318,11 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown() {
         let config_path = "config-examples/tproxy-config-hosted-pool-example.toml";
-        let config: ProxyConfig = match Config::builder()
+        let config: TranslatorProxyConfig = match Config::builder()
             .add_source(File::new(config_path, FileFormat::Toml))
             .build()
         {
-            Ok(settings) => match settings.try_deserialize::<ProxyConfig>() {
+            Ok(settings) => match settings.try_deserialize::<TranslatorProxyConfig>() {
                 Ok(c) => c,
                 Err(e) => {
                     dbg!(&e);
