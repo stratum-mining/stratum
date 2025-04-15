@@ -5,6 +5,8 @@
 // use crate::framing2::EitherFrame;
 use core::fmt;
 
+use stratum_common::SV2_FRAME_HEADER_SIZE;
+
 // pub type FramingResult<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -33,8 +35,7 @@ impl fmt::Display for Error {
                 write!(
                     f,
                     "Unexpected `Header` length: `{}`, should be equal or more to {}",
-                    actual_size,
-                    const_sv2::SV2_FRAME_HEADER_SIZE
+                    actual_size, SV2_FRAME_HEADER_SIZE
                 )
             }
         }

@@ -21,7 +21,8 @@ use binary_sv2::{
     from_bytes, Deserialize, Error,
 };
 
-use const_sv2::{
+use core::convert::{TryFrom, TryInto};
+use stratum_common::{
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS,
     CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
     CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
@@ -35,7 +36,6 @@ use const_sv2::{
     MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SET_NEW_PREV_HASH,
     MESSAGE_TYPE_SUBMIT_SOLUTION,
 };
-use core::convert::{TryFrom, TryInto};
 
 #[derive(Clone, Debug)]
 pub enum Sv2Message<'a> {

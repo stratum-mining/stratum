@@ -22,15 +22,18 @@
 use crate::Error;
 use alloc::vec::Vec;
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U24};
-use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE};
 use core::convert::TryInto;
+use stratum_common::{
+    AEAD_MAC_LEN, ENCRYPTED_SV2_FRAME_HEADER_SIZE, NOISE_FRAME_HEADER_LEN_OFFSET,
+    NOISE_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE,
+};
 
 // Previously `NoiseHeader::SIZE`
-pub const NOISE_HEADER_ENCRYPTED_SIZE: usize = const_sv2::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
+pub const NOISE_HEADER_ENCRYPTED_SIZE: usize = ENCRYPTED_SV2_FRAME_HEADER_SIZE;
 // Previously `NoiseHeader::LEN_OFFSET`
-pub const NOISE_HEADER_LEN_OFFSET: usize = const_sv2::NOISE_FRAME_HEADER_LEN_OFFSET;
+pub const NOISE_HEADER_LEN_OFFSET: usize = NOISE_FRAME_HEADER_LEN_OFFSET;
 // Previously `NoiseHeader::HEADER_SIZE`
-pub const NOISE_HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
+pub const NOISE_HEADER_SIZE: usize = NOISE_FRAME_HEADER_SIZE;
 
 /// Abstraction for a Sv2 Frame Header.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
@@ -53,7 +56,7 @@ pub struct Header {
 }
 
 impl Header {
-    pub const SIZE: usize = const_sv2::SV2_FRAME_HEADER_SIZE;
+    pub const SIZE: usize = SV2_FRAME_HEADER_SIZE;
 
     /// Construct a [`Header`] from raw bytes
     #[inline]

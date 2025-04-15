@@ -5,11 +5,11 @@ use binary_sv2::{
     decodable::{DecodableField, FieldMarker},
     free_vec, Deserialize, Error, GetSize, Serialize, Str0255,
 };
-use const_sv2::{
+use core::convert::{TryFrom, TryInto};
+use stratum_common::{
     SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
     SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
-use core::convert::{TryFrom, TryInto};
 
 /// Used by downstream to initiate a Stratum V2 connection with an upstream role.
 ///

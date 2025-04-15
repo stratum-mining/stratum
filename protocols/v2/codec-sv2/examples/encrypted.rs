@@ -23,16 +23,16 @@ use codec_sv2::{
     StandardNoiseDecoder, StandardSv2Frame, State, Sv2Frame,
 };
 #[cfg(feature = "noise_sv2")]
-use const_sv2::{
-    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-};
-#[cfg(feature = "noise_sv2")]
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use std::convert::TryInto;
 #[cfg(feature = "noise_sv2")]
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
+};
+#[cfg(feature = "noise_sv2")]
+use stratum_common::{
+    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
 
 // Arbitrary message type.

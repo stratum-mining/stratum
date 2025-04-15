@@ -1,11 +1,5 @@
 // This file contains integration tests for the `JDC/S` module.
 use binary_sv2::{Seq064K, B032, U256};
-use const_sv2::{
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
-    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-};
 use integration_tests_sv2::{
     sniffer::{MessageDirection, ReplaceMessage},
     *,
@@ -13,6 +7,12 @@ use integration_tests_sv2::{
 use roles_logic_sv2::{
     job_declaration_sv2::{ProvideMissingTransactionsSuccess, PushSolution},
     parsers::AnyMessage,
+};
+use stratum_common::{
+    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
+    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
 };
 
 // This test verifies that jd-server does not exit when a connected jd-client shuts down.

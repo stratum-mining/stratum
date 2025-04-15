@@ -1,7 +1,7 @@
 // This file contains integration tests for the `TranslatorSv2` module.
-use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 use integration_tests_sv2::{sniffer::*, *};
 use roles_logic_sv2::parsers::{AnyMessage, CommonMessages, Mining};
+use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 
 // This test runs an sv2 translator between an sv1 mining device and a pool. the connection between
 // the translator and the pool is intercepted by a sniffer. The test checks if the translator and

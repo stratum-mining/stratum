@@ -1,4 +1,3 @@
-use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS};
 use integration_tests_sv2::*;
 use roles_logic_sv2::{
     mining_sv2::SubmitSharesError,
@@ -6,6 +5,7 @@ use roles_logic_sv2::{
 };
 use sniffer::{MessageDirection, ReplaceMessage};
 use std::convert::TryInto;
+use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS};
 
 // Tests whether JDC will switch to a new pool after receiving a `SubmitSharesError` message from
 // the currently connected pool.

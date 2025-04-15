@@ -34,9 +34,9 @@ use template_distribution_sv2::{
 
 /// see [`SendTo_`]
 pub type SendTo = SendTo_<TemplateDistribution<'static>, ()>;
-use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
+use stratum_common::*;
 
 /// Trait for handling template distribution messages received from server (Template Provider).
 /// Includes functions to handle messages such as new templates, previous hash updates, and

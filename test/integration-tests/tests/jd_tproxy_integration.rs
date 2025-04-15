@@ -1,10 +1,10 @@
-use const_sv2::{
+use integration_tests_sv2::{sniffer::*, *};
+use stratum_common::{
     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES, MESSAGE_TYPE_SETUP_CONNECTION,
     MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
     MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
 };
-use integration_tests_sv2::{sniffer::*, *};
 
 #[tokio::test]
 async fn jd_tproxy_integration() {

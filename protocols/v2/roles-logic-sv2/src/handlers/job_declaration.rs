@@ -35,15 +35,15 @@ use std::sync::Arc;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use super::SendTo_;
 use crate::errors::Error;
-use const_sv2::{
+use core::convert::TryInto;
+use job_declaration_sv2::*;
+use stratum_common::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
     MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
 };
-use core::convert::TryInto;
-use job_declaration_sv2::*;
 
 /// A trait for parsing and handling SV2 job declaration messages sent by a server.
 ///

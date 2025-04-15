@@ -6,13 +6,13 @@ pub mod sv1_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
-use const_sv2::{
-    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-};
 use futures::lock::Mutex;
 use std::{
     convert::TryInto,
     sync::{atomic::AtomicBool, Arc},
+};
+use stratum_common::{
+    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
 
 #[derive(Debug)]

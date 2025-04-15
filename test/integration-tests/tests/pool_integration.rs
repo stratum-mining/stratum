@@ -2,18 +2,18 @@
 //
 // `PoolSv2` is a module that implements the Pool role in the Stratum V2 protocol.
 use crate::sniffer::MessageDirection;
-use const_sv2::{
+use integration_tests_sv2::*;
+use roles_logic_sv2::{
+    common_messages_sv2::{Protocol, SetupConnection},
+    parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},
+};
+use stratum_common::{
     MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
     MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
-};
-use integration_tests_sv2::*;
-use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
-    parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},
 };
 
 // This test starts a Template Provider and a Pool, and checks if they exchange the correct

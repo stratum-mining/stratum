@@ -173,7 +173,7 @@ name = "common_messages_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -203,10 +203,6 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
-
-[[package]]
-name = "const_sv2"
-version = "3.0.0"
 
 [[package]]
 name = "cpufeatures"
@@ -264,7 +260,7 @@ name = "framing_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -374,7 +370,7 @@ name = "job_declaration_sv2"
 version = "3.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -394,7 +390,7 @@ name = "mining_sv2"
 version = "3.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -550,7 +546,6 @@ dependencies = [
  "binary_sv2",
  "chacha20poly1305",
  "common_messages_sv2",
- "const_sv2",
  "framing_sv2",
  "hex-conservative 0.3.0",
  "job_declaration_sv2",
@@ -653,7 +648,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-common"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitcoin",
  "secp256k1 0.28.2",
@@ -687,7 +682,7 @@ name = "template_distribution_sv2"
 version = "3.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]

@@ -26,7 +26,9 @@ use binary_sv2::{
     encodable::EncodableField,
     from_bytes, Deserialize, GetSize,
 };
-use const_sv2::{
+use core::convert::{TryFrom, TryInto};
+use framing_sv2::framing::Sv2Frame;
+use stratum_common::{
     CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
     CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS, CHANNEL_BIT_DECLARE_MINING_JOB,
@@ -69,8 +71,6 @@ use const_sv2::{
     MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL,
     MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
 };
-use core::convert::{TryFrom, TryInto};
-use framing_sv2::framing::Sv2Frame;
 
 use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,

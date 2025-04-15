@@ -6,14 +6,14 @@ fn main() -> Result<(), std::io::Error> {
 mod main_ {
     use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
     use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError};
-    use const_sv2::{
-        CHANNEL_BIT_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION,
-        MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-    };
     use std::{
         convert::{TryFrom, TryInto},
         io::{Read, Write},
         net::TcpStream,
+    };
+    use stratum_common::{
+        CHANNEL_BIT_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION,
+        MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
     };
 
     use binary_sv2::{
