@@ -568,7 +568,7 @@ impl Upstream {
     }
 }
 
-impl IsUpstream<Downstream> for Upstream {
+impl IsUpstream for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -590,7 +590,7 @@ impl IsUpstream<Downstream> for Upstream {
     }
 }
 
-impl IsMiningUpstream<Downstream> for Upstream {
+impl IsMiningUpstream for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }

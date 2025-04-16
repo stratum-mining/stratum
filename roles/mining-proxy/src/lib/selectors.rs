@@ -250,7 +250,7 @@ pub trait UpstreamSelector {}
 /// upstream connection setup, failover, and routing logic.
 pub trait UpstreamMiningSelctor<
     Down: IsMiningDownstream,
-    Up: IsMiningUpstream<Down>,
+    Up: IsMiningUpstream,
     Sel: DownstreamMiningSelector<Down>,
 >: UpstreamSelector
 {
@@ -274,7 +274,7 @@ pub trait UpstreamMiningSelctor<
 pub struct GeneralMiningSelector<
     Sel: DownstreamMiningSelector<Down>,
     Down: IsMiningDownstream,
-    Up: IsMiningUpstream<Down>,
+    Up: IsMiningUpstream,
 > {
     /// List of upstream nodes.
     pub upstreams: Vec<Arc<Mutex<Up>>>,
@@ -287,7 +287,7 @@ pub struct GeneralMiningSelector<
     down: std::marker::PhantomData<Down>,
 }
 
-impl<Sel: DownstreamMiningSelector<Down>, Up: IsMiningUpstream<Down>, Down: IsMiningDownstream>
+impl<Sel: DownstreamMiningSelector<Down>, Up: IsMiningUpstream, Down: IsMiningDownstream>
     GeneralMiningSelector<Sel, Down, Up>
 {
     /// Creates a new [`GeneralMiningSelector`] instance with the given upstream nodes.
@@ -310,12 +310,12 @@ impl<Sel: DownstreamMiningSelector<Down>, Up: IsMiningUpstream<Down>, Down: IsMi
     }
 }
 
-impl<Sel: DownstreamMiningSelector<Down>, Down: IsMiningDownstream, Up: IsMiningUpstream<Down>>
+impl<Sel: DownstreamMiningSelector<Down>, Down: IsMiningDownstream, Up: IsMiningUpstream>
     UpstreamSelector for GeneralMiningSelector<Sel, Down, Up>
 {
 }
 
-impl<Sel: DownstreamMiningSelector<Down>, Down: IsMiningDownstream, Up: IsMiningUpstream<Down>>
+impl<Sel: DownstreamMiningSelector<Down>, Down: IsMiningDownstream, Up: IsMiningUpstream>
     UpstreamMiningSelctor<Down, Up, Sel> for GeneralMiningSelector<Sel, Down, Up>
 {
     fn on_setup_connection(
