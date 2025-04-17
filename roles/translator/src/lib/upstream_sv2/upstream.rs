@@ -1,10 +1,10 @@
 use crate::{
+    config::UpstreamDifficultyConfig,
     downstream_sv1::Downstream,
     error::{
         Error::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
         ProxyResult,
     },
-    proxy_config::UpstreamDifficultyConfig,
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };

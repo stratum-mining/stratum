@@ -2,7 +2,7 @@ use key_utils::Secp256k1PublicKey;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct TranslatorProxyConfig {
+pub struct TranslatorConfig {
     pub upstream_address: String,
     pub upstream_port: u16,
     pub upstream_authority_pubkey: Secp256k1PublicKey,
@@ -54,7 +54,7 @@ impl DownstreamConfig {
     }
 }
 
-impl TranslatorProxyConfig {
+impl TranslatorConfig {
     pub fn new(
         upstream: UpstreamConfig,
         downstream: DownstreamConfig,
