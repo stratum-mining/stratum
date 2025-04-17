@@ -1,3 +1,10 @@
+//! Entry point for the Job Declarator Server (JDS).
+//!
+//! This binary parses CLI arguments, loads the TOML configuration file, and
+//! starts the main runtime defined in `lib::JobDeclaratorServer`.
+//!
+//! The actual task orchestration and shutdown logic are managed in `lib/mod.rs`.
+
 #![allow(special_module_name)]
 pub use crate::lib::{
     config,
@@ -10,11 +17,18 @@ mod lib;
 
 use ext_config::{Config, File, FileFormat};
 
+/// CLI argument parser for the JDS binary.
+///
+/// Supports the following flags:
+/// - `-c`, `--config`: specify a custom config file path
+/// - `-h`, `--help`: print help and usage info
 mod args {
     use std::path::PathBuf;
 
+    /// Holds the parsed CLI arguments.
     #[derive(Debug)]
     pub struct Args {
+        /// Path to the TOML configuration file.
         pub config_path: PathBuf,
     }
 
@@ -35,6 +49,10 @@ mod args {
         const HELP_MSG: &'static str =
             "Usage: -h/--help, -c/--config <path|default jds-config.toml>";
 
+        /// Parses the CLI arguments and returns a populated `Args` struct.
+        ///
+        /// If no `-c` flag is provided, it defaults to `jds-config.toml`.
+        /// If `--help` is passed, it returns a help message as an error.
         pub fn from_args() -> Result<Self, String> {
             let cli_args = std::env::args();
 
@@ -73,6 +91,10 @@ mod args {
     }
 }
 
+/// Entrypoint for the Job Declarator Server binary.
+///
+/// Loads the configuration from TOML and initializes the main runtime
+/// defined in `lib::JobDeclaratorServer`. Errors during startup are logged.
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();

@@ -1,3 +1,22 @@
+//! # Job Declarator Server - Protocol and Downstream Handling
+//!
+//! This module implements the core logic of the **Job Declarator Server (JDS)**.
+//!
+//! Responsibilities include:
+//! - Listening for downstream client connections (JDCs)
+//! - Handling the Job Declaration Protocol (AllocateMiningJobToken, DeclareMiningJob, PushSolution,
+//!   etc.)
+//! - Tracking job state and transaction presence
+//! - Managing transaction flow into the local mempool
+//! - Assembling and submitting full blocks to the upstream node
+//!
+//! Structure:
+//! - [`JobDeclarator`] handles server-level responsibilities like accepting new TCP connections.
+//! - [`JobDeclaratorDownstream`] manages the per-client state and protocol interaction.
+//!
+//! The design is one-task-per-downstream, with communication via channels and internal
+//! synchronization.
+
 pub mod message_handler;
 use super::{
     error::JdsError, mempool::JDsMempool, status, EitherFrame, JobDeclaratorServerConfig, StdFrame,
@@ -28,24 +47,41 @@ use stratum_common::bitcoin::{
     Block, Transaction, Txid,
 };
 
+/// Represents whether a transaction declared in a mining job is known to the JDS mempool
+/// or still missing and needs to be fetched/provided.
 #[derive(Clone, Debug)]
 pub enum TransactionState {
     PresentInMempool(Txid),
     Missing,
 }
 
+/// Contains transaction identifiers and full transaction data that need to be
+/// added or completed in the JDS mempool.
+///
+/// Used internally during the job declaration lifecycle.
 #[derive(Clone, Debug)]
 pub struct AddTrasactionsToMempoolInner {
     pub known_transactions: Vec<Txid>,
     pub unknown_transactions: Vec<Transaction>,
 }
 
-// TODO implement send method that sends the inner via the sender
+/// Wrapper struct enabling transaction updates to be sent via a channel to the mempool task.
 #[derive(Clone, Debug)]
 pub struct AddTrasactionsToMempool {
     pub add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
     pub sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
 }
+
+/// Represents a single downstream connection to a JDC.
+///
+/// This struct tracks all state relevant to one connection, including:
+/// - The declared mining job and missing transactions
+/// - The client's async mining capabilities
+/// - Mapping between tokens and job IDs
+/// - Interaction with the mempool
+///
+/// It operates in its own async task and communicates with the rest of the system
+/// via channels and locks.
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -73,6 +109,7 @@ pub struct JobDeclaratorDownstream {
 }
 
 impl JobDeclaratorDownstream {
+    /// Creates a new downstream connection context.
     pub fn new(
         async_mining_allowed: bool,
         receiver: Receiver<EitherFrame>,
@@ -200,6 +237,9 @@ impl JobDeclaratorDownstream {
         known_transactions
     }
 
+    /// Sends a single Job Declaration message back to the downstream client.
+    ///
+    /// Wraps the message into a `StdFrame` and sends it through the established channel.
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::JobDeclaration<'static>,
@@ -209,6 +249,15 @@ impl JobDeclaratorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
+
+    /// Starts the message processing loop for this downstream connection.
+    ///
+    /// - Waits for incoming SV2 messages
+    /// - Delegates message parsing to [`ParseJobDeclarationMessagesFromDownstream`]
+    /// - Sends appropriate responses back to the client
+    /// - Updates the JDS mempool as needed
+    ///
+    /// This loop runs until the client disconnects or a critical error is encountered.
     pub fn start(
         self_mutex: Arc<Mutex<Self>>,
         tx_status: status::Sender,
@@ -432,9 +481,26 @@ fn _get_random_token() -> B0255<'static> {
     inner.to_vec().try_into().unwrap()
 }
 
+/// The entry point of the Job Declarator Server.
+///
+/// Responsible for initializing server state and accepting incoming TCP connections
+/// from downstream clients (JDCs). Each client gets a dedicated [`JobDeclaratorDownstream`]
+/// instance.
+///
+/// Responsibilities:
+/// - Listening on the configured address
+/// - Performing the SV2 Noise handshake
+/// - Handling `SetupConnection` messages
+/// - Spawning the downstream message loop
 pub struct JobDeclarator {}
 
 impl JobDeclarator {
+    /// Starts the Job Declarator server.
+    ///
+    /// - Accepts configuration and shared components (status sender, mempool, etc.).
+    /// - Initializes internal state.
+    /// - Begins listening for downstream connections via
+    ///   [`JobDeclarator::accept_incoming_connection`].
     pub async fn start(
         config: JobDeclaratorServerConfig,
         status_tx: crate::status::Sender,
