@@ -1,3 +1,20 @@
+//! ## Mempool Management for the Job Declarator Server (JDS)
+//!
+//! This module defines the internal mempool of the JDS, responsible for keeping track of known
+//! transactions and interacting with the Bitcoin node via RPC.
+//!
+//! Its core responsibilities are:
+//! - Keeping a local copy of txids and (optionally) their full transaction data
+//! - Pulling known transactions from the Bitcoin node on demand (via `getrawtransaction`)
+//! - Accepting and tracking raw transactions received from clients
+//! - Forwarding valid blocks to the Bitcoin node via `submitblock`
+//!
+//! Internally, `JDsMempool` uses a `HashMap<Txid, Option<(Transaction, u32)>>`:
+//! - `None`: transaction only known by ID, data is missing
+//! - `Some`: full transaction is known, `u32` is a reference counter for eviction
+//!
+//! Most methods are `Arc<Mutex<_>>`-wrapped and should be reviewed for locking efficiency.
+
 pub mod error;
 use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;
@@ -9,21 +26,28 @@ use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{convert::TryInto, str::FromStr, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
+/// Wrapper around a known transaction and its hash.
 #[derive(Clone, Debug)]
 pub struct TransactionWithHash {
     pub id: Txid,
-    pub tx: Option<(Transaction, u32)>,
+    pub tx: Option<(Transaction, u32)>, // Full data and ref count
 }
 
+/// Internal representation of the JDS mempool.
 #[derive(Clone, Debug)]
 pub struct JDsMempool {
+    /// Local map of known txids and their associated data (if available).
     pub mempool: HashMap<Txid, Option<(Transaction, u32)>>,
+    /// Auth for RPC connection to the node.
     auth: mini_rpc_client::Auth,
+    /// URI of the Bitcoin node.
     url: rpc_sv2::Uri,
+    /// Receiver for new block solutions coming from JDC.
     new_block_receiver: Receiver<String>,
 }
 
 impl JDsMempool {
+    /// Returns a MiniRpcClient if the URL looks valid.
     pub fn get_client(&self) -> Option<mini_rpc_client::MiniRpcClient> {
         let url = self.url.to_string();
         if url.contains("http") {
@@ -43,6 +67,7 @@ impl JDsMempool {
         tx_list_
     }
 
+    /// Instantiates a new empty mempool for JDS.
     pub fn new(
         url: rpc_sv2::Uri,
         username: String,
@@ -59,7 +84,7 @@ impl JDsMempool {
         }
     }
 
-    /// Checks if the rpc client is accessible.
+    /// Simple RPC ping to verify connection to Bitcoin node.
     pub async fn health(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let client = self_
             .safe_lock(|a| a.get_client())?
@@ -67,9 +92,9 @@ impl JDsMempool {
         client.health().await.map_err(JdsMempoolError::Rpc)
     }
 
-    // this functions fill in the mempool the transactions with the given txid and insert the given
-    // transactions. The ids are for the transactions that are already known to the node, the
-    // unknown transactions are provided directly as a vector
+    /// Inserts transactions into the mempool:
+    /// - known txids are fetched from the Bitcoin node
+    /// - unknown txs are directly inserted
     pub async fn add_tx_data_to_mempool(
         self_: Arc<Mutex<Self>>,
         add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
@@ -123,6 +148,8 @@ impl JDsMempool {
         Ok(())
     }
 
+    /// Periodically synchronizes the mempool with the Bitcoin node.
+    /// This only inserts thin entries (`None` as value), not full transactions.
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let client = self_
             .safe_lock(|x| x.get_client())?
@@ -155,6 +182,7 @@ impl JDsMempool {
         }
     }
 
+    /// Listens for block submissions (hex-encoded) and propagates them to the Bitcoin node.
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> =
             self_.safe_lock(|x| x.new_block_receiver.clone())?;
@@ -171,6 +199,9 @@ impl JDsMempool {
         Ok(())
     }
 
+    /// Builds a mapping between short IDs and transactions based on the given nonce.
+    ///
+    /// Returns `None` in case of short ID collision.    
     pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], TransactionWithHash>> {
         let mut ret = HashMap::new();
         for tx in &self.mempool {
@@ -185,7 +216,7 @@ impl JDsMempool {
             if ret.insert(s_id, tx_data.clone()).is_none() {
                 continue;
             } else {
-                return None;
+                return None; // collision detected
             }
         }
         Some(ret)

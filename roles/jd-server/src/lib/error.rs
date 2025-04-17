@@ -1,3 +1,18 @@
+//! ## Error Module
+//!
+//! Defines [`JdsError`], the central error enum used throughout the Job Declarator Server (JDS).
+//!
+//! It unifies errors from:
+//! - I/O operations
+//! - Channels (send/recv)
+//! - SV2 stack: Binary, Codec, Noise, Framing, RolesLogic
+//! - Mempool layer
+//! - Locking logic (PoisonError)
+//! - Domain-specific issues (e.g., missing job, invalid URL, reconstruction failures)
+//!
+//! This module ensures that all errors can be passed around consistently, including across async
+//! boundaries.
+
 use std::{
     convert::From,
     fmt::Debug,

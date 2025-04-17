@@ -1,3 +1,16 @@
+//! ## Configuration Module
+//!
+//! Defines [`JobDeclaratorServerConfig`], the configuration structure for the Job Declarator Server
+//! (JDS).
+//!
+//! This module handles:
+//! - Parsing TOML files via `serde`
+//! - Accessing Bitcoin Core RPC parameters
+//! - Managing cryptographic keys for Noise authentication
+//! - Setting networking and coinbase logic
+//!
+//! Also defines a helper struct [`CoreRpc`] to group RPC parameters.
+
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
@@ -5,10 +18,6 @@ use serde::Deserialize;
 use std::{convert::TryInto, time::Duration};
 use stratum_common::bitcoin::{Amount, TxOut};
 
-/// Represents the configuration of a Job Declarator Server.
-///
-/// Job Declarator Server connects through RPC to a Bitcoin core node to get the mempool updates.
-/// And it also listens for the connections from the Job Declarator Clients.
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
     #[serde(default = "default_true")]

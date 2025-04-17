@@ -1,3 +1,22 @@
+//! ## JDS Core Runtime Module
+//!
+//! This module serves as the central coordination layer of the Job Declarator Server (JDS).
+//!
+//! It connects all core components:
+//! - `mempool`: a local cache of Bitcoin transactions, synchronized via RPC.
+//! - `job_declarator`: protocol logic for handling downstream job declaration clients.
+//! - `status`: a simple health/error propagation mechanism.
+//! - `config`: configuration loader and accessor.
+//!
+//! The [`JobDeclaratorServer`] struct represents the entrypoint to the system's async runtime.
+//! It is launched from `main.rs` and responsible for:
+//! - validating config
+//! - initializing the mempool
+//! - spawning all background tasks
+//! - handling graceful shutdowns and task health reporting
+//!
+//! All components communicate asynchronously using `async_channel`.
+
 pub mod config;
 pub mod error;
 pub mod job_declarator;
@@ -16,33 +35,57 @@ use std::{ops::Sub, str::FromStr, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
 
+/// Type alias for incoming SV2 messages.
 pub type Message = JdsMessages<'static>;
+
+/// SV2 frame carrying a parsed JDS message.
 pub type StdFrame = StandardSv2Frame<Message>;
+
+/// SV2 frame that can be either a standard message or handshake frame.
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+/// The core runtime orchestrator for the JDS system.
+///
+/// Starts all essential services (mempool polling, block submission, job declaration protocol)
+/// and monitors for shutdown conditions or task failures via a `status` channel.
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorServer {
     config: JobDeclaratorServerConfig,
 }
 
 impl JobDeclaratorServer {
+    /// Constructs a new instance using the given TOML configuration.
     pub fn new(config: JobDeclaratorServerConfig) -> Self {
         Self { config }
     }
+
+    /// Starts the Job Declarator Server runtime.
+    ///
+    /// This method spawns the following:
+    /// - a task for polling the Bitcoin Core mempool
+    /// - a task for processing new block submissions from downstream clients
+    /// - a task for listening to incoming downstream connections
+    /// - a task for integrating transaction data into the local mempool
+    ///
+    /// It concludes with a `select!` loop that reacts to:
+    /// - SIGINT (`tokio::signal::ctrl_c()`)
+    /// - messages from the `status` channel
+    ///
+    /// When a critical error or interrupt is received, the server shuts down cleanly.
     pub async fn start(&self) -> Result<(), JdsError> {
         let mut config = self.config.clone();
-        // In case the url came with a trailing slash, we remove it to make sure we end up with
-        // `{scheme}://{host}:{port}` format.
+        // Normalize URL to avoid trailing slashes.
         if config.core_rpc_url().ends_with('/') {
             config.set_core_rpc_url(config.core_rpc_url().trim_end_matches('/').to_string());
         }
         let url = config.core_rpc_url().to_string() + ":" + &config.core_rpc_port().to_string();
         let username = config.core_rpc_user();
         let password = config.core_rpc_pass();
-        // TODO should we manage what to do when the limit is reaced?
+        // Channel for sending new blocks to the Bitcoin node
         let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) =
             bounded(10);
         let url = Uri::from_str(&url.clone()).expect("Invalid core rpc url");
+        // Shared mempool instance
         let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
             url,
             username.to_string(),
@@ -52,6 +95,7 @@ impl JobDeclaratorServer {
         let mempool_update_interval = config.mempool_update_interval();
         let mempool_cloned_ = mempool.clone();
         let mempool_cloned_1 = mempool.clone();
+        // Pre-flight check: can we reach the RPC node
         if let Err(e) = mempool::JDsMempool::health(mempool_cloned_1.clone()).await {
             error!("JDS Connection with bitcoin core failed {:?}", e);
             return Err(JdsError::MempoolError(e));
@@ -62,6 +106,7 @@ impl JobDeclaratorServer {
             std::time::Instant::now().sub(std::time::Duration::from_secs(60));
 
         let sender_update_mempool = sender.clone();
+        // ========== Task: Periodically update the mempool via RPC ========== //
         task::spawn(async move {
             loop {
                 let update_mempool_result: Result<(), mempool::error::JdsMempoolError> =
@@ -96,6 +141,7 @@ impl JobDeclaratorServer {
             }
         });
 
+        // ========== Task: Listen for SubmitSolution events ========== //
         let mempool_cloned = mempool.clone();
         let sender_submit_solution = sender.clone();
         task::spawn(async move {
@@ -120,6 +166,7 @@ impl JobDeclaratorServer {
             }
         });
 
+        // ========== Task: Launch Job Declarator server ========== //
         let cloned = config.clone();
         let mempool_cloned = mempool.clone();
         let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
@@ -133,6 +180,8 @@ impl JobDeclaratorServer {
             )
             .await
         });
+
+        // ========== Task: Add transactions to mempool when received ========== //
         task::spawn(async move {
             loop {
                 if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
@@ -156,8 +205,7 @@ impl JobDeclaratorServer {
             }
         });
 
-        // Start the error handling loop
-        // See `./status.rs` and `utils/error_handling` for information on how this operates
+        // ========== Central Runtime Loop: Shutdown and Error Reactions ========== //
         loop {
             let task_status = select! {
                 task_status = status_rx.recv() => task_status,
