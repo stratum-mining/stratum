@@ -223,13 +223,12 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let min_individual_miner_hashrate = measure_hashrate(1) as f32;
     let channel_diff_update_interval = 60;
     let channel_nominal_hashrate = min_individual_miner_hashrate;
-    let downstream_difficulty_config =
-        translator_sv2::config::DownstreamDifficultyConfig::new(
-            min_individual_miner_hashrate,
-            SHARES_PER_MINUTE,
-            0,
-            0,
-        );
+    let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
+        min_individual_miner_hashrate,
+        SHARES_PER_MINUTE,
+        0,
+        0,
+    );
     let upstream_difficulty_config = translator_sv2::config::UpstreamDifficultyConfig::new(
         channel_diff_update_interval,
         channel_nominal_hashrate,
