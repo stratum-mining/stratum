@@ -11,7 +11,7 @@ use roles_logic_sv2::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
             DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactions,
             IdentifyTransactionsSuccess, ProvideMissingTransactions,
-            ProvideMissingTransactionsSuccess, SubmitSolution,
+            ProvideMissingTransactionsSuccess, PushSolution,
         },
         TemplateDistribution::{self, CoinbaseOutputConstraints},
     },
@@ -166,6 +166,25 @@ impl Sniffer {
             // sleep to reduce async lock contention
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
+    }
+
+    /// Assert message is not present in the queue
+    ///
+    /// Will return true if the message is not present in the queue, false otherwise.
+    pub async fn assert_message_not_present(
+        &self,
+        message_direction: MessageDirection,
+        message_type: u8,
+    ) -> bool {
+        let has_message_type = match message_direction {
+            MessageDirection::ToDownstream => {
+                self.messages_from_upstream.has_message_type(message_type)
+            }
+            MessageDirection::ToUpstream => {
+                self.messages_from_downstream.has_message_type(message_type)
+            }
+        };
+        !has_message_type
     }
 
     /// Similar to `[Sniffer::wait_for_message_type]` but also removes the messages from the queue
@@ -458,7 +477,7 @@ impl Sniffer {
                 ProvideMissingTransactionsSuccess(m) => {
                     AnyMessage::JobDeclaration(ProvideMissingTransactionsSuccess(m.into_static()))
                 }
-                SubmitSolution(m) => AnyMessage::JobDeclaration(SubmitSolution(m.into_static())),
+                PushSolution(m) => AnyMessage::JobDeclaration(PushSolution(m.into_static())),
             },
             AnyMessage::TemplateDistribution(m) => match m {
                 CoinbaseOutputConstraints(m) => {
