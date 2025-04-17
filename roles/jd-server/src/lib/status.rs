@@ -1,14 +1,28 @@
+//! ## Status Reporting System for JDS
+//!
+//! This module defines how internal components of the Job Declarator Server (JDS) report
+//! health, errors, and shutdown conditions back to the main runtime loop in `lib/mod.rs`.
+//!
+//! At the core, tasks send a [`Status`] (wrapping a [`State`]) through a channel,
+//! which is tagged with a [`Sender`] enum to indicate the origin of the message.
+//!
+//! This allows for centralized, consistent error handling across the application.
+
 use roles_logic_sv2::parsers::Mining;
 
 use super::error::JdsError;
 
-/// Each sending side of the status channel
-/// should be wrapped with this enum to allow
-/// the main thread to know which component sent the message
+/// Identifies the component that originated a [`Status`] update.
+///
+/// Each sender is associated with a dedicated side of the status channel.
+/// This lets the central loop distinguish between errors from different parts of the system.
 #[derive(Debug)]
 pub enum Sender {
+    /// Downstream task (e.g. per-client connection handler)
     Downstream(async_channel::Sender<Status>),
+    /// Listener for incoming downstream connections
     DownstreamListener(async_channel::Sender<Status>),
+    /// Template Provider (Bitcoin Core RPC)
     Upstream(async_channel::Sender<Status>),
 }
 
@@ -22,23 +36,29 @@ impl Clone for Sender {
     }
 }
 
+/// The kind of event or status being reported by a task.
 #[derive(Debug)]
 pub enum State {
+    /// A downstream component (e.g. client) failed and should be shut down.
     DownstreamShutdown(JdsError),
+    /// The Template Provider (upstream Bitcoin Core) failed.
     TemplateProviderShutdown(JdsError),
+    /// A specific downstream instance was dropped (e.g., due to protocol error).
     DownstreamInstanceDropped(u32),
+    /// A generic message to indicate health or non-critical errors.
     Healthy(String),
 }
 
-/// message to be sent to the status loop on the main thread
+/// Wraps a status update, to be passed through a status channel.
 #[derive(Debug)]
 pub struct Status {
     pub state: State,
 }
 
-/// this function is used to discern which component experienced the event.
-/// With this knowledge we can wrap the status message with information (`State` variants) so
-/// the main status loop can decide what should happen
+/// Sends a [`Status`] message tagged with its [`Sender`] to the central loop.
+///
+/// This is the core logic used to determine which status variant should be sent
+/// based on the error type and sender context.
 async fn send_status(
     sender: &Sender,
     e: JdsError,
@@ -94,7 +114,10 @@ async fn send_status(
     outcome
 }
 
-// this is called by `error_handling::handle_result!`
+/// Centralized error dispatcher for the JDS.
+///
+/// Used by the `handle_result!` macro across the codebase.
+/// Decides whether the task should `Continue` or `Break` based on the error type and source.
 pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
     match e {
