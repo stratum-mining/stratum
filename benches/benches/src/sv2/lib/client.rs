@@ -142,7 +142,7 @@ impl Device {
     }
 }
 
-impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
+impl IsUpstream for Device {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -168,7 +168,7 @@ impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
     }
 }
 
-impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
+impl IsMiningUpstream for Device {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }

@@ -63,9 +63,9 @@ pub enum SupportedChannelTypes {
 ///
 /// This trait defines methods for parsing and routing downstream messages
 /// related to mining operations.
-pub trait ParseMiningMessagesFromDownstream<Up: IsMiningUpstream<Self> + D>
+pub trait ParseMiningMessagesFromDownstream<Up: IsMiningUpstream + D>
 where
-    Self: IsMiningDownstream + Sized + D,
+    Self: Sized + D,
 {
     /// Returns the type of channel supported by the downstream connection.
     fn get_channel_type(&self) -> SupportedChannelTypes;
@@ -238,7 +238,7 @@ where
 /// from the upstream based on the message type and payload.
 pub trait ParseMiningMessagesFromUpstream<Down: IsMiningDownstream + D>
 where
-    Self: IsMiningUpstream<Down> + Sized + D,
+    Self: Sized + D,
 {
     /// Retrieves the type of the channel supported by this upstream parser.
     fn get_channel_type(&self) -> SupportedChannelTypes;

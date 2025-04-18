@@ -67,7 +67,7 @@ pub trait CommonRouter: std::fmt::Debug {
 /// mining-specific routing logic.
 pub trait MiningRouter<
     Down: IsMiningDownstream,
-    Up: IsMiningUpstream<Down> + HasDownstreamSelector,
+    Up: IsMiningUpstream + HasDownstreamSelector,
     Sel: DownstreamMiningSelector<Down>,
 >: CommonRouter
 {
@@ -102,7 +102,7 @@ impl CommonRouter for NoRouting {
     }
 }
 
-impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down> + D + HasDownstreamSelector>
+impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream + D + HasDownstreamSelector>
     MiningRouter<Down, Up, NullDownstreamMiningSelector> for NoRouting
 {
     fn on_open_standard_channel(
@@ -136,7 +136,7 @@ pub enum CommonRoutingLogic<Router: 'static + CommonRouter> {
 #[derive(Debug)]
 pub enum MiningRoutingLogic<
     Down: IsMiningDownstream + D,
-    Up: IsMiningUpstream<Down> + D + HasDownstreamSelector,
+    Up: IsMiningUpstream + D + HasDownstreamSelector,
     Sel: DownstreamMiningSelector<Down> + D,
     Router: 'static + MiningRouter<Down, Up, Sel>,
 > {
@@ -159,7 +159,7 @@ impl<Router: CommonRouter> Clone for CommonRoutingLogic<Router> {
 
 impl<
         Down: IsMiningDownstream + D,
-        Up: IsMiningUpstream<Down> + D + HasDownstreamSelector,
+        Up: IsMiningUpstream + D + HasDownstreamSelector,
         Sel: DownstreamMiningSelector<Down> + D,
         Router: MiningRouter<Down, Up, Sel>,
     > Clone for MiningRoutingLogic<Down, Up, Sel, Router>
@@ -178,7 +178,7 @@ impl<
 #[derive(Debug)]
 pub struct MiningProxyRoutingLogic<
     Down: IsMiningDownstream + D,
-    Up: IsMiningUpstream<Down> + D,
+    Up: IsMiningUpstream + D,
     Sel: DownstreamMiningSelector<Down> + D,
 > {
     /// Selector for upstream entities.
@@ -191,7 +191,7 @@ pub struct MiningProxyRoutingLogic<
 
 impl<
         Down: IsMiningDownstream + D,
-        Up: IsMiningUpstream<Down> + D + HasDownstreamSelector,
+        Up: IsMiningUpstream + D + HasDownstreamSelector,
         Sel: DownstreamMiningSelector<Down> + D,
     > CommonRouter for MiningProxyRoutingLogic<Down, Up, Sel>
 {
@@ -225,7 +225,7 @@ impl<
 }
 
 impl<
-        Up: IsMiningUpstream<DownstreamMiningNode> + D + HasDownstreamSelector,
+        Up: IsMiningUpstream + D + HasDownstreamSelector,
         Sel: DownstreamMiningSelector<DownstreamMiningNode> + D,
     > MiningRouter<DownstreamMiningNode, Up, Sel>
     for MiningProxyRoutingLogic<DownstreamMiningNode, Up, Sel>
@@ -266,7 +266,7 @@ impl<
         request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<DownstreamMiningNode>>, Error>
     where
-        Up: IsUpstream<DownstreamMiningNode> + HasDownstreamSelector,
+        Up: IsUpstream + HasDownstreamSelector,
     {
         let upstream_request_id = request.get_request_id_as_u32();
         let original_request_id = upstream
@@ -290,10 +290,9 @@ impl<
 // # Panics
 // This function panics if the slice is empty, as it is internally guaranteed that this function
 // will only be called with non-empty vectors.
-fn minor_total_hr_upstream<Down, Up>(ups: &mut [Arc<Mutex<Up>>]) -> Arc<Mutex<Up>>
+fn minor_total_hr_upstream<Up>(ups: &mut [Arc<Mutex<Up>>]) -> Arc<Mutex<Up>>
 where
-    Down: IsMiningDownstream + D,
-    Up: IsMiningUpstream<Down> + D,
+    Up: IsMiningUpstream + D,
 {
     ups.iter_mut()
         .reduce(|acc, item| {
@@ -311,10 +310,9 @@ where
 }
 
 // Filters upstream entities that are not configured for header-only mining.
-fn filter_header_only<Down, Up>(ups: &mut [Arc<Mutex<Up>>]) -> Vec<Arc<Mutex<Up>>>
+fn filter_header_only<Up>(ups: &mut [Arc<Mutex<Up>>]) -> Vec<Arc<Mutex<Up>>>
 where
-    Down: IsMiningDownstream + D,
-    Up: IsMiningUpstream<Down> + D,
+    Up: IsMiningUpstream + D,
 {
     ups.iter()
         .filter(|up_mutex| {
@@ -332,33 +330,32 @@ where
 // - If only one upstream is available, it is selected.
 // - If multiple upstreams exist, preference is given to those not configured as header-only.
 // - Among the remaining upstreams, the one with the lowest total hash rate is selected.
-fn select_upstream<Down, Up>(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>>
+fn select_upstream<Up>(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>>
 where
-    Down: IsMiningDownstream + D,
-    Up: IsMiningUpstream<Down> + D,
+    Up: IsMiningUpstream + D,
 {
     if ups.is_empty() {
         None
     } else if ups.len() == 1 {
         Some(ups[0].clone())
-    } else if !filter_header_only::<Down, Up>(ups).is_empty() {
-        Some(minor_total_hr_upstream::<Down, Up>(
-            &mut filter_header_only::<Down, Up>(ups),
+    } else if !filter_header_only::<Up>(ups).is_empty() {
+        Some(minor_total_hr_upstream::<Up>(
+            &mut filter_header_only::<Up>(ups),
         ))
     } else {
-        Some(minor_total_hr_upstream::<Down, Up>(ups))
+        Some(minor_total_hr_upstream::<Up>(ups))
     }
 }
 
 impl<
         Down: IsMiningDownstream + D,
-        Up: IsMiningUpstream<Down> + D + HasDownstreamSelector,
+        Up: IsMiningUpstream + D + HasDownstreamSelector,
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningProxyRoutingLogic<Down, Up, Sel>
 {
     // Selects an upstream entity from a list of available upstreams.
     fn select_upstreams(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>> {
-        select_upstream::<Down, Up>(ups)
+        select_upstream::<Up>(ups)
     }
 
     /// Handles the `SetupConnection` process for header-only mining downstream's.
