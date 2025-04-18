@@ -3,9 +3,9 @@ mod args;
 mod lib;
 
 use args::Args;
+use config::TranslatorConfig;
 use error::{Error, ProxyResult};
-pub use lib::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
-use proxy_config::ProxyConfig;
+pub use lib::{config, downstream_sv1, error, proxy, status, upstream_sv2};
 
 use ext_config::{Config, File, FileFormat};
 
@@ -13,7 +13,7 @@ use tracing::{error, info};
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
     // Parse CLI arguments
     let args = Args::from_args().map_err(|help| {
         error!("{}", help);
@@ -30,8 +30,8 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()?;
 
-    // Deserialize settings into ProxyConfig
-    let config = settings.try_deserialize::<ProxyConfig>()?;
+    // Deserialize settings into TranslatorConfig
+    let config = settings.try_deserialize::<TranslatorConfig>()?;
     Ok(config)
 }
 

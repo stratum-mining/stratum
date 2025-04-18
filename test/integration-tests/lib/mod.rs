@@ -223,26 +223,25 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let min_individual_miner_hashrate = measure_hashrate(1) as f32;
     let channel_diff_update_interval = 60;
     let channel_nominal_hashrate = min_individual_miner_hashrate;
-    let downstream_difficulty_config =
-        translator_sv2::proxy_config::DownstreamDifficultyConfig::new(
-            min_individual_miner_hashrate,
-            SHARES_PER_MINUTE,
-            0,
-            0,
-        );
-    let upstream_difficulty_config = translator_sv2::proxy_config::UpstreamDifficultyConfig::new(
+    let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
+        min_individual_miner_hashrate,
+        SHARES_PER_MINUTE,
+        0,
+        0,
+    );
+    let upstream_difficulty_config = translator_sv2::config::UpstreamDifficultyConfig::new(
         channel_diff_update_interval,
         channel_nominal_hashrate,
         0,
         false,
     );
-    let upstream_conf = translator_sv2::proxy_config::UpstreamConfig::new(
+    let upstream_conf = translator_sv2::config::UpstreamConfig::new(
         upstream_address,
         upstream_port,
         upstream_authority_pubkey,
         upstream_difficulty_config,
     );
-    let downstream_conf = translator_sv2::proxy_config::DownstreamConfig::new(
+    let downstream_conf = translator_sv2::config::DownstreamConfig::new(
         listening_address.ip().to_string(),
         listening_port,
         downstream_difficulty_config,
@@ -250,7 +249,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
 
     let min_extranonce2_size = 4;
 
-    let config = translator_sv2::proxy_config::ProxyConfig::new(
+    let config = translator_sv2::config::TranslatorConfig::new(
         upstream_conf,
         downstream_conf,
         2,
@@ -350,7 +349,7 @@ pub fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
         })
         .collect();
     let mining_proxy_listening_address = get_available_address();
-    let config = mining_proxy_sv2::Configuration {
+    let config = mining_proxy_sv2::MiningProxyConfig {
         upstreams,
         listen_address: mining_proxy_listening_address.ip().to_string(),
         listen_mining_port: mining_proxy_listening_address.port(),

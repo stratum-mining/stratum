@@ -1,7 +1,7 @@
 use crate::{
+    config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     downstream_sv1,
     error::ProxyResult,
-    proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     status,
 };
 use async_channel::{bounded, Receiver, Sender};
