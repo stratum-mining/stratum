@@ -20,6 +20,7 @@
 pub mod channel_logic;
 pub mod common_properties;
 pub mod errors;
+pub mod extranonce_prefix_management;
 pub mod handlers;
 pub mod job_creator;
 pub mod job_dispatcher;
