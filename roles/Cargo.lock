@@ -2173,6 +2173,7 @@ dependencies = [
  "siphasher",
  "stratum-common",
  "template_distribution_sv2",
+ "tokio",
  "tracing",
 ]
 

@@ -30,3 +30,5 @@ pub use errors::Error;
 pub use job_declaration_sv2;
 pub use mining_sv2;
 pub use template_distribution_sv2;
+
+pub use tokio;
