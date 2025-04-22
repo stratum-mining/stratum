@@ -121,12 +121,6 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
     13, 80, 63, 232, 48, 220, 75, 200, 62, 41, 191, 16,
 ];
 
-// len = 1
-// 47,53,45,41 = AESG
-// We're dropping support for AESG.
-// Refactoring: deprecate it.
-pub const NOISE_SUPPORTED_CIPHERS_MESSAGE: [u8; 5] = [1, 0x47, 0x53, 0x45, 0x41];
-
 // Discriminants for distinct Stratum V2 (sub)protocols. More info at https://github.com/stratum-
 // mining/sv2-spec/blob/main/03-Protocol-Overview.md#3-protocol-overview
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
