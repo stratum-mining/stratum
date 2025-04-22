@@ -18,15 +18,15 @@ name = "mining_device_sv1"
 path = "src/lib.rs"
 
 [dependencies]
-stratum-common = { path = "../../../common" }
-async-channel = "1.5.1"
-roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
-serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
-serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
-v1 = { path="../../../protocols/v1", package="sv1_api" }
-num-bigint = "0.4.3"
-num-traits = "0.2.15"
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
-tokio = { version = "1.44.1", features = ["full"] }
-primitive-types = "0.13.1"
+stratum-common.workspace = true
+async-channel.workspace = true
+roles_logic_sv2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+v1.workspace = true
+num-bigint.workspace = true
+num-traits.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+primitive-types.workspace = true
