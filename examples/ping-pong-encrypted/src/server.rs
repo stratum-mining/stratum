@@ -92,7 +92,10 @@ async fn handle_connection(
         "SERVER: Sending encrypted Pong to client with nonce: {}",
         pong.get_nonce()
     );
-sender.send(pong_frame.into()).await.map_err(|_| Error::Sender)?;
+    sender
+        .send(pong_frame.into())
+        .await
+        .map_err(|_| Error::Sender)?;
 
     Ok(())
 }

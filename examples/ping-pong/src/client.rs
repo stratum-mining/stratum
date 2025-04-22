@@ -41,9 +41,10 @@ pub fn start_client(address: &str) -> Result<(), Error> {
     // read frame header into decoder_buf
     stream.read_exact(decoder_buf)?;
 
-    // this returns an error (MissingBytes), because it only read the header, and there's no payload in memory yet
-    // therefore, we safely ignore the error
-    // the important thing here is that we loaded decoder.missing_b with the expected frame payload size
+    // this returns an error (MissingBytes), because it only read the header, and there's no payload
+    // in memory yet therefore, we safely ignore the error
+    // the important thing here is that we loaded decoder.missing_b with the expected frame payload
+    // size
     let _ = decoder.next_frame();
 
     // now, the decoder buffer has the expected size of the frame payload

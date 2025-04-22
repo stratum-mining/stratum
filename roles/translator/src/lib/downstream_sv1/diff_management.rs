@@ -309,7 +309,8 @@ impl Downstream {
 
 #[cfg(test)]
 mod test {
-    use crate::proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig};
+
+    use crate::config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig};
     use async_channel::unbounded;
     use binary_sv2::U256;
     use rand::{thread_rng, Rng};

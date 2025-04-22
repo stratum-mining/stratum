@@ -18,8 +18,7 @@ pub async fn start_client(address: &str, k_pub: String) -> Result<(), Error> {
     let initiator = Initiator::from_raw_k(k_pub.into_bytes())?;
 
     // channels for encrypted connection
-    let (receiver, sender) =
-        Connection::new(stream, HandshakeRole::Initiator(initiator)).await?;
+    let (receiver, sender) = Connection::new(stream, HandshakeRole::Initiator(initiator)).await?;
 
     // create Ping message
     let ping = Ping::new()?;
@@ -36,7 +35,10 @@ pub async fn start_client(address: &str, k_pub: String) -> Result<(), Error> {
         "CLIENT: Sending encrypted Ping to server with nonce: {}",
         ping_nonce
     );
-   sender.send(ping_frame.into()).await.map_err(|_| Error::Sender)?;
+    sender
+        .send(ping_frame.into())
+        .await
+        .map_err(|_| Error::Sender)?;
 
     // ok, we have successfully sent the ping message
     // now it's time to receive and verify the pong response
