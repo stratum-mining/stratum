@@ -15,7 +15,7 @@ use roles_logic_sv2::{
         Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
     },
     handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
-    job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd},
+    job_declaration_sv2::{DeclareMiningJob, PushSolution},
     parsers::{AnyMessage as JdsMessages, JobDeclaration},
     utils::{Id, Mutex},
 };
@@ -122,7 +122,7 @@ impl JobDeclaratorDownstream {
 
     fn get_block_hex(
         self_mutex: Arc<Mutex<Self>>,
-        message: SubmitSolutionJd,
+        message: PushSolution,
     ) -> Result<String, Box<JdsError>> {
         let (last_declare_, _, _) = self_mutex
             .clone()
@@ -276,7 +276,7 @@ impl JobDeclaratorDownstream {
                                     JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
                                         error!("Send unexpected PMTS");
                                     }
-                                    JobDeclaration::SubmitSolution(_) => todo!(),
+                                    JobDeclaration::PushSolution(_) => todo!(),
                                 }
                                 Self::send(self_mutex.clone(), m).await.unwrap();
                             }
@@ -301,7 +301,7 @@ impl JobDeclaratorDownstream {
                             }
                             Ok(SendTo::None(m)) => {
                                 match m {
-                                    Some(JobDeclaration::SubmitSolution(message)) => {
+                                    Some(JobDeclaration::PushSolution(message)) => {
                                         match Self::collect_txs_in_job(self_mutex.clone()) {
                                             Ok(_) => {
                                                 info!(

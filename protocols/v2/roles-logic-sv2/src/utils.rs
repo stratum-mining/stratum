@@ -7,7 +7,7 @@
 
 use binary_sv2::{Seq064K, ShortTxId, U256};
 use bitcoin::Block;
-use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
+use job_declaration_sv2::{DeclareMiningJob, PushSolution};
 use primitive_types::U256 as U256Primitive;
 use siphasher::sip::SipHasher24;
 use std::{
@@ -897,7 +897,7 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
 pub struct BlockCreator<'a> {
     last_declare: DeclareMiningJob<'a>,
     tx_list: Vec<bitcoin::Transaction>,
-    message: SubmitSolutionJd<'a>,
+    message: PushSolution<'a>,
 }
 
 impl<'a> BlockCreator<'a> {
@@ -905,7 +905,7 @@ impl<'a> BlockCreator<'a> {
     pub fn new(
         last_declare: DeclareMiningJob<'a>,
         tx_list: Vec<bitcoin::Transaction>,
-        message: SubmitSolutionJd<'a>,
+        message: PushSolution<'a>,
     ) -> BlockCreator<'a> {
         BlockCreator {
             last_declare,
