@@ -139,6 +139,7 @@ pub const MESSAGE_TYPE_SETUP_CONNECTION: u8 = 0x0;
 pub const MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS: u8 = 0x1;
 pub const MESSAGE_TYPE_SETUP_CONNECTION_ERROR: u8 = 0x2;
 pub const MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED: u8 = 0x3;
+pub const MESSAGE_TYPE_RECONNECT: u8 = 0x04;
 
 // Mining Protocol message types.
 pub const MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL: u8 = 0x10;
@@ -161,11 +162,7 @@ pub const MESSAGE_TYPE_SET_TARGET: u8 = 0x21;
 pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB: u8 = 0x22;
 pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS: u8 = 0x23;
 pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR: u8 = 0x24;
-
-// Refactoring: we need to move this to 0x04 and shift SETGROUPCHANNEL to 0x25
-// (we are not specs compliant now)
-pub const MESSAGE_TYPE_RECONNECT: u8 = 0x25;
-pub const MESSAGE_TYPE_SET_GROUP_CHANNEL: u8 = 0x26;
+pub const MESSAGE_TYPE_SET_GROUP_CHANNEL: u8 = 0x25;
 
 // Job Declaration Protocol message types.
 pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN: u8 = 0x50;
