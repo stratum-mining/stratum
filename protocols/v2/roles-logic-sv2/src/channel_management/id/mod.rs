@@ -17,6 +17,12 @@ pub struct ChannelIdFactory {
     message_sender_into_inner_factory: mpsc::Sender<InnerChannelIdFactoryIo>,
 }
 
+impl Default for ChannelIdFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ChannelIdFactory {
     /// Creates a new factory and starts its background thread for managing the internal state under
     /// the Actor Model.

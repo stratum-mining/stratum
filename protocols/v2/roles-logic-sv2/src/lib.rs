@@ -25,6 +25,7 @@ pub mod extranonce_prefix_management;
 pub mod handlers;
 pub mod job_creator;
 pub mod job_dispatcher;
+pub mod job_management;
 pub mod parsers;
 pub mod utils;
 pub use common_messages_sv2;

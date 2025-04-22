@@ -88,7 +88,7 @@ impl<'a> GroupChannel<'a> {
                 template.clone(),
                 coinbase_reward_outputs,
             )
-            .map_err(|e| GroupChannelError::JobFactoryError(e))?;
+            .map_err(GroupChannelError::JobFactoryError)?;
 
         if template.future_template {
             self.future_jobs.insert(template.template_id, new_job);

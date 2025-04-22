@@ -159,7 +159,7 @@ impl<'a> ExtendedChannel<'a> {
                 template.clone(),
                 coinbase_reward_outputs,
             )
-            .map_err(|e| ExtendedChannelError::JobFactoryError(e))?;
+            .map_err(ExtendedChannelError::JobFactoryError)?;
 
         match template.future_template {
             // if the template is a future template, add it to the future jobs
@@ -248,7 +248,7 @@ impl<'a> ExtendedChannel<'a> {
         let new_job = self
             .job_factory
             .new_custom_job(set_custom_mining_job, self.extranonce_prefix.len())
-            .map_err(|e| ExtendedChannelError::JobFactoryError(e))?;
+            .map_err(ExtendedChannelError::JobFactoryError)?;
 
         let job_id = new_job.get_job_id();
 
@@ -359,10 +359,7 @@ impl<'a> ExtendedChannel<'a> {
                 hash.to_raw_hash(),
             );
 
-            let template_id = match job.get_template() {
-                Some(template) => Some(template.template_id),
-                None => None,
-            };
+            let template_id = job.get_template().map(|template| template.template_id);
             let mut coinbase = vec![];
             coinbase.extend(job.get_coinbase_tx_prefix().inner_as_ref());
             coinbase.extend(full_extranonce);
@@ -393,13 +390,13 @@ impl<'a> ExtendedChannel<'a> {
             // if sequence number is a multiple of share_batch_size
             // it's time to send a SubmitShares.Success
             if self.share_accounting.should_acknowledge() {
-                return Ok(ShareValidationResult::ValidWithAcknowledgement(
+                Ok(ShareValidationResult::ValidWithAcknowledgement(
                     last_sequence_number,
                     new_submits_accepted_count,
                     new_shares_sum,
-                ));
+                ))
             } else {
-                return Ok(ShareValidationResult::Valid);
+                Ok(ShareValidationResult::Valid)
             }
         } else {
             Err(ShareValidationError::DoesNotMeetTarget)

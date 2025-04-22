@@ -722,7 +722,7 @@ mod tests {
                             min_extranonce_size,
                             max_target_clone,
                         )
-                        .expect(&format!("Task {} failed to create channel", task_id));
+                        .unwrap_or_else(|_| panic!("Task {} failed to create channel", task_id));
 
                 // Store the channel_id for verification
                 let mut ids = channel_ids_clone.lock().unwrap();
@@ -768,7 +768,7 @@ mod tests {
         {
             let channel = factory
                 .get_channel(channel_id)
-                .expect(&format!("Failed to get channel {}", channel_id));
+                .unwrap_or_else(|_| panic!("Failed to get channel {}", channel_id));
 
             // Verify channel properties
             assert_eq!(channel.get_channel_id(), channel_id);
@@ -793,7 +793,7 @@ mod tests {
         let all_channels = factory
             .get_all_channels()
             .expect("Failed to get all channels");
-        assert_eq!(all_channels.len(), NUM_TASKS as usize);
+        assert_eq!(all_channels.len(), { NUM_TASKS });
 
         // Clean up
         factory.shutdown().expect("Failed to shutdown factory");
@@ -1678,16 +1678,14 @@ mod tests {
                 251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174,
                 206, 144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
             n_bits: 545259519,
             header_timestamp: 1745596910,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 255, 255, 127,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
         };
 
         factory
@@ -1810,16 +1808,14 @@ mod tests {
                 154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73,
                 34, 0, 162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
             n_bits: 453040064,
             header_timestamp: 1745596910,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 215,
                 0, 0, 0, 0, 0, 0,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
         };
 
         factory
@@ -1945,16 +1941,14 @@ mod tests {
                 23, 205, 72, 134, 153, 86, 220, 153, 224, 28, 216, 146, 228, 120, 227, 157, 213,
                 99, 160, 163, 128, 59, 139, 190, 158, 62, 0, 0, 0, 0, 0, 0,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
             n_bits: 453040064,
             header_timestamp: 1745611105,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 215,
                 0, 0, 0, 0, 0, 0,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
         };
 
         factory
@@ -2121,16 +2115,14 @@ mod tests {
                 23, 205, 72, 134, 153, 86, 220, 153, 224, 28, 216, 146, 228, 120, 227, 157, 213,
                 99, 160, 163, 128, 59, 139, 190, 158, 62, 0, 0, 0, 0, 0, 0,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
             n_bits: 453040064,
             header_timestamp: 1745611105,
             target: [
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 215,
                 0, 0, 0, 0, 0, 0,
             ]
-            .try_into()
-            .unwrap(),
+            .into(),
         };
 
         factory

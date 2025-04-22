@@ -387,7 +387,7 @@ impl InnerStandardChannelFactory {
             .get_mut(&channel_id)
             .expect("standard channel must exist");
         channel.set_nominal_hashrate(nominal_hashrate);
-        channel.set_target(new_target.clone().into());
+        channel.set_target(new_target.clone());
 
         InnerStandardChannelFactoryResponse::StandardChannelUpdated(new_target.into())
     }
@@ -595,7 +595,7 @@ impl InnerStandardChannelFactory {
         let min_ntime = set_new_prev_hash.clone().header_timestamp;
 
         // update the chain tip at factory level
-        self.chain_tip = Some(ChainTip::new(prev_hash.into(), nbits, min_ntime));
+        self.chain_tip = Some(ChainTip::new(prev_hash, nbits, min_ntime));
 
         // activate future template at factory level
         // so that newly created channels can already start with a job

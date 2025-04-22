@@ -327,13 +327,13 @@ impl<'a> StandardChannel<'a> {
             // if sequence number is a multiple of share_batch_size
             // it's time to send a SubmitShares.Success
             if self.share_accounting.should_acknowledge() {
-                return Ok(ShareValidationResult::ValidWithAcknowledgement(
+                Ok(ShareValidationResult::ValidWithAcknowledgement(
                     last_sequence_number,
                     new_submits_accepted_count,
                     new_shares_sum,
-                ));
+                ))
             } else {
-                return Ok(ShareValidationResult::Valid);
+                Ok(ShareValidationResult::Valid)
             }
         } else {
             Err(ShareValidationError::DoesNotMeetTarget)
