@@ -125,8 +125,7 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
 // mining/sv2-spec/blob/main/03-Protocol-Overview.md#3-protocol-overview
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
 pub const SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT: u8 = 1;
-// Refactoring: rename this into SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT
-pub const SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT: u8 = 2;
+pub const SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT: u8 = 2;
 
 // Common message types used across all Stratum V2 (sub)protocols.
 pub const MESSAGE_TYPE_SETUP_CONNECTION: u8 = 0x0;
