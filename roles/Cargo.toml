@@ -1,5 +1,4 @@
 [workspace]
-exclude = ["roles-utils/config-helpers"]
 resolver="2"
 
 members = [
@@ -19,3 +18,40 @@ opt-level = 1
 [profile.test]
 # Required by super_safe_lock
 opt-level = 1
+
+[workspace.dependencies]
+stratum-common = { path = "../common" }
+binary_sv2 = { path = "../protocols/v2/binary-sv2" }
+buffer_sv2 = { path = "../utils/buffer" }
+codec_sv2 = { path = "../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
+framing_sv2 = { path = "../protocols/v2/framing-sv2" }
+const_sv2 = { path = "../protocols/v2/const-sv2" }
+noise_sv2 = { path = "../protocols/v2/noise-sv2" }
+network_helpers_sv2 = { path = "roles-utils/network-helpers", features=["with_buffer_pool"] }
+roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2" }
+v1 = { path = "../protocols/v1", package="sv1_api" }
+error_handling = { path = "../utils/error-handling" }
+key-utils = { path = "../utils/key-utils" }
+config-helpers = { path = "roles-utils/config-helpers" }
+rpc_sv2 = { path = "roles-utils/rpc" }
+
+async-channel = "1.5.1"
+async-recursion = "0.3.2"
+once_cell = "1.12.0"
+serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
+futures = "0.3.25"
+tokio = { version = "1.44.1", features = ["full"] }
+ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3" }
+tokio-util = { version = "0.7.10", features = ["codec"] }
+rand = "0.8.4"
+primitive-types = "0.13.1"
+nohash-hasher = "0.2.0"
+hashbrown = { version = "0.11", default-features = false, features = ["ahash", "serde"] }
+hex = "0.4.3"
+sha2 = "0.10.6"
+num-bigint = "0.4.3"
+num-traits = "0.2.15"
+clap = { version = "^4.5.4", features = ["derive"] }
