@@ -1,12 +1,30 @@
+//! ## JDS Mempool Errors
+//!
+//! This module defines the error types and handling utilities related to the mempool logic in the
+//! Job Declarator Server (JDS).
+//!
+//! These errors are mostly used when interacting with:
+//! - the internal mempool data structure
+//! - the RPC client that communicates with the Bitcoin node
+//! - the synchronization/update routines
+//!
+//! It also includes a centralized error logging helper (`handle_error`) to standardize warnings
+//! and diagnostics across components.
+
 use rpc_sv2::mini_rpc_client::RpcError;
 use std::{convert::From, sync::PoisonError};
 use tracing::{error, warn};
 
+/// Errors that may occur during JDS mempool operations.
 #[derive(Debug)]
 pub enum JdsMempoolError {
+    /// The mempool was found to be empty (likely due to testnet/signet conditions).
     EmptyMempool,
+    /// Failed to construct a valid RPC client (e.g. invalid URL, malformed credentials).
     NoClient,
+    /// An RPC call to the Bitcoin node failed.
     Rpc(RpcError),
+    /// A poisoned lock was encountered while accessing the mempool
     PoisonLock(String),
 }
 
@@ -22,6 +40,10 @@ impl<T> From<PoisonError<T>> for JdsMempoolError {
     }
 }
 
+/// Logs a structured diagnostic message for a given mempool error.
+///
+/// This function is used throughout the codebase to provide more meaningful context
+/// in logs when mempool-related operations fail.
 pub fn handle_error(err: &JdsMempoolError) {
     match err {
         JdsMempoolError::EmptyMempool => {
