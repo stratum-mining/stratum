@@ -57,10 +57,6 @@ jobs:
         working-directory: protocols/v2/binary-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/const-sv2
-        working-directory: protocols/v2/const-sv2
-        run: cargo semver-checks
-
       - name: Run semver checks for protocols/v2/framing-sv2
         working-directory: protocols/v2/framing-sv2
         run: cargo semver-checks

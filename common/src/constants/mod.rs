@@ -36,8 +36,6 @@
 //! `channel_id`. In this case, the first 4 bytes of the payload represent the
 //! `channel_id` the message is destined for.
 
-#![no_std]
-
 /// Identifier for the extension_type field in the SV2 frame, indicating no
 /// extensions.
 pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
@@ -123,32 +121,25 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
     13, 80, 63, 232, 48, 220, 75, 200, 62, 41, 191, 16,
 ];
 
-// len = 1
-// 47,53,45,41 = AESG
-// We're dropping support for AESG.
-// Refactoring: deprecate it.
-pub const NOISE_SUPPORTED_CIPHERS_MESSAGE: [u8; 5] = [1, 0x47, 0x53, 0x45, 0x41];
-
 // Discriminants for distinct Stratum V2 (sub)protocols. More info at https://github.com/stratum-
 // mining/sv2-spec/blob/main/03-Protocol-Overview.md#3-protocol-overview
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
 pub const SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT: u8 = 1;
-// Refactoring: rename this into SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT
-pub const SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT: u8 = 2;
+pub const SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT: u8 = 2;
 
 // Common message types used across all Stratum V2 (sub)protocols.
 pub const MESSAGE_TYPE_SETUP_CONNECTION: u8 = 0x0;
 pub const MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS: u8 = 0x1;
 pub const MESSAGE_TYPE_SETUP_CONNECTION_ERROR: u8 = 0x2;
 pub const MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED: u8 = 0x3;
+pub const MESSAGE_TYPE_RECONNECT: u8 = 0x04;
 
 // Mining Protocol message types.
 pub const MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL: u8 = 0x10;
 pub const MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS: u8 = 0x11;
 pub const MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR: u8 = 0x12;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL: u8 = 0x13;
-// Refactoring: fix typo with MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS
-pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES: u8 = 0x14;
+pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS: u8 = 0x14;
 pub const MESSAGE_TYPE_NEW_MINING_JOB: u8 = 0x15;
 pub const MESSAGE_TYPE_UPDATE_CHANNEL: u8 = 0x16;
 pub const MESSAGE_TYPE_UPDATE_CHANNEL_ERROR: u8 = 0x17;
@@ -164,11 +155,7 @@ pub const MESSAGE_TYPE_SET_TARGET: u8 = 0x21;
 pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB: u8 = 0x22;
 pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS: u8 = 0x23;
 pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR: u8 = 0x24;
-
-// Refactoring: we need to move this to 0x04 and shift SETGROUPCHANNEL to 0x25
-// (we are not specs compliant now)
-pub const MESSAGE_TYPE_RECONNECT: u8 = 0x25;
-pub const MESSAGE_TYPE_SET_GROUP_CHANNEL: u8 = 0x26;
+pub const MESSAGE_TYPE_SET_GROUP_CHANNEL: u8 = 0x25;
 
 // Job Declaration Protocol message types.
 pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN: u8 = 0x50;
@@ -230,7 +217,7 @@ pub const CHANNEL_BIT_CLOSE_CHANNEL: bool = true;
 pub const CHANNEL_BIT_NEW_EXTENDED_MINING_JOB: bool = true;
 pub const CHANNEL_BIT_NEW_MINING_JOB: bool = true;
 pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL: bool = false;
-pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES: bool = false;
+pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS: bool = false;
 pub const CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR: bool = false;
 pub const CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL: bool = false;
 pub const CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS: bool = false;

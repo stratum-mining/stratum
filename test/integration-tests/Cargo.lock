@@ -512,10 +512,10 @@ version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
- "const_sv2",
  "framing_sv2",
  "noise_sv2",
  "rand 0.8.5",
+ "stratum-common",
  "tracing",
 ]
 
@@ -530,7 +530,7 @@ name = "common_messages_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -608,10 +608,6 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
-
-[[package]]
-name = "const_sv2"
-version = "5.0.0"
 
 [[package]]
 name = "convert_case"
@@ -840,7 +836,7 @@ version = "4.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -1225,7 +1221,6 @@ dependencies = [
  "binary_sv2",
  "codec_sv2",
  "config-helpers",
- "const_sv2",
  "corepc-node",
  "flate2",
  "jd_client",
@@ -1297,7 +1292,6 @@ dependencies = [
  "codec_sv2",
  "config",
  "config-helpers",
- "const_sv2",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
@@ -1321,7 +1315,7 @@ name = "job_declaration_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -1425,7 +1419,6 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "codec_sv2",
- "const_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
@@ -1467,7 +1460,6 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
- "const_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
@@ -1486,7 +1478,7 @@ name = "mining_sv2"
 version = "3.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -1531,9 +1523,9 @@ dependencies = [
  "async-channel",
  "binary_sv2",
  "codec_sv2",
- "const_sv2",
  "futures",
  "serde_json",
+ "stratum-common",
  "sv1_api",
  "tokio",
  "tokio-util",
@@ -1552,10 +1544,10 @@ version = "1.3.0"
 dependencies = [
  "aes-gcm",
  "chacha20poly1305",
- "const_sv2",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "secp256k1 0.28.2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -1790,7 +1782,6 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
- "const_sv2",
  "error_handling",
  "key-utils",
  "network_helpers_sv2",
@@ -1949,7 +1940,6 @@ dependencies = [
  "binary_sv2",
  "chacha20poly1305",
  "common_messages_sv2",
- "const_sv2",
  "framing_sv2",
  "hex-conservative 0.3.0",
  "job_declaration_sv2",
@@ -2335,7 +2325,7 @@ name = "template_distribution_sv2"
 version = "3.0.0"
 dependencies = [
  "binary_sv2",
- "const_sv2",
+ "stratum-common",
 ]
 
 [[package]]

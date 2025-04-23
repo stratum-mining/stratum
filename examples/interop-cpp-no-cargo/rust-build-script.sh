@@ -51,19 +51,6 @@ rustc \
         -L dependency=$DEPS
 
 rustc \
-        --crate-name const_sv2 \
-        --edition=2018 \
-        $ROOT/const-sv2/src/lib.rs \
-        --error-format=json \
-        --json=diagnostic-rendered-ansi,artifacts \
-        --crate-type lib \
-        --emit=dep-info,metadata,link \
-        -C opt-level=3 \
-        -C embed-bitcode=no \
-        --out-dir $DEPS \
-        -L dependency=$DEPS
-
-rustc \
         --crate-name derive_codec_sv2 \
         --edition=2018 \
         $ROOT/binary-sv2/derive_codec/src/lib.rs \

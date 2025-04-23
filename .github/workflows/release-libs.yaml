@@ -49,10 +49,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/binary-sv2
 
-      - name: Publish crate const_sv2
-        run: |
-          ./scripts/release-libs.sh protocols/v2/const-sv2
-
       - name: Publish crate framing_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/framing-sv2

@@ -17,7 +17,6 @@ crates=(
   "v2/noise-sv2"
   "v2/framing-sv2"
   "v2/codec-sv2"
-  "v2/const-sv2"
   "v2/subprotocols/common-messages"
   "v2/subprotocols/template-distribution"
   "v2/subprotocols/mining"

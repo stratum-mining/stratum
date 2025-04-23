@@ -50,7 +50,7 @@ mod signature_message;
 #[cfg(test)]
 mod test;
 
-pub use const_sv2::{NOISE_HASHED_PROTOCOL_NAME_CHACHA, NOISE_SUPPORTED_CIPHERS_MESSAGE};
+pub use stratum_common::NOISE_HASHED_PROTOCOL_NAME_CHACHA;
 
 // The parity value used in the Schnorr signature process.
 //

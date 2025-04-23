@@ -1,5 +1,5 @@
-use const_sv2::{MESSAGE_TYPE_PUSH_SOLUTION, MESSAGE_TYPE_SUBMIT_SOLUTION};
 use integration_tests_sv2::{sniffer::*, *};
+use stratum_common::{MESSAGE_TYPE_PUSH_SOLUTION, MESSAGE_TYPE_SUBMIT_SOLUTION};
 
 // Block propogated from JDS to TP
 #[tokio::test]

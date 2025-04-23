@@ -43,8 +43,8 @@ use crate::common_properties::{IsMiningDownstream, IsMiningUpstream};
 use super::SendTo_;
 
 use crate::utils::Mutex;
-use const_sv2::*;
 use std::{fmt::Debug as D, sync::Arc};
+use stratum_common::*;
 
 /// see [`SendTo_`]
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
@@ -287,12 +287,12 @@ where
             Ok(Mining::OpenExtendedMiningChannelSuccess(m)) => {
                 match channel_type {
                     SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
+                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
                     )),
                     SupportedChannelTypes::Extended => self_mutex
                         .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))?,
                     SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
+                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
                     )),
                     SupportedChannelTypes::GroupAndExtended => self_mutex
                         .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))?,

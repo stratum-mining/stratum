@@ -44,25 +44,6 @@ jobs:
         run: |
           cargo run --manifest-path=protocols/v2/framing-sv2/Cargo.toml --example sv2_frame
 
-      - name: interop-test
-        run: |
-          if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
-            ./run.sh 30
-          else
-            echo "Skipping interop-test on ${{ matrix.os }} - not supported"
-          fi
-        working-directory: examples/interop-cpp/
-
-          # TODO this is only usefull if we want to build c bindings with guix
-          #- name: interop-no-cargo-test
-          #  run: |
-          #    if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
-          #      ./run.sh 30
-          #    else
-          #      echo "Skipping interop-test on ${{ matrix.os }} - not supported"
-          #    fi
-          #  working-directory: examples/interop-cpp-no-cargo/
-
       - name: fuzz tests
         run: |
           if [ ${{ matrix.os }} == "ubuntu-latest" ]; then

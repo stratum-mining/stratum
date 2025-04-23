@@ -50,11 +50,11 @@ use alloc::{
     vec::Vec,
 };
 use chacha20poly1305::ChaCha20Poly1305;
-use const_sv2::{
+use secp256k1::{ellswift::ElligatorSwift, Keypair, Secp256k1, SecretKey};
+use stratum_common::{
     ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
-use secp256k1::{ellswift::ElligatorSwift, Keypair, Secp256k1, SecretKey};
 
 const VERSION: u16 = 0;
 

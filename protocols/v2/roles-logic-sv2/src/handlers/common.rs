@@ -30,9 +30,9 @@ use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
     SetupConnectionSuccess,
 };
-use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
+use stratum_common::*;
 
 /// see [`SendTo_`]
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;

@@ -1,6 +1,6 @@
-use const_sv2::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
 use integration_tests_sv2::*;
 use sniffer::MessageDirection;
+use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
 
 #[tokio::test]
 async fn sv2_mining_device_and_pool_success() {

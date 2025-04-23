@@ -13,13 +13,12 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { path = "../../../common", features=["bitcoin"], version = "^2.0.0"}
+stratum-common = { path = "../../../common", features=["bitcoin", "constants"], version = "^2.0.0"}
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^2.0.0" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^4.0.0" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^3.0.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^3.0.0" }
 job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^4.0.0" }
-const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^5.0.0" }
 framing_sv2 = { path = "../../../protocols/v2/framing-sv2", version = "^4.0.0" }
 tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}

@@ -15,7 +15,6 @@ output=$(cargo smart-release \
     binary_codec_sv2 \
     derive_codec_sv2 \
     codec_sv2 \
-    const_sv2 \
     framing_sv2 \
     noise_sv2 \
     roles_logic_sv2 \

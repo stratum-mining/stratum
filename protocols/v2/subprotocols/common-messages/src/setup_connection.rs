@@ -5,11 +5,11 @@ use binary_sv2::{
     decodable::{DecodableField, FieldMarker},
     free_vec, Deserialize, Error, GetSize, Serialize, Str0255,
 };
-use const_sv2::{
-    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
-    SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-};
 use core::convert::{TryFrom, TryInto};
+use stratum_common::{
+    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
+    SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
+};
 
 /// Used by downstream to initiate a Stratum V2 connection with an upstream role.
 ///
@@ -362,7 +362,7 @@ pub enum Protocol {
     /// Job declaration protocol.
     JobDeclarationProtocol = SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
     /// Template distribution protocol.
-    TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+    TemplateDistributionProtocol = SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
 }
 
 impl From<Protocol> for binary_sv2::encodable::EncodableField<'_> {
@@ -396,7 +396,9 @@ impl TryFrom<u8> for Protocol {
         match value {
             SV2_MINING_PROTOCOL_DISCRIMINANT => Ok(Protocol::MiningProtocol),
             SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDeclarationProtocol),
-            SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::TemplateDistributionProtocol),
+            SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT => {
+                Ok(Protocol::TemplateDistributionProtocol)
+            }
             _ => Err(()),
         }
     }

@@ -23,16 +23,18 @@
 
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
-#[allow(unused_imports)]
-pub use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 #[cfg(feature = "noise_sv2")]
 use core::convert::TryInto;
 use core::marker::PhantomData;
 use framing_sv2::framing::Sv2Frame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::{Frame, HandShakeFrame};
-#[allow(unused_imports)]
+#[cfg(feature = "noise_sv2")]
 pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
+#[cfg(feature = "noise_sv2")]
+use stratum_common::SV2_FRAME_CHUNK_SIZE;
+#[cfg(feature = "noise_sv2")]
+use stratum_common::{AEAD_MAC_LEN, SV2_FRAME_HEADER_SIZE};
 
 #[cfg(feature = "tracing")]
 use tracing::error;

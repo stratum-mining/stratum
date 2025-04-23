@@ -61,14 +61,6 @@ jobs:
           flags: common_messages_sv2-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Upload const_sv2-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./protocols/target/tarpaulin-reports/const-sv2-coverage
-          file: ./protocols/target/tarpaulin-reports/const-sv2-coverage/cobertura.xml
-          flags: const_sv2-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Upload framing_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
@@ -85,7 +77,6 @@ jobs:
           flags: job_declaration_sv2-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      
       - name: Upload noise_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
