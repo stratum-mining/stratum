@@ -40,8 +40,7 @@ use job_declaration_sv2::*;
 use stratum_common::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
-    MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
 };
 
@@ -78,9 +77,6 @@ where
             Ok(JobDeclaration::DeclareMiningJobError(message)) => {
                 self_.safe_lock(|x| x.handle_declare_mining_job_error(message))?
             }
-            Ok(JobDeclaration::IdentifyTransactions(message)) => {
-                self_.safe_lock(|x| x.handle_identify_transactions(message))?
-            }
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => {
                 self_.safe_lock(|x| x.handle_provide_missing_transactions(message))?
             }
@@ -93,9 +89,6 @@ where
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(
                 Error::UnexpectedMessage(MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS),
             ),
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
-                MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
-            )),
             Ok(JobDeclaration::PushSolution(_)) => {
                 Err(Error::UnexpectedMessage(MESSAGE_TYPE_PUSH_SOLUTION))
             }
@@ -125,14 +118,6 @@ where
     fn handle_declare_mining_job_error(
         &mut self,
         message: DeclareMiningJobError,
-    ) -> Result<SendTo, Error>;
-
-    /// Handles an `IdentifyTransactions` message.
-    ///
-    /// This method processes a message that provides transaction identification data.
-    fn handle_identify_transactions(
-        &mut self,
-        message: IdentifyTransactions,
     ) -> Result<SendTo, Error>;
 
     /// Handles a `ProvideMissingTransactions` message.
@@ -172,9 +157,6 @@ where
             Ok(JobDeclaration::DeclareMiningJob(message)) => {
                 self_.safe_lock(|x| x.handle_declare_mining_job(message))?
             }
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => {
-                self_.safe_lock(|x| x.handle_identify_transactions_success(message))?
-            }
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => {
                 self_.safe_lock(|x| x.handle_provide_missing_transactions_success(message))?
             }
@@ -193,9 +175,6 @@ where
             Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
             )),
-            Ok(JobDeclaration::IdentifyTransactions(_)) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_IDENTIFY_TRANSACTIONS))
-            }
             Err(e) => Err(e),
         }
     }
@@ -210,14 +189,6 @@ where
     ///
     /// This method processes a message that declares a new mining job.
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error>;
-
-    /// Handles an `IdentifyTransactionsSuccess` message.
-    ///
-    /// This method processes a message that confirms the identification of transactions.
-    fn handle_identify_transactions_success(
-        &mut self,
-        message: IdentifyTransactionsSuccess,
-    ) -> Result<SendTo, Error>;
 
     /// Handles a `ProvideMissingTransactionsSuccess` message.
     ///

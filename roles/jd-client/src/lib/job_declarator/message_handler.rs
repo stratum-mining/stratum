@@ -3,8 +3,7 @@ use roles_logic_sv2::{
     handlers::{job_declaration::ParseJobDeclarationMessagesFromUpstream, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
-        IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
-        ProvideMissingTransactionsSuccess,
+        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
 };
@@ -49,24 +48,6 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
         );
         debug!("`DeclareMiningJobError`: {:?}", message);
         Ok(SendTo::None(None))
-    }
-
-    fn handle_identify_transactions(
-        &mut self,
-        message: IdentifyTransactions,
-    ) -> Result<SendTo, Error> {
-        info!(
-            "Received `IdentifyTransactions` with id: {}",
-            message.request_id
-        );
-        debug!("`IdentifyTransactions`: {:?}", message);
-        let message_identify_transactions = IdentifyTransactionsSuccess {
-            request_id: message.request_id,
-            tx_data_hashes: Vec::new().into(),
-        };
-        let message_enum =
-            JobDeclaration::IdentifyTransactionsSuccess(message_identify_transactions);
-        Ok(SendTo::Respond(message_enum))
     }
 
     fn handle_provide_missing_transactions(

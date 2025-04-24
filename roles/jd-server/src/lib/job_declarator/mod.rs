@@ -312,12 +312,6 @@ impl JobDeclaratorDownstream {
                                         debug!("Send message: DMJS. Updating the JDS mempool.");
                                         Self::send_txs_to_mempool(self_mutex.clone()).await;
                                     }
-                                    JobDeclaration::IdentifyTransactions(_) => {
-                                        debug!("Send  message: IT");
-                                    }
-                                    JobDeclaration::IdentifyTransactionsSuccess(_) => {
-                                        error!("Send unexpected message: ITS");
-                                    }
                                     JobDeclaration::ProvideMissingTransactions(_) => {
                                         debug!("Send message: PMT. Updating the JDS mempool.");
                                         Self::send_txs_to_mempool(self_mutex.clone()).await;
@@ -419,12 +413,6 @@ impl JobDeclaratorDownstream {
                                         error!("JD Server received an unexpected message {:?}", m);
                                     }
                                     Some(JobDeclaration::DeclareMiningJobError(_)) => {
-                                        error!("JD Server received an unexpected message {:?}", m);
-                                    }
-                                    Some(JobDeclaration::IdentifyTransactions(_)) => {
-                                        error!("JD Server received an unexpected message {:?}", m);
-                                    }
-                                    Some(JobDeclaration::IdentifyTransactionsSuccess(_)) => {
                                         error!("JD Server received an unexpected message {:?}", m);
                                     }
                                     Some(JobDeclaration::AllocateMiningJobToken(_)) => {

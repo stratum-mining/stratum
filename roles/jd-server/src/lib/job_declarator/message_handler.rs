@@ -3,8 +3,8 @@ use roles_logic_sv2::{
     handlers::{job_declaration::ParseJobDeclarationMessagesFromDownstream, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-        DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
-        ProvideMissingTransactions, ProvideMissingTransactionsSuccess, PushSolution,
+        DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
+        ProvideMissingTransactionsSuccess, PushSolution,
     },
     parsers::JobDeclaration,
     utils::Mutex,
@@ -158,18 +158,6 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
             let message_enum_error = JobDeclaration::DeclareMiningJobError(message_error);
             Ok(SendTo::Respond(message_enum_error))
         }
-    }
-
-    fn handle_identify_transactions_success(
-        &mut self,
-        message: IdentifyTransactionsSuccess,
-    ) -> Result<SendTo, Error> {
-        info!(
-            "Received `IdentifyTransactionsSuccess` with id: {}",
-            message.request_id
-        );
-        debug!("`IdentifyTransactionsSuccess`: {:?}", message);
-        Ok(SendTo::None(None))
     }
 
     fn handle_provide_missing_transactions_success(
