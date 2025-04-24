@@ -137,7 +137,7 @@ pub fn message_type_to_name(msg_type: u8) -> &'static str {
         0x57 => "DeclareMiningJob",
         0x58 => "DeclareMiningJobSuccess",
         0x59 => "DeclareMiningJobError",
-        0x60 => "SubmitSolution",
+        0x60 => "PushSolution",
 
         // Template Distribution messages (0x70-0x7F)
         0x70 => "CoinbaseOutputDataSize",
