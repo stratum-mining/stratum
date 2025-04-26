@@ -62,7 +62,8 @@ pub use submit_shares::{
     SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
 };
 pub use update_channel::{UpdateChannel, UpdateChannelError};
-const MAX_EXTRANONCE_LEN: usize = 32;
+
+pub const MAX_EXTRANONCE_LEN: usize = 32;
 
 /// Target is a 256-bit unsigned integer in little-endian
 #[derive(Debug, Clone, PartialEq, Eq)]
