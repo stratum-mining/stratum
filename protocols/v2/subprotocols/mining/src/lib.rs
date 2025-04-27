@@ -462,6 +462,7 @@ impl ExtendedExtranonce {
             || range_1.end != range_2.start
             || range_1.end < range_1.start
             || range_2.end < range_2.start
+            || range_2.end != MAX_EXTRANONCE_LEN
         {
             return Err(ExtendedExtranonceError::InvalidRanges);
         }
