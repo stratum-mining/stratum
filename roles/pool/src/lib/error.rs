@@ -16,7 +16,14 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
+use roles_logic_sv2::{
+    channel_management::{
+        extended::factory::error::ExtendedChannelFactoryError,
+        standard::factory::error::StandardChannelFactoryError,
+    },
+    extranonce_prefix_management::error::ExtranoncePrefixFactoryError,
+    parsers::Mining,
+};
 
 /// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]
@@ -45,6 +52,11 @@ pub enum PoolError {
     Custom(String),
     /// Error related to the SV2 protocol, including an error code and a `Mining` message.
     Sv2ProtocolError((u32, Mining<'static>)),
+    ExtranoncePrefixFactoryStandard(ExtranoncePrefixFactoryError),
+    ExtranoncePrefixFactoryExtended(ExtranoncePrefixFactoryError),
+    StandardChannelFactoryError(StandardChannelFactoryError),
+    ExtendedChannelFactoryError(ExtendedChannelFactoryError),
+    LastSetNewPrevHashNotFound,
 }
 
 impl std::fmt::Display for PoolError {
@@ -64,6 +76,21 @@ impl std::fmt::Display for PoolError {
             Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+            }
+            ExtranoncePrefixFactoryStandard(ref e) => {
+                write!(f, "Extranonce Prefix Factory Standard error: `{:?}`", e)
+            }
+            ExtranoncePrefixFactoryExtended(ref e) => {
+                write!(f, "Extranonce Prefix Factory Extended error: `{:?}`", e)
+            }
+            StandardChannelFactoryError(ref e) => {
+                write!(f, "Standard Channel Factory error: `{:?}`", e)
+            }
+            ExtendedChannelFactoryError(ref e) => {
+                write!(f, "Extended Channel Factory error: `{:?}`", e)
+            }
+            LastSetNewPrevHashNotFound => {
+                write!(f, "Last SetNewPrevHash Not Found")
             }
         }
     }
