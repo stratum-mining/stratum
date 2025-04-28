@@ -11,6 +11,7 @@ use std::{
     fmt::{self, Display, Formatter},
     sync::{MutexGuard, PoisonError},
 };
+use stratum_common::bitcoin::hashes::FromSliceError;
 
 /// Error enum
 #[derive(Debug)]
@@ -116,6 +117,7 @@ pub enum Error {
     /// JD server cannot propagate the block due to missing transactions
     JDSMissingTransactions,
     IoError(std::io::Error),
+    FromSliceError(FromSliceError),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -127,6 +129,12 @@ impl From<BinarySv2Error> for Error {
 impl From<std::io::Error> for Error {
     fn from(v: std::io::Error) -> Error {
         Error::IoError(v)
+    }
+}
+
+impl From<FromSliceError> for Error {
+    fn from(v: FromSliceError) -> Error {
+        Error::FromSliceError(v)
     }
 }
 
@@ -215,6 +223,7 @@ impl Display for Error {
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
             IoError(e) => write!(f, "IO error: {:?}", e),
             ExtendedExtranonceCreationFailed(e) => write!(f, "Failed to create ExtendedExtranonce: {}", e),
+            FromSliceError(e) => write!(f, "Failed to hash from slice: {}", e),
         }
     }
 }

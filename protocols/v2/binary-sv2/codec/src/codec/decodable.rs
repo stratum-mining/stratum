@@ -1,8 +1,6 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{
-        ShortTxId, Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256,
-    },
+    datatypes::{Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
@@ -81,7 +79,6 @@ pub enum PrimitiveMarker {
     Bool,
     U24,
     U256,
-    ShortTxId,
     Signature,
     U32,
     U32AsRef,
@@ -125,7 +122,6 @@ pub enum DecodablePrimitive<'a> {
     Bool(bool),
     U24(U24),
     U256(U256<'a>),
-    ShortTxId(ShortTxId<'a>),
     Signature(Signature<'a>),
     U32(u32),
     U32AsRef(U32AsRef<'a>),
@@ -166,7 +162,6 @@ impl SizeHint for PrimitiveMarker {
             Self::Bool => bool::size_hint(data, offset),
             Self::U24 => U24::size_hint(data, offset),
             Self::U256 => U256::size_hint(data, offset),
-            Self::ShortTxId => ShortTxId::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
             Self::U32AsRef => U32AsRef::size_hint(data, offset),
@@ -258,9 +253,6 @@ impl PrimitiveMarker {
             Self::Bool => DecodablePrimitive::Bool(bool::from_bytes_unchecked(&mut data[offset..])),
             Self::U24 => DecodablePrimitive::U24(U24::from_bytes_unchecked(&mut data[offset..])),
             Self::U256 => DecodablePrimitive::U256(U256::from_bytes_unchecked(&mut data[offset..])),
-            Self::ShortTxId => {
-                DecodablePrimitive::ShortTxId(ShortTxId::from_bytes_unchecked(&mut data[offset..]))
-            }
             Self::Signature => {
                 DecodablePrimitive::Signature(Signature::from_bytes_unchecked(&mut data[offset..]))
             }
@@ -295,9 +287,6 @@ impl PrimitiveMarker {
             Self::Bool => Ok(DecodablePrimitive::Bool(bool::from_reader_(reader)?)),
             Self::U24 => Ok(DecodablePrimitive::U24(U24::from_reader_(reader)?)),
             Self::U256 => Ok(DecodablePrimitive::U256(U256::from_reader_(reader)?)),
-            Self::ShortTxId => Ok(DecodablePrimitive::ShortTxId(ShortTxId::from_reader_(
-                reader,
-            )?)),
             Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_reader_(
                 reader,
             )?)),
@@ -323,7 +312,6 @@ impl GetSize for DecodablePrimitive<'_> {
             DecodablePrimitive::Bool(v) => v.get_size(),
             DecodablePrimitive::U24(v) => v.get_size(),
             DecodablePrimitive::U256(v) => v.get_size(),
-            DecodablePrimitive::ShortTxId(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
             DecodablePrimitive::U32AsRef(v) => v.get_size(),

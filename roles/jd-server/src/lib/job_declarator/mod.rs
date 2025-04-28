@@ -104,7 +104,6 @@ pub struct JobDeclaratorDownstream {
         Vec<TransactionState>,
         Vec<u16>,
     ),
-    tx_hash_list_hash: Option<U256<'static>>,
     add_txs_to_mempool: AddTrasactionsToMempool,
 }
 
@@ -149,7 +148,6 @@ impl JobDeclaratorDownstream {
             private_key: *config.authority_secret_key(),
             mempool,
             declared_mining_job: (None, Vec::new(), Vec::new()),
-            tx_hash_list_hash: None,
             add_txs_to_mempool: AddTrasactionsToMempool {
                 add_txs_to_mempool_inner,
                 sender_add_txs_to_mempool,

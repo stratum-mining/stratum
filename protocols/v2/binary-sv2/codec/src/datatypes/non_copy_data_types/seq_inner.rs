@@ -342,7 +342,6 @@ impl_into_encodable_field_for_seq!(U24);
 impl_into_encodable_field_for_seq!(u32);
 impl_into_encodable_field_for_seq!(u64);
 impl_into_encodable_field_for_seq!(U256<'a>);
-impl_into_encodable_field_for_seq!(ShortTxId<'a>);
 impl_into_encodable_field_for_seq!(Signature<'a>);
 impl_into_encodable_field_for_seq!(B0255<'a>);
 impl_into_encodable_field_for_seq!(B064K<'a>);

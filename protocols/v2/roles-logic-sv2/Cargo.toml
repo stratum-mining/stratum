@@ -14,7 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 stratum-common = { path = "../../../common", features=["bitcoin", "constants"], version = "^2.0.0"}
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^2.0.0" }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^3.0.0" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^5.0.0" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^4.0.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^3.0.0" }
@@ -23,7 +23,6 @@ framing_sv2 = { path = "../../../protocols/v2/framing-sv2", version = "^4.0.0" }
 tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}
 nohash-hasher = "0.2.0"
-siphasher = "1"
 primitive-types = "0.13.1"
 hex = {package = "hex-conservative", version = "0.3.0"}
 

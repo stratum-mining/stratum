@@ -36,14 +36,6 @@ fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
     Ok(config)
 }
 
-/// TODO on the setup phase JDC must send a random nonce to bitcoind and JDS used for the tx
-/// hashlist
-///
-/// TODO on setupconnection with bitcoind (TP) JDC must signal that want a tx short hash list with
-/// the templates
-///
-/// TODO JDC must handle TxShortHashList message
-///
 /// This will start:
 /// 1. An Upstream, this will connect with the mining Pool
 /// 2. A listner that will wait for a mining downstream with ExtendedChannel capabilities (tproxy,

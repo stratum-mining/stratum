@@ -352,14 +352,14 @@ checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "1.2.0"
+version = "2.0.0"
 dependencies = [
  "buffer_sv2",
 ]
 
 [[package]]
 name = "binary_sv2"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -2170,7 +2170,6 @@ dependencies = [
  "mining_sv2",
  "nohash-hasher",
  "primitive-types",
- "siphasher",
  "stratum-common",
  "template_distribution_sv2",
  "tracing",
@@ -2428,12 +2427,6 @@ checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "siphasher"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "slab"

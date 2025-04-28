@@ -9,10 +9,10 @@ use roles_logic_sv2::{
     mining_sv2::SubmitSharesExtended,
     parsers::{AnyMessage, JobDeclaration},
     template_distribution_sv2::SetNewPrevHash,
-    utils::{hash_lists_tuple, Mutex},
+    utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{consensus, Transaction};
+use stratum_common::bitcoin::{consensus, hashes::Hash, Transaction};
 use tokio::task::AbortHandle;
 use tracing::{debug, error, info};
 
@@ -236,14 +236,19 @@ impl JobDeclarator {
         let (id, sender) = self_mutex
             .safe_lock(|s| (s.req_ids.next(), s.sender.clone()))
             .unwrap();
-        // TODO: create right nonce
-        let tx_short_hash_nonce = 0;
         let mut tx_list: Vec<Transaction> = Vec::new();
+        let mut txids_as_u256: Vec<U256<'static>> = Vec::new();
         for tx in tx_list_.to_vec() {
             //TODO remove unwrap
-            let tx = consensus::deserialize(&tx).unwrap();
+            let tx: Transaction = consensus::deserialize(&tx).unwrap();
+            let txid = tx.compute_txid();
+            let byte_array: [u8; 32] = *txid.as_byte_array();
+            let owned_vec: Vec<u8> = byte_array.into();
+            let txid_as_u256 = U256::Owned(owned_vec);
+            txids_as_u256.push(txid_as_u256);
             tx_list.push(tx);
         }
+        let tx_ids = Seq064K::new(txids_as_u256).expect("Failed to create Seq064K");
         let declare_job = DeclareMiningJob {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
@@ -254,9 +259,7 @@ impl JobDeclarator {
             coinbase_suffix: self_mutex
                 .safe_lock(|s| s.coinbase_tx_suffix.clone())
                 .unwrap(),
-            tx_short_hash_nonce,
-            tx_short_hash_list: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).0,
-            tx_hash_list_hash: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).1,
+            tx_ids_list: tx_ids,
             excess_data, // request transaction data
         };
 

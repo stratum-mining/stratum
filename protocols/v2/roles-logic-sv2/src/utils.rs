@@ -5,11 +5,10 @@
 //! management, mutex management, difficulty target calculations, merkle root calculations, and
 //! more.
 
-use binary_sv2::{Seq064K, ShortTxId, U256};
+use binary_sv2::U256;
 use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, PushSolution};
 use primitive_types::U256 as U256Primitive;
-use siphasher::sip::SipHasher24;
 use std::{
     cmp::max,
     convert::{TryFrom, TryInto},
@@ -23,7 +22,7 @@ use stratum_common::{
         blockdata::block::{Header, Version},
         consensus,
         hash_types::{BlockHash, TxMerkleNode},
-        hashes::{sha256, sha256d::Hash as DHash, Hash},
+        hashes::{sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
         CompactTarget, PublicKey, ScriptBuf, ScriptHash, Transaction, WScriptHash, XOnlyPublicKey,
     },
@@ -817,72 +816,6 @@ pub(crate) fn new_header(
         bits: CompactTarget::from_consensus(bits),
         nonce,
     })
-}
-
-/// Generates a list of transaction short hashes and a hash of the full transaction list.
-///
-/// This function computes a tuple containing:
-/// 1. A list of short transaction hashes, calculated using SipHash 24 ([`SipHasher24`]).
-/// 2. A combined hash of the full list of transaction IDs.
-///
-/// Typically used when a compact representation of transaction IDs is needed or when a combined
-/// hash of the full transaction list is required for validation or lookup, like when the Job
-/// Declarator client declares a new mining job.
-pub fn hash_lists_tuple(
-    tx_data: Vec<Transaction>,
-    tx_short_hash_nonce: u64,
-) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
-    let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
-    for tx in tx_data {
-        txid_list.push(tx.compute_txid());
-    }
-    let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
-    for txid in txid_list.clone() {
-        tx_short_hash_list_.push(get_short_hash(txid, tx_short_hash_nonce));
-    }
-    let tx_short_hash_list: Seq064K<'static, ShortTxId> = Seq064K::from(tx_short_hash_list_);
-    let tx_hash_list_hash = tx_hash_list_hash_builder(txid_list);
-    (tx_short_hash_list, tx_hash_list_hash)
-}
-
-/// Computes SipHash 24 of some transaction id (short hash)
-///
-/// Computes a short transaction hash using SipHash 24.
-///
-/// This function uses [`SipHasher24`] to compute a compact, deterministic hash of a transaction ID
-/// ([`bitcoin::Txid`]), leveraging a nonce for uniqueness.
-///
-/// Typically used to generate short hashes for efficient transaction identification and comparison
-/// in contexts where full transaction IDs are unnecessary.
-pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxId<'static> {
-    // hash the short hash nonce
-    let nonce_hash = sha256::Hash::hash(&tx_short_hash_nonce.to_le_bytes());
-    // take first two integers from the hash
-    let k0 = u64::from_le_bytes(nonce_hash[0..8].try_into().unwrap());
-    let k1 = u64::from_le_bytes(nonce_hash[8..16].try_into().unwrap());
-    // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
-    let hasher = SipHasher24::new_with_keys(k0, k1);
-    let tx_hashed = hasher.hash(txid.as_ref());
-    let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes()[2..].to_vec();
-    let short_tx_id: ShortTxId = tx_hashed_bytes.try_into().unwrap();
-    short_tx_id
-}
-
-/// Computes a combined hash of a list of transaction IDs.
-///
-/// Concatenates all transaction IDs ([`bitcoin::Txid`]) into a single byte array and computes a
-/// SHA256 hash of the resulting data.
-fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
-    // TODO: understand if this field is redunant and to be deleted since
-    // the full coinbase is known
-    let mut vec_u8 = vec![];
-    for txid in txid_list {
-        let txid_as_byte_array: &[u8; 32] = txid.as_ref();
-        vec_u8.extend_from_slice(txid_as_byte_array);
-    }
-    let hash: sha256::Hash = sha256::Hash::hash(&vec_u8);
-    let hash_arr: [u8; 32] = *hash.as_ref();
-    U256::from(hash_arr)
 }
 
 /// Creates a block from a solution submission.
