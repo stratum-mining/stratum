@@ -53,8 +53,6 @@ pub struct SetCustomMiningJob<'decoder> {
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
-    /// Size of extranonce in bytes that will be provided by the downstream role.
-    pub extranonce_size: u16,
 }
 
 /// Message used by upstream to accept [`SetCustomMiningJob`] request.

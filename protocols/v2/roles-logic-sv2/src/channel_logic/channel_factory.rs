@@ -47,7 +47,6 @@ pub struct PartialSetCustomMiningJob {
     pub coinbase_tx_outputs: binary_sv2::B064K<'static>,
     pub coinbase_tx_locktime: u32,
     pub merkle_path: binary_sv2::Seq0255<'static, binary_sv2::U256<'static>>,
-    pub extranonce_size: u16,
     pub future_job: bool,
 }
 
@@ -1434,7 +1433,6 @@ impl ProxyExtendedChannelFactory {
                         coinbase_tx_outputs: template.coinbase_tx_outputs.clone(),
                         coinbase_tx_locktime: template.coinbase_tx_locktime,
                         merkle_path: template.merkle_path.clone(),
-                        extranonce_size: self.inner.extranonces.get_len() as u16,
                         future_job: template.future_template,
                     },
                     job_id,
@@ -1477,7 +1475,6 @@ impl ProxyExtendedChannelFactory {
                 let prev_hash = self.last_prev_hash().unwrap();
                 let min_ntime = self.last_min_ntime().unwrap();
                 let nbits = self.last_nbits().unwrap();
-                let extranonce_size = self.extranonce_size() as u16;
                 let custom_mining_job = PartialSetCustomMiningJob {
                     version: m.version,
                     prev_hash,
@@ -1490,7 +1487,6 @@ impl ProxyExtendedChannelFactory {
                     coinbase_tx_outputs: m.coinbase_tx_outputs.clone(),
                     coinbase_tx_locktime: m.coinbase_tx_locktime,
                     merkle_path: m.merkle_path.clone(),
-                    extranonce_size,
                     future_job: m.future_template,
                 };
                 return Ok((
