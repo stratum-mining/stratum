@@ -1,7 +1,0 @@
-FROM debian:latest
-
-COPY ./translator /usr/local/bin/translator
-
-WORKDIR /usr/local/bin
-
-CMD ["translator"]
