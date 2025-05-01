@@ -15,10 +15,10 @@ async fn propogated_from_jdc_to_tp() {
         "0".to_string(),
         jds_addr,
         false,
-        Some(ignore_push_solution.into()),
+        vec![ignore_push_solution.into()],
     );
     let (jdc_tp_sniffer, jdc_tp_sniffer_addr) =
-        start_sniffer("1".to_string(), tp_addr, false, None);
+        start_sniffer("1".to_string(), tp_addr, false, vec![]);
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jdc_jds_sniffer_addr)], jdc_tp_sniffer_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr);
     let _mining_device = start_mining_device_sv1(tproxy_addr, false, None);

@@ -12,7 +12,7 @@ async fn jd_tproxy_integration() {
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (jdc_pool_sniffer, jdc_pool_sniffer_addr) =
-        start_sniffer("0".to_string(), pool_addr, false, None);
+        start_sniffer("0".to_string(), pool_addr, false, vec![]);
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (_jdc, jdc_addr) = start_jdc(&[(jdc_pool_sniffer_addr, jds_addr)], tp_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr);
