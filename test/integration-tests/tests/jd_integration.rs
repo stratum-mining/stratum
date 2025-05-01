@@ -25,7 +25,7 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
-    let (sniffer_a, sniffer_addr_a) = start_sniffer("0".to_string(), jds_addr, false, None);
+    let (sniffer_a, sniffer_addr_a) = start_sniffer("0".to_string(), jds_addr, false, vec![]);
     let (jdc, jdc_addr) = start_jdc(&[(pool_addr, sniffer_addr_a)], tp_addr);
     sniffer_a
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
@@ -39,7 +39,7 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
     jdc.shutdown();
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_ok());
-    let (sniffer, sniffer_addr) = start_sniffer("0".to_string(), jds_addr, false, None);
+    let (sniffer, sniffer_addr) = start_sniffer("0".to_string(), jds_addr, false, vec![]);
     let (_jdc_1, _jdc_addr_1) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr);
     sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
@@ -57,7 +57,7 @@ async fn jdc_tp_success_setup() {
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (tp_jdc_sniffer, tp_jdc_sniffer_addr) =
-        start_sniffer("0".to_string(), tp_addr, false, None);
+        start_sniffer("0".to_string(), tp_addr, false, vec![]);
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jds_addr)], tp_jdc_sniffer_addr);
     // This is needed because jd-client waits for a downstream connection before it starts
     // exchanging messages with the Template Provider.
@@ -89,7 +89,7 @@ async fn jdc_does_not_stackoverflow_when_no_token() {
         "JDS-JDC-sniffer".to_string(),
         jds_addr,
         false,
-        Some(block_from_message.into()),
+        vec![block_from_message.into()],
     );
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jds_jdc_sniffer_addr)], tp_addr);
     let _ = start_sv2_translator(jdc_addr);
@@ -160,7 +160,7 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
         "A".to_string(),
         jds_addr,
         false,
-        Some(submit_solution_replace.into()),
+        vec![submit_solution_replace.into()],
     );
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, sniffer_a_addr)], tp_addr_2);
     start_sv2_translator(jdc_addr);
@@ -242,7 +242,7 @@ async fn jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transa
         "A".to_string(),
         jds_addr,
         false,
-        Some(provide_missing_transaction_success_replace.into()),
+        vec![provide_missing_transaction_success_replace.into()],
     );
 
     let (_, jdc_addr_1) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr_2);

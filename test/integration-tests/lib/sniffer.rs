@@ -56,7 +56,7 @@ pub struct Sniffer {
     messages_from_downstream: MessagesAggregator,
     messages_from_upstream: MessagesAggregator,
     check_on_drop: bool,
-    action: Option<InterceptAction>,
+    action: Vec<InterceptAction>,
 }
 
 impl Sniffer {
@@ -67,7 +67,7 @@ impl Sniffer {
         listening_address: SocketAddr,
         upstream_address: SocketAddr,
         check_on_drop: bool,
-        action: Option<InterceptAction>,
+        action: Vec<InterceptAction>,
     ) -> Self {
         Self {
             identifier,
@@ -270,15 +270,17 @@ impl Sniffer {
         recv: Receiver<MessageFrame>,
         send: Sender<MessageFrame>,
         downstream_messages: MessagesAggregator,
-        action: Option<InterceptAction>,
+        action: Vec<InterceptAction>,
         identifier: &str,
     ) -> Result<(), SnifferError> {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
-            let action = action.as_ref().and_then(|action| {
-                action.find_matching_action(msg_type, MessageDirection::ToUpstream)
+            let action = action.iter().find(|action| {
+                action
+                    .find_matching_action(msg_type, MessageDirection::ToUpstream)
+                    .is_some()
             });
-            if let Some(ref action) = action {
+            if let Some(action) = action {
                 match action {
                     InterceptAction::IgnoreMessage(_) => {
                         tracing::info!(
@@ -334,17 +336,18 @@ impl Sniffer {
         recv: Receiver<MessageFrame>,
         send: Sender<MessageFrame>,
         upstream_messages: MessagesAggregator,
-        action: Option<InterceptAction>,
+        action: Vec<InterceptAction>,
         identifier: &str,
     ) -> Result<(), SnifferError> {
         while let Ok(mut frame) = recv.recv().await {
             let (msg_type, msg) = Self::message_from_frame(&mut frame);
-
-            let action = action.as_ref().and_then(|action| {
-                action.find_matching_action(msg_type, MessageDirection::ToDownstream)
+            let action = action.iter().find(|action| {
+                action
+                    .find_matching_action(msg_type, MessageDirection::ToDownstream)
+                    .is_some()
             });
 
-            if let Some(ref action) = action {
+            if let Some(action) = action {
                 match action {
                     InterceptAction::IgnoreMessage(_) => {
                         tracing::info!(
