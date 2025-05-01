@@ -293,7 +293,6 @@ impl Upstream {
             coinbase_tx_outputs: coinbase_tx_outs.try_into().unwrap(),
             coinbase_tx_locktime,
             merkle_path,
-            extranonce_size: 0,
         };
         let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();
