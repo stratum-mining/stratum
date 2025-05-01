@@ -1,5 +1,5 @@
-# Async Job Support
-async_mining_allowed = true
+# If set to true, JDS require JDC to reveal the transactions they are going to mine on
+full_template_mode_required = true
 
 # SRI Pool config
 authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"

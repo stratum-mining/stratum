@@ -6,6 +6,10 @@ use core::convert::TryInto;
 
 /// Message used by JDC to proposes a selected set of transactions to JDS they wish to
 /// mine on.
+///
+/// Used only under [`Full Template`] mode.
+///
+/// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct DeclareMiningJob<'decoder> {
@@ -47,6 +51,11 @@ pub struct DeclareMiningJob<'decoder> {
 }
 
 /// Messaged used by JDS to accept [`DeclareMiningJob`] message.
+///
+/// If [`Full Template`] mode is used, JDS MAY request txdata via `ProvideMissingTransactions`
+/// before making this commitment.
+///
+/// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct DeclareMiningJobSuccess<'decoder> {

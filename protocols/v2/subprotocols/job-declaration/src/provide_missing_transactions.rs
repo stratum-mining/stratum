@@ -11,6 +11,10 @@ use core::convert::TryInto;
 /// unable to recognize any of the transactions through its mempool, it sends this message to ask
 /// for them. They are specified by their position in the original DeclareMiningJob message,
 /// 0-indexed not including the coinbase transaction transaction.
+///
+/// Used only under [`Full Template`] mode.
+///
+/// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct ProvideMissingTransactions<'decoder> {

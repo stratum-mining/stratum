@@ -39,7 +39,7 @@ impl SetupConnectionHandler {
             firmware,
             device_id,
         };
-        setup_connection.set_async_job_nogotiation();
+        setup_connection.allow_full_template_mode();
         setup_connection
     }
 

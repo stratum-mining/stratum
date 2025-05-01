@@ -15,7 +15,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [dependencies]
 stratum-common = { path = "../../../common", features=["bitcoin", "constants"], version = "^2.0.0"}
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^2.0.0" }
-common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^4.0.0" }
+common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^5.0.0" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^4.0.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^3.0.0" }
 job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^4.0.0" }

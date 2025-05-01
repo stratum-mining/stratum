@@ -33,16 +33,4 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     pub coinbase_output_max_additional_sigops: u16,
     /// Bitcoin transaction outputs added by JDS.
     pub coinbase_output: B064K<'decoder>,
-    /// Whether the client is allowed to mine asynchronously.
-    ///
-    /// If set to true, the [`AllocateMiningJobTokenSuccess::mining_job_token`] can be used
-    /// immediately on a mining connection in the `SetCustomMiningJob` message, even before
-    /// [`crate::DeclareMiningJob`] and [`crate::DeclareMiningJobSuccess`] messages have been
-    /// exchanged.
-    ///
-    /// If set to false, JDC **must** use this token for [`crate::DeclareMiningJob`] only.
-    ///
-    /// This **must** be set to true if `SetupConnection::flags` included
-    /// `REQUIRES_ASYNC_JOB_MINING`.
-    pub async_mining_allowed: bool,
 }

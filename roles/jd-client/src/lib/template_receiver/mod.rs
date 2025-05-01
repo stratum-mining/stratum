@@ -165,7 +165,6 @@ impl TemplateRx {
                 coinbase_output_max_additional_size: 100,
                 coinbase_output_max_additional_sigops: miner_coinbase_output_sigops,
                 coinbase_output: miner_coinbase_output.to_vec().try_into().unwrap(),
-                async_mining_allowed: true,
             }
         }
     }

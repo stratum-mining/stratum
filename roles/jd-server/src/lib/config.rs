@@ -21,7 +21,7 @@ use stratum_common::bitcoin::{Amount, TxOut};
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
     #[serde(default = "default_true")]
-    async_mining_allowed: bool,
+    full_template_mode_required: bool,
     listen_jd_address: String,
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
@@ -47,7 +47,7 @@ impl JobDeclaratorServerConfig {
         mempool_update_interval: Duration,
     ) -> Self {
         Self {
-            async_mining_allowed: true,
+            full_template_mode_required: true,
             listen_jd_address,
             authority_public_key,
             authority_secret_key,
@@ -106,9 +106,13 @@ impl JobDeclaratorServerConfig {
         self.cert_validity_sec
     }
 
-    /// Returns whether async mining is allowed.
-    pub fn async_mining_allowed(&self) -> bool {
-        self.async_mining_allowed
+    /// Returns whether [`Full Template`] is required. Otherwise, [`Coinbase Only`] mode will be
+    /// used.
+    ///
+    /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
+    /// [`Coinbase Only`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#631-coinbase-only-mode
+    pub fn full_template_mode_required(&self) -> bool {
+        self.full_template_mode_required
     }
 
     /// Returns the mempool update interval.
