@@ -76,7 +76,6 @@ pub struct AddTrasactionsToMempool {
 ///
 /// This struct tracks all state relevant to one connection, including:
 /// - The declared mining job and missing transactions
-/// - The client's async mining capabilities
 /// - Mapping between tokens and job IDs
 /// - Interaction with the mempool
 ///
@@ -85,7 +84,8 @@ pub struct AddTrasactionsToMempool {
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
-    async_mining_allowed: bool,
+    #[allow(dead_code)]
+    full_template_mode_required: bool,
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
@@ -111,7 +111,7 @@ pub struct JobDeclaratorDownstream {
 impl JobDeclaratorDownstream {
     /// Creates a new downstream connection context.
     pub fn new(
-        async_mining_allowed: bool,
+        full_template_mode_required: bool,
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
         config: &JobDeclaratorServerConfig,
@@ -138,7 +138,7 @@ impl JobDeclaratorDownstream {
             .count_sigops() as u16;
 
         Self {
-            async_mining_allowed,
+            full_template_mode_required,
             receiver,
             sender,
             coinbase_output,
@@ -554,7 +554,7 @@ impl JobDeclarator {
                             let flag = setup_connection.flags;
                             let is_valid = SetupConnection::check_flags(
                                 Protocol::JobDeclarationProtocol,
-                                config.async_mining_allowed() as u32,
+                                config.full_template_mode_required() as u32,
                                 flag,
                             );
 

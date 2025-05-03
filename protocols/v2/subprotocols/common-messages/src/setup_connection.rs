@@ -60,8 +60,10 @@ impl SetupConnection<'_> {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
     }
 
-    /// Set the flag to indicate that the downstream requires an asynchronous job negotiation
-    pub fn set_async_job_nogotiation(&mut self) {
+    /// Set a flag to indicate that the JDC allows [`Full Template`] mode.
+    ///
+    /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
+    pub fn allow_full_template_mode(&mut self) {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
     }
 
@@ -106,23 +108,26 @@ impl SetupConnection<'_> {
                 // Reverses the bits of `available_flags` and `required_flags`, extracts the 31st
                 // bit from each, and evaluates if the condition is met using these
                 // bits. Returns `true` or `false` based on:
-                // - True if `requires_async_job_mining_self` is true, or both are true.
-                // - False if `requires_async_job_mining_self` is false and
-                //   `requires_async_job_mining_passed` is true.
+                // - False if `full_template_mode_required_self` is true and
+                //   `allow_full_teamplate_mode_passed` is false.
                 // - True otherwise.
+                //
+                // TODO: Simplify this code by removing the `reverse_bits` function and
+                // using bitwise operations directly. i.e., try to use `&` and `|` to
+                // combine the bits instead of reversing them.
                 let available = available_flags.reverse_bits();
                 let required = required_flags.reverse_bits();
 
-                let requires_async_job_mining_passed = (required >> 31) & 1 > 0;
-                let requires_async_job_mining_self = (available >> 31) & 1 > 0;
+                let allow_full_teamplate_mode_passed = (required >> 31) & 1 > 0;
+                let full_template_mode_required_self = (available >> 31) & 1 > 0;
 
                 match (
-                    requires_async_job_mining_self,
-                    requires_async_job_mining_passed,
+                    full_template_mode_required_self,
+                    allow_full_teamplate_mode_passed,
                 ) {
                     (true, true) => true,
-                    (true, false) => true,
-                    (false, true) => false,
+                    (true, false) => false,
+                    (false, true) => true,
                     (false, false) => true,
                 }
             }

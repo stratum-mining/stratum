@@ -8,6 +8,10 @@ use core::convert::TryInto;
 ///
 /// Note that JDC is also expected to share the new block data through `SubmitSolution` message
 /// under the Template Distribution Protocol.
+///
+/// Used only under [`Full Template`] mode.
+///
+/// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct PushSolution<'decoder> {
