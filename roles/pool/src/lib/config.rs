@@ -1,11 +1,18 @@
+//! ## Configuration Module
+//!
+//! Defines [`PoolConfig`], the configuration structure for the Pool, along with its supporting
+//! types.
+//!
+//! This module handles:
+//! - Initializing [`PoolConfig`]
+//! - Managing [`TemplateProviderConfig`], [`AuthorityConfig`], [`CoinbaseOutput`], and
+//!   [`ConnectionConfig`]
+//! - Validating and converting coinbase outputs
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
 use std::convert::TryFrom;
 
-/// Represents the configuration of a Pool.
-///
-/// Pool acts an upstream throug hthe [`PoolConfig::listen_address`] and a downstream to the
-/// Template Provider through the [`PoolConfig::tp_address`].
+/// Configuration for the Pool, including connection, authority, and coinbase settings.
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct PoolConfig {
     listen_address: String,
@@ -97,6 +104,7 @@ impl PoolConfig {
     }
 }
 
+/// Configuration for connecting to a Template Provider.
 pub struct TemplateProviderConfig {
     address: String,
     authority_public_key: Option<Secp256k1PublicKey>,
@@ -111,6 +119,7 @@ impl TemplateProviderConfig {
     }
 }
 
+/// Pool's authority public and secret keys.
 pub struct AuthorityConfig {
     pub public_key: Secp256k1PublicKey,
     pub secret_key: Secp256k1SecretKey,
@@ -125,6 +134,7 @@ impl AuthorityConfig {
     }
 }
 
+/// Connection settings for the Pool listener.
 pub struct ConnectionConfig {
     listen_address: String,
     cert_validity_sec: u64,
@@ -141,6 +151,7 @@ impl ConnectionConfig {
     }
 }
 
+/// Represents a single coinbase output.
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct CoinbaseOutput {
     output_script_type: String,

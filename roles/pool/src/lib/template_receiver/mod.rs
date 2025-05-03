@@ -1,3 +1,12 @@
+//! ## Template Receiver Module
+//! [`TemplateRx`] manages the connection to the Template Provider.
+//!
+//! It is responsible for:
+//! - Receiving and forwarding messages like `NewTemplate` and `SetNewPrevHash` to other subsystems.
+//! - Receiving solutions from other subsystems and forwarding `SubmitSolution` messages to the
+//!   template provider.
+//! - Managing the underlying network connection and message flow.ike `SetNewPrevhash` and
+//!   `newTemplate` and send it other subsystem.
 use super::{
     error::{PoolError, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
@@ -24,16 +33,36 @@ mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
+/// Manages communication with the template provider and relays relevant messages downstream.
+///
+/// This struct maintains connection channels to the Template Provider and handles:
+/// - Receiving and forwarding template-related messages to downstream.
+/// - Intercepting and forwarding solution submission messages from downstream.
+/// - Ensuring proper message flow between components.
 pub struct TemplateRx {
+    // Receiver for incoming messages from the template provider.
     receiver: Receiver<EitherFrame>,
+    // Sender for outgoing messages to the template provider.
     sender: Sender<EitherFrame>,
+    // Signal channel to indicate that a message has been received and processed.
     message_received_signal: Receiver<()>,
+    // Sender for forwarding `NewTemplate` messages to other subsystems.
     new_template_sender: Sender<NewTemplate<'static>>,
+    // Sender for forwarding `SetNewPrevHash` messages to other subsystems.
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    // Sender for reporting status updates.
     status_tx: status::Sender,
 }
 
 impl TemplateRx {
+    //// Establishes a connection with the template provider and sets up communication channels.
+    ///
+    /// This function handles connection retries in case of initial failure. Once connected,
+    /// it performs the SV2 handshake using the `SetupConnectionHandler`. It then sends the
+    /// `CoinbaseOutputConstraints` message to inform the template provider about the pool's
+    /// constraints. Finally, it spawns two asynchronous tasks: one to handle incoming messages
+    /// from the Template Provider (`start`) and another to handle outgoing solution submissions
+    /// from downstream (`on_new_solution`).
     #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
@@ -46,6 +75,7 @@ impl TemplateRx {
         coinbase_out_sigops: u16,
         expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
     ) -> PoolResult<()> {
+        // Attempt to establish a TCP connection to the template provider, retrying on failure.
         let stream = loop {
             match TcpStream::connect(address).await {
                 Ok(stream) => break stream,
@@ -57,19 +87,22 @@ impl TemplateRx {
         };
         info!("Connected to template distribution server at {}", address);
 
+        // Initialize the Noise protocol initiator for secure communication.
         let initiator = match expected_tp_authority_public_key {
             Some(expected_tp_authority_public_key) => {
                 Initiator::from_raw_k(expected_tp_authority_public_key.into_bytes())
             }
             None => Initiator::without_pk(),
         }?;
+
         let (mut receiver, mut sender) =
             Connection::new(stream, HandshakeRole::Initiator(initiator))
                 .await
                 .unwrap();
-
+        // Perform the SV2 SetupConnection handshake.
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
+        // Create the TemplateRx instance with the established channels.
         let self_ = Arc::new(Mutex::new(Self {
             receiver,
             sender,
@@ -80,6 +113,7 @@ impl TemplateRx {
         }));
         let cloned = self_.clone();
 
+        // Define and send the CoinbaseOutputConstraints message.
         let coinbase_output_constraints = CoinbaseOutputConstraints {
             coinbase_output_max_additional_size: coinbase_out_len,
             coinbase_output_max_additional_sigops: coinbase_out_sigops,
@@ -91,12 +125,20 @@ impl TemplateRx {
 
         Self::send(self_.clone(), frame).await?;
 
+        // Spawn a task to handle incoming messages from the template provider.
         task::spawn(async { Self::start(cloned).await });
+        // Spawn a task to handle outgoing solution submissions to the template provider.
         task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });
 
         Ok(())
     }
 
+    /// Listens for messages from the Template Provider and relays them downstream.
+    ///
+    /// This task runs in a loop, receiving messages from the template provider,
+    /// parsing them as Template Distribution messages, and forwarding relevant messages
+    /// (`NewTemplate`, `SetNewPrevHash`) to the appropriate internal channels. It also
+    /// handles signaling after processing a message.
     pub async fn start(self_: Arc<Mutex<Self>>) {
         let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
             self_
@@ -158,6 +200,7 @@ impl TemplateRx {
         }
     }
 
+    /// Sends a message to the template provider.
     pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> PoolResult<()> {
         let either_frame = sv2_frame.into();
         let sender = self_
@@ -167,6 +210,11 @@ impl TemplateRx {
         Ok(())
     }
 
+    // Handles solution submission messages from downstream.
+    //
+    // This task listens on a dedicated receiver channel for `SubmitSolution`
+    // messages. When a solution is received, it formats it into an SV2 `StdFrame` and
+    // sends it to the template provider using the `send()` function.
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
         while let Ok(solution) = rx.recv().await {

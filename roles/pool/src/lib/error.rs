@@ -1,3 +1,15 @@
+//! ## Error Module
+//!
+//! Defines [`PoolError`], the main error type used across the Pool.
+//!
+//! Centralizes errors from:
+//! - I/O operations
+//! - Channel send/receive
+//! - SV2 stack: Binary, Codec, Noise, Framing, Roles Logic
+//! - Locking (PoisonError)
+//!
+//! Ensures all errors are easy to pass around, including across async boundaries.
+
 use std::{
     convert::From,
     fmt::Debug,
@@ -6,19 +18,32 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
+/// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
+    /// I/O-related error.
     Io(std::io::Error),
+    /// Error when sending a message through a channel.
     ChannelSend(Box<dyn std::marker::Send + Debug>),
+    /// Error when receiving a message from an asynchronous channel.
     ChannelRecv(async_channel::RecvError),
+    /// Error from the `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
+    /// Error from the `codec_sv2` crate.
     Codec(codec_sv2::Error),
+    /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
+    /// Error from the `roles_logic_sv2` crate.
     RolesLogic(roles_logic_sv2::Error),
+    /// Error related to SV2 message framing.
     Framing(codec_sv2::framing_sv2::Error),
+    /// Error due to a poisoned lock, typically from a failed mutex operation.
     PoisonLock(String),
+    /// Error indicating that a component has shut down unexpectedly.
     ComponentShutdown(String),
+    /// Custom error message.
     Custom(String),
+    /// Error related to the SV2 protocol, including an error code and a `Mining` message.
     Sv2ProtocolError((u32, Mining<'static>)),
 }
 

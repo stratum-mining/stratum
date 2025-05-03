@@ -1,3 +1,7 @@
+//! Implements `ParseTemplateDistributionMessagesFromServer` for [`TemplateRx`].
+//!
+//! Handles incoming template distribution messages from the Template Provider and forwards them
+//! as needed.
 use super::TemplateRx;
 use roles_logic_sv2::{
     errors::Error,
@@ -10,6 +14,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
+    // Handles a `NewTemplate` message and returns `RelayNewMessageToRemote`.
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         info!(
             "Received NewTemplate with id: {}, is future: {}",
@@ -23,6 +28,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
         ))
     }
 
+    // Handles a `SetNewPrevHash` and return `RelayNewMessageToRemote`
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {
         info!("Received SetNewPrevHash for template: {}", m.template_id);
         debug!("SetNewPrevHash: {:?}", m);
@@ -33,6 +39,11 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
         ))
     }
 
+    // Handles a `RequestTransactionDataSuccess` message and ignores it.
+    //
+    // This method is called when a `RequestTransactionDataSuccess` message is received.
+    // This message is typically intended for Job Declarators, not the Template Receiver,
+    // so it is logged and then ignored.
     fn handle_request_tx_data_success(
         &mut self,
         m: RequestTransactionDataSuccess,
@@ -42,10 +53,15 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
             m.template_id
         );
         debug!("RequestTransactionDataSuccess: {:?}", m);
-        // Just ignore tx data messages this are meant for the declaretors
+        // Just ignore tx data messages this are meant for the declarators
         Ok(SendTo::None(None))
     }
 
+    /// Handles a `RequestTransactionDataError` message and ignores it.
+    ///
+    /// This method is called when a `RequestTransactionDataError` message is received.
+    /// This message is typically intended for Job Declarators, not the Template Receiver,
+    /// so it is logged and then ignored.
     fn handle_request_tx_data_error(
         &mut self,
         m: RequestTransactionDataError,
