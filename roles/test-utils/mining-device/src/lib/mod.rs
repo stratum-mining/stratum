@@ -1,6 +1,5 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
-use binary_sv2::u256_from_int;
 use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
@@ -224,11 +223,12 @@ fn open_channel(
     };
 
     info!("MINING DEVICE: send open channel with request id {}", id);
+
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
         nominal_hash_rate,
-        max_target: u256_from_int(567_u64),
+        max_target: vec![0xFF_u8; 32].try_into().unwrap(),
     }
 }
 
