@@ -1,5 +1,11 @@
-/// currently the pool only supports 16 bytes exactly for its channels
-/// to use but that may change
+/// Calculates the required length of the proxy's extranonce1.
+///
+/// The proxy needs to calculate an extranonce1 value to send to the
+/// upstream server.  This function determines the length of that
+/// extranonce1 value
+/// FIXME: The pool only supported 16 bytes exactly for its
+/// `extranonce1` field is no longer the case and the
+/// code needs to be changed to support variable `extranonce1` lengths.
 pub fn proxy_extranonce1_len(
     channel_extranonce2_size: usize,
     downstream_extranonce2_len: usize,

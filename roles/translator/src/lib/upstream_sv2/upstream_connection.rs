@@ -1,3 +1,8 @@
+//! ## Upstream SV2 Connection Module
+//!
+//! Defines [`UpstreamConnection`], the structure responsible for managing the
+//! communication channels with an upstream.
+
 use super::{super::error::ProxyResult, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 

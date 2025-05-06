@@ -1,20 +1,37 @@
+//! ## Downstream SV1 Module
+//!
+//! This module defines the structures, messages, and utility functions
+//! used for handling the downstream connection with SV1 mining clients.
+//!
+//! It includes definitions for messages exchanged with a Bridge component,
+//! structures for submitting shares and updating targets, and constants
+//! and functions for managing client interactions.
+//!
+//! The module is organized into the following sub-modules:
+//! - [`diff_management`]: (Declared here, likely contains downstream difficulty logic)
+//! - [`downstream`]: Defines the core [`Downstream`] struct and its functionalities.
+
 use roles_logic_sv2::mining_sv2::Target;
 use v1::{client_to_server::Submit, utils::HexU32Be};
 pub mod diff_management;
 pub mod downstream;
 pub use downstream::Downstream;
 
-/// This constant is used as a check to ensure clients
-/// do not send a mining.subscribe and never a mining.authorize
-/// since they will take up a tcp connection but never be allowed to
-/// receive jobs. Without the timeout the TProxy can be exploited by incoming
-/// `mining.subscribe` messages that init connections and take up compute
+/// This constant defines a timeout duration. It is used to enforce
+/// that clients sending a `mining.subscribe` message must follow up
+/// with a `mining.authorize` within this period. This prevents
+/// resource exhaustion attacks where clients open connections
+/// with only `mining.subscribe` without intending to mine.
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 10;
 
-/// enum of messages sent to the Bridge
+/// The messages that are sent from the downstream handling logic
+/// to a central "Bridge" component for further processing.
 #[derive(Debug)]
 pub enum DownstreamMessages {
+    /// Represents a submitted share from a downstream miner,
+    /// wrapped with the relevant channel ID.
     SubmitShares(SubmitShareWithChannelId),
+    /// Represents an update to the downstream target for a specific channel.
     SetDownstreamTarget(SetDownstreamTarget),
 }
 
@@ -46,6 +63,9 @@ pub async fn kill(sender: &async_channel::Sender<bool>) {
     sender.send(true).await.unwrap();
 }
 
+/// Generates a new, hardcoded string intended to be used as a subscription ID.
+///
+/// FIXME
 pub fn new_subscription_id() -> String {
     "ae6812eb4cd7735a302a8a9dd95cf71f".into()
 }

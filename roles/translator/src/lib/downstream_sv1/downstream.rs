@@ -1,3 +1,23 @@
+//! ## Downstream SV1 Module: Downstream Connection Logic
+//!
+//! Defines the [`Downstream`] structure, which represents and manages an
+//! individual connection from a downstream SV1 mining client.
+//!
+//! This module is responsible for:
+//! - Accepting incoming TCP connections from SV1 miners.
+//! - Handling the SV1 protocol handshake (`mining.subscribe`, `mining.authorize`,
+//!   `mining.configure`).
+//! - Receiving SV1 `mining.submit` messages from miners.
+//! - Translating SV1 `mining.submit` messages into internal [`DownstreamMessages`] (specifically
+//!   [`SubmitShareWithChannelId`]) and sending them to the Bridge.
+//! - Receiving translated SV1 `mining.notify` messages from the Bridge and sending them to the
+//!   connected miner.
+//! - Managing the miner's extranonce1, extranonce2 size, and version rolling parameters.
+//! - Implementing downstream-specific difficulty management logic, including tracking submitted
+//!   shares and updating the miner's difficulty target.
+//! - Implementing the necessary SV1 server traits ([`IsServer`]) and SV2 roles logic traits
+//!   ([`IsMiningDownstream`], [`IsDownstream`]).
+
 use crate::{
     config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     downstream_sv1,
@@ -34,15 +54,18 @@ use v1::{
     IsServer,
 };
 
+/// The maximum allowed length for a single line (JSON-RPC message) received from an SV1 client.
 const MAX_LINE_LENGTH: usize = 2_usize.pow(16);
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
 #[derive(Debug)]
 pub struct Downstream {
-    /// List of authorized Downstream Mining Devices.
+    /// The unique identifier assigned to this downstream connection/channel.
     pub(super) connection_id: u32,
+    /// List of authorized Downstream Mining Devices.
     authorized_names: Vec<String>,
+    /// The extranonce1 value assigned to this downstream miner.
     extranonce1: Vec<u8>,
     /// `extranonce1` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
     //extranonce1: Vec<u8>,
@@ -58,12 +81,17 @@ pub struct Downstream {
     tx_outgoing: Sender<json_rpc::Message>,
     /// True if this is the first job received from `Upstream`.
     first_job_received: bool,
+    /// The expected size of the extranonce2 field provided by the miner.
     extranonce2_len: usize,
+    /// Configuration and state for managing difficulty adjustments specific
+    /// to this individual downstream miner.
     pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
+    /// Configuration settings for the upstream channel's difficulty management.
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
 }
 
 impl Downstream {
+    // not huge fan of test specific code in codebase.
     #[cfg(test)]
     pub fn new(
         connection_id: u32,
@@ -93,7 +121,16 @@ impl Downstream {
             upstream_difficulty_config,
         }
     }
-    /// Instantiate a new `Downstream`.
+    /// Instantiates and manages a new handler for a single downstream SV1 client connection.
+    ///
+    /// This is the primary function called for each new incoming TCP stream from a miner.
+    /// It sets up the communication channels, initializes the `Downstream` struct state,
+    /// and spawns the necessary tasks to handle:
+    /// 1. Reading incoming messages from the miner's socket.
+    /// 2. Writing outgoing messages to the miner's socket.
+    /// 3. Sending job notifications to the miner (handling initial job and subsequent updates).
+    ///
+    /// It uses shutdown channels to coordinate graceful termination of the spawned tasks.
     #[allow(clippy::too_many_arguments)]
     pub async fn new_downstream(
         stream: TcpStream,
@@ -338,8 +375,13 @@ impl Downstream {
             .safe_lock(|a| a.push((notify_task.abort_handle(), "notify_task".to_string())));
     }
 
-    /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
-    /// new `Downstream` for each connection.
+    /// Accepts incoming TCP connections from SV1 mining clients on the configured address.
+    ///
+    /// For each new connection, it attempts to open a new SV1 downstream channel
+    /// via the Bridge (`bridge.on_new_sv1_connection`). If successful, it spawns
+    /// a new task using `Downstream::new_downstream` to handle
+    /// the communication and logic for that specific miner connection.
+    /// This method runs indefinitely, listening for and accepting new connections.
     #[allow(clippy::too_many_arguments)]
     pub fn accept_connections(
         downstream_addr: SocketAddr,
@@ -402,9 +444,14 @@ impl Downstream {
         });
     }
 
-    /// As SV1 messages come in, determines if the message response needs to be translated to SV2
-    /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
-    /// (SV1 and SV2 protocol messages are NOT 1-to-1).
+    /// Handles incoming SV1 JSON-RPC messages from a downstream miner.
+    ///
+    /// This function acts as the entry point for processing messages received
+    /// from a miner after framing. It uses the `IsServer` trait implementation
+    /// to parse and handle standard SV1 requests (`mining.subscribe`, `mining.authorize`,
+    /// `mining.submit`, `mining.configure`). Depending on the message type, it may generate a
+    /// direct SV1 response to be sent back to the miner or indicate that the message needs to
+    /// be translated and sent upstream (handled elsewhere, typically by the Bridge).
     async fn handle_incoming_sv1(
         self_: Arc<Mutex<Self>>,
         message_sv1: json_rpc::Message,
@@ -434,8 +481,13 @@ impl Downstream {
         }
     }
 
-    /// Send SV1 response message that is generated by `Downstream` (as opposed to being received
-    /// by `Bridge`) to be written to the SV1 Downstream role.
+    /// Sends a SV1 JSON-RPC message to the downstream miner's socket writer task.
+    ///
+    /// This method is used to send response messages or notifications (like
+    /// `mining.notify` or `mining.set_difficulty`) to the connected miner.
+    /// The message is sent over the internal `tx_outgoing` channel, which is
+    /// read by the socket writer task responsible for serializing and writing
+    /// the message to the TCP stream.
     pub(super) async fn send_message_downstream(
         self_: Arc<Mutex<Self>>,
         response: json_rpc::Message,
@@ -445,8 +497,11 @@ impl Downstream {
         sender.send(response).await
     }
 
-    /// Send SV1 response message that is generated by `Downstream` (as opposed to being received
-    /// by `Bridge`) to be written to the SV1 Downstream role.
+    /// Sends a message originating from the downstream handler to the Bridge.
+    ///
+    /// This function is used to forward messages that require translation or
+    /// central processing by the Bridge, such as `SubmitShares` or `SetDownstreamTarget`.
+    /// The message is sent over the internal `tx_sv1_bridge` channel.
     pub(super) async fn send_message_upstream(
         self_: Arc<Mutex<Self>>,
         msg: DownstreamMessages,
@@ -460,8 +515,19 @@ impl Downstream {
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
 impl IsServer<'static> for Downstream {
-    /// Handle the incoming `mining.configure` message which is received after a Downstream role is
-    /// subscribed and authorized. Contains the version rolling mask parameters.
+    /// Handles the incoming SV1 `mining.configure` message.
+    ///
+    /// This message is received after `mining.subscribe` and `mining.authorize`.
+    /// It allows the miner to negotiate capabilities, particularly regarding
+    /// version rolling. This method processes the version rolling mask and
+    /// minimum bit count provided by the client.
+    ///
+    /// Returns a tuple containing:
+    /// 1. `Option<server_to_client::VersionRollingParams>`: The version rolling parameters
+    ///    negotiated by the server (proxy).
+    /// 2. `Option<bool>`: A boolean indicating whether the server (proxy) supports version rolling
+    ///    (always `Some(false)` for TProxy according to the SV1 spec when not supporting work
+    ///    selection).
     fn handle_configure(
         &mut self,
         request: &client_to_server::Configure,
@@ -493,9 +559,14 @@ impl IsServer<'static> for Downstream {
         )
     }
 
-    /// Handle the response to a `mining.subscribe` message received from the client.
-    /// The subscription messages are erroneous and just used to conform the SV1 protocol spec.
-    /// Because no one unsubscribed in practice, they just unplug their machine.
+    /// Handles the incoming SV1 `mining.subscribe` message.
+    ///
+    /// This is typically the first message received from a new client. In the SV1
+    /// protocol, it's used to subscribe to job notifications and receive session
+    /// details like extranonce1 and extranonce2 size. This method acknowledges the subscription and
+    /// provides the necessary details derived from the upstream SV2 connection (extranonce1 and
+    /// extranonce2 size). It also provides subscription IDs for the
+    /// `mining.set_difficulty` and `mining.notify` methods.
     fn handle_subscribe(&self, request: &client_to_server::Subscribe) -> Vec<(String, String)> {
         info!("Down: Subscribing");
         debug!("Down: Handling mining.subscribe: {:?}", &request);
@@ -521,8 +592,17 @@ impl IsServer<'static> for Downstream {
         true
     }
 
-    /// When miner find the job which meets requested difficulty, it can submit share to the server.
-    /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
+    /// Handles the incoming SV1 `mining.submit` message.
+    ///
+    /// This message is sent by the miner when they find a share that meets
+    /// their current difficulty target. It contains the job ID, ntime, nonce,
+    /// and extranonce2.
+    ///
+    /// This method processes the submitted share, potentially validates it
+    /// against the downstream target (although this might happen in the Bridge
+    /// or difficulty management logic), translates it into a
+    /// [`SubmitShareWithChannelId`], and sends it to the Bridge for
+    /// translation to SV2 and forwarding upstream if it meets the upstream target.
     fn handle_submit(&self, request: &client_to_server::Submit<'static>) -> bool {
         info!("Down: Submitting Share {:?}", request);
         debug!("Down: Handling mining.submit: {:?}", &request);
@@ -602,8 +682,9 @@ impl IsServer<'static> for Downstream {
     }
 }
 
+// Can we remove this?
 impl IsMiningDownstream for Downstream {}
-
+// Can we remove this?
 impl IsDownstream for Downstream {
     fn get_downstream_mining_data(
         &self,
