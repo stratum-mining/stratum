@@ -1,3 +1,9 @@
+//! Template Receiver: Setup Connection Handler
+//!
+//! Handles setup connection logic using the Template Distribution Protocol in SV2.
+//!
+//! This includes sending a `SetupConnection` message and processing responses from the upstream.
+
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
@@ -13,9 +19,12 @@ use tracing::info;
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
+
+// A handler responsible for managing the setup connection handshake.
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
+    /// Builds a `SetupConnection` message using the given socket address.
     fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
         let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
         let vendor = String::new().try_into().unwrap();
@@ -36,6 +45,7 @@ impl SetupConnectionHandler {
         }
     }
 
+    /// processes the setup connection lifecycle.
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
@@ -68,6 +78,10 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
+    // Handles a `SetupConnectionSuccess` message received from the upstream.
+    //
+    // Returns `Ok(SendTo::None(None))` indicating that no immediate message needs
+    // to be sent back to the server as a response to `SetupConnectionSuccess`.
     fn handle_setup_connection_success(
         &mut self,
         m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,

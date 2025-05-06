@@ -1,3 +1,10 @@
+//! ## JDC Configuration Module
+//!
+//! The main configuration struct is [`JobDeclaratorClientConfig`], which is typically
+//! loaded from a configuration file (e.g., TOML). Helper structs like [`PoolConfig`],
+//! [`TPConfig`], [`ProtocolConfig`], and [`Upstream`] are used during the construction
+//! of the main configuration.
+
 #![allow(dead_code)]
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -6,31 +13,48 @@ use serde::Deserialize;
 use std::{net::SocketAddr, time::Duration};
 use stratum_common::bitcoin::{Amount, TxOut};
 
-/// Represents the configuration of a Job Declarator Client(JDC).
+/// Represents the configuration of a Job Declarator Client (JDC).
 ///
-/// JDC can act as both, an upstream and a downstream.
+/// This struct holds all the necessary configuration parameters for a JDC instance.
+/// JDC can operate in two modes:
 ///
-/// When acting as a downstream, JDC connects to a pool server, where each pool have its own Job
-/// Declarator Server (JDS).  It also connects to a Template Provider through the
-/// [`JobDeclaratorClientConfig::tp_address`] field.
-///
-/// When acting as an upstream, JDC listens for connections from downstreams on the address
-/// specified in [`JobDeclaratorClientConfig::listening_address`].
+/// 1. Downstream: Connects to a mining pool (specifically Pool and JDS) and a Template Provider
+///    (TP) to receive job templates. The pool and jds connection details are specified in the
+///    `upstreams` field, and the TP connection details are in `tp_address`.
+/// 2. Upstream: Listens for incoming connections from other downstreams on the address specified in
+///    `listening_address`.
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct JobDeclaratorClientConfig {
+    // The address on which the JDC will listen for incoming connections when acting as an
+    // upstream.
     listening_address: SocketAddr,
+    // The maximum supported SV2 protocol version.
     max_supported_version: u16,
+    // The minimum supported SV2 protocol version.
     min_supported_version: u16,
+    // Needs more discussion..
     withhold: bool,
+    // The public key used by this JDC for noise encryption.
     authority_public_key: Secp256k1PublicKey,
+    /// The secret key used by this JDC for noise encryption.
     authority_secret_key: Secp256k1SecretKey,
+    /// The validity period (in seconds) for the certificate used in noise.
     cert_validity_sec: u64,
+    /// The address of the TP that this JDC will connect to.
     tp_address: String,
+    /// The expected public key of the TP's authority for authentication (optional).
     tp_authority_public_key: Option<Secp256k1PublicKey>,
+    /// A list of upstream Job Declarator Servers (JDS) that this JDC can connect to.
+    /// JDC can fallover between these upstreams.
     upstreams: Vec<Upstream>,
+    /// The timeout duration for network operations.
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     timeout: Duration,
+    /// A list of coinbase outputs to be included in the block templates.
+    /// This is only used during solo-mining.
     coinbase_outputs: Vec<CoinbaseOutput>,
+    /// A signature string identifying this JDC instance.
     jdc_signature: String,
 }
 
@@ -143,12 +167,14 @@ impl JobDeclaratorClientConfig {
     }
 }
 
+/// Represents pool specific encryption keys.
 pub struct PoolConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
 }
 
 impl PoolConfig {
+    /// Creates a new instance of [`PoolConfig`].
     pub fn new(
         authority_public_key: Secp256k1PublicKey,
         authority_secret_key: Secp256k1SecretKey,
@@ -160,13 +186,18 @@ impl PoolConfig {
     }
 }
 
+/// Represent template provider config for JDC to connect.
 pub struct TPConfig {
+    // The validity period (in seconds) expected for the Template Provider's certificate.
     cert_validity_sec: u64,
+    // The network address of the Template Provider.
     tp_address: String,
+    // The expected public key of the Template Provider's authority (optional).
     tp_authority_public_key: Option<Secp256k1PublicKey>,
 }
 
 impl TPConfig {
+    // Creates a new instance of [`TPConfig`].
     pub fn new(
         cert_validity_sec: u64,
         tp_address: String,
@@ -180,13 +211,18 @@ impl TPConfig {
     }
 }
 
+/// Represent protocol versioning the JDC supports.
 pub struct ProtocolConfig {
+    // The maximum supported SV2 protocol version.
     max_supported_version: u16,
+    // The minimum supported SV2 protocol version.
     min_supported_version: u16,
+    // A list of coinbase outputs to be included in block templates.
     coinbase_outputs: Vec<CoinbaseOutput>,
 }
 
 impl ProtocolConfig {
+    // Creates a new instance of [`ProtocolConfig`].
     pub fn new(
         max_supported_version: u16,
         min_supported_version: u16,
@@ -200,14 +236,19 @@ impl ProtocolConfig {
     }
 }
 
+/// Represents necessary fields required to connect to JDS
 #[derive(Debug, Deserialize, Clone)]
 pub struct Upstream {
+    // The public key of the upstream pool's authority for authentication.
     pub authority_pubkey: Secp256k1PublicKey,
+    // The address of the upstream pool's main server.
     pub pool_address: String,
+    // The network address of the JDS.
     pub jd_address: String,
 }
 
 impl Upstream {
+    /// Creates a new instance of [`Upstream`].
     pub fn new(
         authority_pubkey: Secp256k1PublicKey,
         pool_address: String,

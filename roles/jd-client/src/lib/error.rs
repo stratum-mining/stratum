@@ -1,3 +1,16 @@
+//! ## Error Module
+//!
+//! Defines [`Error`], the central error enum used throughout the Job Declarator Client (JDC).
+//!
+//! It unifies errors from:
+//! - I/O operations
+//! - Channels (send/recv)
+//! - SV2 stack: Binary, Codec, Noise, Framing, RolesLogic
+//! - Locking logic (PoisonError)
+//! - Domain-specific issues
+//!
+//! This module ensures that all errors can be passed around consistently, including across async
+//! boundaries.
 use ext_config::ConfigError;
 use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
 use std::fmt;

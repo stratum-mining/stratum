@@ -1,3 +1,10 @@
+//! Job Declarator: Setup Connection Handler Module
+//!
+//! Handles the logic for setting up a connection with an upstream Job Declarator (JDS).
+//!
+//! This includes building and sending a `SetupConnection` message, receiving the response,
+//! and handling common SV2 connection-related messages.
+
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
@@ -13,9 +20,13 @@ use tracing::info;
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
+
+/// Manages the process of sending and handling the `SetupConnection` handshake
+/// for establishing a connection with a JDS.
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
+    // Builds a `SetupConnection` message using the given proxy address.
     fn get_setup_connection_message(proxy_address: SocketAddr) -> SetupConnection<'static> {
         let endpoint_host = proxy_address
             .ip()
@@ -43,6 +54,7 @@ impl SetupConnectionHandler {
         setup_connection
     }
 
+    /// This method sets up a job declarator connection.
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
@@ -72,6 +84,10 @@ impl SetupConnectionHandler {
 }
 
 impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
+    // Handles a `SetupConnectionSuccess` message received from the JDS.
+    //
+    // Returns `Ok(SendTo::None(None))` indicating that no immediate message needs
+    // to be sent back to the JDS as a direct response to `SetupConnectionSuccess`.
     fn handle_setup_connection_success(
         &mut self,
         m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,

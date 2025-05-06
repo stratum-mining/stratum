@@ -1,7 +1,14 @@
+//! ## CLI Arguments Parsing Module
+//!
+//! This module is responsible for parsing the command-line arguments provided
+//! to the application.
+
 use std::path::PathBuf;
 
+/// Holds the parsed CLI arguments
 #[derive(Debug)]
 pub struct Args {
+    /// Path to the TOML configuration file.
     pub config_path: PathBuf,
 }
 
@@ -21,6 +28,10 @@ impl Args {
     const DEFAULT_CONFIG_PATH: &'static str = "jdc-config.toml";
     const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default jdc-config.toml>";
 
+    /// Parses the CLI arguments and returns a populated `Args` struct.
+    ///
+    /// If no `-c` flag is provided, it defaults to `jdc-config.toml`.
+    /// If `--help` is passed, it returns a help message as an error.
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();
 
