@@ -33,7 +33,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::header::{NOISE_HEADER_ENCRYPTED_SIZE, NOISE_HEADER_SIZE};
+use framing_sv2::header::NOISE_HEADER_SIZE;
 use framing_sv2::{
     framing::{Frame, Sv2Frame},
     header::Header,
@@ -41,7 +41,9 @@ use framing_sv2::{
 #[cfg(feature = "noise_sv2")]
 use noise_sv2::NoiseCodec;
 #[cfg(feature = "noise_sv2")]
-use stratum_common::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+use stratum_common::{
+    ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE,
+};
 
 #[cfg(feature = "noise_sv2")]
 use crate::error::Error;
@@ -159,8 +161,8 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                 let hint = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
                     let len = IsBuffer::len(&self.noise_buffer);
                     let src = self.noise_buffer.get_data_by_ref(len);
-                    if src.len() < NOISE_HEADER_ENCRYPTED_SIZE {
-                        NOISE_HEADER_ENCRYPTED_SIZE - src.len()
+                    if src.len() < ENCRYPTED_SV2_FRAME_HEADER_SIZE {
+                        ENCRYPTED_SV2_FRAME_HEADER_SIZE - src.len()
                     } else {
                         0
                     }
@@ -172,7 +174,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
 
                 match hint {
                     0 => {
-                        self.missing_noise_b = NOISE_HEADER_ENCRYPTED_SIZE;
+                        self.missing_noise_b = ENCRYPTED_SV2_FRAME_HEADER_SIZE;
                         self.decode_noise_frame(noise_codec)
                     }
                     _ => {
@@ -242,9 +244,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
             IsBuffer::len(&self.sv2_buffer),
         ) {
             // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
-            (NOISE_HEADER_ENCRYPTED_SIZE, 0) => {
+            (ENCRYPTED_SV2_FRAME_HEADER_SIZE, 0) => {
                 let src = self.noise_buffer.get_data_owned();
-                let decrypted_header = self.sv2_buffer.get_writable(NOISE_HEADER_ENCRYPTED_SIZE);
+                let decrypted_header = self
+                    .sv2_buffer
+                    .get_writable(ENCRYPTED_SV2_FRAME_HEADER_SIZE);
                 decrypted_header.copy_from_slice(src.as_ref());
                 self.sv2_buffer.as_ref();
                 noise_codec.decrypt(&mut self.sv2_buffer)?;

@@ -30,11 +30,9 @@ use framing_sv2::framing::Sv2Frame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::{Frame, HandShakeFrame};
 #[cfg(feature = "noise_sv2")]
-pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
-#[cfg(feature = "noise_sv2")]
-use stratum_common::SV2_FRAME_CHUNK_SIZE;
-#[cfg(feature = "noise_sv2")]
-use stratum_common::{AEAD_MAC_LEN, SV2_FRAME_HEADER_SIZE};
+use stratum_common::{
+    AEAD_MAC_LEN, ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE,
+};
 
 #[cfg(feature = "tracing")]
 use tracing::error;
@@ -167,7 +165,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                 } else {
                     SV2_FRAME_CHUNK_SIZE + start - AEAD_MAC_LEN
                 };
-                let mut encrypted_len = NOISE_HEADER_ENCRYPTED_SIZE;
+                let mut encrypted_len = ENCRYPTED_SV2_FRAME_HEADER_SIZE;
 
                 while start < sv2.len() {
                     let to_encrypt = self.noise_buffer.get_writable(end - start);
