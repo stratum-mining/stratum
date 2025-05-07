@@ -32,8 +32,6 @@ pub use buffer_sv2::AeadBuffer;
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::HandShakeFrame;
-#[cfg(feature = "noise_sv2")]
-use framing_sv2::header::NOISE_HEADER_SIZE;
 use framing_sv2::{
     framing::{Frame, Sv2Frame},
     header::Header,
@@ -42,7 +40,8 @@ use framing_sv2::{
 use noise_sv2::NoiseCodec;
 #[cfg(feature = "noise_sv2")]
 use stratum_common::{
-    ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE,
+    ENCRYPTED_SV2_FRAME_HEADER_SIZE, NOISE_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE,
+    SV2_FRAME_HEADER_SIZE,
 };
 
 #[cfg(feature = "noise_sv2")]
@@ -148,7 +147,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                 let hint = *msg_len - self.noise_buffer.as_ref().len();
                 match hint {
                     0 => {
-                        self.missing_noise_b = NOISE_HEADER_SIZE;
+                        self.missing_noise_b = NOISE_FRAME_HEADER_SIZE;
                         Ok(self.while_handshaking())
                     }
                     _ => {

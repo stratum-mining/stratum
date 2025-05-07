@@ -53,8 +53,6 @@ pub const AEAD_MAC_LEN: usize = 16;
 pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 
 /// Size of the Noise protocol frame header in bytes.
-// Refactoring: declared in sv2-ffi, and imported in framing_sv2/src/header.rs
-// header.rs is then imported into codec_sv2 just for this constant
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 
 // Refactoring: declared in sv2-ffi, and imported in framing_sv2/src/header.rs
