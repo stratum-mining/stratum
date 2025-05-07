@@ -55,11 +55,6 @@ pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_
 /// Size of the Noise protocol frame header in bytes.
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 
-// Refactoring: declared in sv2-ffi, and imported in framing_sv2/src/header.rs
-// header.rs is then imported into codec_sv2 just for this constant, and the
-// const there is not even used
-pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
-
 /// Size in bytes of the encoded elliptic curve point using ElligatorSwift
 /// encoding. This encoding produces a 64-byte representation of the
 /// X-coordinate of a secp256k1 curve point.
