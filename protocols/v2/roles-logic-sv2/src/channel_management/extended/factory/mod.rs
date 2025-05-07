@@ -34,10 +34,16 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
 /// A Factory for creating and managing [`ExtendedChannel`] instances under the [Actor Model](https://en.wikipedia.org/wiki/Actor_model).
 ///
-/// In other words: it spawns a background `tokio` task that handles all state-changes in a
-/// concurrency-safe manner.
-///
 /// Only suitable for mining servers, not clients.
+///
+/// It spawns a background [`tokio::task::spawn_blocking`](https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html) task that handles all state-changes in a
+/// concurrency-safe manner. Please note that this is a blocking call spawned on tokio's blocking
+/// scheduler. This means that an application should not create new instances of
+/// `ExtendedChannelFactory` without bounds, as it would eventually create a deadlock on the tokio's
+/// blocking scheduler.
+///
+/// Therefore, a Sv2 application should deploy one `ExtendedChannelFactory` for the entire
+/// application, and avoid creating new instances for each new client connection.
 ///
 /// Allows the user to manage channel states upon receipt of the following Sv2 messages:
 /// - Mining Protocol:

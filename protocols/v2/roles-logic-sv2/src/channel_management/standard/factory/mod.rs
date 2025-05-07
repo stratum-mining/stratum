@@ -28,8 +28,14 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
 /// A Factory for creating and managing [`StandardChannel`] and [`GroupChannel`] instances under the [Actor Model](https://en.wikipedia.org/wiki/Actor_model).
 ///
-/// In other words: it spawns a background `tokio` task that handles all state-changes in a
-/// concurrency-safe manner.
+/// It spawns a background [`tokio::task::spawn_blocking`](https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html) task that handles all state-changes in a
+/// concurrency-safe manner. Please note that this is a blocking call spawned on tokio's blocking
+/// scheduler. This means that an application should not create new instances of
+/// `StandardChannelFactory` without bounds, as it would eventually create a deadlock on the tokio's
+/// blocking scheduler.
+///
+/// Therefore, a Sv2 application should deploy one `StandardChannelFactory` for the entire
+/// application, and avoid creating new instances for each new client connection.
 ///
 /// Only suitable for mining servers, not clients.
 ///
