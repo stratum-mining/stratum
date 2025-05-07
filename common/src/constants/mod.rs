@@ -43,10 +43,6 @@ pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 /// Size of the SV2 frame header in bytes.
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 
-// It's not used anywhere.
-// Refactoring: deprecate it.
-pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
-
 /// Maximum size of an SV2 frame chunk in bytes.
 pub const SV2_FRAME_CHUNK_SIZE: usize = 65535;
 
