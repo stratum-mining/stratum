@@ -1,3 +1,22 @@
+//!  ## Proxy Bridge Module
+//!
+//! This module defines the [`Bridge`] structure, which acts as the central component
+//! responsible for translating messages and coordinating communication between
+//! the upstream SV2 role and the downstream SV1 mining clients.
+//!
+//! The Bridge manages message queues, maintains the state required for translation
+//! (such as job IDs, previous hashes, and mining jobs), handles share submissions
+//! from downstream, and forwards translated jobs received from upstream to downstream miners.
+//!
+//! This module handles:
+//! - Receiving SV1 `mining.submit` messages from [`Downstream`] connections.
+//! - Translating SV1 submits into SV2 `SubmitSharesExtended`.
+//! - Receiving SV2 `SetNewPrevHash` and `NewExtendedMiningJob` from the upstream.
+//! - Translating SV2 job messages into SV1 `mining.notify` messages.
+//! - Sending translated SV2 submits to the upstream.
+//! - Broadcasting translated SV1 notifications to connected downstream miners.
+//! - Managing channel state and difficulty related to job translation.
+//! - Handling new downstream SV1 connections.
 use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
     error::{
@@ -60,16 +79,28 @@ pub struct Bridge {
     /// longer used.
     last_notify: Option<server_to_client::Notify<'static>>,
     pub(self) channel_factory: ProxyExtendedChannelFactory,
+    /// Stores `NewExtendedMiningJob` messages received from the upstream with the `is_future` flag
+    /// set. These jobs are buffered until a corresponding `SetNewPrevHash` message is
+    /// received.
     future_jobs: Vec<NewExtendedMiningJob<'static>>,
+    /// Stores the last received SV2 `SetNewPrevHash` message. Used in conjunction with
+    /// `future_jobs` to construct `mining.notify` messages.
     last_p_hash: Option<SetNewPrevHash<'static>>,
+    /// The mining target currently in use by the downstream miners connected to this bridge.
+    /// This target is derived from the upstream's requirements but may be adjusted locally.
     target: Arc<Mutex<Vec<u8>>>,
+    /// The job ID of the last sent `mining.notify` message.
     last_job_id: u32,
     task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
 }
 
 impl Bridge {
     #[allow(clippy::too_many_arguments)]
-    /// Instantiate a new `Bridge`.
+    /// Instantiates a new `Bridge` with the provided communication channels and initial
+    /// configurations.
+    ///
+    /// Sets up the core communication pathways between upstream and downstream handlers
+    /// and initializes the internal state, including the channel factory.
     pub fn new(
         rx_sv1_downstream: Receiver<DownstreamMessages>,
         tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
@@ -112,6 +143,12 @@ impl Bridge {
         }))
     }
 
+    /// Handles the event of a new SV1 downstream client connecting.
+    ///
+    /// Creates a new extended channel using the internal `channel_factory` for the
+    /// new connection. It assigns a unique channel ID, determines the initial
+    /// extranonce and target for the miner, and provides the last known
+    /// `mining.notify` message to immediately send to the new client.
     #[allow(clippy::result_large_err)]
     pub fn on_new_sv1_connection(
         &mut self,
@@ -153,16 +190,25 @@ impl Bridge {
         ))
     }
 
-    /// Starts the tasks that receive SV1 and SV2 messages to be translated and sent to their
-    /// respective roles.
+    /// Starts the tasks responsible for receiving and processing
+    /// messages from both upstream SV2 and downstream SV1 connections.
+    ///
+    /// This function spawns three main tasks:
+    /// 1. `handle_new_prev_hash`: Listens for SV2 `SetNewPrevHash` messages.
+    /// 2. `handle_new_extended_mining_job`: Listens for SV2 `NewExtendedMiningJob` messages.
+    /// 3. `handle_downstream_messages`: Listens for `DownstreamMessages` (e.g., submit shares) from
+    ///    downstream clients.
     pub fn start(self_: Arc<Mutex<Self>>) {
         Self::handle_new_prev_hash(self_.clone());
         Self::handle_new_extended_mining_job(self_.clone());
         Self::handle_downstream_messages(self_);
     }
 
-    /// Receives a `DownstreamMessages` message from the `Downstream`, handles based on the
-    /// variant received.
+    /// Task handler that receives `DownstreamMessages` and dispatches them.
+    ///
+    /// This loop continuously receives messages from the `rx_sv1_downstream` channel.
+    /// It matches on the `DownstreamMessages` variant and calls the appropriate
+    /// handler function (`handle_submit_shares` or `handle_update_downstream_target`).
     fn handle_downstream_messages(self_: Arc<Mutex<Self>>) {
         let task_collector_handle_downstream =
             self_.safe_lock(|b| b.task_collector.clone()).unwrap();
@@ -196,7 +242,13 @@ impl Bridge {
             ))
         });
     }
-    /// receives a `SetDownstreamTarget` and updates the downstream target for the channel
+
+    /// Receives a `SetDownstreamTarget` message and updates the downstream target for a specific
+    /// channel.
+    ///
+    /// This function is called when the downstream logic determines that a miner's
+    /// target needs to be updated (e.g., due to difficulty adjustment). It updates
+    /// the target within the internal `channel_factory` for the specified channel ID.
     #[allow(clippy::result_large_err)]
     fn handle_update_downstream_target(
         self_: Arc<Mutex<Self>>,
@@ -210,8 +262,8 @@ impl Bridge {
             .map_err(|_| PoisonLock)?;
         Ok(())
     }
-    /// receives a `SubmitShareWithChannelId` and validates the shares and sends to `Upstream` if
-    /// the share meets the upstream target
+    /// Receives a `SubmitShareWithChannelId` message from a downstream miner,
+    /// validates the share, and sends it upstream if it meets the upstream target.
     async fn handle_submit_shares(
         self_: Arc<Mutex<Self>>,
         share: SubmitShareWithChannelId,
@@ -279,7 +331,12 @@ impl Bridge {
         Ok(())
     }
 
-    /// Translates a SV1 `mining.submit` message to a SV2 `SubmitSharesExtended` message.
+    /// Translates a SV1 `mining.submit` message into an SV2 `SubmitSharesExtended` message.
+    ///
+    /// This function performs the necessary transformations to convert the data
+    /// format used by SV1 submissions (`job_id`, `nonce`, `time`, `extra_nonce2`,
+    /// `version_bits`) into the SV2 `SubmitSharesExtended` structure,
+    /// taking into account version rolling if a mask is provided.
     #[allow(clippy::result_large_err)]
     fn translate_submit(
         &self,
@@ -311,6 +368,14 @@ impl Bridge {
         })
     }
 
+    /// Internal helper function to handle a received SV2 `SetNewPrevHash` message.
+    ///
+    /// This function processes a `SetNewPrevHash` message received from the upstream.
+    /// It updates the Bridge's stored last previous hash, informs the `channel_factory`
+    /// about the new previous hash, and then checks the `future_jobs` buffer for
+    /// a corresponding `NewExtendedMiningJob`. If a matching future job is found, it constructs a
+    /// SV1 `mining.notify` message and broadcasts it to all downstream clients. It also updates
+    /// the `last_notify` state for new connections.
     async fn handle_new_prev_hash_(
         self_: Arc<Mutex<Self>>,
         sv2_set_new_prev_hash: SetNewPrevHash<'static>,
@@ -370,12 +435,10 @@ impl Bridge {
         Ok(())
     }
 
-    /// Receives a SV2 `SetNewPrevHash` message from the `Upstream` and creates a SV1
-    /// `mining.notify` message (in conjunction with a previously received SV2
-    /// `NewExtendedMiningJob` message) which is sent to the `Downstream`. The protocol requires
-    /// that before every received `SetNewPrevHash`, a `NewExtendedMiningJob` with a
-    /// corresponding `job_id` has already been received. If this is not the case, an error has
-    /// occurred on the Upstream pool role and the connection will close.
+    /// Task handler that receives SV2 `SetNewPrevHash` messages from the upstream.
+    ///
+    /// This loop continuously receives `SetNewPrevHash` messages. It calls the
+    /// internal `handle_new_prev_hash_` helper function to process each message.
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
         let task_collector_handle_new_prev_hash =
             self_.safe_lock(|b| b.task_collector.clone()).unwrap();
@@ -417,6 +480,14 @@ impl Bridge {
         });
     }
 
+    /// Internal helper function to handle a received SV2 `NewExtendedMiningJob` message.
+    ///
+    /// This function processes a `NewExtendedMiningJob` message received from the upstream.
+    /// It first informs the `channel_factory` about the new job. If the job's `is_future` is true,
+    /// the job is buffered in `future_jobs`. If `is_future` is false, it expects a
+    /// corresponding `SetNewPrevHash` (which should have been received prior according to the
+    /// protocol) and immediately constructs and broadcasts a SV1 `mining.notify` message to
+    /// downstream clients, updating the `last_notify` state.
     async fn handle_new_extended_mining_job_(
         self_: Arc<Mutex<Self>>,
         sv2_new_extended_mining_job: NewExtendedMiningJob<'static>,
@@ -470,14 +541,12 @@ impl Bridge {
         }
     }
 
-    /// Receives a SV2 `NewExtendedMiningJob` message from the `Upstream`. If `future_job=true`,
-    /// this job is intended for a future SV2 `SetNewPrevHash` that has yet to be received. This
-    /// job is stored until a SV2 `SetNewPrevHash` message with a corresponding `job_id` is
-    /// received. If `future_job=false`, this job is intended for the SV2 `SetNewPrevHash` that is
-    /// currently being mined on. In this case, a SV1 `mining.notify` is created and is sent to the
-    /// `Downstream`. If `future_job=false` but this job's `job_id` does not match the current SV2
-    /// `SetNewPrevHash` `job_id`, an error has occurred on the Upstream pool role and the
-    /// connection will close.
+    /// Task handler that receives SV2 `NewExtendedMiningJob` messages from the upstream.
+    ///
+    /// This loop continuously receives `NewExtendedMiningJob` messages. It calls the
+    /// internal `handle_new_extended_mining_job_` helper function to process each message.
+    /// After processing, it signals that a new job has been handled (used for synchronization
+    /// with the `handle_new_prev_hash` task).
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
         let task_collector_new_extended_mining_job =
             self_.safe_lock(|b| b.task_collector.clone()).unwrap();
@@ -523,11 +592,24 @@ impl Bridge {
         });
     }
 }
+
+/// Represents the necessary information to initialize a new SV1 downstream connection
+/// after it has been registered with the Bridge's channel factory.
+///
+/// This structure is returned by `Bridge::on_new_sv1_connection` and contains the
+/// channel ID assigned to the connection, the initial job notification to send,
+/// and the extranonce and target specific to this channel.
 pub struct OpenSv1Downstream {
+    /// The unique ID assigned to this downstream channel by the channel factory.
     pub channel_id: u32,
+    /// The most recent `mining.notify` message to send to the new client immediately
+    /// upon connection to provide them with a job.
     pub last_notify: Option<server_to_client::Notify<'static>>,
+    /// The extranonce prefix assigned to this channel.
     pub extranonce: Vec<u8>,
+    /// The mining target assigned to this channel
     pub target: Arc<Mutex<Vec<u8>>>,
+    /// The size of the extranonce2 field expected from the miner for this channel.
     pub extranonce2_len: u16,
 }
 

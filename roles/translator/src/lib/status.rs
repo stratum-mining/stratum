@@ -1,15 +1,36 @@
+//! ## Status Reporting System for Translator
+//!
+//! This module defines how internal components of the Translator report
+//! health, errors, and shutdown conditions back to the main runtime loop in `lib/mod.rs`.
+//!
+//! At the core, tasks send a [`Status`] (wrapping a [`State`]) through a channel,
+//! which is tagged with a [`Sender`] enum to indicate the origin of the message.
+//!
+//! This allows for centralized, consistent error handling across the application.
+
 use crate::error::{self, Error};
 
+/// Identifies the component that originated a [`Status`] update.
+///
+/// Each sender is associated with a dedicated side of the status channel.
+/// This lets the central loop distinguish between errors from different parts of the system.
 #[derive(Debug)]
 pub enum Sender {
+    /// Sender for downstream connections.
     Downstream(async_channel::Sender<Status<'static>>),
+    /// Sender for downstream listener.
     DownstreamListener(async_channel::Sender<Status<'static>>),
+    /// Sender for bridge connections.
     Bridge(async_channel::Sender<Status<'static>>),
+    /// Sender for upstream connections.
     Upstream(async_channel::Sender<Status<'static>>),
+    /// Sender for template receiver.
     TemplateReceiver(async_channel::Sender<Status<'static>>),
 }
 
 impl Sender {
+    /// Converts a `DownstreamListener` sender to a `Downstream` sender.
+    /// FIXME: Use `From` trait and remove this
     pub fn listener_to_connection(&self) -> Self {
         match self {
             Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
@@ -17,6 +38,7 @@ impl Sender {
         }
     }
 
+    /// Sends a status update.
     pub async fn send(
         &self,
         status: Status<'static>,
@@ -43,20 +65,31 @@ impl Clone for Sender {
     }
 }
 
+/// The kind of event or status being reported by a task.
 #[derive(Debug)]
 pub enum State<'a> {
+    /// Downstream connection shutdown.
     DownstreamShutdown(Error<'a>),
+    /// Bridge connection shutdown.
     BridgeShutdown(Error<'a>),
+    /// Upstream connection shutdown.
     UpstreamShutdown(Error<'a>),
+    /// Upstream connection trying to reconnect.
     UpstreamTryReconnect(Error<'a>),
+    /// Component is healthy.
     Healthy(String),
 }
 
+/// Wraps a status update, to be passed through a status channel.
 #[derive(Debug)]
 pub struct Status<'a> {
     pub state: State<'a>,
 }
 
+/// Sends a [`Status`] message tagged with its [`Sender`] to the central loop.
+///
+/// This is the core logic used to determine which status variant should be sent
+/// based on the error type and sender context.
 async fn send_status(
     sender: &Sender,
     e: error::Error<'static>,
@@ -111,7 +144,10 @@ async fn send_status(
     outcome
 }
 
-// this is called by `error_handling::handle_result!`
+/// Centralized error dispatcher for the Translator.
+///
+/// Used by the `handle_result!` macro across the codebase.
+/// Decides whether the task should `Continue` or `Break` based on the error type and source.
 pub async fn handle_error(
     sender: &Sender,
     e: error::Error<'static>,

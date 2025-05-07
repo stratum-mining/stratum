@@ -1,3 +1,13 @@
+//! ## Upstream SV2 Difficulty Management
+//!
+//! This module contains logic for managing difficulty and hashrate updates
+//! specifically for the upstream SV2 connection.
+//!
+//! It defines method for the [`Upstream`] struct
+//! related to checking configuration intervals and sending
+//! `UpdateChannel` messages to the upstream server
+//! based on configured nominal hashrate changes.
+
 use super::Upstream;
 
 use super::super::{
@@ -11,7 +21,8 @@ use roles_logic_sv2::{
 use std::{sync::Arc, time::Duration};
 
 impl Upstream {
-    /// this function checks if the elapsed time since the last update has surpassed the config
+    /// Attempts to update the upstream channel's nominal hashrate if the configured
+    /// update interval has elapsed or if the nominal hashrate has changed
     pub(super) async fn try_update_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let (channel_id_option, diff_mgmt, tx_frame, last_sent_hashrate) = self_
             .safe_lock(|u| {

@@ -1,3 +1,22 @@
+//! ## Upstream SV2 Module: Upstream Connection Logic
+//!
+//! Defines the [`Upstream`] structure, which represents and manages the connection
+//! to a single upstream role.
+//!
+//! This module is responsible for:
+//! - Establishing and maintaining the network connection to the upstream role.
+//! - Performing the SV2 handshake and opening mining channels.
+//! - Sending translated SV2 `SubmitSharesExtended` messages received from the Bridge to the
+//!   upstream pool.
+//! - Receiving SV2 job messages (`SetNewPrevHash`, `NewExtendedMiningJob`, etc.) from the upstream
+//!   pool and forwarding them to the Bridge for translation.
+//! - Handling various SV2 messages related to connection setup, channel management, and mining
+//!   operations.
+//! - Managing difficulty updates for the upstream channel based on aggregated hashrate from
+//!   downstream miners.
+//! - Implementing the necessary SV2 roles logic traits (`IsUpstream`, `IsMiningUpstream`,
+//!   `ParseCommonMessagesFromUpstream`, `ParseMiningMessagesFromUpstream`).
+
 use crate::{
     config::UpstreamDifficultyConfig,
     downstream_sv1::Downstream,
@@ -47,6 +66,9 @@ use roles_logic_sv2::{
 };
 use stratum_common::bitcoin::BlockHash;
 
+/// Atomic boolean flag used for synchronization between receiving a new job
+/// and handling a new previous hash. Indicates whether a `NewExtendedMiningJob`
+/// has been fully processed.
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
@@ -59,6 +81,11 @@ struct PrevHash {
     nbits: u32,
 }
 
+/// Represents a connection to a single SV2 Upstream role.
+///
+/// This struct holds the state and communication channels necessary to interact
+/// with the upstream server, including sending share submissions, receiving job
+/// templates, and managing the SV2 protocol handshake and channel lifecycle.
 #[derive(Debug, Clone)]
 pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
@@ -99,6 +126,7 @@ pub struct Upstream {
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
+    /// The size of the extranonce1 provided by the upstream role.
     pub upstream_extranonce1_size: usize,
     // values used to update the channel with the correct nominal hashrate.
     // each Downstream instance will add and subtract their hashrates as needed
@@ -186,7 +214,13 @@ impl Upstream {
         })))
     }
 
-    /// Setups the connection with the SV2 Upstream role (most typically a SV2 Pool).
+    /// Performs the SV2 connection setup handshake with the Upstream role.
+    ///
+    /// Sends a `SetupConnection` message specifying supported protocol versions
+    /// and flags. Waits for the upstream to respond with either `SetupConnectionSuccess`
+    /// or `SetupConnectionError`.Upon successful setup, it then sends an
+    /// `OpenExtendedMiningChannel` request to establish a mining channel, including the
+    /// negotiated minimum extranonce size and initial nominal hashrate.
     pub async fn connect(
         self_: Arc<Mutex<Self>>,
         min_version: u16,
@@ -271,8 +305,14 @@ impl Upstream {
         Ok(())
     }
 
-    /// Parses the incoming SV2 message from the Upstream role and routes the message to the
-    /// appropriate handler.
+    /// Spawns tasks to handle incoming SV2 messages from the Upstream role.
+    ///
+    /// This method creates two main asynchronous tasks:
+    /// 1. A task to handle incoming SV2 frames, parsing them, routing them to the appropriate
+    ///    message handlers (`handle_message_mining`), and forwarding translated messages to the
+    ///    Bridge or responding directly to the upstream if necessary.
+    /// 2. A task to periodically check and update the nominal hashrate sent to the upstream based
+    ///    on th
     #[allow(clippy::result_large_err)]
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
@@ -454,6 +494,13 @@ impl Upstream {
 
         Ok(())
     }
+
+    // Retrieves the current job ID.
+    //
+    // If work selection is enabled (which it is not for a Translator Proxy),
+    // it would return the last `SetCustomMiningJobSuccess` job ID. If
+    // work selection is disabled, it returns the job ID from the last
+    // `NewExtendedMiningJob`
     #[allow(clippy::result_large_err)]
     fn get_job_id(
         self_: &Arc<Mutex<Self>>,
@@ -475,6 +522,13 @@ impl Upstream {
             .map_err(|_e| PoisonLock)
     }
 
+    /// Spawns a task to handle outgoing `SubmitSharesExtended` messages.
+    ///
+    /// This task continuously receives `SubmitSharesExtended` messages from the
+    /// `rx_sv2_submit_shares_ext` channel (populated by the Bridge). It updates
+    /// the channel ID and job ID in the submit message (ensuring they match
+    /// the current upstream channel details), encodes the message into an SV2 frame,
+    /// and sends it to the upstream server.
     #[allow(clippy::result_large_err)]
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let task_collector = self_.safe_lock(|s| s.task_collector.clone()).unwrap();
@@ -531,13 +585,21 @@ impl Upstream {
         Ok(())
     }
 
+    // Unimplemented method to check if a submitted share is contained within the upstream target.
+    //
+    // This method is currently unimplemented (`todo!()`). Its purpose would be
+    // to validate a share against the target set by the upstream pool.
     fn _is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
         todo!()
     }
 
-    /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
-    /// TODO: The Mining Device information is hard coded here, need to receive from Downstream
-    /// instead.
+    // Creates the initial `SetupConnection` message for the SV2 handshake.
+    //
+    // This message contains information about the proxy acting as a mining device,
+    // including supported protocol versions, flags, and hardcoded endpoint details.
+    //
+    // TODO: The Mining Device information is currently hardcoded. It should ideally
+    // be configurable or derived from the downstream connections.
     #[allow(clippy::result_large_err)]
     fn get_setup_connection_message(
         min_version: u16,
@@ -568,6 +630,7 @@ impl Upstream {
     }
 }
 
+// Can be removed?
 impl IsUpstream for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
@@ -590,6 +653,7 @@ impl IsUpstream for Upstream {
     }
 }
 
+// Can be removed?
 impl IsMiningUpstream for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
@@ -611,6 +675,10 @@ impl IsMiningUpstream for Upstream {
 }
 
 impl ParseCommonMessagesFromUpstream for Upstream {
+    // Handles the SV2 `SetupConnectionSuccess` message received from the upstream.
+    //
+    // Returns `Ok(SendToCommon::None(None))` as this message is handled internally
+    // and does not require a direct response or forwarding.
     fn handle_setup_connection_success(
         &mut self,
         m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -644,14 +712,15 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
 impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
-    /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
-    /// always be `Extended` for a SV1/SV2 Translator Proxy.
+    /// Returns the type of channel used between this proxy and the SV2 Upstream.
+    /// For a Translator Proxy, this is always `Extended`.
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
 
-    /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
-    /// by the SV2 Upstream role.
+    /// Indicates whether work selection is enabled for this upstream connection.
+    /// For a Translator Proxy, work selection is handled by the upstream pool,
+    /// so this method always returns `false`.
     fn is_work_selection_enabled(&self) -> bool {
         false
     }
@@ -666,10 +735,18 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
-    /// Handles the SV2 `OpenExtendedMiningChannelSuccess` message which provides important
-    /// parameters including the `target` which is sent to the Downstream role in a SV1
-    /// `mining.set_difficulty` message, and the extranonce values which is sent to the Downstream
-    /// role in a SV1 `mining.subscribe` message response.
+    /// Handles the SV2 `OpenExtendedMiningChannelSuccess` message.
+    ///
+    /// This message is received after requesting to open an extended mining channel.
+    /// It provides the assigned `channel_id`, the extranonce prefix, the initial
+    /// mining `target`, and the expected `extranonce_size`. It stores the `channel_id` and
+    /// `extranonce_prefix`, updates the shared `target`, and prepares the extranonce
+    /// information (including calculating the size for the TProxy's added extranonce1) to be
+    /// sent to the Downstream handler for use with SV1 clients.
+    ///
+    /// Returns `Ok(SendTo<Downstream>::None(Some(Mining::OpenExtendedMiningChannelSuccess)))`
+    /// to indicate that the message has been handled internally and should be
+    /// forwarded to the Bridge.
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,

@@ -1,3 +1,13 @@
+//! ## Translator Error Module
+//!
+//! Defines the custom error types used throughout the translator proxy.
+//!
+//! This module centralizes error handling by providing:
+//! - A primary `Error` enum encompassing various error kinds from different sources (I/O, parsing,
+//!   protocol logic, channels, configuration, etc.).
+//! - A specific `ChannelSendError` enum for errors occurring during message sending over
+//!   asynchronous channels.
+
 use ext_config::ConfigError;
 use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
@@ -8,20 +18,34 @@ use v1::server_to_client::{Notify, SetDifficulty};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
+/// Represents specific errors that can occur when sending messages over various
+/// channels used within the translator.
+///
+/// Each variant corresponds to a failure in sending a particular type of message
+/// on its designated channel.
 #[derive(Debug)]
 pub enum ChannelSendError<'a> {
+    /// Failure sending an SV2 `SubmitSharesExtended` message.
     SubmitSharesExtended(
         async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
     ),
+    /// Failure sending an SV2 `SetNewPrevHash` message.
     SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
+    /// Failure sending an SV2 `NewExtendedMiningJob` message.
     NewExtendedMiningJob(async_channel::SendError<NewExtendedMiningJob<'a>>),
+    /// Failure broadcasting an SV1 `Notify` message
     Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
+    /// Failure sending a generic SV1 message.
     V1Message(async_channel::SendError<v1::Message>),
+    /// Represents a generic channel send failure, described by a string.
     General(String),
+    /// Failure sending extranonce information.
     Extranonce(async_channel::SendError<(ExtendedExtranonce, u32)>),
+    /// Failure sending an SV2 `SetCustomMiningJob` message.
     SetCustomMiningJob(
         async_channel::SendError<roles_logic_sv2::mining_sv2::SetCustomMiningJob<'a>>,
     ),
+    /// Failure sending new template information (prevhash and coinbase).
     NewTemplate(
         async_channel::SendError<(
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,

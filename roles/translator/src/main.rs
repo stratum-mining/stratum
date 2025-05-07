@@ -35,6 +35,10 @@ fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
     Ok(config)
 }
 
+/// Entrypoint for the Translator binary.
+///
+/// Loads the configuration from TOML and initializes the main runtime
+/// defined in `lib::TranslatorSv2`. Errors during startup are logged.
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
