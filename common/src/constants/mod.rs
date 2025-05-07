@@ -60,14 +60,10 @@ pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 /// X-coordinate of a secp256k1 curve point.
 pub const ELLSWIFT_ENCODING_SIZE: usize = 64;
 
-// This is the same as AEAD_MAC_LEN.
-// Refactoring: deprecate it.
-pub const MAC: usize = 16;
-
 /// Size in bytes of the encrypted ElligatorSwift encoded data, which includes
 /// the original ElligatorSwift encoded data and a MAC for integrity
 /// verification.
-pub const ENCRYPTED_ELLSWIFT_ENCODING_SIZE: usize = ELLSWIFT_ENCODING_SIZE + MAC;
+pub const ENCRYPTED_ELLSWIFT_ENCODING_SIZE: usize = ELLSWIFT_ENCODING_SIZE + AEAD_MAC_LEN;
 
 /// Size in bytes of the SIGNATURE_NOISE_MESSAGE, which contains information and
 /// a signature for the handshake initiator, formatted according to the Noise
@@ -76,7 +72,8 @@ pub const SIGNATURE_NOISE_MESSAGE_SIZE: usize = 74;
 
 /// Size in bytes of the encrypted signature noise message, which includes the
 /// SIGNATURE_NOISE_MESSAGE and a MAC for integrity verification.
-pub const ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE: usize = SIGNATURE_NOISE_MESSAGE_SIZE + MAC;
+pub const ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE: usize =
+    SIGNATURE_NOISE_MESSAGE_SIZE + AEAD_MAC_LEN;
 
 /// Size in bytes of the handshake message expected by the initiator,
 /// encompassing:
