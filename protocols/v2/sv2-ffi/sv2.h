@@ -11,8 +11,6 @@ static const uint16_t EXTENSION_TYPE_NO_EXTENSION = 0;
 /// Size of the SV2 frame header in bytes.
 static const uintptr_t SV2_FRAME_HEADER_SIZE = 6;
 
-static const uintptr_t SV2_FRAME_HEADER_LEN_OFFSET = 3;
-
 static const uintptr_t SV2_FRAME_HEADER_LEN_END = 3;
 
 /// Maximum size of an SV2 frame chunk in bytes.

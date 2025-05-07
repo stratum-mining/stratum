@@ -45,10 +45,6 @@ pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 
 // It's not used anywhere.
 // Refactoring: deprecate it.
-pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
-
-// It's not used anywhere.
-// Refactoring: deprecate it.
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
 
 /// Maximum size of an SV2 frame chunk in bytes.
