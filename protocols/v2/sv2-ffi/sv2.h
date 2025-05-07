@@ -30,8 +30,6 @@ static const uintptr_t NOISE_FRAME_HEADER_LEN_OFFSET = 0;
 /// X-coordinate of a secp256k1 curve point.
 static const uintptr_t ELLSWIFT_ENCODING_SIZE = 64;
 
-static const uintptr_t RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE = ELLSWIFT_ENCODING_SIZE;
-
 static const uintptr_t MAC = 16;
 
 /// Size in bytes of the encrypted ElligatorSwift encoded data, which includes

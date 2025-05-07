@@ -60,10 +60,6 @@ pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 /// X-coordinate of a secp256k1 curve point.
 pub const ELLSWIFT_ENCODING_SIZE: usize = 64;
 
-// Refactoring: the alias could be created where it's imported, or we could just
-// use one name everywhere
-pub const RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_SIZE;
-
 // This is the same as AEAD_MAC_LEN.
 // Refactoring: deprecate it.
 pub const MAC: usize = 16;

@@ -160,7 +160,7 @@ impl State {
     #[cfg(feature = "std")]
     pub fn step_1(
         &mut self,
-        re_pub: [u8; stratum_common::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
+        re_pub: [u8; stratum_common::ELLSWIFT_ENCODING_SIZE],
     ) -> core::result::Result<(HandShakeFrame, Self), Error> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -181,7 +181,7 @@ impl State {
     #[inline]
     pub fn step_1_with_now_rng<R: rand::Rng + rand::CryptoRng>(
         &mut self,
-        re_pub: [u8; stratum_common::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
+        re_pub: [u8; stratum_common::ELLSWIFT_ENCODING_SIZE],
         now: u32,
         rng: &mut R,
     ) -> core::result::Result<(HandShakeFrame, Self), Error> {
@@ -258,7 +258,7 @@ impl State {
                 Self::NotInitialized(stratum_common::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE)
             }
             HandshakeRole::Responder(_) => {
-                Self::NotInitialized(stratum_common::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE)
+                Self::NotInitialized(stratum_common::ELLSWIFT_ENCODING_SIZE)
             }
         }
     }

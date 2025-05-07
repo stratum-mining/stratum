@@ -31,9 +31,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 #[cfg(feature = "noise_sv2")]
-use stratum_common::{
-    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-};
+use stratum_common::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
 
 // Arbitrary message type.
 // Supported Sv2 message types are listed in the [Sv2 Spec Message
@@ -120,7 +118,7 @@ fn main() {
     let first_message = sender_state
         .step_0()
         .expect("Initiator failed first step of handshake");
-    let first_message: [u8; RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = first_message
+    let first_message: [u8; ELLSWIFT_ENCODING_SIZE] = first_message
         .get_payload_when_handshaking()
         .try_into()
         .expect("Handshake remote invlaid message");
