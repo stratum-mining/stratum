@@ -60,10 +60,6 @@ pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 // const there is not even used
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
 
-// It's not used anywhere.
-// Refactoring: deprecate it.
-pub const NOISE_FRAME_MAX_SIZE: usize = u16::MAX as usize;
-
 /// Size in bytes of the encoded elliptic curve point using ElligatorSwift
 /// encoding. This encoding produces a 64-byte representation of the
 /// X-coordinate of a secp256k1 curve point.
