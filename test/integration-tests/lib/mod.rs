@@ -36,7 +36,7 @@ pub fn start_sniffer(
     identifier: String,
     upstream: SocketAddr,
     check_on_drop: bool,
-    action: Option<InterceptAction>,
+    action: Vec<InterceptAction>,
 ) -> (Sniffer, SocketAddr) {
     let listening_address = get_available_address();
     let sniffer = Sniffer::new(
