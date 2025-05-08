@@ -23,7 +23,7 @@ use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
 use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
-use std::{convert::TryInto, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
 /// Wrapper around a known transaction and its hash.
@@ -197,28 +197,5 @@ impl JDsMempool {
             };
         }
         Ok(())
-    }
-
-    /// Builds a mapping between short IDs and transactions based on the given nonce.
-    ///
-    /// Returns `None` in case of short ID collision.    
-    pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], TransactionWithHash>> {
-        let mut ret = HashMap::new();
-        for tx in &self.mempool {
-            let s_id = roles_logic_sv2::utils::get_short_hash(*tx.0, nonce)
-                .to_vec()
-                .try_into()
-                .unwrap();
-            let tx_data = TransactionWithHash {
-                id: *tx.0,
-                tx: tx.1.clone(),
-            };
-            if ret.insert(s_id, tx_data.clone()).is_none() {
-                continue;
-            } else {
-                return None; // collision detected
-            }
-        }
-        Some(ret)
     }
 }

@@ -104,7 +104,6 @@ pub struct JobDeclaratorDownstream {
         Vec<TransactionState>,
         Vec<u16>,
     ),
-    tx_hash_list_hash: Option<U256<'static>>,
     add_txs_to_mempool: AddTrasactionsToMempool,
 }
 
@@ -149,7 +148,6 @@ impl JobDeclaratorDownstream {
             private_key: *config.authority_secret_key(),
             mempool,
             declared_mining_job: (None, Vec::new(), Vec::new()),
-            tx_hash_list_hash: None,
             add_txs_to_mempool: AddTrasactionsToMempool {
                 add_txs_to_mempool_inner,
                 sender_add_txs_to_mempool,
@@ -312,12 +310,6 @@ impl JobDeclaratorDownstream {
                                         debug!("Send message: DMJS. Updating the JDS mempool.");
                                         Self::send_txs_to_mempool(self_mutex.clone()).await;
                                     }
-                                    JobDeclaration::IdentifyTransactions(_) => {
-                                        debug!("Send  message: IT");
-                                    }
-                                    JobDeclaration::IdentifyTransactionsSuccess(_) => {
-                                        error!("Send unexpected message: ITS");
-                                    }
                                     JobDeclaration::ProvideMissingTransactions(_) => {
                                         debug!("Send message: PMT. Updating the JDS mempool.");
                                         Self::send_txs_to_mempool(self_mutex.clone()).await;
@@ -419,12 +411,6 @@ impl JobDeclaratorDownstream {
                                         error!("JD Server received an unexpected message {:?}", m);
                                     }
                                     Some(JobDeclaration::DeclareMiningJobError(_)) => {
-                                        error!("JD Server received an unexpected message {:?}", m);
-                                    }
-                                    Some(JobDeclaration::IdentifyTransactions(_)) => {
-                                        error!("JD Server received an unexpected message {:?}", m);
-                                    }
-                                    Some(JobDeclaration::IdentifyTransactionsSuccess(_)) => {
                                         error!("JD Server received an unexpected message {:?}", m);
                                     }
                                     Some(JobDeclaration::AllocateMiningJobToken(_)) => {

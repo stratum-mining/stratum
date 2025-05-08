@@ -1,7 +1,5 @@
 use alloc::vec::Vec;
-use binary_sv2::{
-    binary_codec_sv2, Deserialize, Seq064K, Serialize, ShortTxId, Str0255, B0255, B064K, U256,
-};
+use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// Message used by JDC to proposes a selected set of transactions to JDS they wish to
@@ -26,26 +24,12 @@ pub struct DeclareMiningJob<'decoder> {
     /// Up to 8 bytes (not including the length byte) which are to be placed at the beginning of
     /// the coinbase field in the coinbase transaction.
     pub coinbase_suffix: B064K<'decoder>,
-    /// A unique nonce used to ensure [`DeclareMiningJob::tx_short_hash_list`] collisions are
-    /// uncorrelated across the network.
-    pub tx_short_hash_nonce: u64,
-    /// A list of short transaction hashes which are used to identify the transactions.
+    /// List of the transaction ids contained in the template. JDS checks the list against its
+    /// mempool and requests missing txs via [`crate::ProvideMissingTransactions`].
     ///
-    /// SipHash 2-4 variant is used for short txids as a strategy to reduce bandwidth consumption.
-    /// More specifically, the SipHash 2-4 variant is used.
-    ///
-    /// Inputs to the SipHash functions are transaction hashes from the mempool. Secret keys k0, k1
-    /// are derived from the first two little-endian 64-bit integers from the
-    /// SHA256(tx_short_hash_nonce), respectively. For more info see
-    /// [BIP-0152](https://github.com/bitcoin/bips/blob/master/bip-0152.mediawiki).
-    ///
-    /// Upon receiving this message, JDS must check the list against its mempool.
-    ///
-    /// This list does not include the coinbase transaction.
-    pub tx_short_hash_list: Seq064K<'decoder, ShortTxId<'decoder>>,
-    /// Hash of the list of full txids, concatenated in the same sequence as they are declared in
-    /// [`DeclareMiningJob::tx_short_hash_list`].
-    pub tx_hash_list_hash: U256<'decoder>,
+    /// This list Does not include the coinbase transaction (as there is no corresponding full data
+    /// for it yet).
+    pub tx_ids_list: Seq064K<'decoder, U256<'decoder>>,
     /// Extra data which the JDS may require to validate the work.
     pub excess_data: B064K<'decoder>,
 }

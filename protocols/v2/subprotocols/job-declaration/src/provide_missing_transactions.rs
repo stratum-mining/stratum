@@ -5,12 +5,12 @@ use core::convert::TryInto;
 /// Message used by the JDS to ask for transactions that it did not recognize from
 /// [`crate::DeclareMiningJob`] message.
 ///
-/// In order to do block propagation, JDS must know all the transactions within the current
-/// block template. These transactions are provided by the JDC to the JDserver as a sequence
-/// of short hashes in the [`crate::DeclareMiningJob::tx_short_hash_list`] message. If JDserver is
-/// unable to recognize any of the transactions through its mempool, it sends this message to ask
-/// for them. They are specified by their position in the original DeclareMiningJob message,
-/// 0-indexed not including the coinbase transaction transaction.
+/// In order to do block propagation, JDS must know all the transactions within the current block
+/// template. These transactions are provided by the JDC to JDS as a sequence of transaction ids in
+/// the [`crate::DeclareMiningJob`] message. If JDS is unable to recognize any of the transactions
+/// through its mempool, it sends this message to ask for them. They are specified by their
+/// position in the original [`crate::DeclareMiningJob`] message, 0-indexed not including the
+/// coinbase transaction.
 ///
 /// Used only under [`Full Template`] mode.
 ///

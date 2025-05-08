@@ -9,8 +9,7 @@ use roles_logic_sv2::{
         message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
         JobDeclaration::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-            DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactions,
-            IdentifyTransactionsSuccess, ProvideMissingTransactions,
+            DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
             ProvideMissingTransactionsSuccess, PushSolution,
         },
         TemplateDistribution::{self, CoinbaseOutputConstraints},
@@ -464,12 +463,6 @@ impl Sniffer {
                 }
                 DeclareMiningJobSuccess(m) => {
                     AnyMessage::JobDeclaration(DeclareMiningJobSuccess(m.into_static()))
-                }
-                IdentifyTransactions(m) => {
-                    AnyMessage::JobDeclaration(IdentifyTransactions(m.into_static()))
-                }
-                IdentifyTransactionsSuccess(m) => {
-                    AnyMessage::JobDeclaration(IdentifyTransactionsSuccess(m.into_static()))
                 }
                 ProvideMissingTransactions(m) => {
                     AnyMessage::JobDeclaration(ProvideMissingTransactions(m.into_static()))
