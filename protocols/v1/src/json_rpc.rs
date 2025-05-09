@@ -11,25 +11,6 @@ pub enum Message {
     ErrorResponse(Response),
 }
 
-impl Message {
-    // TODO REMOVE it
-    pub fn is_response(&self) -> bool {
-        match self {
-            Message::StandardRequest(_) => false,
-            Message::Notification(_) => false,
-            Message::OkResponse(_) => true,
-            Message::ErrorResponse(_) => true,
-        }
-    }
-
-    //pub fn error(&self) -> Option<JsonRpcError> {
-    //    match self {
-    //        Message::Response(r) => r.error.clone(),
-    //        _ => None,
-    //    }
-    //}
-}
-
 impl Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
