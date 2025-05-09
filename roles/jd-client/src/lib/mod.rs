@@ -1,3 +1,10 @@
+//! ## Job Declarator Client
+//!
+//! The `JobDeclaratorClient` is a miner-side role responsible for:
+//! - Creating new mining jobs from templates received via a Template Provider.
+//! - Declaring custom jobs to a remote Job Declarator Server (JDS).
+//! - Handling pool fallback by switching to backup pools or entering solo mining mode if needed.
+
 pub mod config;
 pub mod downstream;
 pub mod error;
@@ -54,14 +61,14 @@ pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 /// in the market.
 #[derive(Debug, Clone)]
 pub struct JobDeclaratorClient {
-    /// Configuration of the proxy server [`JobDeclaratorClient`] is connected to.
+    // Configuration of the [`JobDeclaratorClient`].
     config: JobDeclaratorClientConfig,
     // Used for notifying the [`JobDeclaratorClient`] to shutdown gracefully.
     shutdown: Arc<Notify>,
 }
 
 impl JobDeclaratorClient {
-    /// Instantiate JDC instance.
+    /// Instantiate a new `JobDeclaratorClient` instance.
     pub fn new(config: JobDeclaratorClientConfig) -> Self {
         Self {
             config,
@@ -69,6 +76,18 @@ impl JobDeclaratorClient {
         }
     }
 
+    /// Starts the main operational loop of the Job Declarator Client.
+    ///
+    /// This involves connecting to configured upstream pools (or entering solo mining mode),
+    /// setting up the Job Declarator Server (JDS) connection, listening for downstream connections,
+    /// and managing the template receiving process.
+    ///
+    /// The method handles automatic pool fallback in case of disconnection or detected
+    /// rogue behavior from the current upstream pool. It also manages graceful shutdown
+    /// upon receiving a termination signal (e.g., CTRL+C) or encountering internal errors.
+    ///
+    /// Subsystems are spawned sequentially with dependencies: Pool → JDS → Downstream → Template
+    /// Receiver (implicitly handled within Downstream or other components).
     pub async fn start(self) {
         let mut upstream_index = 0;
 
@@ -77,6 +96,7 @@ impl JobDeclaratorClient {
 
         let task_collector = Arc::new(Mutex::new(vec![]));
 
+        // Spawn a task to listen for the CTRL+C signal for graceful shutdown.
         tokio::spawn({
             let shutdown_signal = self.shutdown.clone();
             async move {
@@ -94,16 +114,20 @@ impl JobDeclaratorClient {
             let config = config.clone();
             let shutdown = self.shutdown.clone();
             let root_handler;
+
+            // Check if there is a configured upstream pool and jds at the current index.
             if let Some(upstream) = config.upstreams().get(upstream_index) {
                 let tx_status = tx_status.clone();
                 let task_collector = task_collector.clone();
                 let upstream = upstream.clone();
+                // Spawn the initialization process for connecting to a pool.
                 root_handler = tokio::spawn(async move {
                     Self::initialize_jd(config, tx_status, task_collector, upstream, shutdown)
                         .await;
                 });
             } else {
-                let tx_status = tx_status.clone();
+                // If no more upstream pools are configured, enter solo mining mode.
+                let tx_status: async_channel::Sender<status::Status<'_>> = tx_status.clone();
                 let task_collector = task_collector.clone();
                 root_handler = tokio::spawn(async move {
                     Self::initialize_jd_as_solo_miner(
@@ -115,7 +139,8 @@ impl JobDeclaratorClient {
                     .await;
                 });
             }
-            // Check all tasks if is_finished() is true, if so exit
+
+            // Inner loop to monitor the status of the root handler and spawned tasks.
             loop {
                 select! {
                     task_status = rx_status.recv().fuse() => {
@@ -196,6 +221,12 @@ impl JobDeclaratorClient {
         }
     }
 
+    // Initializes the Job Declarator Client to operate in solo mining mode.
+    //
+    // This function is called when no upstream pools are configured or available.
+    // In solo mining mode, the JDC will generate its own mining jobs rather than
+    // receiving them from a pool. It primarily sets up the downstream listener
+    // to provide these solo mining jobs to connected miners.
     async fn initialize_jd_as_solo_miner(
         config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
@@ -204,7 +235,7 @@ impl JobDeclaratorClient {
     ) {
         let miner_tx_out = config.get_txout().expect("Failed to get txout");
 
-        // Wait for downstream to connect
+        // Spawn the downstream listener task. In solo mode, `upstream` and `jd` are `None`.
         let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
             *config.listening_address(),
             None,
@@ -225,6 +256,13 @@ impl JobDeclaratorClient {
         });
     }
 
+    /// Initializes the Job Declarator Client by connecting to a configured upstream Pool
+    /// and setting up the associated downstream listener and Job Declarator.
+    ///
+    /// This function is called when there is an available upstream pool in the configuration.
+    /// It handles the connection to the SV2 upstream, sets up the Job Declarator for
+    /// communication with the pool's JDS, and starts the downstream listener to relay
+    /// jobs from the pool to the miner.
     async fn initialize_jd(
         config: JobDeclaratorClientConfig,
         tx_status: async_channel::Sender<status::Status<'static>>,
@@ -234,7 +272,7 @@ impl JobDeclaratorClient {
     ) {
         let timeout = config.timeout();
 
-        // Format `Upstream` connection address
+        // Parse and format the upstream pool connection address.
         let mut parts = upstream_config.pool_address.split(':');
         let address = parts
             .next()
@@ -250,7 +288,7 @@ impl JobDeclaratorClient {
             port,
         );
 
-        // Instantiate a new `Upstream` (SV2 Pool)
+        // Instantiate and connect to the SV2 Upstream (Pool).
         let upstream = match upstream_sv2::Upstream::new(
             upstream_addr,
             upstream_config.authority_pubkey,
@@ -268,6 +306,7 @@ impl JobDeclaratorClient {
             }
         };
 
+        // Set up the SV2 connection with the upstream pool.
         match upstream_sv2::Upstream::setup_connection(
             upstream.clone(),
             config.min_supported_version(),
@@ -282,15 +321,18 @@ impl JobDeclaratorClient {
             }
         }
 
-        // Start receiving messages from the SV2 Upstream role
+        // Start the task to receive and parse incoming messages from the SV2 upstream.
         if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
             error!("failed to create sv2 parser: {}", e);
             panic!()
         }
 
+        // Parse and format the Job Declarator Server (JDS) address for this pool.
         let mut parts = upstream_config.jd_address.split(':');
         let ip_jd = parts.next().unwrap().to_string();
         let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
+
+        // Instantiate the Job Declarator component.
         let jd = match JobDeclarator::new(
             SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
             upstream_config.authority_pubkey.into_bytes(),
@@ -311,7 +353,7 @@ impl JobDeclaratorClient {
             }
         };
 
-        // Wait for downstream to connect
+        // Spawn the downstream listener task, providing the upstream and JobDeclarator instances.
         let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
             *config.listening_address(),
             Some(upstream),
@@ -343,13 +385,18 @@ impl JobDeclaratorClient {
     }
 }
 
+/// A trigger mechanism to detect if an upstream pool is unresponsive and initiate a pool change.
 #[derive(Debug)]
 pub struct PoolChangerTrigger {
+    // The timeout duration after which the upstream is considered rogue if no activity is
+    // detected.
     timeout: Duration,
+    // The handle for the spawned task that monitors the timeout.
     task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl PoolChangerTrigger {
+    /// Creates a new `PoolChangerTrigger` instance.
     pub fn new(timeout: Duration) -> Self {
         Self {
             timeout,
@@ -357,6 +404,11 @@ impl PoolChangerTrigger {
         }
     }
 
+    /// Starts the pool changer trigger.
+    ///
+    /// This spawns a task that will wait for the configured timeout.
+    /// If the timeout is reached before `stop` is called, it sends an `UpstreamRogue`
+    /// status message to the provided sender, triggering a pool change in the main JDC loop.
     pub fn start(&mut self, sender: status::Sender) {
         let timeout = self.timeout;
         let task = tokio::task::spawn(async move {
@@ -370,6 +422,7 @@ impl PoolChangerTrigger {
         self.task = Some(task);
     }
 
+    /// Stops the pool changer trigger.
     pub fn stop(&mut self) {
         if let Some(task) = self.task.take() {
             task.abort();

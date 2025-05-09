@@ -1,3 +1,27 @@
+//! ## Upstream Module
+//!
+//! The `Upstream` module provides the necessary constructs and methods for establishing and
+//! managing connections from the Job Declarator Client (JDC) to upstream pools, as well as handling
+//! related message processing.
+//!
+//! It includes trait implementations required for representing an upstream connection,
+//! intercepting messages from upstream nodes (pools), and generating appropriate responses.
+//!
+//! This module acts as the client-side implementation for communicating with a pool
+//! that supports the SV2 Mining Protocol.
+//!
+//! Trait implementations within this module:
+//! - [`IsUpstream`]: Represents a generic upstream connection (possibly redundant in this specific
+//!   structure).
+//! - [`IsMiningUpstream`]: Represents an upstream connection specifically for the Mining Protocol
+//!   (possibly redundant).
+//! - [`ParseCommonMessagesFromUpstream`]: Handles the interpretation of common SV2 messages like
+//!   `SetupConnectionSuccess` and `SetupConnectionError` received from the upstream pool during the
+//!   initial handshake.
+//! - [`ParseMiningMessagesFromUpstream<Downstream>`]: Processes messages specific to the SV2 Mining
+//!   Protocol received from the upstream pool and determines how to handle them, potentially
+//!   relaying them to a downstream mining node or updating internal state.
+
 use super::super::downstream::DownstreamMiningNode as Downstream;
 
 use super::super::{
@@ -39,13 +63,20 @@ use std::{
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{debug, error, info, warn};
 
+// A fixed-capacity circular buffer used for storing mappings with a limited history.
+//
+// When a new element is inserted and the buffer is at capacity, the oldest element
+// is automatically removed from the front.
 #[derive(Debug)]
 struct CircularBuffer {
+    // The internal `VecDeque` storing the key-value pairs.
     buffer: VecDeque<(u64, u32)>,
+    // The maximum number of elements the buffer can hold.
     capacity: usize,
 }
 
 impl CircularBuffer {
+    // Creates a new `CircularBuffer` with the specified capacity.
     fn new(capacity: usize) -> Self {
         CircularBuffer {
             buffer: VecDeque::with_capacity(capacity),
@@ -53,6 +84,7 @@ impl CircularBuffer {
         }
     }
 
+    // Inserts a new key-value pair into the buffer.
     fn insert(&mut self, key: u64, value: u32) {
         if self.buffer.len() == self.capacity {
             self.buffer.pop_front();
@@ -60,6 +92,7 @@ impl CircularBuffer {
         self.buffer.push_back((key, value));
     }
 
+    // Retrieves the value associated with a given key from the buffer.
     fn get(&self, id: u64) -> Option<u32> {
         self.buffer
             .iter()
@@ -73,61 +106,93 @@ impl std::default::Default for CircularBuffer {
     }
 }
 
+// Maintains mappings between request IDs, template IDs, and upstream-assigned job IDs.
+//
+// This struct is used to correlate different identifiers received from the
+// Template Provider and the upstream pool throughout the job declaration process.
 #[derive(Debug, Default)]
 struct TemplateToJobId {
+    // A circular buffer mapping Template IDs (u64) to upstream-assigned Job IDs (u32).
+    // This buffer has a limited capacity to store recent mappings.
     template_id_to_job_id: CircularBuffer,
+    // A HashMap mapping Request IDs (u32) from `DeclareMiningJob` messages to Template IDs (u64).
     request_id_to_template_id: HashMap<u32, u64>,
 }
 
 impl TemplateToJobId {
+    // Registers a mapping between a Request ID and a Template ID.
+    //
+    // This is typically done when a `DeclareMiningJob` is sent, associating the
+    // request ID with the template ID it's based on.
     fn register_template_id(&mut self, template_id: u64, request_id: u32) {
         self.request_id_to_template_id
             .insert(request_id, template_id);
     }
 
+    // Registers a mapping between a Template ID and an upstream-assigned Job ID.
+    //
+    // This is typically done when a `SetCustomMiningJobSuccess` message is received
+    // from the upstream pool, which provides the upstream's job ID for a previously
+    // declared job (associated with a template ID). This mapping is stored in
+    // the circular buffer.
     fn register_job_id(&mut self, template_id: u64, job_id: u32) {
         self.template_id_to_job_id.insert(template_id, job_id);
     }
 
+    // Retrieves the upstream-assigned Job ID for a given Template ID from the circular buffer.
     fn get_job_id(&mut self, template_id: u64) -> Option<u32> {
         self.template_id_to_job_id.get(template_id)
     }
 
+    // Removes and returns the Template ID associated with a given Request ID.
     fn take_template_id(&mut self, request_id: u32) -> Option<u64> {
         self.request_id_to_template_id.remove(&request_id)
     }
 
+    // Creates a new `TemplateToJobId` instance with a default-sized circular buffer.
     fn new() -> Self {
         Self::default()
     }
 }
 
+/// Upstream struct representing all possible requirement for upstream instantiation.
 #[derive(Debug)]
 pub struct Upstream {
-    /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
-    /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.
+    // The channel ID assigned by the upstream pool for this connection.
+    // This is received in the `OpenExtendedMiningChannelSuccess` message.
     channel_id: Option<u32>,
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
     tx_status: status::Sender,
-    /// Minimum `extranonce2` size. Initially requested in the `jdc-config.toml`, and ultimately
-    /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
+    // The size of the `extranonce1` provided by the upstream pool.
+    // Currently hardcoded to 16, which is the only size the pool is expected to support. ->
+    // Inaccuracy.
     #[allow(dead_code)]
     pub upstream_extranonce1_size: usize,
-    /// Receives messages from the SV2 Upstream role
+    // Receiver channel for incoming messages from the upstream pool.
     pub receiver: Receiver<EitherFrame>,
-    /// Sends messages to the SV2 Upstream role
+    // Sender channel for sending messages to the upstream pool.
     pub sender: Sender<EitherFrame>,
+    /// `DownstreamMiningNode` instance, present when a downstream miner is connected.
     pub downstream: Option<Arc<Mutex<Downstream>>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    // Trigger mechanism to detect unresponsive upstream behavior and initiate a pool change.
     pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
+    // Optional `PoolChannelFactory` instance. This factory is created upon receiving
+    // `OpenExtendedMiningChannelSuccess` and is used by the template provider client
+    // to check shares received from the downstream, simulating the upstream's
+    // channel logic
     channel_factory: Option<PoolChannelFactory>,
+    // Manager for mapping Template IDs, Request IDs, and upstream Job IDs.
     template_to_job_id: TemplateToJobId,
+    // Simple ID generator for creating unique request IDs for messages sent to the upstream.
     req_ids: Id,
+    // The JDC's signature, used in the `ExtendedExtranonce` calculation.
     jdc_signature: String,
 }
 
 impl Upstream {
+    /// This method sends message to upstream.
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) -> ProxyResult<'static, ()> {
         let sender = self_
             .safe_lock(|s| s.sender.clone())
@@ -140,11 +205,12 @@ impl Upstream {
         })?;
         Ok(())
     }
-    /// Instantiate a new `Upstream`.
-    /// Connect to the SV2 Upstream role (most typically a SV2 Pool). Initializes the
-    /// `UpstreamConnection` with a channel to send and receive messages from the SV2 Upstream
-    /// role and uses channels provided in the function arguments to send and receive messages
-    /// from the `Downstream`.
+    /// Instantiates a new `Upstream` connection to the specified SV2 pool address.
+    ///
+    /// This method establishes a TCP connection, performs the Noise handshake
+    /// , and initializes the `Upstream` struct with
+    /// the necessary communication channels and state managers. It includes
+    /// retry logic for the initial TCP connection attempt.
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         address: SocketAddr,
@@ -154,7 +220,7 @@ impl Upstream {
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
         jdc_signature: String,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
-        // Connect to the SV2 Upstream role retry connection every 5 seconds.
+        // Attempt to connect to the SV2 Upstream role (pool) with retry logic.
         let socket = loop {
             match TcpStream::connect(address).await {
                 Ok(socket) => break socket,
@@ -249,6 +315,13 @@ impl Upstream {
         Ok(())
     }
 
+    // Constructs and sends a `SetCustomMiningJob` message to the upstream pool.
+    //
+    // This method is called after a job is declared to the JDS and validated
+    // (receiving `DeclareMiningJobSuccess`). It takes the declared job details,
+    // the latest `SetNewPrevHash` information, and the signed mining job token
+    // to create the `SetCustomMiningJob` message. This message instructs the
+    // upstream pool to make this specific job available to connected downstream.
     #[allow(clippy::too_many_arguments)]
     pub async fn set_custom_jobs(
         self_: &Arc<Mutex<Self>>,
@@ -265,7 +338,11 @@ impl Upstream {
         template_id: u64,
     ) -> ProxyResult<'static, ()> {
         info!("Sending set custom mining job");
+
+        // Get a new request ID for the SetCustomMiningJob message.
         let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();
+
+        // Wait until the channel ID is available (received in OpenExtendedMiningChannelSuccess).
         let channel_id = loop {
             if let Some(id) = self_.safe_lock(|s| s.channel_id).unwrap() {
                 break id;
@@ -273,11 +350,13 @@ impl Upstream {
             tokio::task::yield_now().await;
         };
 
+        // Get the current timestamp for min_ntime.
         let updated_timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as u32;
 
+        // Construct the SetCustomMiningJob message.
         let to_send = SetCustomMiningJob {
             channel_id,
             request_id,
@@ -296,6 +375,8 @@ impl Upstream {
         };
         let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();
+
+        // Register the mapping between the template ID and the request ID for this message.
         self_
             .safe_lock(|s| {
                 s.template_to_job_id
@@ -305,14 +386,21 @@ impl Upstream {
         Self::send(self_, frame).await
     }
 
-    /// Parses the incoming SV2 message from the Upstream role and routes the message to the
-    /// appropriate handler.
+    /// Parses incoming SV2 messages from the Upstream role and routes them to the
+    /// appropriate handler for processing.
+    ///
+    /// This is the main loop for receiving and processing messages from the pool.
+    /// It dispatches mining-specific messages to the `ParseMiningMessagesFromUpstream`
+    /// trait implementation. Based on the handler's return value (`SendTo`), it
+    /// either relays the message to the downstream mining node or performs other actions.
+    /// Errors during message handling or receiving are reported via the status channel.
     #[allow(clippy::result_large_err)]
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let (recv, tx_status) = self_
             .safe_lock(|s| (s.receiver.clone(), s.tx_status.clone()))
             .map_err(|_| PoisonLock)?;
 
+        // Spawn the main task for receiving and processing upstream messages.
         let main_task = {
             let self_ = self_.clone();
             task::spawn(async move {
@@ -385,6 +473,7 @@ impl Upstream {
             .unwrap();
         Ok(())
     }
+
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
     /// TODO: The Mining Device information is hard coded here, need to receive from Downstream
     /// instead.
@@ -417,7 +506,14 @@ impl Upstream {
         })
     }
 
+    /// This method provides the `PoolChannelFactory` once it has been created
+    /// (upon receiving `OpenExtendedMiningChannelSuccess`).
+    ///
+    /// This method is used by other components (like the template provider client)
+    /// that need access to the channel factory to perform share validation or
+    /// other channel-related operations. It waits until the factory is available.
     pub async fn take_channel_factory(self_: Arc<Mutex<Self>>) -> PoolChannelFactory {
+        // Wait until the channel_factory field is populated.
         while self_.safe_lock(|s| s.channel_factory.is_none()).unwrap() {
             tokio::task::yield_now().await;
         }
@@ -430,6 +526,11 @@ impl Upstream {
             .unwrap()
     }
 
+    /// This method retrieves the upstream-assigned job ID for a given template ID.
+    ///
+    /// This method checks the `template_to_job_id` mapper. If the mapping is not
+    /// immediately available (because `SetCustomMiningJobSuccess` hasn't been
+    /// processed yet), it waits until the job ID is registered.
     pub async fn get_job_id(self_: &Arc<Mutex<Self>>, template_id: u64) -> u32 {
         loop {
             if let Some(id) = self_
@@ -443,6 +544,7 @@ impl Upstream {
     }
 }
 
+// not really used..
 impl IsUpstream for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
@@ -465,6 +567,7 @@ impl IsUpstream for Upstream {
     }
 }
 
+// Not really used...
 impl IsMiningUpstream for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
@@ -486,6 +589,9 @@ impl IsMiningUpstream for Upstream {
 }
 
 impl ParseCommonMessagesFromUpstream for Upstream {
+    // Handles a `SetupConnectionSuccess` message received from the upstream pool.
+    //
+    // Returns `Ok(SendToCommon::None(None))` as no immediate response is required.
     fn handle_setup_connection_success(
         &mut self,
         m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
@@ -519,21 +625,22 @@ impl ParseCommonMessagesFromUpstream for Upstream {
 /// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
 /// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
 impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
-    /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
-    /// always be `Extended` for a SV1/SV2 Translator Proxy.
+    // Returns the channel type supported between the SV2 Upstream role (pool) and this
+    // `Upstream` instance. For a JDC, this is always `Extended`
     fn get_channel_type(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
 
-    /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
-    /// by the SV2 Upstream role.
+    // Indicates whether work selection is enabled for this connection..
     fn is_work_selection_enabled(&self) -> bool {
         true
     }
 
-    /// The SV2 `OpenStandardMiningChannelSuccess` message is NOT handled because it is NOT used
-    /// for the Translator Proxy as only `Extended` channels are used between the SV1/SV2 Translator
-    /// Proxy and the SV2 Upstream role.
+    /// Handles an `OpenStandardMiningChannelSuccess` message.
+    ///
+    /// This method panics because standard mining channels are explicitly NOT
+    /// used between the JDC and the SV2 Upstream role.
+    /// Only Extended channels are expected.
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
@@ -541,11 +648,19 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
-    /// This is a transparent proxy so OpenExtendedMiningChannel is sent as it is downstream.
-    /// This message is used also to create a PoolChannelFactory that mock the upstream pool.
-    /// this PoolChannelFactory is used by the template provider client in order to check shares
-    /// received by downstream using the right extranonce and seeing the same hash that the
-    /// downstream saw. PoolChannelFactory coinbase pre and suf are setted by the JD client.
+    // Handles an `OpenExtendedMiningChannelSuccess` message received from the upstream pool.
+    //
+    // This message confirms that an extended mining channel has been successfully opened.
+    // It provides the assigned `channel_id`, `extranonce_prefix`, `extranonce_size`, and `target`.
+    // This method uses this information to:
+    // 1. Store the assigned `channel_id`.
+    // 2. Create a `PoolChannelFactory` instance that simulates the upstream's channel logic for the
+    //    template provider client to use in share validation.
+    // 3. Relays the original `OpenExtendedMiningChannelSuccess` message to the downstream mining
+    //    node if one is connected.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` if a downstream
+    // is connected, indicating the message should be relayed.
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
@@ -555,6 +670,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             m.request_id, m.channel_id
         );
         debug!("OpenStandardMiningChannelSuccess: {:?}", m);
+        // --- Create the PoolChannelFactory  ---
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let jdc_signature_len = self.jdc_signature.len();
         let prefix_len = m.extranonce_prefix.to_vec().len();
@@ -564,6 +680,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         let range_1 = prefix_len..prefix_len + jdc_signature_len + self_len;
         let range_2 = prefix_len + jdc_signature_len + self_len..total_len;
 
+        // Create an ExtendedExtranonce structure defining the layout of the extranonce.
         let extranonces = ExtendedExtranonce::new(
             range_0,
             range_1,
@@ -571,12 +688,18 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             Some(self.jdc_signature.as_bytes().to_vec()),
         )
         .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{:?}", err)))?;
+
+        // Job creator for the factory.
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
+        // Placeholder shares per minute
         let share_per_min = 1.0;
+
         let channel_kind =
             roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::ProxyJd {
                 upstream_target: m.target.clone().into(),
             };
+
+        // Create the PoolChannelFactory instance.
         let mut channel_factory = PoolChannelFactory::new(
             ids,
             extranonces,
@@ -585,12 +708,16 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             channel_kind,
             vec![],
         );
+
+        // Replicate the upstream's extended channel information within the factory.
         let extranonce: Extranonce = m
             .extranonce_prefix
             .into_static()
             .to_vec()
             .try_into()
             .unwrap();
+
+        // Store the assigned channel ID.
         self.channel_id = Some(m.channel_id);
         channel_factory
             .replicate_upstream_extended_channel_only_jd(
@@ -607,7 +734,10 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
-    /// Handles the SV2 `OpenExtendedMiningChannelError` message (TODO).
+    // Handles an `OpenMiningChannelError` message received from the upstream pool.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` to relay
+    // the message downstream.
     fn handle_open_mining_channel_error(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
@@ -621,7 +751,10 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
-    /// Handles the SV2 `UpdateChannelError` message (TODO).
+    // Handles an `UpdateChannelError` message received from the upstream pool.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` to relay
+    // the message downstream.
     fn handle_update_channel_error(
         &mut self,
         m: roles_logic_sv2::mining_sv2::UpdateChannelError,
@@ -635,7 +768,10 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
-    /// Handles the SV2 `CloseChannel` message (TODO).
+    // Handles a `CloseChannel` message received from the upstream pool.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` to relay
+    // the message downstream.
     fn handle_close_channel(
         &mut self,
         m: roles_logic_sv2::mining_sv2::CloseChannel,
@@ -646,7 +782,10 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
-    /// Handles the SV2 `SetExtranoncePrefix` message (TODO).
+    // Handles a `SetExtranoncePrefix` message received from the upstream pool.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` to relay
+    // the message downstream.
     fn handle_set_extranonce_prefix(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
@@ -661,7 +800,10 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
-    /// Handles the SV2 `SubmitSharesSuccess` message.
+    // Handles a `SubmitSharesSuccess` message received from the upstream pool.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` to relay
+    // the message downstream.
     fn handle_submit_shares_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
@@ -673,7 +815,15 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
-    /// Handles the SV2 `SubmitSharesError` message.
+    // Handles a `SubmitSharesError` message received from the upstream pool.
+    //
+    // This message indicates that a share submitted by a miner was rejected by
+    // the pool. The current implementation logs the error code and triggers
+    // the `pool_changer_trigger`, which may initiate a pool fallback if multiple
+    // share errors occur. It does NOT relay the error message downstream,
+    // as the JDC handles pool fallback.
+    //
+    // Returns `Ok(SendTo::None(None))` as no message is relayed downstream in this case.
     fn handle_submit_shares_error(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SubmitSharesError,
@@ -688,9 +838,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         Ok(SendTo::None(None))
     }
 
-    /// The SV2 `NewMiningJob` message is NOT handled because it is NOT used for the Translator
-    /// Proxy as only `Extended` channels are used between the SV1/SV2 Translator Proxy and the SV2
-    /// Upstream role.
+    // Handles a `NewMiningJob` message.
     fn handle_new_mining_job(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::NewMiningJob,
@@ -698,9 +846,16 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
-    /// Handles the SV2 `NewExtendedMiningJob` message which is used (along with the SV2
-    /// `SetNewPrevHash` message) to later create a SV1 `mining.notify` for the Downstream
-    /// role.
+    // Handles a `NewExtendedMiningJob` message received from the upstream pool.
+    //
+    // This message provides a new mining job using the extended format. However,
+    // in this JDC implementation, the job information is primarily derived from
+    // the Template Provider and Job Declarator. Therefore, this message from
+    // the upstream pool is logged as a warning and ignored, as the JDC relies
+    // on its declared jobs.
+    //
+    // Returns `Ok(SendTo::None(None))` indicating that the message is processed
+    // but no action or response is needed.
     fn handle_new_extended_mining_job(
         &mut self,
         _: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
@@ -709,9 +864,16 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         Ok(SendTo::None(None))
     }
 
-    /// Handles the SV2 `SetNewPrevHash` message which is used (along with the SV2
-    /// `NewExtendedMiningJob` message) to later create a SV1 `mining.notify` for the Downstream
-    /// role.
+    // Handles a `SetNewPrevHash` message received from the upstream pool.
+    //
+    // This message indicates that the previous block hash has changed. Similar
+    // to `NewExtendedMiningJob`, this message from the upstream pool is logged
+    // as a warning and ignored, as the JDC relies on the `SetNewPrevHash` received
+    // from the Template Provider which triggers the promotion of future jobs
+    // declared via the JDS.
+    //
+    // Returns `Ok(SendTo::None(None))` indicating that the message is processed
+    // but no action or response is needed.
     fn handle_set_new_prev_hash(
         &mut self,
         _: roles_logic_sv2::mining_sv2::SetNewPrevHash,
@@ -720,7 +882,15 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         Ok(SendTo::None(None))
     }
 
-    /// Handles the SV2 `SetCustomMiningJobSuccess` message (TODO).
+    // Handles a `SetCustomMiningJobSuccess` message received from the upstream pool.
+    //
+    // This message confirms that a `SetCustomMiningJob` request previously sent
+    // by the JDC has been successfully processed by the upstream pool. It provides
+    // the upstream's assigned `job_id` for this job. This method logs the success
+    // and registers the mapping between the original template ID (derived from
+    // the `request_id`) and the upstream's `job_id` in the `template_to_job_id` mapper.
+    //
+    // Returns `Ok(SendTo::None(None))` as no message is relayed downstream for this event.
     fn handle_set_custom_mining_job_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
@@ -741,7 +911,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         }
     }
 
-    /// Handles the SV2 `SetCustomMiningJobError` message (TODO).
+    // Handles a `SetCustomMiningJobError` message received from the upstream pool.
     fn handle_set_custom_mining_job_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobError,
@@ -749,8 +919,15 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         todo!()
     }
 
-    /// Handles the SV2 `SetTarget` message which updates the Downstream role(s) target
-    /// difficulty via the SV1 `mining.set_difficulty` message.
+    // Handles a `SetTarget` message received from the upstream pool.
+    //
+    // This message updates the mining target (difficulty) for a specific channel.
+    // This method updates the target in the internal `PoolChannelFactory` and
+    // in the downstream mining node's channel status to ensure miners are working
+    // on the correct difficulty. It also relays the original message downstream.
+    //
+    // Returns `Ok(SendTo::RelaySameMessageToRemote(downstream_mutex))` to relay
+    // the message downstream.
     fn handle_set_target(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetTarget,
@@ -773,6 +950,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         ))
     }
 
+    // Handles a `SetGroupChannel` message received from the upstream pool. Not implemented.
     fn handle_set_group_channel(
         &mut self,
         _m: SetGroupChannel,
