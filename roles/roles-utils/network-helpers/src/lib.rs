@@ -11,9 +11,7 @@ use std::{
     convert::TryInto,
     sync::{atomic::AtomicBool, Arc},
 };
-use stratum_common::{
-    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-};
+use stratum_common::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
 
 #[derive(Debug)]
 pub enum Error {
@@ -96,7 +94,7 @@ async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSi
         .await?
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
-    let first_message: [u8; RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = first_message
+    let first_message: [u8; ELLSWIFT_ENCODING_SIZE] = first_message
         .get_payload_when_handshaking()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;

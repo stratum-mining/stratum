@@ -43,14 +43,6 @@ pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 /// Size of the SV2 frame header in bytes.
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 
-// It's not used anywhere.
-// Refactoring: deprecate it.
-pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
-
-// It's not used anywhere.
-// Refactoring: deprecate it.
-pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
-
 /// Maximum size of an SV2 frame chunk in bytes.
 pub const SV2_FRAME_CHUNK_SIZE: usize = 65535;
 
@@ -58,41 +50,20 @@ pub const SV2_FRAME_CHUNK_SIZE: usize = 65535;
 pub const AEAD_MAC_LEN: usize = 16;
 
 /// Size of the encrypted SV2 frame header, including the MAC.
-// Refactoring: declared in sv2-ffi, and imported in framing_sv2/src/header.rs
-// header.rs is then imported into codec_sv2 just for this constant
 pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 
 /// Size of the Noise protocol frame header in bytes.
-// Refactoring: declared in sv2-ffi, and imported in framing_sv2/src/header.rs
-// header.rs is then imported into codec_sv2 just for this constant
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
-
-// Refactoring: declared in sv2-ffi, and imported in framing_sv2/src/header.rs
-// header.rs is then imported into codec_sv2 just for this constant, and the
-// const there is not even used
-pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
-
-// It's not used anywhere.
-// Refactoring: deprecate it.
-pub const NOISE_FRAME_MAX_SIZE: usize = u16::MAX as usize;
 
 /// Size in bytes of the encoded elliptic curve point using ElligatorSwift
 /// encoding. This encoding produces a 64-byte representation of the
 /// X-coordinate of a secp256k1 curve point.
 pub const ELLSWIFT_ENCODING_SIZE: usize = 64;
 
-// Refactoring: the alias could be created where it's imported, or we could just
-// use one name everywhere
-pub const RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_SIZE;
-
-// This is the same as AEAD_MAC_LEN.
-// Refactoring: deprecate it.
-pub const MAC: usize = 16;
-
 /// Size in bytes of the encrypted ElligatorSwift encoded data, which includes
 /// the original ElligatorSwift encoded data and a MAC for integrity
 /// verification.
-pub const ENCRYPTED_ELLSWIFT_ENCODING_SIZE: usize = ELLSWIFT_ENCODING_SIZE + MAC;
+pub const ENCRYPTED_ELLSWIFT_ENCODING_SIZE: usize = ELLSWIFT_ENCODING_SIZE + AEAD_MAC_LEN;
 
 /// Size in bytes of the SIGNATURE_NOISE_MESSAGE, which contains information and
 /// a signature for the handshake initiator, formatted according to the Noise
@@ -101,7 +72,8 @@ pub const SIGNATURE_NOISE_MESSAGE_SIZE: usize = 74;
 
 /// Size in bytes of the encrypted signature noise message, which includes the
 /// SIGNATURE_NOISE_MESSAGE and a MAC for integrity verification.
-pub const ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE: usize = SIGNATURE_NOISE_MESSAGE_SIZE + MAC;
+pub const ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE: usize =
+    SIGNATURE_NOISE_MESSAGE_SIZE + AEAD_MAC_LEN;
 
 /// Size in bytes of the handshake message expected by the initiator,
 /// encompassing:
