@@ -11,6 +11,18 @@ pub enum Message {
     ErrorResponse(Response),
 }
 
+impl Message {
+    // TODO: Remove this. Keeping this in to avoid upgrading the major version of the crate.
+    pub fn is_response(&self) -> bool {
+        match self {
+            Message::StandardRequest(_) => false,
+            Message::Notification(_) => false,
+            Message::OkResponse(_) => true,
+            Message::ErrorResponse(_) => true,
+        }
+    }
+}
+
 impl Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
