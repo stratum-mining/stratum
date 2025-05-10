@@ -206,6 +206,17 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
     }
 }
 
+// Helper function to format bytes as hex string
+// useful for visualizing targets
+pub fn bytes_to_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        write!(&mut s, "{:02x}", b)
+            .expect("Writing hex bytes to pre-allocated string should never fail");
+    }
+    s
+}
+
 // Computes the Merkle root by iteratively combining the coinbase transaction hash with each
 // transaction hash in the `path`.
 //
