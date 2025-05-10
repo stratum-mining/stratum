@@ -13,6 +13,7 @@ use primitive_types::U256 as U256Primitive;
 use std::{
     cmp::max,
     convert::{TryFrom, TryInto},
+    fmt::Write,
     ops::Div,
     str::FromStr,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
@@ -206,6 +207,16 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
         0 => coinbase_id,
         _ => reduce_path(coinbase_id, path),
     }
+}
+
+// Helper function to format bytes as hex string
+// useful for visualizing targets
+pub fn bytes_to_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        write!(&mut s, "{:02x}", b).unwrap();
+    }
+    s
 }
 
 // Computes the Merkle root by iteratively combining the coinbase transaction hash with each
