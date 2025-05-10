@@ -638,4 +638,141 @@ mod tests {
             other => panic!("Expected MethodNotFound error, got {:?}", other),
         }
     }
+
+    #[test]
+    fn test_server_handle_subscribe_with_correct_message_type() {
+        let extranonce1 = Extranonce::try_from(hex::decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1.clone(), 4);
+
+        // Create a valid subscribe request
+        let request_message = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
+            id: 1,
+            method: "mining.subscribe".to_string(),
+            params: serde_json::json!([]),
+        });
+
+        let result = server.handle_message(request_message);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.is_some());
+
+        if let Some(json_rpc::Response { id, result, error }) = response {
+            assert_eq!(id, 1);
+            assert!(error.is_none());
+
+            // Check that the result contains the subscription data and extranonce info
+            if let serde_json::Value::Array(result_array) = result {
+                assert_eq!(result_array.len(), 3);
+
+                // Check subscriptions format
+                if let serde_json::Value::Array(subscriptions) = &result_array[0] {
+                    assert_eq!(subscriptions.len(), 1);
+                    if let serde_json::Value::Array(subscription) = &subscriptions[0] {
+                        assert_eq!(subscription[0], "mining.notify");
+                        assert_eq!(subscription[1], "1");
+                    }
+                }
+
+                // Check extranonce1
+                assert_eq!(result_array[1], "08000002");
+                // Check extranonce2_size
+                assert_eq!(result_array[2], 4);
+            } else {
+                panic!("Expected array result");
+            }
+        } else {
+            panic!("Expected StandardResponse");
+        }
+    }
+
+    #[test]
+    fn test_server_handle_authorize() {
+        let extranonce1 = Extranonce::try_from(hex::decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+
+        // Create a valid authorize request
+        let request_message = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
+            id: 2,
+            method: "mining.authorize".to_string(),
+            params: serde_json::json!(["test_user", "password"]),
+        });
+
+        let result = server.handle_message(request_message);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.is_some());
+
+        if let Some(json_rpc::Response { id, result, error }) = response {
+            assert_eq!(id, 2);
+            assert!(error.is_none());
+            assert_eq!(result, serde_json::json!(true));
+        } else {
+            panic!("Expected StandardResponse");
+        }
+
+        // Check that the user is now authorized
+        assert!(server.is_authorized("test_user"));
+    }
+
+    #[test]
+    fn test_server_handle_submit() {
+        let extranonce1 = Extranonce::try_from(hex::decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+
+        // First authorize the user
+        server.authorize("test_user");
+        assert!(server.is_authorized("test_user"));
+
+        // Create a valid submit request
+        let request_message = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
+            id: 3,
+            method: "mining.submit".to_string(),
+            params: serde_json::json!(["test_user", "job_id", "01020304", "5054f1ac", "58e69e99"]),
+        });
+
+        let result = server.handle_message(request_message);
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.is_some());
+
+        if let Some(json_rpc::Response { id, result, error }) = response {
+            assert_eq!(id, 3);
+            assert!(error.is_none());
+            assert_eq!(result, serde_json::json!(true));
+        } else {
+            panic!("Expected StandardResponse");
+        }
+    }
+
+    #[test]
+    fn test_server_handle_submit_unauthorized() {
+        let extranonce1 = Extranonce::try_from(hex::decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+
+        // Don't authorize the user first
+
+        // Create a submit request with unauthorized user
+        let request_message = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
+            id: 3,
+            method: "mining.submit".to_string(),
+            params: serde_json::json!([
+                "unauthorized_user",
+                "job_id",
+                "01020304",
+                "5054f1ac",
+                "58e69e99"
+            ]),
+        });
+
+        let result = server.handle_message(request_message);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::InvalidSubmission => {}
+            other => panic!("Expected InvalidSubmission error, got {:?}", other),
+        }
+    }
 }
