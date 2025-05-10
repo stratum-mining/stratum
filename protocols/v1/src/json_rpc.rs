@@ -12,7 +12,7 @@ pub enum Message {
 }
 
 impl Message {
-    // TODO REMOVE it
+    // TODO: Remove this. Keeping this in to avoid upgrading the major version of the crate.
     pub fn is_response(&self) -> bool {
         match self {
             Message::StandardRequest(_) => false,
@@ -21,13 +21,6 @@ impl Message {
             Message::ErrorResponse(_) => true,
         }
     }
-
-    //pub fn error(&self) -> Option<JsonRpcError> {
-    //    match self {
-    //        Message::Response(r) => r.error.clone(),
-    //        _ => None,
-    //    }
-    //}
 }
 
 impl Display for Message {

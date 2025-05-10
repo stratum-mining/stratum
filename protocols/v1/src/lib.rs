@@ -51,17 +51,14 @@ pub use json_rpc::Message;
 pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
 use utils::{Extranonce, HexU32Be};
 
-/// json_rpc Response are not handled cause stratum v1 does not have any request from a server to a
-/// client
+/// json_rpc Response are not handled because stratum v1 does not have any request from a server to
+/// a client
 /// TODO: Should update to accommodate miner requesting a difficulty change
 ///
 /// A stratum v1 server represent a single connection with a client
 pub trait IsServer<'a> {
-    /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
-    /// result.
-    ///
-    /// [a]: crate::...
-    /// [b]:
+    /// handle the received message and return a response if the message is a request or
+    /// notification.
     fn handle_message(
         &mut self,
         msg: json_rpc::Message,
@@ -69,23 +66,34 @@ pub trait IsServer<'a> {
     where
         Self: std::marker::Sized,
     {
-        // Server shoudln't receive json_rpc responses
-        if msg.is_response() {
-            Err(Error::InvalidJsonRpcMessageKind)
-        } else {
-            self.handle_request(msg.try_into()?)
+        match msg {
+            Message::StandardRequest(_) => {
+                // handle valid standard request
+                self.handle_request(msg)
+            }
+            Message::Notification(_) => {
+                // handle valid server notification
+                self.handle_request(msg)
+            }
+            _ => {
+                // Server shouldn't receive json_rpc responses
+                Err(Error::InvalidJsonRpcMessageKind)
+            }
         }
     }
 
     /// Call the right handler according with the called method
     fn handle_request(
         &mut self,
-        request: methods::Client2Server<'a>,
+        msg: json_rpc::Message,
     ) -> Result<Option<json_rpc::Response>, Error<'a>>
     where
         Self: std::marker::Sized,
     {
+        let request = msg.try_into()?;
+
         match request {
+            // TODO: Handle suggested difficulty
             methods::Client2Server::SuggestDifficulty() => Ok(None),
             methods::Client2Server::Authorize(authorize) => {
                 let authorized = self.handle_authorize(&authorize);
@@ -504,4 +512,130 @@ pub enum ClientStatus {
     Init,
     Configured,
     Subscribed,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    // A minimal implementation of IsServer trait for testing
+    struct TestServer<'a> {
+        authorized_users: HashSet<String>,
+        extranonce1: Extranonce<'a>,
+        extranonce2_size: usize,
+        version_rolling_mask: Option<HexU32Be>,
+        version_rolling_min_bit: Option<HexU32Be>,
+    }
+
+    impl<'a> TestServer<'a> {
+        fn new(extranonce1: Extranonce<'a>, extranonce2_size: usize) -> Self {
+            Self {
+                authorized_users: HashSet::new(),
+                extranonce1,
+                extranonce2_size,
+                version_rolling_mask: None,
+                version_rolling_min_bit: None,
+            }
+        }
+    }
+
+    impl<'a> IsServer<'a> for TestServer<'a> {
+        fn handle_configure(
+            &mut self,
+            _request: &client_to_server::Configure,
+        ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
+            (None, None)
+        }
+
+        fn handle_subscribe(
+            &self,
+            _request: &client_to_server::Subscribe,
+        ) -> Vec<(String, String)> {
+            vec![("mining.notify".to_string(), "1".to_string())]
+        }
+
+        fn handle_authorize(&self, _request: &client_to_server::Authorize) -> bool {
+            true
+        }
+
+        fn notify(&mut self) -> Result<json_rpc::Message, Error> {
+            Ok(json_rpc::Message::StandardRequest(
+                json_rpc::StandardRequest {
+                    id: 1,
+                    method: "mining.notify".to_string(),
+                    params: serde_json::json!([]),
+                },
+            ))
+        }
+
+        fn handle_submit(&self, _request: &client_to_server::Submit<'a>) -> bool {
+            true
+        }
+
+        fn handle_extranonce_subscribe(&self) {}
+
+        fn is_authorized(&self, name: &str) -> bool {
+            self.authorized_users.contains(name)
+        }
+
+        fn authorize(&mut self, name: &str) {
+            self.authorized_users.insert(name.to_string());
+        }
+
+        fn set_extranonce1(&mut self, extranonce1: Option<Extranonce<'a>>) -> Extranonce<'a> {
+            if let Some(extranonce1) = extranonce1 {
+                self.extranonce1 = extranonce1;
+            }
+            self.extranonce1.clone()
+        }
+
+        fn extranonce1(&self) -> Extranonce<'a> {
+            self.extranonce1.clone()
+        }
+
+        fn set_extranonce2_size(&mut self, extra_nonce2_size: Option<usize>) -> usize {
+            if let Some(extra_nonce2_size) = extra_nonce2_size {
+                self.extranonce2_size = extra_nonce2_size;
+            }
+            self.extranonce2_size
+        }
+
+        fn extranonce2_size(&self) -> usize {
+            self.extranonce2_size
+        }
+
+        fn version_rolling_mask(&self) -> Option<HexU32Be> {
+            None
+        }
+
+        fn set_version_rolling_mask(&mut self, mask: Option<HexU32Be>) {
+            self.version_rolling_mask = mask;
+        }
+
+        fn set_version_rolling_min_bit(&mut self, mask: Option<HexU32Be>) {
+            self.version_rolling_min_bit = mask;
+        }
+    }
+
+    #[test]
+    fn test_server_handle_invalid_message() {
+        let extranonce1 = Extranonce::try_from(hex::decode("08000002").unwrap()).unwrap();
+        let mut server = TestServer::new(extranonce1, 4);
+
+        // Create an invalid message (response)
+        let request_message = json_rpc::Message::StandardRequest(json_rpc::StandardRequest {
+            id: 42,
+            method: "mining.subscribe_bad".to_string(),
+            params: serde_json::json!([]),
+        });
+
+        let result = server.handle_message(request_message);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::Method(MethodError::MethodNotFound(_)) => {}
+            other => panic!("Expected MethodNotFound error, got {:?}", other),
+        }
+    }
 }
