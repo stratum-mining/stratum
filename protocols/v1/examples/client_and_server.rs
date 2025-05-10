@@ -15,11 +15,12 @@ type Receiver<T> = mpsc::Receiver<T>;
 type Sender<T> = mpsc::Sender<T>;
 
 use sv1_api::{
-    client_to_server,
+    client::{ClientStatus, IsClient},
     error::Error,
-    json_rpc, server_to_client,
+    json_rpc::{self, Message},
+    methods::{client_to_server, server_to_client},
+    server::IsServer,
     utils::{Extranonce, HexU32Be, MerkleNode, PrevHash},
-    ClientStatus, IsClient, IsServer, Message,
 };
 
 fn new_extranonce<'a>() -> Extranonce<'a> {

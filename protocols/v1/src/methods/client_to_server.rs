@@ -8,7 +8,7 @@ use std::convert::{TryFrom, TryInto};
 use crate::{
     error::Error,
     json_rpc::{Message, Response, StandardRequest},
-    methods::ParsingMethodError,
+    methods::{client_to_server, server_to_client, ParsingMethodError},
     utils::{Extranonce, HexU32Be},
 };
 
@@ -205,7 +205,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
                 };
                 let id = msg.id;
-                let res = crate::client_to_server::Submit {
+                let res = client_to_server::Submit {
                     user_name,
                     job_id,
                     extra_nonce2,
@@ -279,7 +279,7 @@ impl<'a> Subscribe<'a> {
         extra_nonce1: Extranonce<'a>,
         extra_nonce2_size: usize,
     ) -> Response {
-        let response = crate::server_to_client::Subscribe {
+        let response = server_to_client::Subscribe {
             subscriptions,
             extra_nonce1,
             extra_nonce2_size,
@@ -366,10 +366,10 @@ impl Configure {
 
     pub fn respond(
         self,
-        version_rolling: Option<crate::server_to_client::VersionRollingParams>,
+        version_rolling: Option<server_to_client::VersionRollingParams>,
         minimum_difficulty: Option<bool>,
     ) -> Response {
-        let response = crate::server_to_client::Configure {
+        let response = server_to_client::Configure {
             id: self.id,
             version_rolling,
             minimum_difficulty,
