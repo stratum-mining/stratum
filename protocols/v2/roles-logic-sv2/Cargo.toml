@@ -33,6 +33,7 @@ quickcheck_macros = "1"
 rand = "0.8.5"
 toml =  {git = "https://github.com/diondokter/toml-rs", default-features = false, rev="c4161aa"}
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false}
+tracing-subscriber = "0.3"
 
 [features]
 prop_test = ["template_distribution_sv2/prop_test"]
