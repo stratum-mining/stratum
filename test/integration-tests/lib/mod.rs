@@ -33,7 +33,7 @@ pub fn start_tracing() {
 }
 
 pub fn start_sniffer(
-    identifier: String,
+    identifier: &str,
     upstream: SocketAddr,
     check_on_drop: bool,
     action: Vec<InterceptAction>,

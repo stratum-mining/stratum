@@ -11,7 +11,7 @@ async fn jds_ask_for_missing_transactions() {
     let (tp_2, tp_addr_2) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr_1)).await;
     let (_jds, jds_addr) = start_jds(tp_1.rpc_info());
-    let (sniffer, sniffer_addr) = start_sniffer("A".to_string(), jds_addr, false, vec![]);
+    let (sniffer, sniffer_addr) = start_sniffer("A", jds_addr, false, vec![]);
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr_2);
     start_sv2_translator(jdc_addr);
     assert!(tp_2.fund_wallet().is_ok());

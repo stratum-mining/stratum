@@ -49,8 +49,8 @@ enum SnifferError {
 /// In order to replace or ignore the messages sent between the roles, [`InterceptAction`] can be
 /// used in [`Sniffer::new`].
 #[derive(Debug, Clone)]
-pub struct Sniffer {
-    identifier: String,
+pub struct Sniffer<'a> {
+    identifier: &'a str,
     listening_address: SocketAddr,
     upstream_address: SocketAddr,
     messages_from_downstream: MessagesAggregator,
@@ -59,11 +59,11 @@ pub struct Sniffer {
     action: Vec<InterceptAction>,
 }
 
-impl Sniffer {
+impl<'a> Sniffer<'a> {
     /// Creates a new sniffer that listens on the given listening address and connects to the given
     /// upstream address.
     pub fn new(
-        identifier: String,
+        identifier: &'a str,
         listening_address: SocketAddr,
         upstream_address: SocketAddr,
         check_on_drop: bool,
@@ -90,7 +90,7 @@ impl Sniffer {
         let messages_from_downstream = self.messages_from_downstream.clone();
         let messages_from_upstream = self.messages_from_upstream.clone();
         let action = self.action.clone();
-        let identifier = self.identifier.clone();
+        let identifier = self.identifier.to_string();
         tokio::spawn(async move {
             let (downstream_receiver, downstream_sender) =
                 Self::create_downstream(Self::wait_for_client(listening_address).await)
@@ -757,7 +757,7 @@ macro_rules! assert_jd_message {
 // downstream and upstream roles. If not, the test will panic.
 //
 // This is useful to ensure that the test has checked all exchanged messages between the roles.
-impl Drop for Sniffer {
+impl Drop for Sniffer<'_> {
     fn drop(&mut self) {
         if self.check_on_drop {
             match (

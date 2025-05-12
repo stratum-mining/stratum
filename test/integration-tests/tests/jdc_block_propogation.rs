@@ -11,14 +11,9 @@ async fn propogated_from_jdc_to_tp() {
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let ignore_push_solution =
         IgnoreMessage::new(MessageDirection::ToUpstream, MESSAGE_TYPE_PUSH_SOLUTION);
-    let (jdc_jds_sniffer, jdc_jds_sniffer_addr) = start_sniffer(
-        "0".to_string(),
-        jds_addr,
-        false,
-        vec![ignore_push_solution.into()],
-    );
-    let (jdc_tp_sniffer, jdc_tp_sniffer_addr) =
-        start_sniffer("1".to_string(), tp_addr, false, vec![]);
+    let (jdc_jds_sniffer, jdc_jds_sniffer_addr) =
+        start_sniffer("0", jds_addr, false, vec![ignore_push_solution.into()]);
+    let (jdc_tp_sniffer, jdc_tp_sniffer_addr) = start_sniffer("1", tp_addr, false, vec![]);
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jdc_jds_sniffer_addr)], jdc_tp_sniffer_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr);
     let _mining_device = start_mining_device_sv1(tproxy_addr, false, None);
