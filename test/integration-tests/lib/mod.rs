@@ -15,10 +15,13 @@ use std::{
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
+pub mod message_aggregator;
 pub mod sniffer;
+pub mod sniffer_error;
 #[cfg(feature = "sv1")]
 pub mod sv1_sniffer;
 pub mod template_provider;
+pub mod types;
 pub(crate) mod utils;
 
 const SHARES_PER_MINUTE: f32 = 120.0;
