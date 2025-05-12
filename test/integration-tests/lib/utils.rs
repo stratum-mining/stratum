@@ -1,6 +1,6 @@
 use crate::{
+    interceptor::{InterceptAction, MessageDirection},
     message_aggregator::MessagesAggregator,
-    sniffer::{InterceptAction, MessageDirection},
     sniffer_error::SnifferError,
     types::{MessageFrame, MsgType},
 };

@@ -1,9 +1,11 @@
-use integration_tests_sv2::*;
+use integration_tests_sv2::{
+    interceptor::{MessageDirection, ReplaceMessage},
+    *,
+};
 use roles_logic_sv2::{
     mining_sv2::SubmitSharesError,
     parsers::{AnyMessage, Mining},
 };
-use sniffer::{MessageDirection, ReplaceMessage};
 use std::convert::TryInto;
 use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS};
 

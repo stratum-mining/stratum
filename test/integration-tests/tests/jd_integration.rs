@@ -1,7 +1,7 @@
 // This file contains integration tests for the `JDC/S` module.
 use binary_sv2::{Seq064K, B032, U256};
 use integration_tests_sv2::{
-    sniffer::{MessageDirection, ReplaceMessage},
+    interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
     *,
 };
 use roles_logic_sv2::{
@@ -80,8 +80,8 @@ async fn jdc_does_not_stackoverflow_when_no_token() {
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
-    let block_from_message = sniffer::IgnoreMessage::new(
-        sniffer::MessageDirection::ToDownstream,
+    let block_from_message = IgnoreMessage::new(
+        MessageDirection::ToDownstream,
         MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     );
     let (jds_jdc_sniffer, jds_jdc_sniffer_addr) = start_sniffer(

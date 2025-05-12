@@ -1,8 +1,7 @@
 // This file contains integration tests for the `PoolSv2` module.
 //
 // `PoolSv2` is a module that implements the Pool role in the Stratum V2 protocol.
-use crate::sniffer::MessageDirection;
-use integration_tests_sv2::*;
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},

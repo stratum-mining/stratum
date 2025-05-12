@@ -1,5 +1,4 @@
-use integration_tests_sv2::*;
-use sniffer::MessageDirection;
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
 
 #[tokio::test]

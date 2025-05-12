@@ -1,4 +1,4 @@
-use integration_tests_sv2::{sniffer::*, *};
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::{
     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,

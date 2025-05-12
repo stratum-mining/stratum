@@ -1,6 +1,7 @@
 use crate::{sniffer::*, template_provider::*};
 use config_helpers::CoinbaseOutput;
 use corepc_node::{ConnectParams, CookieValues};
+use interceptor::InterceptAction;
 use jd_client::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -15,6 +16,7 @@ use std::{
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
+pub mod interceptor;
 pub mod message_aggregator;
 pub mod sniffer;
 pub mod sniffer_error;

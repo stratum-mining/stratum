@@ -1,10 +1,12 @@
 // This file contains integration tests for the `Sniffer` module.
-use integration_tests_sv2::{sniffer::IgnoreMessage, *};
+use integration_tests_sv2::{
+    interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
+    *,
+};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     parsers::{AnyMessage, CommonMessages},
 };
-use sniffer::{MessageDirection, ReplaceMessage};
 use std::convert::TryInto;
 use stratum_common::{
     MESSAGE_TYPE_NEW_TEMPLATE, MESSAGE_TYPE_SETUP_CONNECTION,

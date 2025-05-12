@@ -1,5 +1,5 @@
 // This file contains integration tests for the `TranslatorSv2` module.
-use integration_tests_sv2::{sniffer::*, *};
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use roles_logic_sv2::parsers::{AnyMessage, CommonMessages, Mining};
 use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 

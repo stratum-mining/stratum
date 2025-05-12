@@ -1,4 +1,7 @@
-use integration_tests_sv2::{sniffer::*, *};
+use integration_tests_sv2::{
+    interceptor::{IgnoreMessage, MessageDirection},
+    *,
+};
 use stratum_common::{MESSAGE_TYPE_PUSH_SOLUTION, MESSAGE_TYPE_SUBMIT_SOLUTION};
 
 // Block propogated from JDS to TP

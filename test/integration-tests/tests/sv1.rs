@@ -1,6 +1,6 @@
 #![cfg(feature = "sv1")]
 use integration_tests_sv2::*;
-use sniffer::MessageDirection;
+use interceptor::MessageDirection;
 
 #[tokio::test]
 async fn test_basic_sv1() {

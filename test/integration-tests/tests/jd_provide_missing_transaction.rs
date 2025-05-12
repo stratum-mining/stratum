@@ -1,4 +1,4 @@
-use integration_tests_sv2::{sniffer::MessageDirection, *};
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::{
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
     MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
