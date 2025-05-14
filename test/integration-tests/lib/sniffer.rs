@@ -1,34 +1,15 @@
-use async_channel::{Receiver, Sender};
-use codec_sv2::{
-    framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame, Sv2Frame,
-};
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{
-    parsers::{
-        message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
-        JobDeclaration::{
-            AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-            DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
-            ProvideMissingTransactionsSuccess, PushSolution,
-        },
-        TemplateDistribution::{self, CoinbaseOutputConstraints},
+use crate::{
+    interceptor::{InterceptAction, MessageDirection},
+    message_aggregator::MessagesAggregator,
+    types::MsgType,
+    utils::{
+        create_downstream, create_upstream, recv_from_down_send_to_up, recv_from_up_send_to_down,
+        wait_for_client,
     },
-    utils::Mutex,
 };
-use std::{collections::VecDeque, convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::{
-    net::{TcpListener, TcpStream},
-    select,
-};
-type MessageFrame = StandardEitherFrame<AnyMessage<'static>>;
-type MsgType = u8;
-
-#[derive(Debug, PartialEq)]
-enum SnifferError {
-    DownstreamClosed,
-    UpstreamClosed,
-}
+use roles_logic_sv2::parsers::AnyMessage;
+use std::net::SocketAddr;
+use tokio::{net::TcpStream, select};
 
 /// Allows to intercept messages sent between two roles.
 ///
@@ -49,25 +30,25 @@ enum SnifferError {
 /// In order to replace or ignore the messages sent between the roles, [`InterceptAction`] can be
 /// used in [`Sniffer::new`].
 #[derive(Debug, Clone)]
-pub struct Sniffer {
-    identifier: String,
+pub struct Sniffer<'a> {
+    identifier: &'a str,
     listening_address: SocketAddr,
     upstream_address: SocketAddr,
     messages_from_downstream: MessagesAggregator,
     messages_from_upstream: MessagesAggregator,
     check_on_drop: bool,
-    action: Option<InterceptAction>,
+    action: Vec<InterceptAction>,
 }
 
-impl Sniffer {
+impl<'a> Sniffer<'a> {
     /// Creates a new sniffer that listens on the given listening address and connects to the given
     /// upstream address.
     pub fn new(
-        identifier: String,
+        identifier: &'a str,
         listening_address: SocketAddr,
         upstream_address: SocketAddr,
         check_on_drop: bool,
-        action: Option<InterceptAction>,
+        action: Vec<InterceptAction>,
     ) -> Self {
         Self {
             identifier,
@@ -90,13 +71,13 @@ impl Sniffer {
         let messages_from_downstream = self.messages_from_downstream.clone();
         let messages_from_upstream = self.messages_from_upstream.clone();
         let action = self.action.clone();
-        let identifier = self.identifier.clone();
+        let identifier = self.identifier.to_string();
         tokio::spawn(async move {
             let (downstream_receiver, downstream_sender) =
-                Self::create_downstream(Self::wait_for_client(listening_address).await)
+                create_downstream(wait_for_client(listening_address).await)
                     .await
                     .expect("Failed to create downstream");
-            let (upstream_receiver, upstream_sender) = Self::create_upstream(
+            let (upstream_receiver, upstream_sender) = create_upstream(
                 TcpStream::connect(upstream_address)
                     .await
                     .expect("Failed to connect to upstream"),
@@ -105,8 +86,8 @@ impl Sniffer {
             .expect("Failed to create upstream");
             select! {
                 _ = tokio::signal::ctrl_c() => { },
-                _ = Self::recv_from_down_send_to_up(downstream_receiver, upstream_sender, messages_from_downstream, action.clone(), &identifier) => { },
-                _ = Self::recv_from_up_send_to_down(upstream_receiver, downstream_sender, messages_from_upstream, action, &identifier) => { },
+                _ = recv_from_down_send_to_up(downstream_receiver, upstream_sender, messages_from_downstream, action.clone(), &identifier) => { },
+                _ = recv_from_up_send_to_down(upstream_receiver, downstream_sender, messages_from_upstream, action, &identifier) => { },
             };
         });
     }
@@ -220,301 +201,6 @@ impl Sniffer {
         }
     }
 
-    async fn create_downstream(
-        stream: TcpStream,
-    ) -> Option<(Receiver<MessageFrame>, Sender<MessageFrame>)> {
-        let pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
-            .to_string()
-            .parse::<Secp256k1PublicKey>()
-            .unwrap()
-            .into_bytes();
-        let prv_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
-            .to_string()
-            .parse::<Secp256k1SecretKey>()
-            .unwrap()
-            .into_bytes();
-        let responder =
-            Responder::from_authority_kp(&pub_key, &prv_key, std::time::Duration::from_secs(10000))
-                .unwrap();
-        if let Ok((receiver_from_client, sender_to_client)) =
-            Connection::new::<'static, AnyMessage<'static>>(
-                stream,
-                HandshakeRole::Responder(responder),
-            )
-            .await
-        {
-            Some((receiver_from_client, sender_to_client))
-        } else {
-            None
-        }
-    }
-
-    async fn create_upstream(
-        stream: TcpStream,
-    ) -> Option<(Receiver<MessageFrame>, Sender<MessageFrame>)> {
-        let initiator = Initiator::without_pk().expect("This fn call can not fail");
-        if let Ok((receiver_from_server, sender_to_server)) =
-            Connection::new::<'static, AnyMessage<'static>>(
-                stream,
-                HandshakeRole::Initiator(initiator),
-            )
-            .await
-        {
-            Some((receiver_from_server, sender_to_server))
-        } else {
-            None
-        }
-    }
-
-    async fn recv_from_down_send_to_up(
-        recv: Receiver<MessageFrame>,
-        send: Sender<MessageFrame>,
-        downstream_messages: MessagesAggregator,
-        action: Option<InterceptAction>,
-        identifier: &str,
-    ) -> Result<(), SnifferError> {
-        while let Ok(mut frame) = recv.recv().await {
-            let (msg_type, msg) = Self::message_from_frame(&mut frame);
-            let action = action.as_ref().and_then(|action| {
-                action.find_matching_action(msg_type, MessageDirection::ToUpstream)
-            });
-            if let Some(ref action) = action {
-                match action {
-                    InterceptAction::IgnoreMessage(_) => {
-                        tracing::info!(
-                            "🔍 Sv2 Sniffer {} | Ignored: {} | Direction: ⬆",
-                            identifier,
-                            message_type_to_name(msg_type)
-                        );
-                        continue;
-                    }
-                    InterceptAction::ReplaceMessage(intercept_message) => {
-                        let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
-                            Sv2Frame::from_message(
-                                intercept_message.replacement_message.clone(),
-                                intercept_message.replacement_message.message_type(),
-                                0,
-                                false,
-                            )
-                            .expect("Failed to create the frame"),
-                        );
-                        downstream_messages.add_message(
-                            intercept_message.replacement_message.message_type(),
-                            intercept_message.replacement_message.clone(),
-                        );
-                        send.send(intercept_frame)
-                            .await
-                            .map_err(|_| SnifferError::UpstreamClosed)?;
-                        tracing::info!(
-                            "🔍 Sv2 Sniffer {} | Replaced: {} with {} | Direction: ⬆",
-                            identifier,
-                            message_type_to_name(msg_type),
-                            message_type_to_name(
-                                intercept_message.replacement_message.message_type()
-                            )
-                        );
-                    }
-                }
-            } else {
-                downstream_messages.add_message(msg_type, msg);
-                send.send(frame)
-                    .await
-                    .map_err(|_| SnifferError::UpstreamClosed)?;
-                tracing::info!(
-                    "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬆",
-                    identifier,
-                    message_type_to_name(msg_type)
-                );
-            }
-        }
-        Err(SnifferError::DownstreamClosed)
-    }
-
-    async fn recv_from_up_send_to_down(
-        recv: Receiver<MessageFrame>,
-        send: Sender<MessageFrame>,
-        upstream_messages: MessagesAggregator,
-        action: Option<InterceptAction>,
-        identifier: &str,
-    ) -> Result<(), SnifferError> {
-        while let Ok(mut frame) = recv.recv().await {
-            let (msg_type, msg) = Self::message_from_frame(&mut frame);
-
-            let action = action.as_ref().and_then(|action| {
-                action.find_matching_action(msg_type, MessageDirection::ToDownstream)
-            });
-
-            if let Some(ref action) = action {
-                match action {
-                    InterceptAction::IgnoreMessage(_) => {
-                        tracing::info!(
-                            "🔍 Sv2 Sniffer {} | Ignored: {} | Direction: ⬇",
-                            identifier,
-                            message_type_to_name(msg_type)
-                        );
-                        continue;
-                    }
-                    InterceptAction::ReplaceMessage(intercept_message) => {
-                        let intercept_frame = StandardEitherFrame::<AnyMessage<'_>>::Sv2(
-                            Sv2Frame::from_message(
-                                intercept_message.replacement_message.clone(),
-                                intercept_message.replacement_message.message_type(),
-                                0,
-                                false,
-                            )
-                            .expect("Failed to create the frame"),
-                        );
-                        upstream_messages.add_message(
-                            intercept_message.replacement_message.message_type(),
-                            intercept_message.replacement_message.clone(),
-                        );
-                        send.send(intercept_frame)
-                            .await
-                            .map_err(|_| SnifferError::DownstreamClosed)?;
-                        tracing::info!(
-                            "🔍 Sv2 Sniffer {} | Replaced: {} with {} | Direction: ⬇",
-                            identifier,
-                            message_type_to_name(msg_type),
-                            message_type_to_name(
-                                intercept_message.replacement_message.message_type()
-                            )
-                        );
-                    }
-                }
-            } else {
-                upstream_messages.add_message(msg_type, msg);
-                send.send(frame)
-                    .await
-                    .map_err(|_| SnifferError::DownstreamClosed)?;
-                tracing::info!(
-                    "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬇",
-                    identifier,
-                    message_type_to_name(msg_type)
-                );
-            }
-        }
-        Err(SnifferError::UpstreamClosed)
-    }
-
-    fn message_from_frame(frame: &mut MessageFrame) -> (MsgType, AnyMessage<'static>) {
-        match frame {
-            Frame::Sv2(frame) => {
-                if let Some(header) = frame.get_header() {
-                    let message_type = header.msg_type();
-                    let mut payload = frame.payload().to_vec();
-                    let message: Result<AnyMessage<'_>, _> =
-                        (message_type, payload.as_mut_slice()).try_into();
-                    match message {
-                        Ok(message) => {
-                            let message = Self::into_static(message);
-                            (message_type, message)
-                        }
-                        _ => {
-                            println!(
-                                "Received frame with invalid payload or message type: {frame:?}"
-                            );
-                            panic!();
-                        }
-                    }
-                } else {
-                    println!("Received frame with invalid header: {frame:?}");
-                    panic!();
-                }
-            }
-            Frame::HandShake(f) => {
-                println!("Received unexpected handshake frame: {f:?}");
-                panic!();
-            }
-        }
-    }
-
-    fn into_static(m: AnyMessage<'_>) -> AnyMessage<'static> {
-        match m {
-            AnyMessage::Mining(m) => AnyMessage::Mining(m.into_static()),
-            AnyMessage::Common(m) => match m {
-                CommonMessages::ChannelEndpointChanged(m) => {
-                    AnyMessage::Common(CommonMessages::ChannelEndpointChanged(m.into_static()))
-                }
-                CommonMessages::SetupConnection(m) => {
-                    AnyMessage::Common(CommonMessages::SetupConnection(m.into_static()))
-                }
-                CommonMessages::SetupConnectionError(m) => {
-                    AnyMessage::Common(CommonMessages::SetupConnectionError(m.into_static()))
-                }
-                CommonMessages::SetupConnectionSuccess(m) => {
-                    AnyMessage::Common(CommonMessages::SetupConnectionSuccess(m.into_static()))
-                }
-                CommonMessages::Reconnect(m) => {
-                    AnyMessage::Common(CommonMessages::Reconnect(m.into_static()))
-                }
-            },
-            AnyMessage::JobDeclaration(m) => match m {
-                AllocateMiningJobToken(m) => {
-                    AnyMessage::JobDeclaration(AllocateMiningJobToken(m.into_static()))
-                }
-                AllocateMiningJobTokenSuccess(m) => {
-                    AnyMessage::JobDeclaration(AllocateMiningJobTokenSuccess(m.into_static()))
-                }
-                DeclareMiningJob(m) => {
-                    AnyMessage::JobDeclaration(DeclareMiningJob(m.into_static()))
-                }
-                DeclareMiningJobError(m) => {
-                    AnyMessage::JobDeclaration(DeclareMiningJobError(m.into_static()))
-                }
-                DeclareMiningJobSuccess(m) => {
-                    AnyMessage::JobDeclaration(DeclareMiningJobSuccess(m.into_static()))
-                }
-                ProvideMissingTransactions(m) => {
-                    AnyMessage::JobDeclaration(ProvideMissingTransactions(m.into_static()))
-                }
-                ProvideMissingTransactionsSuccess(m) => {
-                    AnyMessage::JobDeclaration(ProvideMissingTransactionsSuccess(m.into_static()))
-                }
-                PushSolution(m) => AnyMessage::JobDeclaration(PushSolution(m.into_static())),
-            },
-            AnyMessage::TemplateDistribution(m) => match m {
-                CoinbaseOutputConstraints(m) => {
-                    AnyMessage::TemplateDistribution(CoinbaseOutputConstraints(m.into_static()))
-                }
-                TemplateDistribution::NewTemplate(m) => AnyMessage::TemplateDistribution(
-                    TemplateDistribution::NewTemplate(m.into_static()),
-                ),
-                TemplateDistribution::RequestTransactionData(m) => {
-                    AnyMessage::TemplateDistribution(TemplateDistribution::RequestTransactionData(
-                        m.into_static(),
-                    ))
-                }
-                TemplateDistribution::RequestTransactionDataError(m) => {
-                    AnyMessage::TemplateDistribution(
-                        TemplateDistribution::RequestTransactionDataError(m.into_static()),
-                    )
-                }
-                TemplateDistribution::RequestTransactionDataSuccess(m) => {
-                    AnyMessage::TemplateDistribution(
-                        TemplateDistribution::RequestTransactionDataSuccess(m.into_static()),
-                    )
-                }
-                TemplateDistribution::SetNewPrevHash(m) => AnyMessage::TemplateDistribution(
-                    TemplateDistribution::SetNewPrevHash(m.into_static()),
-                ),
-                TemplateDistribution::SubmitSolution(m) => AnyMessage::TemplateDistribution(
-                    TemplateDistribution::SubmitSolution(m.into_static()),
-                ),
-            },
-        }
-    }
-
-    async fn wait_for_client(listen_socket: SocketAddr) -> TcpStream {
-        let listener = TcpListener::bind(listen_socket)
-            .await
-            .expect("Impossible to listen on given address");
-        if let Ok((stream, _)) = listener.accept().await {
-            stream
-        } else {
-            panic!("Impossible to accept dowsntream connection")
-        }
-    }
-
     /// Checks whether the sniffer has received a message of the specified type.
     pub fn includes_message_type(
         &self,
@@ -530,109 +216,6 @@ impl Sniffer {
             }
         }
     }
-}
-
-/// Represents an action that [`Sniffer`] can take on intercepted messages.
-#[derive(Debug, Clone)]
-pub enum InterceptAction {
-    /// Prevents a message from being forwarded and stored into the message aggregator.
-    IgnoreMessage(IgnoreMessage),
-    /// Intercepts and modifies a message before forwarding it.
-    ReplaceMessage(Box<ReplaceMessage>),
-}
-
-impl InterceptAction {
-    /// Returns the action if it is `IgnoreMessage` or `ReplaceMessage`
-    /// with the specified message type.
-    pub fn find_matching_action(
-        &self,
-        msg_type: MsgType,
-        direction: MessageDirection,
-    ) -> Option<&Self> {
-        match self {
-            InterceptAction::IgnoreMessage(bm)
-                if bm.direction == direction && bm.expected_message_type == msg_type =>
-            {
-                Some(self)
-            }
-
-            InterceptAction::ReplaceMessage(im)
-                if im.direction == direction && im.expected_message_type == msg_type =>
-            {
-                Some(self)
-            }
-
-            _ => None,
-        }
-    }
-}
-/// Defines an action that prevents a message from being forwarded.
-///
-/// When a message matching the specified type and direction is intercepted,
-/// it will not be added to the message aggregator for inspection and will not be
-/// forwarded to the destination. All other messages will continue to be forwarded normally.
-#[derive(Debug, Clone)]
-pub struct IgnoreMessage {
-    direction: MessageDirection,
-    expected_message_type: MsgType,
-}
-
-impl IgnoreMessage {
-    /// Creates a new [`IgnoreMessage`] action.
-    ///
-    /// - `direction`: The direction of the message to be ignored.
-    /// - `expected_message_type`: The type of message to be ignored.
-    pub fn new(direction: MessageDirection, expected_message_type: MsgType) -> Self {
-        IgnoreMessage {
-            direction,
-            expected_message_type,
-        }
-    }
-}
-
-impl From<IgnoreMessage> for InterceptAction {
-    fn from(value: IgnoreMessage) -> Self {
-        InterceptAction::IgnoreMessage(value)
-    }
-}
-
-/// Allows [`Sniffer`] to replace some intercepted message before forwarding it.
-#[derive(Debug, Clone)]
-pub struct ReplaceMessage {
-    direction: MessageDirection,
-    expected_message_type: MsgType,
-    replacement_message: AnyMessage<'static>,
-}
-
-impl ReplaceMessage {
-    /// Constructor of `ReplaceMessage`
-    /// - `direction`: direction of message to be intercepted and replaced
-    /// - `expected_message_type`: type of message to be intercepted and replaced
-    /// - `replacement_message`: message to replace the intercepted one
-    /// - `replacement_message_type`: type of message to replace the intercepted one
-    pub fn new(
-        direction: MessageDirection,
-        expected_message_type: MsgType,
-        replacement_message: AnyMessage<'static>,
-    ) -> Self {
-        Self {
-            direction,
-            expected_message_type,
-            replacement_message,
-        }
-    }
-}
-
-impl From<ReplaceMessage> for InterceptAction {
-    fn from(value: ReplaceMessage) -> Self {
-        InterceptAction::ReplaceMessage(Box::new(value))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MessageDirection {
-    ToDownstream,
-    ToUpstream,
 }
 
 // Utility macro to assert that the downstream and upstream roles have sent specific messages.
@@ -754,7 +337,7 @@ macro_rules! assert_jd_message {
 // downstream and upstream roles. If not, the test will panic.
 //
 // This is useful to ensure that the test has checked all exchanged messages between the roles.
-impl Drop for Sniffer {
+impl Drop for Sniffer<'_> {
     fn drop(&mut self) {
         if self.check_on_drop {
             match (
@@ -789,83 +372,5 @@ impl Drop for Sniffer {
                 }
             }
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct MessagesAggregator {
-    messages: Arc<Mutex<VecDeque<(MsgType, AnyMessage<'static>)>>>,
-}
-
-impl MessagesAggregator {
-    fn new() -> Self {
-        Self {
-            messages: Arc::new(Mutex::new(VecDeque::new())),
-        }
-    }
-
-    // Adds a message to the end of the queue.
-    fn add_message(&self, msg_type: MsgType, message: AnyMessage<'static>) {
-        self.messages
-            .safe_lock(|messages| messages.push_back((msg_type, message)))
-            .unwrap();
-    }
-
-    fn is_empty(&self) -> bool {
-        self.messages
-            .safe_lock(|messages| messages.is_empty())
-            .unwrap()
-    }
-
-    // returns true if contains message_type
-    fn has_message_type(&self, message_type: u8) -> bool {
-        let has_message: bool = self
-            .messages
-            .safe_lock(|messages| {
-                for (t, _) in messages.iter() {
-                    if *t == message_type {
-                        return true; // Exit early with `true`
-                    }
-                }
-                false // Default value if no match is found
-            })
-            .unwrap();
-        has_message
-    }
-
-    fn has_message_type_with_remove(&self, message_type: u8) -> bool {
-        self.messages
-            .safe_lock(|messages| {
-                let mut cloned_messages = messages.clone();
-                for (pos, (t, _)) in cloned_messages.iter().enumerate() {
-                    if *t == message_type {
-                        let drained = cloned_messages.drain(pos + 1..).collect();
-                        *messages = drained;
-                        return true;
-                    }
-                }
-                false
-            })
-            .unwrap()
-    }
-
-    // The aggregator queues messages in FIFO order, so this function returns the oldest message in
-    // the queue.
-    //
-    // The returned message is removed from the queue.
-    fn next_message(&self) -> Option<(MsgType, AnyMessage<'static>)> {
-        let is_state = self
-            .messages
-            .safe_lock(|messages| {
-                let mut cloned = messages.clone();
-                if let Some((msg_type, msg)) = cloned.pop_front() {
-                    *messages = cloned;
-                    Some((msg_type, msg))
-                } else {
-                    None
-                }
-            })
-            .unwrap();
-        is_state
     }
 }

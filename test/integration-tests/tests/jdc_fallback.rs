@@ -1,9 +1,11 @@
-use integration_tests_sv2::*;
+use integration_tests_sv2::{
+    interceptor::{MessageDirection, ReplaceMessage},
+    *,
+};
 use roles_logic_sv2::{
     mining_sv2::SubmitSharesError,
     parsers::{AnyMessage, Mining},
 };
-use sniffer::{MessageDirection, ReplaceMessage};
 use std::convert::TryInto;
 use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS};
 
@@ -19,10 +21,10 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
     let (_pool_1, pool_addr_1) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and first pool
     let (sniffer_1, sniffer_addr_1) = start_sniffer(
-        "0".to_string(),
+        "0",
         pool_addr_1,
         false,
-        Some(
+        vec![
             // Should trigger Fallback process in JDC
             ReplaceMessage::new(
                 MessageDirection::ToDownstream,
@@ -34,17 +36,17 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
                 })),
             )
             .into(),
-        ),
+        ],
     );
     let (_pool_2, pool_addr_2) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and second pool
-    let (sniffer_2, sniffer_addr_2) = start_sniffer("1".to_string(), pool_addr_2, false, None);
+    let (sniffer_2, sniffer_addr_2) = start_sniffer("1", pool_addr_2, false, vec![]);
     let (_jds_1, jds_addr_1) = start_jds(tp.rpc_info());
     // Sniffer between JDC and first JDS
-    let (sniffer_3, sniffer_addr_3) = start_sniffer("2".to_string(), jds_addr_1, false, None);
+    let (sniffer_3, sniffer_addr_3) = start_sniffer("2", jds_addr_1, false, vec![]);
     let (_jds_2, jds_addr_2) = start_jds(tp.rpc_info());
     // Sniffer between JDC and second JDS
-    let (sniffer_4, sniffer_addr_4) = start_sniffer("3".to_string(), jds_addr_2, false, None);
+    let (sniffer_4, sniffer_addr_4) = start_sniffer("3", jds_addr_2, false, vec![]);
     let (_jdc, jdc_addr) = start_jdc(
         &[
             (sniffer_addr_1, sniffer_addr_3),

@@ -1,4 +1,5 @@
 #![cfg(feature = "sv1")]
+use crate::interceptor::MessageDirection;
 use async_channel::{Receiver, Sender};
 use network_helpers_sv2::sv1_connection::ConnectionSV1;
 use std::{collections::VecDeque, net::SocketAddr, sync::Arc};
@@ -7,8 +8,6 @@ use tokio::{
     select,
     sync::Mutex,
 };
-
-use crate::MessageDirection;
 
 #[derive(Debug, PartialEq)]
 enum SnifferError {

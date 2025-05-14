@@ -1,5 +1,5 @@
 // This file contains integration tests for the `TranslatorSv2` module.
-use integration_tests_sv2::{sniffer::*, *};
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use roles_logic_sv2::parsers::{AnyMessage, CommonMessages, Mining};
 use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED};
 
@@ -13,7 +13,7 @@ async fn translate_sv1_to_sv2_successfully() {
     let (_tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
-        start_sniffer("0".to_string(), pool_addr, false, None);
+        start_sniffer("0", pool_addr, false, vec![]);
     let (_, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr);
     let _mining_device = start_mining_device_sv1(tproxy_addr, false, None);
     pool_translator_sniffer

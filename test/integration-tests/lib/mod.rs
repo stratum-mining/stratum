@@ -1,6 +1,7 @@
 use crate::{sniffer::*, template_provider::*};
 use config_helpers::CoinbaseOutput;
 use corepc_node::{ConnectParams, CookieValues};
+use interceptor::InterceptAction;
 use jd_client::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -15,10 +16,14 @@ use std::{
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
+pub mod interceptor;
+pub mod message_aggregator;
 pub mod sniffer;
+pub mod sniffer_error;
 #[cfg(feature = "sv1")]
 pub mod sv1_sniffer;
 pub mod template_provider;
+pub mod types;
 pub(crate) mod utils;
 
 const SHARES_PER_MINUTE: f32 = 120.0;
@@ -33,10 +38,10 @@ pub fn start_tracing() {
 }
 
 pub fn start_sniffer(
-    identifier: String,
+    identifier: &str,
     upstream: SocketAddr,
     check_on_drop: bool,
-    action: Option<InterceptAction>,
+    action: Vec<InterceptAction>,
 ) -> (Sniffer, SocketAddr) {
     let listening_address = get_available_address();
     let sniffer = Sniffer::new(

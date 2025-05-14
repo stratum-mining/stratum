@@ -1,4 +1,4 @@
-use integration_tests_sv2::{sniffer::*, *};
+use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::{
     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,
@@ -11,8 +11,7 @@ async fn jd_tproxy_integration() {
     start_tracing();
     let (tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
-    let (jdc_pool_sniffer, jdc_pool_sniffer_addr) =
-        start_sniffer("0".to_string(), pool_addr, false, None);
+    let (jdc_pool_sniffer, jdc_pool_sniffer_addr) = start_sniffer("0", pool_addr, false, vec![]);
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (_jdc, jdc_addr) = start_jdc(&[(jdc_pool_sniffer_addr, jds_addr)], tp_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr);
