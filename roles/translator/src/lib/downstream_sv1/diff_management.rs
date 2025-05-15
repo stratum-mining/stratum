@@ -32,27 +32,23 @@ impl Downstream {
         self_: Arc<Mutex<Self>>,
         init_target: &[u8],
     ) -> ProxyResult<'static, ()> {
-        let (connection_id, upstream_difficulty_config, miner_hashrate) = self_
-            .safe_lock(|d| {
-                let timestamp_secs = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .expect("time went backwards")
-                    .as_secs();
-                d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
-                d.difficulty_mgmt.submits_since_last_update = 0;
-                (
-                    d.connection_id,
-                    d.upstream_difficulty_config.clone(),
-                    d.difficulty_mgmt.min_individual_miner_hashrate,
-                )
-            })
-            .map_err(|_e| Error::PoisonLock)?;
+        let (connection_id, upstream_difficulty_config, miner_hashrate) = self_.safe_lock(|d| {
+            let timestamp_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time went backwards")
+                .as_secs();
+            d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
+            d.difficulty_mgmt.submits_since_last_update = 0;
+            (
+                d.connection_id,
+                d.upstream_difficulty_config.clone(),
+                d.difficulty_mgmt.min_individual_miner_hashrate,
+            )
+        })?;
         // add new connection hashrate to channel hashrate
-        upstream_difficulty_config
-            .safe_lock(|u| {
-                u.channel_nominal_hashrate += miner_hashrate;
-            })
-            .map_err(|_e| Error::PoisonLock)?;
+        upstream_difficulty_config.safe_lock(|u| {
+            u.channel_nominal_hashrate += miner_hashrate;
+        })?;
         // update downstream target with bridge
         let init_target = binary_sv2::U256::try_from(init_target.to_vec())?;
         Self::send_message_upstream(
@@ -74,20 +70,18 @@ impl Downstream {
     /// the channel to the upstream server.
     #[allow(clippy::result_large_err)]
     pub fn remove_miner_hashrate_from_channel(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        self_
-            .safe_lock(|d| {
-                d.upstream_difficulty_config
-                    .safe_lock(|u| {
-                        let hashrate_to_subtract = d.difficulty_mgmt.min_individual_miner_hashrate;
-                        if u.channel_nominal_hashrate >= hashrate_to_subtract {
-                            u.channel_nominal_hashrate -= hashrate_to_subtract;
-                        } else {
-                            u.channel_nominal_hashrate = 0.0;
-                        }
-                    })
-                    .map_err(|_e| Error::PoisonLock)
-            })
-            .map_err(|_e| Error::PoisonLock)??;
+        self_.safe_lock(|d| {
+            d.upstream_difficulty_config
+                .safe_lock(|u| {
+                    let hashrate_to_subtract = d.difficulty_mgmt.min_individual_miner_hashrate;
+                    if u.channel_nominal_hashrate >= hashrate_to_subtract {
+                        u.channel_nominal_hashrate -= hashrate_to_subtract;
+                    } else {
+                        u.channel_nominal_hashrate = 0.0;
+                    }
+                })
+                .map_err(|_e| Error::PoisonLock)
+        })??;
         Ok(())
     }
 
@@ -106,8 +100,7 @@ impl Downstream {
     ) -> ProxyResult<'static, ()> {
         let (diff_mgmt, channel_id) = self_
             .clone()
-            .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
-            .map_err(|_e| Error::PoisonLock)?;
+            .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))?;
         tracing::debug!(
             "Time of last diff update: {:?}",
             diff_mgmt.timestamp_of_last_update
@@ -159,17 +152,15 @@ impl Downstream {
     /// estimated hashrate.
     #[allow(clippy::result_large_err)]
     pub fn hash_rate_to_target(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Vec<u8>> {
-        self_
-            .safe_lock(|d| {
-                match roles_logic_sv2::utils::hash_rate_to_target(
-                    d.difficulty_mgmt.min_individual_miner_hashrate.into(),
-                    d.difficulty_mgmt.shares_per_minute.into(),
-                ) {
-                    Ok(target) => Ok(target.to_vec()),
-                    Err(e) => Err(Error::TargetError(e)),
-                }
-            })
-            .map_err(|_e| Error::PoisonLock)?
+        self_.safe_lock(|d| {
+            match roles_logic_sv2::utils::hash_rate_to_target(
+                d.difficulty_mgmt.min_individual_miner_hashrate.into(),
+                d.difficulty_mgmt.shares_per_minute.into(),
+            ) {
+                Ok(target) => Ok(target.to_vec()),
+                Err(e) => Err(Error::TargetError(e)),
+            }
+        })?
     }
 
     /// Increments the counter for shares submitted by this downstream miner.
@@ -179,11 +170,9 @@ impl Downstream {
     /// performance over a period.
     #[allow(clippy::result_large_err)]
     pub(super) fn save_share(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        self_
-            .safe_lock(|d| {
-                d.difficulty_mgmt.submits_since_last_update += 1;
-            })
-            .map_err(|_e| Error::PoisonLock)?;
+        self_.safe_lock(|d| {
+            d.difficulty_mgmt.submits_since_last_update += 1;
+        })?;
         Ok(())
     }
 
@@ -328,8 +317,7 @@ impl Downstream {
                 } else {
                     Ok(None)
                 }
-            })
-            .map_err(|_e| Error::PoisonLock)?
+            })?
     }
 
     /// Helper function to check if target is set to zero for some reason (typically happens when

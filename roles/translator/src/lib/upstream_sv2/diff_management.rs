@@ -11,7 +11,7 @@
 use super::Upstream;
 
 use super::super::{
-    error::{Error::PoisonLock, ProxyResult},
+    error::ProxyResult,
     upstream_sv2::{EitherFrame, Message, StdFrame},
 };
 use binary_sv2::u256_from_int;
@@ -24,24 +24,22 @@ impl Upstream {
     /// Attempts to update the upstream channel's nominal hashrate if the configured
     /// update interval has elapsed or if the nominal hashrate has changed
     pub(super) async fn try_update_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        let (channel_id_option, diff_mgmt, tx_frame, last_sent_hashrate) = self_
-            .safe_lock(|u| {
+        let (channel_id_option, diff_mgmt, tx_frame, last_sent_hashrate) =
+            self_.safe_lock(|u| {
                 (
                     u.channel_id,
                     u.difficulty_config.clone(),
                     u.connection.sender.clone(),
                     u.last_sent_hashrate,
                 )
-            })
-            .map_err(|_e| PoisonLock)?;
+            })?;
 
         let channel_id = channel_id_option.ok_or(super::super::error::Error::RolesSv2Logic(
             RolesLogicError::NotFoundChannelId,
         ))?;
 
         let (timeout, new_hashrate) = diff_mgmt
-            .safe_lock(|d| (d.channel_diff_update_interval, d.channel_nominal_hashrate))
-            .map_err(|_e| PoisonLock)?;
+            .safe_lock(|d| (d.channel_diff_update_interval, d.channel_nominal_hashrate))?;
 
         let has_changed = Some(new_hashrate) != last_sent_hashrate;
 
@@ -56,15 +54,9 @@ impl Upstream {
             let either_frame: StdFrame = message.try_into()?;
             let frame: EitherFrame = either_frame.into();
 
-            tx_frame.send(frame).await.map_err(|e| {
-                super::super::error::Error::ChannelErrorSender(
-                    super::super::error::ChannelSendError::General(e.to_string()),
-                )
-            })?;
+            tx_frame.send(frame).await?;
 
-            self_
-                .safe_lock(|u| u.last_sent_hashrate = Some(new_hashrate))
-                .map_err(|_e| PoisonLock)?;
+            self_.safe_lock(|u| u.last_sent_hashrate = Some(new_hashrate))?;
         }
 
         // Always sleep, regardless of update
