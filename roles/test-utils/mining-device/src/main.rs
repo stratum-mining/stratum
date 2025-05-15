@@ -5,8 +5,6 @@ use key_utils::Secp256k1PublicKey;
 use clap::Parser;
 use tracing::info;
 
-pub mod lib;
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -54,7 +52,7 @@ async fn main() {
     let args = Args::parse();
     tracing_subscriber::fmt::init();
     info!("start");
-    let _ = lib::connect(
+    let _ = mining_device::connect(
         args.address_pool,
         args.pubkey_pool,
         args.id_device,
