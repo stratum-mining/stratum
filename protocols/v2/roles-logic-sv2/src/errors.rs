@@ -4,8 +4,10 @@
 //! module. It includes the [`Error`] enum for representing various errors.
 
 use crate::{
-    channels::server::error::StandardChannelError, common_properties::CommonDownstreamData,
-    parsers::AnyMessage as AllMessages, utils::InputError,
+    channels::server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+    common_properties::CommonDownstreamData,
+    parsers::AnyMessage as AllMessages,
+    utils::InputError,
 };
 use binary_sv2::Error as BinarySv2Error;
 use mining_sv2::ExtendedExtranonceError;
@@ -124,6 +126,17 @@ pub enum Error {
     InvalidUserIdentity(String),
     ExtranoncePrefixFactoryError(ExtendedExtranonceError),
     FailedToCreateStandardChannel(StandardChannelError),
+    FailedToCreateExtendedChannel(ExtendedChannelError),
+    FailedToUpdateStandardChannel(StandardChannelError),
+    FailedToUpdateExtendedChannel(ExtendedChannelError),
+    FailedToProcessNewTemplateGroupChannel(GroupChannelError),
+    FailedToProcessSetNewPrevHashGroupChannel(GroupChannelError),
+    FailedToProcessNewTemplateExtendedChannel(ExtendedChannelError),
+    FailedToProcessSetNewPrevHashExtendedChannel(ExtendedChannelError),
+    FailedToProcessSetNewPrevHashStandardChannel(StandardChannelError),
+    NoActiveJob,
+    FailedToSendSolution,
+    FailedToSetCustomMiningJob(ExtendedChannelError),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -232,7 +245,18 @@ impl Display for Error {
             FromSliceError(e) => write!(f, "Failed to hash from slice: {}", e),
             InvalidUserIdentity(e) => write!(f, "Invalid user identity: {}", e),
             ExtranoncePrefixFactoryError(e) => write!(f, "Failed to create ExtranoncePrefixFactory: {:?}", e),
-            FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {:?}", e), 
+            FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {:?}", e),
+            FailedToCreateExtendedChannel(e) => write!(f, "Failed to create ExtendedChannel: {:?}", e),
+            FailedToProcessNewTemplateGroupChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
+            FailedToProcessSetNewPrevHashGroupChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
+            NoActiveJob => write!(f, "No active job"),
+            FailedToUpdateStandardChannel(e) => write!(f, "Failed to update StandardChannel: {:?}", e),
+            FailedToUpdateExtendedChannel(e) => write!(f, "Failed to update ExtendedChannel: {:?}", e),
+            FailedToSendSolution => write!(f, "Failed to send solution"),
+            FailedToSetCustomMiningJob(e) => write!(f, "Failed to set custom mining job: {:?}", e),
+            FailedToProcessNewTemplateExtendedChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
+            FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
+            FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
         }
     }
 }
