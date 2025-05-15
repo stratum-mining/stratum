@@ -23,6 +23,7 @@ pub struct PoolConfig {
     coinbase_outputs: Vec<CoinbaseOutput>,
     pool_signature: String,
     shares_per_minute: f32,
+    share_batch_size: usize,
 }
 
 impl PoolConfig {
@@ -33,6 +34,7 @@ impl PoolConfig {
         authority_config: AuthorityConfig,
         coinbase_outputs: Vec<CoinbaseOutput>,
         shares_per_minute: f32,
+        share_batch_size: usize,
     ) -> Self {
         Self {
             listen_address: pool_connection.listen_address,
@@ -44,6 +46,7 @@ impl PoolConfig {
             coinbase_outputs,
             pool_signature: pool_connection.signature,
             shares_per_minute,
+            share_batch_size,
         }
     }
 
@@ -85,6 +88,11 @@ impl PoolConfig {
     /// Returns the Template Provider address.
     pub fn tp_address(&self) -> &String {
         &self.tp_address
+    }
+
+    /// Returns the share batch size.
+    pub fn share_batch_size(&self) -> usize {
+        self.share_batch_size
     }
 
     /// Sets the coinbase outputs.
