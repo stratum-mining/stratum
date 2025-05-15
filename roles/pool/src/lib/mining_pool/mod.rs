@@ -34,17 +34,21 @@ use key_utils::SignatureService;
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
-    channel_logic::channel_factory::PoolChannelFactory,
+    channels::server::{extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
-    job_creator::JobsCreators,
-    mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
+    mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN},
     parsers::{AnyMessage, Mining},
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
-    utils::Mutex,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution},
+    utils::{Id as IdFactory, Mutex},
 };
-use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+};
 use stratum_common::{
     bitcoin::{Amount, ScriptBuf, TxOut},
     secp256k1,
@@ -93,7 +97,6 @@ pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOu
 #[derive(Debug)]
 pub struct Downstream {
     // The unique identifier for this downstream connection's channel or group.
-    // Assigned by the [`PoolChannelFactory`]
     id: u32,
     // Channel receiver for incoming SV2 frames from the network connection task.
     receiver: Receiver<EitherFrame>,
@@ -104,9 +107,22 @@ pub struct Downstream {
     // Sender channel to forward valid `SubmitSolution` messages received from this
     // downstream miner to the main [`Pool`] task, which then sends them upstream.
     solution_sender: Sender<SubmitSolution<'static>>,
-    // A shared reference to the central [`PoolChannelFactory`] used to manage
-    // channel state and generate jobs.
-    channel_factory: Arc<Mutex<PoolChannelFactory>>,
+    channel_id_factory: IdFactory,
+    extranonce_prefix_factory_extended: Arc<Mutex<ExtendedExtranonce>>,
+    extranonce_prefix_factory_standard: Arc<Mutex<ExtendedExtranonce>>,
+    // A map of all extended channels, keyed by their ID.
+    extended_channels: HashMap<u32, Arc<RwLock<ExtendedChannel<'static>>>>,
+    // A map of all standard channels, keyed by their ID.
+    standard_channels: HashMap<u32, Arc<RwLock<StandardChannel<'static>>>>,
+    // naive approach:
+    // we create one group channel for the connection
+    // and add all standard channels to this same single group channel
+    group_channel: Arc<RwLock<GroupChannel<'static>>>,
+    share_batch_size: usize,
+    shares_per_minute: f32,
+    last_future_template: NewTemplate<'static>,
+    last_new_prev_hash: SetNewPrevHashTdp<'static>,
+    empty_pool_coinbase_outputs: Vec<TxOut>,
 }
 
 /// The central state manager for the mining pool.
@@ -125,13 +141,14 @@ pub struct Pool {
     // Flag indicating whether at least one `NewTemplate` has been received and processed.
     // Might be used to ensure initial jobs are sent before accepting solutions??.
     new_template_processed: bool,
-    // Shared reference to the factory responsible for creating/managing mining channels
-    // and generating job-related messages.
-    channel_factory: Arc<Mutex<PoolChannelFactory>>,
-    // Stores the template ID associated with the most recently received `SetNewPrevHash` message.
-    last_prev_hash_template_id: u64,
+    downstream_id_factory: IdFactory,
     // Sender channel for reporting status updates and errors to the main monitoring loop.
     status_tx: status::Sender,
+    extranonce_prefix_factory_extended: Arc<Mutex<ExtendedExtranonce>>,
+    extranonce_prefix_factory_standard: Arc<Mutex<ExtendedExtranonce>>,
+    share_batch_size: usize,
+    last_future_template: Option<NewTemplate<'static>>,
+    last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
 }
 
 impl Downstream {
@@ -148,9 +165,10 @@ impl Downstream {
         mut sender: Sender<EitherFrame>,
         solution_sender: Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
-        channel_factory: Arc<Mutex<PoolChannelFactory>>,
         status_tx: status::Sender,
         address: SocketAddr,
+        shares_per_minute: f32,
+        empty_pool_coinbase_outputs: Vec<TxOut>,
     ) -> PoolResult<Arc<Mutex<Self>>> {
         // Handle the SV2 SetupConnection message exchange.
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
@@ -158,11 +176,68 @@ impl Downstream {
             SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
                 .await?;
 
-        // Assign a unique ID based on whether it's a standard or header-only miner.
-        let id = match downstream_data.header_only {
-            false => channel_factory.safe_lock(|c| c.new_group_id())?,
-            true => channel_factory.safe_lock(|c| c.new_standard_id_for_hom())?,
-        };
+        let id = pool.safe_lock(|p| p.downstream_id_factory.next())?;
+
+        // naive approach:
+        // we create one group channel for the entire connection (and never really send extended
+        // jobs to it) and add all standard channels to this same single group channel
+        // we know this will result in group_channel_id == 1
+        // so we use that for every standard channel
+        let mut channel_id_factory = IdFactory::new();
+        let group_channel_id = channel_id_factory.next();
+
+        // extranonce prefix factories are shared across all downstreams
+        // that avoids extranonce_prefix collision across different downstreams
+        let extranonce_prefix_factory_extended =
+            pool.safe_lock(|p| p.extranonce_prefix_factory_extended.clone())?;
+        let extranonce_prefix_factory_standard =
+            pool.safe_lock(|p| p.extranonce_prefix_factory_standard.clone())?;
+
+        let share_batch_size = pool.safe_lock(|p| p.share_batch_size)?;
+
+        // prevents undefined behavior if some client connects
+        // before the first template and prev hash are cached
+        let mut has_cached_prev_hash = false;
+        while !has_cached_prev_hash {
+            pool.safe_lock(|p| {
+                if p.last_new_prev_hash.is_some() {
+                    has_cached_prev_hash = true;
+                }
+            })?;
+            tokio::task::yield_now().await;
+        }
+
+        let last_future_template = pool.safe_lock(|p| {
+            p.last_future_template
+                .clone()
+                .expect("last_future_template must be Some")
+        })?;
+
+        let last_new_prev_hash = pool.safe_lock(|p| {
+            p.last_new_prev_hash
+                .clone()
+                .expect("last_new_prev_hash must be Some")
+        })?;
+
+        let group_channel = Arc::new(RwLock::new(GroupChannel::new(group_channel_id)));
+
+        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
+        // so while we don't clean that up, we only set the value of the first output
+        let mut pool_coinbase_outputs = empty_pool_coinbase_outputs.clone();
+        pool_coinbase_outputs[0].value =
+            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
+
+        group_channel
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?
+            .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
+            .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
+
+        group_channel
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?
+            .on_set_new_prev_hash(last_new_prev_hash.clone())
+            .map_err(Error::FailedToProcessSetNewPrevHashGroupChannel)?;
 
         // Create the Downstream instance, wrapped for shared access.
         let self_ = Arc::new(Mutex::new(Downstream {
@@ -171,7 +246,17 @@ impl Downstream {
             sender,
             downstream_data,
             solution_sender,
-            channel_factory,
+            channel_id_factory,
+            extended_channels: HashMap::new(),
+            standard_channels: HashMap::new(),
+            group_channel,
+            extranonce_prefix_factory_extended,
+            extranonce_prefix_factory_standard,
+            share_batch_size,
+            shares_per_minute,
+            last_future_template,
+            last_new_prev_hash,
+            empty_pool_coinbase_outputs,
         }));
 
         let cloned = self_.clone();
@@ -366,6 +451,8 @@ impl Pool {
         self_: Arc<Mutex<Pool>>,
         config: PoolConfig,
         mut recv_stop_signal: tokio::sync::watch::Receiver<()>,
+        shares_per_minute: f32,
+        pool_coinbase_outputs: Vec<TxOut>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         // Bind the TCP listener to the address specified in the config.
@@ -402,7 +489,9 @@ impl Pool {
                                                     self_.clone(),
                                                     receiver,
                                                     sender,
-                                                    address
+                                                    address,
+                                                    shares_per_minute,
+                                                    pool_coinbase_outputs.clone()
                                                 ).await
                                             );
                                         }
@@ -433,10 +522,11 @@ impl Pool {
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
         address: SocketAddr,
+        shares_per_minute: f32,
+        pool_coinbase_outputs: Vec<TxOut>,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
-        let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
 
         // Create the Downstream instance
         let downstream = Downstream::new(
@@ -444,10 +534,11 @@ impl Pool {
             sender,
             solution_sender,
             self_.clone(),
-            channel_factory,
             // convert Listener variant to Downstream variant
             status_tx.listener_to_connection(),
             address,
+            shares_per_minute,
+            pool_coinbase_outputs,
         )
         .await?;
 
@@ -470,7 +561,7 @@ impl Pool {
     /// on `sender_message_received_signal` after processing each message.
     async fn on_new_prev_hash(
         self_: Arc<Mutex<Self>>,
-        rx: Receiver<SetNewPrevHash<'static>>,
+        rx: Receiver<SetNewPrevHashTdp<'static>>,
         sender_message_received_signal: Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_
@@ -480,46 +571,84 @@ impl Pool {
             debug!("New prev hash received: {:?}", new_prev_hash);
             let res = self_
                 .safe_lock(|s| {
-                    s.last_prev_hash_template_id = new_prev_hash.template_id;
+                    s.last_new_prev_hash = Some(new_prev_hash.clone());
                 })
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             handle_result!(status_tx, res);
 
-            let job_id_res = self_
-                .safe_lock(|s| {
-                    s.channel_factory
-                        .safe_lock(|f| f.on_new_prev_hash_from_tp(&new_prev_hash))
-                        .map_err(|e| PoolError::PoisonLock(e.to_string()))
-                })
+            let downstreams = self_
+                .safe_lock(|s| s.downstreams.clone())
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let job_id = handle_result!(status_tx, handle_result!(status_tx, job_id_res));
 
-            match job_id {
-                Ok(job_id) => {
-                    let downstreams = self_
-                        .safe_lock(|s| s.downstreams.clone())
-                        .map_err(|e| PoolError::PoisonLock(e.to_string()));
-                    let downstreams = handle_result!(status_tx, downstreams);
+            let downstreams = handle_result!(status_tx, downstreams);
 
-                    for (channel_id, downtream) in downstreams {
-                        let message = Mining::SetNewPrevHash(SetNPH {
-                            channel_id,
-                            job_id,
+            for (_downstream_id, downstream) in downstreams {
+                downstream.safe_lock(|d| {
+                    d.last_new_prev_hash = new_prev_hash.clone();
+                })?;
+
+                let mining_set_new_prev_hash_messages = downstream.safe_lock(|d| {
+                    let mut messages = Vec::new();
+                    d.group_channel
+                        .write()
+                        .map_err(|e| Error::PoisonLock(e.to_string()))?
+                        .on_set_new_prev_hash(new_prev_hash.clone())
+                        .map_err(Error::FailedToProcessSetNewPrevHashGroupChannel)?;
+
+                    for (standard_channel_id, standard_channel_lock) in d.standard_channels.iter() {
+                        let mut standard_channel = standard_channel_lock
+                            .write()
+                            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                        standard_channel
+                            .on_set_new_prev_hash(new_prev_hash.clone())
+                            .map_err(Error::FailedToProcessSetNewPrevHashStandardChannel)?;
+                        let activated_standard_job_id = standard_channel
+                            .get_active_job()
+                            .expect("active job must exist")
+                            .get_job_id();
+                        let set_new_prev_hash_message = SetNewPrevHashMp {
+                            channel_id: *standard_channel_id,
+                            job_id: activated_standard_job_id,
                             prev_hash: new_prev_hash.prev_hash.clone(),
                             min_ntime: new_prev_hash.header_timestamp,
                             nbits: new_prev_hash.n_bits,
-                        });
-                        let res = Downstream::match_send_to(
-                            downtream.clone(),
-                            Ok(SendTo::Respond(message)),
-                        )
-                        .await;
-                        handle_result!(status_tx, res);
+                        };
+                        messages.push(set_new_prev_hash_message.into_static());
                     }
-                    handle_result!(status_tx, sender_message_received_signal.send(()).await);
+
+                    for (extended_channel_id, extended_channel_lock) in d.extended_channels.iter() {
+                        let mut extended_channel = extended_channel_lock
+                            .write()
+                            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                        extended_channel
+                            .on_set_new_prev_hash(new_prev_hash.clone())
+                            .map_err(Error::FailedToProcessSetNewPrevHashExtendedChannel)?;
+                        let activated_extended_job_id = extended_channel
+                            .get_active_job()
+                            .expect("active job must exist")
+                            .get_job_id();
+                        let set_new_prev_hash_message = SetNewPrevHashMp {
+                            channel_id: *extended_channel_id,
+                            job_id: activated_extended_job_id,
+                            prev_hash: new_prev_hash.prev_hash.clone(),
+                            min_ntime: new_prev_hash.header_timestamp,
+                            nbits: new_prev_hash.n_bits,
+                        };
+                        messages.push(set_new_prev_hash_message.into_static());
+                    }
+                    Ok::<_, PoolError>(messages)
+                })??;
+
+                for message in mining_set_new_prev_hash_messages {
+                    let res = Downstream::match_send_to(
+                        downstream.clone(),
+                        Ok(SendTo::Respond(Mining::SetNewPrevHash(message))),
+                    )
+                    .await;
+                    handle_result!(status_tx, res);
                 }
-                Err(_) => todo!(),
             }
+            handle_result!(status_tx, sender_message_received_signal.send(()).await);
         }
         Ok(())
     }
@@ -538,41 +667,210 @@ impl Pool {
         sender_message_received_signal: Sender<()>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
-        let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
-        while let Ok(mut new_template) = rx.recv().await {
-            debug!(
+        while let Ok(new_template) = rx.recv().await {
+            info!(
                 "New template received, creating a new mining job(s): {:?}",
                 new_template
             );
-
-            // Use the channel factory to process the template and generate downstream-specific
-            // messages. This returns a map of {channel_id: MiningMessage}.
-            let messages = channel_factory
-                .safe_lock(|cf| cf.on_new_template(&mut new_template))
-                .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let messages = handle_result!(status_tx, messages);
-            let mut messages = handle_result!(status_tx, messages);
 
             let downstreams = self_
                 .safe_lock(|s| s.downstreams.clone())
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             let downstreams = handle_result!(status_tx, downstreams);
 
-            // Iterate over the current downstreams.
-            for (channel_id, downtream) in downstreams {
-                if let Some(to_send) = messages.remove(&channel_id) {
-                    if let Err(e) =
-                        Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send)))
-                            .await
-                    {
-                        error!("Unknown template provider message: {:?}", e);
+            for (_downstream_id, downstream) in downstreams {
+                if new_template.future_template {
+                    downstream.safe_lock(|d| {
+                        d.last_future_template = new_template.clone();
+                    })?;
+                }
+
+                let standard_job_messages = downstream.safe_lock(|d| {
+                    // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit
+                    // of a hack so while we don't clean that up, we only set
+                    // the value of the first output
+                    let mut pool_coinbase_outputs = d.empty_pool_coinbase_outputs.clone();
+                    pool_coinbase_outputs[0].value =
+                        Amount::from_sat(new_template.coinbase_tx_value_remaining);
+
+                    let mut messages = Vec::new();
+                    match new_template.future_template {
+                        true => {
+                            d.group_channel
+                                .write()
+                                .map_err(|e| Error::PoisonLock(e.to_string()))?
+                                .on_new_template(new_template.clone(), pool_coinbase_outputs)
+                                .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
+
+                            let group_channel_read = d
+                                .group_channel
+                                .read()
+                                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                            let extended_job_id = group_channel_read
+                                .get_future_template_to_job_id()
+                                .get(&new_template.template_id)
+                                .expect("job_id must exist");
+
+                            let extended_job = group_channel_read
+                                .get_future_jobs()
+                                .get(extended_job_id)
+                                .expect("extended job must exist");
+
+                            for (standard_channel_id, standard_channel_lock) in
+                                d.standard_channels.iter()
+                            {
+                                let mut standard_channel = standard_channel_lock
+                                    .write()
+                                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                                let standard_job = extended_job.clone().into_standard_job(
+                                    *standard_channel_id,
+                                    standard_channel.get_extranonce_prefix().clone(),
+                                );
+                                standard_channel.on_new_template(
+                                    standard_job.clone(),
+                                    new_template.template_id,
+                                );
+                                let standard_job_message = standard_job.get_job_message();
+                                messages.push(standard_job_message.clone().into_static());
+                            }
+                        }
+                        false => {
+                            d.group_channel
+                                .write()
+                                .map_err(|e| Error::PoisonLock(e.to_string()))?
+                                .on_new_template(new_template.clone(), pool_coinbase_outputs)
+                                .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
+
+                            let group_channel_read = d
+                                .group_channel
+                                .read()
+                                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+                            let extended_job = group_channel_read
+                                .get_active_job()
+                                .expect("active job must exist");
+                            for (standard_channel_id, standard_channel_lock) in
+                                d.standard_channels.iter()
+                            {
+                                let mut standard_channel = standard_channel_lock
+                                    .write()
+                                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                                let standard_job = extended_job.clone().into_standard_job(
+                                    *standard_channel_id,
+                                    standard_channel.get_extranonce_prefix().clone(),
+                                );
+                                standard_channel.on_new_template(
+                                    standard_job.clone(),
+                                    new_template.template_id,
+                                );
+                                let standard_job_message = standard_job.get_job_message();
+                                messages.push(standard_job_message.clone().into_static());
+                            }
+                        }
                     }
+                    Ok::<_, PoolError>(messages)
+                })??;
+
+                for standard_job_message in standard_job_messages {
+                    let res = Downstream::match_send_to(
+                        downstream.clone(),
+                        Ok(SendTo::Respond(Mining::NewMiningJob(standard_job_message))),
+                    )
+                    .await;
+                    handle_result!(status_tx, res);
+                }
+
+                let extended_job_messages = downstream.safe_lock(|d| {
+                    // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit
+                    // of a hack so while we don't clean that up, we only set
+                    // the value of the first output
+                    let mut pool_coinbase_outputs = d.empty_pool_coinbase_outputs.clone();
+                    pool_coinbase_outputs[0].value =
+                        Amount::from_sat(new_template.coinbase_tx_value_remaining);
+
+                    let mut messages = Vec::new();
+                    match new_template.future_template {
+                        true => {
+                            for (_extended_channel_id, extended_channel_lock) in
+                                d.extended_channels.iter()
+                            {
+                                let mut extended_channel = extended_channel_lock
+                                    .write()
+                                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+                                extended_channel
+                                    .on_new_template(
+                                        new_template.clone(),
+                                        pool_coinbase_outputs.clone(),
+                                    )
+                                    .map_err(|e| {
+                                        Error::FailedToProcessNewTemplateExtendedChannel(e)
+                                    })?;
+
+                                let extended_job_id = extended_channel
+                                    .get_future_template_to_job_id()
+                                    .get(&new_template.template_id)
+                                    .expect("job_id must exist");
+
+                                let extended_job = extended_channel
+                                    .get_future_jobs()
+                                    .get(extended_job_id)
+                                    .expect("extended job must exist");
+
+                                let extended_job_message = extended_job.get_job_message();
+                                messages.push(extended_job_message.clone().into_static());
+                            }
+                        }
+                        false => {
+                            for (_extended_channel_id, extended_channel_lock) in
+                                d.extended_channels.iter()
+                            {
+                                let mut extended_channel = extended_channel_lock
+                                    .write()
+                                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+                                extended_channel
+                                    .on_new_template(
+                                        new_template.clone(),
+                                        pool_coinbase_outputs.clone(),
+                                    )
+                                    .map_err(|e| {
+                                        Error::FailedToProcessNewTemplateExtendedChannel(e)
+                                    })?;
+
+                                let extended_job = extended_channel
+                                    .get_active_job()
+                                    .expect("active job must exist");
+
+                                let extended_job_message = extended_job.get_job_message();
+                                messages.push(extended_job_message.clone().into_static());
+                            }
+                        }
+                    }
+                    Ok::<_, PoolError>(messages)
+                })??;
+
+                for extended_job_message in extended_job_messages {
+                    let res = Downstream::match_send_to(
+                        downstream.clone(),
+                        Ok(SendTo::Respond(Mining::NewExtendedMiningJob(
+                            extended_job_message,
+                        ))),
+                    )
+                    .await;
+                    handle_result!(status_tx, res);
                 }
             }
-            let res = self_
-                .safe_lock(|s| s.new_template_processed = true)
-                .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            handle_result!(status_tx, res);
+
+            if new_template.future_template {
+                let res = self_
+                    .safe_lock(|s| {
+                        s.last_future_template = Some(new_template);
+                        s.new_template_processed = true;
+                    })
+                    .map_err(|e| PoolError::PoisonLock(e.to_string()));
+                handle_result!(status_tx, res);
+            }
 
             handle_result!(status_tx, sender_message_received_signal.send(()).await);
         }
@@ -590,17 +888,13 @@ impl Pool {
     pub async fn start(
         config: PoolConfig,
         new_template_rx: Receiver<NewTemplate<'static>>,
-        new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
+        new_prev_hash_rx: Receiver<SetNewPrevHashTdp<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
         shares_per_minute: f32,
         recv_stop_signal: tokio::sync::watch::Receiver<()>,
     ) -> Result<Arc<Mutex<Self>>, PoolError> {
-        // --- Initialize PoolChannelFactory ---
-        // Define extranonce ranges based on config/constants.
-        // TODO: Make extranonce length configurable or use constants.
-        let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
 
         let pool_signature_len = config.pool_signature().len();
@@ -611,48 +905,63 @@ impl Pool {
         };
         let range_2 = std::ops::Range {
             start: range_1_end,
-            end: extranonce_len,
+            end: MAX_EXTRANONCE_LEN,
         };
 
-        let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let pool_coinbase_outputs = get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
-        let extranonces = ExtendedExtranonce::new(
+        let extranonce_prefix_factory_extended = ExtendedExtranonce::new(
+            range_0.clone(),
+            range_1.clone(),
+            range_2.clone(),
+            Some(config.pool_signature().as_bytes().to_vec()),
+        )
+        .expect("Failed to create ExtendedExtranonce with valid ranges");
+
+        let extranonce_prefix_factory_standard = ExtendedExtranonce::new(
             range_0,
             range_1,
             range_2,
             Some(config.pool_signature().as_bytes().to_vec()),
         )
         .expect("Failed to create ExtendedExtranonce with valid ranges");
-        let creator = JobsCreators::new(extranonce_len as u8);
-        let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
-        let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(
-            ids,
-            extranonces,
-            creator,
-            shares_per_minute,
-            kind,
-            pool_coinbase_outputs.expect("Invalid coinbase output in config"),
-        )));
 
         // --- Initialize Pool State ---
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             solution_sender,
             new_template_processed: false,
-            channel_factory,
-            last_prev_hash_template_id: 0,
+            downstream_id_factory: IdFactory::new(),
             status_tx: status_tx.clone(),
+            extranonce_prefix_factory_extended: Arc::new(Mutex::new(
+                extranonce_prefix_factory_extended,
+            )),
+            extranonce_prefix_factory_standard: Arc::new(Mutex::new(
+                extranonce_prefix_factory_standard,
+            )),
+            share_batch_size: config.share_batch_size(),
+            last_future_template: None,
+            last_new_prev_hash: None,
         }));
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
+        let pool_coinbase_outputs = get_coinbase_output(&config);
+
         info!("Starting up Pool server");
         let status_tx_clone = status_tx.clone();
         // Task to handle multiple downstream connection.
-        if let Err(e) = Self::accept_incoming_connection(cloned, config, recv_stop_signal).await {
+        if let Err(e) = Self::accept_incoming_connection(
+            cloned,
+            config,
+            recv_stop_signal,
+            shares_per_minute,
+            pool_coinbase_outputs.expect("Invalid coinbase output in config"),
+        )
+        .await
+        {
             error!("Pool stopped accepting connections due to: {}", &e);
             let _ = status_tx_clone
                 .send(status::Status {
