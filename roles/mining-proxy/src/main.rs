@@ -16,13 +16,10 @@
 //!
 //! A Downstream that signal the capacity to handle group channels can open more than one channel.
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
-#![allow(special_module_name)]
 use tracing::error;
 
 use ext_config::{Config, File, FileFormat};
-use lib::MiningProxyConfig;
-
-pub mod lib;
+use mining_proxy_sv2::{start_mining_proxy, MiningProxyConfig};
 
 mod args {
     use std::path::PathBuf;
@@ -127,5 +124,5 @@ async fn main() {
         }
     };
 
-    lib::start_mining_proxy(config).await;
+    start_mining_proxy(config).await;
 }
