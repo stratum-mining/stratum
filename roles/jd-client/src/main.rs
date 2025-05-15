@@ -1,18 +1,16 @@
 //! Entry point for the Job Declarator Client (JDC).
 //!
 //! This binary parses CLI arguments, loads the TOML configuration file, and
-//! starts the main runtime defined in `lib::JobDeclaratorClient`.
+//! starts the main runtime defined in `jd_client::JobDeclaratorClient`.
 //!
 //! The actual task orchestration and shutdown logic are managed in `lib/mod.rs`.
 
-#![allow(special_module_name)]
 mod args;
-mod lib;
 
-use lib::{
+use jd_client::{
     config::JobDeclaratorClientConfig,
     error::{Error, ProxyResult},
-    status, JobDeclaratorClient,
+    JobDeclaratorClient,
 };
 
 use args::Args;
@@ -91,7 +89,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
 /// Entrypoint for the Job Declarator Client binary.
 ///
 /// Loads the configuration from TOML and initializes the main runtime
-/// defined in `lib::JobDeclaratorClient`. Errors during startup are logged.
+/// defined in `jd_client::JobDeclaratorClient`. Errors during startup are logged.
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
