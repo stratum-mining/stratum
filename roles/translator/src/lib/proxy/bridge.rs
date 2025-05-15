@@ -161,9 +161,7 @@ impl Bridge {
                         Mining::OpenExtendedMiningChannelSuccess(success) => {
                             let extranonce = success.extranonce_prefix.to_vec();
                             let extranonce2_len = success.extranonce_size;
-                            self.target
-                                .safe_lock(|t| *t = success.target.to_vec())
-                                .map_err(|_e| PoisonLock)?;
+                            self.target.safe_lock(|t| *t = success.target.to_vec())?;
                             return Ok(OpenSv1Downstream {
                                 channel_id: success.channel_id,
                                 last_notify: self.last_notify.clone(),
@@ -254,12 +252,10 @@ impl Bridge {
         self_: Arc<Mutex<Self>>,
         new_target: SetDownstreamTarget,
     ) -> ProxyResult<'static, ()> {
-        self_
-            .safe_lock(|b| {
-                b.channel_factory
-                    .update_target_for_channel(new_target.channel_id, new_target.new_target);
-            })
-            .map_err(|_| PoisonLock)?;
+        self_.safe_lock(|b| {
+            b.channel_factory
+                .update_target_for_channel(new_target.channel_id, new_target.new_target);
+        })?;
         Ok(())
     }
     /// Receives a `SubmitShareWithChannelId` message from a downstream miner,
@@ -268,29 +264,20 @@ impl Bridge {
         self_: Arc<Mutex<Self>>,
         share: SubmitShareWithChannelId,
     ) -> ProxyResult<'static, ()> {
-        let (tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
-            .safe_lock(|s| {
-                (
-                    s.tx_sv2_submit_shares_ext.clone(),
-                    s.target.clone(),
-                    s.tx_status.clone(),
-                )
-            })
-            .map_err(|_| PoisonLock)?;
-        let upstream_target: [u8; 32] = target_mutex
-            .safe_lock(|t| t.clone())
-            .map_err(|_| PoisonLock)?
-            .try_into()?;
+        let (tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_.safe_lock(|s| {
+            (
+                s.tx_sv2_submit_shares_ext.clone(),
+                s.target.clone(),
+                s.tx_status.clone(),
+            )
+        })?;
+        let upstream_target: [u8; 32] = target_mutex.safe_lock(|t| t.clone())?.try_into()?;
         let mut upstream_target: Target = upstream_target.into();
-        self_
-            .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
-            .map_err(|_| PoisonLock)?;
+        self_.safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))?;
 
-        let sv2_submit = self_
-            .safe_lock(|s| {
-                s.translate_submit(share.channel_id, share.share, share.version_rolling_mask)
-            })
-            .map_err(|_| PoisonLock)??;
+        let sv2_submit = self_.safe_lock(|s| {
+            s.translate_submit(share.channel_id, share.share, share.version_rolling_mask)
+        })??;
         let res = self_
             .safe_lock(|s| s.channel_factory.on_submit_shares_extended(sv2_submit))
             .map_err(|_| PoisonLock);
@@ -386,25 +373,19 @@ impl Bridge {
         {
             tokio::task::yield_now().await;
         }
-        self_
-            .safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))
-            .map_err(|_| PoisonLock)?;
+        self_.safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))?;
 
-        let on_new_prev_hash_res = self_
-            .safe_lock(|s| {
-                s.channel_factory
-                    .on_new_prev_hash(sv2_set_new_prev_hash.clone())
-            })
-            .map_err(|_| PoisonLock)?;
+        let on_new_prev_hash_res = self_.safe_lock(|s| {
+            s.channel_factory
+                .on_new_prev_hash(sv2_set_new_prev_hash.clone())
+        })?;
         on_new_prev_hash_res?;
 
-        let mut future_jobs = self_
-            .safe_lock(|s| {
-                let future_jobs = s.future_jobs.clone();
-                s.future_jobs = vec![];
-                future_jobs
-            })
-            .map_err(|_| PoisonLock)?;
+        let mut future_jobs = self_.safe_lock(|s| {
+            let future_jobs = s.future_jobs.clone();
+            s.future_jobs = vec![];
+            future_jobs
+        })?;
 
         let mut match_a_future_job = false;
         while let Some(job) = future_jobs.pop() {
@@ -420,12 +401,10 @@ impl Bridge {
                 // Get the sender to send the mining.notify to the Downstream
                 tx_sv1_notify.send(notify.clone())?;
                 match_a_future_job = true;
-                self_
-                    .safe_lock(|s| {
-                        s.last_notify = Some(notify);
-                        s.last_job_id = j_id;
-                    })
-                    .map_err(|_| PoisonLock)?;
+                self_.safe_lock(|s| {
+                    s.last_notify = Some(notify);
+                    s.last_job_id = j_id;
+                })?;
                 break;
             }
         }
@@ -494,26 +473,20 @@ impl Bridge {
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> Result<(), Error<'static>> {
         // convert to non segwit jobs so we dont have to depend if miner's support segwit or not
-        self_
-            .safe_lock(|s| {
-                s.channel_factory
-                    .on_new_extended_mining_job(sv2_new_extended_mining_job.as_static().clone())
-            })
-            .map_err(|_| PoisonLock)??;
+        self_.safe_lock(|s| {
+            s.channel_factory
+                .on_new_extended_mining_job(sv2_new_extended_mining_job.as_static().clone())
+        })??;
 
         // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
         // has yet to receive. Insert this new job into the job_mapper .
         if sv2_new_extended_mining_job.is_future() {
-            self_
-                .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
-                .map_err(|_| PoisonLock)?;
+            self_.safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))?;
             Ok(())
 
         // If future_job=false, this job is meant for the current SetNewPrevHash.
         } else {
-            let last_p_hash_option = self_
-                .safe_lock(|s| s.last_p_hash.clone())
-                .map_err(|_| PoisonLock)?;
+            let last_p_hash_option = self_.safe_lock(|s| s.last_p_hash.clone())?;
 
             // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type
             // to be handled
@@ -531,12 +504,10 @@ impl Bridge {
             );
             // Get the sender to send the mining.notify to the Downstream
             tx_sv1_notify.send(notify.clone())?;
-            self_
-                .safe_lock(|s| {
-                    s.last_notify = Some(notify);
-                    s.last_job_id = j_id;
-                })
-                .map_err(|_| PoisonLock)?;
+            self_.safe_lock(|s| {
+                s.last_notify = Some(notify);
+                s.last_job_id = j_id;
+            })?;
             Ok(())
         }
     }
