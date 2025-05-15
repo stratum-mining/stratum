@@ -1,15 +1,12 @@
 //! Pool CLI entry point.
 //!
 //! This binary parses CLI arguments, loads the TOML configuration,
-//! and starts the main runtime via `lib::start`.
+//! and starts the main runtime via `pool_sv2::start`.
 //!
 //! Task orchestration and shutdown are handled in `lib/mod.rs`.
 
-#![allow(special_module_name)]
-
-mod lib;
 use ext_config::{Config, File, FileFormat};
-pub use lib::{config, status, PoolSv2};
+pub use pool_sv2::{config, status, PoolSv2};
 use tokio::select;
 use tracing::{error, info};
 

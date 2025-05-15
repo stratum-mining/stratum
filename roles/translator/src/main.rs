@@ -1,11 +1,10 @@
-#![allow(special_module_name)]
 mod args;
-mod lib;
-
 use args::Args;
 use config::TranslatorConfig;
 use error::{Error, ProxyResult};
-pub use lib::{config, downstream_sv1, error, proxy, status, upstream_sv2};
+pub use translator_sv2::{
+    config, downstream_sv1, error, proxy, status, upstream_sv2, TranslatorSv2,
+};
 
 use ext_config::{Config, File, FileFormat};
 
@@ -38,7 +37,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
 /// Entrypoint for the Translator binary.
 ///
 /// Loads the configuration from TOML and initializes the main runtime
-/// defined in `lib::TranslatorSv2`. Errors during startup are logged.
+/// defined in `translator_sv2::TranslatorSv2`. Errors during startup are logged.
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -49,5 +48,5 @@ async fn main() {
     };
     info!("Proxy Config: {:?}", &proxy_config);
 
-    lib::TranslatorSv2::new(proxy_config).start().await;
+    TranslatorSv2::new(proxy_config).start().await;
 }
