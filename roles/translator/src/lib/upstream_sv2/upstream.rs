@@ -228,9 +228,7 @@ impl Upstream {
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version, false)?;
-        let mut connection = self_
-            .safe_lock(|s| s.connection.clone())
-            .map_err(|_e| PoisonLock)?;
+        let mut connection = self_.safe_lock(|s| s.connection.clone())?;
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
@@ -268,19 +266,15 @@ impl Upstream {
         )?;
 
         // Send open channel request before returning
-        let nominal_hash_rate = self_
-            .safe_lock(|u| {
-                u.difficulty_config
-                    .safe_lock(|c| c.channel_nominal_hashrate)
-                    .map_err(|_e| PoisonLock)
-            })
-            .map_err(|_e| PoisonLock)??;
+        let nominal_hash_rate = self_.safe_lock(|u| {
+            u.difficulty_config
+                .safe_lock(|c| c.channel_nominal_hashrate)
+                .map_err(|_e| PoisonLock)
+        })??;
         let user_identity = "ABC".to_string().try_into()?;
 
         // Get the min_extranonce_size from the instance
-        let min_extranonce_size = self_
-            .safe_lock(|u| u.min_extranonce_size)
-            .map_err(|_e| PoisonLock)?;
+        let min_extranonce_size = self_.safe_lock(|u| u.min_extranonce_size)?;
 
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0, // TODO
@@ -291,13 +285,11 @@ impl Upstream {
         });
 
         // reset channel hashrate so downstreams can manage from now on out
-        self_
-            .safe_lock(|u| {
-                u.difficulty_config
-                    .safe_lock(|d| d.channel_nominal_hashrate = 0.0)
-                    .map_err(|_e| PoisonLock)
-            })
-            .map_err(|_e| PoisonLock)??;
+        self_.safe_lock(|u| {
+            u.difficulty_config
+                .safe_lock(|d| d.channel_nominal_hashrate = 0.0)
+                .map_err(|_e| PoisonLock)
+        })??;
 
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await?;
@@ -326,18 +318,16 @@ impl Upstream {
             tx_sv2_set_new_prev_hash,
             recv,
             tx_status,
-        ) = clone
-            .safe_lock(|s| {
-                (
-                    s.connection.sender.clone(),
-                    s.tx_sv2_extranonce.clone(),
-                    s.tx_sv2_new_ext_mining_job.clone(),
-                    s.tx_sv2_set_new_prev_hash.clone(),
-                    s.connection.receiver.clone(),
-                    s.tx_status.clone(),
-                )
-            })
-            .map_err(|_| PoisonLock)?;
+        ) = clone.safe_lock(|s| {
+            (
+                s.connection.sender.clone(),
+                s.tx_sv2_extranonce.clone(),
+                s.tx_sv2_new_ext_mining_job.clone(),
+                s.tx_sv2_set_new_prev_hash.clone(),
+                s.connection.receiver.clone(),
+                s.tx_status.clone(),
+            )
+        })?;
         {
             let self_ = self_.clone();
             let tx_status = tx_status.clone();
@@ -390,14 +380,7 @@ impl Upstream {
                         let frame: EitherFrame = frame.into();
 
                         // Relay the response message to the Upstream role
-                        handle_result!(
-                            tx_status,
-                            tx_frame.send(frame).await.map_err(|e| {
-                                super::super::error::Error::ChannelErrorSender(
-                                    super::super::error::ChannelSendError::General(e.to_string()),
-                                )
-                            })
-                        );
+                        handle_result!(tx_status, tx_frame.send(frame).await);
                     }
                     // Does not send the messages anywhere, but instead handle them internally
                     Ok(SendTo::None(Some(m))) => {
@@ -533,15 +516,13 @@ impl Upstream {
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let task_collector = self_.safe_lock(|s| s.task_collector.clone()).unwrap();
         let clone = self_.clone();
-        let (tx_frame, receiver, tx_status) = clone
-            .safe_lock(|s| {
-                (
-                    s.connection.sender.clone(),
-                    s.rx_sv2_submit_shares_ext.clone(),
-                    s.tx_status.clone(),
-                )
-            })
-            .map_err(|_| PoisonLock)?;
+        let (tx_frame, receiver, tx_status) = clone.safe_lock(|s| {
+            (
+                s.connection.sender.clone(),
+                s.rx_sv2_submit_shares_ext.clone(),
+                s.tx_status.clone(),
+            )
+        })?;
 
         let handle_submit = tokio::task::spawn(async move {
             loop {
@@ -569,14 +550,7 @@ impl Upstream {
                 // Doesnt actually send because of Braiins Pool issue that needs to be fixed
 
                 let frame: EitherFrame = frame.into();
-                handle_result!(
-                    tx_status,
-                    tx_frame.send(frame).await.map_err(|e| {
-                        super::super::error::Error::ChannelErrorSender(
-                            super::super::error::ChannelSendError::General(e.to_string()),
-                        )
-                    })
-                );
+                handle_result!(tx_status, tx_frame.send(frame).await);
             }
         });
         let _ = task_collector
@@ -766,9 +740,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
                 m.extranonce_size,
             ));
         }
-        self.target
-            .safe_lock(|t| *t = m.target.to_vec())
-            .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
+        self.target.safe_lock(|t| *t = m.target.to_vec())?;
 
         info!("Up: Successfully Opened Extended Mining Channel");
         self.channel_id = Some(m.channel_id);
@@ -934,9 +906,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         info!("Received SetTarget for channel id: {}", m.channel_id);
         debug!("SetTarget: {:?}", m);
         let m = m.into_static();
-        self.target
-            .safe_lock(|t| *t = m.maximum_target.to_vec())
-            .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
+        self.target.safe_lock(|t| *t = m.maximum_target.to_vec())?;
         Ok(SendTo::None(None))
     }
 
