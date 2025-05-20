@@ -20,6 +20,7 @@
 pub mod channel_logic;
 pub mod channels;
 pub mod common_properties;
+pub mod downstream_difficulty_management;
 pub mod errors;
 pub mod handlers;
 pub mod job_creator;
