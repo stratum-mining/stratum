@@ -20,11 +20,11 @@ pub enum Error<'a> {
     /// Errors if the client receives an invalid message that was intended to be sent from the
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
-    InvalidReceiver(Method<'a>),
+    InvalidReceiver(Box<Method<'a>>),
     /// Errors if server receives and invalid `mining.submit` from the client.
     InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
-    Method(MethodError<'a>),
+    Method(Box<MethodError<'a>>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
     /// unauthorized. The client username is given in the error message.
     UnauthorizedClient(String),
@@ -98,7 +98,7 @@ impl From<std::convert::Infallible> for Error<'_> {
 
 impl<'a> From<MethodError<'a>> for Error<'a> {
     fn from(inner: MethodError<'a>) -> Self {
-        Error::Method(inner)
+        Error::Method(Box::new(inner))
     }
 }
 

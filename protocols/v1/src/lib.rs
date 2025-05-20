@@ -257,7 +257,7 @@ pub trait IsClient<'a> {
                     self.handle_response(response)
                 }
                 Method::Server2Client(request) => self.handle_request(request),
-                Method::Client2Server(_) => Err(Error::InvalidReceiver(m)),
+                Method::Client2Server(_) => Err(Error::InvalidReceiver(m.into())),
                 Method::ErrorMessage(msg) => self.handle_error_message(msg),
             },
             Err(e) => Err(e.into()),
@@ -634,8 +634,11 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            Error::Method(MethodError::MethodNotFound(_)) => {}
-            other => panic!("Expected MethodNotFound error, got {:?}", other),
+            Error::Method(inner) => match *inner {
+                MethodError::MethodNotFound(_) => {}
+                other => panic!("Expected MethodNotFound error, got {:?}", other),
+            },
+            other => panic!("Expected Error::Method, got {:?}", other),
         }
     }
 }
