@@ -18,7 +18,7 @@ use utils::get_available_address;
 
 pub mod interceptor;
 pub mod message_aggregator;
-pub mod mock_downstream;
+pub mod mock_roles;
 pub mod sniffer;
 pub mod sniffer_error;
 #[cfg(feature = "sv1")]
