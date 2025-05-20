@@ -23,11 +23,14 @@ impl MockDownstream {
 
     pub async fn start(&self) -> Sender<MessageFrame> {
         let upstream_address = self.upstream_address;
-        let (upstream_receiver, upstream_sender) = create_upstream(
-            TcpStream::connect(upstream_address)
-                .await
-                .expect("Failed to connect to upstream"),
-        )
+        let (upstream_receiver, upstream_sender) = create_upstream(loop {
+            match TcpStream::connect(upstream_address).await {
+                Ok(stream) => break stream,
+                Err(_) => {
+                    println!("MockDownstream: unable to connect to upstream, retrying");
+                }
+            }
+        })
         .await
         .expect("Failed to create upstream");
         let messages_from_upstream = self.messages_from_upstream.clone();
