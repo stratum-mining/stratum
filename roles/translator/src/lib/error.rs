@@ -8,10 +8,11 @@
 //! - A specific `ChannelSendError` enum for errors occurring during message sending over
 //!   asynchronous channels.
 
+use codec_sv2::Frame;
 use ext_config::ConfigError;
 use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
-    parsers::Mining,
+    parsers::{AnyMessage, Mining},
 };
 use std::{fmt, sync::PoisonError};
 use v1::server_to_client::{Notify, SetDifficulty};
@@ -299,5 +300,15 @@ impl From<std::convert::Infallible> for Error<'_> {
 impl<'a> From<Mining<'a>> for Error<'a> {
     fn from(e: Mining<'a>) -> Self {
         Error::Sv2ProtocolError(e)
+    }
+}
+
+impl From<async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::Slice>>>
+    for Error<'_>
+{
+    fn from(
+        value: async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::Slice>>,
+    ) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::General(value.to_string()))
     }
 }
