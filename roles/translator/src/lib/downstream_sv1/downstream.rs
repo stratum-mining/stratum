@@ -38,6 +38,7 @@ use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOU
 
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
+    downstream_difficulty_management::DownstreamVardiffState,
     utils::Mutex,
 };
 
@@ -85,7 +86,7 @@ pub struct Downstream {
     extranonce2_len: usize,
     /// Configuration and state for managing difficulty adjustments specific
     /// to this individual downstream miner.
-    pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
+    pub(super) difficulty_mgmt: DownstreamVardiffState,
     /// Configuration settings for the upstream channel's difficulty management.
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
 }
@@ -105,8 +106,11 @@ impl Downstream {
         extranonce2_len: usize,
         difficulty_mgmt: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
-        last_job_id: String,
     ) -> Self {
+        let downstream_difficulty_state = DownstreamVardiffState::new(
+            difficulty_mgmt.shares_per_minute,
+            difficulty_mgmt.min_individual_miner_hashrate,
+        );
         Downstream {
             connection_id,
             authorized_names,
@@ -117,7 +121,7 @@ impl Downstream {
             tx_outgoing,
             first_job_received,
             extranonce2_len,
-            difficulty_mgmt,
+            difficulty_mgmt: downstream_difficulty_state,
             upstream_difficulty_config,
         }
     }
@@ -146,6 +150,10 @@ impl Downstream {
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
+        let downstream_difficulty_state = DownstreamVardiffState::new(
+            difficulty_config.shares_per_minute,
+            difficulty_config.min_individual_miner_hashrate,
+        );
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, mut socket_writer) = stream.into_split();
         let (tx_outgoing, receiver_outgoing) = bounded(10);
@@ -161,7 +169,7 @@ impl Downstream {
             tx_outgoing,
             first_job_received: false,
             extranonce2_len,
-            difficulty_mgmt: difficulty_config,
+            difficulty_mgmt: downstream_difficulty_state,
             upstream_difficulty_config,
         }));
         let self_ = downstream.clone();
@@ -302,15 +310,14 @@ impl Downstream {
                     }
                 };
                 if is_a && !first_sent && last_notify.is_some() {
-                    let target = handle_result!(
-                        tx_status_notify,
-                        Self::hash_rate_to_target(downstream.clone())
-                    );
+                    let target = downstream
+                        .safe_lock(|d| d.difficulty_mgmt.get_current_miner_target())
+                        .expect("downstream target couldn't be computed");
                     // make sure the mining start time is initialized and reset number of shares
                     // submitted
                     handle_result!(
                         tx_status_notify,
-                        Self::init_difficulty_management(downstream.clone(), &target).await
+                        Self::init_difficulty_management(downstream.clone()).await
                     );
                     let message =
                         handle_result!(tx_status_notify, Self::get_set_difficulty(target));
