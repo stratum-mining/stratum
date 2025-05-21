@@ -37,12 +37,29 @@ pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
+/// Struct for sender
+pub struct TemplateRxSender {
+    sender: Sender<EitherFrame>,
+}
+
+impl TemplateRxSender {
+    pub fn new(sender: Sender<EitherFrame>) -> Self {
+        Self { sender }
+    }
+
+    // Send method with no lock
+    pub async fn send(&self, sv2_frame: StdFrame) -> Result<(), async_channel::SendError<EitherFrame>> {
+        let either_frame = sv2_frame.into();
+        self.sender.send(either_frame).await
+    }
+}
+
 /// Represents a template receiver client
 pub struct TemplateRx {
     // Receiver channel for incoming messages from the Template Provider.
     receiver: Receiver<EitherFrame>,
     // Sender channel for sending messages to the Template Provider.
-    sender: Sender<EitherFrame>,
+    // sender: Sender<EitherFrame>,
     // Sender for communicating status updates back to the main status loop
     // for error handling and state management.
     tx_status: status::Sender,
@@ -108,10 +125,12 @@ impl TemplateRx {
             .await
             .unwrap();
         info!("Template Receiver connection set up");
+        // Sender instance
+        let sender_to_tp = Arc::new(TemplateRxSender::new(sender.clone()));
 
         let self_mutex = Arc::new(Mutex::new(Self {
             receiver: receiver.clone(),
-            sender: sender.clone(),
+            // sender: sender.clone(),
             tx_status,
             jd,
             down,
@@ -123,24 +142,14 @@ impl TemplateRx {
 
         // Spawn a task to handle incoming block solutions from the miner and forward them
         // to the Template Provider
-        let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
+        let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), sender_to_tp.clone(), solution_receiver));
         task_collector
             .safe_lock(|c| c.push(task.abort_handle()))
             .unwrap();
 
         // Start the main task for receiving and processing template-related messages
         // from the Template Provider.
-        Self::start_templates(self_mutex);
-    }
-
-    /// This method is used to send message to template provider.
-    pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) {
-        let either_frame = sv2_frame.into();
-        let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
-        match sender_to_tp.send(either_frame).await {
-            Ok(_) => (),
-            Err(e) => panic!("{:?}", e),
-        }
+        Self::start_templates(self_mutex, sender_to_tp);
     }
 
     /// Sends a `CoinbaseOutputConstraints` message to the Template Provider.
@@ -148,7 +157,8 @@ impl TemplateRx {
     /// This informs the TP about the maximum size and sigops allowed in the miner's
     /// additional coinbase output data.
     pub async fn send_coinbase_output_constraints(
-        self_mutex: &Arc<Mutex<Self>>,
+        // self_mutex: &Arc<Mutex<Self>>,
+        sender: &Arc<TemplateRxSender>,
         size: u32,
         sigops: u16,
     ) {
@@ -159,14 +169,16 @@ impl TemplateRx {
             }),
         );
         let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
-        Self::send(self_mutex, frame).await;
+        // Self::send(self_mutex, frame).await;
+        sender.send(frame).await.expect("Failed to send constraints");
     }
 
     /// Sends a `RequestTransactionData` message to the Template Provider.
     ///
     /// This requests the full transaction data for a template identified by its ID.
     pub async fn send_tx_data_request(
-        self_mutex: &Arc<Mutex<Self>>,
+        // self_mutex: &Arc<Mutex<Self>>,
+        sender: &Arc<TemplateRxSender>,
         new_template: NewTemplate<'static>,
     ) {
         let tx_data_request = AnyMessage::TemplateDistribution(
@@ -175,7 +187,8 @@ impl TemplateRx {
             }),
         );
         let frame: StdFrame = tx_data_request.try_into().unwrap();
-        Self::send(self_mutex, frame).await;
+        // Self::send(self_mutex, frame).await;
+        sender.send(frame).await.expect("Failed to send tx data request");
     }
 
     /// Retrieves the last allocated mining job token.
@@ -224,7 +237,7 @@ impl TemplateRx {
     ///
     /// FIX ME: Remove dependence from other modules in this. This gonna help in
     /// removing sequential component spawning.
-    pub fn start_templates(self_mutex: Arc<Mutex<Self>>) {
+    pub fn start_templates(self_mutex: Arc<Mutex<Self>>, sender_to_tp: Arc<TemplateRxSender>) {
         let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap();
         let down = self_mutex.safe_lock(|s| s.down.clone()).unwrap();
         let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
@@ -237,6 +250,7 @@ impl TemplateRx {
         // Spawn the main task for handling incoming template messages.
         let main_task = {
             let self_mutex = self_mutex.clone();
+            let sender_to_tp = sender_to_tp.clone();
             tokio::task::spawn(async move {
                 // Send CoinbaseOutputConstraints to TP
                 loop {
@@ -250,7 +264,8 @@ impl TemplateRx {
                     if !coinbase_output_constraints_sent {
                         coinbase_output_constraints_sent = true;
                         Self::send_coinbase_output_constraints(
-                            &self_mutex,
+                            // &self_mutex,
+                            &sender_to_tp,
                             last_token
                                 .clone()
                                 .unwrap()
@@ -292,7 +307,7 @@ impl TemplateRx {
                                     super::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::Release);
                                     // Request transaction data for the new template.
-                                    Self::send_tx_data_request(&self_mutex, m.clone()).await;
+                                    Self::send_tx_data_request(&sender_to_tp, m.clone()).await;
                                     self_mutex
                                         .safe_lock(|t| t.new_template_message = Some(m.clone()))
                                         .unwrap();
@@ -414,13 +429,14 @@ impl TemplateRx {
     ///
     /// This method continuously receives solutions from the provided receiver channel
     /// and forwards them as `SubmitSolution` messages to the Template Provider.
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
+    async fn on_new_solution(_self_: Arc<Mutex<Self>>, sender_to_tp: Arc<TemplateRxSender>, rx: Receiver<SubmitSolution<'static>>) {
         while let Ok(solution) = rx.recv().await {
             let sv2_frame: StdFrame =
                 AnyMessage::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
                     .try_into()
                     .expect("Failed to convert solution to sv2 frame!");
-            Self::send(&self_, sv2_frame).await
+            // Self::send(&self_, sv2_frame).await
+            sender_to_tp.send(sv2_frame).await.expect("Failed to send");
         }
     }
 }
