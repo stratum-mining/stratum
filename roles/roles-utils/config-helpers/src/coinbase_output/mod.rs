@@ -22,7 +22,7 @@ impl CoinbaseOutput {
         output_script_type: String,
         output_script_value: String,
     ) -> Result<Self, Error> {
-        Self::try_from(serde_types::SerdeCoinbaseOutput {
+        Self::try_from(serde_types::LegacyCoinbaseOutput {
             output_script_type,
             output_script_value,
         })
