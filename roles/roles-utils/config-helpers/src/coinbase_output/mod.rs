@@ -2,7 +2,7 @@ mod errors;
 mod serde_types;
 
 use miniscript::{
-    bitcoin::{address::NetworkUnchecked, Address, Network, Script, ScriptBuf},
+    bitcoin::{address::NetworkUnchecked, hex::FromHex as _, Address, Network, Script, ScriptBuf},
     DefiniteDescriptorKey, Descriptor,
 };
 
@@ -51,6 +51,9 @@ impl CoinbaseOutput {
         let tree = miniscript::expression::Tree::from_str(s)?;
         match tree.name {
             "addr" => {
+                // In rust-miniscript 13 these can be replaced with a call to
+                // TreeIterItem::verify_toplevel which will these checks for us
+                // in a uniform way.
                 if tree.args.len() != 1 {
                     return Err(Error::AddrDescriptorNChildren(tree.args.len()));
                 }
@@ -62,6 +65,24 @@ impl CoinbaseOutput {
                 Ok(Self {
                     script_pubkey: addr.assume_checked_ref().script_pubkey(),
                     ok_for_mainnet: addr.is_valid_for_network(Network::Bitcoin),
+                })
+            }
+            "raw" => {
+                // In rust-miniscript 13 these can be replaced with a call to
+                // TreeIterItem::verify_toplevel which will these checks for us
+                // in a uniform way.
+                if tree.args.len() != 1 {
+                    return Err(Error::RawDescriptorNChildren(tree.args.len()));
+                }
+                if !tree.args[0].args.is_empty() {
+                    return Err(Error::RawDescriptorGrandchild);
+                }
+
+                let bytes = Vec::<u8>::from_hex(tree.args[0].name)?;
+                Ok(Self {
+                    script_pubkey: ScriptBuf::from(bytes),
+                    // Users of hex scriptpubkeys are on their own.
+                    ok_for_mainnet: true,
                 })
             }
             _ => {
