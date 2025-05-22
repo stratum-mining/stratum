@@ -1,4 +1,4 @@
-use core::{convert::TryFrom, str::FromStr as _};
+use core::convert::TryFrom;
 
 use stratum_common::bitcoin::{
     secp256k1::{All, Secp256k1},
@@ -41,36 +41,48 @@ impl TryFrom<CoinbaseOutput> for ScriptBuf {
     fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "TEST" => {
-                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                let pub_key_hash = value
+                    .output_script_value
+                    .parse::<PublicKey>()
                     .map_err(|_| Error::InvalidOutputScript)?
                     .pubkey_hash();
                 Ok(ScriptBuf::new_p2pkh(&pub_key_hash))
             }
             "P2PK" => {
-                let pub_key = PublicKey::from_str(&value.output_script_value)
+                let pub_key = value
+                    .output_script_value
+                    .parse::<PublicKey>()
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok(ScriptBuf::new_p2pk(&pub_key))
             }
             "P2PKH" => {
-                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                let pub_key_hash = value
+                    .output_script_value
+                    .parse::<PublicKey>()
                     .map_err(|_| Error::InvalidOutputScript)?
                     .pubkey_hash();
                 Ok(ScriptBuf::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let w_pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                let w_pub_key_hash = value
+                    .output_script_value
+                    .parse::<PublicKey>()
                     .map_err(|_| Error::InvalidOutputScript)?
                     .wpubkey_hash()
                     .unwrap();
                 Ok(ScriptBuf::new_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
-                let script_hashed = ScriptHash::from_str(value.output_script_value.as_ref())
+                let script_hashed = value
+                    .output_script_value
+                    .parse::<ScriptHash>()
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok(ScriptBuf::new_p2sh(&script_hashed))
             }
             "P2WSH" => {
-                let w_script_hashed = WScriptHash::from_str(value.output_script_value.as_ref())
+                let w_script_hashed = value
+                    .output_script_value
+                    .parse::<WScriptHash>()
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok(ScriptBuf::new_p2wsh(&w_script_hashed))
             }
@@ -80,7 +92,9 @@ impl TryFrom<CoinbaseOutput> for ScriptBuf {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let pub_key = XOnlyPublicKey::from_str(&value.output_script_value)
+                let pub_key = value
+                    .output_script_value
+                    .parse::<XOnlyPublicKey>()
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok(ScriptBuf::new_p2tr::<All>(
                     &Secp256k1::<All>::new(),
