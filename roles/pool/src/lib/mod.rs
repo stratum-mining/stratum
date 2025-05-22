@@ -209,7 +209,7 @@ mod tests {
 
     #[tokio::test]
     async fn pool_bad_coinbase_output() {
-        let invalid_coinbase_output = vec![config::CoinbaseOutput::new(
+        let invalid_coinbase_output = vec![config_helpers::CoinbaseOutput::new(
             "P2PK".to_string(),
             "wrong".to_string(),
         )];

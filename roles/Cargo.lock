@@ -1999,6 +1999,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
+ "config-helpers",
  "error_handling",
  "hex",
  "integration_tests_sv2",
