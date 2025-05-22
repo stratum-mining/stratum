@@ -1,9 +1,11 @@
 use crate::utils::{hash_rate_from_target, hash_rate_to_target};
 use std::convert::TryInto;
 
+use super::Vardiff;
+
 #[allow(warnings)]
 #[derive(Debug)]
-pub struct DownstreamVardiffState {
+pub struct VardiffState {
     pub estimated_downstream_hash_rate: f32,
     pub shares_per_minute: f32,
     pub shares_since_last_update: u32,
@@ -11,7 +13,7 @@ pub struct DownstreamVardiffState {
     pub current_miner_target: Vec<u8>,
 }
 
-impl DownstreamVardiffState {
+impl VardiffState {
     pub fn new(shares_per_minute: f32, estimated_downstream_hash_rate: f32) -> Self {
         let current_miner_target = hash_rate_to_target(
             estimated_downstream_hash_rate as f64,
@@ -23,44 +25,13 @@ impl DownstreamVardiffState {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("time went backwards")
             .as_secs();
-        DownstreamVardiffState {
+        VardiffState {
             estimated_downstream_hash_rate,
             shares_per_minute,
             shares_since_last_update: 0,
             timestamp_of_last_update: timestamp_secs,
             current_miner_target,
         }
-    }
-
-    pub fn get_hash_rate(&self) -> f32 {
-        self.estimated_downstream_hash_rate
-    }
-
-    pub fn get_shares_per_minute(&self) -> f32 {
-        self.shares_per_minute
-    }
-
-    pub fn get_timestamp_of_last_update(&self) -> u64 {
-        self.timestamp_of_last_update
-    }
-
-    pub fn get_shares_since_last_update(&self) -> u32 {
-        self.shares_since_last_update
-    }
-
-    pub fn get_current_miner_target(&self) -> Vec<u8> {
-        self.current_miner_target.clone()
-    }
-
-    pub fn set_hash_rate(&mut self, estimated_downstream_hash_rate: f32) {
-        self.estimated_downstream_hash_rate = estimated_downstream_hash_rate;
-        let current_miner_target = hash_rate_to_target(
-            estimated_downstream_hash_rate as f64,
-            self.shares_per_minute as f64,
-        )
-        .expect("")
-        .to_vec();
-        self.set_current_miner_target(current_miner_target);
     }
 
     pub fn set_shares_per_minute(&mut self, shares_per_minute: f32) {
@@ -78,12 +49,45 @@ impl DownstreamVardiffState {
     pub fn set_current_miner_target(&mut self, current_miner_target: Vec<u8>) {
         self.current_miner_target = current_miner_target;
     }
+}
 
-    pub fn update_shares_since_last_update(&mut self) {
+impl Vardiff for VardiffState {
+    fn hash_rate(&self) -> f32 {
+        self.estimated_downstream_hash_rate
+    }
+
+    fn shares_per_minute(&self) -> f32 {
+        self.shares_per_minute
+    }
+
+    fn last_update_timestamp(&self) -> u64 {
+        self.timestamp_of_last_update
+    }
+
+    fn shares_since_last_update(&self) -> u32 {
+        self.shares_since_last_update
+    }
+
+    fn target(&self) -> Vec<u8> {
+        self.current_miner_target.clone()
+    }
+
+    fn set_hash_rate(&mut self, estimated_downstream_hash_rate: f32) {
+        self.estimated_downstream_hash_rate = estimated_downstream_hash_rate;
+        let current_miner_target = hash_rate_to_target(
+            estimated_downstream_hash_rate as f64,
+            self.shares_per_minute as f64,
+        )
+        .expect("")
+        .to_vec();
+        self.set_current_miner_target(current_miner_target);
+    }
+
+    fn increment_shares_since_last_update(&mut self) {
         self.shares_since_last_update += 1;
     }
 
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("time went backwards")
@@ -92,7 +96,7 @@ impl DownstreamVardiffState {
         self.set_shares_since_last_update(0);
     }
 
-    pub fn update_downstream_hashrate(&mut self) -> Option<(f32, f32)> {
+    fn update_hashrate(&mut self) -> Option<(f32, f32)> {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("time went backwards")

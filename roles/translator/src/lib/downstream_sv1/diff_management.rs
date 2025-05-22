@@ -35,8 +35,8 @@ impl Downstream {
                 (
                     d.connection_id,
                     d.upstream_difficulty_config.clone(),
-                    d.difficulty_mgmt.get_hash_rate(),
-                    d.difficulty_mgmt.get_current_miner_target(),
+                    d.difficulty_mgmt.hash_rate(),
+                    d.difficulty_mgmt.target(),
                 )
             })?;
         // add new connection hashrate to channel hashrate
@@ -67,7 +67,7 @@ impl Downstream {
         self_.safe_lock(|d| {
             d.upstream_difficulty_config
                 .safe_lock(|u| {
-                    let hashrate_to_subtract = d.difficulty_mgmt.get_hash_rate();
+                    let hashrate_to_subtract = d.difficulty_mgmt.hash_rate();
                     if u.channel_nominal_hashrate >= hashrate_to_subtract {
                         u.channel_nominal_hashrate -= hashrate_to_subtract;
                     } else {
@@ -95,8 +95,8 @@ impl Downstream {
         let (timestamp_of_last_update, shares_since_last_update, channel_id) =
             self_.clone().safe_lock(|d| {
                 (
-                    d.difficulty_mgmt.get_timestamp_of_last_update(),
-                    d.difficulty_mgmt.get_shares_since_last_update(),
+                    d.difficulty_mgmt.last_update_timestamp(),
+                    d.difficulty_mgmt.shares_since_last_update(),
                     d.connection_id,
                 )
             })?;
@@ -106,7 +106,7 @@ impl Downstream {
         if Self::update_miner_hashrate(self_.clone())?.is_some() {
             let new_target = self_
                 .clone()
-                .safe_lock(|d| d.difficulty_mgmt.get_current_miner_target())
+                .safe_lock(|d| d.difficulty_mgmt.target())
                 .map_err(|_e| Error::PoisonLock)?;
             tracing::debug!("New target from hashrate: {:?}", new_target);
             let message = Self::get_set_difficulty(new_target.clone())?;
@@ -134,7 +134,7 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub(super) fn save_share(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         self_.safe_lock(|d| {
-            d.difficulty_mgmt.update_shares_since_last_update();
+            d.difficulty_mgmt.increment_shares_since_last_update();
         })?;
         Ok(())
     }
@@ -191,8 +191,7 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Option<f32>> {
         self_.safe_lock(|d| {
-            if let Some((new_miner_hashrate, hashrate_delta)) =
-                d.difficulty_mgmt.update_downstream_hashrate()
+            if let Some((new_miner_hashrate, hashrate_delta)) = d.difficulty_mgmt.update_hashrate()
             {
                 d.upstream_difficulty_config.super_safe_lock(|c| {
                     if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
@@ -398,7 +397,7 @@ mod test {
             initial_target = downstream
                 .safe_lock(|d| {
                     match roles_logic_sv2::utils::hash_rate_to_target(
-                        d.difficulty_mgmt.get_hash_rate().into(),
+                        d.difficulty_mgmt.hash_rate().into(),
                         config_shares_per_minute.into(),
                     ) {
                         Ok(target) => target,
