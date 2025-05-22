@@ -223,11 +223,10 @@ mod tests {
         let config = load_config("config-examples/jds-config-hosted-example.toml");
         let outputs = config.get_txout().expect("Failed to get coinbase output");
 
-        let expected_output = CoinbaseOutput {
-            output_script_type: "P2WPKH".to_string(),
-            output_script_value:
-                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        };
+        let expected_output = CoinbaseOutput::new(
+            "P2WPKH".to_string(),
+            "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+        );
         let expected_script: ScriptBuf = expected_output.try_into().unwrap();
         let expected_transaction_output = TxOut {
             value: Amount::from_sat(0),
@@ -296,11 +295,10 @@ mod tests {
     fn get_txout_supported_output_script_types() {
         let config = load_config("config-examples/jds-config-hosted-example.toml");
         let outputs = config.get_txout().expect("Failed to get coinbase output");
-        let expected_output = CoinbaseOutput {
-            output_script_type: "P2WPKH".to_string(),
-            output_script_value:
-                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        };
+        let expected_output = CoinbaseOutput::new(
+            "P2WPKH".to_string(),
+            "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+        );
         let expected_script: ScriptBuf = expected_output.try_into().unwrap();
         let expected_transaction_output = TxOut {
             value: Amount::from_sat(0),

@@ -23,7 +23,7 @@ pub struct CoinbaseOutput {
     /// - `"P2WPKH"`: Pay-to-Witness-Public-Key-Hash
     /// - `"P2WSH"`: Pay-to-Witness-Script-Hash
     /// - `"P2TR"`: Pay-to-Taproot
-    pub output_script_type: String,
+    output_script_type: String,
 
     /// Value associated with the script, typically a public key or script hash.
     ///
@@ -34,7 +34,7 @@ pub struct CoinbaseOutput {
     /// - For `"P2SH"`: A script hash.
     /// - For `"P2WSH"`: A witness script hash.
     /// - For `"P2TR"`: An x-only public key.
-    pub output_script_value: String,
+    output_script_value: String,
 }
 
 impl CoinbaseOutput {
