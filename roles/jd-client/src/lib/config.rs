@@ -150,7 +150,7 @@ impl JobDeclaratorClientConfig {
         &self.jdc_signature
     }
 
-    pub fn get_txout(&self) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
+    pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
         let mut result = Vec::new();
         for coinbase_output_pool in &self.coinbase_outputs {
             let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
@@ -161,7 +161,7 @@ impl JobDeclaratorClientConfig {
             });
         }
         match result.is_empty() {
-            true => Err(roles_logic_sv2::Error::EmptyCoinbaseOutputs),
+            true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
             _ => Ok(result),
         }
     }

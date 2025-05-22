@@ -1,3 +1,5 @@
+mod errors;
+
 use core::convert::TryFrom;
 
 use stratum_common::bitcoin::{
@@ -5,7 +7,7 @@ use stratum_common::bitcoin::{
     PublicKey, ScriptBuf, ScriptHash, WScriptHash, XOnlyPublicKey,
 };
 
-use super::Error;
+pub use errors::Error;
 
 /// Coinbase output transaction.
 ///

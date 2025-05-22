@@ -31,7 +31,7 @@ use tracing::error;
 
 use crate::errors::Error;
 
-pub use self::coinbase_output::CoinbaseOutput;
+pub use self::coinbase_output::{CoinbaseOutput, Error as CoinbaseOutputError};
 
 /// Generator of unique IDs for channels and groups.
 ///

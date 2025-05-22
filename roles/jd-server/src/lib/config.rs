@@ -130,7 +130,7 @@ impl JobDeclaratorServerConfig {
         self.coinbase_outputs = outputs;
     }
 
-    pub fn get_txout(&self) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
+    pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
         let mut result = Vec::new();
         for coinbase_output_pool in &self.coinbase_outputs {
             let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
@@ -141,7 +141,7 @@ impl JobDeclaratorServerConfig {
             });
         }
         match result.is_empty() {
-            true => Err(roles_logic_sv2::Error::EmptyCoinbaseOutputs),
+            true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
             _ => Ok(result),
         }
     }
@@ -232,7 +232,10 @@ mod tests {
 
         let result = &config.get_txout();
         assert!(
-            matches!(result, Err(roles_logic_sv2::Error::EmptyCoinbaseOutputs)),
+            matches!(
+                result,
+                Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs)
+            ),
             "Expected an error for empty coinbase outputs"
         );
     }
@@ -256,7 +259,7 @@ mod tests {
         let result: Result<CoinbaseOutput_, _> = (&input).try_into();
         assert!(matches!(
             result,
-            Err(roles_logic_sv2::Error::UnknownOutputScriptType)
+            Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
         ));
     }
 
@@ -271,7 +274,7 @@ mod tests {
         assert!(
             matches!(
                 outputs,
-                Err(roles_logic_sv2::Error::UnknownOutputScriptType)
+                Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
             ),
             "Expected an error for unknown output script type"
         );

@@ -1,6 +1,8 @@
 use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
 use std::convert::TryFrom;
 
+pub use roles_logic_sv2::utils::CoinbaseOutputError as Error;
+
 /// [`CoinbaseOutput`] is a struct that represents the output of a coinbase transaction.
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct CoinbaseOutput {
@@ -19,7 +21,7 @@ impl CoinbaseOutput {
 }
 
 impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = roles_logic_sv2::Error;
+    type Error = Error;
 
     fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match pool_output.output_script_type.as_str() {
@@ -27,7 +29,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
                 output_script_type: pool_output.clone().output_script_type,
                 output_script_value: pool_output.clone().output_script_value,
             }),
-            _ => Err(roles_logic_sv2::Error::UnknownOutputScriptType),
+            _ => Err(Error::UnknownOutputScriptType),
         }
     }
 }
@@ -57,7 +59,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            roles_logic_sv2::Error::UnknownOutputScriptType
+            Error::UnknownOutputScriptType
         ));
     }
 }

@@ -28,6 +28,7 @@ use super::{
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
+use config_helpers::CoinbaseOutputError;
 use error_handling::handle_result;
 use key_utils::SignatureService;
 use network_helpers_sv2::noise_connection::Connection;
@@ -68,7 +69,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// It iterates through the configured outputs, attempts to convert them into the
 /// internal `CoinbaseOutput_` representation and then into `bitcoin::ScriptBuf`.
 /// Sets the value to 0 sats as per SV2 pool requirements (actual value determined later)
-pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
+pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOutputError> {
     let mut result = Vec::new();
     for coinbase_output_pool in config.coinbase_outputs() {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
@@ -79,7 +80,7 @@ pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
         });
     }
     match result.is_empty() {
-        true => Err(Error::EmptyCoinbaseOutputs),
+        true => Err(CoinbaseOutputError::EmptyCoinbaseOutputs),
         _ => Ok(result),
     }
 }
