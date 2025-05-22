@@ -2,7 +2,7 @@ mod errors;
 
 use core::convert::TryFrom;
 
-use stratum_common::bitcoin::{
+use miniscript::bitcoin::{
     secp256k1::{All, Secp256k1},
     PublicKey, ScriptBuf, ScriptHash, WScriptHash, XOnlyPublicKey,
 };
@@ -12,7 +12,7 @@ pub use errors::Error;
 /// Coinbase output transaction.
 ///
 /// Typically used for parsing coinbase outputs defined in SRI role configuration files.
-#[derive(Debug, Clone)]
+#[derive(Debug, serde::Deserialize, Clone)]
 pub struct CoinbaseOutput {
     /// Specifies type of the script used in the output.
     ///
@@ -35,6 +35,16 @@ pub struct CoinbaseOutput {
     /// - For `"P2WSH"`: A witness script hash.
     /// - For `"P2TR"`: An x-only public key.
     pub output_script_value: String,
+}
+
+impl CoinbaseOutput {
+    /// Creates a new [`CoinbaseOutput`].
+    pub fn new(output_script_type: String, output_script_value: String) -> Self {
+        Self {
+            output_script_type,
+            output_script_value,
+        }
+    }
 }
 
 impl TryFrom<CoinbaseOutput> for ScriptBuf {

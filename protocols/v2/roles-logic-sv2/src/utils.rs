@@ -5,8 +5,6 @@
 //! management, mutex management, difficulty target calculations, merkle root calculations, and
 //! more.
 
-mod coinbase_output;
-
 use binary_sv2::U256;
 use bitcoin::Block;
 use job_declaration_sv2::{DeclareMiningJob, PushSolution};
@@ -30,8 +28,6 @@ use stratum_common::{
 use tracing::error;
 
 use crate::errors::Error;
-
-pub use self::coinbase_output::{CoinbaseOutput, Error as CoinbaseOutputError};
 
 /// Generator of unique IDs for channels and groups.
 ///

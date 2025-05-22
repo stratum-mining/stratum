@@ -8,7 +8,6 @@
 #![allow(dead_code)]
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
 use serde::Deserialize;
 use std::{net::SocketAddr, time::Duration};
 use stratum_common::bitcoin::{Amount, TxOut};
@@ -153,8 +152,7 @@ impl JobDeclaratorClientConfig {
     pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
         let mut result = Vec::new();
         for coinbase_output_pool in &self.coinbase_outputs {
-            let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-            let output_script = coinbase_output.try_into()?;
+            let output_script = coinbase_output_pool.clone().try_into()?;
             result.push(TxOut {
                 value: Amount::from_sat(0),
                 script_pubkey: output_script,

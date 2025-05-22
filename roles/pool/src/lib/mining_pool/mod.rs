@@ -42,7 +42,7 @@ use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{AnyMessage, Mining},
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
-    utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
+    utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
@@ -72,8 +72,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOutputError> {
     let mut result = Vec::new();
     for coinbase_output_pool in config.coinbase_outputs() {
-        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-        let output_script: ScriptBuf = coinbase_output.try_into()?;
+        let output_script: ScriptBuf = coinbase_output_pool.clone().try_into()?;
         result.push(TxOut {
             value: Amount::from_sat(0),
             script_pubkey: output_script,
