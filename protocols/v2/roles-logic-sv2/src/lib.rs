@@ -20,15 +20,16 @@
 pub mod channel_logic;
 pub mod channels;
 pub mod common_properties;
-pub mod downstream_difficulty_management;
 pub mod errors;
 pub mod handlers;
 pub mod job_creator;
 pub mod job_dispatcher;
 pub mod parsers;
 pub mod utils;
+pub mod vardiff;
 pub use common_messages_sv2;
 pub use errors::Error;
 pub use job_declaration_sv2;
 pub use mining_sv2;
 pub use template_distribution_sv2;
+pub use vardiff::{classic::VardiffState, Vardiff};

@@ -38,8 +38,9 @@ use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOU
 
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
-    downstream_difficulty_management::DownstreamVardiffState,
     utils::Mutex,
+    vardiff::Vardiff,
+    VardiffState,
 };
 
 use crate::error::Error;
@@ -86,7 +87,7 @@ pub struct Downstream {
     extranonce2_len: usize,
     /// Configuration and state for managing difficulty adjustments specific
     /// to this individual downstream miner.
-    pub(super) difficulty_mgmt: DownstreamVardiffState,
+    pub(super) difficulty_mgmt: Box<dyn Vardiff>,
     /// Configuration settings for the upstream channel's difficulty management.
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
 }
@@ -107,10 +108,10 @@ impl Downstream {
         difficulty_mgmt: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> Self {
-        let downstream_difficulty_state = DownstreamVardiffState::new(
+        let downstream_difficulty_state = Box::new(VardiffState::new(
             difficulty_mgmt.shares_per_minute,
             difficulty_mgmt.min_individual_miner_hashrate,
-        );
+        ));
         Downstream {
             connection_id,
             authorized_names,
@@ -150,7 +151,7 @@ impl Downstream {
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
-        let downstream_difficulty_state = DownstreamVardiffState::new(
+        let downstream_difficulty_state = VardiffState::new(
             difficulty_config.shares_per_minute,
             difficulty_config.min_individual_miner_hashrate,
         );
@@ -169,7 +170,7 @@ impl Downstream {
             tx_outgoing,
             first_job_received: false,
             extranonce2_len,
-            difficulty_mgmt: downstream_difficulty_state,
+            difficulty_mgmt: Box::new(downstream_difficulty_state),
             upstream_difficulty_config,
         }));
         let self_ = downstream.clone();
@@ -311,7 +312,7 @@ impl Downstream {
                 };
                 if is_a && !first_sent && last_notify.is_some() {
                     let target = downstream
-                        .safe_lock(|d| d.difficulty_mgmt.get_current_miner_target())
+                        .safe_lock(|d| d.difficulty_mgmt.target())
                         .expect("downstream target couldn't be computed");
                     // make sure the mining start time is initialized and reset number of shares
                     // submitted
@@ -702,6 +703,9 @@ impl IsDownstream for Downstream {
 
 #[cfg(test)]
 mod tests {
+    use binary_sv2::U256;
+    use roles_logic_sv2::mining_sv2::Target;
+
     use super::*;
 
     #[test]
@@ -710,6 +714,8 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 255, 127,
             0, 0, 0, 0, 0,
         ];
+        let target_u256 = U256::Owned(target);
+        let target = Target::from(target_u256);
         let actual = Downstream::difficulty_from_target(target).unwrap();
         let expect = 512.0;
         assert_eq!(actual, expect);

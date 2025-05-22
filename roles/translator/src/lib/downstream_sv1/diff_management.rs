@@ -14,7 +14,7 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};
 use primitive_types::U256;
-use roles_logic_sv2::utils::Mutex;
+use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;
 
@@ -31,12 +31,12 @@ impl Downstream {
     pub async fn init_difficulty_management(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let (connection_id, upstream_difficulty_config, miner_hashrate, init_target) = self_
             .safe_lock(|d| {
-                d.difficulty_mgmt.reset();
+                d.difficulty_mgmt.reset_counter();
                 (
                     d.connection_id,
                     d.upstream_difficulty_config.clone(),
-                    d.difficulty_mgmt.get_hash_rate(),
-                    d.difficulty_mgmt.get_current_miner_target(),
+                    d.difficulty_mgmt.hashrate(),
+                    d.difficulty_mgmt.target(),
                 )
             })?;
         // add new connection hashrate to channel hashrate
@@ -44,7 +44,7 @@ impl Downstream {
             u.channel_nominal_hashrate += miner_hashrate;
         })?;
         // update downstream target with bridge
-        let init_target = binary_sv2::U256::try_from(init_target)?;
+        let init_target = binary_sv2::U256::from(init_target);
         Self::send_message_upstream(
             self_,
             DownstreamMessages::SetDownstreamTarget(SetDownstreamTarget {
@@ -67,7 +67,7 @@ impl Downstream {
         self_.safe_lock(|d| {
             d.upstream_difficulty_config
                 .safe_lock(|u| {
-                    let hashrate_to_subtract = d.difficulty_mgmt.get_hash_rate();
+                    let hashrate_to_subtract = d.difficulty_mgmt.hashrate();
                     if u.channel_nominal_hashrate >= hashrate_to_subtract {
                         u.channel_nominal_hashrate -= hashrate_to_subtract;
                     } else {
@@ -95,8 +95,8 @@ impl Downstream {
         let (timestamp_of_last_update, shares_since_last_update, channel_id) =
             self_.clone().safe_lock(|d| {
                 (
-                    d.difficulty_mgmt.get_timestamp_of_last_update(),
-                    d.difficulty_mgmt.get_shares_since_last_update(),
+                    d.difficulty_mgmt.last_update_timestamp(),
+                    d.difficulty_mgmt.shares_since_last_update(),
                     d.connection_id,
                 )
             })?;
@@ -106,11 +106,11 @@ impl Downstream {
         if Self::update_miner_hashrate(self_.clone())?.is_some() {
             let new_target = self_
                 .clone()
-                .safe_lock(|d| d.difficulty_mgmt.get_current_miner_target())
+                .safe_lock(|d| d.difficulty_mgmt.target())
                 .map_err(|_e| Error::PoisonLock)?;
             tracing::debug!("New target from hashrate: {:?}", new_target);
             let message = Self::get_set_difficulty(new_target.clone())?;
-            let target = binary_sv2::U256::try_from(new_target)?;
+            let target = binary_sv2::U256::from(new_target);
             Downstream::send_message_downstream(self_.clone(), message).await?;
             let update_target_msg = SetDownstreamTarget {
                 channel_id,
@@ -134,7 +134,7 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub(super) fn save_share(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         self_.safe_lock(|d| {
-            d.difficulty_mgmt.update_shares_since_last_update();
+            d.difficulty_mgmt.increment_shares_since_last_update();
         })?;
         Ok(())
     }
@@ -142,7 +142,7 @@ impl Downstream {
     /// Converts an SV2 target received from upstream into an SV1 difficulty value
     /// and formats it as a `mining.set_difficulty` JSON-RPC message.
     #[allow(clippy::result_large_err)]
-    pub(super) fn get_set_difficulty(target: Vec<u8>) -> ProxyResult<'static, json_rpc::Message> {
+    pub(super) fn get_set_difficulty(target: Target) -> ProxyResult<'static, json_rpc::Message> {
         let value = Downstream::difficulty_from_target(target)?;
         tracing::debug!("Difficulty from target: {:?}", value);
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
@@ -153,9 +153,12 @@ impl Downstream {
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
     #[allow(clippy::result_large_err)]
-    pub(super) fn difficulty_from_target(mut target: Vec<u8>) -> ProxyResult<'static, f64> {
+    pub(super) fn difficulty_from_target(target: Target) -> ProxyResult<'static, f64> {
         // reverse because target is LE and this function relies on BE
+        let mut target = binary_sv2::U256::from(target).to_vec();
+
         target.reverse();
+
         let target = target.as_slice();
         tracing::debug!("Target: {:?}", target);
 
@@ -191,8 +194,7 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Option<f32>> {
         self_.safe_lock(|d| {
-            if let Some((new_miner_hashrate, hashrate_delta)) =
-                d.difficulty_mgmt.update_downstream_hashrate()
+            if let Some((new_miner_hashrate, hashrate_delta)) = d.difficulty_mgmt.update_hashrate()
             {
                 d.upstream_difficulty_config.super_safe_lock(|c| {
                     if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
@@ -360,7 +362,7 @@ mod test {
         );
         downstream
             .difficulty_mgmt
-            .set_hash_rate(start_hashrate as f32);
+            .set_hashrate(start_hashrate as f32);
 
         let total_run_time = std::time::Duration::from_secs(10);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
@@ -398,7 +400,7 @@ mod test {
             initial_target = downstream
                 .safe_lock(|d| {
                     match roles_logic_sv2::utils::hash_rate_to_target(
-                        d.difficulty_mgmt.get_hash_rate().into(),
+                        d.difficulty_mgmt.hashrate().into(),
                         config_shares_per_minute.into(),
                     ) {
                         Ok(target) => target,
