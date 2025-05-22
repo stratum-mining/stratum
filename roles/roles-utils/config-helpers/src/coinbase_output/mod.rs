@@ -3,7 +3,10 @@ mod serde_types;
 
 use core::convert::TryFrom;
 
-use miniscript::bitcoin::{Script, ScriptBuf};
+use miniscript::{
+    bitcoin::{Script, ScriptBuf},
+    DefiniteDescriptorKey, Descriptor,
+};
 
 pub use errors::Error;
 
@@ -19,9 +22,17 @@ pub struct CoinbaseOutput {
 impl CoinbaseOutput {
     /// Creates a new [`CoinbaseOutput`] from a script type and value.
     pub fn new(output_script_type: String, output_script_value: String) -> Result<Self, Error> {
-        Self::try_from(serde_types::SerdeCoinbaseOutput {
+        Self::try_from(serde_types::LegacyCoinbaseOutput {
             output_script_type,
             output_script_value,
+        })
+    }
+
+    /// Creates a new [`CoinbaseOutput`] from a descriptor string.
+    pub fn from_descriptor(s: &str) -> Result<Self, Error> {
+        let desc = s.parse::<Descriptor<DefiniteDescriptorKey>>()?;
+        Ok(Self {
+            script_pubkey: desc.script_pubkey(),
         })
     }
 
