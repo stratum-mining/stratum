@@ -96,7 +96,11 @@ impl TryFrom<LegacyCoinbaseOutput> for super::CoinbaseOutput {
             }
             _ => return Err(Error::UnknownOutputScriptType),
         };
-        Ok(Self { script_pubkey })
+        Ok(Self {
+            script_pubkey,
+            // legacy encoding gives no way to specify testnet or mainnet
+            ok_for_mainnet: true,
+        })
     }
 }
 
