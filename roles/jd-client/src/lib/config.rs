@@ -159,7 +159,7 @@ impl JobDeclaratorClientConfig {
     pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
         let mut result = Vec::new();
         for coinbase_output_pool in &self.coinbase_outputs {
-            let output_script = coinbase_output_pool.clone().try_into()?;
+            let output_script = coinbase_output_pool.script_pubkey().to_owned();
             result.push(TxOut {
                 value: Amount::from_sat(0),
                 script_pubkey: output_script,

@@ -15,7 +15,6 @@ use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
-    convert::TryInto,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -138,7 +137,7 @@ impl JobDeclaratorServerConfig {
     pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
         let mut result = Vec::new();
         for coinbase_output_pool in &self.coinbase_outputs {
-            let output_script = coinbase_output_pool.clone().try_into()?;
+            let output_script = coinbase_output_pool.script_pubkey().to_owned();
             result.push(TxOut {
                 value: Amount::from_sat(0),
                 script_pubkey: output_script,
@@ -258,8 +257,8 @@ mod tests {
             "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{pk}\" }} ]"
         ))
         .expect("Failed to parse config");
-        let outputs = config.get_txout().expect("Failed to get coinbase output");
 
+        let outputs = config.get_txout().expect("Failed to get coinbase output");
         let expected_script = ScriptBuf::from_hex(&format!(
             "0014{}",
             pk.wpubkey_hash().expect("compressed key")
@@ -289,27 +288,22 @@ mod tests {
 
     #[test]
     fn test_get_txout_invalid_script_type() {
-        let config = load_coinbase_config_str(&format!(
+        let error = load_coinbase_config_str(&format!(
             "[ {{ output_script_type = \"INVALID\", output_script_value = \"{TEST_PK_HEX}\" }} ]"
         ))
-        .expect("Failed to parse config");
-        let result = config.get_txout();
-        assert!(matches!(
-            result,
-            Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
-        ));
+        .expect_err("Cannot parse config with bad script type");
+        assert_eq!(error.to_string(), "Unknown script type in config",);
     }
 
     #[test]
     fn test_get_txout_invalid_value() {
-        let config = load_coinbase_config_str(&format!(
+        let error = load_coinbase_config_str(&format!(
             "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{TEST_INVALID_PK_HEX}\" }} ]"
         ))
-        .expect("Failed to parse config");
-        let result = config.get_txout();
-        assert!(matches!(
-            result,
-            Err(config_helpers::CoinbaseOutputError::InvalidOutputScript)
-        ));
+        .expect_err("Cannot parse config with bad pubkeys");
+        assert_eq!(
+            error.to_string(),
+            "Invalid output_script_value for your script type. It must be a valid public key/script",
+        );
     }
 }

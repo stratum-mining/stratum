@@ -88,7 +88,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOutputError> {
     let mut result = Vec::new();
     for coinbase_output_pool in config.coinbase_outputs() {
-        let output_script: ScriptBuf = coinbase_output_pool.clone().try_into()?;
+        let output_script: ScriptBuf = coinbase_output_pool.script_pubkey().to_owned();
         result.push(TxOut {
             value: Amount::from_sat(0),
             script_pubkey: output_script,
