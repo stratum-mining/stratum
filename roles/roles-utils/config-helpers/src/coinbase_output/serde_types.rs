@@ -7,14 +7,15 @@ use miniscript::bitcoin::{
 use super::Error;
 
 #[derive(serde::Deserialize)]
-pub(super) struct SerdeCoinbaseOutput {
+pub(super) struct LegacyCoinbaseOutput {
     /// Specifies type of the script used in the output.
     ///
     /// Supported values include:
     /// - `"P2PK"`: Pay-to-Public-Key
     /// - `"P2PKH"`: Pay-to-Public-Key-Hash
     /// - `"P2SH"`: Pay-to-Script-Hash
-    /// - `"P2WPKH"`: Pay-to-Witness-Public-Key-Hash
+    /// - `"P2WPKH"`: Pay-to-Witness-Public-Key-Hash:w
+
     /// - `"P2WSH"`: Pay-to-Witness-Script-Hash
     /// - `"P2TR"`: Pay-to-Taproot
     pub(super) output_script_type: String,
@@ -31,9 +32,9 @@ pub(super) struct SerdeCoinbaseOutput {
     pub(super) output_script_value: String,
 }
 
-impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
+impl TryFrom<LegacyCoinbaseOutput> for super::CoinbaseOutput {
     type Error = super::Error;
-    fn try_from(value: SerdeCoinbaseOutput) -> Result<Self, Self::Error> {
+    fn try_from(value: LegacyCoinbaseOutput) -> Result<Self, Self::Error> {
         let script_pubkey = match value.output_script_type.as_str() {
             "TEST" => {
                 let pub_key_hash = value
@@ -96,5 +97,36 @@ impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
             _ => return Err(Error::UnknownOutputScriptType),
         };
         Ok(Self { script_pubkey })
+    }
+}
+
+/// A coinbase output script as it appears in a configuration file.
+///
+/// Private to avoid exposing the enum constructors.
+#[derive(serde::Deserialize)]
+#[serde(untagged)] // decode as whichever variant makes sense for the input
+enum SerdeCoinbaseOutputInner {
+    Legacy(LegacyCoinbaseOutput),
+    Descriptor(String),
+}
+
+/// A structure representing a coinbase output script as it appears in a
+/// configuration file.
+///
+/// Can only be constructed via serde, and supports no operations except conversion
+/// to a [`super::CoinbaseOutput`] via [`TryFrom`].
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+pub struct SerdeCoinbaseOutput {
+    inner: SerdeCoinbaseOutputInner,
+}
+
+impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
+    type Error = super::Error;
+    fn try_from(value: SerdeCoinbaseOutput) -> Result<Self, Self::Error> {
+        match value.inner {
+            SerdeCoinbaseOutputInner::Legacy(legacy) => Self::try_from(legacy),
+            SerdeCoinbaseOutputInner::Descriptor(ref s) => Self::from_descriptor(s),
+        }
     }
 }
