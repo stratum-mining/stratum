@@ -1,8 +1,9 @@
 use core::convert::TryFrom;
 use miniscript::{
     bitcoin::{
+        address::NetworkUnchecked,
         secp256k1::{All, Secp256k1},
-        PublicKey, ScriptBuf, ScriptHash, WScriptHash, XOnlyPublicKey,
+        Address, Network, PublicKey, ScriptBuf, ScriptHash, WScriptHash, XOnlyPublicKey,
     },
     DefiniteDescriptorKey, Descriptor,
 };
@@ -99,7 +100,11 @@ impl TryFrom<LegacyCoinbaseOutput> for super::CoinbaseOutput {
             }
             _ => return Err(Error::UnknownOutputScriptType),
         };
-        Ok(Self { script_pubkey })
+        Ok(Self {
+            script_pubkey,
+            // legacy encoding gives no way to specify testnet or mainnet
+            ok_for_mainnet: true,
+        })
     }
 }
 
@@ -130,10 +135,32 @@ impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
         match value.inner {
             SerdeCoinbaseOutputInner::Legacy(legacy) => Self::try_from(legacy),
             SerdeCoinbaseOutputInner::Descriptor(ref s) => {
-                let desc = s.parse::<Descriptor<DefiniteDescriptorKey>>()?;
-                Ok(Self {
-                    script_pubkey: desc.script_pubkey(),
-                })
+                let tree = miniscript::expression::Tree::from_str(s)?;
+                match tree.name {
+                    "addr" => {
+                        if tree.args.len() != 1 {
+                            return Err(super::Error::AddrDescriptorNChildren(tree.args.len()));
+                        }
+                        if !tree.args[0].args.is_empty() {
+                            return Err(super::Error::AddrDescriptorGrandchild);
+                        }
+
+                        let addr = tree.args[0].name.parse::<Address<NetworkUnchecked>>()?;
+                        Ok(Self {
+                            script_pubkey: addr.assume_checked_ref().script_pubkey(),
+                            ok_for_mainnet: addr.is_valid_for_network(Network::Bitcoin),
+                        })
+                    }
+                    _ => {
+                        let desc = s.parse::<Descriptor<DefiniteDescriptorKey>>()?;
+                        Ok(Self {
+                            script_pubkey: desc.script_pubkey(),
+                            // Descriptors don't have a way to specify a network, so we assume
+                            // they are OK to be used on mainnet.
+                            ok_for_mainnet: true,
+                        })
+                    }
+                }
             }
         }
     }

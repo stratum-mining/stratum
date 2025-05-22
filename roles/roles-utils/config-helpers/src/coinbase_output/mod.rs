@@ -14,6 +14,7 @@ pub use errors::Error;
 #[serde(try_from = "serde_types::SerdeCoinbaseOutput")]
 pub struct CoinbaseOutput {
     script_pubkey: ScriptBuf,
+    ok_for_mainnet: bool,
 }
 
 impl CoinbaseOutput {
@@ -26,6 +27,15 @@ impl CoinbaseOutput {
             output_script_type,
             output_script_value,
         })
+    }
+
+    /// Whether this coinbase output is okay for use on mainnet.
+    ///
+    /// This is a "best effort" check and currently only returns false if the user
+    /// provides an addr() descriptor in which they specified a testnet or regtest
+    /// address.
+    pub fn ok_for_mainnet(&self) -> bool {
+        self.ok_for_mainnet
     }
 
     /// The `scriptPubKey` associated with the coinbase output
