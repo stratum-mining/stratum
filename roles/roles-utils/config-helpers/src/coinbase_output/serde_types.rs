@@ -2,6 +2,7 @@ use core::convert::TryFrom;
 use miniscript::{
     bitcoin::{
         address::NetworkUnchecked,
+        hex::FromHex as _,
         secp256k1::{All, Secp256k1},
         Address, Network, PublicKey, ScriptBuf, ScriptHash, WScriptHash, XOnlyPublicKey,
     },
@@ -138,6 +139,9 @@ impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
                 let tree = miniscript::expression::Tree::from_str(s)?;
                 match tree.name {
                     "addr" => {
+                        // In rust-miniscript 13 these can be replaced with a call to
+                        // TreeIterItem::verify_toplevel which will these checks for us
+                        // in a uniform way.
                         if tree.args.len() != 1 {
                             return Err(super::Error::AddrDescriptorNChildren(tree.args.len()));
                         }
@@ -149,6 +153,24 @@ impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
                         Ok(Self {
                             script_pubkey: addr.assume_checked_ref().script_pubkey(),
                             ok_for_mainnet: addr.is_valid_for_network(Network::Bitcoin),
+                        })
+                    }
+                    "raw" => {
+                        // In rust-miniscript 13 these can be replaced with a call to
+                        // TreeIterItem::verify_toplevel which will these checks for us
+                        // in a uniform way.
+                        if tree.args.len() != 1 {
+                            return Err(super::Error::RawDescriptorNChildren(tree.args.len()));
+                        }
+                        if !tree.args[0].args.is_empty() {
+                            return Err(super::Error::RawDescriptorGrandchild);
+                        }
+
+                        let bytes = Vec::<u8>::from_hex(tree.args[0].name)?;
+                        Ok(Self {
+                            script_pubkey: ScriptBuf::from(bytes),
+                            // Users of hex scriptpubkeys are on their own.
+                            ok_for_mainnet: true,
                         })
                     }
                     _ => {
