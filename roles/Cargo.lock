@@ -686,6 +686,7 @@ dependencies = [
 name = "config-helpers"
 version = "0.1.0"
 dependencies = [
+ "miniscript",
  "roles_logic_sv2",
  "serde",
 ]
@@ -1666,6 +1667,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "miniscript"
+version = "12.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0760e92feaf4ee26bd2e616f557de64712bf1e75f3b1b218dfb475c0a84c7943"
+dependencies = [
+ "bech32",
+ "bitcoin",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1999,6 +2010,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
+ "config-helpers",
  "error_handling",
  "hex",
  "integration_tests_sv2",

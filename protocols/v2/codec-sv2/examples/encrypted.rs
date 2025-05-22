@@ -186,7 +186,7 @@ fn main() {
 
     // Send the encoded frame
     stream_sender
-        .write_all(encoded_frame.as_slice())
+        .write_all(&encoded_frame[..])
         .expect("Failed to send the encoded frame");
 
     // Initialize the decoder

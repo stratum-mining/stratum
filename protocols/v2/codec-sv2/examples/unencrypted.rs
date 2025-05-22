@@ -22,6 +22,13 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
+// The `with_buffer_pool` feature changes some type signatures.
+#[cfg(not(feature = "with_buffer_pool"))]
+type Slice = Vec<u8>;
+
+#[cfg(feature = "with_buffer_pool")]
+type Slice = buffer_sv2::Slice;
+
 // Arbitrary message type.
 // Supported Sv2 message types are listed in the [Sv2 Spec Message
 // Types](https://github.com/stratum-mining/sv2-spec/blob/main/08-Message-Types.md).
@@ -107,7 +114,7 @@ fn sender_side(
         .expect("Failed to send the encoded frame");
 }
 
-fn receiver_side(mut stream_receiver: TcpStream) -> Sv2Frame<CustomMessage, Vec<u8>> {
+fn receiver_side(mut stream_receiver: TcpStream) -> Sv2Frame<CustomMessage, Slice> {
     // Initialize the decoder
     let mut decoder = StandardDecoder::<CustomMessage>::new();
 

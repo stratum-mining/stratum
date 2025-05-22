@@ -31,6 +31,8 @@ pub enum PoolError {
     BinarySv2(binary_sv2::Error),
     /// Error from the `codec_sv2` crate.
     Codec(codec_sv2::Error),
+    /// Error related to parsing a coinbase output specification.
+    CoinbaseOutput(config_helpers::CoinbaseOutputError),
     /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
     /// Error from the `roles_logic_sv2` crate.
@@ -56,6 +58,7 @@ impl std::fmt::Display for PoolError {
             ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             Codec(ref e) => write!(f, "Codec SV2 error: `{:?}", e),
+            CoinbaseOutput(ref e) => write!(f, "Coinbase output error: `{:?}", e),
             Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Noise(ref e) => write!(f, "Noise SV2 error: `{:?}", e),
             RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
@@ -92,6 +95,12 @@ impl From<binary_sv2::Error> for PoolError {
 impl From<codec_sv2::Error> for PoolError {
     fn from(e: codec_sv2::Error) -> PoolError {
         PoolError::Codec(e)
+    }
+}
+
+impl From<config_helpers::CoinbaseOutputError> for PoolError {
+    fn from(e: config_helpers::CoinbaseOutputError) -> PoolError {
+        PoolError::CoinbaseOutput(e)
     }
 }
 

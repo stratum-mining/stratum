@@ -74,12 +74,6 @@ pub enum Error {
     InvalidCoinbase,
     /// Value remaining in coinbase output was not correctly updated (it's equal to 0)
     ValueRemainingNotUpdated,
-    /// Unknown script type in config
-    UnknownOutputScriptType,
-    /// Invalid `output_script_value` for script type. It must be a valid public key/script
-    InvalidOutputScript,
-    /// Empty coinbase outputs in config
-    EmptyCoinbaseOutputs,
     /// Block header version cannot be bigger than `i32::MAX`
     VersionTooBig,
     /// Tx version cannot be bigger than `i32::MAX`
@@ -203,9 +197,6 @@ impl Display for Error {
             ShareDoNotMatchAnyChannel => write!(f, "A share has been received but no channel for it exist"),
             InvalidCoinbase => write!(f, "Coinbase prefix + extranonce + coinbase suffix is not a valid coinbase"),
             ValueRemainingNotUpdated => write!(f, "Value remaining in coinbase output was not correctly updated (it's equal to 0)"),
-            UnknownOutputScriptType => write!(f, "Unknown script type in config"),
-            InvalidOutputScript => write!(f, "Invalid output_script_value for your script type. It must be a valid public key/script"),
-            EmptyCoinbaseOutputs => write!(f, "Empty coinbase outputs in config"),
             VersionTooBig => write!(f, "We are trying to construct a block header with version bigger than i32::MAX"),
             TxVersionTooBig => write!(f, "Tx version can not be greater than i32::MAX"),
             TxVersionTooLow => write!(f, "Tx version can not be lower than 1"),
