@@ -1766,6 +1766,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "config",
+ "config-helpers",
  "error_handling",
  "key-utils",
  "network_helpers_sv2",

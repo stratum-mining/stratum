@@ -13,7 +13,6 @@
 
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
 use serde::Deserialize;
 use std::{convert::TryInto, time::Duration};
 use stratum_common::bitcoin::{Amount, TxOut};
@@ -130,18 +129,17 @@ impl JobDeclaratorServerConfig {
         self.coinbase_outputs = outputs;
     }
 
-    pub fn get_txout(&self) -> Result<Vec<TxOut>, roles_logic_sv2::Error> {
+    pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
         let mut result = Vec::new();
         for coinbase_output_pool in &self.coinbase_outputs {
-            let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-            let output_script = coinbase_output.try_into()?;
+            let output_script = coinbase_output_pool.clone().try_into()?;
             result.push(TxOut {
                 value: Amount::from_sat(0),
                 script_pubkey: output_script,
             });
         }
         match result.is_empty() {
-            true => Err(roles_logic_sv2::Error::EmptyCoinbaseOutputs),
+            true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
             _ => Ok(result),
         }
     }
@@ -173,8 +171,8 @@ impl CoreRpc {
 #[cfg(test)]
 mod tests {
     use super::super::JobDeclaratorServer;
+    use config_helpers::CoinbaseOutput;
     use ext_config::{Config, File, FileFormat};
-    use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
     use std::{convert::TryInto, path::PathBuf};
     use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
 
@@ -211,7 +209,7 @@ mod tests {
         let config = load_config("config-examples/jds-config-hosted-example.toml");
         let outputs = config.get_txout().expect("Failed to get coinbase output");
 
-        let expected_output = CoinbaseOutput_ {
+        let expected_output = CoinbaseOutput {
             output_script_type: "P2WPKH".to_string(),
             output_script_value:
                 "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
@@ -232,7 +230,10 @@ mod tests {
 
         let result = &config.get_txout();
         assert!(
-            matches!(result, Err(roles_logic_sv2::Error::EmptyCoinbaseOutputs)),
+            matches!(
+                result,
+                Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs)
+            ),
             "Expected an error for empty coinbase outputs"
         );
     }
@@ -243,7 +244,7 @@ mod tests {
             "P2PKH".to_string(),
             "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
         );
-        let result: Result<CoinbaseOutput_, _> = (&input).try_into();
+        let result: Result<ScriptBuf, _> = input.try_into();
         assert!(result.is_ok());
     }
 
@@ -253,10 +254,10 @@ mod tests {
             "INVALID".to_string(),
             "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
         );
-        let result: Result<CoinbaseOutput_, _> = (&input).try_into();
+        let result: Result<ScriptBuf, _> = input.try_into();
         assert!(matches!(
             result,
-            Err(roles_logic_sv2::Error::UnknownOutputScriptType)
+            Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
         ));
     }
 
@@ -271,7 +272,7 @@ mod tests {
         assert!(
             matches!(
                 outputs,
-                Err(roles_logic_sv2::Error::UnknownOutputScriptType)
+                Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
             ),
             "Expected an error for unknown output script type"
         );
@@ -281,7 +282,7 @@ mod tests {
     fn get_txout_supported_output_script_types() {
         let config = load_config("config-examples/jds-config-hosted-example.toml");
         let outputs = config.get_txout().expect("Failed to get coinbase output");
-        let expected_output = CoinbaseOutput_ {
+        let expected_output = CoinbaseOutput {
             output_script_type: "P2WPKH".to_string(),
             output_script_value:
                 "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),

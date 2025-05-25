@@ -8,9 +8,8 @@
 //! - Managing [`TemplateProviderConfig`], [`AuthorityConfig`], [`CoinbaseOutput`], and
 //!   [`ConnectionConfig`]
 //! - Validating and converting coinbase outputs
+use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use roles_logic_sv2::utils::CoinbaseOutput as CoinbaseOutput_;
-use std::convert::TryFrom;
 
 /// Configuration for the Pool, including connection, authority, and coinbase settings.
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -147,38 +146,6 @@ impl ConnectionConfig {
             listen_address,
             cert_validity_sec,
             signature,
-        }
-    }
-}
-
-/// Represents a single coinbase output.
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct CoinbaseOutput {
-    output_script_type: String,
-    output_script_value: String,
-}
-
-impl CoinbaseOutput {
-    pub fn new(output_script_type: String, output_script_value: String) -> Self {
-        Self {
-            output_script_type,
-            output_script_value,
-        }
-    }
-}
-
-impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = roles_logic_sv2::errors::Error;
-
-    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
-        match pool_output.output_script_type.as_str() {
-            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
-                Ok(CoinbaseOutput_ {
-                    output_script_type: pool_output.clone().output_script_type,
-                    output_script_value: pool_output.clone().output_script_value,
-                })
-            }
-            _ => Err(roles_logic_sv2::Error::UnknownOutputScriptType),
         }
     }
 }
