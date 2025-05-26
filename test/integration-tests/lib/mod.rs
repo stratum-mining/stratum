@@ -68,9 +68,8 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     )
     .expect("failed");
     let cert_validity_sec = 3600;
-    let coinbase_outputs = vec![CoinbaseOutput::new(
-        "P2WPKH".to_string(),
-        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+    let coinbase_outputs = vec![CoinbaseOutput::from_descriptor(
+        "p2wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap()];
     let pool_signature = "Stratum V2 SRI Pool".to_string();
@@ -128,9 +127,8 @@ pub fn start_jdc(
         "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
     )
     .unwrap();
-    let coinbase_outputs = vec![CoinbaseOutput::new(
-        "P2WPKH".to_string(),
-        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+    let coinbase_outputs = vec![CoinbaseOutput::from_descriptor(
+        "p2wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap()];
     let authority_pubkey = Secp256k1PublicKey::try_from(
@@ -183,9 +181,8 @@ pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, Soc
     .unwrap();
     let listen_jd_address = get_available_address();
     let cert_validity_sec = 3600;
-    let coinbase_outputs = vec![CoinbaseOutput::new(
-        "P2WPKH".to_string(),
-        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+    let coinbase_outputs = vec![CoinbaseOutput::from_descriptor(
+        "p2wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap()];
     if let Ok(Some(CookieValues { user, password })) = tp_rpc_connection.get_cookie_values() {
