@@ -4,9 +4,11 @@
 //! module. It includes the [`Error`] enum for representing various errors.
 
 use crate::{
-    common_properties::CommonDownstreamData, parsers::AnyMessage as AllMessages, utils::InputError,
+    channels::server::error::StandardChannelError, common_properties::CommonDownstreamData,
+    parsers::AnyMessage as AllMessages, utils::InputError,
 };
 use binary_sv2::Error as BinarySv2Error;
+use mining_sv2::ExtendedExtranonceError;
 use std::{
     fmt::{self, Display, Formatter},
     sync::{MutexGuard, PoisonError},
@@ -112,6 +114,10 @@ pub enum Error {
     JDSMissingTransactions,
     IoError(std::io::Error),
     FromSliceError(FromSliceError),
+    /// Invalid user identity
+    InvalidUserIdentity(String),
+    ExtranoncePrefixFactoryError(ExtendedExtranonceError),
+    FailedToCreateStandardChannel(StandardChannelError),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -215,6 +221,9 @@ impl Display for Error {
             IoError(e) => write!(f, "IO error: {:?}", e),
             ExtendedExtranonceCreationFailed(e) => write!(f, "Failed to create ExtendedExtranonce: {}", e),
             FromSliceError(e) => write!(f, "Failed to hash from slice: {}", e),
+            InvalidUserIdentity(e) => write!(f, "Invalid user identity: {}", e),
+            ExtranoncePrefixFactoryError(e) => write!(f, "Failed to create ExtranoncePrefixFactory: {:?}", e),
+            FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {:?}", e), 
         }
     }
 }
