@@ -141,16 +141,15 @@ impl<'a> ExtendedChannel<'a> {
         let new_rollable_extranonce_size =
             MAX_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
 
-        // there's no message for informing the mining client about the new rollable_extranonce_size
-        // so we do not update the self.rollable_extranonce_size
-        // we only return an error if the new extranonce_prefix would violate
-        // rollable_extranonce_size that was already established with the client when the channel
-        // was created
+        // we return an error if the new extranonce_prefix would violate
+        // min_rollable_extranonce_size that was already established with the client when the
+        // channel was created
         if new_rollable_extranonce_size < self.rollable_extranonce_size {
             return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
+        self.rollable_extranonce_size = new_rollable_extranonce_size;
 
         Ok(())
     }
