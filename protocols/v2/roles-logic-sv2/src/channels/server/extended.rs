@@ -1,12 +1,13 @@
 //! Mining Server abstraction over the state of a Sv2 Extended Channel
 
 use crate::{
-    channels::server::{
-        error::ExtendedChannelError,
-        jobs::{
-            chain_tip::ChainTip, extended::ExtendedJob, factory::ExtendedJobFactory, JobOrigin,
+    channels::{
+        chain_tip::ChainTip,
+        server::{
+            error::ExtendedChannelError,
+            jobs::{extended::ExtendedJob, factory::ExtendedJobFactory, JobOrigin},
+            share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
-        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     utils::{
         bytes_to_hex, hash_rate_to_target, merkle_root_from_path, target_to_difficulty,
@@ -555,11 +556,13 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::server::{
-        error::ExtendedChannelError,
-        extended::ExtendedChannel,
-        jobs::chain_tip::ChainTip,
-        share_accounting::{ShareValidationError, ShareValidationResult},
+    use crate::channels::{
+        chain_tip::ChainTip,
+        server::{
+            error::ExtendedChannelError,
+            extended::ExtendedChannel,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+        },
     };
     use binary_sv2::Sv2Option;
     use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};

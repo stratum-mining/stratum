@@ -1,9 +1,12 @@
 //! Abstraction over the state of a Sv2 Standard Channel, as seen by a Mining Server
 use crate::{
-    channels::server::{
-        error::StandardChannelError,
-        jobs::{chain_tip::ChainTip, standard::StandardJob, JobOrigin},
-        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
+    channels::{
+        chain_tip::ChainTip,
+        server::{
+            error::StandardChannelError,
+            jobs::{standard::StandardJob, JobOrigin},
+            share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
+        },
     },
     utils::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
@@ -481,12 +484,14 @@ impl<'a> StandardChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::server::{
-        error::StandardChannelError,
-        group::GroupChannel,
-        jobs::chain_tip::ChainTip,
-        share_accounting::{ShareValidationError, ShareValidationResult},
-        standard::StandardChannel,
+    use crate::channels::{
+        chain_tip::ChainTip,
+        server::{
+            error::StandardChannelError,
+            group::GroupChannel,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+            standard::StandardChannel,
+        },
     };
     use binary_sv2::Sv2Option;
     use mining_sv2::{NewMiningJob, SubmitSharesStandard, Target};
