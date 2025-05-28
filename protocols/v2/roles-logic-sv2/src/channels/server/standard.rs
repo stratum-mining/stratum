@@ -41,6 +41,7 @@ use tracing::debug;
 ///   `job_id`)
 /// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
 ///   indexed by `job_id`)
+/// - the channel's chain tip
 ///
 /// Differently from `ExtendedChannel`, there's no reference to:
 /// - a job factory
@@ -68,6 +69,7 @@ pub struct StandardChannel<'a> {
     stale_jobs: HashMap<u32, StandardJob<'a>>,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
+    chain_tip: Option<ChainTip>,
 }
 
 impl<'a> StandardChannel<'a> {
@@ -108,6 +110,7 @@ impl<'a> StandardChannel<'a> {
             stale_jobs: HashMap::new(),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
+            chain_tip: None,
         })
     }
 
@@ -212,6 +215,16 @@ impl<'a> StandardChannel<'a> {
         &self.stale_jobs
     }
 
+    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
+        self.chain_tip.as_ref()
+    }
+
+    /// Only for testing purposes, not meant to be used in real apps.
+    #[cfg(test)]
+    fn set_chain_tip(&mut self, chain_tip: ChainTip) {
+        self.chain_tip = Some(chain_tip);
+    }
+
     pub fn get_share_accounting(&self) -> &ShareAccounting {
         &self.share_accounting
     }
@@ -300,6 +313,15 @@ impl<'a> StandardChannel<'a> {
         // clear past jobs, as we're no longer going to validate shares for them
         self.past_jobs.clear();
 
+        // update the chain tip
+        let set_new_prev_hash_static = set_new_prev_hash.into_static();
+        let new_chain_tip = ChainTip::new(
+            set_new_prev_hash_static.prev_hash,
+            set_new_prev_hash_static.n_bits,
+            set_new_prev_hash_static.header_timestamp,
+        );
+        self.chain_tip = Some(new_chain_tip);
+
         Ok(())
     }
 
@@ -309,7 +331,6 @@ impl<'a> StandardChannel<'a> {
     pub fn validate_share(
         &mut self,
         share: SubmitSharesStandard,
-        chain_tip: ChainTip,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -347,6 +368,11 @@ impl<'a> StandardChannel<'a> {
             .inner_as_ref()
             .try_into()
             .expect("merkle root must be 32 bytes");
+
+        let chain_tip = self
+            .chain_tip
+            .as_ref()
+            .ok_or(ShareValidationError::NoChainTip)?;
 
         let prev_hash = chain_tip.prev_hash();
         let nbits = CompactTarget::from_consensus(chain_tip.nbits());
@@ -574,7 +600,7 @@ mod tests {
         assert!(standard_channel.get_future_jobs().is_empty());
 
         group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs, None)
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         let future_extended_job_id = group_channel
@@ -722,12 +748,9 @@ mod tests {
             script_pubkey: script,
         }];
 
-        // this is a non-future template, so we must provide a chain_tip
-        assert!(group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs.clone(), None)
-            .is_err());
+        group_channel.set_chain_tip(chain_tip);
         group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs, Some(chain_tip))
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         assert!(group_channel.get_future_jobs().is_empty());
@@ -839,12 +862,9 @@ mod tests {
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
 
         // prepare group channel with non-future job
+        group_channel.set_chain_tip(chain_tip.clone());
         group_channel
-            .on_new_template(
-                template.clone(),
-                coinbase_reward_outputs,
-                Some(chain_tip.clone()),
-            )
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         let active_extended_job = group_channel.get_active_job().unwrap();
@@ -853,6 +873,7 @@ mod tests {
             .into_standard_job(standard_channel_id, extranonce_prefix);
 
         // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
         standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
 
         // this share has hash 40b4c57b2c65052bbe1092e556146ad78cdd9e5ffaeff856a0eb54ee7b816da7
@@ -867,7 +888,7 @@ mod tests {
             version: 536870912,
         };
 
-        let res = standard_channel.validate_share(share_valid_block, chain_tip.clone());
+        let res = standard_channel.validate_share(share_valid_block);
 
         assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_, _))));
     }
@@ -952,12 +973,9 @@ mod tests {
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
 
         // prepare group channel with non-future job
+        group_channel.set_chain_tip(chain_tip.clone());
         group_channel
-            .on_new_template(
-                template.clone(),
-                coinbase_reward_outputs,
-                Some(chain_tip.clone()),
-            )
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         let active_extended_job = group_channel.get_active_job().unwrap();
@@ -966,6 +984,7 @@ mod tests {
             .into_standard_job(standard_channel_id, extranonce_prefix);
 
         // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
         standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
 
         // this share has hash a5b65006d89dab9de2b23ececd3b0435f163607f7da1ba2f0bcde62b29e8cd44
@@ -980,7 +999,7 @@ mod tests {
             version: 536870912,
         };
 
-        let res = standard_channel.validate_share(share_low_diff, chain_tip.clone());
+        let res = standard_channel.validate_share(share_low_diff);
 
         assert!(matches!(
             res.unwrap_err(),
@@ -1070,12 +1089,9 @@ mod tests {
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
 
         // prepare group channel with non-future job
+        group_channel.set_chain_tip(chain_tip.clone());
         group_channel
-            .on_new_template(
-                template.clone(),
-                coinbase_reward_outputs,
-                Some(chain_tip.clone()),
-            )
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         let active_extended_job = group_channel.get_active_job().unwrap();
@@ -1084,6 +1100,7 @@ mod tests {
             .into_standard_job(standard_channel_id, extranonce_prefix);
 
         // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
         standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
 
         // this share has hash 000010dcb838b589e5b0365350425ea82f368d330616f783d32dadf9b497bd02
@@ -1099,7 +1116,7 @@ mod tests {
             ntime: 1745611105,
             version: 536870912,
         };
-        let res = standard_channel.validate_share(valid_share, chain_tip.clone());
+        let res = standard_channel.validate_share(valid_share);
 
         assert!(matches!(res, Ok(ShareValidationResult::Valid)));
     }

@@ -37,6 +37,7 @@ pub enum ShareValidationError {
     VersionRollingNotAllowed,
     DuplicateShare,
     InvalidCoinbase,
+    NoChainTip,
 }
 
 /// The state of share validation on the context of some specific channel (either Extended or
