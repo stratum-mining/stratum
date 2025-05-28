@@ -31,7 +31,7 @@ impl Downstream {
     pub async fn init_difficulty_management(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let (connection_id, upstream_difficulty_config, miner_hashrate, init_target) = self_
             .safe_lock(|d| {
-                d.difficulty_mgmt.reset_counter();
+                _ = d.difficulty_mgmt.reset_counter();
                 (
                     d.connection_id,
                     d.upstream_difficulty_config.clone(),
@@ -195,7 +195,7 @@ impl Downstream {
     pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, f32> {
         self_.safe_lock(|d| {
             let previous_hashrate = d.difficulty_mgmt.hashrate();
-            d.difficulty_mgmt.update_hashrate();
+            _ = d.difficulty_mgmt.update_hashrate();
             let new_hashrate = d.difficulty_mgmt.hashrate();
             let hashrate_delta = new_hashrate - previous_hashrate;
             d.upstream_difficulty_config.super_safe_lock(|c| {

@@ -5,7 +5,7 @@
 
 use crate::{
     channels::server::error::StandardChannelError, common_properties::CommonDownstreamData,
-    parsers::AnyMessage as AllMessages, utils::InputError,
+    parsers::AnyMessage as AllMessages, utils::InputError, vardiff::error::VardiffError,
 };
 use binary_sv2::Error as BinarySv2Error;
 use mining_sv2::ExtendedExtranonceError;
@@ -118,6 +118,7 @@ pub enum Error {
     InvalidUserIdentity(String),
     ExtranoncePrefixFactoryError(ExtendedExtranonceError),
     FailedToCreateStandardChannel(StandardChannelError),
+    Vardiff(VardiffError),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -135,6 +136,12 @@ impl From<std::io::Error> for Error {
 impl From<FromSliceError> for Error {
     fn from(v: FromSliceError) -> Error {
         Error::FromSliceError(v)
+    }
+}
+
+impl From<VardiffError> for Error {
+    fn from(value: VardiffError) -> Self {
+        Error::Vardiff(value)
     }
 }
 
@@ -224,6 +231,7 @@ impl Display for Error {
             InvalidUserIdentity(e) => write!(f, "Invalid user identity: {}", e),
             ExtranoncePrefixFactoryError(e) => write!(f, "Failed to create ExtranoncePrefixFactory: {:?}", e),
             FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {:?}", e), 
+            Vardiff(e) => write!(f, "Something went wrong in vardiff module: {:?}", e)
         }
     }
 }

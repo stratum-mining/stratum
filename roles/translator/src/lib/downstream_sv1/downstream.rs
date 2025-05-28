@@ -108,10 +108,10 @@ impl Downstream {
         difficulty_mgmt: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> Self {
-        let downstream_difficulty_state = Box::new(VardiffState::new(
+        let downstream_difficulty_state = VardiffState::new(
             difficulty_mgmt.shares_per_minute,
             difficulty_mgmt.min_individual_miner_hashrate,
-        ));
+        )?;
         Downstream {
             connection_id,
             authorized_names,
@@ -122,7 +122,7 @@ impl Downstream {
             tx_outgoing,
             first_job_received,
             extranonce2_len,
-            difficulty_mgmt: downstream_difficulty_state,
+            difficulty_mgmt: Box::new(downstream_difficulty_state),
             upstream_difficulty_config,
         }
     }
@@ -154,7 +154,8 @@ impl Downstream {
         let downstream_difficulty_state = VardiffState::new(
             difficulty_config.shares_per_minute,
             difficulty_config.min_individual_miner_hashrate,
-        );
+        )
+        .expect("Couldn't initialize vardiff module");
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, mut socket_writer) = stream.into_split();
         let (tx_outgoing, receiver_outgoing) = bounded(10);

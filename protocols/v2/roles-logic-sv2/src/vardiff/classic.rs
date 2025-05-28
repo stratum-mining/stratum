@@ -1,7 +1,7 @@
 use crate::utils::{hash_rate_from_target, hash_rate_to_target};
 use mining_sv2::Target;
 
-use super::Vardiff;
+use super::{error::VardiffError, Vardiff};
 
 #[derive(Debug)]
 pub struct VardiffState {
@@ -13,22 +13,25 @@ pub struct VardiffState {
 }
 
 impl VardiffState {
-    pub fn new(shares_per_minute: f32, estimated_channel_hashrate: f32) -> Self {
+    pub fn new(
+        shares_per_minute: f32,
+        estimated_channel_hashrate: f32,
+    ) -> Result<Self, VardiffError> {
         let current_miner_target =
             hash_rate_to_target(estimated_channel_hashrate as f64, shares_per_minute as f64)
-                .expect("Cannot convert hash rate to target")
+                .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
                 .into();
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("time went backwards")
+            .map_err(VardiffError::TimeError)?
             .as_secs();
-        VardiffState {
+        Ok(VardiffState {
             estimated_channel_hashrate,
             shares_per_minute,
             shares_since_last_update: 0,
             timestamp_of_last_update: timestamp_secs,
             current_miner_target,
-        }
+        })
     }
 
     pub fn set_shares_per_minute(&mut self, shares_per_minute: f32) {
@@ -69,44 +72,46 @@ impl Vardiff for VardiffState {
         self.current_miner_target.clone()
     }
 
-    fn set_hashrate(&mut self, estimated_channel_hashrate: f32) {
+    fn set_hashrate(&mut self, estimated_channel_hashrate: f32) -> Result<(), VardiffError> {
         self.estimated_channel_hashrate = estimated_channel_hashrate;
         let current_miner_target = hash_rate_to_target(
             estimated_channel_hashrate as f64,
             self.shares_per_minute as f64,
         )
-        .expect("Cannot convert hash rate to target")
+        .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
         .into();
         self.set_current_miner_target(current_miner_target);
+        Ok(())
     }
 
     fn increment_shares_since_last_update(&mut self) {
         self.shares_since_last_update += 1;
     }
 
-    fn reset_counter(&mut self) {
+    fn reset_counter(&mut self) -> Result<(), VardiffError> {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("time went backwards")
+            .map_err(VardiffError::TimeError)?
             .as_secs();
         self.set_timestamp_of_last_update(timestamp_secs);
         self.set_shares_since_last_update(0);
+        Ok(())
     }
 
-    fn update_hashrate(&mut self) {
+    fn update_hashrate(&mut self) -> Result<(), VardiffError> {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("time went backwards")
+            .map_err(VardiffError::TimeError)?
             .as_secs();
 
         let delta_time = timestamp_secs - self.timestamp_of_last_update;
         #[cfg(test)]
         if delta_time == 0 {
-            return;
+            return Ok(());
         }
         #[cfg(not(test))]
         if delta_time <= 15 {
-            return;
+            return Ok(());
         }
         tracing::debug!("DELTA TIME: {:?}", delta_time);
         let realized_share_per_min =
@@ -153,8 +158,9 @@ impl Vardiff for VardiffState {
                     _ => self.estimated_channel_hashrate * 3.0,
                 };
             }
-            self.set_hashrate(new_miner_hashrate);
-            self.reset_counter();
+            self.set_hashrate(new_miner_hashrate)?;
+            self.reset_counter()?;
         }
+        Ok(())
     }
 }
