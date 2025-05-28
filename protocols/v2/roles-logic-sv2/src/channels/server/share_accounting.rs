@@ -1,9 +1,9 @@
-//! Abstractions for share validation
+//! Abstractions for share validation for a Mining Server
 
 use std::collections::HashSet;
 use stratum_common::bitcoin::hashes::sha256d::Hash;
 
-/// The outcome of share validation.
+/// The outcome of share validation, from the perspective of a Mining Server.
 ///
 /// The [`ShareValidationResult::ValidWithAcknowledgement`] variant carries:
 /// - `last_sequence_number` (as `u32`)
@@ -41,6 +41,8 @@ pub enum ShareValidationError {
 
 /// The state of share validation on the context of some specific channel (either Extended or
 /// Standard)
+///
+/// Only meant for usage on Mining Servers.
 #[derive(Clone, Debug)]
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
