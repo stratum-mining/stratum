@@ -68,4 +68,9 @@ impl<'a> StandardJob<'a> {
     pub fn activate(&mut self, min_ntime: u32) {
         self.job_message.min_ntime = Sv2Option::new(Some(min_ntime));
     }
+
+    /// Reverts a future job into a non-future job.
+    pub fn deactivate(&mut self) {
+        self.job_message.min_ntime = Sv2Option::new(None);
+    }
 }
