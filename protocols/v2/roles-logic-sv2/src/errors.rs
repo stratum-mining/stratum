@@ -231,7 +231,7 @@ impl Display for Error {
             InvalidUserIdentity(e) => write!(f, "Invalid user identity: {}", e),
             ExtranoncePrefixFactoryError(e) => write!(f, "Failed to create ExtranoncePrefixFactory: {:?}", e),
             FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {:?}", e), 
-            Vardiff(e) => write!(f, "Something went wrong in vardiff module: {:?}", e)
+            Vardiff(e) => write!(f, "Failed to adjust diff in vardiff module: {:?}", e)
         }
     }
 }

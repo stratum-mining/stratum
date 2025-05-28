@@ -1,7 +1,11 @@
+/// Defines errors encountered during Vardiff operations.
 #[derive(Debug)]
 pub enum VardiffError {
+    /// Failed to convert hashrate to a target.
     HashrateToTargetError(String),
+    /// Failed to convert target to a hashrate.
     TargetToHashrateError(String),
+    /// System time error occurred.
     TimeError(std::time::SystemTimeError),
 }
 
