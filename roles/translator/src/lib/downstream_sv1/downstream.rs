@@ -111,7 +111,8 @@ impl Downstream {
         let downstream_difficulty_state = VardiffState::new(
             difficulty_mgmt.shares_per_minute,
             difficulty_mgmt.min_individual_miner_hashrate,
-        )?;
+        )
+        .unwrap();
         Downstream {
             connection_id,
             authorized_names,
