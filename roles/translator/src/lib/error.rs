@@ -13,6 +13,7 @@ use ext_config::ConfigError;
 use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
     parsers::{AnyMessage, Mining},
+    vardiff::error::VardiffError,
 };
 use std::{fmt, sync::PoisonError};
 use v1::server_to_client::{Notify, SetDifficulty};
@@ -310,5 +311,11 @@ impl From<async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::
         value: async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::Slice>>,
     ) -> Self {
         Error::ChannelErrorSender(ChannelSendError::General(value.to_string()))
+    }
+}
+
+impl<'a> From<VardiffError> for Error<'a> {
+    fn from(value: VardiffError) -> Self {
+        Self::RolesSv2Logic(value.into())
     }
 }

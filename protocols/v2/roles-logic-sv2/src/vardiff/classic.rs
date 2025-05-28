@@ -12,15 +12,15 @@ use super::{error::VardiffError, Vardiff};
 /// Tracks performance and adjusts the mining target to achieve a desired share rate.
 #[derive(Debug)]
 pub struct VardiffState {
-    /// Current estimated hashrate (H/s) for the connection.
-    pub estimated_channel_hashrate: f32,
+    /// Current estimated hashrate (H/s).
+    pub estimated_hashrate: f32,
     /// Target number of shares to be submitted per minute.
     pub shares_per_minute: f32,
     /// Count of shares received since the last difficulty adjustment.
     pub shares_since_last_update: u32,
     /// Unix timestamp (seconds) of the last difficulty adjustment.
     pub timestamp_of_last_update: u64,
-    /// The current mining target (difficulty) sent to the miner.
+    /// The current mining target.
     pub current_target: Target,
     /// The lowest hashrate (H/s) the system will allow; values below this are clamped.
     pub min_allowed_hashrate: f32,
@@ -31,31 +31,24 @@ impl VardiffState {
     ///
     /// # Arguments
     /// * `shares_per_minute` - The target share submission rate.
-    /// * `estimated_channel_hashrate` - The initial hashrate estimate.
-    pub fn new(
-        shares_per_minute: f32,
-        estimated_channel_hashrate: f32,
-    ) -> Result<Self, VardiffError> {
-        Self::new_with_min(
-            shares_per_minute,
-            estimated_channel_hashrate,
-            DEFAULT_MIN_HASHRATE,
-        )
+    /// * `estimated_hashrate` - The initial hashrate estimate.
+    pub fn new(shares_per_minute: f32, estimated_hashrate: f32) -> Result<Self, VardiffError> {
+        Self::new_with_min(shares_per_minute, estimated_hashrate, DEFAULT_MIN_HASHRATE)
     }
 
     /// Creates a new `VardiffState` with a specific minimum hashrate.
     ///
     /// # Arguments
     /// * `shares_per_minute` - The target share submission rate.
-    /// * `estimated_channel_hashrate` - The initial hashrate estimate.
+    /// * `estimated_hashrate` - The initial hashrate estimate.
     /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
     pub fn new_with_min(
         shares_per_minute: f32,
-        estimated_channel_hashrate: f32,
+        estimated_hashrate: f32,
         min_allowed_hashrate: f32,
     ) -> Result<Self, VardiffError> {
         let current_target =
-            hash_rate_to_target(estimated_channel_hashrate as f64, shares_per_minute as f64)
+            hash_rate_to_target(estimated_hashrate as f64, shares_per_minute as f64)
                 .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
                 .into();
         let timestamp_secs = std::time::SystemTime::now()
@@ -63,7 +56,7 @@ impl VardiffState {
             .as_secs();
 
         Ok(VardiffState {
-            estimated_channel_hashrate,
+            estimated_hashrate,
             shares_per_minute,
             shares_since_last_update: 0,
             timestamp_of_last_update: timestamp_secs,
@@ -95,7 +88,7 @@ impl VardiffState {
 
 impl Vardiff for VardiffState {
     fn hashrate(&self) -> f32 {
-        self.estimated_channel_hashrate
+        self.estimated_hashrate
     }
 
     fn shares_per_minute(&self) -> f32 {
@@ -119,14 +112,12 @@ impl Vardiff for VardiffState {
     }
 
     /// Sets the hashrate and recalculates the `current_target`.
-    fn set_hashrate(&mut self, estimated_channel_hashrate: f32) -> Result<(), VardiffError> {
-        self.estimated_channel_hashrate = estimated_channel_hashrate;
-        let current_target = hash_rate_to_target(
-            estimated_channel_hashrate as f64,
-            self.shares_per_minute as f64,
-        )
-        .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
-        .into();
+    fn set_hashrate(&mut self, estimated_hashrate: f32) -> Result<(), VardiffError> {
+        self.estimated_hashrate = estimated_hashrate;
+        let current_target =
+            hash_rate_to_target(estimated_hashrate as f64, self.shares_per_minute as f64)
+                .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
+                .into();
         self.set_current_target(current_target);
         Ok(())
     }
@@ -193,21 +184,19 @@ impl Vardiff for VardiffState {
                     target: "vardiff",
                     "Target->Hashrate conversion failed: {:?}. Falling back using previous hashrate and realized_shares_per_minute", e
                 );
-                self.estimated_channel_hashrate * realized_share_per_min as f32
-                    / self.shares_per_minute
+                self.estimated_hashrate * realized_share_per_min as f32 / self.shares_per_minute
             }
         };
 
-        let hashrate_delta = new_hashrate - self.estimated_channel_hashrate;
-        let hashrate_delta_percentage =
-            (hashrate_delta.abs() / self.estimated_channel_hashrate) * 100.0;
+        let hashrate_delta = new_hashrate - self.estimated_hashrate;
+        let hashrate_delta_percentage = (hashrate_delta.abs() / self.estimated_hashrate) * 100.0;
 
         debug!(
             target: "vardiff",
             "Calculated new hashrate: {:.2} H/s (Δ {:.2}%, previous {:.2} H/s)",
             new_hashrate,
             hashrate_delta_percentage,
-            self.estimated_channel_hashrate,
+            self.estimated_hashrate,
         );
 
         let should_update = match hashrate_delta_percentage {
@@ -228,15 +217,15 @@ impl Vardiff for VardiffState {
         // so it's safe to compare realized_share_per_min with == 0.0
         if realized_share_per_min == 0.0 {
             new_hashrate = match delta_time {
-                dt if dt <= 30 => self.estimated_channel_hashrate / 1.5,
-                dt if dt < 60 => self.estimated_channel_hashrate / 2.0,
-                _ => self.estimated_channel_hashrate / 3.0,
+                dt if dt <= 30 => self.estimated_hashrate / 1.5,
+                dt if dt < 60 => self.estimated_hashrate / 2.0,
+                _ => self.estimated_hashrate / 3.0,
             };
         } else if hashrate_delta_percentage > 1000.0 {
             new_hashrate = match delta_time {
-                dt if dt <= 30 => self.estimated_channel_hashrate * 10.0,
-                dt if dt < 60 => self.estimated_channel_hashrate * 5.0,
-                _ => self.estimated_channel_hashrate * 3.0,
+                dt if dt <= 30 => self.estimated_hashrate * 10.0,
+                dt if dt < 60 => self.estimated_hashrate * 5.0,
+                _ => self.estimated_hashrate * 3.0,
             };
         }
         if new_hashrate < self.min_allowed_hashrate {

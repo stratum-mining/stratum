@@ -16,6 +16,7 @@ use super::super::error::{Error, ProxyResult};
 use primitive_types::U256;
 use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
 use std::{ops::Div, sync::Arc};
+use tracing::debug;
 use v1::json_rpc;
 
 impl Downstream {
@@ -100,15 +101,15 @@ impl Downstream {
                     d.connection_id,
                 )
             })?;
-        tracing::debug!("Time of last diff update: {:?}", timestamp_of_last_update);
-        tracing::debug!("Number of shares submitted: {:?}", shares_since_last_update);
+        debug!("Time of last diff update: {:?}", timestamp_of_last_update);
+        debug!("Number of shares submitted: {:?}", shares_since_last_update);
 
-        if Self::update_miner_hashrate(self_.clone()).is_ok() {
+        if Self::update_miner_hashrate(self_.clone())?.is_some() {
             let new_target = self_
                 .clone()
                 .safe_lock(|d| d.difficulty_mgmt.target())
                 .map_err(|_e| Error::PoisonLock)?;
-            tracing::debug!("New target from hashrate: {:?}", new_target);
+            debug!("New target from hashrate: {:?}", new_target);
             let message = Self::get_set_difficulty(new_target.clone())?;
             let target = binary_sv2::U256::from(new_target);
             Downstream::send_message_downstream(self_.clone(), message).await?;
@@ -144,7 +145,7 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub(super) fn get_set_difficulty(target: Target) -> ProxyResult<'static, json_rpc::Message> {
         let value = Downstream::difficulty_from_target(target)?;
-        tracing::debug!("Difficulty from target: {:?}", value);
+        debug!("Difficulty from target: {:?}", value);
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
         let message: json_rpc::Message = set_target.into();
         Ok(message)
@@ -160,7 +161,7 @@ impl Downstream {
         target.reverse();
 
         let target = target.as_slice();
-        tracing::debug!("Target: {:?}", target);
+        debug!("Target: {:?}", target);
 
         // If received target is 0, return 0
         if Downstream::is_zero(target) {
@@ -192,10 +193,10 @@ impl Downstream {
     /// updates the miner's stored hashrate and the channel's aggregated hashrate
     /// if the change is significant based on time-dependent thresholds.
     #[allow(clippy::result_large_err)]
-    pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, f32> {
-        self_.safe_lock(|d| {
+    pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Option<f32>> {
+        let update = self_.super_safe_lock(|d| {
             let previous_hashrate = d.difficulty_mgmt.hashrate();
-            _ = d.difficulty_mgmt.update_hashrate();
+            let update = d.difficulty_mgmt.try_vardiff();
             let new_hashrate = d.difficulty_mgmt.hashrate();
             let hashrate_delta = new_hashrate - previous_hashrate;
             d.upstream_difficulty_config.super_safe_lock(|c| {
@@ -205,8 +206,9 @@ impl Downstream {
                     c.channel_nominal_hashrate = 0.0;
                 }
             });
-            Ok(new_hashrate)
-        })?
+            update
+        })?;
+        Ok(update)
     }
 
     /// Helper function to check if target is set to zero for some reason (typically happens when
@@ -346,7 +348,7 @@ mod test {
         };
         let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
         let (tx_outgoing, _rx_outgoing) = unbounded();
-        let mut downstream = Downstream::new(
+        let downstream = Downstream::new(
             1,
             vec![],
             vec![],
@@ -359,11 +361,8 @@ mod test {
             downstream_conf.clone(),
             Arc::new(Mutex::new(upstream_config)),
         );
-        downstream
-            .difficulty_mgmt
-            .set_hashrate(start_hashrate as f32);
 
-        let total_run_time = std::time::Duration::from_secs(10);
+        let total_run_time = std::time::Duration::from_secs(75);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         let timer = std::time::Instant::now();
         let mut elapsed = std::time::Duration::from_secs(0);
@@ -377,14 +376,7 @@ mod test {
             Err(_) => panic!(),
         };
 
-        let initial_nominal_hashrate = start_hashrate;
-        let mut initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            initial_nominal_hashrate,
-            config_shares_per_minute.into(),
-        ) {
-            Ok(target) => target,
-            Err(_) => panic!(),
-        };
+        let mut initial_target = downstream.difficulty_mgmt.target();
         let downstream = Arc::new(Mutex::new(downstream));
         Downstream::init_difficulty_management(downstream.clone())
             .await
@@ -397,22 +389,15 @@ mod test {
                 .await
                 .unwrap();
             initial_target = downstream
-                .safe_lock(|d| {
-                    match roles_logic_sv2::utils::hash_rate_to_target(
-                        d.difficulty_mgmt.hashrate().into(),
-                        config_shares_per_minute.into(),
-                    ) {
-                        Ok(target) => target,
-                        Err(_) => panic!(),
-                    }
-                })
+                .safe_lock(|d| d.difficulty_mgmt.target())
                 .unwrap();
             elapsed = timer.elapsed();
         }
         let expected_0s = trailing_0s(expected_target.inner_as_ref().to_vec());
-        let actual_0s = trailing_0s(initial_target.inner_as_ref().to_vec());
-        assert!(expected_0s.abs_diff(actual_0s) <= 2);
+        let actual_0s = trailing_0s(binary_sv2::U256::from(initial_target.clone()).to_vec());
+        assert!(expected_0s.abs_diff(actual_0s) <= 1);
     }
+
     fn trailing_0s(mut v: Vec<u8>) -> usize {
         let mut ret = 0;
         while v.pop() == Some(0) {
