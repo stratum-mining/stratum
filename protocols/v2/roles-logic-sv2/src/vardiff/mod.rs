@@ -30,5 +30,5 @@ pub trait Vardiff: Debug + Send {
 
     /// Updates the hash rate based on recent activity and returns the new hash rate and delta.
     /// Returns `None` if an update is not yet due.
-    fn update_hashrate(&mut self) -> Option<(f32, f32)>;
+    fn update_hashrate(&mut self);
 }

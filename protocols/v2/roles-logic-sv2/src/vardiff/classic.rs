@@ -3,7 +3,6 @@ use mining_sv2::Target;
 
 use super::Vardiff;
 
-#[allow(warnings)]
 #[derive(Debug)]
 pub struct VardiffState {
     pub estimated_channel_hashrate: f32,
@@ -76,7 +75,7 @@ impl Vardiff for VardiffState {
             estimated_channel_hashrate as f64,
             self.shares_per_minute as f64,
         )
-        .expect("Cannot convert hash rate to targe")
+        .expect("Cannot convert hash rate to target")
         .into();
         self.set_current_miner_target(current_miner_target);
     }
@@ -94,7 +93,7 @@ impl Vardiff for VardiffState {
         self.set_shares_since_last_update(0);
     }
 
-    fn update_hashrate(&mut self) -> Option<(f32, f32)> {
+    fn update_hashrate(&mut self) {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("time went backwards")
@@ -103,11 +102,11 @@ impl Vardiff for VardiffState {
         let delta_time = timestamp_secs - self.timestamp_of_last_update;
         #[cfg(test)]
         if delta_time == 0 {
-            return None;
+            return;
         }
         #[cfg(not(test))]
         if delta_time <= 15 {
-            return None;
+            return;
         }
         tracing::debug!("DELTA TIME: {:?}", delta_time);
         let realized_share_per_min =
@@ -126,7 +125,7 @@ impl Vardiff for VardiffState {
             }
         };
 
-        let mut hashrate_delta = new_miner_hashrate - self.estimated_channel_hashrate;
+        let hashrate_delta = new_miner_hashrate - self.estimated_channel_hashrate;
         let hashrate_delta_percentage =
             (hashrate_delta.abs() / self.estimated_channel_hashrate) * 100.0;
         tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
@@ -146,7 +145,6 @@ impl Vardiff for VardiffState {
                     dt if dt < 60 => self.estimated_channel_hashrate / 2.0,
                     _ => self.estimated_channel_hashrate / 3.0,
                 };
-                hashrate_delta = new_miner_hashrate - self.estimated_channel_hashrate;
             }
             if (realized_share_per_min > 0.0) && (hashrate_delta_percentage > 1000.0) {
                 new_miner_hashrate = match delta_time {
@@ -154,11 +152,9 @@ impl Vardiff for VardiffState {
                     dt if dt < 60 => self.estimated_channel_hashrate * 5.0,
                     _ => self.estimated_channel_hashrate * 3.0,
                 };
-                hashrate_delta = new_miner_hashrate - self.estimated_channel_hashrate;
             }
             self.set_hashrate(new_miner_hashrate);
             self.reset_counter();
         }
-        Some((self.estimated_channel_hashrate, hashrate_delta))
     }
 }

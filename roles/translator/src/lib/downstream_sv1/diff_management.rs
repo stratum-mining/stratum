@@ -103,7 +103,7 @@ impl Downstream {
         tracing::debug!("Time of last diff update: {:?}", timestamp_of_last_update);
         tracing::debug!("Number of shares submitted: {:?}", shares_since_last_update);
 
-        if Self::update_miner_hashrate(self_.clone())?.is_some() {
+        if Self::update_miner_hashrate(self_.clone()).is_ok() {
             let new_target = self_
                 .clone()
                 .safe_lock(|d| d.difficulty_mgmt.target())
@@ -192,21 +192,20 @@ impl Downstream {
     /// updates the miner's stored hashrate and the channel's aggregated hashrate
     /// if the change is significant based on time-dependent thresholds.
     #[allow(clippy::result_large_err)]
-    pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Option<f32>> {
+    pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, f32> {
         self_.safe_lock(|d| {
-            if let Some((new_miner_hashrate, hashrate_delta)) = d.difficulty_mgmt.update_hashrate()
-            {
-                d.upstream_difficulty_config.super_safe_lock(|c| {
-                    if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
-                        c.channel_nominal_hashrate += hashrate_delta;
-                    } else {
-                        c.channel_nominal_hashrate = 0.0;
-                    }
-                });
-                Ok(Some(new_miner_hashrate))
-            } else {
-                Ok(None)
-            }
+            let previous_hashrate = d.difficulty_mgmt.hashrate();
+            d.difficulty_mgmt.update_hashrate();
+            let new_hashrate = d.difficulty_mgmt.hashrate();
+            let hashrate_delta = new_hashrate - previous_hashrate;
+            d.upstream_difficulty_config.super_safe_lock(|c| {
+                if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
+                    c.channel_nominal_hashrate += hashrate_delta;
+                } else {
+                    c.channel_nominal_hashrate = 0.0;
+                }
+            });
+            Ok(new_hashrate)
         })?
     }
 
