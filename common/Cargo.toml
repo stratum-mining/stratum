@@ -9,8 +9,3 @@ repository = "https://github.com/stratum-mining/stratum"
 [dependencies]
 bitcoin = {version="0.32.5",optional=true}
 secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
-
-[features]
-default = []
-bitcoin = ["dep:bitcoin"]
-constants = []
