@@ -34,6 +34,33 @@ pub use setup_connection::{
 
 pub use setup_connection::{CSetupConnection, CSetupConnectionError};
 
+// Discriminants for Stratum V2 (sub)protocols
+//
+// Discriminants are unique identifiers used to distinguish between different
+// Stratum V2 (sub)protocols. Each protocol within the SV2 ecosystem has a
+// specific discriminant value that indicates its type, enabling the correct
+// interpretation and handling of messages. These discriminants ensure that
+// messages are processed by the appropriate protocol handlers,
+// thereby facilitating seamless communication across different components of
+// the SV2 architecture.
+//
+// More info can be found [on Chapter 03 of the Stratum V2 specs](https://github.com/stratum-mining/sv2-spec/blob/main/03-Protocol-Overview.md#3-protocol-overview).
+pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
+pub const SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT: u8 = 1;
+pub const SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT: u8 = 2;
+
+// Common message types used across all Stratum V2 (sub)protocols.
+pub const MESSAGE_TYPE_SETUP_CONNECTION: u8 = 0x0;
+pub const MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS: u8 = 0x1;
+pub const MESSAGE_TYPE_SETUP_CONNECTION_ERROR: u8 = 0x2;
+pub const MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED: u8 = 0x3;
+pub const MESSAGE_TYPE_RECONNECT: u8 = 0x04;
+
+pub const CHANNEL_BIT_SETUP_CONNECTION: bool = false;
+pub const CHANNEL_BIT_SETUP_CONNECTION_SUCCESS: bool = false;
+pub const CHANNEL_BIT_SETUP_CONNECTION_ERROR: bool = false;
+pub const CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED: bool = true;
+
 #[no_mangle]
 /// A C-compatible function that exports the [`ChannelEndpointChanged`] struct.
 pub extern "C" fn _c_export_channel_endpoint_changed(_a: ChannelEndpointChanged) {}
