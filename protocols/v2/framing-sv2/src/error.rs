@@ -5,7 +5,7 @@
 // use crate::framing2::EitherFrame;
 use core::fmt;
 
-use stratum_common::SV2_FRAME_HEADER_SIZE;
+use crate::SV2_FRAME_HEADER_SIZE;
 
 // pub type FramingResult<T> = core::result::Result<T, Error>;
 
