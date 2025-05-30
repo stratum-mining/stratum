@@ -3,16 +3,10 @@
 // `PoolSv2` is a module that implements the Pool role in the Stratum V2 protocol.
 use integration_tests_sv2::{interceptor::MessageDirection, *};
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
+    common_messages_sv2::{Protocol, SetupConnection, *},
+    mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},
-};
-use stratum_common::{
-    MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
-    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
-    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-    MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
-    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+    template_distribution_sv2::*,
 };
 
 // This test starts a Template Provider and a Pool, and checks if they exchange the correct
@@ -166,7 +160,7 @@ async fn pool_standard_channel_receives_share() {
     let (_tp, tp_addr) = start_template_provider(None);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (sniffer, sniffer_addr) = start_sniffer("A", pool_addr, false, vec![]);
-    let _sv2_mining_device = start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true);
+    start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true);
     sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;

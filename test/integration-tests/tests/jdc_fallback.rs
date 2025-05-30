@@ -3,11 +3,11 @@ use integration_tests_sv2::{
     *,
 };
 use roles_logic_sv2::{
-    mining_sv2::SubmitSharesError,
+    common_messages_sv2::*,
+    mining_sv2::{SubmitSharesError, *},
     parsers::{AnyMessage, Mining},
 };
 use std::convert::TryInto;
-use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS};
 
 // Tests whether JDC will switch to a new pool after receiving a `SubmitSharesError` message from
 // the currently connected pool.
@@ -62,7 +62,7 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
     let (_translator, sv2_translator_addr) = start_sv2_translator(jdc_addr);
-    let _ = start_mining_device_sv1(sv2_translator_addr, false, None);
+    start_mining_device_sv1(sv2_translator_addr, false, None);
     // Assert that JDC switched to the second (Pool,JDS) pair
     sniffer_2
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
