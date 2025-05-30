@@ -1,6 +1,9 @@
 //! Abstraction of a factory for creating Sv2 Extended Jobs.
 use crate::{
-    channels::server::jobs::{chain_tip::ChainTip, error::*, extended::ExtendedJob},
+    channels::{
+        chain_tip::ChainTip,
+        server::jobs::{error::*, extended::ExtendedJob},
+    },
     template_distribution_sv2::NewTemplate,
     utils::{deserialize_outputs, Id as JobIdFactory},
 };
