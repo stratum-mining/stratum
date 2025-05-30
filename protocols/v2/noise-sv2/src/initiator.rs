@@ -45,18 +45,15 @@ use crate::{
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec,
+    NoiseCodec, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
+    ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
+    SIGNATURE_NOISE_MESSAGE_SIZE,
 };
 use aes_gcm::KeyInit;
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
     ellswift::{ElligatorSwift, ElligatorSwiftParty},
     Keypair, PublicKey, XOnlyPublicKey,
-};
-use stratum_common::{
-    ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
-    ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-    SIGNATURE_NOISE_MESSAGE_SIZE,
 };
 
 /// Manages the initiator's role in the Noise NX handshake, handling key exchange, encryption, and
