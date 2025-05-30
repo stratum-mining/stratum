@@ -50,7 +50,49 @@ mod signature_message;
 #[cfg(test)]
 mod test;
 
-pub use stratum_common::NOISE_HASHED_PROTOCOL_NAME_CHACHA;
+/// Size of the MAC for supported AEAD encryption algorithm (ChaChaPoly).
+pub const AEAD_MAC_LEN: usize = 16;
+
+/// Size of the Noise protocol frame header in bytes.
+pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
+
+/// Size in bytes of the SIGNATURE_NOISE_MESSAGE, which contains information and
+/// a signature for the handshake initiator, formatted according to the Noise
+/// Protocol specifications.
+pub const SIGNATURE_NOISE_MESSAGE_SIZE: usize = 74;
+
+/// Size in bytes of the encrypted signature noise message, which includes the
+/// SIGNATURE_NOISE_MESSAGE and a MAC for integrity verification.
+pub const ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE: usize =
+    SIGNATURE_NOISE_MESSAGE_SIZE + AEAD_MAC_LEN;
+
+/// Size in bytes of the encoded elliptic curve point using ElligatorSwift
+/// encoding. This encoding produces a 64-byte representation of the
+/// X-coordinate of a secp256k1 curve point.
+pub const ELLSWIFT_ENCODING_SIZE: usize = 64;
+
+/// Size in bytes of the encrypted ElligatorSwift encoded data, which includes
+/// the original ElligatorSwift encoded data and a MAC for integrity
+/// verification.
+pub const ENCRYPTED_ELLSWIFT_ENCODING_SIZE: usize = ELLSWIFT_ENCODING_SIZE + AEAD_MAC_LEN;
+
+/// Size in bytes of the handshake message expected by the initiator,
+/// encompassing:
+/// - ElligatorSwift encoded public key
+/// - Encrypted ElligatorSwift encoding
+/// - Encrypted SIGNATURE_NOISE_MESSAGE
+pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_SIZE
+    + ENCRYPTED_ELLSWIFT_ENCODING_SIZE
+    + ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE;
+
+/// If protocolName is less than or equal to 32 bytes in length, use
+/// protocolName with zero bytes appended to make 32 bytes. Otherwise, apply
+/// HASH to it. For name = "Noise_NX_Secp256k1+EllSwift_ChaChaPoly_SHA256", we
+/// need the hash. More info can be found [at this link](https://github.com/stratum-mining/sv2-spec/blob/main/04-Protocol-Security.md#451-handshake-act-1-nx-handshake-part-1---e).
+pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
+    46, 180, 120, 129, 32, 142, 158, 238, 31, 102, 159, 103, 198, 110, 231, 14, 169, 234, 136, 9,
+    13, 80, 63, 232, 48, 220, 75, 200, 62, 41, 191, 16,
+];
 
 // The parity value used in the Schnorr signature process.
 //

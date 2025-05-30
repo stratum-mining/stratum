@@ -41,7 +41,8 @@ use crate::{
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec,
+    NoiseCodec, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
+    ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
 use aes_gcm::KeyInit;
 use alloc::{
@@ -51,10 +52,6 @@ use alloc::{
 };
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{ellswift::ElligatorSwift, Keypair, Secp256k1, SecretKey};
-use stratum_common::{
-    ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
-    ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-};
 
 const VERSION: u16 = 0;
 
