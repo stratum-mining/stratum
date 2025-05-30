@@ -18,7 +18,7 @@ name = "mining_device_sv1"
 path = "src/lib.rs"
 
 [dependencies]
-stratum-common = { path = "../../../common", features = ["constants"] }
+stratum-common = { path = "../../../common" }
 async-channel = "1.5.1"
 roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }

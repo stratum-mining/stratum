@@ -5,13 +5,15 @@ pub mod plain_connection;
 pub mod sv1_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
-use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
+use codec_sv2::{
+    noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE},
+    Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame,
+};
 use futures::lock::Mutex;
 use std::{
     convert::TryInto,
     sync::{atomic::AtomicBool, Arc},
 };
-use stratum_common::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
 
 #[derive(Debug)]
 pub enum Error {

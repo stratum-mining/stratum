@@ -1513,7 +1513,7 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "async-channel",
  "binary_sv2",

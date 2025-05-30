@@ -122,7 +122,7 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
             m.channel_id
         );
         Err(Error::UnexpectedMessage(
-            stratum_common::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            roles_logic_sv2::common_messages_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
     }
 
