@@ -28,11 +28,10 @@ use super::SendTo_;
 use crate::{errors::Error, parsers::CommonMessages, utils::Mutex};
 use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
-    SetupConnectionSuccess,
+    SetupConnectionSuccess, *,
 };
 use core::convert::TryInto;
 use std::sync::Arc;
-use stratum_common::*;
 
 /// see [`SendTo_`]
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
