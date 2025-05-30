@@ -33,7 +33,7 @@ mining_proxy_sv2 = { path = "../../roles/mining-proxy" }
 network_helpers_sv2 = { path = "../../roles/roles-utils/network-helpers", features = ["with_buffer_pool"] }
 pool_sv2 = { path = "../../roles/pool" }
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
-stratum-common = { path = "../../common", features = ["constants"] }
+stratum-common = { path = "../../common" }
 config-helpers = { path = "../../roles/roles-utils/config-helpers" }
 translator_sv2 = { path = "../../roles/translator" }
 sv1_api = { path = "../../protocols/v1", optional = true }

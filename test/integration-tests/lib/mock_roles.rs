@@ -109,11 +109,10 @@ mod tests {
     use crate::start_template_provider;
     use codec_sv2::{StandardEitherFrame, Sv2Frame};
     use roles_logic_sv2::{
-        common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
+        common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
         parsers::CommonMessages,
     };
     use std::{convert::TryInto, net::TcpListener};
-    use stratum_common::{MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS};
 
     #[tokio::test]
     async fn test_mock_downstream() {
