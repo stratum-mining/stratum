@@ -25,3 +25,24 @@ pub use provide_missing_transactions::{
     ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
 };
 pub use push_solution::PushSolution;
+
+// Job Declaration Protocol message types.
+pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN: u8 = 0x50;
+pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS: u8 = 0x51;
+pub const MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS: u8 = 0x55;
+pub const MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: u8 = 0x56;
+pub const MESSAGE_TYPE_DECLARE_MINING_JOB: u8 = 0x57;
+pub const MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS: u8 = 0x58;
+pub const MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR: u8 = 0x59;
+pub const MESSAGE_TYPE_PUSH_SOLUTION: u8 = 0x60;
+
+// In the Job Declaration protocol, the `channel_msg` bit is always unset,
+// except for `SUBMIT_SOLUTION_JD`, which requires a specific channel reference.
+pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN: bool = false;
+pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS: bool = false;
+pub const CHANNEL_BIT_DECLARE_MINING_JOB: bool = false;
+pub const CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS: bool = false;
+pub const CHANNEL_BIT_DECLARE_MINING_JOB_ERROR: bool = false;
+pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS: bool = false;
+pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: bool = false;
+pub const CHANNEL_BIT_SUBMIT_SOLUTION_JD: bool = true;
