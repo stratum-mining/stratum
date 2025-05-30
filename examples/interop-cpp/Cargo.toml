@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 codec_sv2 = { path = "../../protocols/v2/codec-sv2" }
-stratum_common = { path = "../../common", features = ["constants"] }
+stratum_common = { path = "../../common" }
 binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 common_messages_sv2 = { path = "../../protocols/v2/subprotocols/common-messages" }
 template_distribution_sv2 = { path = "../../protocols/v2/subprotocols/template-distribution" }

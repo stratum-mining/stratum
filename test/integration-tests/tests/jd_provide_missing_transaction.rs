@@ -1,8 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, *};
-use stratum_common::{
-    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-};
+use roles_logic_sv2::job_declaration_sv2::*;
 
 #[tokio::test]
 async fn jds_ask_for_missing_transactions() {

@@ -63,6 +63,53 @@ pub use submit_shares::{
 };
 pub use update_channel::{UpdateChannel, UpdateChannelError};
 
+// Mining Protocol message types.
+pub const MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL: u8 = 0x10;
+pub const MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS: u8 = 0x11;
+pub const MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR: u8 = 0x12;
+pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL: u8 = 0x13;
+pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS: u8 = 0x14;
+pub const MESSAGE_TYPE_NEW_MINING_JOB: u8 = 0x15;
+pub const MESSAGE_TYPE_UPDATE_CHANNEL: u8 = 0x16;
+pub const MESSAGE_TYPE_UPDATE_CHANNEL_ERROR: u8 = 0x17;
+pub const MESSAGE_TYPE_CLOSE_CHANNEL: u8 = 0x18;
+pub const MESSAGE_TYPE_SET_EXTRANONCE_PREFIX: u8 = 0x19;
+pub const MESSAGE_TYPE_SUBMIT_SHARES_STANDARD: u8 = 0x1a;
+pub const MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED: u8 = 0x1b;
+pub const MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS: u8 = 0x1c;
+pub const MESSAGE_TYPE_SUBMIT_SHARES_ERROR: u8 = 0x1d;
+pub const MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB: u8 = 0x1f;
+pub const MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH: u8 = 0x20;
+pub const MESSAGE_TYPE_SET_TARGET: u8 = 0x21;
+pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB: u8 = 0x22;
+pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS: u8 = 0x23;
+pub const MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR: u8 = 0x24;
+pub const MESSAGE_TYPE_SET_GROUP_CHANNEL: u8 = 0x25;
+
+// Channel bits in the Mining protocol vary depending on the message.
+pub const CHANNEL_BIT_CLOSE_CHANNEL: bool = true;
+pub const CHANNEL_BIT_NEW_EXTENDED_MINING_JOB: bool = true;
+pub const CHANNEL_BIT_NEW_MINING_JOB: bool = true;
+pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL: bool = false;
+pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS: bool = false;
+pub const CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR: bool = false;
+pub const CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL: bool = false;
+pub const CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS: bool = false;
+pub const CHANNEL_BIT_RECONNECT: bool = false;
+pub const CHANNEL_BIT_SET_CUSTOM_MINING_JOB: bool = false;
+pub const CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR: bool = false;
+pub const CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS: bool = false;
+pub const CHANNEL_BIT_SET_EXTRANONCE_PREFIX: bool = true;
+pub const CHANNEL_BIT_SET_GROUP_CHANNEL: bool = false;
+pub const CHANNEL_BIT_MINING_SET_NEW_PREV_HASH: bool = true;
+pub const CHANNEL_BIT_SET_TARGET: bool = true;
+pub const CHANNEL_BIT_SUBMIT_SHARES_ERROR: bool = true;
+pub const CHANNEL_BIT_SUBMIT_SHARES_EXTENDED: bool = true;
+pub const CHANNEL_BIT_SUBMIT_SHARES_STANDARD: bool = true;
+pub const CHANNEL_BIT_SUBMIT_SHARES_SUCCESS: bool = true;
+pub const CHANNEL_BIT_UPDATE_CHANNEL: bool = true;
+pub const CHANNEL_BIT_UPDATE_CHANNEL_ERROR: bool = true;
+
 pub const MAX_EXTRANONCE_LEN: usize = 32;
 
 /// Target is a 256-bit unsigned integer in little-endian

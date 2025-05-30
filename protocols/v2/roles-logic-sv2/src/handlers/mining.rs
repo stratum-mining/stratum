@@ -43,8 +43,8 @@ use crate::common_properties::{IsMiningDownstream, IsMiningUpstream};
 use super::SendTo_;
 
 use crate::utils::Mutex;
+use mining_sv2::*;
 use std::{fmt::Debug as D, sync::Arc};
-use stratum_common::*;
 
 /// see [`SendTo_`]
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;

@@ -23,7 +23,9 @@ use crate::Error;
 use alloc::vec::Vec;
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U24};
 use core::convert::TryInto;
-use stratum_common::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+
+use crate::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+use noise_sv2::AEAD_MAC_LEN;
 
 /// Abstraction for a Sv2 Frame Header.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]

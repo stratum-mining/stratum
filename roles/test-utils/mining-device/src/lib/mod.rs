@@ -302,9 +302,10 @@ impl Device {
                 .safe_lock(|s| s.notify_changes_to_mining_thread.clone())
                 .unwrap();
             if notify_changes_to_mining_thread.should_send
-                && (message_type == stratum_common::MESSAGE_TYPE_NEW_MINING_JOB
-                    || message_type == stratum_common::MESSAGE_TYPE_SET_NEW_PREV_HASH
-                    || message_type == stratum_common::MESSAGE_TYPE_SET_TARGET)
+                && (message_type == roles_logic_sv2::mining_sv2::MESSAGE_TYPE_NEW_MINING_JOB
+                    || message_type
+                        == roles_logic_sv2::mining_sv2::MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH
+                    || message_type == roles_logic_sv2::mining_sv2::MESSAGE_TYPE_SET_TARGET)
             {
                 notify_changes_to_mining_thread
                     .sender

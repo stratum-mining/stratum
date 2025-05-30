@@ -36,12 +36,11 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use super::SendTo_;
 use crate::errors::Error;
 use core::convert::TryInto;
-use job_declaration_sv2::*;
-use stratum_common::{
+use job_declaration_sv2::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
 };
 
 /// A trait for parsing and handling SV2 job declaration messages sent by a server.

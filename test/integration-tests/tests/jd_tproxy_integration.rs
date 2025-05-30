@@ -1,10 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, *};
-use stratum_common::{
-    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,
-    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
-};
+use roles_logic_sv2::{common_messages_sv2::*, mining_sv2::*};
 
 #[tokio::test]
 async fn jd_tproxy_integration() {
@@ -15,7 +10,7 @@ async fn jd_tproxy_integration() {
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (_jdc, jdc_addr) = start_jdc(&[(jdc_pool_sniffer_addr, jds_addr)], tp_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr);
-    let _mining_device = start_mining_device_sv1(tproxy_addr, false, None);
+    start_mining_device_sv1(tproxy_addr, false, None);
     jdc_pool_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
