@@ -4,6 +4,8 @@ use std::fmt::Debug;
 
 pub mod classic;
 pub mod error;
+#[cfg(test)]
+pub mod test;
 
 /// Trait defining the interface for a Vardiff implementation.
 pub trait Vardiff: Debug + Send {
