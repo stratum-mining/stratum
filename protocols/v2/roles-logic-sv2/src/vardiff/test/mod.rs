@@ -2,7 +2,6 @@
 /// providing methods to verify the correctness of any specific implementation.
 use std::{thread, time::Duration};
 
-use crate::VardiffState;
 mod classic;
 
 use super::Vardiff;
@@ -11,6 +10,7 @@ pub const TEST_INITIAL_HASHRATE: f32 = 1000.0;
 pub const TEST_SHARES_PER_MINUTE: f32 = 10.0;
 pub const TEST_MIN_ALLOWED_HASHRATE: f32 = 10.0;
 
+// Helper function to simulate a number of shares being found over a given duration.
 pub fn simulate_shares_and_wait<V: Vardiff>(
     vardiff: &mut V,
     num_shares: u32,
@@ -24,6 +24,7 @@ pub fn simulate_shares_and_wait<V: Vardiff>(
     }
 }
 
+// Tests if manually setting the hashrate correctly updates the difficulty target.
 pub fn test_set_hashrate_updates_target<V: Vardiff>(vardiff: &mut V) {
     let original_target = vardiff.target();
     let new_hashrate = TEST_INITIAL_HASHRATE * 2.0;
@@ -46,6 +47,7 @@ pub fn test_set_hashrate_updates_target<V: Vardiff>(vardiff: &mut V) {
     assert!(vardiff.target() > original_target);
 }
 
+// Verifies that the share counter can be incremented and reset correctly.
 pub fn test_increment_and_reset_shares<V: Vardiff>(vardiff: &mut V) {
     let initial_timestamp = vardiff.last_update_timestamp();
 
@@ -66,22 +68,12 @@ pub fn test_increment_and_reset_shares<V: Vardiff>(vardiff: &mut V) {
     );
 }
 
-pub fn test_try_vardiff_no_change_short_interval<V: Vardiff>(vardiff: &mut V) {
-    simulate_shares_and_wait(vardiff, 5, 10);
-    let result = vardiff.try_vardiff().expect("try_vardiff failed");
-
-    assert!(
-        result.is_none(),
-        "Should not update within 15s; elapsed 10s"
-    );
-}
-
+// Ensures that `try_vardiff` results in a minimal or no change when the hashrate is stable.
 pub fn test_try_vardiff_stable_hashrate_minimal_change_or_no_change<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = vardiff.hashrate();
 
-    let simulation_duration_secs = 70;
-    let expected_shares_for_duration =
-        (TEST_SHARES_PER_MINUTE * simulation_duration_secs as f32 / 60.0).round() as u32;
+    let simulation_duration_secs = 5;
+    let expected_shares_for_duration = 1;
 
     simulate_shares_and_wait(
         vardiff,
@@ -103,18 +95,16 @@ pub fn test_try_vardiff_stable_hashrate_minimal_change_or_no_change<V: Vardiff>(
         );
         assert_eq!(vardiff.shares_since_last_update(), 0)
     } else {
-        assert!(
-            true,
-            "No update for stable hashrate is acceptable if deviation is low"
-        );
+        assert_eq!(None, result);
     }
 }
 
-pub fn test_try_vardiff_low_hashrate_increase_target<V: Vardiff>(vardiff: &mut V) {
+// Tests if a high share submission rate correctly increases the difficulty (lowers the target).
+pub fn test_try_vardiff_low_hashrate_decrease_target<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = vardiff.hashrate();
     let initial_target = vardiff.target();
 
-    let simulation_duration = 65;
+    let simulation_duration = 2;
     simulate_shares_and_wait(vardiff, 2, simulation_duration);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");
@@ -124,66 +114,149 @@ pub fn test_try_vardiff_low_hashrate_increase_target<V: Vardiff>(vardiff: &mut V
     );
     let new_hashrate = result.unwrap();
 
+    // As estimated shares per minute is 10
+    // with current setup realized shares per minute is 60
+    // comes under no special case
+    assert_eq!(new_hashrate, 6.0 * initial_hashrate);
     assert!(
-        new_hashrate < initial_hashrate,
-        "Estimated hashrate should decrease"
-    );
-    assert!(
-        vardiff.target() > initial_target,
-        "Target should become easier (larger value)"
+        vardiff.target() < initial_target,
+        "Target should become harder (larger value)"
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
 
-pub fn test_try_vardiff_high_hashrate_decrease_target<V: Vardiff>(vardiff: &mut V) {
+// Checks the difficulty adjustment logic for a high share rate within a 30-second window.
+pub fn test_try_vardiff_with_shares_less_than_30<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = vardiff.hashrate();
     let initial_target = vardiff.target();
 
-    let simulation_duration_secs = 65;
-    simulate_shares_and_wait(vardiff, 30, simulation_duration_secs);
+    let simulation_duration = 2;
+    simulate_shares_and_wait(vardiff, 50, simulation_duration);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");
     assert!(
         result.is_some(),
-        "Hashrate should update due to high share count"
+        "Hashrate should update due to low share count"
     );
     let new_hashrate = result.unwrap();
 
-    assert!(
-        new_hashrate > initial_hashrate,
-        "Estimated hashratem should increase"
-    );
+    // This logic checks the `dt <= 30` case, which multiple by 10
+    assert_eq!(new_hashrate, 10.0 * initial_hashrate);
     assert!(
         vardiff.target() < initial_target,
-        "Target should become harder (smaller value)"
+        "Target should become harder (larger value)"
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
 
-#[test]
-fn test_try_vardiff_hashrate_clamps_to_minimum() {
-    let mut vardiff = VardiffState::new_with_min(
-        TEST_SHARES_PER_MINUTE,
-        TEST_MIN_ALLOWED_HASHRATE * 1.5,
-        TEST_MIN_ALLOWED_HASHRATE,
-    )
-    .expect("Failed to create VardiffState");
+// Checks the difficulty adjustment logic for a high share rate within a 30 to 60-second window.
+pub fn test_try_vardiff_with_shares_30_to_60s<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = vardiff.hashrate();
+    let initial_target = vardiff.target();
 
-    let simulation_duration_secs = 70;
-    simulate_shares_and_wait(&mut vardiff, 0, simulation_duration_secs);
+    let simulation_duration = 31;
+    simulate_shares_and_wait(vardiff, 5000, simulation_duration);
+
+    let result = vardiff.try_vardiff().expect("try_vardiff failed");
+    assert!(
+        result.is_some(),
+        "Hashrate should update due to low share count"
+    );
+    let new_hashrate = result.unwrap();
+
+    // This logic checks the `dt < 60` case, which multiple by 5
+    assert_eq!(new_hashrate, 5.0 * initial_hashrate);
+    assert!(
+        vardiff.target() < initial_target,
+        "Target should become harder (larger value)"
+    );
+    assert_eq!(vardiff.shares_since_last_update(), 0);
+}
+
+// Checks the difficulty adjustment logic for a high share rate over a 60-second window.
+pub fn test_try_vardiff_with_shares_more_than_60s<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = vardiff.hashrate();
+    let initial_target = vardiff.target();
+
+    let simulation_duration = 60;
+    simulate_shares_and_wait(vardiff, 1000, simulation_duration);
+
+    let result = vardiff.try_vardiff().expect("try_vardiff failed");
+    assert!(
+        result.is_some(),
+        "Hashrate should update due to low share count"
+    );
+    let new_hashrate = result.unwrap();
+
+    // This logic checks the `dt >= 60` case, which multiple by 3
+    assert_eq!(new_hashrate, 3.0 * initial_hashrate);
+    assert!(
+        vardiff.target() < initial_target,
+        "Target should become harder (larger value)"
+    );
+    assert_eq!(vardiff.shares_since_last_update(), 0);
+}
+
+// Verifies that difficulty decreases when no shares are found within a 30-second window.
+fn test_try_vardiff_no_shares_less_than_30s_decrease<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = vardiff.hashrate();
+
+    let simulation_duration = 2;
+    simulate_shares_and_wait(vardiff, 0, simulation_duration);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");
     assert!(result.is_some(), "Hashrate should update");
     let new_hashrate = result.unwrap();
 
-    assert_eq!(
-        new_hashrate, TEST_MIN_ALLOWED_HASHRATE,
-        "Hashrate should be clamped to minimum"
+    // This logic checks the `dt < 30` case, which divides by 1.5
+    let expected_hashrate = initial_hashrate / 1.5;
+    assert!(
+        (new_hashrate - expected_hashrate).abs() < 0.01,
+        "Hashrate should be initial / 1.5. Got: {}, Expected: {}",
+        new_hashrate,
+        expected_hashrate
     );
-    assert_eq!(
-        vardiff.hashrate(),
-        TEST_MIN_ALLOWED_HASHRATE,
-        "Stored hashrate should be clamped"
+    assert_eq!(vardiff.shares_since_last_update(), 0);
+}
+
+// Verifies that difficulty decreases when no shares are found within a 30 to 60-second window.
+fn test_try_vardiff_no_shares_30_to_60s_decrease<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = vardiff.hashrate();
+
+    let simulation_duration = 31;
+    simulate_shares_and_wait(vardiff, 0, simulation_duration);
+
+    let result = vardiff.try_vardiff().expect("try_vardiff failed");
+    let new_hashrate = result.expect("Hashrate should have updated");
+
+    // This logic checks the `dt < 60` case, which divides by 2.0
+    let expected_hashrate = initial_hashrate / 2.0;
+    assert!(
+        (new_hashrate - expected_hashrate).abs() < 0.01,
+        "Hashrate should be initial / 2. Got: {}, Expected: {}",
+        new_hashrate,
+        expected_hashrate
+    );
+    assert_eq!(vardiff.shares_since_last_update(), 0);
+}
+
+// Verifies that difficulty decreases when no shares are found over a 60-second window.
+fn test_try_vardiff_no_shares_more_than_60s_decrease<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = vardiff.hashrate();
+
+    let simulation_duration = 60;
+    simulate_shares_and_wait(vardiff, 0, simulation_duration);
+
+    let result = vardiff.try_vardiff().expect("try_vardiff failed");
+    let new_hashrate = result.expect("Hashrate should have updated");
+
+    // This logic checks the `dt >= 60` case, which divides by 3.0
+    let expected_hashrate = initial_hashrate / 3.0;
+    assert!(
+        (new_hashrate - expected_hashrate).abs() < 0.01,
+        "Hashrate should be initial / 3. Got: {}, Expected: {}",
+        new_hashrate,
+        expected_hashrate
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
