@@ -4,15 +4,8 @@ use std::{
 };
 
 use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
-use common_messages_sv2::{
-    CSetupConnection, CSetupConnectionError, ChannelEndpointChanged, SetupConnection,
-    SetupConnectionError, SetupConnectionSuccess,
-};
-use template_distribution_sv2::{
-    CNewTemplate, CRequestTransactionDataError, CRequestTransactionDataSuccess, CSetNewPrevHash,
-    CSubmitSolution, CoinbaseOutputConstraints, NewTemplate, RequestTransactionData,
-    RequestTransactionDataError, RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
-};
+use common_messages_sv2::*;
+use template_distribution_sv2::*;
 
 use binary_sv2::{
     binary_codec_sv2::CVec,
@@ -22,20 +15,6 @@ use binary_sv2::{
 };
 
 use core::convert::{TryFrom, TryInto};
-use stratum_common::{
-    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS,
-    CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
-    CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
-    CHANNEL_BIT_SETUP_CONNECTION, CHANNEL_BIT_SETUP_CONNECTION_ERROR,
-    CHANNEL_BIT_SETUP_CONNECTION_SUCCESS, CHANNEL_BIT_SET_NEW_PREV_HASH,
-    CHANNEL_BIT_SUBMIT_SOLUTION, EXTENSION_TYPE_NO_EXTENSION,
-    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
-    MESSAGE_TYPE_NEW_TEMPLATE, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
-    MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
-    MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SET_NEW_PREV_HASH,
-    MESSAGE_TYPE_SUBMIT_SOLUTION,
-};
 
 #[derive(Clone, Debug)]
 pub enum Sv2Message<'a> {
@@ -44,7 +23,7 @@ pub enum Sv2Message<'a> {
     RequestTransactionData(RequestTransactionData),
     RequestTransactionDataError(RequestTransactionDataError<'a>),
     RequestTransactionDataSuccess(RequestTransactionDataSuccess<'a>),
-    SetNewPrevHash(SetNewPrevHash<'a>),
+    SetNewPrevHash(template_distribution_sv2::SetNewPrevHash<'a>),
     SubmitSolution(SubmitSolution<'a>),
     ChannelEndpointChanged(ChannelEndpointChanged),
     SetupConnection(SetupConnection<'a>),
@@ -277,7 +256,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Sv2Message<'a> {
                 Ok(Sv2Message::NewTemplate(message))
             }
             MESSAGE_TYPE_SET_NEW_PREV_HASH => {
-                let message: SetNewPrevHash<'a> = from_bytes(v.1)?;
+                let message: template_distribution_sv2::SetNewPrevHash<'a> = from_bytes(v.1)?;
                 Ok(Sv2Message::SetNewPrevHash(message))
             }
             MESSAGE_TYPE_REQUEST_TRANSACTION_DATA => {
@@ -399,15 +378,11 @@ fn encode_(
     let message: Sv2Message = message.to_rust_rep_mut()?;
     let m_type = message.message_type();
     let c_bit = message.channel_bit();
-    let frame = StandardSv2Frame::<Sv2Message<'static>>::from_message(
-        message.clone(),
-        m_type,
-        EXTENSION_TYPE_NO_EXTENSION,
-        c_bit,
-    )
-    .ok_or(Sv2Error::PayloadTooBig(
-        format!("{}", message).as_bytes().into(),
-    ))?;
+    let frame =
+        StandardSv2Frame::<Sv2Message<'static>>::from_message(message.clone(), m_type, 0, c_bit)
+            .ok_or(Sv2Error::PayloadTooBig(
+                format!("{}", message).as_bytes().into(),
+            ))?;
     encoder
         .encoder
         .encode(frame)

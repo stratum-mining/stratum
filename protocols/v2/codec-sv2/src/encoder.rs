@@ -30,9 +30,9 @@ use framing_sv2::framing::Sv2Frame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::{Frame, HandShakeFrame};
 #[cfg(feature = "noise_sv2")]
-use stratum_common::{
-    AEAD_MAC_LEN, ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE,
-};
+use framing_sv2::{ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::AEAD_MAC_LEN;
 
 #[cfg(feature = "tracing")]
 use tracing::error;

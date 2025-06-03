@@ -39,6 +39,24 @@ pub use request_transaction_data::{
 pub use set_new_prev_hash::{CSetNewPrevHash, SetNewPrevHash};
 pub use submit_solution::{CSubmitSolution, SubmitSolution};
 
+// Template Distribution Protocol message types.
+pub const MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS: u8 = 0x70;
+pub const MESSAGE_TYPE_NEW_TEMPLATE: u8 = 0x71;
+pub const MESSAGE_TYPE_SET_NEW_PREV_HASH: u8 = 0x72;
+pub const MESSAGE_TYPE_REQUEST_TRANSACTION_DATA: u8 = 0x73;
+pub const MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS: u8 = 0x74;
+pub const MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR: u8 = 0x75;
+pub const MESSAGE_TYPE_SUBMIT_SOLUTION: u8 = 0x76;
+
+// For the Template Distribution protocol, the channel bit is always unset.
+pub const CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS: bool = false;
+pub const CHANNEL_BIT_NEW_TEMPLATE: bool = false;
+pub const CHANNEL_BIT_SET_NEW_PREV_HASH: bool = false;
+pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA: bool = false;
+pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS: bool = false;
+pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR: bool = false;
+pub const CHANNEL_BIT_SUBMIT_SOLUTION: bool = false;
+
 /// Exports the [`CoinbaseOutputConstraints`] struct to C.
 #[no_mangle]
 pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputConstraints) {}

@@ -37,12 +37,11 @@ use framing_sv2::{
     header::Header,
 };
 #[cfg(feature = "noise_sv2")]
+use framing_sv2::{ENCRYPTED_SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+#[cfg(feature = "noise_sv2")]
 use noise_sv2::NoiseCodec;
 #[cfg(feature = "noise_sv2")]
-use stratum_common::{
-    ENCRYPTED_SV2_FRAME_HEADER_SIZE, NOISE_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE,
-    SV2_FRAME_HEADER_SIZE,
-};
+use noise_sv2::NOISE_FRAME_HEADER_SIZE;
 
 #[cfg(feature = "noise_sv2")]
 use crate::error::Error;

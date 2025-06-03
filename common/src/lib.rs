@@ -5,8 +5,3 @@
 #[cfg(feature = "bitcoin")]
 pub use bitcoin;
 pub use secp256k1;
-
-#[cfg(feature = "constants")]
-mod constants;
-#[cfg(feature = "constants")]
-pub use constants::*;

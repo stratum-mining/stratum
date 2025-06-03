@@ -4,14 +4,11 @@ use integration_tests_sv2::{
     *,
 };
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
+    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
     parsers::{AnyMessage, CommonMessages},
+    template_distribution_sv2::*,
 };
 use std::convert::TryInto;
-use stratum_common::{
-    MESSAGE_TYPE_NEW_TEMPLATE, MESSAGE_TYPE_SETUP_CONNECTION,
-    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, MESSAGE_TYPE_SET_NEW_PREV_HASH,
-};
 
 // This test aims to assert that Sniffer is able to intercept and replace/ignore messages.
 // TP -> sniffer_a -> sniffer_b -> Pool

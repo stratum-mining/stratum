@@ -13,7 +13,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { path = "../../../common", features=["bitcoin", "constants"], version = "^2.0.0"}
+stratum-common = { path = "../../../common", features=["bitcoin"], version = "^2.0.0"}
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^3.0.0" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^5.0.0" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^4.0.0" }

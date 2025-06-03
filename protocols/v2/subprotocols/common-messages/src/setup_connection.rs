@@ -1,3 +1,7 @@
+use crate::{
+    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
+    SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
+};
 use alloc::vec::Vec;
 use binary_sv2::{
     binary_codec_sv2,
@@ -6,10 +10,6 @@ use binary_sv2::{
     free_vec, Deserialize, Error, GetSize, Serialize, Str0255,
 };
 use core::convert::{TryFrom, TryInto};
-use stratum_common::{
-    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
-    SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
-};
 
 /// Used by downstream to initiate a Stratum V2 connection with an upstream role.
 ///
