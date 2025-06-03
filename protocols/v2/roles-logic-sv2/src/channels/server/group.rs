@@ -1,7 +1,10 @@
 //! Abstraction over the state of a Sv2 Group Channel, as seen by a Mining Server
-use crate::channels::server::{
-    error::GroupChannelError,
-    jobs::{chain_tip::ChainTip, extended::ExtendedJob, factory::ExtendedJobFactory},
+use crate::channels::{
+    chain_tip::ChainTip,
+    server::{
+        error::GroupChannelError,
+        jobs::{extended::ExtendedJob, factory::ExtendedJobFactory},
+    },
 };
 use stratum_common::bitcoin::transaction::TxOut;
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
@@ -17,6 +20,7 @@ use std::collections::{HashMap, HashSet};
 /// - the group channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
 ///   `SetNewPrevHash` message)
 /// - the group channel's active job
+/// - the group channel's chain tip
 ///
 /// Since share validation happens at the Standard Channel level, we don't really keep track of:
 /// - the group channel's past jobs
@@ -32,6 +36,7 @@ pub struct GroupChannel<'a> {
     // future jobs are indexed with job_id (u32)
     future_jobs: HashMap<u32, ExtendedJob<'a>>,
     active_job: Option<ExtendedJob<'a>>,
+    chain_tip: Option<ChainTip>,
 }
 
 impl<'a> GroupChannel<'a> {
@@ -43,6 +48,7 @@ impl<'a> GroupChannel<'a> {
             future_template_to_job_id: HashMap::new(),
             future_jobs: HashMap::new(),
             active_job: None,
+            chain_tip: None,
         }
     }
 
@@ -60,6 +66,16 @@ impl<'a> GroupChannel<'a> {
 
     pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
         &self.standard_channel_ids
+    }
+
+    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
+        self.chain_tip.as_ref()
+    }
+
+    /// Only for testing purposes, not meant to be used in real apps.
+    #[cfg(test)]
+    pub fn set_chain_tip(&mut self, chain_tip: ChainTip) {
+        self.chain_tip = Some(chain_tip);
     }
 
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
@@ -82,7 +98,6 @@ impl<'a> GroupChannel<'a> {
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-        chain_tip: Option<ChainTip>,
     ) -> Result<(), GroupChannelError> {
         match template.future_template {
             true => {
@@ -104,7 +119,7 @@ impl<'a> GroupChannel<'a> {
                     .insert(template.template_id, new_job_id);
             }
             false => {
-                match chain_tip {
+                match self.chain_tip.clone() {
                     // we can only create non-future jobs if we have a chain tip
                     None => return Err(GroupChannelError::ChainTipNotSet),
                     Some(chain_tip) => {
@@ -171,7 +186,7 @@ impl<'a> GroupChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::server::{group::GroupChannel, jobs::chain_tip::ChainTip};
+    use crate::channels::{chain_tip::ChainTip, server::group::GroupChannel};
     use binary_sv2::Sv2Option;
     use mining_sv2::NewExtendedMiningJob;
     use std::convert::TryInto;
@@ -226,7 +241,7 @@ mod tests {
 
         assert!(group_channel.get_future_jobs().is_empty());
         group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs, None)
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
         assert!(group_channel.get_active_job().is_none());
 
@@ -360,12 +375,9 @@ mod tests {
             script_pubkey: script,
         }];
 
-        // this is a non-future template, so we must provide a chain_tip
-        assert!(group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs.clone(), None)
-            .is_err());
+        group_channel.set_chain_tip(chain_tip);
         group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs, Some(chain_tip))
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         let active_job = group_channel.get_active_job().unwrap();
@@ -445,8 +457,9 @@ mod tests {
         }];
 
         assert!(group_channel
-            .on_new_template(template.clone(), invalid_coinbase_reward_outputs, None)
+            .on_new_template(template.clone(), invalid_coinbase_reward_outputs)
             .is_err());
+
         assert!(group_channel.get_future_jobs().is_empty());
     }
 }

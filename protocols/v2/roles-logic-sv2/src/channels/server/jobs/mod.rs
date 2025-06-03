@@ -1,4 +1,3 @@
-pub mod chain_tip;
 pub mod error;
 pub mod extended;
 pub mod factory;

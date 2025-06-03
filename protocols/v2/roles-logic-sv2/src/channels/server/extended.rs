@@ -1,12 +1,13 @@
 //! Mining Server abstraction over the state of a Sv2 Extended Channel
 
 use crate::{
-    channels::server::{
-        error::ExtendedChannelError,
-        jobs::{
-            chain_tip::ChainTip, extended::ExtendedJob, factory::ExtendedJobFactory, JobOrigin,
+    channels::{
+        chain_tip::ChainTip,
+        server::{
+            error::ExtendedChannelError,
+            jobs::{extended::ExtendedJob, factory::ExtendedJobFactory, JobOrigin},
+            share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
-        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     utils::{
         bytes_to_hex, hash_rate_to_target, merkle_root_from_path, target_to_difficulty,
@@ -43,6 +44,7 @@ use tracing::debug;
 ///   indexed by `job_id`)
 /// - the channel's share validation state
 /// - the channel's job factory
+/// - the channel's chain tip
 #[derive(Clone, Debug)]
 pub struct ExtendedChannel<'a> {
     channel_id: u32,
@@ -63,6 +65,7 @@ pub struct ExtendedChannel<'a> {
     job_factory: ExtendedJobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
+    chain_tip: Option<ChainTip>,
 }
 
 impl<'a> ExtendedChannel<'a> {
@@ -114,6 +117,7 @@ impl<'a> ExtendedChannel<'a> {
             job_factory: ExtendedJobFactory::new(version_rolling_allowed),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
+            chain_tip: None,
         })
     }
 
@@ -129,6 +133,16 @@ impl<'a> ExtendedChannel<'a> {
         &self.extranonce_prefix
     }
 
+    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
+        self.chain_tip.as_ref()
+    }
+
+    /// Only for testing purposes, not meant to be used in real apps.
+    #[cfg(test)]
+    fn set_chain_tip(&mut self, chain_tip: ChainTip) {
+        self.chain_tip = Some(chain_tip);
+    }
+
     /// Sets the extranonce prefix.
     ///
     /// Note: after this, all new jobs will be associated with the new extranonce prefix.
@@ -141,16 +155,15 @@ impl<'a> ExtendedChannel<'a> {
         let new_rollable_extranonce_size =
             MAX_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
 
-        // there's no message for informing the mining client about the new rollable_extranonce_size
-        // so we do not update the self.rollable_extranonce_size
-        // we only return an error if the new extranonce_prefix would violate
-        // rollable_extranonce_size that was already established with the client when the channel
-        // was created
+        // we return an error if the new extranonce_prefix would violate
+        // min_rollable_extranonce_size that was already established with the client when the
+        // channel was created
         if new_rollable_extranonce_size < self.rollable_extranonce_size {
             return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
+        self.rollable_extranonce_size = new_rollable_extranonce_size;
 
         Ok(())
     }
@@ -248,7 +261,6 @@ impl<'a> ExtendedChannel<'a> {
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-        chain_tip: Option<ChainTip>,
     ) -> Result<(), ExtendedChannelError> {
         match template.future_template {
             true => {
@@ -268,7 +280,7 @@ impl<'a> ExtendedChannel<'a> {
                     .insert(template.template_id, new_job_id);
             }
             false => {
-                match chain_tip {
+                match self.chain_tip.clone() {
                     // we can only create non-future jobs if we have a chain tip
                     None => return Err(ExtendedChannelError::ChainTipNotSet),
                     Some(chain_tip) => {
@@ -355,6 +367,15 @@ impl<'a> ExtendedChannel<'a> {
         // clear seen shares, as shares for past chain tip will be rejected as stale
         self.share_accounting.flush_seen_shares();
 
+        // update the chain tip
+        let set_new_prev_hash_static = set_new_prev_hash.into_static();
+        let new_chain_tip = ChainTip::new(
+            set_new_prev_hash_static.prev_hash,
+            set_new_prev_hash_static.n_bits,
+            set_new_prev_hash_static.header_timestamp,
+        );
+        self.chain_tip = Some(new_chain_tip);
+
         Ok(())
     }
 
@@ -392,7 +413,6 @@ impl<'a> ExtendedChannel<'a> {
     pub fn validate_share(
         &mut self,
         share: SubmitSharesExtended,
-        chain_tip: ChainTip,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -444,6 +464,11 @@ impl<'a> ExtendedChannel<'a> {
         .ok_or(ShareValidationError::Invalid)?
         .try_into()
         .expect("merkle root must be 32 bytes");
+
+        let chain_tip = self
+            .chain_tip
+            .as_ref()
+            .ok_or(ShareValidationError::NoChainTip)?;
 
         let prev_hash = chain_tip.prev_hash();
         let nbits = CompactTarget::from_consensus(chain_tip.nbits());
@@ -556,11 +581,13 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::server::{
-        error::ExtendedChannelError,
-        extended::ExtendedChannel,
-        jobs::chain_tip::ChainTip,
-        share_accounting::{ShareValidationError, ShareValidationResult},
+    use crate::channels::{
+        chain_tip::ChainTip,
+        server::{
+            error::ExtendedChannelError,
+            extended::ExtendedChannel,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+        },
     };
     use binary_sv2::Sv2Option;
     use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
@@ -639,7 +666,7 @@ mod tests {
 
         assert!(channel.get_future_jobs().is_empty());
         channel
-            .on_new_template(template.clone(), coinbase_reward_outputs, None)
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
         assert!(channel.get_active_job().is_none());
 
@@ -759,6 +786,8 @@ mod tests {
         let n_bits = 503543726;
 
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
+
         let template = NewTemplate {
             template_id: 1,
             future_template: false,
@@ -794,12 +823,8 @@ mod tests {
             script_pubkey: script,
         }];
 
-        // this is a non-future template, so we must provide a chain_tip
-        assert!(channel
-            .on_new_template(template.clone(), coinbase_reward_outputs.clone(), None)
-            .is_err());
         channel
-            .on_new_template(template.clone(), coinbase_reward_outputs, Some(chain_tip))
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         assert!(channel.get_future_jobs().is_empty());
@@ -912,7 +937,7 @@ mod tests {
             script_pubkey: script,
         }];
 
-        let res = channel.on_new_template(template.clone(), invalid_coinbase_reward_outputs, None);
+        let res = channel.on_new_template(template.clone(), invalid_coinbase_reward_outputs);
 
         assert!(res.is_err());
         assert!(channel.get_future_jobs().is_empty());
@@ -999,14 +1024,11 @@ mod tests {
         .into();
         let n_bits = 545259519;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
 
         // prepare channel with non-future job
         channel
-            .on_new_template(
-                template.clone(),
-                coinbase_reward_outputs,
-                Some(chain_tip.clone()),
-            )
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         // this share has hash 00009a270ad03f1256312c7f196ab1a66bf8951f282fc75d9c81393cbb6427a8
@@ -1022,7 +1044,7 @@ mod tests {
             extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
 
-        let res = channel.validate_share(share_valid_block, chain_tip);
+        let res = channel.validate_share(share_valid_block);
 
         assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_, _))));
     }
@@ -1108,14 +1130,11 @@ mod tests {
         .into();
         let n_bits = 453040064;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
 
         // prepare channel with non-future job
         channel
-            .on_new_template(
-                template.clone(),
-                coinbase_reward_outputs,
-                Some(chain_tip.clone()),
-            )
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         // this share has hash 6f33ea329093baa13e37d11b3afa91960f8d84f0ec064c1376522548c0852d79
@@ -1131,7 +1150,7 @@ mod tests {
             extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
 
-        let res = channel.validate_share(share_low_diff, chain_tip);
+        let res = channel.validate_share(share_low_diff);
 
         assert!(matches!(
             res.unwrap_err(),
@@ -1221,14 +1240,11 @@ mod tests {
         ]
         .into();
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
 
         // prepare channel with non-future job
         channel
-            .on_new_template(
-                template.clone(),
-                coinbase_reward_outputs,
-                Some(chain_tip.clone()),
-            )
+            .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
         // this share has hash 0001099d7c957a0502952177aada0254921f04306a174543389263d1dd487cce
@@ -1246,7 +1262,7 @@ mod tests {
             extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
 
-        let res = channel.validate_share(valid_share, chain_tip.clone());
+        let res = channel.validate_share(valid_share);
         assert!(matches!(res, Ok(ShareValidationResult::Valid)));
 
         // try to cheat by re-submitting the same share
@@ -1261,7 +1277,7 @@ mod tests {
             extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
 
-        let res = channel.validate_share(repeated_share, chain_tip.clone());
+        let res = channel.validate_share(repeated_share);
 
         // assert duplicate share is rejected
         assert!(matches!(res, Err(ShareValidationError::DuplicateShare)));
