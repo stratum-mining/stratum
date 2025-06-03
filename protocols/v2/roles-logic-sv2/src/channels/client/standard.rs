@@ -13,7 +13,7 @@ use crate::{
 use binary_sv2::Sv2Option;
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
-    Target,
+    Target, MAX_EXTRANONCE_LEN,
 };
 use std::{collections::HashMap, convert::TryInto};
 use stratum_common::bitcoin::{
@@ -86,8 +86,17 @@ impl<'a> StandardChannel<'a> {
         &self.user_identity
     }
 
-    pub fn set_extranonce_prefix(&mut self, extranonce_prefix: Vec<u8>) {
+    pub fn set_extranonce_prefix(
+        &mut self,
+        extranonce_prefix: Vec<u8>,
+    ) -> Result<(), StandardChannelError> {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+            return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
+        }
+
         self.extranonce_prefix = extranonce_prefix;
+
+        Ok(())
     }
 
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
