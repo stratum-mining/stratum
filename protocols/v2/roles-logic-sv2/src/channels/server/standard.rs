@@ -10,7 +10,7 @@ use crate::{
     },
     utils::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
-use mining_sv2::{SubmitSharesStandard, Target};
+use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
 use std::{collections::HashMap, convert::TryInto};
 use stratum_common::bitcoin::{
     absolute::LockTime,
@@ -126,8 +126,17 @@ impl<'a> StandardChannel<'a> {
         &self.extranonce_prefix
     }
 
-    pub fn set_extranonce_prefix(&mut self, extranonce_prefix: Vec<u8>) {
+    pub fn set_extranonce_prefix(
+        &mut self,
+        extranonce_prefix: Vec<u8>,
+    ) -> Result<(), StandardChannelError> {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+            return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
+        }
+
         self.extranonce_prefix = extranonce_prefix;
+
+        Ok(())
     }
 
     pub fn set_target(&mut self, target: Target) {
@@ -1240,8 +1249,19 @@ mod tests {
         ]
         .to_vec();
 
-        channel.set_extranonce_prefix(new_extranonce_prefix.clone());
+        channel
+            .set_extranonce_prefix(new_extranonce_prefix.clone())
+            .unwrap();
         let current_extranonce_prefix = channel.get_extranonce_prefix();
         assert_eq!(current_extranonce_prefix, &new_extranonce_prefix);
+
+        let new_extranonce_prefix_too_long = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1,
+        ]
+        .to_vec();
+        assert!(channel
+            .set_extranonce_prefix(new_extranonce_prefix_too_long)
+            .is_err());
     }
 }

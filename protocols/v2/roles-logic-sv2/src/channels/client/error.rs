@@ -7,6 +7,7 @@ pub enum ExtendedChannelError {
 #[derive(Debug)]
 pub enum StandardChannelError {
     JobIdNotFound,
+    NewExtranoncePrefixTooLarge,
 }
 
 #[derive(Debug)]

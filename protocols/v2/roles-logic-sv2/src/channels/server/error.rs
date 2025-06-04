@@ -24,4 +24,5 @@ pub enum StandardChannelError {
     TemplateIdNotFound,
     InvalidNominalHashrate,
     RequestedMaxTargetOutOfRange,
+    NewExtranoncePrefixTooLarge,
 }
