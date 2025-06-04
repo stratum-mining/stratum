@@ -6,7 +6,7 @@ pub mod classic;
 pub mod error;
 
 /// Trait defining the interface for a Vardiff implementation.
-pub trait Vardiff: Debug + Send {
+pub trait Vardiff: Debug + Send + Sync {
     /// Gets the current estimated hashrate (H/s).
     fn hashrate(&self) -> f32;
 
