@@ -36,6 +36,7 @@ use std::{
     convert::TryInto,
     net::SocketAddr,
     sync::{Arc, RwLock},
+    time::Duration,
 };
 use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
@@ -60,6 +61,9 @@ use stratum_common::{
         utils::{Id as IdFactory, Mutex},
     },
 };
+
+use roles_logic_sv2::Vardiff;
+
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
 
@@ -121,6 +125,7 @@ pub struct Downstream {
     extended_channels: HashMap<u32, Arc<RwLock<ExtendedChannel<'static>>>>,
     // A map of all standard channels, keyed by their ID.
     standard_channels: HashMap<u32, Arc<RwLock<StandardChannel<'static>>>>,
+    vardiff: HashMap<u32, Arc<RwLock<Box<dyn Vardiff>>>>,
     // naive approach:
     // we create one group channel for the connection
     // and add all standard channels to this same single group channel
@@ -260,6 +265,7 @@ impl Downstream {
             channel_id_factory,
             extended_channels: HashMap::new(),
             standard_channels: HashMap::new(),
+            vardiff: HashMap::new(),
             group_channel,
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
@@ -368,6 +374,36 @@ impl Downstream {
     ) -> PoolResult<()> {
         match send_to {
             Ok(SendTo::Respond(message)) => {
+                match &message {
+                    Mining::OpenExtendedMiningChannelSuccess(m) => {
+                        let (vardiff, sender) = self_.safe_lock(|downstream| {
+                            let vardiff = downstream
+                                .vardiff
+                                .get(&m.channel_id)
+                                .expect("Vardiff should be present")
+                                .clone();
+                            let sender = downstream.sender.clone();
+                            (vardiff, sender)
+                        })?;
+                        spawn_vardiff_loop(m.channel_id, vardiff, sender);
+                    }
+
+                    Mining::OpenStandardMiningChannelSuccess(m) => {
+                        let (vardiff, sender) = self_.safe_lock(|downstream| {
+                            let vardiff = downstream
+                                .vardiff
+                                .get(&m.channel_id)
+                                .expect("Vardiff should be present")
+                                .clone();
+                            let sender = downstream.sender.clone();
+                            (vardiff, sender)
+                        })?;
+                        spawn_vardiff_loop(m.channel_id, vardiff, sender);
+                    }
+
+                    _ => {}
+                }
+
                 debug!("Sending to downstream: {:?}", message);
                 // returning an error will send the error to the main thread,
                 // and the main thread will drop the downstream from the pool
@@ -1123,6 +1159,67 @@ impl Pool {
     pub fn remove_downstream(&mut self, downstream_id: u32) {
         self.downstreams.remove(&downstream_id);
     }
+}
+pub async fn send_set_target_downstream(
+    sender: Sender<EitherFrame>,
+    channel_id: u32,
+    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+) -> Result<(), PoolError> {
+    debug!("Sleeping 60s before sending SetTarget for channel_id={channel_id}");
+    tokio::time::sleep(Duration::from_secs(60)).await;
+
+    debug!("Attempting try_vardiff for channel_id={channel_id}");
+    let new_hashrate = match vardiff.write() {
+        Ok(mut v) => v.try_vardiff(),
+        Err(e) => {
+            error!("Failed to acquire write lock on vardiff for channel_id={channel_id}: {e}");
+            return Err(PoolError::PoisonLock(e.to_string()));
+        }
+    }?;
+
+    if new_hashrate.is_some() {
+        debug!("New hashrate detected for channel_id={channel_id}, preparing SetTarget message");
+        let target = match vardiff.read() {
+            Ok(v) => v.target(),
+            Err(e) => {
+                error!("Failed to acquire read lock on vardiff for channel_id={channel_id}: {e}");
+                return Err(PoolError::PoisonLock(e.to_string()));
+            }
+        };
+
+        let target_message = SetTarget {
+            channel_id,
+            maximum_target: target.into(),
+        };
+
+        let mining_msg = Mining::SetTarget(target_message);
+        let sv2_frame: StdFrame = AnyMessage::Mining(mining_msg).try_into()?;
+
+        sender.send(sv2_frame.into()).await?;
+    } else {
+        debug!("No hashrate adjustment needed for channel_id={channel_id}");
+    }
+
+    Ok(())
+}
+
+pub fn spawn_vardiff_loop(
+    channel_id: u32,
+    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+    sender: Sender<EitherFrame>,
+) {
+    info!("Spawning vardiff loop for channel_id={channel_id}");
+    tokio::spawn(async move {
+        loop {
+            if let Err(e) =
+                send_set_target_downstream(sender.clone(), channel_id, vardiff.clone()).await
+            {
+                warn!("Vardiff loop exiting for channel_id={channel_id} due to error: {e}");
+                break;
+            }
+        }
+        info!("Vardiff loop terminated for channel_id={channel_id}");
+    });
 }
 
 #[cfg(test)]
