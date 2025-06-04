@@ -167,5 +167,8 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         PoolError::Sv2ProtocolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
+        PoolError::Vardiff(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        }
     }
 }
