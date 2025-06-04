@@ -8,7 +8,7 @@ pub mod error;
 pub mod test;
 
 /// Trait defining the interface for a Vardiff implementation.
-pub trait Vardiff: Debug + Send {
+pub trait Vardiff: Debug + Send + Sync {
     /// Gets the timestamp of the last update.
     fn last_update_timestamp(&self) -> u64;
 
