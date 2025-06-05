@@ -123,6 +123,7 @@ pub struct Downstream {
     last_future_template: NewTemplate<'static>,
     last_new_prev_hash: SetNewPrevHashTdp<'static>,
     empty_pool_coinbase_outputs: Vec<TxOut>,
+    requires_standard_jobs: bool,
 }
 
 /// The central state manager for the mining pool.
@@ -257,6 +258,7 @@ impl Downstream {
             last_future_template,
             last_new_prev_hash,
             empty_pool_coinbase_outputs,
+            requires_standard_jobs: downstream_data.header_only,
         }));
 
         let cloned = self_.clone();
@@ -589,31 +591,63 @@ impl Pool {
 
                 let mining_set_new_prev_hash_messages = downstream.safe_lock(|d| {
                     let mut messages = Vec::new();
-                    d.group_channel
+
+                    let mut group_channel = d
+                        .group_channel
                         .write()
-                        .map_err(|e| Error::PoisonLock(e.to_string()))?
+                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+                    group_channel
                         .on_set_new_prev_hash(new_prev_hash.clone())
                         .map_err(Error::FailedToProcessSetNewPrevHashGroupChannel)?;
 
-                    for (standard_channel_id, standard_channel_lock) in d.standard_channels.iter() {
-                        let mut standard_channel = standard_channel_lock
-                            .write()
-                            .map_err(|e| Error::PoisonLock(e.to_string()))?;
-                        standard_channel
-                            .on_set_new_prev_hash(new_prev_hash.clone())
-                            .map_err(Error::FailedToProcessSetNewPrevHashStandardChannel)?;
-                        let activated_standard_job_id = standard_channel
+                    // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
+                    // if no, we need to send the SetNewPrevHashMp to the group channel
+                    if !d.requires_standard_jobs {
+                        let group_channel_id = group_channel.get_group_channel_id();
+                        let activated_group_job_id = group_channel
                             .get_active_job()
                             .expect("active job must exist")
                             .get_job_id();
+
                         let set_new_prev_hash_message = SetNewPrevHashMp {
-                            channel_id: *standard_channel_id,
-                            job_id: activated_standard_job_id,
+                            channel_id: group_channel_id,
+                            job_id: activated_group_job_id,
                             prev_hash: new_prev_hash.prev_hash.clone(),
                             min_ntime: new_prev_hash.header_timestamp,
                             nbits: new_prev_hash.n_bits,
                         };
                         messages.push(set_new_prev_hash_message.into_static());
+                    }
+
+                    for (standard_channel_id, standard_channel_lock) in d.standard_channels.iter() {
+                        let mut standard_channel = standard_channel_lock
+                            .write()
+                            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+                        // process the SetNewPrevHashTdp for the standard channel
+                        // regardless of the REQUIRES_STANDARD_JOBS flag
+                        // because this is the only way we can verify shares later
+                        standard_channel
+                            .on_set_new_prev_hash(new_prev_hash.clone())
+                            .map_err(Error::FailedToProcessSetNewPrevHashStandardChannel)?;
+
+                        // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
+                        // if yes, we need to send the SetNewPrevHashMp to each standard channel
+                        if d.requires_standard_jobs {
+                            let activated_standard_job_id = standard_channel
+                                .get_active_job()
+                                .expect("active job must exist")
+                                .get_job_id();
+                            let set_new_prev_hash_message = SetNewPrevHashMp {
+                                channel_id: *standard_channel_id,
+                                job_id: activated_standard_job_id,
+                                prev_hash: new_prev_hash.prev_hash.clone(),
+                                min_ntime: new_prev_hash.header_timestamp,
+                                nbits: new_prev_hash.n_bits,
+                            };
+                            messages.push(set_new_prev_hash_message.into_static());
+                        }
                     }
 
                     for (extended_channel_id, extended_channel_lock) in d.extended_channels.iter() {
@@ -686,85 +720,79 @@ impl Pool {
                 }
 
                 let standard_job_messages = downstream.safe_lock(|d| {
-                    // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit
-                    // of a hack so while we don't clean that up, we only set
-                    // the value of the first output
+                    let mut messages = Vec::new();
+
+                    // note: the fact that we're parsing a Vec<TxOut> from the config file is a
+                    // bit of a hack so while we don't clean that up, we
+                    // only set the value of the first output
                     let mut pool_coinbase_outputs = d.empty_pool_coinbase_outputs.clone();
                     pool_coinbase_outputs[0].value =
                         Amount::from_sat(new_template.coinbase_tx_value_remaining);
 
-                    let mut messages = Vec::new();
                     match new_template.future_template {
                         true => {
-                            d.group_channel
-                                .write()
-                                .map_err(|e| Error::PoisonLock(e.to_string()))?
-                                .on_new_template(new_template.clone(), pool_coinbase_outputs)
-                                .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
-
-                            let group_channel_read = d
-                                .group_channel
-                                .read()
-                                .map_err(|e| Error::PoisonLock(e.to_string()))?;
-                            let extended_job_id = group_channel_read
-                                .get_future_template_to_job_id()
-                                .get(&new_template.template_id)
-                                .expect("job_id must exist");
-
-                            let extended_job = group_channel_read
-                                .get_future_jobs()
-                                .get(extended_job_id)
-                                .expect("extended job must exist");
-
-                            for (standard_channel_id, standard_channel_lock) in
+                            for (_standard_channel_id, standard_channel_lock) in
                                 d.standard_channels.iter()
                             {
                                 let mut standard_channel = standard_channel_lock
                                     .write()
                                     .map_err(|e| Error::PoisonLock(e.to_string()))?;
-                                let standard_job = extended_job.clone().into_standard_job(
-                                    *standard_channel_id,
-                                    standard_channel.get_extranonce_prefix().clone(),
-                                );
-                                standard_channel.on_new_template(
-                                    standard_job.clone(),
-                                    new_template.template_id,
-                                );
-                                let standard_job_message = standard_job.get_job_message();
-                                messages.push(standard_job_message.clone().into_static());
+
+                                // process the NewTemplate for the standard channel
+                                // regardless of the REQUIRES_STANDARD_JOBS flag
+                                // because this is the only way we can verify shares later
+                                standard_channel
+                                    .on_new_template(
+                                        new_template.clone(),
+                                        pool_coinbase_outputs.clone(),
+                                    )
+                                    .map_err(Error::FailedToProcessNewTemplateStandardChannel)?;
+
+                                // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
+                                // if yes, we need to send the future job to each standard channel
+                                // if no, there's no standard job to send
+                                if !d.requires_standard_jobs {
+                                    let standard_job_id = standard_channel
+                                        .get_future_template_to_job_id()
+                                        .get(&new_template.template_id)
+                                        .expect("job_id must exist");
+                                    let standard_job = standard_channel
+                                        .get_future_jobs()
+                                        .get(standard_job_id)
+                                        .expect("standard job must exist");
+                                    let standard_job_message = standard_job.get_job_message();
+                                    messages.push(standard_job_message.clone().into_static());
+                                }
                             }
                         }
                         false => {
-                            d.group_channel
-                                .write()
-                                .map_err(|e| Error::PoisonLock(e.to_string()))?
-                                .on_new_template(new_template.clone(), pool_coinbase_outputs)
-                                .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
-
-                            let group_channel_read = d
-                                .group_channel
-                                .read()
-                                .map_err(|e| Error::PoisonLock(e.to_string()))?;
-
-                            let extended_job = group_channel_read
-                                .get_active_job()
-                                .expect("active job must exist");
-                            for (standard_channel_id, standard_channel_lock) in
+                            for (_standard_channel_id, standard_channel_lock) in
                                 d.standard_channels.iter()
                             {
                                 let mut standard_channel = standard_channel_lock
                                     .write()
                                     .map_err(|e| Error::PoisonLock(e.to_string()))?;
-                                let standard_job = extended_job.clone().into_standard_job(
-                                    *standard_channel_id,
-                                    standard_channel.get_extranonce_prefix().clone(),
-                                );
-                                standard_channel.on_new_template(
-                                    standard_job.clone(),
-                                    new_template.template_id,
-                                );
-                                let standard_job_message = standard_job.get_job_message();
-                                messages.push(standard_job_message.clone().into_static());
+
+                                // process the NewTemplate for the standard channel
+                                // regardless of the REQUIRES_STANDARD_JOBS flag
+                                // because this is the only way we can verify shares later
+                                standard_channel
+                                    .on_new_template(
+                                        new_template.clone(),
+                                        pool_coinbase_outputs.clone(),
+                                    )
+                                    .map_err(Error::FailedToProcessNewTemplateStandardChannel)?;
+
+                                // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
+                                // if yes, we need to send the non-future job to each standard
+                                // channel if no, there's no standard job to send
+                                if d.requires_standard_jobs {
+                                    let standard_job = standard_channel
+                                        .get_active_job()
+                                        .expect("standard job must exist");
+                                    let standard_job_message = standard_job.get_job_message();
+                                    messages.push(standard_job_message.clone().into_static());
+                                }
                             }
                         }
                     }
@@ -791,6 +819,35 @@ impl Pool {
                     let mut messages = Vec::new();
                     match new_template.future_template {
                         true => {
+                            // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
+                            // if yes, we don't care about Group Channel
+                            // if no, we need to send the future job to the Group Channel
+                            if !d.requires_standard_jobs {
+                                let mut group_channel = d
+                                    .group_channel
+                                    .write()
+                                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                                group_channel
+                                    .on_new_template(
+                                        new_template.clone(),
+                                        pool_coinbase_outputs.clone(),
+                                    )
+                                    .map_err(|e| {
+                                        Error::FailedToProcessNewTemplateGroupChannel(e)
+                                    })?;
+                                let future_job_id = group_channel
+                                    .get_future_template_to_job_id()
+                                    .get(&new_template.template_id)
+                                    .expect("job_id must exist");
+                                let future_job = group_channel
+                                    .get_future_jobs()
+                                    .get(future_job_id)
+                                    .expect("future job must exist");
+                                let future_job_message = future_job.get_job_message();
+                                messages.push(future_job_message.clone().into_static());
+                            }
+
+                            // also send the future job to each extended channel
                             for (_extended_channel_id, extended_channel_lock) in
                                 d.extended_channels.iter()
                             {
@@ -822,6 +879,30 @@ impl Pool {
                             }
                         }
                         false => {
+                            // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
+                            // if yes, we don't care about Group Channel
+                            // if no, we need to send the non-future job to the Group Channel
+                            if !d.requires_standard_jobs {
+                                let mut group_channel = d
+                                    .group_channel
+                                    .write()
+                                    .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                                group_channel
+                                    .on_new_template(
+                                        new_template.clone(),
+                                        pool_coinbase_outputs.clone(),
+                                    )
+                                    .map_err(|e| {
+                                        Error::FailedToProcessNewTemplateGroupChannel(e)
+                                    })?;
+                                let active_job = group_channel
+                                    .get_active_job()
+                                    .expect("active job must exist");
+                                let active_job_message = active_job.get_job_message();
+                                messages.push(active_job_message.clone().into_static());
+                            }
+
+                            // also send the non-future job to each extended channel
                             for (_extended_channel_id, extended_channel_lock) in
                                 d.extended_channels.iter()
                             {
