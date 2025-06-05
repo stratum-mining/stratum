@@ -6,7 +6,7 @@
 //! reacts to various mining-related messages received from a connected downstream miner.
 
 use super::super::mining_pool::Downstream;
-use binary_sv2::{Str0255, Sv2Option};
+use binary_sv2::Str0255;
 use roles_logic_sv2::{
     channels::server::{
         error::{ExtendedChannelError, StandardChannelError},
@@ -129,6 +129,15 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let mut messages = vec![];
 
+        let group_channel_id = if let Some(group_channel_guard) = &self.group_channel {
+            let group_channel = group_channel_guard
+                .read()
+                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+            group_channel.get_group_channel_id()
+        } else {
+            0
+        };
+
         let open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
             request_id: incoming.request_id,
             channel_id,
@@ -138,7 +147,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 .clone()
                 .try_into()
                 .expect("extranonce_prefix must be valid"),
-            group_channel_id: 1, // naive approach, we only support one group channel for now
+            group_channel_id,
         }
         .into_static();
 
@@ -148,43 +157,45 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let last_future_template = self.last_future_template.clone();
 
-        // a future extended job was already created and activated on the group channel
-        // so we take the corresponding standard job to bootstrap the standard channel
-        let mut standard_job = self
-            .group_channel
-            .read()
-            .map_err(|e| Error::PoisonLock(e.to_string()))?
-            .get_active_job()
-            .ok_or(Error::NoActiveJob)?
-            .clone()
-            .into_standard_job(channel_id, extranonce_prefix);
+        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
+        // so while we don't clean that up, we only set the value of the first output
+        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
+        pool_coinbase_outputs[0].value =
+            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
-        // the extended job was already activated on the group channel,
-        // we deactivate it so we can send it as a future job
-        standard_job.deactivate();
+        // create a future standard job based on the last future template
+        standard_channel
+            .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
+            .map_err(Error::FailedToCreateStandardChannel)?;
 
-        standard_channel.on_new_template(standard_job.clone(), last_future_template.template_id);
+        let future_standard_job_id = standard_channel
+            .get_future_template_to_job_id()
+            .get(&last_future_template.template_id)
+            .expect("future job id must exist");
+        let future_standard_job = standard_channel
+            .get_future_jobs()
+            .get(future_standard_job_id)
+            .expect("future job must exist");
+        let future_standard_job_message =
+            future_standard_job.get_job_message().clone().into_static();
 
-        // send this active job as future job, to be immediately activated with the subsequent
-        // SetNewPrevHash message
-        // (that's the expected flow on firmware side)
-        let mut standard_job_message = standard_job.get_job_message().clone().into_static();
-        standard_job_message.min_ntime = Sv2Option::new(None);
-        messages.push(Mining::NewMiningJob(standard_job_message));
+        messages.push(Mining::NewMiningJob(future_standard_job_message));
 
         // SetNewPrevHash message activates the future job
         let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
+        let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+        let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+        let n_bits = last_set_new_prev_hash_tdp.n_bits;
+        let set_new_prev_hash_mining = SetNewPrevHash {
+            channel_id,
+            job_id: *future_standard_job_id,
+            prev_hash,
+            min_ntime: header_timestamp,
+            nbits: n_bits,
+        };
         standard_channel
             .on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())
             .map_err(Error::FailedToCreateStandardChannel)?;
-
-        let set_new_prev_hash_mining = SetNewPrevHash {
-            channel_id,
-            job_id: standard_job.get_job_id(),
-            prev_hash: last_set_new_prev_hash_tdp.prev_hash,
-            min_ntime: last_set_new_prev_hash_tdp.header_timestamp,
-            nbits: last_set_new_prev_hash_tdp.n_bits,
-        };
         messages.push(Mining::SetNewPrevHash(set_new_prev_hash_mining));
 
         let messages = messages.into_iter().map(SendTo::Respond).collect();
@@ -192,10 +203,12 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         self.standard_channels
             .insert(channel_id, Arc::new(RwLock::new(standard_channel.clone())));
 
-        self.group_channel
-            .write()
-            .map_err(|e| Error::PoisonLock(e.to_string()))?
-            .add_standard_channel_id(channel_id);
+        if let Some(group_channel_guard) = &self.group_channel {
+            let mut group_channel = group_channel_guard
+                .write()
+                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+            group_channel.add_standard_channel_id(channel_id);
+        }
 
         Ok(SendTo::Multiple(messages))
     }
@@ -359,12 +372,15 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         // SetNewPrevHash message activates the future job
         let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
+        let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+        let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+        let n_bits = last_set_new_prev_hash_tdp.n_bits;
         let set_new_prev_hash_mining = SetNewPrevHash {
             channel_id,
             job_id: *future_extended_job_id,
-            prev_hash: last_set_new_prev_hash_tdp.prev_hash,
-            min_ntime: last_set_new_prev_hash_tdp.header_timestamp,
-            nbits: last_set_new_prev_hash_tdp.n_bits,
+            prev_hash,
+            min_ntime: header_timestamp,
+            nbits: n_bits,
         };
         extended_channel
             .on_set_new_prev_hash(self.last_new_prev_hash.clone())
@@ -531,7 +547,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
-        info!("Received SubmitSharesStandard: {:?}", m);
+        info!("Received: {:?}", m);
 
         let channel_id = m.channel_id;
         if !self.standard_channels.contains_key(&channel_id) {
@@ -685,7 +701,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        info!("Received SubmitSharesExtended: {:?}", m);
+        info!("Received: {:?}", m);
 
         let channel_id = m.channel_id;
         if !self.extended_channels.contains_key(&channel_id) {
