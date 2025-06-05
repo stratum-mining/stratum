@@ -3,7 +3,7 @@ use crate::channels::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
-        jobs::{extended::ExtendedJob, factory::ExtendedJobFactory},
+        jobs::{extended::ExtendedJob, factory::JobFactory},
     },
 };
 use stratum_common::bitcoin::transaction::TxOut;
@@ -30,7 +30,7 @@ use std::collections::{HashMap, HashSet};
 pub struct GroupChannel<'a> {
     group_channel_id: u32,
     standard_channel_ids: HashSet<u32>,
-    job_factory: ExtendedJobFactory,
+    job_factory: JobFactory,
     // maps template_id to job_id on future jobs
     future_template_to_job_id: HashMap<u64, u32>,
     // future jobs are indexed with job_id (u32)
@@ -44,7 +44,7 @@ impl<'a> GroupChannel<'a> {
         Self {
             group_channel_id,
             standard_channel_ids: HashSet::new(),
-            job_factory: ExtendedJobFactory::new(true),
+            job_factory: JobFactory::new(true),
             future_template_to_job_id: HashMap::new(),
             future_jobs: HashMap::new(),
             active_job: None,
@@ -103,7 +103,7 @@ impl<'a> GroupChannel<'a> {
             true => {
                 let new_job = self
                     .job_factory
-                    .new_job(
+                    .new_extended_job(
                         self.group_channel_id,
                         None,
                         vec![], /* empty extranonce prefix, as it will be replaced by the
@@ -125,7 +125,7 @@ impl<'a> GroupChannel<'a> {
                     Some(chain_tip) => {
                         let new_job = self
                             .job_factory
-                            .new_job(
+                            .new_extended_job(
                                 self.group_channel_id,
                                 Some(chain_tip),
                                 vec![], /* empty extranonce prefix, as it will be replaced by

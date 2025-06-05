@@ -6,7 +6,7 @@ pub enum ExtendedJobError {
 pub enum StandardJobError {}
 
 #[derive(Debug)]
-pub enum ExtendedJobFactoryError {
+pub enum JobFactoryError {
     InvalidTemplate(String),
     CoinbaseTxPrefixError,
     CoinbaseTxSuffixError,

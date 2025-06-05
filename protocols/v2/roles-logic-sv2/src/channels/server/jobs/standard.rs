@@ -1,7 +1,8 @@
-use crate::channels::server::jobs::JobOrigin;
+use crate::{channels::server::jobs::JobOrigin, utils::deserialize_outputs};
 use binary_sv2::{Sv2Option, U256};
 use mining_sv2::NewMiningJob;
 use stratum_common::bitcoin::transaction::TxOut;
+use template_distribution_sv2::NewTemplate;
 
 /// Abstraction of a standard mining job with:
 /// - the `NewTemplate` message that originated it
@@ -25,6 +26,25 @@ impl<'a> StandardJob<'a> {
     ) -> Self {
         Self {
             origin,
+            extranonce_prefix,
+            coinbase_outputs,
+            job_message,
+        }
+    }
+
+    pub fn from_template(
+        template: NewTemplate<'a>,
+        extranonce_prefix: Vec<u8>,
+        additional_coinbase_outputs: Vec<TxOut>,
+        job_message: NewMiningJob<'a>,
+    ) -> Self {
+        let mut coinbase_outputs = vec![];
+        coinbase_outputs.extend(additional_coinbase_outputs);
+        coinbase_outputs.extend(deserialize_outputs(
+            template.coinbase_tx_outputs.inner_as_ref().to_vec(),
+        ));
+        Self {
+            origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
             job_message,

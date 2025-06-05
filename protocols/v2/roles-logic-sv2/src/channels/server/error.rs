@@ -1,8 +1,8 @@
-use crate::channels::server::jobs::error::ExtendedJobFactoryError;
+use crate::channels::server::jobs::error::JobFactoryError;
 
 #[derive(Debug)]
 pub enum ExtendedChannelError {
-    JobFactoryError(ExtendedJobFactoryError),
+    JobFactoryError(JobFactoryError),
     InvalidNominalHashrate,
     RequestedMaxTargetOutOfRange,
     ChainTipNotSet,
@@ -16,7 +16,7 @@ pub enum ExtendedChannelError {
 pub enum GroupChannelError {
     ChainTipNotSet,
     TemplateIdNotFound,
-    JobFactoryError(ExtendedJobFactoryError),
+    JobFactoryError(JobFactoryError),
 }
 
 #[derive(Debug)]
