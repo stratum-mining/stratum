@@ -128,6 +128,7 @@ pub enum Error {
     FailedToProcessNewTemplateGroupChannel(GroupChannelError),
     FailedToProcessSetNewPrevHashGroupChannel(GroupChannelError),
     FailedToProcessNewTemplateExtendedChannel(ExtendedChannelError),
+    FailedToProcessNewTemplateStandardChannel(StandardChannelError),
     FailedToProcessSetNewPrevHashExtendedChannel(ExtendedChannelError),
     FailedToProcessSetNewPrevHashStandardChannel(StandardChannelError),
     NoActiveJob,
@@ -255,6 +256,7 @@ impl Display for Error {
             FailedToSendSolution => write!(f, "Failed to send solution"),
             FailedToSetCustomMiningJob(e) => write!(f, "Failed to set custom mining job: {:?}", e),
             FailedToProcessNewTemplateExtendedChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
+            FailedToProcessNewTemplateStandardChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
             FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
             FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
         }

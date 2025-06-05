@@ -25,4 +25,6 @@ pub enum StandardChannelError {
     InvalidNominalHashrate,
     RequestedMaxTargetOutOfRange,
     NewExtranoncePrefixTooLarge,
+    JobFactoryError(JobFactoryError),
+    ChainTipNotSet,
 }
