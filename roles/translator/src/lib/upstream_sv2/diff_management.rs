@@ -14,7 +14,7 @@ use super::super::{
     error::ProxyResult,
     upstream_sv2::{EitherFrame, Message, StdFrame},
 };
-use binary_sv2::u256_from_int;
+use binary_sv2::U256;
 use roles_logic_sv2::{
     mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex, Error as RolesLogicError,
 };
@@ -48,7 +48,7 @@ impl Upstream {
             let update_channel = UpdateChannel {
                 channel_id,
                 nominal_hash_rate: new_hashrate,
-                maximum_target: u256_from_int(u64::MAX),
+                maximum_target: U256::from([0xff; 32]),
             };
             let message = Message::Mining(Mining::UpdateChannel(update_channel));
             let either_frame: StdFrame = message.try_into()?;
