@@ -81,7 +81,7 @@ impl<'a> ExtendedJob<'a> {
         let coinbase_tx_prefix = self.get_coinbase_tx_prefix().inner_as_ref();
         let coinbase_tx_suffix = self.get_coinbase_tx_suffix().inner_as_ref();
 
-        let mut serialized_coinbase = Vec::new();
+        let mut serialized_coinbase: Vec<u8> = vec![];
         serialized_coinbase.extend(coinbase_tx_prefix);
         serialized_coinbase.extend(vec![0; MAX_EXTRANONCE_LEN]);
         serialized_coinbase.extend(coinbase_tx_suffix);
@@ -99,9 +99,9 @@ impl<'a> ExtendedJob<'a> {
             // because chain_tip is where prev_hash and nbits are coming from
             if job_min_ntime < chain_tip.min_ntime() {
                 return Err(ExtendedJobError::InvalidMinNTime);
+            } else {
+                job_min_ntime
             }
-
-            job_min_ntime
         } else {
             // future jobs are not allowed to be converted into `SetCustomMiningJob` messages
             return Err(ExtendedJobError::FutureJobNotAllowed);
