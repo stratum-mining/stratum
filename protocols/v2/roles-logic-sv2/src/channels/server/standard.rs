@@ -4,7 +4,7 @@ use crate::{
         chain_tip::ChainTip,
         server::{
             error::StandardChannelError,
-            jobs::{standard::StandardJob, JobOrigin},
+            jobs::{factory::JobFactory, standard::StandardJob},
             share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
     },
@@ -20,10 +20,10 @@ use stratum_common::bitcoin::{
     },
     consensus::Encodable,
     hashes::sha256d::Hash,
-    transaction::{OutPoint, Transaction, TxIn, Version as TxVersion},
+    transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
     CompactTarget, Sequence, Target as BitcoinTarget,
 };
-use template_distribution_sv2::SetNewPrevHash;
+use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
 /// Abstraction of a Sv2 Standard Channel.
@@ -41,16 +41,8 @@ use tracing::debug;
 ///   `job_id`)
 /// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
 ///   indexed by `job_id`)
+/// - the channel's job factory
 /// - the channel's chain tip
-///
-/// Differently from `ExtendedChannel`, there's no reference to:
-/// - a job factory
-///
-/// That's because every Standard Channel always belong to some Group Channel, and it's the Group
-/// Channel's responsability to create jobs.
-///
-/// As the Group Channel creates and activates Extended Jobs, each Standard Channel is updated
-/// with Standard Jobs accordingly.
 #[derive(Debug, Clone)]
 pub struct StandardChannel<'a> {
     pub channel_id: u32,
@@ -69,6 +61,7 @@ pub struct StandardChannel<'a> {
     stale_jobs: HashMap<u32, StandardJob<'a>>,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
+    job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
 }
 
@@ -110,6 +103,7 @@ impl<'a> StandardChannel<'a> {
             stale_jobs: HashMap::new(),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
+            job_factory: JobFactory::new(true),
             chain_tip: None,
         })
     }
@@ -240,31 +234,63 @@ impl<'a> StandardChannel<'a> {
 
     /// Updates the channel state with a new job.
     ///
-    /// Despite the name of this method, the input is not a template (like on [`ExtendedChannel`]).
-    /// That's because Standard Channels don't have a Job Factory, and they don't create jobs by
-    /// themselves.
+    /// If the template is a future template, the chain tip is not used.
+    /// If the template is not a future template, the chain tip must be set.
     ///
-    /// We expect an Extended Job to be created by a Job Factory for the Group Channel, then
-    /// converted into a Standard Job and passed to this method.
-    pub fn on_new_template(&mut self, new_job: StandardJob<'a>, template_id: u64) {
-        match new_job.is_future() {
+    /// Only meant for usage on a Sv2 Pool Server or a Sv2 Job Declaration Client,
+    /// but not on mining clients such as Mining Devices or Proxies.
+    pub fn on_new_template(
+        &mut self,
+        template: NewTemplate<'a>,
+        coinbase_reward_outputs: Vec<TxOut>,
+    ) -> Result<(), StandardChannelError> {
+        match template.future_template {
             true => {
-                let job_id = new_job.get_job_id();
-                self.future_jobs.insert(job_id, new_job);
-                self.future_template_to_job_id.insert(template_id, job_id);
+                let new_job = self
+                    .job_factory
+                    .new_standard_job(
+                        self.channel_id,
+                        None,
+                        self.extranonce_prefix.clone(),
+                        template.clone(),
+                        coinbase_reward_outputs,
+                    )
+                    .map_err(StandardChannelError::JobFactoryError)?;
+                let new_job_id = new_job.get_job_id();
+                self.future_jobs.insert(new_job_id, new_job);
+                self.future_template_to_job_id
+                    .insert(template.template_id, new_job_id);
             }
             false => {
-                // if there's already some active job, move it to the past jobs
-                // and set the new job as the active job
-                if let Some(active_job) = self.active_job.take() {
-                    self.past_jobs.insert(active_job.get_job_id(), active_job);
-                    self.active_job = Some(new_job);
-                } else {
-                    // if there's no active job, simply set the new job as the active job
-                    self.active_job = Some(new_job);
+                match self.chain_tip.clone() {
+                    // we can only create non-future jobs if we have a chain tip
+                    None => return Err(StandardChannelError::ChainTipNotSet),
+                    Some(chain_tip) => {
+                        let new_job = self
+                            .job_factory
+                            .new_standard_job(
+                                self.channel_id,
+                                Some(chain_tip),
+                                self.extranonce_prefix.clone(),
+                                template.clone(),
+                                coinbase_reward_outputs,
+                            )
+                            .map_err(StandardChannelError::JobFactoryError)?;
+
+                        // if there's already some active job, move it to the past jobs
+                        // and set the new job as the active job
+                        if let Some(active_job) = self.active_job.take() {
+                            self.past_jobs.insert(active_job.get_job_id(), active_job);
+                            self.active_job = Some(new_job);
+                        } else {
+                            self.active_job = Some(new_job);
+                        }
+                    }
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Updates the channel state with a new `SetNewPrevHash` message.
@@ -426,59 +452,31 @@ impl<'a> StandardChannel<'a> {
                 hash.to_raw_hash(),
             );
 
-            match job.get_origin() {
-                JobOrigin::NewTemplate(template) => {
-                    let mut script_sig = template.coinbase_prefix.to_vec();
-                    script_sig.extend(job.get_extranonce_prefix());
+            let mut script_sig = job.get_template().coinbase_prefix.to_vec();
+            script_sig.extend(job.get_extranonce_prefix());
 
-                    let tx_in = TxIn {
-                        previous_output: OutPoint::null(),
-                        script_sig: script_sig.into(),
-                        sequence: Sequence(template.coinbase_tx_input_sequence),
-                        witness: Witness::from(vec![vec![0; 32]]),
-                    };
+            let tx_in = TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: script_sig.into(),
+                sequence: Sequence(job.get_template().coinbase_tx_input_sequence),
+                witness: Witness::from(vec![vec![0; 32]]),
+            };
 
-                    let coinbase = Transaction {
-                        version: TxVersion::non_standard(template.coinbase_tx_version as i32),
-                        lock_time: LockTime::from_consensus(template.coinbase_tx_locktime),
-                        input: vec![tx_in],
-                        output: job.get_coinbase_outputs().to_vec(),
-                    };
-                    let mut serialized_coinbase = Vec::new();
-                    coinbase
-                        .consensus_encode(&mut serialized_coinbase)
-                        .map_err(|_| ShareValidationError::InvalidCoinbase)?;
+            let coinbase = Transaction {
+                version: TxVersion::non_standard(job.get_template().coinbase_tx_version as i32),
+                lock_time: LockTime::from_consensus(job.get_template().coinbase_tx_locktime),
+                input: vec![tx_in],
+                output: job.get_coinbase_outputs().to_vec(),
+            };
+            let mut serialized_coinbase = Vec::new();
+            coinbase
+                .consensus_encode(&mut serialized_coinbase)
+                .map_err(|_| ShareValidationError::InvalidCoinbase)?;
 
-                    return Ok(ShareValidationResult::BlockFound(
-                        Some(template.template_id),
-                        serialized_coinbase,
-                    ));
-                }
-                JobOrigin::SetCustomMiningJob(custom_job) => {
-                    let mut script_sig = custom_job.coinbase_prefix.to_vec();
-                    script_sig.extend(job.get_extranonce_prefix());
-
-                    let tx_in = TxIn {
-                        previous_output: OutPoint::null(),
-                        script_sig: script_sig.into(),
-                        sequence: Sequence(custom_job.coinbase_tx_input_n_sequence),
-                        witness: Witness::from(vec![vec![0; 32]]),
-                    };
-
-                    let coinbase = Transaction {
-                        version: TxVersion::non_standard(custom_job.coinbase_tx_version as i32),
-                        lock_time: LockTime::from_consensus(custom_job.coinbase_tx_locktime),
-                        input: vec![tx_in],
-                        output: job.get_coinbase_outputs().to_vec(),
-                    };
-                    let mut serialized_coinbase = Vec::new();
-                    coinbase
-                        .consensus_encode(&mut serialized_coinbase)
-                        .map_err(|_| ShareValidationError::InvalidCoinbase)?;
-
-                    return Ok(ShareValidationResult::BlockFound(None, serialized_coinbase));
-                }
-            }
+            return Ok(ShareValidationResult::BlockFound(
+                Some(job.get_template().template_id),
+                serialized_coinbase,
+            ));
         }
 
         // check if the share hash meets the channel target
@@ -523,7 +521,6 @@ mod tests {
         chain_tip::ChainTip,
         server::{
             error::StandardChannelError,
-            group::GroupChannel,
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
@@ -541,11 +538,7 @@ mod tests {
         // note:
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
-        let group_channel_id = 1;
-
-        let mut group_channel = GroupChannel::new(group_channel_id);
-
-        let standard_channel_id = 2;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
 
         let extranonce_prefix = [
@@ -605,28 +598,11 @@ mod tests {
             script_pubkey: script,
         }];
 
-        assert!(group_channel.get_future_jobs().is_empty());
         assert!(standard_channel.get_future_jobs().is_empty());
 
-        group_channel
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
-
-        let future_extended_job_id = group_channel
-            .get_future_template_to_job_id()
-            .get(&template.template_id)
-            .unwrap();
-
-        let future_extended_job = group_channel
-            .get_future_jobs()
-            .get(future_extended_job_id)
-            .unwrap();
-
-        let future_standard_job = future_extended_job
-            .clone()
-            .into_standard_job(standard_channel_id, extranonce_prefix);
-
-        standard_channel.on_new_template(future_standard_job, template.template_id);
 
         let expected_future_standard_job = NewMiningJob {
             channel_id: standard_channel_id,
@@ -684,11 +660,8 @@ mod tests {
         // note:
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
-        let group_channel_id = 1;
 
-        let mut group_channel = GroupChannel::new(group_channel_id);
-
-        let standard_channel_id = 2;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
 
         let extranonce_prefix = [
@@ -757,19 +730,10 @@ mod tests {
             script_pubkey: script,
         }];
 
-        group_channel.set_chain_tip(chain_tip);
-        group_channel
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
-
-        assert!(group_channel.get_future_jobs().is_empty());
-
-        let active_extended_job = group_channel.get_active_job().unwrap();
-        let active_standard_job = active_extended_job
-            .clone()
-            .into_standard_job(standard_channel_id, extranonce_prefix);
-
-        standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
 
         let expected_active_standard_job = NewMiningJob {
             channel_id: standard_channel_id,
@@ -796,11 +760,8 @@ mod tests {
         // note:
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
-        let group_channel_id = 1;
 
-        let mut group_channel = GroupChannel::new(group_channel_id);
-
-        let standard_channel_id = 2;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
 
         let extranonce_prefix = [
@@ -870,20 +831,13 @@ mod tests {
         let n_bits = 545259519;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
 
-        // prepare group channel with non-future job
-        group_channel.set_chain_tip(chain_tip.clone());
-        group_channel
+        // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        let active_extended_job = group_channel.get_active_job().unwrap();
-        let active_standard_job = active_extended_job
-            .clone()
-            .into_standard_job(standard_channel_id, extranonce_prefix);
-
-        // prepare standard channel with non-future job
-        standard_channel.set_chain_tip(chain_tip);
-        standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
+        let active_standard_job = standard_channel.get_active_job().unwrap();
 
         // this share has hash 40b4c57b2c65052bbe1092e556146ad78cdd9e5ffaeff856a0eb54ee7b816da7
         // which satisfied the network target
@@ -907,11 +861,8 @@ mod tests {
         // note:
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
-        let group_channel_id = 1;
 
-        let mut group_channel = GroupChannel::new(group_channel_id);
-
-        let standard_channel_id = 2;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
 
         let extranonce_prefix = [
@@ -981,20 +932,13 @@ mod tests {
         let n_bits = 453040064;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
 
-        // prepare group channel with non-future job
-        group_channel.set_chain_tip(chain_tip.clone());
-        group_channel
+        // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        let active_extended_job = group_channel.get_active_job().unwrap();
-        let active_standard_job = active_extended_job
-            .clone()
-            .into_standard_job(standard_channel_id, extranonce_prefix);
-
-        // prepare standard channel with non-future job
-        standard_channel.set_chain_tip(chain_tip);
-        standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
+        let active_standard_job = standard_channel.get_active_job().unwrap();
 
         // this share has hash a5b65006d89dab9de2b23ececd3b0435f163607f7da1ba2f0bcde62b29e8cd44
         // which does not meet the channel target
@@ -1021,11 +965,8 @@ mod tests {
         // note:
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
-        let group_channel_id = 1;
 
-        let mut group_channel = GroupChannel::new(group_channel_id);
-
-        let standard_channel_id = 2;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
 
         let extranonce_prefix = [
@@ -1097,20 +1038,11 @@ mod tests {
         let n_bits = 453040064;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
 
-        // prepare group channel with non-future job
-        group_channel.set_chain_tip(chain_tip.clone());
-        group_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs)
-            .unwrap();
-
-        let active_extended_job = group_channel.get_active_job().unwrap();
-        let active_standard_job = active_extended_job
-            .clone()
-            .into_standard_job(standard_channel_id, extranonce_prefix);
-
         // prepare standard channel with non-future job
         standard_channel.set_chain_tip(chain_tip);
-        standard_channel.on_new_template(active_standard_job.clone(), template.template_id);
+        standard_channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
 
         // this share has hash 000010dcb838b589e5b0365350425ea82f368d330616f783d32dadf9b497bd02
         // which does meet the channel target

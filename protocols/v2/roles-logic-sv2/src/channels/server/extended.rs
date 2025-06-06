@@ -5,7 +5,7 @@ use crate::{
         chain_tip::ChainTip,
         server::{
             error::ExtendedChannelError,
-            jobs::{extended::ExtendedJob, factory::ExtendedJobFactory, JobOrigin},
+            jobs::{extended::ExtendedJob, factory::JobFactory, JobOrigin},
             share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
     },
@@ -62,7 +62,7 @@ pub struct ExtendedChannel<'a> {
     past_jobs: HashMap<u32, ExtendedJob<'a>>,
     // stale jobs are indexed with job_id (u32)
     stale_jobs: HashMap<u32, ExtendedJob<'a>>,
-    job_factory: ExtendedJobFactory,
+    job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
@@ -114,7 +114,7 @@ impl<'a> ExtendedChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            job_factory: ExtendedJobFactory::new(version_rolling_allowed),
+            job_factory: JobFactory::new(version_rolling_allowed),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
@@ -266,7 +266,7 @@ impl<'a> ExtendedChannel<'a> {
             true => {
                 let new_job = self
                     .job_factory
-                    .new_job(
+                    .new_extended_job(
                         self.channel_id,
                         None,
                         self.extranonce_prefix.clone(),
@@ -286,7 +286,7 @@ impl<'a> ExtendedChannel<'a> {
                     Some(chain_tip) => {
                         let new_job = self
                             .job_factory
-                            .new_job(
+                            .new_extended_job(
                                 self.channel_id,
                                 Some(chain_tip),
                                 self.extranonce_prefix.clone(),
