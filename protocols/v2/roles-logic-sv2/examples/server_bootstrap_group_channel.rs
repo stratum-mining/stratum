@@ -50,7 +50,6 @@
 /// - how the network stack is implemented
 /// - how collections of channels are managed
 /// - how concurrency safety is handled
-use mining_sv2::SetNewPrevHash as SetNewPrevHashMp;
 use roles_logic_sv2::{channels::server::group::GroupChannel, utils::Id as IdFactory};
 use std::convert::TryInto;
 use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};
@@ -111,30 +110,7 @@ fn main() {
         )
         .unwrap();
 
-    let future_job_id = group_channel
-        .get_future_template_to_job_id()
-        .get(&app_context.cached_future_template.template_id)
-        .unwrap();
-    let future_job = group_channel.get_future_jobs().get(future_job_id).unwrap();
-
-    // this message will be sent to the client over the wire
-    // so that the client has an extended job that will be immediately activated
-    // for this group channel
-    let _future_job_message = future_job.get_job_message();
-
     // ------------------------------------------------------------
-
-    // this message will be sent to the client over the wire
-    // to activate the future job
-    // giving the client full context on the chain tip so it can start mining
-    let _set_new_prev_hash_mp = SetNewPrevHashMp {
-        channel_id,
-        job_id: *future_job_id,
-        prev_hash: app_context.cached_set_new_prev_hash.prev_hash.clone(),
-        min_ntime: app_context.cached_set_new_prev_hash.header_timestamp,
-        nbits: app_context.cached_set_new_prev_hash.n_bits,
-    }
-    .into_static();
 
     // activate the future job on server side
     group_channel
@@ -144,10 +120,12 @@ fn main() {
 
     // ------------------------------------------------------------
 
-    // the group channel is now ready to bootstrap jobs
-    // for the standard channels that will be eventually created on this connection
-    //
-    // please check the example for bootstrapping a standard channel for more details
+    // as new templates are received on the application context, the group channel is
+    // updated with new extended jobs
+
+    // because the connection was established without the REQUIRES_STANDARD_JOBS flag,
+    // the extended job from the group channel is sent across the wire, as an optimization
+    // against sending one standard job for each standard channel that exists on the connection
 
     // ------------------------------------------------------------
 }

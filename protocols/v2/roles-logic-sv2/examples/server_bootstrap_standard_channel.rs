@@ -1,5 +1,25 @@
-/// This example shows how a Mining Server can bootstrap an extended channel,
-/// after receiving an OpenExtendedMiningChannel request from a client.
+/// This example shows how a Mining Server can bootstrap a standard channel, after
+/// receiving an OpenStandardMiningChannel request from a client.
+///
+/// Standard channels are created upon receiving a channel opening request from a client.
+///
+/// The Sv2 spec does not define the exact circumstances in which a group channel must be
+/// created, or how standard channels should be grouped together. The Sv2 spec only defines
+/// that every standard channel must belong to some group channel.
+///
+/// In SRI apps, we follow the simplest possible criteria:
+///
+/// - if SetupConnection.REQUIRES_STANDARD_JOBS flag is set, we don't create any group channel,
+///   and reply with a OpenStandardMiningChannelSuccess message with `group_channel_id` set to
+///   0
+/// - if SetupConnection.REQUIRES_STANDARD_JOBS flag is not set, we create one single group
+///   channel, and include every standard channel created on that connection under this same
+///   group.
+///
+/// Unless there's good reason to do otherwise, we recommend implementors of Mining Servers to
+/// follow this approach.
+///
+/// This example illustrates this simplified approach.
 ///
 /// We abstract AppContext as the global context of an application that will:
 /// - open connections with Mining Clients
@@ -15,15 +35,15 @@
 ///   crucial for avoiding search space collisions
 /// - it has at least one cached future template and a SetNewPrevHash message associated with
 ///   this future template, which is used to create and activate the future job during the
-///   process of bootstrapping a new channel
-/// - it provides the script pubkey(s) for the coinbase reward outputs that will be used on the
-///   jobs
+///   process of bootstrapping a new standard channel
+/// - it provides the script pubkey(s) for the coinbase reward outputs
 ///
 /// We abstract ConnectionContext as the context of a single connection with a specific client,
 /// where multiple channels can be created and managed.
 ///
 /// The most important aspects of ConnectionContext are:
 /// - it ensures unique channel id allocation space across all channels
+/// - it provides an optional group channel, which is used to group standard channels together
 /// - it has a share_batch_size parameter, which is used to establish after how many valid
 ///   shares a SubmitSharesSuccess message is sent to the client
 /// - it has an expected_share_per_minute parameter, which is used to calculate the initial
@@ -32,27 +52,34 @@
 /// Both share_batch_size and expected_share_per_minute could also be defined at AppContext
 /// level and shared across the ConnnectionContext of each client.
 ///
-/// When a new extended channel is created, the following messages need to be sent to the
+/// When a new standard channel is created, the following messages need to be sent to the
 /// client:
-/// - OpenExtendedMiningChannelSuccess
-/// - NewExtendedMiningJob (no min_ntime, making it a future job)
+/// - OpenStandardMiningChannelSuccess
+/// - NewMiningJob (no min_ntime, making it a future job)
 /// - SetNewPrevHash (mining protocol variant) (job_id field argets the future job sent
 ///   immediately before)
+///
+/// Even if the connection was created without the REQUIRES_STANDARD_JOBS flag,
+/// the first job sent to the client is a standard job. The subsequent jobs are extended jobs
+/// addressed to the group channel (although those subsequent jobs are not covered by this
+/// example).
 ///
 /// Note: we make no assumptions about:
 /// - how the network stack is implemented
 /// - how collections of channels are managed
 /// - how concurrency safety is handled
-use core::convert::TryInto;
 use mining_sv2::{
-    ExtendedExtranonce, OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess,
-    OpenMiningChannelError, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN,
+    ExtendedExtranonce, OpenMiningChannelError, OpenStandardMiningChannel,
+    OpenStandardMiningChannelSuccess, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN,
 };
 use roles_logic_sv2::{
-    channels::server::{error::ExtendedChannelError, extended::ExtendedChannel},
+    channels::server::{
+        error::StandardChannelError, group::GroupChannel, standard::StandardChannel,
+    },
     utils::Id as IdFactory,
 };
-use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};
+use std::convert::TryInto;
+use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 
 fn main() {
@@ -69,66 +96,58 @@ fn main() {
 
     // imagine the connection with the client has already been previously established
     // connection context ensures unique channel id allocation space
-    let mut connection_context: ConnectionContext = ConnectionContext::new();
+    let mut connection_context = ConnectionContext::new(app_context.clone(), false);
 
     // ------------------------------------------------------------
 
-    // imagine an incoming request to open a new extended channel
-    let open_extended_mining_channel_request = OpenExtendedMiningChannel {
-        request_id: 1,
+    // imagine an incoming request to open a new standard channel
+    let open_standard_mining_channel_request = OpenStandardMiningChannel {
+        request_id: 1.into(),
         user_identity: "user1".to_string().try_into().unwrap(),
         nominal_hash_rate: 1000.0,
-        min_extranonce_size: 8,
         max_target: [0xff; 32].into(),
     };
 
     // ------------------------------------------------------------
 
     // the extranonce prefix is allocated from the app context
-    // note that we always use the next_prefix_extended method during allocation, which takes
-    // the min_extranonce_size as a parameter
+    // note that we always use the next_prefix_standard method during allocation
     let extranonce_prefix = app_context
-        .extranonce_prefix_factory_extended
-        .next_prefix_extended(open_extended_mining_channel_request.min_extranonce_size as usize)
+        .extranonce_prefix_factory_standard
+        .next_prefix_standard()
         .unwrap();
 
-    // the channel id is allocated from the connection context
     let channel_id = connection_context.channel_id_factory.next();
 
-    // ------------------------------------------------------------
-
-    // try to create the channel
-    let result = ExtendedChannel::new(
+    let result = StandardChannel::new(
         channel_id,
         String::from_utf8(
-            open_extended_mining_channel_request
+            open_standard_mining_channel_request
                 .user_identity
                 .inner_as_ref()
                 .to_vec(),
         )
         .unwrap(),
-        extranonce_prefix.to_vec(),
-        open_extended_mining_channel_request.max_target.into(),
-        open_extended_mining_channel_request.nominal_hash_rate,
-        true, // version_rolling_allowed
-        open_extended_mining_channel_request.min_extranonce_size,
+        extranonce_prefix.clone().to_vec(),
+        open_standard_mining_channel_request
+            .max_target
+            .clone()
+            .into(),
+        open_standard_mining_channel_request.nominal_hash_rate,
         connection_context.share_batch_size,
         connection_context.expected_share_per_minute,
     );
 
     // check if channel creation was successful
-    let mut extended_channel = match result {
-        Ok(extended_channel) => extended_channel,
+    let mut standard_channel = match result {
+        Ok(standard_channel) => standard_channel,
         Err(e) => {
             let error_code = match e {
-                ExtendedChannelError::InvalidNominalHashrate => {
+                StandardChannelError::InvalidNominalHashrate => {
                     "invalid-nominal-hashrate".to_string()
                 }
-                ExtendedChannelError::RequestedMaxTargetOutOfRange => {
+                StandardChannelError::RequestedMaxTargetOutOfRange => {
                     "max-target-out-of-range".to_string()
-                }
-                ExtendedChannelError::RequestedMinExtranonceSizeTooLarge => {
-                    "min-extranonce-size-too-large".to_string()
                 }
                 _ => {
                     unreachable!(
@@ -141,7 +160,7 @@ fn main() {
             // at this point, we would have to send a OpenMiningChannelError over the wire to the
             // client with the appropriate error_code
             let _open_mining_channel_error = OpenMiningChannelError {
-                request_id: open_extended_mining_channel_request.request_id,
+                request_id: open_standard_mining_channel_request.get_request_id_as_u32(),
                 error_code: error_code.try_into().unwrap(),
             };
 
@@ -149,22 +168,29 @@ fn main() {
         }
     };
 
+    let group_channel_id = if let Some(group_channel) = &connection_context.group_channel {
+        group_channel.get_group_channel_id()
+    } else {
+        0
+    };
+
     // assuming everything went well, we would have to send the following message to the client
     // it informs it essential information, such as:
-    // - channel_id
-    // - target (based on the advertised nominal hashrate, and the expected share submission rate)
-    // - extranonce_prefix (unique across the entire AppContext)
-    // - rollable_extranonce_size (how many bytes the client can roll)
-    let _open_extended_mining_channel_success = OpenExtendedMiningChannelSuccess {
-        request_id: open_extended_mining_channel_request.request_id,
+    // - the assigned channel id
+    // - the assigned target (based on the advertised nominal hashrate, and the expected share
+    //   submission rate)
+    // - the assigned extranonce_prefix (unique across the entire AppContext)
+    // - the assigned group channel id
+    let _open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
+        request_id: open_standard_mining_channel_request.request_id,
         channel_id,
-        target: extended_channel.get_target().clone().into(),
-        extranonce_prefix: extended_channel
+        target: standard_channel.get_target().clone().into(),
+        extranonce_prefix: standard_channel
             .get_extranonce_prefix()
             .clone()
             .try_into()
             .unwrap(),
-        extranonce_size: extended_channel.get_rollable_extranonce_size(),
+        group_channel_id,
     }
     .into_static();
 
@@ -189,18 +215,19 @@ fn main() {
         script_pubkey: app_context.coinbase_reward_script_pubkeys[1].clone(),
     });
 
-    extended_channel
+    // set the channel state with the future job
+    standard_channel
         .on_new_template(
             app_context.cached_future_template.clone(),
             coinbase_reward_outputs,
         )
         .unwrap();
 
-    let future_job_id = extended_channel
+    let future_job_id = standard_channel
         .get_future_template_to_job_id()
         .get(&app_context.cached_future_template.template_id)
         .unwrap();
-    let future_job = extended_channel
+    let future_job = standard_channel
         .get_future_jobs()
         .get(future_job_id)
         .unwrap();
@@ -216,28 +243,31 @@ fn main() {
     // giving the client full context on the chain tip so it can start mining
     let _set_new_prev_hash_mp = SetNewPrevHashMp {
         channel_id,
-        job_id: *future_job_id,
+        job_id: future_job.get_job_id(),
         prev_hash: app_context.cached_set_new_prev_hash.prev_hash.clone(),
         min_ntime: app_context.cached_set_new_prev_hash.header_timestamp,
         nbits: app_context.cached_set_new_prev_hash.n_bits,
     }
     .into_static();
 
-    // activate the future job on server side
+    // activate the future job on the server side
     // making it ready to receive shares
-    extended_channel
+    standard_channel
         .on_set_new_prev_hash(app_context.cached_set_new_prev_hash.clone())
         .unwrap();
-    assert!(extended_channel.get_future_jobs().is_empty());
+    assert!(standard_channel.get_future_jobs().is_empty());
 
     // ------------------------------------------------------------
 
     // the channel is now ready to receive shares for the activated job
 
-    // the Template Provider could also submit new templates (future or non-future)
-    // which will be converted into jobs
+    // the Template Provider could also send over new templates (future or non-future)
+    // which will be converted into extended jobs on the group channel, and from the
+    // extended job, converted into the respective standard jobs of each standard channel
 
-    // see the other examples for more details
+    // depending on whether the connection was established with the REQUIRES_STANDARD_JOBS flag,
+    // these new jobs will be notified as distinct standard jobs addressed to each standard channel,
+    // or as a unique extended job message addressed to the group channel
 
     // ------------------------------------------------------------
 }
@@ -250,9 +280,10 @@ fn main() {
 // and a SetNewPrevHash message associated with this future template
 //
 // the app context should also provide the script pubkeys for the coinbase reward outputs
+#[derive(Clone)]
 struct AppContext {
-    pub _extranonce_prefix_factory_standard: ExtendedExtranonce,
-    pub extranonce_prefix_factory_extended: ExtendedExtranonce,
+    pub extranonce_prefix_factory_standard: ExtendedExtranonce,
+    pub _extranonce_prefix_factory_extended: ExtendedExtranonce,
     pub cached_future_template: NewTemplate<'static>,
     pub cached_set_new_prev_hash: SetNewPrevHashTdp<'static>,
     pub coinbase_reward_script_pubkeys: Vec<ScriptBuf>,
@@ -301,13 +332,13 @@ impl AppContext {
             end: MAX_EXTRANONCE_LEN,
         };
 
-        // since this example focuses on extended channels, we don't really use the
-        // _extranonce_prefix_factory_standard however this is here to showcase the need to
+        // since this example focuses on standard channels, we don't really use the
+        // _extranonce_prefix_factory_extended however this is here to showcase the need to
         // have a separate factory for standard and extended channels currently the APIs of
         // ExtendedExtranonce are not fully optimal, and using the same factory for both
         // would lead to inefficiency on the search space allocation
         // this could change in the future
-        let _extranonce_prefix_factory_standard = ExtendedExtranonce::new(
+        let _extranonce_prefix_factory_extended = ExtendedExtranonce::new(
             range_0.clone(),
             range_1.clone(),
             range_2.clone(),
@@ -315,10 +346,9 @@ impl AppContext {
         )
         .unwrap();
 
-        // this is the extranonce prefixfactory we actually use for extended channels
-        // note that we always use the next_prefix_extended method during allocation, which takes
-        // the min_extranonce_size as a parameter
-        let extranonce_prefix_factory_extended = ExtendedExtranonce::new(
+        // this is the extranonce prefix factory we actually use for standard channels
+        // note that we always use the next_prefix_standard method during allocation
+        let extranonce_prefix_factory_standard = ExtendedExtranonce::new(
             range_0,
             range_1,
             range_2,
@@ -384,8 +414,8 @@ impl AppContext {
 
         // this is the application context that will be used in the example
         Self {
-            _extranonce_prefix_factory_standard,
-            extranonce_prefix_factory_extended,
+            extranonce_prefix_factory_standard,
+            _extranonce_prefix_factory_extended,
             cached_future_template: template,
             cached_set_new_prev_hash: set_new_prev_hash,
             coinbase_reward_script_pubkeys,
@@ -404,19 +434,36 @@ impl AppContext {
 //
 // both share_batch_size and expected_share_per_minute could also be defined at AppContext level and
 // shared across the ConnnectionContext of each client
-struct ConnectionContext {
+//
+// the connection context also has a group channel, which is used to group standard channels
+// together
+struct ConnectionContext<'a> {
     pub channel_id_factory: IdFactory, /* IdFactory could also be an AtomicU32, or anything that
                                         * guarantees atomic allocation of u32 */
     pub share_batch_size: usize,
     pub expected_share_per_minute: f32,
+    pub _app_context: AppContext,
+    pub group_channel: Option<GroupChannel<'a>>,
 }
 
-impl ConnectionContext {
-    pub fn new() -> Self {
+impl ConnectionContext<'_> {
+    pub fn new(_app_context: AppContext, requires_standard_jobs: bool) -> Self {
+        let mut channel_id_factory = IdFactory::new();
+
+        let group_channel = if requires_standard_jobs {
+            let group_channel_id = channel_id_factory.next();
+            let group_channel = GroupChannel::new(group_channel_id);
+            Some(group_channel)
+        } else {
+            None
+        };
+
         Self {
-            channel_id_factory: IdFactory::new(),
+            channel_id_factory,
             share_batch_size: 100, // we acknowledge every 100 valid shares
             expected_share_per_minute: 10.0, // we expect 10 shares per minute
+            group_channel,
+            _app_context,
         }
     }
 }
