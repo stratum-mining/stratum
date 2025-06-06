@@ -183,12 +183,20 @@ impl<'a> ExtendedChannel<'a> {
         &self.target
     }
 
+    pub fn set_target(&mut self, target: Target) {
+        self.target = target;
+    }
+
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
         &self.future_template_to_job_id
     }
 
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
+    }
+
+    pub fn set_nominal_hashrate(&mut self, hashrate: f32) {
+        self.nominal_hashrate = hashrate;
     }
 
     /// Updates the channel's nominal hashrate and target.
