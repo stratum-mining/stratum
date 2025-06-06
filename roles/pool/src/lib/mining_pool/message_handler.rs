@@ -599,9 +599,9 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .map_err(|e| Error::PoisonLock(e.to_string()))?;
 
         let res = standard_channel.validate_share(m.clone());
+        vardiff.increment_shares_since_last_update();
         match res {
             Ok(ShareValidationResult::Valid) => {
-                vardiff.increment_shares_since_last_update();
                 info!(
                     "SubmitSharesStandard: valid share | channel_id: {}, sequence_number: {} ☑️",
                     channel_id, m.sequence_number
@@ -613,7 +613,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 new_submits_accepted_count,
                 new_shares_sum,
             )) => {
-                vardiff.increment_shares_since_last_update();
                 let success = SubmitSharesSuccess {
                     channel_id,
                     last_sequence_number,
@@ -624,7 +623,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
             }
             Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
-                vardiff.increment_shares_since_last_update();
                 info!("SubmitSharesStandard: 💰 Block Found!!! 💰");
                 // if we have a template id (i.e.: this was not a custom job)
                 // we can propagate the solution to the TP
@@ -761,9 +759,9 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .map_err(|e| Error::PoisonLock(e.to_string()))?;
 
         let res = extended_channel.validate_share(m.clone());
+        vardiff.increment_shares_since_last_update();
         match res {
             Ok(ShareValidationResult::Valid) => {
-                vardiff.increment_shares_since_last_update();
                 info!(
                     "SubmitSharesExtended: valid share | channel_id: {}, sequence_number: {} ☑️",
                     channel_id, m.sequence_number
@@ -775,7 +773,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 new_submits_accepted_count,
                 new_shares_sum,
             )) => {
-                vardiff.increment_shares_since_last_update();
                 let success = SubmitSharesSuccess {
                     channel_id,
                     last_sequence_number,
@@ -786,7 +783,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
             }
             Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
-                vardiff.increment_shares_since_last_update();
                 info!("SubmitSharesExtended: 💰 Block Found!!! 💰");
                 // if we have a template id (i.e.: this was not a custom job)
                 // we can propagate the solution to the TP
