@@ -733,36 +733,34 @@ impl Pool {
                                 .await;
                         let (standard_channel, extended_channel) = downstream.safe_lock(|d| {
                             (
-                                d.standard_channels
-                                    .get(channel_id)
-                                    .expect("The channel should exist")
-                                    .clone(),
-                                d.extended_channels
-                                    .get(channel_id)
-                                    .expect("The extended channel should exist")
-                                    .clone(),
+                                d.standard_channels.get(channel_id).cloned(),
+                                d.extended_channels.get(channel_id).cloned(),
                             )
                         })?;
                         let target = vardiff.read().expect("Vardiff read failed").target();
                         let hashrate = vardiff.read().expect("Vardiff read failed").hashrate();
 
-                        standard_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_target(target.clone());
-                        standard_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_nominal_hashrate(hashrate);
+                        if let Some(standard_channel) = standard_channel {
+                            standard_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_target(target.clone());
+                            standard_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_nominal_hashrate(hashrate);
+                        }
 
-                        extended_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_target(target);
-                        extended_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_nominal_hashrate(hashrate);
+                        if let Some(extended_channel) = extended_channel {
+                            extended_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_target(target);
+                            extended_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_nominal_hashrate(hashrate);
+                        }
 
                         handle_result!(status_tx, res);
                     }
@@ -1039,36 +1037,34 @@ impl Pool {
                                 .await;
                         let (standard_channel, extended_channel) = downstream.safe_lock(|d| {
                             (
-                                d.standard_channels
-                                    .get(channel_id)
-                                    .expect("The channel should exist")
-                                    .clone(),
-                                d.extended_channels
-                                    .get(channel_id)
-                                    .expect("The extended channel should exist")
-                                    .clone(),
+                                d.standard_channels.get(channel_id).cloned(),
+                                d.extended_channels.get(channel_id).cloned(),
                             )
                         })?;
                         let target = vardiff.read().expect("Vardiff read failed").target();
                         let hashrate = vardiff.read().expect("Vardiff read failed").hashrate();
 
-                        standard_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_target(target.clone());
-                        standard_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_nominal_hashrate(hashrate);
+                        if let Some(standard_channel) = standard_channel {
+                            standard_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_target(target.clone());
+                            standard_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_nominal_hashrate(hashrate);
+                        }
 
-                        extended_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_target(target);
-                        extended_channel
-                            .write()
-                            .expect("Standard channel write failed")
-                            .set_nominal_hashrate(hashrate);
+                        if let Some(extended_channel) = extended_channel {
+                            extended_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_target(target);
+                            extended_channel
+                                .write()
+                                .expect("Standard channel write failed")
+                                .set_nominal_hashrate(hashrate);
+                        }
 
                         handle_result!(status_tx, res);
                     }
