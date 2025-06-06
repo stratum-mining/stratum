@@ -309,7 +309,6 @@ impl Upstream {
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
         let task_collector = self_.safe_lock(|s| s.task_collector.clone()).unwrap();
-        let collector1 = task_collector.clone();
         let collector2 = task_collector.clone();
         let (
             tx_frame,
@@ -328,23 +327,6 @@ impl Upstream {
                 s.tx_status.clone(),
             )
         })?;
-        {
-            let self_ = self_.clone();
-            let tx_status = tx_status.clone();
-            let start_diff_management = tokio::task::spawn(async move {
-                // No need to start diff management immediatly
-                sleep(Duration::from_secs(10)).await;
-                loop {
-                    handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
-                }
-            });
-            let _ = collector1.safe_lock(|a| {
-                a.push((
-                    start_diff_management.abort_handle(),
-                    "start_diff_management".to_string(),
-                ))
-            });
-        }
 
         let parse_incoming = tokio::task::spawn(async move {
             loop {

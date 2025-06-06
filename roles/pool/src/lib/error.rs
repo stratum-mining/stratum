@@ -16,7 +16,7 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
+use roles_logic_sv2::{parsers::Mining, vardiff::error::VardiffError};
 
 /// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]
@@ -47,6 +47,13 @@ pub enum PoolError {
     Custom(String),
     /// Error related to the SV2 protocol, including an error code and a `Mining` message.
     Sv2ProtocolError((u32, Mining<'static>)),
+    Vardiff(VardiffError),
+}
+
+impl From<VardiffError> for PoolError {
+    fn from(value: VardiffError) -> Self {
+        PoolError::Vardiff(value)
+    }
 }
 
 impl std::fmt::Display for PoolError {
@@ -67,6 +74,9 @@ impl std::fmt::Display for PoolError {
             Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+            }
+            PoolError::Vardiff(ref e) => {
+                write!(f, "Received Vardiff Error : {:?}", e)
             }
         }
     }
