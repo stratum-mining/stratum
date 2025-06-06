@@ -720,7 +720,55 @@ impl Pool {
                     .await;
                     handle_result!(status_tx, res);
                 }
+
+                let vardiff = downstream.safe_lock(|d| d.vardiff.clone())?;
+
+                for (channel_id, vardiff) in vardiff.iter() {
+                    if let Ok(Some(m)) =
+                        update_hashrate_and_get_set_difficult(*channel_id, vardiff.clone()).await
+                    {
+                        println!("message: {m:?}");
+                        let res =
+                            Downstream::match_send_to(downstream.clone(), Ok(SendTo::Respond(m)))
+                                .await;
+                        let (standard_channel, extended_channel) = downstream.safe_lock(|d| {
+                            (
+                                d.standard_channels
+                                    .get(channel_id)
+                                    .expect("The channel should exist")
+                                    .clone(),
+                                d.extended_channels
+                                    .get(channel_id)
+                                    .expect("The extended channel should exist")
+                                    .clone(),
+                            )
+                        })?;
+                        let target = vardiff.read().expect("Vardiff read failed").target();
+                        let hashrate = vardiff.read().expect("Vardiff read failed").hashrate();
+
+                        standard_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_target(target.clone());
+                        standard_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_nominal_hashrate(hashrate);
+
+                        extended_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_target(target);
+                        extended_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_nominal_hashrate(hashrate);
+
+                        handle_result!(status_tx, res);
+                    }
+                }
             }
+
             handle_result!(status_tx, sender_message_received_signal.send(()).await);
         }
         Ok(())
@@ -978,6 +1026,53 @@ impl Pool {
                     .await;
                     handle_result!(status_tx, res);
                 }
+
+                let vardiff = downstream.safe_lock(|d| d.vardiff.clone())?;
+
+                for (channel_id, vardiff) in vardiff.iter() {
+                    if let Ok(Some(m)) =
+                        update_hashrate_and_get_set_difficult(*channel_id, vardiff.clone()).await
+                    {
+                        println!("message: {m:?}");
+                        let res =
+                            Downstream::match_send_to(downstream.clone(), Ok(SendTo::Respond(m)))
+                                .await;
+                        let (standard_channel, extended_channel) = downstream.safe_lock(|d| {
+                            (
+                                d.standard_channels
+                                    .get(channel_id)
+                                    .expect("The channel should exist")
+                                    .clone(),
+                                d.extended_channels
+                                    .get(channel_id)
+                                    .expect("The extended channel should exist")
+                                    .clone(),
+                            )
+                        })?;
+                        let target = vardiff.read().expect("Vardiff read failed").target();
+                        let hashrate = vardiff.read().expect("Vardiff read failed").hashrate();
+
+                        standard_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_target(target.clone());
+                        standard_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_nominal_hashrate(hashrate);
+
+                        extended_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_target(target);
+                        extended_channel
+                            .write()
+                            .expect("Standard channel write failed")
+                            .set_nominal_hashrate(hashrate);
+
+                        handle_result!(status_tx, res);
+                    }
+                }
             }
 
             if new_template.future_template {
@@ -1150,14 +1245,11 @@ impl Pool {
         self.downstreams.remove(&downstream_id);
     }
 }
-pub async fn send_set_target_downstream(
-    sender: Sender<EitherFrame>,
+
+pub async fn update_hashrate_and_get_set_difficult(
     channel_id: u32,
     vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
-) -> Result<(), PoolError> {
-    debug!("Sleeping 60s before sending SetTarget for channel_id={channel_id}");
-    tokio::time::sleep(Duration::from_secs(60)).await;
-
+) -> Result<Option<roles_logic_sv2::parsers::Mining<'static>>, PoolError> {
     debug!("Attempting try_vardiff for channel_id={channel_id}");
     let new_hashrate = match vardiff.write() {
         Ok(mut v) => v.try_vardiff(),
@@ -1183,13 +1275,24 @@ pub async fn send_set_target_downstream(
         };
 
         let mining_msg = Mining::SetTarget(target_message);
-        let sv2_frame: StdFrame = AnyMessage::Mining(mining_msg).try_into()?;
 
-        sender.send(sv2_frame.into()).await?;
+        Ok(Some(mining_msg))
     } else {
         debug!("No hashrate adjustment needed for channel_id={channel_id}");
+        Ok(None)
     }
+}
 
+pub async fn send_set_target_downstream(
+    sender: Sender<EitherFrame>,
+    channel_id: u32,
+    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+) -> Result<(), PoolError> {
+    if let Some(m) = update_hashrate_and_get_set_difficult(channel_id, vardiff).await? {
+        info!("Set Target Message: {:?}", m);
+        let sv2_frame: StdFrame = AnyMessage::Mining(m).try_into()?;
+        sender.send(sv2_frame.into()).await?;
+    }
     Ok(())
 }
 
@@ -1201,6 +1304,8 @@ pub fn spawn_vardiff_loop(
     info!("Spawning vardiff loop for channel_id={channel_id}");
     tokio::spawn(async move {
         loop {
+            debug!("Sleeping 60s before sending SetTarget for channel_id={channel_id}");
+            tokio::time::sleep(Duration::from_secs(60)).await;
             if let Err(e) =
                 send_set_target_downstream(sender.clone(), channel_id, vardiff.clone()).await
             {
