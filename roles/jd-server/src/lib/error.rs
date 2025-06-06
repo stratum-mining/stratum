@@ -19,7 +19,8 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
+use network_helpers_sv2::codec_sv2;
+use roles_logic_sv2::{binary_sv2, parsers::Mining};
 
 use crate::mempool::error::JdsMempoolError;
 

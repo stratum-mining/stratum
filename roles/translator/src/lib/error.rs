@@ -8,9 +8,10 @@
 //! - A specific `ChannelSendError` enum for errors occurring during message sending over
 //!   asynchronous channels.
 
-use codec_sv2::Frame;
 use ext_config::ConfigError;
+use network_helpers_sv2::codec_sv2::{self, Frame};
 use roles_logic_sv2::{
+    binary_sv2, framing_sv2,
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
     parsers::{AnyMessage, Mining},
     vardiff::error::VardiffError,

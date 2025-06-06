@@ -6,7 +6,7 @@
 //! and handling common SV2 connection-related messages.
 
 use async_channel::{Receiver, Sender};
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use network_helpers_sv2::codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, Reconnect, SetupConnection},
     handlers::common::{ParseCommonMessagesFromUpstream, SendTo},

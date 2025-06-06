@@ -46,8 +46,10 @@ use roles_logic_sv2::{
 use tokio::sync::Notify;
 use tracing::{debug, error, info, warn};
 
-use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use network_helpers_sv2::codec_sv2::{
+    self, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
+};
 
 use stratum_common::bitcoin::{consensus::Decodable, TxOut};
 
@@ -939,8 +941,8 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     }
 }
 
-use binary_sv2::Str0255;
 use network_helpers_sv2::noise_connection::Connection;
+use roles_logic_sv2::binary_sv2::Str0255;
 use std::net::SocketAddr;
 use tokio::{
     net::TcpListener,

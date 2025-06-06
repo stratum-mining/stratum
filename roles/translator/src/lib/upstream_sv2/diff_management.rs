@@ -14,9 +14,9 @@ use super::super::{
     error::ProxyResult,
     upstream_sv2::{EitherFrame, Message, StdFrame},
 };
-use binary_sv2::U256;
 use roles_logic_sv2::{
-    mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex, Error as RolesLogicError,
+    binary_sv2::U256, mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex,
+    Error as RolesLogicError,
 };
 use std::{sync::Arc, time::Duration};
 

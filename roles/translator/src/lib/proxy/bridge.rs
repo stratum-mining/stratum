@@ -588,6 +588,7 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
+    use roles_logic_sv2::binary_sv2;
     use stratum_common::bitcoin::{absolute::LockTime, consensus, transaction::Version};
 
     pub mod test_utils {
