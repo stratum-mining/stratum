@@ -1,4 +1,6 @@
 use binary_sv2::{Deserialize, GetSize, Serialize};
+
+pub use codec_sv2;
 pub mod noise_connection;
 pub mod plain_connection;
 #[cfg(feature = "sv1")]

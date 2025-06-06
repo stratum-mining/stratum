@@ -28,14 +28,17 @@ use crate::{
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::u256_from_int;
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::{
+    codec_sv2::{self, HandshakeRole, Initiator},
+    noise_connection::Connection,
+};
 use roles_logic_sv2::{
+    binary_sv2::u256_from_int,
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
+    framing_sv2,
     handlers::{
         common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
         mining::{ParseMiningMessagesFromUpstream, SendTo},

@@ -1420,13 +1420,10 @@ version = "0.1.4"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
@@ -1445,9 +1442,7 @@ name = "jd_server"
 version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
- "binary_sv2",
  "buffer_sv2",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
@@ -1601,10 +1596,8 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
@@ -1642,9 +1635,7 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
- "codec_sv2",
  "config",
  "futures",
  "key-utils",
@@ -2007,9 +1998,7 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 1.1.1",
- "binary_sv2",
  "buffer_sv2",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
@@ -2748,12 +2737,9 @@ version = "1.0.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
- "codec_sv2",
  "config",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
