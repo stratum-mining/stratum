@@ -1,5 +1,6 @@
 mod args;
 use args::Args;
+use clap::Parser;
 use config::TranslatorConfig;
 use error::{Error, ProxyResult};
 pub use translator_sv2::{
@@ -14,10 +15,7 @@ use tracing::{error, info};
 #[allow(clippy::result_large_err)]
 fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
     // Parse CLI arguments
-    let args = Args::from_args().map_err(|help| {
-        error!("{}", help);
-        Error::BadCliArgs
-    })?;
+    let args = Args::parse();
 
     // Build configuration from the provided file path
     let config_path = args.config_path.to_str().ok_or_else(|| {

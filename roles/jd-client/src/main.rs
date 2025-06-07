@@ -7,6 +7,7 @@
 
 mod args;
 
+use clap::Parser;
 use jd_client::{
     config::JobDeclaratorClientConfig,
     error::{Error, ProxyResult},
@@ -21,10 +22,7 @@ use tracing::error;
 #[allow(clippy::result_large_err)]
 fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
     // Parse CLI arguments
-    let args = Args::from_args().map_err(|help| {
-        error!("{}", help);
-        Error::BadCliArgs
-    })?;
+    let args = Args::parse();
 
     // Build configuration from the provided file path
     let config_path = args.config_path.to_str().ok_or_else(|| {
