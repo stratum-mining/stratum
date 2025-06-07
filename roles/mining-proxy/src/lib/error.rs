@@ -1,5 +1,5 @@
 use async_channel::SendError;
-use codec_sv2::StandardEitherFrame;
+use network_helpers_sv2::codec_sv2::StandardEitherFrame;
 use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
 

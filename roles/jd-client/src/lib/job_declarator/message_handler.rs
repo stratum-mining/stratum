@@ -4,6 +4,7 @@
 //! `ParseJobDeclarationMessagesFromUpstream` trait.
 use super::JobDeclarator;
 use roles_logic_sv2::{
+    binary_sv2,
     handlers::{job_declaration::ParseJobDeclarationMessagesFromUpstream, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
