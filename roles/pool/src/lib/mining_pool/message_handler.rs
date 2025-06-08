@@ -8,6 +8,12 @@
 use super::super::mining_pool::Downstream;
 use binary_sv2::Str0255;
 use roles_logic_sv2::{
+    channels::server::{
+        error::{ExtendedChannelError, StandardChannelError},
+        extended::ExtendedChannel,
+        share_accounting::{ShareValidationError, ShareValidationResult},
+        standard::StandardChannel,
+    },
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     mining_sv2::*,
@@ -15,8 +21,12 @@ use roles_logic_sv2::{
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
 };
-use std::{convert::TryInto, sync::Arc};
-use tracing::{debug, error, info};
+use std::{
+    convert::TryInto,
+    sync::{Arc, RwLock},
+};
+use stratum_common::bitcoin::Amount;
+use tracing::{error, info};
 
 impl ParseMiningMessagesFromDownstream<()> for Downstream {
     // Specifies the types of mining channels supported by this pool implementation.
@@ -54,41 +64,153 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         incoming: OpenStandardMiningChannel,
     ) -> Result<SendTo<()>, Error> {
-        info!(
-            "Received OpenStandardMiningChannel from: {} with id: {}",
-            std::str::from_utf8(incoming.user_identity.as_ref()).unwrap_or("Unknown identity"),
-            incoming.get_request_id_as_u32()
-        );
-        debug!("OpenStandardMiningChannel: {:?}", incoming);
-        let header_only = self.downstream_data.header_only;
+        let request_id = incoming.get_request_id_as_u32();
+        let user_identity = std::str::from_utf8(incoming.user_identity.as_ref())
+            .map(|s| s.to_string())
+            .map_err(|e| Error::InvalidUserIdentity(e.to_string()))?;
 
-        // Lock the channel factory and attempt to add the standard channel under the downstream's
-        // group ID.
-        let reposnses = self
-            .channel_factory
-            .safe_lock(|factory| {
-                match factory.add_standard_channel(
-                    incoming.request_id.as_u32(),
-                    incoming.nominal_hash_rate,
-                    header_only,
-                    self.id,
-                ) {
-                    Ok(msgs) => {
-                        let mut res = vec![];
-                        for msg in msgs {
-                            res.push(msg.into_static());
-                        }
-                        Ok(res)
-                    }
-                    Err(e) => Err(e),
+        info!("Received OpenStandardMiningChannel: {:?}", incoming);
+
+        let nominal_hash_rate = incoming.nominal_hash_rate;
+        let requested_max_target = incoming.max_target.into_static();
+
+        let extranonce_prefix = self
+            .extranonce_prefix_factory_standard
+            .safe_lock(|factory| factory.next_prefix_standard())
+            .map_err(|e| Error::PoisonLock(e.to_string()))
+            .and_then(|res| res.map_err(Error::ExtranoncePrefixFactoryError))?
+            .to_vec();
+
+        let channel_id = self.channel_id_factory.next();
+
+        let mut standard_channel = match StandardChannel::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix.clone(),
+            requested_max_target.into(),
+            nominal_hash_rate,
+            self.share_batch_size,
+            self.shares_per_minute,
+        ) {
+            Ok(channel) => channel,
+            Err(e) => match e {
+                StandardChannelError::InvalidNominalHashrate => {
+                    error!("OpenMiningChannelError: invalid-nominal-hashrate");
+                    let open_standard_mining_channel_error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "invalid-nominal-hashrate"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        open_standard_mining_channel_error,
+                    )));
                 }
-            })
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))??;
-        let mut result = vec![];
-        for response in reposnses {
-            result.push(SendTo::Respond(response.into_static()))
+                StandardChannelError::RequestedMaxTargetOutOfRange => {
+                    error!("OpenMiningChannelError: max-target-out-of-range");
+                    let open_standard_mining_channel_error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "max-target-out-of-range"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        open_standard_mining_channel_error,
+                    )));
+                }
+                _ => {
+                    error!("error in handle_open_standard_mining_channel: {:?}", e);
+                    return Err(Error::FailedToCreateStandardChannel(e));
+                }
+            },
+        };
+
+        let mut messages = vec![];
+
+        let group_channel_id = if let Some(group_channel_guard) = &self.group_channel {
+            let group_channel = group_channel_guard
+                .read()
+                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+            group_channel.get_group_channel_id()
+        } else {
+            0
+        };
+
+        let open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
+            request_id: incoming.request_id,
+            channel_id,
+            target: standard_channel.get_target().clone().into(),
+            extranonce_prefix: standard_channel
+                .get_extranonce_prefix()
+                .clone()
+                .try_into()
+                .expect("extranonce_prefix must be valid"),
+            group_channel_id,
         }
-        Ok(SendTo::Multiple(result))
+        .into_static();
+
+        messages.push(Mining::OpenStandardMiningChannelSuccess(
+            open_standard_mining_channel_success,
+        ));
+
+        let last_future_template = self.last_future_template.clone();
+
+        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
+        // so while we don't clean that up, we only set the value of the first output
+        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
+        pool_coinbase_outputs[0].value =
+            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
+
+        // create a future standard job based on the last future template
+        standard_channel
+            .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
+            .map_err(Error::FailedToCreateStandardChannel)?;
+
+        let future_standard_job_id = standard_channel
+            .get_future_template_to_job_id()
+            .get(&last_future_template.template_id)
+            .expect("future job id must exist");
+        let future_standard_job = standard_channel
+            .get_future_jobs()
+            .get(future_standard_job_id)
+            .expect("future job must exist");
+        let future_standard_job_message =
+            future_standard_job.get_job_message().clone().into_static();
+
+        messages.push(Mining::NewMiningJob(future_standard_job_message));
+
+        // SetNewPrevHash message activates the future job
+        let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
+        let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+        let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+        let n_bits = last_set_new_prev_hash_tdp.n_bits;
+        let set_new_prev_hash_mining = SetNewPrevHash {
+            channel_id,
+            job_id: *future_standard_job_id,
+            prev_hash,
+            min_ntime: header_timestamp,
+            nbits: n_bits,
+        };
+        standard_channel
+            .on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())
+            .map_err(Error::FailedToCreateStandardChannel)?;
+        messages.push(Mining::SetNewPrevHash(set_new_prev_hash_mining));
+
+        let messages = messages.into_iter().map(SendTo::Respond).collect();
+
+        self.standard_channels
+            .insert(channel_id, Arc::new(RwLock::new(standard_channel.clone())));
+
+        if let Some(group_channel_guard) = &self.group_channel {
+            let mut group_channel = group_channel_guard
+                .write()
+                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+            group_channel.add_standard_channel_id(channel_id);
+        }
+
+        Ok(SendTo::Multiple(messages))
     }
 
     // Handles an `OpenExtendedMiningChannel` message from the downstream miner.
@@ -105,25 +227,172 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<()>, Error> {
-        info!(
-            "Received OpenExtendedMiningChannel from: {} with id: {}",
-            std::str::from_utf8(m.user_identity.as_ref()).unwrap_or("Unknown identity"),
-            m.get_request_id_as_u32()
-        );
-        debug!("OpenExtendedMiningChannel: {:?}", m);
-        let request_id = m.request_id;
-        let hash_rate = m.nominal_hash_rate;
-        let min_extranonce_size = m.min_extranonce_size;
-        let messages_res = self
-            .channel_factory
-            .safe_lock(|s| s.new_extended_channel(request_id, hash_rate, min_extranonce_size))?;
-        match messages_res {
-            Ok(messages) => {
-                let messages = messages.into_iter().map(SendTo::Respond).collect();
-                Ok(SendTo::Multiple(messages))
+        let request_id = m.get_request_id_as_u32();
+        let user_identity = std::str::from_utf8(m.user_identity.as_ref())
+            .map(|s| s.to_string())
+            .map_err(|e| Error::InvalidUserIdentity(e.to_string()))?;
+
+        info!("Received OpenExtendedMiningChannel: {:?}", m);
+
+        let nominal_hash_rate = m.nominal_hash_rate;
+        let requested_max_target = m.max_target.into_static();
+        let requested_min_rollable_extranonce_size = m.min_extranonce_size;
+
+        let extranonce_prefix = match self
+            .extranonce_prefix_factory_extended
+            .safe_lock(|factory| {
+                factory.next_prefix_extended(requested_min_rollable_extranonce_size.into())
+            })
+            .map_err(|e| Error::PoisonLock(e.to_string()))
+            .and_then(|res| res.map_err(Error::ExtranoncePrefixFactoryError))
+        {
+            Ok(extranonce_prefix) => extranonce_prefix.to_vec(),
+            Err(_) => {
+                error!("OpenMiningChannelError: min-extranonce-size-too-large");
+                let open_extended_mining_channel_error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "min-extranonce-size-too-large"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                    open_extended_mining_channel_error,
+                )));
             }
-            Err(_) => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
+        };
+
+        let channel_id = self.channel_id_factory.next();
+
+        let mut extended_channel = match ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            requested_max_target.into(),
+            nominal_hash_rate,
+            true, // version rolling always allowed
+            requested_min_rollable_extranonce_size,
+            self.share_batch_size,
+            self.shares_per_minute,
+        ) {
+            Ok(channel) => channel,
+            Err(e) => match e {
+                ExtendedChannelError::InvalidNominalHashrate => {
+                    error!("OpenMiningChannelError: invalid-nominal-hashrate");
+                    let open_extended_mining_channel_error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "invalid-nominal-hashrate"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        open_extended_mining_channel_error,
+                    )));
+                }
+                ExtendedChannelError::RequestedMaxTargetOutOfRange => {
+                    error!("OpenMiningChannelError: max-target-out-of-range");
+                    let open_extended_mining_channel_error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "max-target-out-of-range"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        open_extended_mining_channel_error,
+                    )));
+                }
+                ExtendedChannelError::RequestedMinExtranonceSizeTooLarge => {
+                    error!("OpenMiningChannelError: min-extranonce-size-too-large");
+                    let open_extended_mining_channel_error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "min-extranonce-size-too-large"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        open_extended_mining_channel_error,
+                    )));
+                }
+                _ => {
+                    error!("error in handle_open_extended_mining_channel: {:?}", e);
+                    return Err(Error::FailedToCreateExtendedChannel(e));
+                }
+            },
+        };
+
+        let mut messages = vec![];
+
+        let open_extended_mining_channel_success = OpenExtendedMiningChannelSuccess {
+            request_id,
+            channel_id,
+            target: extended_channel.get_target().clone().into(),
+            extranonce_prefix: extended_channel
+                .get_extranonce_prefix()
+                .clone()
+                .try_into()?,
+            extranonce_size: extended_channel.get_rollable_extranonce_size(),
         }
+        .into_static();
+
+        messages.push(Mining::OpenExtendedMiningChannelSuccess(
+            open_extended_mining_channel_success,
+        ));
+
+        let last_future_template = self.last_future_template.clone();
+
+        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
+        // so while we don't clean that up, we only set the value of the first output
+        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
+        pool_coinbase_outputs[0].value =
+            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
+
+        // create a future extended job based on the last future template
+        extended_channel
+            .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
+            .map_err(Error::FailedToCreateExtendedChannel)?;
+
+        let future_extended_job_id = extended_channel
+            .get_future_template_to_job_id()
+            .get(&last_future_template.template_id)
+            .expect("future job id must exist");
+        let future_extended_job = extended_channel
+            .get_future_jobs()
+            .get(future_extended_job_id)
+            .expect("future job must exist");
+
+        let future_extended_job_message =
+            future_extended_job.get_job_message().clone().into_static();
+
+        // send this future job as new job message
+        // to be immediately activated with the subsequent SetNewPrevHash message
+        messages.push(Mining::NewExtendedMiningJob(future_extended_job_message));
+
+        // SetNewPrevHash message activates the future job
+        let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
+        let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+        let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+        let n_bits = last_set_new_prev_hash_tdp.n_bits;
+        let set_new_prev_hash_mining = SetNewPrevHash {
+            channel_id,
+            job_id: *future_extended_job_id,
+            prev_hash,
+            min_ntime: header_timestamp,
+            nbits: n_bits,
+        };
+        extended_channel
+            .on_set_new_prev_hash(self.last_new_prev_hash.clone())
+            .map_err(Error::FailedToCreateExtendedChannel)?;
+        messages.push(Mining::SetNewPrevHash(set_new_prev_hash_mining));
+
+        let messages = messages.into_iter().map(SendTo::Respond).collect();
+
+        self.extended_channels
+            .insert(channel_id, Arc::new(RwLock::new(extended_channel.clone())));
+
+        Ok(SendTo::Multiple(messages))
     }
 
     // Handles an `UpdateChannel` message from the downstream miner.
@@ -136,25 +405,132 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
     //   target difficulty.
     // - `Err(Error)` - If calculating the target fails or the channel factory interaction fails.
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
-        info!("Received UpdateChannel message");
-        let shares_per_minute = self
-            .channel_factory
-            .safe_lock(|s| s.get_shares_per_minute())
-            .map_err(|e| Error::PoisonLock(e.to_string()))?;
-        let maximum_target = roles_logic_sv2::utils::hash_rate_to_target(
-            m.nominal_hash_rate.into(),
-            shares_per_minute.into(),
-        )?;
-        self.channel_factory
-            .safe_lock(|s| s.update_target_for_channel(m.channel_id, maximum_target.clone().into()))
-            .unwrap_or_else(|_| {
-                std::process::exit(1);
-            });
-        let set_target = SetTarget {
-            channel_id: m.channel_id,
-            maximum_target,
-        };
-        Ok(SendTo::Respond(Mining::SetTarget(set_target)))
+        info!("Received UpdateChannel message: {:?}", m);
+
+        let channel_id = m.channel_id;
+        let new_nominal_hash_rate = m.nominal_hash_rate;
+        let requested_maximum_target = m.maximum_target.into_static();
+
+        let is_standard_channel = self.standard_channels.contains_key(&channel_id);
+        let is_extended_channel = self.extended_channels.contains_key(&channel_id);
+
+        if is_standard_channel {
+            let mut standard_channel = self
+                .standard_channels
+                .get(&channel_id)
+                .expect("standard channel must exist")
+                .write()
+                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+            let res = standard_channel
+                .update_channel(new_nominal_hash_rate, requested_maximum_target.into());
+            match res {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("UpdateChannelError: {:?}", e);
+                    match e {
+                        StandardChannelError::InvalidNominalHashrate => {
+                            error!("UpdateChannelError: invalid-nominal-hashrate");
+                            let update_channel_error = UpdateChannelError {
+                                channel_id,
+                                error_code: "invalid-nominal-hashrate"
+                                    .to_string()
+                                    .try_into()
+                                    .expect("error code must be valid string"),
+                            };
+                            return Ok(SendTo::Respond(Mining::UpdateChannelError(
+                                update_channel_error,
+                            )));
+                        }
+                        StandardChannelError::RequestedMaxTargetOutOfRange => {
+                            error!("UpdateChannelError: requested-max-target-out-of-range");
+                            let update_channel_error = UpdateChannelError {
+                                channel_id,
+                                error_code: "requested-max-target-out-of-range"
+                                    .to_string()
+                                    .try_into()
+                                    .expect("error code must be valid string"),
+                            };
+                            return Ok(SendTo::Respond(Mining::UpdateChannelError(
+                                update_channel_error,
+                            )));
+                        }
+                        _ => {
+                            return Err(Error::FailedToUpdateStandardChannel(e));
+                        }
+                    }
+                }
+            }
+            let new_target = standard_channel.get_target();
+            let set_target = SetTarget {
+                channel_id,
+                maximum_target: new_target.clone().into(),
+            };
+            Ok(SendTo::Respond(Mining::SetTarget(set_target)))
+        } else if is_extended_channel {
+            let mut extended_channel = self
+                .extended_channels
+                .get(&channel_id)
+                .expect("extended channel must exist")
+                .write()
+                .map_err(|e| Error::PoisonLock(e.to_string()))?;
+            let res = extended_channel
+                .update_channel(new_nominal_hash_rate, requested_maximum_target.into());
+            match res {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("UpdateChannelError: {:?}", e);
+                    match e {
+                        ExtendedChannelError::InvalidNominalHashrate => {
+                            error!("UpdateChannelError: invalid-nominal-hashrate");
+                            let update_channel_error = UpdateChannelError {
+                                channel_id,
+                                error_code: "invalid-nominal-hashrate"
+                                    .to_string()
+                                    .try_into()
+                                    .expect("error code must be valid string"),
+                            };
+                            return Ok(SendTo::Respond(Mining::UpdateChannelError(
+                                update_channel_error,
+                            )));
+                        }
+                        ExtendedChannelError::RequestedMaxTargetOutOfRange => {
+                            error!("UpdateChannelError: max-target-out-of-range");
+                            let update_channel_error = UpdateChannelError {
+                                channel_id,
+                                error_code: "max-target-out-of-range"
+                                    .to_string()
+                                    .try_into()
+                                    .expect("error code must be valid string"),
+                            };
+                            return Ok(SendTo::Respond(Mining::UpdateChannelError(
+                                update_channel_error,
+                            )));
+                        }
+                        _ => {
+                            return Err(Error::FailedToUpdateExtendedChannel(e));
+                        }
+                    }
+                }
+            }
+            let new_target = extended_channel.get_target();
+            let set_target = SetTarget {
+                channel_id,
+                maximum_target: new_target.clone().into(),
+            };
+            return Ok(SendTo::Respond(Mining::SetTarget(set_target)));
+        } else {
+            error!("UpdateChannelError: invalid-channel-id");
+            let update_channel_error = UpdateChannelError {
+                channel_id,
+                error_code: "invalid-channel-id"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+            return Ok(SendTo::Respond(Mining::UpdateChannelError(
+                update_channel_error,
+            )));
+        }
     }
 
     // Handles a `SubmitSharesStandard` message from the downstream miner.
@@ -171,54 +547,144 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
-        info!("Received SubmitSharesStandard");
-        debug!("SubmitSharesStandard {:?}", m);
-        let res = self
-            .channel_factory
-            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))?;
+        info!("Received: {:?}", m);
+
+        let channel_id = m.channel_id;
+        if !self.standard_channels.contains_key(&channel_id) {
+            let submit_shares_error = SubmitSharesError {
+                channel_id,
+                sequence_number: m.sequence_number,
+                error_code: "invalid-channel-id"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+            error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", channel_id, m.sequence_number);
+            return Ok(SendTo::Respond(Mining::SubmitSharesError(
+                submit_shares_error,
+            )));
+        }
+
+        let mut standard_channel = self
+            .standard_channels
+            .get(&channel_id)
+            .expect("standard channel must exist")
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+        let res = standard_channel.validate_share(m.clone());
         match res {
-            Ok(res) => match res  {
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
-                    Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
-                }
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase,_)) => {
-                    if let Some(template_id) = t_id {
-                        let solution = SubmitSolution {
-                            template_id,
-                            version: share.get_version(),
-                            header_timestamp: share.get_n_time(),
-                            header_nonce: share.get_nonce(),
-                            coinbase_tx: coinbase.try_into()?,
-                        };
-                        // --- TODO: Replace blocking try_send loop ---
-                        // This busy-wait loop can block the executor if the channel is full.
-                        // Replace with `sender.send(solution).await` if solution_sender becomes async,
-                        // or use `try_send` with backoff/timeout/error handling.
-                        while self.solution_sender.try_send(solution.clone()).is_err() {};
+            Ok(ShareValidationResult::Valid) => {
+                info!(
+                    "SubmitSharesStandard: valid share | channel_id: {}, sequence_number: {} ☑️",
+                    channel_id, m.sequence_number
+                );
+                Ok(SendTo::None(None))
+            }
+            Ok(ShareValidationResult::ValidWithAcknowledgement(
+                last_sequence_number,
+                new_submits_accepted_count,
+                new_shares_sum,
+            )) => {
+                let success = SubmitSharesSuccess {
+                    channel_id,
+                    last_sequence_number,
+                    new_submits_accepted_count,
+                    new_shares_sum,
+                };
+                info!("SubmitSharesStandard: {:?} ✅", success);
+                Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
+            }
+            Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
+                info!("SubmitSharesStandard: 💰 Block Found!!! 💰");
+                // if we have a template id (i.e.: this was not a custom job)
+                // we can propagate the solution to the TP
+                if let Some(template_id) = template_id {
+                    info!("SubmitSharesStandard: Propagating solution to the Template Provider.");
+                    let solution = SubmitSolution {
+                        template_id,
+                        version: m.version,
+                        header_timestamp: m.ntime,
+                        header_nonce: m.nonce,
+                        coinbase_tx: coinbase.try_into()?,
+                    };
+                    if self.solution_sender.try_send(solution.clone()).is_err() {
+                        return Err(Error::FailedToSendSolution);
                     }
-                    let success = SubmitSharesSuccess {
-                        channel_id: m.channel_id,
-                        last_sequence_number: m.sequence_number,
-                        new_submits_accepted_count: 1,
-                        new_shares_sum: 0,
-                    };
-
-                    Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
-
-                },
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetDownstreamTarget => {
-                 let success = SubmitSharesSuccess {
-                        channel_id: m.channel_id,
-                        last_sequence_number: m.sequence_number,
-                        new_submits_accepted_count: 1,
-                        new_shares_sum: 0,
-                    };
-                    Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
-                },
-            },
-            Err(_) => todo!(),
+                }
+                let share_accounting = standard_channel.get_share_accounting();
+                let success = SubmitSharesSuccess {
+                    channel_id,
+                    last_sequence_number: share_accounting.get_last_share_sequence_number(),
+                    new_submits_accepted_count: share_accounting.get_shares_accepted(),
+                    new_shares_sum: share_accounting.get_share_work_sum(),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
+            }
+            Err(ShareValidationError::Invalid) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "invalid-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::Stale) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "stale-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::InvalidJobId) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "invalid-job-id"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::DoesNotMeetTarget) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "difficulty-too-low"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::DuplicateShare) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "duplicate-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            _ => {
+                // any other error variations should never happen
+                unreachable!()
+            }
         }
     }
 
@@ -235,53 +701,141 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        info!("Received SubmitSharesExtended message");
-        debug!("SubmitSharesExtended {:?}", m);
-        let res = self
-            .channel_factory
-            .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))?;
+        info!("Received: {:?}", m);
+
+        let channel_id = m.channel_id;
+        if !self.extended_channels.contains_key(&channel_id) {
+            let error = SubmitSharesError {
+                channel_id,
+                sequence_number: m.sequence_number,
+                error_code: "invalid-channel-id"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+            error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", channel_id, m.sequence_number);
+            return Ok(SendTo::Respond(Mining::SubmitSharesError(error)));
+        }
+
+        let mut extended_channel = self
+            .extended_channels
+            .get(&channel_id)
+            .expect("extended channel must exist")
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+        let res = extended_channel.validate_share(m.clone());
         match res {
-            Ok(res) => match res  {
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
-                    Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
-                }
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase,_)) => {
-                    if let Some(template_id) = t_id {
-                        let solution = SubmitSolution {
-                            template_id,
-                            version: share.get_version(),
-                            header_timestamp: share.get_n_time(),
-                            header_nonce: share.get_nonce(),
-                            coinbase_tx: coinbase.try_into()?,
-                        };
-                        // TODO we can block everything with the below (looks like this will infinite loop??)
-                        while self.solution_sender.try_send(solution.clone()).is_err() {};
-                    }
-                    let success = SubmitSharesSuccess {
-                        channel_id: m.channel_id,
-                        last_sequence_number: m.sequence_number,
-                        new_submits_accepted_count: 1,
-                        new_shares_sum: 0,
-                    };
-
-                    Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
-
-                },
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetDownstreamTarget => {
+            Ok(ShareValidationResult::Valid) => {
+                info!(
+                    "SubmitSharesExtended: valid share | channel_id: {}, sequence_number: {} ☑️",
+                    channel_id, m.sequence_number
+                );
+                Ok(SendTo::None(None))
+            }
+            Ok(ShareValidationResult::ValidWithAcknowledgement(
+                last_sequence_number,
+                new_submits_accepted_count,
+                new_shares_sum,
+            )) => {
                 let success = SubmitSharesSuccess {
-                        channel_id: m.channel_id,
-                        last_sequence_number: m.sequence_number,
-                        new_submits_accepted_count: 1,
-                        new_shares_sum: 0,
+                    channel_id,
+                    last_sequence_number,
+                    new_submits_accepted_count,
+                    new_shares_sum,
+                };
+                info!("SubmitSharesExtended: {:?} ✅", success);
+                Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
+            }
+            Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
+                info!("SubmitSharesExtended: 💰 Block Found!!! 💰");
+                // if we have a template id (i.e.: this was not a custom job)
+                // we can propagate the solution to the TP
+                if let Some(template_id) = template_id {
+                    info!("SubmitSharesExtended: Propagating solution to the Template Provider.");
+                    let solution = SubmitSolution {
+                        template_id,
+                        version: m.version,
+                        header_timestamp: m.ntime,
+                        header_nonce: m.nonce,
+                        coinbase_tx: coinbase.try_into()?,
                     };
-                    Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
-                },
-            },
-            Err(e) => {
-                error!("{:?}",e);
-                todo!();
+                    if self.solution_sender.try_send(solution.clone()).is_err() {
+                        return Err(Error::FailedToSendSolution);
+                    }
+                }
+                let share_accounting = extended_channel.get_share_accounting();
+                let success = SubmitSharesSuccess {
+                    channel_id,
+                    last_sequence_number: share_accounting.get_last_share_sequence_number(),
+                    new_submits_accepted_count: share_accounting.get_shares_accepted(),
+                    new_shares_sum: share_accounting.get_share_work_sum(),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
+            }
+            Err(ShareValidationError::Invalid) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "invalid-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::Stale) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "stale-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::InvalidJobId) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "invalid-job-id"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::DoesNotMeetTarget) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "difficulty-too-low"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            Err(ShareValidationError::DuplicateShare) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, m.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: "duplicate-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                Ok(SendTo::Respond(Mining::SubmitSharesError(error)))
+            }
+            _ => {
+                // any other error variations should never happen
+                unreachable!()
             }
         }
     }
@@ -296,19 +850,46 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
     //   custom job setup.
     // - `Err(Error)` - If the channel factory interaction fails.
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
-        info!(
-            "Received SetCustomMiningJob message for channel: {}, with id: {}",
-            m.channel_id, m.request_id
-        );
-        debug!("SetCustomMiningJob: {:?}", m);
-        let m = SetCustomMiningJobSuccess {
-            channel_id: m.channel_id,
+        info!("Received SetCustomMiningJob: {:?}", m);
+
+        // this is a naive implementation, but ideally we should check the SetCustomMiningJob
+        // message parameters, especially:
+        // - the mining_job_token
+        // - the coinbase reward outputs
+
+        // some of these checks are actually pending on spec discussion of
+        // https://github.com/stratum-mining/sv2-spec/issues/133
+
+        let channel_id = m.channel_id;
+        if !self.extended_channels.contains_key(&channel_id) {
+            error!("SetCustomMiningJobError: invalid-channel-id");
+            let error = SetCustomMiningJobError {
+                request_id: m.request_id,
+                channel_id,
+                error_code: "invalid-channel-id"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+            return Ok(SendTo::Respond(Mining::SetCustomMiningJobError(error)));
+        }
+
+        let mut extended_channel = self
+            .extended_channels
+            .get(&channel_id)
+            .expect("extended channel must exist")
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
+        let job_id = extended_channel
+            .on_set_custom_mining_job(m.clone().into_static())
+            .map_err(Error::FailedToSetCustomMiningJob)?;
+
+        let success = SetCustomMiningJobSuccess {
+            channel_id,
             request_id: m.request_id,
-            job_id: self
-                .channel_factory
-                .safe_lock(|cf| cf.on_new_set_custom_mining_job(m.into_static()).job_id)
-                .unwrap(),
+            job_id,
         };
-        Ok(SendTo::Respond(Mining::SetCustomMiningJobSuccess(m)))
+        Ok(SendTo::Respond(Mining::SetCustomMiningJobSuccess(success)))
     }
 }

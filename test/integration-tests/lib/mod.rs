@@ -86,12 +86,14 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     let template_provider_config = pool_sv2::config::TemplateProviderConfig::new(tp_address, None);
     let authority_config =
         pool_sv2::config::AuthorityConfig::new(authority_public_key, authority_secret_key);
+    let share_batch_size = 1;
     let config = PoolConfig::new(
         connection_config,
         template_provider_config,
         authority_config,
         coinbase_outputs,
         SHARES_PER_MINUTE,
+        share_batch_size,
     );
     let pool = PoolSv2::new(config);
     assert!(pool.start().await.is_ok());

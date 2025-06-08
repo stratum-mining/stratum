@@ -1,7 +1,8 @@
-use crate::channels::server::jobs::JobOrigin;
+use crate::utils::deserialize_outputs;
 use binary_sv2::{Sv2Option, U256};
 use mining_sv2::NewMiningJob;
 use stratum_common::bitcoin::transaction::TxOut;
+use template_distribution_sv2::NewTemplate;
 
 /// Abstraction of a standard mining job with:
 /// - the `NewTemplate` message that originated it
@@ -10,21 +11,26 @@ use stratum_common::bitcoin::transaction::TxOut;
 /// - the `NewMiningJob` message to be sent across the wire
 #[derive(Debug, Clone)]
 pub struct StandardJob<'a> {
-    origin: JobOrigin<'a>,
+    template: NewTemplate<'a>,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
     job_message: NewMiningJob<'a>,
 }
 
 impl<'a> StandardJob<'a> {
-    pub fn new(
-        origin: JobOrigin<'a>,
+    pub fn from_template(
+        template: NewTemplate<'a>,
         extranonce_prefix: Vec<u8>,
-        coinbase_outputs: Vec<TxOut>,
+        additional_coinbase_outputs: Vec<TxOut>,
         job_message: NewMiningJob<'a>,
     ) -> Self {
+        let mut coinbase_outputs = vec![];
+        coinbase_outputs.extend(additional_coinbase_outputs);
+        coinbase_outputs.extend(deserialize_outputs(
+            template.coinbase_tx_outputs.inner_as_ref().to_vec(),
+        ));
         Self {
-            origin,
+            template,
             extranonce_prefix,
             coinbase_outputs,
             job_message,
@@ -47,8 +53,8 @@ impl<'a> StandardJob<'a> {
         &self.job_message
     }
 
-    pub fn get_origin(&self) -> &JobOrigin<'a> {
-        &self.origin
+    pub fn get_template(&self) -> &NewTemplate<'a> {
+        &self.template
     }
 
     pub fn get_merkle_root(&self) -> &U256<'a> {

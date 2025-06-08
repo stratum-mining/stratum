@@ -1,11 +1,9 @@
 use crate::{
-    channels::server::jobs::{standard::StandardJob, JobOrigin},
-    template_distribution_sv2::NewTemplate,
-    utils::{deserialize_outputs, merkle_root_from_path},
+    channels::server::jobs::JobOrigin, template_distribution_sv2::NewTemplate,
+    utils::deserialize_outputs,
 };
 use binary_sv2::{Seq0255, Sv2Option, B064K, U256};
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
-use std::convert::TryInto;
+use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob};
 use stratum_common::bitcoin::transaction::TxOut;
 
 /// Abstraction of an extended mining job with:
@@ -69,35 +67,6 @@ impl<'a> ExtendedJob<'a> {
         // https://github.com/stratum-mining/sv2-spec/issues/133
         // before implementing this
         todo!()
-    }
-
-    pub fn into_standard_job(self, channel_id: u32, extranonce_prefix: Vec<u8>) -> StandardJob<'a> {
-        let merkle_root = merkle_root_from_path(
-            self.get_coinbase_tx_prefix().inner_as_ref(),
-            self.get_coinbase_tx_suffix().inner_as_ref(),
-            &extranonce_prefix,
-            &self.get_merkle_path().inner_as_ref(),
-        )
-        .expect("merkle root must be valid")
-        .try_into()
-        .expect("merkle root must be 32 bytes");
-
-        let standard_job_message = NewMiningJob {
-            channel_id,
-            job_id: self.get_job_id(),
-            merkle_root,
-            version: self.get_version(),
-            min_ntime: self.get_min_ntime(),
-        };
-
-        let standard_job = StandardJob::new(
-            self.get_origin().clone(),
-            extranonce_prefix,
-            self.get_coinbase_outputs().clone(),
-            standard_job_message,
-        );
-
-        standard_job
     }
 
     pub fn get_job_id(&self) -> u32 {

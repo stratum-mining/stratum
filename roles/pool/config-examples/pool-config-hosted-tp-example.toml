@@ -27,3 +27,4 @@ pool_signature = "Stratum V2 SRI Pool"
 tp_address = "75.119.150.111:8442"
 tp_authority_public_key = "9bwHCYnjhbHm4AS3pWg9MtAH83mzWohoJJJDELYBqZhDNqszDLc"
 shares_per_minute = 1.0
+share_batch_size = 10
