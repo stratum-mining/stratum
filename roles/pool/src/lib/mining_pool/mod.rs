@@ -39,7 +39,8 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
     mining_sv2::{
-        ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, MAX_EXTRANONCE_LEN,
+        ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
+        MAX_EXTRANONCE_LEN,
     },
     parsers::{AnyMessage, Mining},
     template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution},
@@ -91,6 +92,48 @@ pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOu
     match result.is_empty() {
         true => Err(CoinbaseOutputError::EmptyCoinbaseOutputs),
         _ => Ok(result),
+    }
+}
+
+#[derive(Clone)]
+enum Channel {
+    ExtendedChannel(Arc<RwLock<ExtendedChannel<'static>>>),
+    StandardChannel(Arc<RwLock<StandardChannel<'static>>>),
+}
+
+impl Channel {
+    pub fn set_target(&self, target: Target) {
+        match self {
+            Channel::ExtendedChannel(extended_channel) => {
+                extended_channel
+                    .write()
+                    .expect("Extended channel should be present")
+                    .set_target(target);
+            }
+            Channel::StandardChannel(standard_channel) => {
+                standard_channel
+                    .write()
+                    .expect("Standard channel should be present")
+                    .set_target(target);
+            }
+        }
+    }
+
+    pub fn set_nominal_hashrate(&self, hashrate: f32) {
+        match self {
+            Channel::ExtendedChannel(extended_channel) => {
+                extended_channel
+                    .write()
+                    .expect("Extended channel should be present")
+                    .set_nominal_hashrate(hashrate);
+            }
+            Channel::StandardChannel(standard_channel) => {
+                standard_channel
+                    .write()
+                    .expect("Standard channel should be present")
+                    .set_nominal_hashrate(hashrate);
+            }
+        }
     }
 }
 
@@ -371,29 +414,42 @@ impl Downstream {
             Ok(SendTo::Respond(message)) => {
                 match &message {
                     Mining::OpenExtendedMiningChannelSuccess(m) => {
-                        let (vardiff, sender) = self_.safe_lock(|downstream| {
+                        let (vardiff, sender, channel) = self_.safe_lock(|downstream| {
                             let vardiff = downstream
                                 .vardiff
                                 .get(&m.channel_id)
                                 .expect("Vardiff should be present")
                                 .clone();
                             let sender = downstream.sender.clone();
-                            (vardiff, sender)
+                            let channel = downstream
+                                .extended_channels
+                                .get(&m.channel_id)
+                                .expect("Extended channel should exist")
+                                .clone();
+                            (vardiff, sender, channel)
                         })?;
-                        spawn_vardiff_loop(m.channel_id, vardiff, sender);
+
+                        let channel = Channel::ExtendedChannel(channel);
+                        spawn_vardiff_loop(m.channel_id, channel, vardiff, sender);
                     }
 
                     Mining::OpenStandardMiningChannelSuccess(m) => {
-                        let (vardiff, sender) = self_.safe_lock(|downstream| {
+                        let (vardiff, sender, channel) = self_.safe_lock(|downstream| {
                             let vardiff = downstream
                                 .vardiff
                                 .get(&m.channel_id)
                                 .expect("Vardiff should be present")
                                 .clone();
                             let sender = downstream.sender.clone();
-                            (vardiff, sender)
+                            let channel = downstream
+                                .standard_channels
+                                .get(&m.channel_id)
+                                .expect("Extended channel should exist")
+                                .clone();
+                            (vardiff, sender, channel)
                         })?;
-                        spawn_vardiff_loop(m.channel_id, vardiff, sender);
+                        let channel = Channel::StandardChannel(channel);
+                        spawn_vardiff_loop(m.channel_id, channel, vardiff, sender);
                     }
 
                     _ => {}
@@ -827,28 +883,34 @@ impl Pool {
                                 d.extended_channels.get(channel_id).cloned(),
                             )
                         })?;
-                        let target = vardiff.read().expect("Vardiff read failed").target();
-                        let hashrate = vardiff.read().expect("Vardiff read failed").hashrate();
+                        let target = vardiff
+                            .read()
+                            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
+                            .target();
+                        let hashrate = vardiff
+                            .read()
+                            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
+                            .hashrate();
 
                         if let Some(standard_channel) = standard_channel {
                             standard_channel
                                 .write()
-                                .expect("Standard channel write failed")
+                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
                                 .set_target(target.clone());
                             standard_channel
                                 .write()
-                                .expect("Standard channel write failed")
+                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
                                 .set_nominal_hashrate(hashrate);
                         }
 
                         if let Some(extended_channel) = extended_channel {
                             extended_channel
                                 .write()
-                                .expect("Standard channel write failed")
+                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
                                 .set_target(target);
                             extended_channel
                                 .write()
-                                .expect("Standard channel write failed")
+                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
                                 .set_nominal_hashrate(hashrate);
                         }
 
@@ -1286,12 +1348,23 @@ pub async fn update_hashrate_and_get_set_difficult(
     }
 }
 
-pub async fn send_set_target_downstream(
+async fn send_set_target_downstream(
     sender: Sender<EitherFrame>,
     channel_id: u32,
+    channel: Channel,
     vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
 ) -> Result<(), PoolError> {
-    if let Some(m) = update_hashrate_and_get_set_difficult(channel_id, vardiff).await? {
+    if let Some(m) = update_hashrate_and_get_set_difficult(channel_id, vardiff.clone()).await? {
+        let target = vardiff
+            .read()
+            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
+            .target();
+        let new_hashrate = vardiff
+            .read()
+            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
+            .hashrate();
+        channel.set_target(target);
+        channel.set_nominal_hashrate(new_hashrate);
         info!("Set Target Message: {:?}", m);
         let sv2_frame: StdFrame = AnyMessage::Mining(m).try_into()?;
         sender.send(sv2_frame.into()).await?;
@@ -1299,8 +1372,9 @@ pub async fn send_set_target_downstream(
     Ok(())
 }
 
-pub fn spawn_vardiff_loop(
+fn spawn_vardiff_loop(
     channel_id: u32,
+    channel: Channel,
     vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
     sender: Sender<EitherFrame>,
 ) {
@@ -1309,8 +1383,13 @@ pub fn spawn_vardiff_loop(
         loop {
             debug!("Sleeping 60s before sending SetTarget for channel_id={channel_id}");
             tokio::time::sleep(Duration::from_secs(60)).await;
-            if let Err(e) =
-                send_set_target_downstream(sender.clone(), channel_id, vardiff.clone()).await
+            if let Err(e) = send_set_target_downstream(
+                sender.clone(),
+                channel_id,
+                channel.clone(),
+                vardiff.clone(),
+            )
+            .await
             {
                 warn!("Vardiff loop exiting for channel_id={channel_id} due to error: {e}");
                 break;
