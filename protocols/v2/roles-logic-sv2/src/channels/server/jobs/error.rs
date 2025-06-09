@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum ExtendedJobError {
     FailedToDeserializeCoinbase,
     CoinbaseInputCountMismatch,
