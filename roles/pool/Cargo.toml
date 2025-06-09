@@ -18,13 +18,9 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 async-channel = "1.5.1"
-binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 buffer_sv2 = { path = "../../utils/buffer" }
-codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 network_helpers_sv2 = { path = "../roles-utils/network-helpers", features =["with_buffer_pool"] }
-noise_sv2 = { path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
-roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 stratum-common = { path = "../../common", features = ["bitcoin"] }
 tokio = { version = "1.44.1", features = ["full"] }

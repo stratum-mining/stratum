@@ -41,8 +41,8 @@ use mining_sv2::{
 use crate::common_properties::{IsMiningDownstream, IsMiningUpstream};
 
 use super::SendTo_;
-
 use crate::utils::Mutex;
+use codec_sv2::binary_sv2;
 use mining_sv2::*;
 use std::{fmt::Debug as D, sync::Arc};
 

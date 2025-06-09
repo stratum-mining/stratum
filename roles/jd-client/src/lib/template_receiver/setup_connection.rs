@@ -5,8 +5,9 @@
 //! This includes sending a `SetupConnection` message and processing responses from the upstream.
 
 use async_channel::{Receiver, Sender};
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
+    self,
+    codec_sv2::{StandardEitherFrame, StandardSv2Frame},
     common_messages_sv2::{Protocol, Reconnect, SetupConnection},
     handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
     parsers::AnyMessage,

@@ -239,7 +239,7 @@ mod tests {
             JobsCreators,
         },
     };
-    use binary_sv2::{u256_from_int, U256};
+    use codec_sv2::binary_sv2::{u256_from_int, U256};
     use mining_sv2::Extranonce;
     use quickcheck::{Arbitrary, Gen};
     use std::convert::TryFrom;

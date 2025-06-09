@@ -22,22 +22,27 @@ use super::{
     error::JdsError, mempool::JDsMempool, status, EitherFrame, JobDeclaratorServerConfig, StdFrame,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::{B0255, U256};
-use codec_sv2::{HandshakeRole, Responder};
 use core::panic;
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
-use network_helpers_sv2::noise_connection::Connection;
-use nohash_hasher::BuildNoHashHasher;
-use roles_logic_sv2::{
-    common_messages_sv2::{
-        Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+use network_helpers_sv2::{
+    noise_connection::Connection,
+    roles_logic_sv2::{
+        self,
+        codec_sv2::{
+            binary_sv2::{self, B0255, U256},
+            HandshakeRole, Responder,
+        },
+        common_messages_sv2::{
+            Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+        },
+        handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
+        job_declaration_sv2::{DeclareMiningJob, PushSolution},
+        parsers::{AnyMessage as JdsMessages, JobDeclaration},
+        utils::{Id, Mutex},
     },
-    handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
-    job_declaration_sv2::{DeclareMiningJob, PushSolution},
-    parsers::{AnyMessage as JdsMessages, JobDeclaration},
-    utils::{Id, Mutex},
 };
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::{net::TcpListener, time::Duration};
 use tracing::{debug, error, info};

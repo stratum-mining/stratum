@@ -27,7 +27,7 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use error_handling::handle_result;
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     channel_logic::channel_factory::{
         ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share,
     },
@@ -588,6 +588,7 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
+    use network_helpers_sv2::roles_logic_sv2::codec_sv2::binary_sv2;
     use stratum_common::bitcoin::{absolute::LockTime, consensus, transaction::Version};
 
     pub mod test_utils {

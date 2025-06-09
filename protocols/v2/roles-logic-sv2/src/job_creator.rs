@@ -3,7 +3,7 @@
 //! This module provides logic to create extended mining jobs given a template from
 //! a template provider as well as logic to clean up old templates when new blocks are mined.
 use crate::{errors, utils::Id, Error};
-use binary_sv2::B064K;
+use codec_sv2::binary_sv2::{self, B064K};
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};

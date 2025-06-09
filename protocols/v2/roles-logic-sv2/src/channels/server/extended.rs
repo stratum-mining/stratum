@@ -14,6 +14,7 @@ use crate::{
         u256_to_block_hash,
     },
 };
+use codec_sv2::binary_sv2;
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
 use std::{collections::HashMap, convert::TryInto};
 use stratum_common::bitcoin::{
@@ -589,7 +590,7 @@ mod tests {
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
-    use binary_sv2::Sv2Option;
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
     use std::convert::TryInto;
     use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};

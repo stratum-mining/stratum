@@ -21,7 +21,7 @@ use crate::mempool::error::JdsMempoolError;
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
-use roles_logic_sv2::utils::Mutex;
+use network_helpers_sv2::roles_logic_sv2::utils::Mutex;
 use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{str::FromStr, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};

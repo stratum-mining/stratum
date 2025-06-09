@@ -1,6 +1,6 @@
 //! Provides functionality to convert Stratum V2 job into a
 //! Stratum V1 `mining.notify` message.
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     job_creator::extended_job_to_non_segwit,
     mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},
 };

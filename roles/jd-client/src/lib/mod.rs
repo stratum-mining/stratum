@@ -19,7 +19,7 @@ use async_channel::unbounded;
 use config::JobDeclaratorClientConfig;
 use futures::{select, FutureExt};
 use job_declarator::JobDeclarator;
-use roles_logic_sv2::utils::Mutex;
+use network_helpers_sv2::roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,

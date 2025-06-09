@@ -1,12 +1,13 @@
-use binary_sv2::{Decodable, Serialize, U256};
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
+    codec_sv2::binary_sv2::{Decodable, Serialize, U256},
+    errors::Error,
     handlers::{job_declaration::ParseJobDeclarationMessagesFromDownstream, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
         ProvideMissingTransactionsSuccess, PushSolution,
     },
-    parsers::JobDeclaration,
+    parsers::{AnyMessage as AllMessages, JobDeclaration},
     utils::Mutex,
 };
 use std::{convert::TryInto, io::Cursor, sync::Arc};
@@ -18,7 +19,6 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
 
 use super::{signed_token, TransactionState};
-use roles_logic_sv2::{errors::Error, parsers::AnyMessage as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable as BitcoinDecodable;
 use tracing::{debug, info};
 

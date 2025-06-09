@@ -4,8 +4,8 @@ pub mod routing_logic;
 pub mod selectors;
 pub mod upstream_mining;
 
+use network_helpers_sv2::roles_logic_sv2::utils::{GroupId, Id, Mutex};
 use once_cell::sync::OnceCell;
-use roles_logic_sv2::utils::{GroupId, Id, Mutex};
 use routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic};
 use selectors::GeneralMiningSelector;
 use serde::Deserialize;

@@ -21,14 +21,17 @@
 //!   submission).
 
 use crate::Error;
-use binary_sv2::{
-    decodable::{DecodableField, FieldMarker},
-    encodable::EncodableField,
-    from_bytes, Deserialize, GetSize,
+use codec_sv2::{
+    binary_sv2::{
+        self,
+        decodable::{DecodableField, FieldMarker},
+        encodable::EncodableField,
+        from_bytes, Deserialize, GetSize,
+    },
+    framing_sv2::framing::Sv2Frame,
 };
 use common_messages_sv2::*;
 use core::convert::{TryFrom, TryInto};
-use framing_sv2::framing::Sv2Frame;
 use job_declaration_sv2::*;
 use mining_sv2::*;
 use template_distribution_sv2::*;
@@ -1215,8 +1218,10 @@ mod test {
         mining_sv2::NewMiningJob,
         parsers::{AnyMessage, Mining},
     };
-    use binary_sv2::{Sv2Option, U256};
-    use codec_sv2::StandardSv2Frame;
+    use codec_sv2::{
+        binary_sv2::{Sv2Option, U256},
+        StandardSv2Frame,
+    };
     use std::convert::{TryFrom, TryInto};
 
     pub type Message = AnyMessage<'static>;

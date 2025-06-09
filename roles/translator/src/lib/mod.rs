@@ -12,8 +12,8 @@
 //! etc.) for specialized functionalities.
 use async_channel::{bounded, unbounded};
 use futures::FutureExt;
+pub use network_helpers_sv2::roles_logic_sv2::utils::Mutex;
 use rand::Rng;
-pub use roles_logic_sv2::utils::Mutex;
 use status::Status;
 use std::{
     net::{IpAddr, SocketAddr},

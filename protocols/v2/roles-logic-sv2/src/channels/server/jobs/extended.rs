@@ -2,7 +2,7 @@ use crate::{
     channels::server::jobs::JobOrigin, template_distribution_sv2::NewTemplate,
     utils::deserialize_outputs,
 };
-use binary_sv2::{Seq0255, Sv2Option, B064K, U256};
+use codec_sv2::binary_sv2::{Seq0255, Sv2Option, B064K, U256};
 use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob};
 use stratum_common::bitcoin::transaction::TxOut;
 
