@@ -231,26 +231,6 @@ impl JobFactory {
         let deserialized_outputs =
             deserialize_outputs(m.coinbase_tx_outputs.inner_as_ref().to_vec());
 
-        // note: this is assuming there's only one output
-        // where all the sats are added to
-        // hopefully we will clean this once we get a clear outcome from
-        // https://github.com/stratum-mining/sv2-spec/issues/133
-        let mut outputs_with_value_remaining = vec![];
-        for output in deserialized_outputs.iter() {
-            if output.script_pubkey.is_p2pk()
-                || output.script_pubkey.is_p2pkh()
-                || output.script_pubkey.is_p2tr()
-                || output.script_pubkey.is_p2wpkh()
-                || output.script_pubkey.is_p2wsh()
-            {
-                let mut output_with_value_remaining = output.clone();
-                output_with_value_remaining.value = Amount::from_sat(m.coinbase_tx_value_remaining);
-                outputs_with_value_remaining.push(output_with_value_remaining);
-            } else {
-                outputs_with_value_remaining.push(output.clone());
-            }
-        }
-
         let mut script_sig = vec![];
         script_sig.extend_from_slice(m.coinbase_prefix.inner_as_ref());
         script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
@@ -267,7 +247,7 @@ impl JobFactory {
             version: Version::non_standard(m.coinbase_tx_version as i32),
             lock_time: LockTime::from_consensus(m.coinbase_tx_locktime),
             input: vec![tx_in],
-            output: outputs_with_value_remaining,
+            output: deserialized_outputs,
         })
     }
 
