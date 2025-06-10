@@ -1,3 +1,5 @@
+use network_helpers_sv2::roles_logic_sv2::codec_sv2::{self, binary_sv2};
+
 #[derive(std::fmt::Debug)]
 pub enum Error {
     Io(std::io::Error),

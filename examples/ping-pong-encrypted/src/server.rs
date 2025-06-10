@@ -2,11 +2,13 @@ use crate::{
     error::Error,
     messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE},
 };
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
+use network_helpers_sv2::{
+    noise_connection::Connection,
+    roles_logic_sv2::codec_sv2::{binary_sv2, StandardEitherFrame, StandardSv2Frame},
+};
 
-use codec_sv2::{HandshakeRole, Responder};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::roles_logic_sv2::codec_sv2::{HandshakeRole, Responder};
 
 use async_channel::{Receiver, Sender};
 use tokio::net::TcpListener;
