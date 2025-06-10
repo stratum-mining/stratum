@@ -1204,8 +1204,6 @@ name = "integration_tests_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "binary_sv2",
- "codec_sv2",
  "config-helpers",
  "corepc-node",
  "flate2",
@@ -1220,7 +1218,6 @@ dependencies = [
  "once_cell",
  "pool_sv2",
  "rand 0.9.0",
- "roles_logic_sv2",
  "stratum-common",
  "sv1_api",
  "tar",

@@ -3,7 +3,7 @@ use integration_tests_sv2::{
     interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
     *,
 };
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
     parsers::{AnyMessage, CommonMessages},
     template_distribution_sv2::*,

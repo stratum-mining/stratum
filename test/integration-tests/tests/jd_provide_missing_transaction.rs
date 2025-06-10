@@ -1,5 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, *};
-use roles_logic_sv2::job_declaration_sv2::*;
+use network_helpers_sv2::roles_logic_sv2::job_declaration_sv2::*;
 
 #[tokio::test]
 async fn jds_ask_for_missing_transactions() {

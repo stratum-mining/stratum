@@ -1,10 +1,11 @@
 // This file contains integration tests for the `JDC/S` module.
-use binary_sv2::{Seq064K, B032, U256};
 use integration_tests_sv2::{
     interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
     *,
 };
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
+    self,
+    codec_sv2::binary_sv2::{Seq064K, B032, U256},
     common_messages_sv2::*,
     job_declaration_sv2::{ProvideMissingTransactionsSuccess, PushSolution, *},
     parsers::AnyMessage,

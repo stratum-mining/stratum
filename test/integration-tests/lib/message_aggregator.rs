@@ -1,4 +1,4 @@
-use roles_logic_sv2::{parsers::AnyMessage, utils::Mutex};
+use network_helpers_sv2::roles_logic_sv2::{parsers::AnyMessage, utils::Mutex};
 use std::{collections::VecDeque, sync::Arc};
 
 use crate::types::MsgType;
