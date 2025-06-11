@@ -19,9 +19,17 @@ pub fn simulate_shares_and_wait<V: Vardiff>(
     for _ in 0..num_shares {
         vardiff.increment_shares_since_last_update();
     }
-    if wait_duration_secs > 0 {
-        thread::sleep(Duration::from_secs(wait_duration_secs));
-    }
+
+    // Rather than waiting for wait_duration,
+    // we are performing time magic and going
+    // back in time.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        - wait_duration_secs;
+
+    vardiff.set_timestamp_of_last_update(now);
 }
 
 // Tests if manually setting the hashrate correctly updates the difficulty target.
