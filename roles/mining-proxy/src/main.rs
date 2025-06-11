@@ -16,23 +16,12 @@
 //!
 //! A Downstream that signal the capacity to handle group channels can open more than one channel.
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
-use clap::Parser;
 use tracing::error;
 
-use ext_config::{Config, File, FileFormat};
-use mining_proxy_sv2::{start_mining_proxy, MiningProxyConfig};
+use mining_proxy_sv2::start_mining_proxy;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about = "Mining Proxy", long_about = None)]
-pub struct Args {
-    #[arg(
-        short = 'c',
-        long = "config",
-        help = "Path to the TOML configuration file",
-        default_value = "proxy-config.toml"
-    )]
-    pub config_path: std::path::PathBuf,
-}
+mod args;
+use args::process_cli_args;
 
 /// 1. the proxy scan all the upstreams and map them
 /// 2. downstream open a connection with proxy
@@ -47,25 +36,12 @@ pub struct Args {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let args = Args::parse();
-    let config_path = args.config_path.to_str().expect("Invalid config path");
-
-    let config: MiningProxyConfig = match Config::builder()
-        .add_source(File::new(config_path, FileFormat::Toml))
-        .build()
-    {
-        Ok(settings) => match settings.try_deserialize::<MiningProxyConfig>() {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to deserialize config: {}", e);
-                return;
-            }
-        },
+    let config = match process_cli_args() {
+        Ok(c) => c,
         Err(e) => {
-            error!("Failed to build config: {}", e);
+            error!("Mining Proxy Config error: {}", e);
             return;
         }
     };
-
     start_mining_proxy(config).await;
 }
