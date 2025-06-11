@@ -685,57 +685,6 @@ impl Pool {
                     d.last_new_prev_hash = new_prev_hash.clone();
                 })?;
 
-                let vardiff = downstream.safe_lock(|d| d.vardiff.clone())?;
-
-                for (channel_id, vardiff) in vardiff.iter() {
-                    if let Ok(Some(m)) =
-                        update_hashrate_and_get_set_difficult(*channel_id, vardiff.clone()).await
-                    {
-                        debug!("SetTarget sent before setNewPrevhash message: {m:?}");
-                        let res =
-                            Downstream::match_send_to(downstream.clone(), Ok(SendTo::Respond(m)))
-                                .await;
-                        let (standard_channel, extended_channel) = downstream.safe_lock(|d| {
-                            (
-                                d.standard_channels.get(channel_id).cloned(),
-                                d.extended_channels.get(channel_id).cloned(),
-                            )
-                        })?;
-                        let target = vardiff
-                            .read()
-                            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                            .target();
-                        let hashrate = vardiff
-                            .read()
-                            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                            .hashrate();
-
-                        if let Some(standard_channel) = standard_channel {
-                            standard_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_target(target.clone());
-                            standard_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_nominal_hashrate(hashrate);
-                        }
-
-                        if let Some(extended_channel) = extended_channel {
-                            extended_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_target(target);
-                            extended_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_nominal_hashrate(hashrate);
-                        }
-
-                        handle_result!(status_tx, res);
-                    }
-                }
-
                 let mining_set_new_prev_hash_messages = downstream.safe_lock(|d| {
                     let mut messages = Vec::new();
 
@@ -864,58 +813,6 @@ impl Pool {
                     downstream.safe_lock(|d| {
                         d.last_future_template = new_template.clone();
                     })?;
-                }
-
-                // Send SetTarget message to downstream
-                let vardiff = downstream.safe_lock(|d| d.vardiff.clone())?;
-
-                for (channel_id, vardiff) in vardiff.iter() {
-                    if let Ok(Some(m)) =
-                        update_hashrate_and_get_set_difficult(*channel_id, vardiff.clone()).await
-                    {
-                        debug!("SetTarget sent before NewJob message: {m:?}");
-                        let res =
-                            Downstream::match_send_to(downstream.clone(), Ok(SendTo::Respond(m)))
-                                .await;
-                        let (standard_channel, extended_channel) = downstream.safe_lock(|d| {
-                            (
-                                d.standard_channels.get(channel_id).cloned(),
-                                d.extended_channels.get(channel_id).cloned(),
-                            )
-                        })?;
-                        let target = vardiff
-                            .read()
-                            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                            .target();
-                        let hashrate = vardiff
-                            .read()
-                            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                            .hashrate();
-
-                        if let Some(standard_channel) = standard_channel {
-                            standard_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_target(target.clone());
-                            standard_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_nominal_hashrate(hashrate);
-                        }
-
-                        if let Some(extended_channel) = extended_channel {
-                            extended_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_target(target);
-                            extended_channel
-                                .write()
-                                .map_err(|e| PoolError::PoisonLock(e.to_string()))?
-                                .set_nominal_hashrate(hashrate);
-                        }
-
-                        handle_result!(status_tx, res);
-                    }
                 }
 
                 let standard_job_messages = downstream.safe_lock(|d| {
