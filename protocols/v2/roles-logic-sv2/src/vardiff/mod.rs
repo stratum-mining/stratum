@@ -4,6 +4,8 @@ use std::fmt::Debug;
 
 pub mod classic;
 pub mod error;
+#[cfg(test)]
+pub mod test;
 
 /// Trait defining the interface for a Vardiff implementation.
 pub trait Vardiff: Debug + Send {
@@ -24,6 +26,9 @@ pub trait Vardiff: Debug + Send {
 
     /// Sets the estimated hashrate and updates the target.
     fn set_hashrate(&mut self, estimated_downstream_hash_rate: f32) -> Result<(), VardiffError>;
+
+    /// Sets timestamp since last update.
+    fn set_timestamp_of_last_update(&mut self, timestamp: u64);
 
     /// Increments the share count.
     fn increment_shares_since_last_update(&mut self);

@@ -70,11 +70,6 @@ impl VardiffState {
         self.shares_per_minute = shares_per_minute;
     }
 
-    /// Sets the timestamp of the last update.
-    pub fn set_timestamp_of_last_update(&mut self, timestamp_of_last_update: u64) {
-        self.timestamp_of_last_update = timestamp_of_last_update;
-    }
-
     /// Sets the count of shares since the last update.
     pub fn set_shares_since_last_update(&mut self, shares_since_last_update: u32) {
         self.shares_since_last_update = shares_since_last_update;
@@ -109,6 +104,11 @@ impl Vardiff for VardiffState {
 
     fn min_allowed_hashrate(&self) -> f32 {
         self.min_allowed_hashrate
+    }
+
+    /// Sets the timestamp of the last update.
+    fn set_timestamp_of_last_update(&mut self, timestamp_of_last_update: u64) {
+        self.timestamp_of_last_update = timestamp_of_last_update;
     }
 
     /// Sets the hashrate and recalculates the `current_target`.
