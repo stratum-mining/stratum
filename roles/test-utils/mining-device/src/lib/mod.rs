@@ -1,8 +1,10 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
-use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
+use network_helpers_sv2::{
+    codec_sv2::{self, Initiator, StandardEitherFrame, StandardSv2Frame},
+    noise_connection::Connection,
+};
 use primitive_types::U256;
 use rand::{thread_rng, Rng};
 use roles_logic_sv2::{

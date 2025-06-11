@@ -6,8 +6,8 @@
 //! reacts to various mining-related messages received from a connected downstream miner.
 
 use super::super::mining_pool::Downstream;
-use binary_sv2::Str0255;
 use roles_logic_sv2::{
+    binary_sv2::Str0255,
     channels::server::{
         error::{ExtendedChannelError, StandardChannelError},
         extended::ExtendedChannel,
