@@ -268,3 +268,49 @@ fn test_try_vardiff_no_shares_more_than_60s_decrease<V: Vardiff>(vardiff: &mut V
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
+
+fn test_try_vardiff_with_less_spm_than_expected<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = vardiff.hashrate();
+
+    assert_eq!(initial_hashrate, 1000.0);
+
+    let simulation_duration = 60;
+    // testing case when realized_shares_per_minute / shares_per_minute = 0.4
+    simulate_shares_and_wait(vardiff, 4, simulation_duration);
+
+    let hashrate_after_60s = vardiff.try_vardiff().expect("try_vardiff failed").unwrap();
+
+    assert_eq!(hashrate_after_60s, 400.0);
+
+    let simulation_duration = 120;
+    // testing case when realized_shares_per_minute / shares_per_minute = 0.5
+    simulate_shares_and_wait(vardiff, 10, simulation_duration);
+
+    let hashrate_after_120s = vardiff.try_vardiff().expect("try_vardiff failed").unwrap();
+
+    assert_eq!(hashrate_after_120s, 200.0);
+
+    let simulation_duration = 180;
+    // testing case when realized_shares_per_minute / shares_per_minute = 0.55
+    simulate_shares_and_wait(vardiff, 16, simulation_duration);
+
+    let hashrate_after_180s = vardiff.try_vardiff().expect("try_vardiff failed").unwrap();
+
+    assert_eq!(hashrate_after_180s, 106.0);
+
+    let simulation_duration = 240;
+    // testing case when realized_shares_per_minute / shares_per_minute = 0.7
+    simulate_shares_and_wait(vardiff, 28, simulation_duration);
+
+    let hashrate_after_240s = vardiff.try_vardiff().expect("try_vardiff failed").unwrap();
+
+    assert_eq!(hashrate_after_240s, 74.2);
+
+    let simulation_duration = 300;
+    // testing case when realized_shares_per_minute / shares_per_minute = 0.85
+    simulate_shares_and_wait(vardiff, 42, simulation_duration);
+
+    let hashrate_after_300s = vardiff.try_vardiff().expect("try_vardiff failed").unwrap();
+
+    assert_eq!(hashrate_after_300s, 62.327995);
+}

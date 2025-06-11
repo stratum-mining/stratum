@@ -11,8 +11,8 @@ use super::{
     test_try_vardiff_no_shares_less_than_30s_decrease,
     test_try_vardiff_no_shares_more_than_60s_decrease,
     test_try_vardiff_stable_hashrate_minimal_change_or_no_change,
-    test_try_vardiff_with_shares_30_to_60s, test_try_vardiff_with_shares_less_than_30,
-    test_try_vardiff_with_shares_more_than_60s, Vardiff,
+    test_try_vardiff_with_less_spm_than_expected, test_try_vardiff_with_shares_30_to_60s,
+    test_try_vardiff_with_shares_less_than_30, test_try_vardiff_with_shares_more_than_60s, Vardiff,
 };
 
 fn new_test_vardiff_state() -> Result<VardiffState, VardiffError> {
@@ -91,6 +91,12 @@ pub fn test_try_vardiff_no_shares_more_than_60s_decrease_classic() {
 pub fn test_try_vardiff_no_shares_less_than_30s_decrease_classic() {
     let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
     test_try_vardiff_no_shares_less_than_30s_decrease(&mut vardiff);
+}
+
+#[test]
+fn test_try_vardiff_with_less_spm_than_expected_classic() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    test_try_vardiff_with_less_spm_than_expected(&mut vardiff);
 }
 
 #[test]
