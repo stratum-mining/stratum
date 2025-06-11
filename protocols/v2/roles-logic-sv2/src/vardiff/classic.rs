@@ -154,7 +154,6 @@ impl Vardiff for VardiffState {
 
         let delta_time = now - self.timestamp_of_last_update;
 
-        #[cfg(not(test))]
         if delta_time <= 15 {
             return Ok(None);
         }

@@ -104,8 +104,8 @@ pub fn test_try_vardiff_low_hashrate_decrease_target<V: Vardiff>(vardiff: &mut V
     let initial_hashrate = vardiff.hashrate();
     let initial_target = vardiff.target();
 
-    let simulation_duration = 2;
-    simulate_shares_and_wait(vardiff, 2, simulation_duration);
+    let simulation_duration = 16;
+    simulate_shares_and_wait(vardiff, 16, simulation_duration);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");
     assert!(
@@ -130,8 +130,8 @@ pub fn test_try_vardiff_with_shares_less_than_30<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = vardiff.hashrate();
     let initial_target = vardiff.target();
 
-    let simulation_duration = 2;
-    simulate_shares_and_wait(vardiff, 50, simulation_duration);
+    let simulation_duration = 16;
+    simulate_shares_and_wait(vardiff, 500, simulation_duration);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");
     assert!(
@@ -201,7 +201,7 @@ pub fn test_try_vardiff_with_shares_more_than_60s<V: Vardiff>(vardiff: &mut V) {
 fn test_try_vardiff_no_shares_less_than_30s_decrease<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = vardiff.hashrate();
 
-    let simulation_duration = 2;
+    let simulation_duration = 16;
     simulate_shares_and_wait(vardiff, 0, simulation_duration);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");

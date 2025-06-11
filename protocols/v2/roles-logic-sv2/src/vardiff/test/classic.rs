@@ -102,7 +102,7 @@ fn test_try_vardiff_hashrate_clamps_to_minimum() {
     )
     .expect("Failed to create VardiffState");
 
-    let simulation_duration_secs = 2;
+    let simulation_duration_secs = 16;
     simulate_shares_and_wait(&mut vardiff, 0, simulation_duration_secs);
 
     let result = vardiff.try_vardiff().expect("try_vardiff failed");
