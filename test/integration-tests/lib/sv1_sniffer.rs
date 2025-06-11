@@ -1,8 +1,8 @@
 #![cfg(feature = "sv1")]
 use crate::interceptor::MessageDirection;
 use async_channel::{Receiver, Sender};
-use network_helpers_sv2::sv1_connection::ConnectionSV1;
 use std::{collections::VecDeque, net::SocketAddr, sync::Arc};
+use stratum_common::network_helpers_sv2::sv1_connection::ConnectionSV1;
 use tokio::{
     net::{TcpListener, TcpStream},
     select,

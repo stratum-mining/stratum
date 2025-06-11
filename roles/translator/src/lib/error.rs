@@ -8,14 +8,15 @@
 //! - A specific `ChannelSendError` enum for errors occurring during message sending over
 //!   asynchronous channels.
 
-use codec_sv2::Frame;
 use ext_config::ConfigError;
-use roles_logic_sv2::{
+use std::{fmt, sync::PoisonError};
+use stratum_common::roles_logic_sv2::{
+    self,
+    codec_sv2::{self, binary_sv2, framing_sv2, Frame},
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
     parsers::{AnyMessage, Mining},
     vardiff::error::VardiffError,
 };
-use std::{fmt, sync::PoisonError};
 use v1::server_to_client::{Notify, SetDifficulty};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;

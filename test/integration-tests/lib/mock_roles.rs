@@ -4,9 +4,11 @@ use crate::{
     utils::{create_downstream, create_upstream, message_from_frame, wait_for_client},
 };
 use async_channel::Sender;
-use codec_sv2::{StandardEitherFrame, Sv2Frame};
-use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
+use stratum_common::roles_logic_sv2::{
+    codec_sv2::{StandardEitherFrame, Sv2Frame},
+    parsers::AnyMessage,
+};
 use tokio::net::TcpStream;
 
 pub struct MockDownstream {
@@ -107,12 +109,12 @@ impl MockUpstream {
 mod tests {
     use super::*;
     use crate::start_template_provider;
-    use codec_sv2::{StandardEitherFrame, Sv2Frame};
-    use roles_logic_sv2::{
+    use std::{convert::TryInto, net::TcpListener};
+    use stratum_common::roles_logic_sv2::{
+        codec_sv2::{StandardEitherFrame, Sv2Frame},
         common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
         parsers::CommonMessages,
     };
-    use std::{convert::TryInto, net::TcpListener};
 
     #[tokio::test]
     async fn test_mock_downstream() {

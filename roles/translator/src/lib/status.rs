@@ -8,6 +8,8 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
+use stratum_common::roles_logic_sv2;
+
 use crate::error::{self, Error};
 
 /// Identifies the component that originated a [`Status`] update.

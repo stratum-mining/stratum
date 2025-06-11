@@ -4,7 +4,7 @@ version = "1.0.1"
 edition = "2021"
 
 [dependencies]
-stratum-common = { path = "../common", features=["bitcoin"]}
+bitcoin = { version = "0.32.5", optional = true }
 async-std={version = "1.10.0", features = ["attributes"]}
 criterion = "0.5.1"
 async-channel = "1.4.0"

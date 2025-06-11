@@ -1,4 +1,4 @@
-use binary_sv2::{Deserialize, GetSize, Serialize};
+use codec_sv2::binary_sv2::{Deserialize, GetSize, Serialize};
 pub mod noise_connection;
 pub mod plain_connection;
 #[cfg(feature = "sv1")]
@@ -14,6 +14,8 @@ use std::{
     convert::TryInto,
     sync::{atomic::AtomicBool, Arc},
 };
+
+pub use codec_sv2;
 
 #[derive(Debug)]
 pub enum Error {

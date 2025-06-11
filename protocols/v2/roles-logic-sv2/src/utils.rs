@@ -5,8 +5,16 @@
 //! management, mutex management, difficulty target calculations, merkle root calculations, and
 //! more.
 
-use binary_sv2::U256;
-use bitcoin::Block;
+use bitcoin::{
+    blockdata::block::{Header, Version},
+    consensus,
+    consensus::Decodable,
+    hash_types::{BlockHash, TxMerkleNode},
+    hashes::{sha256d::Hash as DHash, Hash},
+    transaction::TxOut,
+    Block, CompactTarget, Transaction,
+};
+use codec_sv2::binary_sv2::U256;
 use job_declaration_sv2::{DeclareMiningJob, PushSolution};
 use mining_sv2::Target;
 use primitive_types::U256 as U256Primitive;
@@ -16,18 +24,6 @@ use std::{
     fmt::Write,
     ops::Div,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
-};
-use stratum_common::{
-    bitcoin,
-    bitcoin::{
-        blockdata::block::{Header, Version},
-        consensus,
-        consensus::Decodable,
-        hash_types::{BlockHash, TxMerkleNode},
-        hashes::{sha256d::Hash as DHash, Hash},
-        transaction::TxOut,
-        CompactTarget, Transaction,
-    },
 };
 use tracing::error;
 
@@ -888,7 +884,7 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
 mod tests {
 
     use super::{hash_rate_from_target, hash_rate_to_target, *};
-    use binary_sv2::{Seq0255, B064K, U256};
+    use codec_sv2::binary_sv2::{Seq0255, B064K, U256};
     use rand::Rng;
     use serde::Deserialize;
     use std::{convert::TryInto, num::ParseIntError};

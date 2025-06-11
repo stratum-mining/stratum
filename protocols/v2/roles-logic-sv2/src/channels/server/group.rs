@@ -6,7 +6,7 @@ use crate::channels::{
         jobs::{extended::ExtendedJob, factory::JobFactory},
     },
 };
-use stratum_common::bitcoin::transaction::TxOut;
+use bitcoin::transaction::TxOut;
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 
 use std::collections::{HashMap, HashSet};
@@ -196,10 +196,10 @@ impl<'a> GroupChannel<'a> {
 #[cfg(test)]
 mod tests {
     use crate::channels::{chain_tip::ChainTip, server::group::GroupChannel};
-    use binary_sv2::Sv2Option;
+    use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::NewExtendedMiningJob;
     use std::convert::TryInto;
-    use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;

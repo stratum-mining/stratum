@@ -18,7 +18,7 @@ use mining_sv2::{
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
-use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
+use bitcoin::hashes::{sha256d, Hash, HashEngine};
 
 /// Used to convert an extended mining job to a standard mining job. The `extranonce` field must
 /// be exactly 32 bytes.
@@ -239,12 +239,12 @@ mod tests {
             JobsCreators,
         },
     };
-    use binary_sv2::{u256_from_int, U256};
+    use codec_sv2::binary_sv2::{u256_from_int, U256};
     use mining_sv2::Extranonce;
     use quickcheck::{Arbitrary, Gen};
     use std::convert::TryFrom;
 
-    use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
+    use bitcoin::{Amount, ScriptBuf, TxOut};
 
     const BLOCK_REWARD: u64 = 625_000_000_000;
 

@@ -19,12 +19,12 @@ use async_channel::unbounded;
 use config::JobDeclaratorClientConfig;
 use futures::{select, FutureExt};
 use job_declarator::JobDeclarator;
-use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
 };
+use stratum_common::roles_logic_sv2::utils::Mutex;
 use tokio::{sync::Notify, task::AbortHandle};
 
 use tracing::{error, info};

@@ -1,6 +1,6 @@
 use bip32_derivation::derive_child_public_key;
 use std::{env, str::FromStr};
-use stratum_common::bitcoin::bip32::Xpub;
+use stratum_common::roles_logic_sv2::bitcoin::bip32::Xpub;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

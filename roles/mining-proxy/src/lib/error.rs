@@ -1,8 +1,7 @@
 use async_channel::SendError;
-use codec_sv2::StandardEitherFrame;
 use core::fmt;
-use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
+use stratum_common::roles_logic_sv2::{codec_sv2::StandardEitherFrame, parsers::AnyMessage};
 
 pub type Message = AnyMessage<'static>;
 pub type EitherFrame = StandardEitherFrame<Message>;

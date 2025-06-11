@@ -28,6 +28,7 @@
 //!   handling edge cases and ensuring the correctness of the mining process.
 
 use crate::{errors::Error, parsers::Mining};
+use codec_sv2::binary_sv2;
 use core::convert::TryInto;
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,

@@ -11,6 +11,7 @@ use crate::{
     Error,
 };
 
+use codec_sv2::binary_sv2;
 use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
     OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
@@ -25,7 +26,7 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFro
 
 use tracing::{debug, error, info, trace, warn};
 
-use stratum_common::bitcoin::{
+use bitcoin::{
     block::{Header, Version},
     hash_types,
     hashes::sha256d::Hash,
@@ -1809,9 +1810,9 @@ impl ExtendedChannelKind {
 #[cfg(test)]
 mod test {
     use super::*;
-    use binary_sv2::{Seq0255, B064K, U256};
+    use bitcoin::{Amount, PublicKey, Target, TxOut, WPubkeyHash};
+    use codec_sv2::binary_sv2::{Seq0255, B064K, U256};
     use mining_sv2::OpenStandardMiningChannel;
-    use stratum_common::bitcoin::{Amount, PublicKey, Target, TxOut, WPubkeyHash};
 
     const BLOCK_REWARD: u64 = 2_000_000_000;
 
