@@ -34,24 +34,30 @@ use super::super::{
     PoolChangerTrigger,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, U256};
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{
-    channel_logic::channel_factory::PoolChannelFactory,
-    common_messages_sv2::{Protocol, Reconnect, SetupConnection},
-    common_properties::{IsMiningUpstream, IsUpstream},
-    handlers::{
-        common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
-        mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
+use network_helpers_sv2::{
+    noise_connection::Connection,
+    roles_logic_sv2::{
+        self,
+        channel_logic::channel_factory::PoolChannelFactory,
+        codec_sv2::{
+            self,
+            binary_sv2::{self, Seq0255, U256},
+            framing_sv2, HandshakeRole, Initiator,
+        },
+        common_messages_sv2::{Protocol, Reconnect, SetupConnection},
+        common_properties::{IsMiningUpstream, IsUpstream},
+        handlers::{
+            common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
+            mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
+        },
+        job_declaration_sv2::DeclareMiningJob,
+        mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob, SetGroupChannel},
+        parsers::{AnyMessage, Mining, MiningDeviceMessages},
+        utils::{Id, Mutex},
+        Error as RolesLogicError,
     },
-    job_declaration_sv2::DeclareMiningJob,
-    mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob, SetGroupChannel},
-    parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    utils::{Id, Mutex},
-    Error as RolesLogicError,
 };
 use std::{
     collections::{HashMap, VecDeque},

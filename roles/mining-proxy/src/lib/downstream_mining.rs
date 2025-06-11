@@ -8,19 +8,22 @@ use super::{
     routing_logic::{CommonRouter, CommonRoutingLogic, MiningRouter, MiningRoutingLogic},
     upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode},
 };
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use network_helpers_sv2::plain_connection::PlainConnection;
-use roles_logic_sv2::{
-    common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
-    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
-    errors::Error,
-    handlers::{
-        common::{ParseCommonMessagesFromDownstream, SendTo as SendToCommon},
-        mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
+use network_helpers_sv2::{
+    plain_connection::PlainConnection,
+    roles_logic_sv2::{
+        self,
+        codec_sv2::{self, binary_sv2, StandardEitherFrame, StandardSv2Frame},
+        common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
+        common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
+        errors::Error,
+        handlers::{
+            common::{ParseCommonMessagesFromDownstream, SendTo as SendToCommon},
+            mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
+        },
+        mining_sv2::*,
+        parsers::{AnyMessage, Mining, MiningDeviceMessages},
+        utils::Mutex,
     },
-    mining_sv2::*,
-    parsers::{AnyMessage, Mining, MiningDeviceMessages},
-    utils::Mutex,
 };
 
 pub type Message = MiningDeviceMessages<'static>;

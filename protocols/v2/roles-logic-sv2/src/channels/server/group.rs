@@ -196,7 +196,7 @@ impl<'a> GroupChannel<'a> {
 #[cfg(test)]
 mod tests {
     use crate::channels::{chain_tip::ChainTip, server::group::GroupChannel};
-    use binary_sv2::Sv2Option;
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::NewExtendedMiningJob;
     use std::convert::TryInto;
     use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};

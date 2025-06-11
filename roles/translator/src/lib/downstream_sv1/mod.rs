@@ -11,7 +11,7 @@
 //! - [`diff_management`]: (Declared here, likely contains downstream difficulty logic)
 //! - [`downstream`]: Defines the core [`Downstream`] struct and its functionalities.
 
-use roles_logic_sv2::mining_sv2::Target;
+use network_helpers_sv2::roles_logic_sv2::mining_sv2::Target;
 use v1::{client_to_server::Submit, utils::HexU32Be};
 pub mod diff_management;
 pub mod downstream;

@@ -6,7 +6,7 @@
 //! template distribution messages received from a server, and how it responds
 //! to each message type accordingly.
 use super::TemplateRx;
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseTemplateDistributionMessagesFromServer, SendTo},
     parsers::TemplateDistribution,

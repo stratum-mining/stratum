@@ -1,6 +1,6 @@
 use crate::error::Error;
-use binary_sv2::{
-    binary_codec_sv2,
+use network_helpers_sv2::roles_logic_sv2::codec_sv2::binary_sv2::{
+    self, binary_codec_sv2,
     decodable::{DecodableField, FieldMarker},
     Deserialize, Serialize,
 };

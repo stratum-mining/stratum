@@ -10,7 +10,7 @@ use crate::{
     utils::InputError,
     vardiff::error::VardiffError,
 };
-use binary_sv2::Error as BinarySv2Error;
+use codec_sv2::binary_sv2::Error as BinarySv2Error;
 use mining_sv2::ExtendedExtranonceError;
 use std::{
     fmt::{self, Display, Formatter},

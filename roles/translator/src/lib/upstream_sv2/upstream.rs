@@ -28,26 +28,27 @@ use crate::{
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::u256_from_int;
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection},
-    common_properties::{IsMiningUpstream, IsUpstream},
-    handlers::{
-        common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
-        mining::{ParseMiningMessagesFromUpstream, SendTo},
+use network_helpers_sv2::{
+    noise_connection::Connection,
+    roles_logic_sv2::{
+        self,
+        codec_sv2::{self, binary_sv2::u256_from_int, framing_sv2, HandshakeRole, Initiator},
+        common_messages_sv2::{Protocol, Reconnect, SetupConnection},
+        common_properties::{IsMiningUpstream, IsUpstream},
+        handlers::{
+            common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
+            mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
+        },
+        mining_sv2::{
+            ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
+            SetGroupChannel, SetNewPrevHash, SubmitSharesExtended,
+        },
+        parsers::Mining,
+        utils::Mutex,
+        Error::{self as RolesLogicError, NoUpstreamsConnected},
     },
-    mining_sv2::{
-        ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
-        SetNewPrevHash, SubmitSharesExtended,
-    },
-    parsers::Mining,
-    utils::Mutex,
-    Error as RolesLogicError,
-    Error::NoUpstreamsConnected,
 };
 use std::{
     net::SocketAddr,
@@ -60,10 +61,6 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use roles_logic_sv2::{
-    common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
-    mining_sv2::SetGroupChannel,
-};
 use stratum_common::bitcoin::BlockHash;
 
 /// Atomic boolean flag used for synchronization between receiving a new job

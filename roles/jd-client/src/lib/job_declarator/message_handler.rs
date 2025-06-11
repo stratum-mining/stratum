@@ -3,7 +3,9 @@
 //! Handles upstream Job Declaration Protocol messages by implementing the
 //! `ParseJobDeclarationMessagesFromUpstream` trait.
 use super::JobDeclarator;
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
+    codec_sv2::binary_sv2,
+    errors::Error,
     handlers::{job_declaration::ParseJobDeclarationMessagesFromUpstream, SendTo_},
     job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
@@ -13,7 +15,6 @@ use roles_logic_sv2::{
 };
 use tracing::{debug, error, info};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-use roles_logic_sv2::errors::Error;
 
 impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
     /// Handles an `AllocateMiningJobTokenSuccess` message received from the JDS.

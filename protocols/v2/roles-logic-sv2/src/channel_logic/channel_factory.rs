@@ -10,6 +10,7 @@ use crate::{
     utils::{GroupId, Id, Mutex},
     Error,
 };
+use codec_sv2::binary_sv2;
 
 use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,

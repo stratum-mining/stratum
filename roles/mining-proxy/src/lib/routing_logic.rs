@@ -30,7 +30,7 @@ use super::{
     },
     upstream_mining::HasDownstreamSelector,
 };
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     common_messages_sv2::{
         has_requires_std_job, Protocol, SetupConnection, SetupConnectionSuccess,
     },

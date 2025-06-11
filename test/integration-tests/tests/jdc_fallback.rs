@@ -2,7 +2,7 @@ use integration_tests_sv2::{
     interceptor::{MessageDirection, ReplaceMessage},
     *,
 };
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     common_messages_sv2::*,
     mining_sv2::{SubmitSharesError, *},
     parsers::{AnyMessage, Mining},

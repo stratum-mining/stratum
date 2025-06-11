@@ -7,7 +7,7 @@ use crate::{
         wait_for_client,
     },
 };
-use roles_logic_sv2::parsers::AnyMessage;
+use network_helpers_sv2::roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
 use tokio::{net::TcpStream, select};
 

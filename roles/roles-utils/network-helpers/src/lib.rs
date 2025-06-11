@@ -1,19 +1,22 @@
-use binary_sv2::{Deserialize, GetSize, Serialize};
 pub mod noise_connection;
 pub mod plain_connection;
 #[cfg(feature = "sv1")]
 pub mod sv1_connection;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
-use codec_sv2::{
+use futures::lock::Mutex;
+use roles_logic_sv2::codec_sv2::{
+    self,
+    binary_sv2::{Deserialize, GetSize, Serialize},
     noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE},
     Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame,
 };
-use futures::lock::Mutex;
 use std::{
     convert::TryInto,
     sync::{atomic::AtomicBool, Arc},
 };
+
+pub use roles_logic_sv2;
 
 #[derive(Debug)]
 pub enum Error {

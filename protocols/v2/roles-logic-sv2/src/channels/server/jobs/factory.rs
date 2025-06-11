@@ -7,7 +7,7 @@ use crate::{
     template_distribution_sv2::NewTemplate,
     utils::{deserialize_outputs, merkle_root_from_path, Id as JobIdFactory},
 };
-use binary_sv2::{Sv2Option, B064K};
+use codec_sv2::binary_sv2::{Sv2Option, B064K};
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
 use std::convert::TryInto;
 use stratum_common::bitcoin::{

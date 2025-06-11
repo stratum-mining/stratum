@@ -10,7 +10,7 @@ use crate::{
     },
     utils::{bytes_to_hex, merkle_root_from_path, target_to_difficulty, u256_to_block_hash},
 };
-use binary_sv2::Sv2Option;
+use codec_sv2::binary_sv2::{self, Sv2Option};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
     Target, MAX_EXTRANONCE_LEN,
@@ -342,7 +342,7 @@ mod tests {
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
     };
-    use binary_sv2::Sv2Option;
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::{NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard};
 
     #[test]

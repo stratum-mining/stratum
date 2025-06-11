@@ -10,6 +10,7 @@ use crate::{
     },
     utils::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
+use codec_sv2::binary_sv2;
 use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
 use std::{collections::HashMap, convert::TryInto};
 use stratum_common::bitcoin::{
@@ -525,7 +526,7 @@ mod tests {
             standard::StandardChannel,
         },
     };
-    use binary_sv2::Sv2Option;
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::{NewMiningJob, SubmitSharesStandard, Target};
     use std::convert::TryInto;
     use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};

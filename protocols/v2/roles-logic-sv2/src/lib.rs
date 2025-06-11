@@ -27,6 +27,7 @@ pub mod job_dispatcher;
 pub mod parsers;
 pub mod utils;
 pub mod vardiff;
+pub use codec_sv2;
 pub use common_messages_sv2;
 pub use errors::Error;
 pub use job_declaration_sv2;

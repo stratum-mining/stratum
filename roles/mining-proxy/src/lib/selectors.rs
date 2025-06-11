@@ -4,12 +4,12 @@
 //! in a mining proxy environment. Selectors help determine the appropriate remote(s) to relay or
 //! send messages to.
 
-use nohash_hasher::BuildNoHashHasher;
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream, IsMiningUpstream, PairSettings},
     utils::Mutex,
     Error,
 };
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, fmt::Debug as D, sync::Arc};
 
 /// Proxy selector for routing messages to downstream mining nodes.

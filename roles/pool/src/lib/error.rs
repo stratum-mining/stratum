@@ -16,7 +16,11 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use roles_logic_sv2::parsers::Mining;
+use network_helpers_sv2::roles_logic_sv2::{
+    self,
+    codec_sv2::{self, binary_sv2, noise_sv2},
+    parsers::Mining,
+};
 
 /// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]

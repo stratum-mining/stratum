@@ -2,7 +2,7 @@
 //
 // `PoolSv2` is a module that implements the Pool role in the Stratum V2 protocol.
 use integration_tests_sv2::{interceptor::MessageDirection, *};
-use roles_logic_sv2::{
+use network_helpers_sv2::roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, *},
     mining_sv2::*,
     parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},

@@ -8,8 +8,10 @@
 //! - [`upstream_connection`]: Handles the underlying connection details and frame
 //!   sending/receiving.
 
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::parsers::AnyMessage;
+use network_helpers_sv2::roles_logic_sv2::{
+    codec_sv2::{StandardEitherFrame, StandardSv2Frame},
+    parsers::AnyMessage,
+};
 
 pub mod diff_management;
 pub mod upstream;

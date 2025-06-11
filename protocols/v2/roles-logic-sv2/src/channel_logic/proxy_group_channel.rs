@@ -213,7 +213,7 @@ impl GroupChannel {
 #[cfg(test)]
 mod test {
     use super::*;
-    use binary_sv2::B064K;
+    use codec_sv2::binary_sv2::{self, B064K};
     use std::convert::TryFrom;
 
     #[test]

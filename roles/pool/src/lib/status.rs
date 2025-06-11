@@ -6,7 +6,7 @@
 //! Centralizes and simplifies error handling across the system.
 
 /// Identifies which component sent a status update.
-use roles_logic_sv2::parsers::Mining;
+use network_helpers_sv2::roles_logic_sv2::{self, parsers::Mining};
 
 use super::error::PoolError;
 
