@@ -16,8 +16,8 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{
-            consensus::{deserialize, Encodable},
-            Transaction, TxOut,
+            consensus::{deserialize, serialize, Encodable},
+            Amount, Transaction, TxOut,
         },
         codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame},
         handlers::{template_distribution::ParseTemplateDistributionMessagesFromServer, SendTo_},
@@ -301,13 +301,13 @@ impl TemplateRx {
                                         .unwrap();
                                     // Get the pool's coinbase output from the last token.
                                     let token = last_token.clone().unwrap();
-                                    let pool_output = token.coinbase_output.to_vec();
+                                    let pool_outputs = token.coinbase_output.to_vec();
 
                                     // Notify the downstream mining node about the new template.
                                     super::downstream::DownstreamMiningNode::on_new_template(
                                         &down,
                                         m.clone(),
-                                        &pool_output[..],
+                                        &pool_outputs[..],
                                     )
                                     .await
                                     .unwrap();
@@ -359,7 +359,17 @@ impl TemplateRx {
 
                                     // Extract mining token and pool coinbase output from the token.
                                     let mining_token = token.mining_job_token.to_vec();
-                                    let pool_coinbase_out = token.coinbase_output.to_vec();
+                                    let pool_coinbase_outputs = token.coinbase_output.to_vec();
+
+                                    let mut deserialized_outputs: Vec<TxOut> =
+                                        deserialize(&pool_coinbase_outputs).unwrap();
+
+                                    // we know the first output is where the template revenue must
+                                    // be allocated
+                                    deserialized_outputs[0].value =
+                                        Amount::from_sat(m.coinbase_tx_value_remaining);
+
+                                    let reserialized_outputs = serialize(&deserialized_outputs);
 
                                     // If connected to a pool, notify the Job Declarator with the
                                     // complete template information (including transactions).
@@ -370,7 +380,7 @@ impl TemplateRx {
                                             mining_token,
                                             transactions_data,
                                             excess_data,
-                                            pool_coinbase_out,
+                                            reserialized_outputs,
                                         )
                                         .await;
                                     }
