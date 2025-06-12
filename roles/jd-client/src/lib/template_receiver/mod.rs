@@ -356,7 +356,9 @@ impl TemplateRx {
 
                                     // Extract mining token and pool coinbase output from the token.
                                     let mining_token = token.mining_job_token.to_vec();
-                                    let pool_coinbase_out = token.coinbase_output.to_vec();
+                                    let mut pool_coinbase_outputs = token.coinbase_output.to_vec();
+
+                                    let deserialized_outputs: Vec<TxOut> = deserialize(&pool_coinbase_outputs).unwrap();
 
                                     // If connected to a pool, notify the Job Declarator with the
                                     // complete template information (including transactions).
@@ -367,7 +369,7 @@ impl TemplateRx {
                                             mining_token,
                                             transactions_data,
                                             excess_data,
-                                            pool_coinbase_out,
+                                            pool_coinbase_outputs,
                                         )
                                         .await;
                                     }
