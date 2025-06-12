@@ -1,6 +1,11 @@
+#[derive(Debug)]
 pub enum ExtendedJobError {
-    CoinbaseOutputsSumOverflow,
-    InvalidCoinbaseOutputsSum,
+    FailedToDeserializeCoinbase,
+    CoinbaseInputCountMismatch,
+    FailedToSerializeCoinbaseOutputs,
+    FailedToSerializeCoinbasePrefix,
+    FutureJobNotAllowed,
+    InvalidMinNTime,
 }
 
 pub enum StandardJobError {}
