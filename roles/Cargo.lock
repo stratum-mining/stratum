@@ -589,9 +589,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.34"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e958897981290da2a852763fe9cdb89cd36977a5d729023127095fa94d95e2ff"
+checksum = "fd60e63e9be68e5fb56422e397cf9baddded06dae1d2e523401542383bc72a9f"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -599,9 +599,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.34"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83b0f35019843db2160b5bb19ae09b4e6411ac33fc6a712003c33e03090e2489"
+checksum = "89cc6392a1f72bbeb820d71f32108f61fdaf18bc526e1d23954168a67759ef51"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1422,6 +1422,7 @@ dependencies = [
  "async-recursion 0.3.2",
  "binary_sv2",
  "buffer_sv2",
+ "clap",
  "codec_sv2",
  "config",
  "config-helpers",
@@ -1447,6 +1448,7 @@ dependencies = [
  "async-channel 1.9.0",
  "binary_sv2",
  "buffer_sv2",
+ "clap",
  "codec_sv2",
  "config",
  "config-helpers",
@@ -1644,6 +1646,7 @@ dependencies = [
  "async-recursion 0.3.2",
  "binary_sv2",
  "buffer_sv2",
+ "clap",
  "codec_sv2",
  "config",
  "futures",
@@ -2009,6 +2012,7 @@ dependencies = [
  "async-recursion 1.1.1",
  "binary_sv2",
  "buffer_sv2",
+ "clap",
  "codec_sv2",
  "config",
  "config-helpers",
@@ -2750,6 +2754,7 @@ dependencies = [
  "async-recursion 0.3.2",
  "binary_sv2",
  "buffer_sv2",
+ "clap",
  "codec_sv2",
  "config",
  "error_handling",

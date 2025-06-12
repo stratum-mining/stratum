@@ -43,6 +43,7 @@ key-utils = { path = "../../utils/key-utils" }
 tokio-util = { version = "0.7.10", features = ["codec"] }
 rand = "0.8.4"
 primitive-types = "0.13.1"
+clap = { version = "4.5.39", features = ["derive"] }
 
 [dev-dependencies]
 sha2 = "0.10.6"

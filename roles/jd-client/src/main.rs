@@ -6,40 +6,10 @@
 //! The actual task orchestration and shutdown logic are managed in `lib/mod.rs`.
 
 mod args;
+use args::process_cli_args;
 
-use jd_client::{
-    config::JobDeclaratorClientConfig,
-    error::{Error, ProxyResult},
-    JobDeclaratorClient,
-};
-
-use args::Args;
-use ext_config::{Config, File, FileFormat};
+use jd_client::JobDeclaratorClient;
 use tracing::error;
-
-/// Process CLI args and load configuration.
-#[allow(clippy::result_large_err)]
-fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
-    // Parse CLI arguments
-    let args = Args::from_args().map_err(|help| {
-        error!("{}", help);
-        Error::BadCliArgs
-    })?;
-
-    // Build configuration from the provided file path
-    let config_path = args.config_path.to_str().ok_or_else(|| {
-        error!("Invalid configuration path.");
-        Error::BadCliArgs
-    })?;
-
-    let settings = Config::builder()
-        .add_source(File::new(config_path, FileFormat::Toml))
-        .build()?;
-
-    // Deserialize settings into JobDeclaratorClientConfig
-    let config = settings.try_deserialize::<JobDeclaratorClientConfig>()?;
-    Ok(config)
-}
 
 /// This will start:
 /// 1. An Upstream, this will connect with the mining Pool

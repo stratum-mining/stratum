@@ -40,6 +40,7 @@ pub enum JdsError {
     ImpossibleToReconstructBlock(String),
     NoLastDeclaredJob,
     InvalidRPCUrl,
+    BadCliArgs,
 }
 
 impl std::fmt::Display for JdsError {
@@ -65,6 +66,7 @@ impl std::fmt::Display for JdsError {
             }
             NoLastDeclaredJob => write!(f, "Last declared job not found"),
             InvalidRPCUrl => write!(f, "Invalid Template Provider RPC URL"),
+            BadCliArgs => write!(f, "Bad CLI arg input"),
         }
     }
 }
