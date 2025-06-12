@@ -146,6 +146,12 @@ pub fn extended_job_from_custom_job(
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     let mut outputs =
         tx_outputs_to_costum_scripts(referenced_job.coinbase_tx_outputs.clone().as_ref());
+
+    let mut template_value = 0;
+    for output in &outputs {
+        template_value += output.value.to_sat();
+    }
+
     let mut template = NewTemplate {
         template_id: 0,
         future_template: false,
@@ -153,7 +159,7 @@ pub fn extended_job_from_custom_job(
         coinbase_tx_version: referenced_job.coinbase_tx_version,
         coinbase_prefix: referenced_job.coinbase_prefix.clone(),
         coinbase_tx_input_sequence: referenced_job.coinbase_tx_input_n_sequence,
-        coinbase_tx_value_remaining: referenced_job.coinbase_tx_value_remaining,
+        coinbase_tx_value_remaining: template_value,
         coinbase_tx_outputs_count: outputs.len() as u32,
         coinbase_tx_outputs: referenced_job.coinbase_tx_outputs.clone(),
         coinbase_tx_locktime: referenced_job.coinbase_tx_locktime,

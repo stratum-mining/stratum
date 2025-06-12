@@ -521,7 +521,6 @@ mod tests {
             coinbase_tx_version: 2,
             coinbase_prefix: vec![82, 0].try_into().unwrap(),
             coinbase_tx_input_n_sequence: 4294967295,
-            coinbase_tx_value_remaining: 0,
             coinbase_tx_outputs: vec![
                 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170, 14,
                 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0, 0, 0, 0, 0, 0, 38, 106,
