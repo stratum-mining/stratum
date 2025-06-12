@@ -3,14 +3,14 @@
 //! Handles incoming template distribution messages from the Template Provider and forwards them
 //! as needed.
 use super::TemplateRx;
-use roles_logic_sv2::{
+use std::sync::Arc;
+use stratum_common::roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseTemplateDistributionMessagesFromServer, SendTo},
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
     utils::Mutex,
 };
-use std::sync::Arc;
 use tracing::{debug, error, info};
 
 impl ParseTemplateDistributionMessagesFromServer for TemplateRx {

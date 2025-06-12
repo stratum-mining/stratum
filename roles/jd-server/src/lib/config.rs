@@ -15,7 +15,7 @@ use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{convert::TryInto, time::Duration};
-use stratum_common::bitcoin::{Amount, TxOut};
+use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
@@ -174,7 +174,7 @@ mod tests {
     use config_helpers::CoinbaseOutput;
     use ext_config::{Config, File, FileFormat};
     use std::{convert::TryInto, path::PathBuf};
-    use stratum_common::bitcoin::{Amount, ScriptBuf, TxOut};
+    use stratum_common::roles_logic_sv2::bitcoin::{Amount, ScriptBuf, TxOut};
 
     use crate::config::JobDeclaratorServerConfig;
 

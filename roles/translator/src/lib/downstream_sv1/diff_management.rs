@@ -14,8 +14,8 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};
 use primitive_types::U256;
-use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
 use std::{ops::Div, sync::Arc};
+use stratum_common::roles_logic_sv2::{codec_sv2::binary_sv2, mining_sv2::Target, utils::Mutex};
 use tracing::debug;
 use v1::json_rpc;
 
@@ -228,13 +228,17 @@ mod test {
 
     use crate::config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig};
     use async_channel::unbounded;
-    use binary_sv2::U256;
     use rand::{thread_rng, Rng};
-    use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
     use sha2::{Digest, Sha256};
     use std::{
         sync::Arc,
         time::{Duration, Instant},
+    };
+    use stratum_common::roles_logic_sv2::{
+        self,
+        codec_sv2::binary_sv2::{self, U256},
+        mining_sv2::Target,
+        utils::Mutex,
     };
 
     use crate::downstream_sv1::Downstream;

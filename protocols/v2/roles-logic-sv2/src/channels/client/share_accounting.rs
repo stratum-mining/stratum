@@ -1,7 +1,7 @@
 //! Abstractions for share validation for a Mining Client
 
+use bitcoin::hashes::sha256d::Hash;
 use std::collections::HashSet;
-use stratum_common::bitcoin::hashes::sha256d::Hash;
 
 /// The outcome of share validation, from the perspective of a Mining Client.
 #[derive(Debug)]

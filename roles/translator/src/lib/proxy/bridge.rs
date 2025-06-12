@@ -27,7 +27,8 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use error_handling::handle_result;
-use roles_logic_sv2::{
+use std::sync::Arc;
+use stratum_common::roles_logic_sv2::{
     channel_logic::channel_factory::{
         ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share,
     },
@@ -38,7 +39,6 @@ use roles_logic_sv2::{
     utils::{GroupId, Mutex},
     Error as RolesLogicError,
 };
-use std::sync::Arc;
 use tokio::{sync::broadcast, task::AbortHandle};
 use tracing::{debug, error, info, warn};
 use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
@@ -588,7 +588,10 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
-    use stratum_common::bitcoin::{absolute::LockTime, consensus, transaction::Version};
+    use stratum_common::roles_logic_sv2::{
+        bitcoin::{absolute::LockTime, consensus, transaction::Version},
+        codec_sv2::binary_sv2,
+    };
 
     pub mod test_utils {
         use super::*;
@@ -654,9 +657,8 @@ mod test {
 
     #[test]
     fn test_version_bits_insert() {
-        use stratum_common::{
-            bitcoin,
-            bitcoin::{blockdata::witness::Witness, hashes::Hash},
+        use stratum_common::roles_logic_sv2::bitcoin::{
+            self, blockdata::witness::Witness, hashes::Hash,
         };
 
         let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16, None)

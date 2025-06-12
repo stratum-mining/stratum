@@ -1,5 +1,5 @@
-use roles_logic_sv2::{parsers::AnyMessage, utils::Mutex};
 use std::{collections::VecDeque, sync::Arc};
+use stratum_common::roles_logic_sv2::{parsers::AnyMessage, utils::Mutex};
 
 use crate::types::MsgType;
 

@@ -2,6 +2,7 @@
 //!
 //! `stratum_common` is a utility crate designed to centralize
 //! and manage the shared dependencies and utils across stratum crates.
-#[cfg(feature = "bitcoin")]
-pub use bitcoin;
-pub use secp256k1;
+
+#[cfg(feature = "with_network_helpers")]
+pub use network_helpers_sv2;
+pub use roles_logic_sv2;

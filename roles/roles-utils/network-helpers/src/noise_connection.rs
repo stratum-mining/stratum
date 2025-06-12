@@ -1,7 +1,9 @@
 use crate::Error;
 use async_channel::{unbounded, Receiver, Sender};
-use binary_sv2::{Deserialize, GetSize, Serialize};
-use codec_sv2::{HandshakeRole, StandardEitherFrame, StandardNoiseDecoder};
+use codec_sv2::{
+    binary_sv2::{Deserialize, GetSize, Serialize},
+    HandshakeRole, StandardEitherFrame, StandardNoiseDecoder,
+};
 use futures::lock::Mutex;
 use std::sync::Arc;
 use tokio::{

@@ -5,11 +5,11 @@ pub mod selectors;
 pub mod upstream_mining;
 
 use once_cell::sync::OnceCell;
-use roles_logic_sv2::utils::{GroupId, Id, Mutex};
 use routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic};
 use selectors::GeneralMiningSelector;
 use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
+use stratum_common::roles_logic_sv2::utils::{GroupId, Id, Mutex};
 use tokio::{net::TcpListener, sync::oneshot};
 use tracing::info;
 use upstream_mining::UpstreamMiningNode;

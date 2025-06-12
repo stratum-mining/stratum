@@ -13,13 +13,13 @@
 use async_channel::{bounded, unbounded};
 use futures::FutureExt;
 use rand::Rng;
-pub use roles_logic_sv2::utils::Mutex;
 use status::Status;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
 };
+pub use stratum_common::roles_logic_sv2::utils::Mutex;
 
 use tokio::{
     select,

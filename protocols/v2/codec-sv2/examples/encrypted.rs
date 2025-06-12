@@ -30,8 +30,6 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
 };
-#[cfg(feature = "noise_sv2")]
-use stratum_common::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
 
 // Arbitrary message type.
 // Supported Sv2 message types are listed in the [Sv2 Spec Message
@@ -64,6 +62,8 @@ pub struct CustomMessage {
 #[cfg(feature = "noise_sv2")]
 fn main() {
     // Start a receiving listener
+
+    use noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
     let listener_receiver = TcpListener::bind(TCP_ADDR).expect("Failed to bind TCP listener");
 
     // Start a sender stream

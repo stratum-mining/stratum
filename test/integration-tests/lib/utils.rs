@@ -5,27 +5,32 @@ use crate::{
     types::{MessageFrame, MsgType},
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{
-    framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame, Sv2Frame,
-};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers_sv2::noise_connection::Connection;
 use once_cell::sync::Lazy;
-use roles_logic_sv2::parsers::{
-    message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
-    JobDeclaration::{
-        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-        DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
-        ProvideMissingTransactionsSuccess, PushSolution,
-    },
-    TemplateDistribution,
-    TemplateDistribution::CoinbaseOutputConstraints,
-};
 use std::{
     collections::HashSet,
     convert::TryInto,
     net::{SocketAddr, TcpListener},
     sync::Mutex,
+};
+use stratum_common::{
+    network_helpers_sv2::noise_connection::Connection,
+    roles_logic_sv2::{
+        codec_sv2::{
+            framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame,
+            Sv2Frame,
+        },
+        parsers::{
+            message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
+            JobDeclaration::{
+                AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
+                DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
+                ProvideMissingTransactionsSuccess, PushSolution,
+            },
+            TemplateDistribution,
+            TemplateDistribution::CoinbaseOutputConstraints,
+        },
+    },
 };
 
 // prevents get_available_port from ever returning the same port twice

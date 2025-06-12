@@ -1,5 +1,5 @@
 use crate::types::MsgType;
-use roles_logic_sv2::parsers::AnyMessage;
+use stratum_common::roles_logic_sv2::parsers::AnyMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageDirection {

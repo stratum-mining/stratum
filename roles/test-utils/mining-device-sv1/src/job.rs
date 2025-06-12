@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use stratum_common::roles_logic_sv2;
 use v1::server_to_client;
 
 /// Represents a new Job built from an incoming `mining.notify` message from the Upstream server.

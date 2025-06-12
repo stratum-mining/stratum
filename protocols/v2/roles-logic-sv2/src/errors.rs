@@ -10,13 +10,13 @@ use crate::{
     utils::InputError,
     vardiff::error::VardiffError,
 };
-use binary_sv2::Error as BinarySv2Error;
+use bitcoin::hashes::FromSliceError;
+use codec_sv2::binary_sv2::Error as BinarySv2Error;
 use mining_sv2::ExtendedExtranonceError;
 use std::{
     fmt::{self, Display, Formatter},
     sync::{MutexGuard, PoisonError},
 };
-use stratum_common::bitcoin::hashes::FromSliceError;
 
 /// Error enum
 #[derive(Debug)]
