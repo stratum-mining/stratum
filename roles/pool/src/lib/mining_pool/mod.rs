@@ -38,7 +38,10 @@ use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
-    mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN},
+    mining_sv2::{
+        ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
+        MAX_EXTRANONCE_LEN,
+    },
     parsers::{AnyMessage, Mining},
     template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution},
     utils::{Id as IdFactory, Mutex},
@@ -48,11 +51,15 @@ use std::{
     convert::TryInto,
     net::SocketAddr,
     sync::{Arc, RwLock},
+    time::Duration,
 };
 use stratum_common::{
     bitcoin::{Amount, ScriptBuf, TxOut},
     secp256k1,
 };
+
+use roles_logic_sv2::Vardiff;
+
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
 
@@ -88,6 +95,48 @@ pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOu
     }
 }
 
+#[derive(Clone)]
+enum Channel {
+    ExtendedChannel(Arc<RwLock<ExtendedChannel<'static>>>),
+    StandardChannel(Arc<RwLock<StandardChannel<'static>>>),
+}
+
+impl Channel {
+    pub fn set_target(&self, target: Target) {
+        match self {
+            Channel::ExtendedChannel(extended_channel) => {
+                extended_channel
+                    .write()
+                    .expect("Extended channel should be present")
+                    .set_target(target);
+            }
+            Channel::StandardChannel(standard_channel) => {
+                standard_channel
+                    .write()
+                    .expect("Standard channel should be present")
+                    .set_target(target);
+            }
+        }
+    }
+
+    pub fn set_nominal_hashrate(&self, hashrate: f32) {
+        match self {
+            Channel::ExtendedChannel(extended_channel) => {
+                extended_channel
+                    .write()
+                    .expect("Extended channel should be present")
+                    .set_nominal_hashrate(hashrate);
+            }
+            Channel::StandardChannel(standard_channel) => {
+                standard_channel
+                    .write()
+                    .expect("Standard channel should be present")
+                    .set_nominal_hashrate(hashrate);
+            }
+        }
+    }
+}
+
 /// Represents a single connection to a downstream miner.
 ///
 /// Encapsulates the state and communication channels for one miner. An instance
@@ -114,6 +163,7 @@ pub struct Downstream {
     extended_channels: HashMap<u32, Arc<RwLock<ExtendedChannel<'static>>>>,
     // A map of all standard channels, keyed by their ID.
     standard_channels: HashMap<u32, Arc<RwLock<StandardChannel<'static>>>>,
+    vardiff: HashMap<u32, Arc<RwLock<Box<dyn Vardiff>>>>,
     // naive approach:
     // we create one group channel for the connection
     // and add all standard channels to this same single group channel
@@ -253,6 +303,7 @@ impl Downstream {
             channel_id_factory,
             extended_channels: HashMap::new(),
             standard_channels: HashMap::new(),
+            vardiff: HashMap::new(),
             group_channel,
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
@@ -361,6 +412,49 @@ impl Downstream {
     ) -> PoolResult<()> {
         match send_to {
             Ok(SendTo::Respond(message)) => {
+                match &message {
+                    Mining::OpenExtendedMiningChannelSuccess(m) => {
+                        let (vardiff, sender, channel) = self_.safe_lock(|downstream| {
+                            let vardiff = downstream
+                                .vardiff
+                                .get(&m.channel_id)
+                                .expect("Vardiff should be present")
+                                .clone();
+                            let sender = downstream.sender.clone();
+                            let channel = downstream
+                                .extended_channels
+                                .get(&m.channel_id)
+                                .expect("Extended channel should exist")
+                                .clone();
+                            (vardiff, sender, channel)
+                        })?;
+
+                        let channel = Channel::ExtendedChannel(channel);
+                        spawn_vardiff_loop(m.channel_id, channel, vardiff, sender);
+                    }
+
+                    Mining::OpenStandardMiningChannelSuccess(m) => {
+                        let (vardiff, sender, channel) = self_.safe_lock(|downstream| {
+                            let vardiff = downstream
+                                .vardiff
+                                .get(&m.channel_id)
+                                .expect("Vardiff should be present")
+                                .clone();
+                            let sender = downstream.sender.clone();
+                            let channel = downstream
+                                .standard_channels
+                                .get(&m.channel_id)
+                                .expect("Extended channel should exist")
+                                .clone();
+                            (vardiff, sender, channel)
+                        })?;
+                        let channel = Channel::StandardChannel(channel);
+                        spawn_vardiff_loop(m.channel_id, channel, vardiff, sender);
+                    }
+
+                    _ => {}
+                }
+
                 debug!("Sending to downstream: {:?}", message);
                 // returning an error will send the error to the main thread,
                 // and the main thread will drop the downstream from the pool
@@ -683,6 +777,7 @@ impl Pool {
                     handle_result!(status_tx, res);
                 }
             }
+
             handle_result!(status_tx, sender_message_received_signal.send(()).await);
         }
         Ok(())
@@ -1111,6 +1206,94 @@ impl Pool {
     pub fn remove_downstream(&mut self, downstream_id: u32) {
         self.downstreams.remove(&downstream_id);
     }
+}
+
+pub async fn update_hashrate_and_get_set_difficult(
+    channel_id: u32,
+    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+) -> Result<Option<roles_logic_sv2::parsers::Mining<'static>>, PoolError> {
+    debug!("Attempting try_vardiff for channel_id={channel_id}");
+    let new_hashrate = match vardiff.write() {
+        Ok(mut v) => v.try_vardiff(),
+        Err(e) => {
+            error!("Failed to acquire write lock on vardiff for channel_id={channel_id}: {e}");
+            return Err(PoolError::PoisonLock(e.to_string()));
+        }
+    }?;
+
+    if new_hashrate.is_some() {
+        debug!("New hashrate detected for channel_id={channel_id}, preparing SetTarget message");
+        let target = match vardiff.read() {
+            Ok(v) => v.target(),
+            Err(e) => {
+                error!("Failed to acquire read lock on vardiff for channel_id={channel_id}: {e}");
+                return Err(PoolError::PoisonLock(e.to_string()));
+            }
+        };
+
+        let target_message = SetTarget {
+            channel_id,
+            maximum_target: target.into(),
+        };
+
+        let mining_msg = Mining::SetTarget(target_message);
+
+        Ok(Some(mining_msg))
+    } else {
+        debug!("No hashrate adjustment needed for channel_id={channel_id}");
+        Ok(None)
+    }
+}
+
+async fn send_set_target_downstream(
+    sender: Sender<EitherFrame>,
+    channel_id: u32,
+    channel: Channel,
+    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+) -> Result<(), PoolError> {
+    if let Some(m) = update_hashrate_and_get_set_difficult(channel_id, vardiff.clone()).await? {
+        let target = vardiff
+            .read()
+            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
+            .target();
+        let new_hashrate = vardiff
+            .read()
+            .map_err(|e| PoolError::PoisonLock(e.to_string()))?
+            .hashrate();
+        channel.set_target(target);
+        channel.set_nominal_hashrate(new_hashrate);
+        info!("Set Target Message: {:?}", m);
+        let sv2_frame: StdFrame = AnyMessage::Mining(m).try_into()?;
+        sender.send(sv2_frame.into()).await?;
+    }
+    Ok(())
+}
+
+fn spawn_vardiff_loop(
+    channel_id: u32,
+    channel: Channel,
+    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+    sender: Sender<EitherFrame>,
+) {
+    info!("Spawning vardiff loop for channel_id={channel_id}");
+    tokio::spawn(async move {
+        loop {
+            debug!("Sleeping 60s before sending SetTarget for channel_id={channel_id}");
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            if let Err(e) = send_set_target_downstream(
+                sender.clone(),
+                channel_id,
+                channel.clone(),
+                vardiff.clone(),
+            )
+            .await
+            {
+                warn!("Vardiff loop exiting for channel_id={channel_id} due to error: {e}");
+                break;
+            }
+        }
+        info!("Vardiff loop terminated for channel_id={channel_id}");
+    });
 }
 
 #[cfg(test)]
