@@ -38,7 +38,8 @@ use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOU
 
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
-    utils::Mutex,
+    mining_sv2::Target,
+    utils::{hash_rate_to_target, Mutex},
     vardiff::Vardiff,
     VardiffState,
 };
@@ -85,6 +86,10 @@ pub struct Downstream {
     first_job_received: bool,
     /// The expected size of the extranonce2 field provided by the miner.
     extranonce2_len: usize,
+    // Current Channel target
+    pub target: Target,
+    // Current channel hashrate
+    pub hashrate: f32,
     /// Configuration and state for managing difficulty adjustments specific
     /// to this individual downstream miner.
     pub(super) difficulty_mgmt: Box<dyn Vardiff>,
@@ -108,11 +113,14 @@ impl Downstream {
         difficulty_mgmt: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> Self {
-        let downstream_difficulty_state = VardiffState::new(
-            difficulty_mgmt.shares_per_minute,
-            difficulty_mgmt.min_individual_miner_hashrate,
-        )
-        .unwrap();
+        use roles_logic_sv2::utils::hash_rate_to_target;
+
+        let hashrate = difficulty_mgmt.min_individual_miner_hashrate;
+        let target = hash_rate_to_target(hashrate.into(), difficulty_mgmt.shares_per_minute.into())
+            .unwrap()
+            .into();
+        let downstream_difficulty_state =
+            VardiffState::new(difficulty_mgmt.shares_per_minute).unwrap();
         Downstream {
             connection_id,
             authorized_names,
@@ -123,6 +131,8 @@ impl Downstream {
             tx_outgoing,
             first_job_received,
             extranonce2_len,
+            hashrate,
+            target,
             difficulty_mgmt: Box::new(downstream_difficulty_state),
             upstream_difficulty_config,
         }
@@ -152,11 +162,14 @@ impl Downstream {
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
         task_collector: Arc<Mutex<Vec<(AbortHandle, String)>>>,
     ) {
-        let downstream_difficulty_state = VardiffState::new(
-            difficulty_config.shares_per_minute,
-            difficulty_config.min_individual_miner_hashrate,
-        )
-        .expect("Couldn't initialize vardiff module");
+        let hashrate = difficulty_config.min_individual_miner_hashrate;
+        let target =
+            hash_rate_to_target(hashrate.into(), difficulty_config.shares_per_minute.into())
+                .expect("Couldn't convert hashrate to target")
+                .into();
+
+        let downstream_difficulty_state = VardiffState::new(difficulty_config.shares_per_minute)
+            .expect("Couldn't initialize vardiff module");
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, mut socket_writer) = stream.into_split();
         let (tx_outgoing, receiver_outgoing) = bounded(10);
@@ -172,6 +185,8 @@ impl Downstream {
             tx_outgoing,
             first_job_received: false,
             extranonce2_len,
+            hashrate,
+            target,
             difficulty_mgmt: Box::new(downstream_difficulty_state),
             upstream_difficulty_config,
         }));
@@ -314,7 +329,7 @@ impl Downstream {
                 };
                 if is_a && !first_sent && last_notify.is_some() {
                     let target = downstream
-                        .safe_lock(|d| d.difficulty_mgmt.target())
+                        .safe_lock(|d| d.target.clone())
                         .expect("downstream target couldn't be computed");
                     // make sure the mining start time is initialized and reset number of shares
                     // submitted

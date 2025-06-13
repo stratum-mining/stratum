@@ -1,13 +1,12 @@
 /// Classic implementation test suite
 use crate::vardiff::test::{
-    simulate_shares_and_wait, TEST_INITIAL_HASHRATE, TEST_MIN_ALLOWED_HASHRATE,
-    TEST_SHARES_PER_MINUTE,
+    simulate_shares_and_wait, TEST_MIN_ALLOWED_HASHRATE, TEST_SHARES_PER_MINUTE,
 };
-use crate::{vardiff::VardiffError, VardiffState};
+use crate::{utils::hash_rate_to_target, vardiff::VardiffError, VardiffState};
 
 use super::{
-    test_increment_and_reset_shares, test_set_hashrate_updates_target,
-    test_try_vardiff_low_hashrate_decrease_target, test_try_vardiff_no_shares_30_to_60s_decrease,
+    test_increment_and_reset_shares, test_try_vardiff_low_hashrate_decrease_target,
+    test_try_vardiff_no_shares_30_to_60s_decrease,
     test_try_vardiff_no_shares_less_than_30s_decrease,
     test_try_vardiff_no_shares_more_than_60s_decrease,
     test_try_vardiff_stable_hashrate_minimal_change_or_no_change,
@@ -16,27 +15,16 @@ use super::{
 };
 
 fn new_test_vardiff_state() -> Result<VardiffState, VardiffError> {
-    VardiffState::new_with_min(
-        TEST_SHARES_PER_MINUTE,
-        TEST_INITIAL_HASHRATE,
-        TEST_MIN_ALLOWED_HASHRATE,
-    )
+    VardiffState::new_with_min(TEST_SHARES_PER_MINUTE, TEST_MIN_ALLOWED_HASHRATE)
 }
 
 #[test]
 fn test_initialization_and_getters() {
     let vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
 
-    assert_eq!(vardiff.hashrate(), TEST_INITIAL_HASHRATE);
     assert_eq!(vardiff.shares_per_minute(), TEST_SHARES_PER_MINUTE);
     assert_eq!(vardiff.min_allowed_hashrate(), TEST_MIN_ALLOWED_HASHRATE);
     assert_eq!(vardiff.shares_since_last_update(), 0);
-}
-
-#[test]
-fn test_set_hashrate_updates_target_classic() {
-    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
-    test_set_hashrate_updates_target(&mut vardiff);
 }
 
 #[test]
@@ -101,27 +89,29 @@ fn test_try_vardiff_with_less_spm_than_expected_classic() {
 
 #[test]
 fn test_try_vardiff_hashrate_clamps_to_minimum() {
-    let mut vardiff = VardiffState::new_with_min(
-        TEST_SHARES_PER_MINUTE,
-        TEST_MIN_ALLOWED_HASHRATE * 1.5,
-        TEST_MIN_ALLOWED_HASHRATE,
-    )
-    .expect("Failed to create VardiffState");
+    let hashrate = TEST_MIN_ALLOWED_HASHRATE * 1.5;
+    let target = hash_rate_to_target(hashrate.into(), TEST_SHARES_PER_MINUTE.into())
+        .unwrap()
+        .into();
+
+    let mut vardiff = VardiffState::new_with_min(TEST_SHARES_PER_MINUTE, TEST_MIN_ALLOWED_HASHRATE)
+        .expect("Failed to create VardiffState");
 
     let simulation_duration_secs = 16;
     simulate_shares_and_wait(&mut vardiff, 0, simulation_duration_secs);
 
-    let result = vardiff.try_vardiff().expect("try_vardiff failed");
+    let result = vardiff
+        .try_vardiff(hashrate, &target)
+        .expect("try_vardiff failed");
     assert!(result.is_some(), "Hashrate should update");
-    let new_hashrate = result.unwrap();
+    let (new_hashrate, _) = result.unwrap();
 
     assert_eq!(
         new_hashrate, TEST_MIN_ALLOWED_HASHRATE,
         "Hashrate should be clamped to minimum"
     );
     assert_eq!(
-        vardiff.hashrate(),
-        TEST_MIN_ALLOWED_HASHRATE,
+        new_hashrate, TEST_MIN_ALLOWED_HASHRATE,
         "Stored hashrate should be clamped"
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
