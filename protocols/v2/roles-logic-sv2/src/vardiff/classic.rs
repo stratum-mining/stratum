@@ -114,7 +114,7 @@ impl Vardiff for VardiffState {
     fn try_vardiff(
         &mut self,
         hashrate: f32,
-        target: Target,
+        target: &Target,
     ) -> Result<Option<(f32, Target)>, VardiffError> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -208,10 +208,10 @@ impl Vardiff for VardiffState {
         }
         self.reset_counter()?;
 
-        let current_target = hash_rate_to_target(hashrate as f64, self.shares_per_minute as f64)
+        let new_target = hash_rate_to_target(new_hashrate as f64, self.shares_per_minute as f64)
             .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
             .into();
 
-        Ok(Some((new_hashrate, current_target)))
+        Ok(Some((new_hashrate, new_target)))
     }
 }

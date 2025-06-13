@@ -32,7 +32,7 @@ pub trait Vardiff: Debug + Send {
     fn try_vardiff(
         &mut self,
         hashrate: f32,
-        target: Target,
+        target: &Target,
     ) -> Result<Option<(f32, Target)>, VardiffError>;
 
     /// Gets the minimum allowed hashrate (H/s).
