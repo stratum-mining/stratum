@@ -634,7 +634,8 @@ impl Pool {
                             .map_err(Error::FailedToProcessSetNewPrevHashStandardChannel)?;
 
                         // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
-                        // if yes, we need to send the SetNewPrevHashMp to each standard channel
+                        // if yes, there's no group channel, so we need to send the SetNewPrevHashMp
+                        // to each standard channel
                         if d.group_channel.is_none() {
                             let activated_standard_job_id = standard_channel
                                 .get_active_job()
@@ -750,9 +751,11 @@ impl Pool {
                                     .map_err(Error::FailedToProcessNewTemplateStandardChannel)?;
 
                                 // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
-                                // if yes, we need to send the future job to each standard channel
-                                // if no, there's no standard job to send
-                                if d.group_channel.is_some() {
+                                // if yes, there's no group channel, so we need to send the future
+                                // job to each standard channel
+                                // if no, there's a group channel and there's no standard job to
+                                // send
+                                if d.group_channel.is_none() {
                                     let standard_job_id = standard_channel
                                         .get_future_template_to_job_id()
                                         .get(&new_template.template_id)
@@ -785,8 +788,10 @@ impl Pool {
                                     .map_err(Error::FailedToProcessNewTemplateStandardChannel)?;
 
                                 // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
-                                // if yes, we need to send the non-future job to each standard
-                                // channel if no, there's no standard job to send
+                                // if yes, there's no group channel, so we need to send the
+                                // non-future job to each standard channel
+                                // if no, there is a group channel, so there's no standard job to
+                                // send
                                 if d.group_channel.is_none() {
                                     let standard_job = standard_channel
                                         .get_active_job()
