@@ -1,10 +1,18 @@
 use crate::{
-    channels::server::jobs::JobOrigin, template_distribution_sv2::NewTemplate,
+    channels::{
+        chain_tip::ChainTip,
+        server::jobs::{error::ExtendedJobError, JobOrigin},
+    },
+    template_distribution_sv2::NewTemplate,
     utils::deserialize_outputs,
 };
-use binary_sv2::{Seq0255, Sv2Option, B064K, U256};
-use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob};
-use stratum_common::bitcoin::transaction::TxOut;
+use binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
+use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
+use std::convert::TryInto;
+use stratum_common::bitcoin::{
+    consensus::{deserialize, serialize},
+    transaction::{Transaction, TxOut},
+};
 
 /// Abstraction of an extended mining job with:
 /// - the `NewTemplate` OR `SetCustomMiningJob` message that originated it
@@ -60,13 +68,88 @@ impl<'a> ExtendedJob<'a> {
     /// Converts the `ExtendedJob` into a `SetCustomMiningJob` message.
     ///
     /// To be used by a Sv2 Job Declaration Client after:
-    /// - creating a non-future extended job from a non-future template
-    /// - activating a future extended job (that was created from a future template)
-    pub fn into_custom_job(self) -> SetCustomMiningJob<'a> {
-        // we need to wait for the outcome of the discussions around
-        // https://github.com/stratum-mining/sv2-spec/issues/133
-        // before implementing this
-        todo!()
+    /// - a non-future `ExtendedJob` was created from a non-future `NewTemplate`
+    /// - a future `ExtendedJob` was activated into a non-future `ExtendedJob`
+    ///
+    /// In other words, a future `ExtendedJob` cannot be converted into a `SetCustomMiningJob`.
+    pub fn into_custom_job(
+        self,
+        request_id: u32,
+        token: B0255<'a>,
+        chain_tip: ChainTip,
+    ) -> Result<SetCustomMiningJob<'a>, ExtendedJobError> {
+        let coinbase_tx_prefix = self.get_coinbase_tx_prefix().inner_as_ref();
+        let coinbase_tx_suffix = self.get_coinbase_tx_suffix().inner_as_ref();
+
+        let mut serialized_coinbase = Vec::new();
+        serialized_coinbase.extend(coinbase_tx_prefix);
+        serialized_coinbase.extend(vec![0; MAX_EXTRANONCE_LEN]);
+        serialized_coinbase.extend(coinbase_tx_suffix);
+
+        let deserialized_coinbase: Transaction = deserialize(&serialized_coinbase)
+            .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbase)?;
+
+        if deserialized_coinbase.input.len() != 1 {
+            return Err(ExtendedJobError::CoinbaseInputCountMismatch);
+        }
+
+        let min_ntime = if let Some(job_min_ntime) = self.job_message.min_ntime.clone().into_inner()
+        {
+            // job min_ntime must be coherent with the provided chain tip
+            // because chain_tip is where prev_hash and nbits are coming from
+            if job_min_ntime < chain_tip.min_ntime() {
+                return Err(ExtendedJobError::InvalidMinNTime);
+            }
+
+            job_min_ntime
+        } else {
+            // future jobs are not allowed to be converted into `SetCustomMiningJob` messages
+            return Err(ExtendedJobError::FutureJobNotAllowed);
+        };
+
+        let prev_hash = chain_tip.prev_hash();
+        let nbits = chain_tip.nbits();
+
+        let coinbase_prefix_start_index = 4 // tx version
+            + 2 // segwit bytes
+            + 1 // number of inputs
+            + 32 // prev OutPoint
+            + 4 // index
+            + 1; // bytes in script
+        let coinbase_prefix: B0255<'a> = coinbase_tx_prefix[coinbase_prefix_start_index..]
+            .to_vec()
+            .try_into()
+            .map_err(|_| ExtendedJobError::FailedToSerializeCoinbasePrefix)?;
+        let coinbase_tx_version = deserialized_coinbase.version.0 as u32;
+        let coinbase_tx_locktime = deserialized_coinbase.lock_time.to_consensus_u32();
+        let coinbase_tx_input_n_sequence = deserialized_coinbase.input[0].sequence.0 as u32;
+        let coinbase_tx_value_remaining = 0; // this will be removed soon
+
+        let mut serialized_outputs = Vec::new();
+        for output in &deserialized_coinbase.output {
+            serialized_outputs.extend_from_slice(&serialize(output));
+        }
+
+        let coinbase_tx_outputs: B064K<'a> = serialized_outputs
+            .try_into()
+            .map_err(|_| ExtendedJobError::FailedToSerializeCoinbaseOutputs)?;
+
+        Ok(SetCustomMiningJob {
+            channel_id: self.job_message.channel_id,
+            request_id,
+            token,
+            version: self.get_version(),
+            prev_hash,
+            min_ntime,
+            nbits,
+            coinbase_tx_version,
+            coinbase_prefix,
+            coinbase_tx_input_n_sequence,
+            coinbase_tx_value_remaining,
+            coinbase_tx_outputs,
+            coinbase_tx_locktime,
+            merkle_path: self.get_merkle_path().clone(),
+        })
     }
 
     pub fn get_job_id(&self) -> u32 {
