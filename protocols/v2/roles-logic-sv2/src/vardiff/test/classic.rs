@@ -15,14 +15,13 @@ use super::{
 };
 
 fn new_test_vardiff_state() -> Result<VardiffState, VardiffError> {
-    VardiffState::new_with_min(TEST_SHARES_PER_MINUTE, TEST_MIN_ALLOWED_HASHRATE)
+    VardiffState::new_with_min(TEST_MIN_ALLOWED_HASHRATE)
 }
 
 #[test]
 fn test_initialization_and_getters() {
     let vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
 
-    assert_eq!(vardiff.shares_per_minute(), TEST_SHARES_PER_MINUTE);
     assert_eq!(vardiff.min_allowed_hashrate(), TEST_MIN_ALLOWED_HASHRATE);
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
@@ -94,14 +93,14 @@ fn test_try_vardiff_hashrate_clamps_to_minimum() {
         .unwrap()
         .into();
 
-    let mut vardiff = VardiffState::new_with_min(TEST_SHARES_PER_MINUTE, TEST_MIN_ALLOWED_HASHRATE)
+    let mut vardiff = VardiffState::new_with_min(TEST_MIN_ALLOWED_HASHRATE)
         .expect("Failed to create VardiffState");
 
     let simulation_duration_secs = 16;
     simulate_shares_and_wait(&mut vardiff, 0, simulation_duration_secs);
 
     let result = vardiff
-        .try_vardiff(hashrate, &target)
+        .try_vardiff(hashrate, &target, TEST_SHARES_PER_MINUTE)
         .expect("try_vardiff failed");
     assert!(result.is_some(), "Hashrate should update");
     let (new_hashrate, _) = result.unwrap();

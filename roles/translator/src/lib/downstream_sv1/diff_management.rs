@@ -195,9 +195,11 @@ impl Downstream {
         let update = self_.super_safe_lock(|d| {
             let previous_hashrate = d.hashrate;
             let previous_target = d.target.clone();
-            let update = d
-                .difficulty_mgmt
-                .try_vardiff(previous_hashrate, &previous_target);
+            let update = d.difficulty_mgmt.try_vardiff(
+                previous_hashrate,
+                &previous_target,
+                d.shares_per_minute,
+            );
             if let Ok(Some((new_hashrate, ref new_target))) = update {
                 // update channel hashrate and target
                 d.hashrate = new_hashrate;

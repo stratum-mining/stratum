@@ -90,6 +90,8 @@ pub struct Downstream {
     pub target: Target,
     // Current channel hashrate
     pub hashrate: f32,
+    // Shares_per_minute
+    pub shares_per_minute: f32,
     /// Configuration and state for managing difficulty adjustments specific
     /// to this individual downstream miner.
     pub(super) difficulty_mgmt: Box<dyn Vardiff>,
@@ -119,8 +121,7 @@ impl Downstream {
         let target = hash_rate_to_target(hashrate.into(), difficulty_mgmt.shares_per_minute.into())
             .unwrap()
             .into();
-        let downstream_difficulty_state =
-            VardiffState::new(difficulty_mgmt.shares_per_minute).unwrap();
+        let downstream_difficulty_state = VardiffState::new().unwrap();
         Downstream {
             connection_id,
             authorized_names,
@@ -133,6 +134,7 @@ impl Downstream {
             extranonce2_len,
             hashrate,
             target,
+            shares_per_minute: difficulty_mgmt.shares_per_minute,
             difficulty_mgmt: Box::new(downstream_difficulty_state),
             upstream_difficulty_config,
         }
@@ -168,8 +170,8 @@ impl Downstream {
                 .expect("Couldn't convert hashrate to target")
                 .into();
 
-        let downstream_difficulty_state = VardiffState::new(difficulty_config.shares_per_minute)
-            .expect("Couldn't initialize vardiff module");
+        let downstream_difficulty_state =
+            VardiffState::new().expect("Couldn't initialize vardiff module");
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, mut socket_writer) = stream.into_split();
         let (tx_outgoing, receiver_outgoing) = bounded(10);
@@ -187,6 +189,7 @@ impl Downstream {
             extranonce2_len,
             hashrate,
             target,
+            shares_per_minute: difficulty_config.shares_per_minute,
             difficulty_mgmt: Box::new(downstream_difficulty_state),
             upstream_difficulty_config,
         }));

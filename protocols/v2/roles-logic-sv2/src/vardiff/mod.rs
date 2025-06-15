@@ -9,9 +9,6 @@ pub mod test;
 
 /// Trait defining the interface for a Vardiff implementation.
 pub trait Vardiff: Debug + Send {
-    /// Gets the target shares per minute.
-    fn shares_per_minute(&self) -> f32;
-
     /// Gets the timestamp of the last update.
     fn last_update_timestamp(&self) -> u64;
 
@@ -33,6 +30,7 @@ pub trait Vardiff: Debug + Send {
         &mut self,
         hashrate: f32,
         target: &Target,
+        shares_per_minute: f32,
     ) -> Result<Option<(f32, Target)>, VardiffError>;
 
     /// Gets the minimum allowed hashrate (H/s).

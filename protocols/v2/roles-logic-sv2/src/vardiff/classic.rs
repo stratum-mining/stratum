@@ -12,8 +12,6 @@ use super::{error::VardiffError, Vardiff};
 /// Tracks performance and adjusts the mining target to achieve a desired share rate.
 #[derive(Debug)]
 pub struct VardiffState {
-    /// Target number of shares to be submitted per minute.
-    pub shares_per_minute: f32,
     /// Count of shares received since the last difficulty adjustment.
     pub shares_since_last_update: u32,
     /// Unix timestamp (seconds) of the last difficulty adjustment.
@@ -28,8 +26,8 @@ impl VardiffState {
     /// # Arguments
     /// * `shares_per_minute` - The target share submission rate.
     /// * `estimated_hashrate` - The initial hashrate estimate.
-    pub fn new(shares_per_minute: f32) -> Result<Self, VardiffError> {
-        Self::new_with_min(shares_per_minute, DEFAULT_MIN_HASHRATE)
+    pub fn new() -> Result<Self, VardiffError> {
+        Self::new_with_min(DEFAULT_MIN_HASHRATE)
     }
 
     /// Creates a new `VardiffState` with a specific minimum hashrate.
@@ -38,25 +36,16 @@ impl VardiffState {
     /// * `shares_per_minute` - The target share submission rate.
     /// * `estimated_hashrate` - The initial hashrate estimate.
     /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
-    pub fn new_with_min(
-        shares_per_minute: f32,
-        min_allowed_hashrate: f32,
-    ) -> Result<Self, VardiffError> {
+    pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
 
         Ok(VardiffState {
-            shares_per_minute,
             shares_since_last_update: 0,
             timestamp_of_last_update: timestamp_secs,
             min_allowed_hashrate,
         })
-    }
-
-    /// Sets the target shares per minute.
-    pub fn set_shares_per_minute(&mut self, shares_per_minute: f32) {
-        self.shares_per_minute = shares_per_minute;
     }
 
     /// Sets the count of shares since the last update.
@@ -66,10 +55,6 @@ impl VardiffState {
 }
 
 impl Vardiff for VardiffState {
-    fn shares_per_minute(&self) -> f32 {
-        self.shares_per_minute
-    }
-
     fn last_update_timestamp(&self) -> u64 {
         self.timestamp_of_last_update
     }
@@ -115,6 +100,7 @@ impl Vardiff for VardiffState {
         &mut self,
         hashrate: f32,
         target: &Target,
+        shares_per_minute: f32,
     ) -> Result<Option<(f32, Target)>, VardiffError> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -153,7 +139,7 @@ impl Vardiff for VardiffState {
                     target: "vardiff",
                     "Target->Hashrate conversion failed: {:?}. Falling back using previous hashrate and realized_shares_per_minute", e
                 );
-                hashrate * realized_share_per_min as f32 / self.shares_per_minute
+                hashrate * realized_share_per_min as f32 / shares_per_minute
             }
         };
 
@@ -208,7 +194,7 @@ impl Vardiff for VardiffState {
         }
         self.reset_counter()?;
 
-        let new_target = hash_rate_to_target(new_hashrate as f64, self.shares_per_minute as f64)
+        let new_target = hash_rate_to_target(new_hashrate as f64, shares_per_minute as f64)
             .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
             .into();
 
