@@ -31,7 +31,7 @@ pub trait Vardiff: Debug + Send {
         hashrate: f32,
         target: &Target,
         shares_per_minute: f32,
-    ) -> Result<Option<(f32, Target)>, VardiffError>;
+    ) -> Result<Option<f32>, VardiffError>;
 
     /// Gets the minimum allowed hashrate (H/s).
     fn min_allowed_hashrate(&self) -> f32;

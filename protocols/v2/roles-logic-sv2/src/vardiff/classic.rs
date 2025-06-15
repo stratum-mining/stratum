@@ -1,4 +1,4 @@
-use crate::utils::{hash_rate_from_target, hash_rate_to_target};
+use crate::utils::hash_rate_from_target;
 use mining_sv2::Target;
 use tracing::{debug, warn};
 
@@ -90,7 +90,7 @@ impl Vardiff for VardiffState {
     /// deviation from the target rate is significant enough (based on internal,
     /// time-sensitive thresholds), it estimates a new hashrate and applies it.
     ///
-    /// It returns `Ok(Some(new_hashrate, new_target))` when an update occurs,
+    /// It returns `Ok(Some(new_hashrate))` when an update occurs,
     /// `Ok(None)` when conditions don't warrant an update, and
     /// `Err` for actual processing errors.
     fn try_vardiff(
@@ -98,7 +98,7 @@ impl Vardiff for VardiffState {
         hashrate: f32,
         target: &Target,
         shares_per_minute: f32,
-    ) -> Result<Option<(f32, Target)>, VardiffError> {
+    ) -> Result<Option<f32>, VardiffError> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(VardiffError::TimeError)?
@@ -191,10 +191,6 @@ impl Vardiff for VardiffState {
         }
         self.reset_counter()?;
 
-        let new_target = hash_rate_to_target(new_hashrate as f64, shares_per_minute as f64)
-            .map_err(|e| VardiffError::HashrateToTargetError(e.to_string()))?
-            .into();
-
-        Ok(Some((new_hashrate, new_target)))
+        Ok(Some(new_hashrate))
     }
 }
