@@ -422,7 +422,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 .write()
                 .map_err(|e| Error::PoisonLock(e.to_string()))?;
             let res = standard_channel
-                .update_channel(new_nominal_hash_rate, requested_maximum_target.into());
+                .update_channel(new_nominal_hash_rate, Some(requested_maximum_target.into()));
             match res {
                 Ok(_) => {}
                 Err(e) => {
@@ -474,7 +474,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 .write()
                 .map_err(|e| Error::PoisonLock(e.to_string()))?;
             let res = extended_channel
-                .update_channel(new_nominal_hash_rate, requested_maximum_target.into());
+                .update_channel(new_nominal_hash_rate, Some(requested_maximum_target.into()));
             match res {
                 Ok(_) => {}
                 Err(e) => {

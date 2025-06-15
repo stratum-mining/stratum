@@ -32,6 +32,7 @@ use tracing::debug;
 /// - the channel's unique `channel_id`
 /// - the channel's `user_identity`
 /// - the channel's unique `extranonce_prefix`
+/// - the channel's requested max target (limit established by the client)
 /// - the channel's target
 /// - the channel's nominal hashrate
 /// - the channel's active job
@@ -48,6 +49,7 @@ pub struct StandardChannel<'a> {
     pub channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
+    requested_max_target: Target,
     target: Target,
     nominal_hashrate: f32,
     // maps template_id to job_id on future jobs
@@ -84,9 +86,8 @@ impl<'a> StandardChannel<'a> {
             };
 
         let target: Target = calculated_target.into();
-        let requested_max_target_value: Target = requested_max_target;
 
-        if target > requested_max_target_value {
+        if target > requested_max_target {
             return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
@@ -94,6 +95,7 @@ impl<'a> StandardChannel<'a> {
             channel_id,
             user_identity,
             extranonce_prefix,
+            requested_max_target,
             target,
             nominal_hashrate,
             future_template_to_job_id: HashMap::new(),
@@ -141,6 +143,10 @@ impl<'a> StandardChannel<'a> {
         self.nominal_hashrate = nominal_hashrate;
     }
 
+    pub fn get_requested_max_target(&self) -> &Target {
+        &self.requested_max_target
+    }
+
     pub fn get_target(&self) -> &Target {
         &self.target
     }
@@ -150,10 +156,12 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Updates the channel's nominal hashrate and target.
+    ///
+    /// If requested_max_target is None, we use the cached value in the channel state.
     pub fn update_channel(
         &mut self,
         nominal_hashrate: f32,
-        max_target: Target,
+        requested_max_target: Option<Target>,
     ) -> Result<(), StandardChannelError> {
         let target_u256 = match hash_rate_to_target(
             nominal_hashrate.into(),
@@ -165,11 +173,16 @@ impl<'a> StandardChannel<'a> {
             }
         };
 
+        let requested_max_target = match requested_max_target {
+            Some(ref requested_max_target) => requested_max_target.clone(),
+            None => self.requested_max_target.clone(),
+        };
+
         // debug hex of target_u256 and max_target
         // just like in share validation
         let mut target_bytes = target_u256.to_vec();
         target_bytes.reverse(); // Convert to big-endian for display
-        let max_target_u256: binary_sv2::U256 = max_target.clone().into();
+        let max_target_u256: binary_sv2::U256 = requested_max_target.clone().into();
         let mut max_target_bytes = max_target_u256.to_vec();
         max_target_bytes.reverse(); // Convert to big-endian for display
 
@@ -189,12 +202,13 @@ impl<'a> StandardChannel<'a> {
 
         let new_target: Target = target_u256.into();
 
-        if new_target > max_target {
+        if new_target > requested_max_target {
             return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
         self.target = new_target;
         self.nominal_hashrate = nominal_hashrate;
+        self.requested_max_target = requested_max_target;
         Ok(())
     }
 
@@ -1096,7 +1110,7 @@ mod tests {
         // Update the channel with a new hashrate (higher)
         let new_hashrate = 100.0;
         channel
-            .update_channel(new_hashrate, max_target.clone())
+            .update_channel(new_hashrate, Some(max_target.clone()))
             .unwrap();
 
         // Get the new target after update
@@ -1111,7 +1125,7 @@ mod tests {
         assert_eq!(channel.get_nominal_hashrate(), new_hashrate);
 
         // Test invalid hashrate (negative)
-        let result = channel.update_channel(-1.0, max_target.clone());
+        let result = channel.update_channel(-1.0, Some(max_target.clone()));
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -1130,8 +1144,10 @@ mod tests {
         // new target: 2492492492492492492492492492492492492492492492492492492492492491
         // max target: 00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         let very_small_hashrate = 0.1;
-        let result =
-            channel.update_channel(very_small_hashrate, not_so_permissive_max_target.clone());
+        let result = channel.update_channel(
+            very_small_hashrate,
+            Some(not_so_permissive_max_target.clone()),
+        );
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -1142,8 +1158,10 @@ mod tests {
         // new target: 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // max target: 00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         let sufficiently_big_hashrate = 1000.0;
-        let result =
-            channel.update_channel(sufficiently_big_hashrate, not_so_permissive_max_target);
+        let result = channel.update_channel(
+            sufficiently_big_hashrate,
+            Some(not_so_permissive_max_target),
+        );
         assert!(result.is_ok());
     }
 
