@@ -14,7 +14,10 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};
 use primitive_types::U256;
-use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
+use roles_logic_sv2::{
+    mining_sv2::Target,
+    utils::{hash_rate_to_target, Mutex},
+};
 use std::{ops::Div, sync::Arc};
 use tracing::debug;
 use v1::json_rpc;
@@ -36,8 +39,8 @@ impl Downstream {
                 (
                     d.connection_id,
                     d.upstream_difficulty_config.clone(),
-                    d.difficulty_mgmt.hashrate(),
-                    d.difficulty_mgmt.target(),
+                    d.hashrate,
+                    d.target.clone(),
                 )
             })?;
         // add new connection hashrate to channel hashrate
@@ -68,7 +71,7 @@ impl Downstream {
         self_.safe_lock(|d| {
             d.upstream_difficulty_config
                 .safe_lock(|u| {
-                    let hashrate_to_subtract = d.difficulty_mgmt.hashrate();
+                    let hashrate_to_subtract = d.hashrate;
                     if u.channel_nominal_hashrate >= hashrate_to_subtract {
                         u.channel_nominal_hashrate -= hashrate_to_subtract;
                     } else {
@@ -93,22 +96,21 @@ impl Downstream {
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
-        let (timestamp_of_last_update, shares_since_last_update, channel_id) =
+        let (timestamp_of_last_update, shares_since_last_update, channel_id, shares_per_minute) =
             self_.clone().safe_lock(|d| {
                 (
                     d.difficulty_mgmt.last_update_timestamp(),
                     d.difficulty_mgmt.shares_since_last_update(),
                     d.connection_id,
+                    d.shares_per_minute,
                 )
             })?;
         debug!("Time of last diff update: {:?}", timestamp_of_last_update);
         debug!("Number of shares submitted: {:?}", shares_since_last_update);
 
-        if Self::update_miner_hashrate(self_.clone())?.is_some() {
-            let new_target = self_
-                .clone()
-                .safe_lock(|d| d.difficulty_mgmt.target())
-                .map_err(|_e| Error::PoisonLock)?;
+        if let Some(new_hashrate) = Self::update_miner_hashrate(self_.clone())? {
+            let new_target: Target =
+                hash_rate_to_target(new_hashrate.into(), shares_per_minute.into())?.into();
             debug!("New target from hashrate: {:?}", new_target);
             let message = Self::get_set_difficulty(new_target.clone())?;
             let target = binary_sv2::U256::from(new_target);
@@ -195,17 +197,30 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Option<f32>> {
         let update = self_.super_safe_lock(|d| {
-            let previous_hashrate = d.difficulty_mgmt.hashrate();
-            let update = d.difficulty_mgmt.try_vardiff();
-            let new_hashrate = d.difficulty_mgmt.hashrate();
-            let hashrate_delta = new_hashrate - previous_hashrate;
-            d.upstream_difficulty_config.super_safe_lock(|c| {
-                if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
-                    c.channel_nominal_hashrate += hashrate_delta;
-                } else {
-                    c.channel_nominal_hashrate = 0.0;
-                }
-            });
+            let previous_hashrate = d.hashrate;
+            let previous_target = d.target.clone();
+            let update = d.difficulty_mgmt.try_vardiff(
+                previous_hashrate,
+                &previous_target,
+                d.shares_per_minute,
+            );
+            if let Ok(Some(new_hashrate)) = update {
+                // update channel hashrate and target
+                let new_target: Target =
+                    hash_rate_to_target(new_hashrate.into(), d.shares_per_minute.into())
+                        .expect("Something went wrong while target calculation")
+                        .into();
+                d.hashrate = new_hashrate;
+                d.target = new_target.clone();
+                let hashrate_delta = new_hashrate - previous_hashrate;
+                d.upstream_difficulty_config.super_safe_lock(|c| {
+                    if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
+                        c.channel_nominal_hashrate += hashrate_delta;
+                    } else {
+                        c.channel_nominal_hashrate = 0.0;
+                    }
+                });
+            }
             update
         })?;
         Ok(update)
@@ -376,7 +391,7 @@ mod test {
             Err(_) => panic!(),
         };
 
-        let mut initial_target = downstream.difficulty_mgmt.target();
+        let mut initial_target = downstream.target.clone();
         let downstream = Arc::new(Mutex::new(downstream));
         Downstream::init_difficulty_management(downstream.clone())
             .await
@@ -388,9 +403,7 @@ mod test {
             Downstream::try_update_difficulty_settings(downstream.clone())
                 .await
                 .unwrap();
-            initial_target = downstream
-                .safe_lock(|d| d.difficulty_mgmt.target())
-                .unwrap();
+            initial_target = downstream.safe_lock(|d| d.target.clone()).unwrap();
             elapsed = timer.elapsed();
         }
         let expected_0s = trailing_0s(expected_target.inner_as_ref().to_vec());
