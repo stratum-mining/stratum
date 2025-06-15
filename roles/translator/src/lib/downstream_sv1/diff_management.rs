@@ -14,7 +14,10 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, ProxyResult};
 use primitive_types::U256;
-use roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
+use roles_logic_sv2::{
+    mining_sv2::Target,
+    utils::{hash_rate_to_target, Mutex},
+};
 use std::{ops::Div, sync::Arc};
 use tracing::debug;
 use v1::json_rpc;
@@ -93,18 +96,21 @@ impl Downstream {
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
-        let (timestamp_of_last_update, shares_since_last_update, channel_id) =
+        let (timestamp_of_last_update, shares_since_last_update, channel_id, shares_per_minute) =
             self_.clone().safe_lock(|d| {
                 (
                     d.difficulty_mgmt.last_update_timestamp(),
                     d.difficulty_mgmt.shares_since_last_update(),
                     d.connection_id,
+                    d.shares_per_minute,
                 )
             })?;
         debug!("Time of last diff update: {:?}", timestamp_of_last_update);
         debug!("Number of shares submitted: {:?}", shares_since_last_update);
 
-        if let Some((_, new_target)) = Self::update_miner_hashrate(self_.clone())? {
+        if let Some(new_hashrate) = Self::update_miner_hashrate(self_.clone())? {
+            let new_target: Target =
+                hash_rate_to_target(new_hashrate.into(), shares_per_minute.into())?.into();
             debug!("New target from hashrate: {:?}", new_target);
             let message = Self::get_set_difficulty(new_target.clone())?;
             let target = binary_sv2::U256::from(new_target);
@@ -189,9 +195,7 @@ impl Downstream {
     /// updates the miner's stored hashrate and the channel's aggregated hashrate
     /// if the change is significant based on time-dependent thresholds.
     #[allow(clippy::result_large_err)]
-    pub fn update_miner_hashrate(
-        self_: Arc<Mutex<Self>>,
-    ) -> ProxyResult<'static, Option<(f32, Target)>> {
+    pub fn update_miner_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Option<f32>> {
         let update = self_.super_safe_lock(|d| {
             let previous_hashrate = d.hashrate;
             let previous_target = d.target.clone();
@@ -200,8 +204,12 @@ impl Downstream {
                 &previous_target,
                 d.shares_per_minute,
             );
-            if let Ok(Some((new_hashrate, ref new_target))) = update {
+            if let Ok(Some(new_hashrate)) = update {
                 // update channel hashrate and target
+                let new_target: Target =
+                    hash_rate_to_target(new_hashrate.into(), d.shares_per_minute.into())
+                        .expect("Something went wrong while target calculation")
+                        .into();
                 d.hashrate = new_hashrate;
                 d.target = new_target.clone();
                 let hashrate_delta = new_hashrate - previous_hashrate;
