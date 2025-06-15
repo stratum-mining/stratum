@@ -103,7 +103,7 @@ fn test_try_vardiff_hashrate_clamps_to_minimum() {
         .try_vardiff(hashrate, &target, TEST_SHARES_PER_MINUTE)
         .expect("try_vardiff failed");
     assert!(result.is_some(), "Hashrate should update");
-    let (new_hashrate, _) = result.unwrap();
+    let new_hashrate = result.unwrap();
 
     assert_eq!(
         new_hashrate, TEST_MIN_ALLOWED_HASHRATE,
