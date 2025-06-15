@@ -24,7 +24,6 @@ impl VardiffState {
     /// Creates a new `VardiffState` with the default minimum hashrate.
     ///
     /// # Arguments
-    /// * `shares_per_minute` - The target share submission rate.
     /// * `estimated_hashrate` - The initial hashrate estimate.
     pub fn new() -> Result<Self, VardiffError> {
         Self::new_with_min(DEFAULT_MIN_HASHRATE)
@@ -33,8 +32,6 @@ impl VardiffState {
     /// Creates a new `VardiffState` with a specific minimum hashrate.
     ///
     /// # Arguments
-    /// * `shares_per_minute` - The target share submission rate.
-    /// * `estimated_hashrate` - The initial hashrate estimate.
     /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
     pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
         let timestamp_secs = std::time::SystemTime::now()
@@ -93,7 +90,7 @@ impl Vardiff for VardiffState {
     /// deviation from the target rate is significant enough (based on internal,
     /// time-sensitive thresholds), it estimates a new hashrate and applies it.
     ///
-    /// It returns `Ok(Some(new_hashrate))` when an update occurs,
+    /// It returns `Ok(Some(new_hashrate, new_target))` when an update occurs,
     /// `Ok(None)` when conditions don't warrant an update, and
     /// `Err` for actual processing errors.
     fn try_vardiff(
