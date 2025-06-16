@@ -1249,7 +1249,7 @@ async fn spawn_vardiff_loop(
 ) {
     info!("Spawning vardiff adjustment loop for downstream: {downstream_id}");
 
-    loop {
+    'vardiff_loop: loop {
         tokio::time::sleep(Duration::from_secs(60)).await;
         info!("Starting vardiff updates for downstream: {downstream_id}");
         let mut updates = Vec::new();
@@ -1278,10 +1278,11 @@ async fn spawn_vardiff_loop(
 
         for (channel_id, target) in updates {
             if let Err(e) = send_set_target_downstream(sender.clone(), channel_id, target).await {
-                warn!(
+                error!(
                     "Failed to send SetTarget message downstream for channel {channel_id}: {:?}",
                     e
                 );
+                break 'vardiff_loop;
             }
         }
     }
