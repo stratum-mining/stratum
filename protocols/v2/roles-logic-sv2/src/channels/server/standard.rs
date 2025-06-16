@@ -233,6 +233,10 @@ impl<'a> StandardChannel<'a> {
         &self.stale_jobs
     }
 
+    pub fn get_shares_per_minute(&self) -> f32 {
+        self.expected_share_per_minute
+    }
+
     pub fn get_chain_tip(&self) -> Option<&ChainTip> {
         self.chain_tip.as_ref()
     }

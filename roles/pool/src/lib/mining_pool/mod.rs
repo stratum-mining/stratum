@@ -259,7 +259,7 @@ impl Downstream {
         let self_ = Arc::new(Mutex::new(Downstream {
             id,
             receiver,
-            sender,
+            sender: sender.clone(),
             downstream_data,
             solution_sender,
             channel_id_factory,
@@ -275,6 +275,8 @@ impl Downstream {
             last_new_prev_hash,
             empty_pool_coinbase_outputs,
         }));
+
+        tokio::spawn(spawn_vardiff_loop(self_.clone(), sender, id));
 
         let cloned = self_.clone();
 
@@ -374,36 +376,6 @@ impl Downstream {
     ) -> PoolResult<()> {
         match send_to {
             Ok(SendTo::Respond(message)) => {
-                match &message {
-                    Mining::OpenExtendedMiningChannelSuccess(m) => {
-                        let (vardiff, sender) = self_.safe_lock(|downstream| {
-                            let vardiff = downstream
-                                .vardiff
-                                .get(&m.channel_id)
-                                .expect("Vardiff should be present")
-                                .clone();
-                            let sender = downstream.sender.clone();
-                            (vardiff, sender)
-                        })?;
-                        spawn_vardiff_loop(m.channel_id, vardiff, sender);
-                    }
-
-                    Mining::OpenStandardMiningChannelSuccess(m) => {
-                        let (vardiff, sender) = self_.safe_lock(|downstream| {
-                            let vardiff = downstream
-                                .vardiff
-                                .get(&m.channel_id)
-                                .expect("Vardiff should be present")
-                                .clone();
-                            let sender = downstream.sender.clone();
-                            (vardiff, sender)
-                        })?;
-                        spawn_vardiff_loop(m.channel_id, vardiff, sender);
-                    }
-
-                    _ => {}
-                }
-
                 debug!("Sending to downstream: {:?}", message);
                 // returning an error will send the error to the main thread,
                 // and the main thread will drop the downstream from the pool
@@ -1160,66 +1132,159 @@ impl Pool {
         self.downstreams.remove(&downstream_id);
     }
 }
-pub async fn send_set_target_downstream(
+
+async fn send_set_target_downstream(
     sender: Sender<EitherFrame>,
     channel_id: u32,
-    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
+    target: Target,
 ) -> Result<(), PoolError> {
-    debug!("Sleeping 60s before sending SetTarget for channel_id={channel_id}");
-    tokio::time::sleep(Duration::from_secs(60)).await;
+    debug!("Attempting to send `SetTarget` for channel_id={channel_id}");
 
-    debug!("Attempting try_vardiff for channel_id={channel_id}");
-    let new_hashrate = match vardiff.write() {
-        Ok(mut v) => v.try_vardiff(),
-        Err(e) => {
-            error!("Failed to acquire write lock on vardiff for channel_id={channel_id}: {e}");
-            return Err(PoolError::PoisonLock(e.to_string()));
-        }
-    }?;
+    let target_message = SetTarget {
+        channel_id,
+        maximum_target: target.into(),
+    };
 
-    if new_hashrate.is_some() {
-        debug!("New hashrate detected for channel_id={channel_id}, preparing SetTarget message");
-        let target = match vardiff.read() {
-            Ok(v) => v.target(),
-            Err(e) => {
-                error!("Failed to acquire read lock on vardiff for channel_id={channel_id}: {e}");
-                return Err(PoolError::PoisonLock(e.to_string()));
-            }
-        };
+    let mining_msg = Mining::SetTarget(target_message);
 
-        let target_message = SetTarget {
-            channel_id,
-            maximum_target: target.into(),
-        };
+    info!("Set Target Message: {:?}", mining_msg);
 
-        let mining_msg = Mining::SetTarget(target_message);
-        let sv2_frame: StdFrame = AnyMessage::Mining(mining_msg).try_into()?;
+    let sv2_frame: StdFrame = AnyMessage::Mining(mining_msg).try_into()?;
 
-        sender.send(sv2_frame.into()).await?;
-    } else {
-        debug!("No hashrate adjustment needed for channel_id={channel_id}");
-    }
+    sender.send(sv2_frame.into()).await?;
 
     Ok(())
 }
 
-pub fn spawn_vardiff_loop(
+fn process_extended_channel(
     channel_id: u32,
-    vardiff: Arc<RwLock<Box<dyn Vardiff>>>,
-    sender: Sender<EitherFrame>,
+    channel: Arc<RwLock<ExtendedChannel<'static>>>,
+    vardiff_state: Arc<RwLock<Box<dyn Vardiff>>>,
+    updates: &mut Vec<(u32, Target)>,
 ) {
-    info!("Spawning vardiff loop for channel_id={channel_id}");
-    tokio::spawn(async move {
-        loop {
-            if let Err(e) =
-                send_set_target_downstream(sender.clone(), channel_id, vardiff.clone()).await
-            {
-                warn!("Vardiff loop exiting for channel_id={channel_id} due to error: {e}");
-                break;
+    let Ok(mut channel_atomic) = channel.write() else {
+        debug!("Failed to lock extended channel {channel_id}");
+        return;
+    };
+
+    let Ok(mut vardiff_atomic) = vardiff_state.write() else {
+        debug!("Failed to lock vardiff state for extended channel {channel_id}");
+        return;
+    };
+
+    let hashrate = channel_atomic.get_nominal_hashrate();
+    let target = channel_atomic.get_target();
+    let shares_per_minute = channel_atomic.get_shares_per_minute();
+
+    let Ok(new_hashrate_opt) = vardiff_atomic.try_vardiff(hashrate, target, shares_per_minute)
+    else {
+        debug!("Vardiff computation failed for extended channel {channel_id}");
+        return;
+    };
+
+    if let Some(new_hashrate) = new_hashrate_opt {
+        if let Ok(()) = channel_atomic.update_channel(new_hashrate, None) {
+            let updated_target = channel_atomic.get_target();
+            updates.push((channel_id, updated_target.clone()));
+
+            debug!(
+                "Updated target for extended channel_id={channel_id} to {:?}",
+                updated_target
+            );
+        } else {
+            warn!("Failed to update extended channel {channel_id}");
+        }
+    }
+}
+
+fn process_standard_channel(
+    channel_id: u32,
+    channel: Arc<RwLock<StandardChannel<'static>>>,
+    vardiff_state: &Arc<RwLock<Box<dyn Vardiff>>>,
+    updates: &mut Vec<(u32, Target)>,
+) {
+    let Ok(mut channel_atomic) = channel.write() else {
+        debug!("Failed to lock standard channel {channel_id}");
+        return;
+    };
+
+    let Ok(mut vardiff_atomic) = vardiff_state.write() else {
+        debug!("Failed to lock vardiff state for standard channel {channel_id}");
+        return;
+    };
+
+    let hashrate = channel_atomic.get_nominal_hashrate();
+    let target = channel_atomic.get_target();
+    let shares_per_minute = channel_atomic.get_shares_per_minute();
+
+    let Ok(new_hashrate_opt) = vardiff_atomic.try_vardiff(hashrate, target, shares_per_minute)
+    else {
+        debug!("Vardiff computation failed for standard channel {channel_id}");
+        return;
+    };
+
+    if let Some(new_hashrate) = new_hashrate_opt {
+        if let Ok(()) = channel_atomic.update_channel(new_hashrate, None) {
+            let updated_target = channel_atomic.get_target();
+            updates.push((channel_id, updated_target.clone()));
+
+            debug!(
+                "Updated target for standard channel_id={channel_id} to {:?}",
+                updated_target
+            );
+        } else {
+            warn!("Failed to update standard channel {channel_id}");
+        }
+    }
+}
+
+/// This method implements the pool's variable difficulty logic for a single downstream.
+/// A downstream can have multiple active channels connected to the pool.
+/// Every 60 seconds, this method updates the difficulty state for each channel belonging to the
+/// downstream.
+async fn spawn_vardiff_loop(
+    downstream: Arc<Mutex<Downstream>>,
+    sender: Sender<EitherFrame>,
+    downstream_id: u32,
+) {
+    info!("Spawning vardiff adjustment loop for downstream: {downstream_id}");
+
+    loop {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        info!("Starting vardiff updates for downstream: {downstream_id}");
+        let mut updates = Vec::new();
+
+        _ = downstream.safe_lock(|d| {
+            for (channel_id, vardiff_state) in &d.vardiff {
+                if let Some(channel) = d.extended_channels.get(channel_id) {
+                    process_extended_channel(
+                        *channel_id,
+                        channel.clone(),
+                        vardiff_state.clone(),
+                        &mut updates,
+                    );
+                }
+
+                if let Some(channel) = d.standard_channels.get(channel_id) {
+                    process_standard_channel(
+                        *channel_id,
+                        channel.clone(),
+                        vardiff_state,
+                        &mut updates,
+                    );
+                }
+            }
+        });
+
+        for (channel_id, target) in updates {
+            if let Err(e) = send_set_target_downstream(sender.clone(), channel_id, target).await {
+                warn!(
+                    "Failed to send SetTarget message downstream for channel {channel_id}: {:?}",
+                    e
+                );
             }
         }
-        info!("Vardiff loop terminated for channel_id={channel_id}");
-    });
+    }
 }
 
 #[cfg(test)]

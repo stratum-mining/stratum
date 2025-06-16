@@ -201,7 +201,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let messages = messages.into_iter().map(SendTo::Respond).collect();
 
-        let vardiff = VardiffState::new(self.shares_per_minute, incoming.nominal_hash_rate)?;
+        let vardiff = VardiffState::new()?;
 
         self.standard_channels
             .insert(channel_id, Arc::new(RwLock::new(standard_channel.clone())));
@@ -395,7 +395,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let messages = messages.into_iter().map(SendTo::Respond).collect();
 
-        let vardiff = VardiffState::new(self.shares_per_minute, m.nominal_hash_rate)?;
+        let vardiff = VardiffState::new()?;
 
         self.extended_channels
             .insert(channel_id, Arc::new(RwLock::new(extended_channel.clone())));
@@ -423,13 +423,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let is_standard_channel = self.standard_channels.contains_key(&channel_id);
         let is_extended_channel = self.extended_channels.contains_key(&channel_id);
-
-        let mut vardiff = self
-            .vardiff
-            .get(&channel_id)
-            .expect("Vardiff must exist")
-            .write()
-            .map_err(|e| Error::PoisonLock(e.to_string()))?;
 
         if is_standard_channel {
             let mut standard_channel = self
@@ -477,7 +470,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                     }
                 }
             }
-            _ = vardiff.set_hashrate(new_nominal_hash_rate);
             let new_target = standard_channel.get_target();
             let set_target = SetTarget {
                 channel_id,
@@ -530,7 +522,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                     }
                 }
             }
-            _ = vardiff.set_hashrate(m.nominal_hash_rate);
             let new_target = extended_channel.get_target();
             let set_target = SetTarget {
                 channel_id,

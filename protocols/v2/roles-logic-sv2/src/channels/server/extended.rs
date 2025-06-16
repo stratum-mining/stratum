@@ -140,6 +140,10 @@ impl<'a> ExtendedChannel<'a> {
         self.chain_tip.as_ref()
     }
 
+    pub fn get_shares_per_minute(&self) -> f32 {
+        self.expected_share_per_minute
+    }
+
     /// Only for testing purposes, not meant to be used in real apps.
     #[cfg(test)]
     fn set_chain_tip(&mut self, chain_tip: ChainTip) {
