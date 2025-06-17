@@ -132,7 +132,7 @@ impl JobDeclaratorDownstream {
         };
         config
             .get_txout()
-            .expect("Invalid coinbase output in config")[0]
+            .expect("Invalid coinbase output in config")
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
         let coinbase_output_sigops = config
