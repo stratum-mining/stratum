@@ -1472,7 +1472,7 @@ dependencies = [
 
 [[package]]
 name = "job_declaration_sv2"
-version = "4.1.0"
+version = "4.0.0"
 dependencies = [
  "binary_sv2",
  "stratum-common",
@@ -1664,7 +1664,7 @@ dependencies = [
 
 [[package]]
 name = "mining_sv2"
-version = "4.1.0"
+version = "4.0.0"
 dependencies = [
  "binary_sv2",
  "stratum-common",
