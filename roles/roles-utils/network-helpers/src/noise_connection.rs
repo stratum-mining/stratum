@@ -1,3 +1,4 @@
+#![allow(clippy::new_ret_no_self)]
 use crate::Error;
 use async_channel::{unbounded, Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
