@@ -276,7 +276,7 @@ impl Downstream {
             empty_pool_coinbase_outputs,
         }));
 
-        tokio::spawn(spawn_vardiff_loop(self_.clone(), sender, id));
+        tokio::spawn(spawn_vardiff_loop(self_.clone(), sender.clone(), id));
 
         let cloned = self_.clone();
 
@@ -324,11 +324,13 @@ impl Downstream {
                             .map_err(|e| PoolError::PoisonLock(e.to_string()));
                         handle_result!(status_tx, res);
                         error!("Downstream {} disconnected", id);
+
                         break;
                     }
                 }
             }
             warn!("Downstream connection dropped");
+            sender.close();
         });
         Ok(self_)
     }
@@ -1250,8 +1252,14 @@ async fn spawn_vardiff_loop(
     info!("Spawning vardiff adjustment loop for downstream: {downstream_id}");
 
     'vardiff_loop: loop {
+        if sender.is_closed() {
+            debug!("Downstream {downstream_id} closed, stopping vardiff loop");
+            break;
+        }
+
         tokio::time::sleep(Duration::from_secs(60)).await;
-        info!("Starting vardiff updates for downstream: {downstream_id}");
+
+        debug!("Starting vardiff updates for downstream: {downstream_id}");
         let mut updates = Vec::new();
 
         _ = downstream.safe_lock(|d| {
