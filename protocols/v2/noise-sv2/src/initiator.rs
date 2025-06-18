@@ -61,6 +61,7 @@ use secp256k1::{
 /// exchanges, and maintains the handshake hash, chaining key, and nonce for message encryption.
 /// After the handshake, it facilitates secure communication using either [`ChaCha20Poly1305`] or
 /// `AES-GCM` ciphers. Sensitive data is securely erased when no longer needed.
+#[derive(Clone)]
 pub struct Initiator {
     // Cipher used for encrypting and decrypting messages during the handshake.
     //

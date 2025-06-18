@@ -79,7 +79,7 @@ pub use framing_sv2::{self, framing::handshake_message_to_frame as h2f};
 /// process accordingly.
 #[allow(clippy::large_enum_variant)]
 #[cfg(feature = "noise_sv2")]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum HandshakeRole {
     /// The initiator role in the Noise handshake process.
     ///
@@ -103,7 +103,7 @@ pub enum HandshakeRole {
 /// [`State::HandShake`] and finally to transport mode [`State::Transport`] as the encryption
 /// handshake is completed.
 #[cfg(feature = "noise_sv2")]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum State {
     /// The codec has not been initialized yet.
