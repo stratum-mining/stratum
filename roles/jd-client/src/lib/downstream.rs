@@ -653,7 +653,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
             std::str::from_utf8(m.user_identity.as_ref()).unwrap_or("Unknown identity"),
             m.get_request_id_as_u32()
         );
-        debug!("OpenExtendedMiningChannel: {:?}", m);
+        debug!("OpenExtendedMiningChannel: {}", m);
 
         // Check if the downstream is in solo mining mode.
         if !self.status.is_solo_miner() {
@@ -800,7 +800,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
         m: SubmitSharesExtended,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         info!("Received SubmitSharesExtended message");
-        debug!("SubmitSharesExtended {:?}", m);
+        debug!("SubmitSharesExtended {}", m);
 
         // Process the submitted share using the channel factory.
         match self
