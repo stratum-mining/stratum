@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, format, string::String, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, B0255, B064K};
 use core::convert::TryInto;
 
@@ -12,6 +12,17 @@ pub struct AllocateMiningJobToken<'decoder> {
     pub user_identifier: Str0255<'decoder>,
     /// A unique identifier for pairing the response/request.
     pub request_id: u32,
+}
+
+impl fmt::Display for AllocateMiningJobToken<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "🗝️ AllocateMiningJobToken(user_identifier: {}, request_id: {})",
+            self.user_identifier.as_utf8_or_hex(),
+            self.request_id
+        )
+    }
 }
 
 /// Message used by JDS to accept [`AllocateMiningJobToken`] message.
@@ -33,4 +44,18 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     pub coinbase_output_max_additional_sigops: u16,
     /// Bitcoin transaction outputs added by JDS.
     pub coinbase_output: B064K<'decoder>,
+}
+
+impl fmt::Display for AllocateMiningJobTokenSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "🗝️ AllocateMiningJobTokenSuccess(request_id: {}, mining_job_token: {}, coinbase_output_max_additional_size: {}, coinbase_output_max_additional_sigops: {}, coinbase_output: {})",
+            self.request_id,
+            self.mining_job_token,
+            self.coinbase_output_max_additional_size,
+            self.coinbase_output_max_additional_sigops,
+            self.coinbase_output.inner_as_ref().iter().map(|byte| format!("{:02x}", byte)).collect::<String>()
+        )
+    }
 }
