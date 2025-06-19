@@ -1,6 +1,6 @@
 use alloc::{string::ToString, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, U32AsRef, B032, U256};
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt};
 /// Message used by a downstream to request opening a Standard Channel.
 ///
 /// Upon receiving `SetupConnectionSuccess` message, the downstream should open channel(s) on the
@@ -34,6 +34,19 @@ pub struct OpenStandardMiningChannel<'decoder> {
     ///
     /// Upstream must accept the target or respond by sending [`OpenMiningChannelError`] message.
     pub max_target: U256<'decoder>,
+}
+
+impl fmt::Display for OpenStandardMiningChannel<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenStandardMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {})",
+            self.request_id,
+            self.user_identity.as_utf8_or_hex(),
+            self.nominal_hash_rate,
+            self.max_target
+        )
+    }
 }
 
 impl OpenStandardMiningChannel<'_> {
@@ -71,6 +84,20 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
     pub extranonce_prefix: B032<'decoder>,
     /// Group channel into which the new channel belongs. See SetGroupChannel for details.
     pub group_channel_id: u32,
+}
+
+impl fmt::Display for OpenStandardMiningChannelSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenStandardMiningChannelSuccess(request_id: {}, channel_id: {}, target: {}, extranonce_prefix: {}, group_channel_id: {})",
+            self.request_id,
+            self.channel_id,
+            self.target,
+            self.extranonce_prefix,
+            self.group_channel_id
+        )
+    }
 }
 
 impl OpenStandardMiningChannelSuccess<'_> {
@@ -128,6 +155,20 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     pub min_extranonce_size: u16,
 }
 
+impl fmt::Display for OpenExtendedMiningChannel<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenExtendedMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {}, min_extranonce_size: {})",
+            self.request_id,
+            self.user_identity.as_utf8_or_hex(),
+            self.nominal_hash_rate,
+            self.max_target,
+            self.min_extranonce_size
+        )
+    }
+}
+
 impl OpenExtendedMiningChannel<'_> {
     pub fn get_request_id_as_u32(&self) -> u32 {
         self.request_id
@@ -154,6 +195,20 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     pub extranonce_prefix: B032<'decoder>,
 }
 
+impl fmt::Display for OpenExtendedMiningChannelSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenExtendedMiningChannelSuccess(request_id: {}, channel_id: {}, target: {}, extranonce_size: {}, extranonce_prefix: {})",
+            self.request_id,
+            self.channel_id,
+            self.target,
+            self.extranonce_size,
+            self.extranonce_prefix
+        )
+    }
+}
+
 /// Message used by upstream to reject [`OpenExtendedMiningChannel`] or
 /// [`OpenStandardMiningchannel`] request from downstream.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -170,6 +225,17 @@ pub struct OpenMiningChannelError<'decoder> {
     /// - ‘unknown-user’
     /// - ‘max-target-out-of-range’
     pub error_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for OpenMiningChannelError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenMiningChannelError(request_id: {}, error_code: {})",
+            self.request_id,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
 }
 
 impl OpenMiningChannelError<'_> {

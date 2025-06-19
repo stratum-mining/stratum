@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, B032};
 
@@ -17,4 +17,14 @@ pub struct SetExtranoncePrefix<'decoder> {
     pub channel_id: u32,
     /// New extranonce prefix.
     pub extranonce_prefix: B032<'decoder>,
+}
+
+impl fmt::Display for SetExtranoncePrefix<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetExtranoncePrefix(channel_id={}, extranonce_prefix={})",
+            self.channel_id, self.extranonce_prefix
+        )
+    }
 }
