@@ -86,6 +86,10 @@ impl<'a> StandardChannel<'a> {
         &self.user_identity
     }
 
+    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
+        self.chain_tip.as_ref()
+    }
+
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
