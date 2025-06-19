@@ -409,8 +409,9 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
         return Err(Error::HashrateError(InputError::DivisionByZero));
     }
     let shares_occurrency_frequence = from_u128_to_u256(shares_occurrency_frequence);
-    let target_plus_one =
-        U256Primitive::from_big_endian(target_arr.as_ref()) + U256Primitive::one();
+    let target_plus_one = U256Primitive::from_big_endian(target_arr.as_ref())
+        .checked_add(U256Primitive::one())
+        .ok_or(Error::HashrateError(InputError::ArithmeticOverflow))?;
     let denominator = target_plus_one
         .checked_mul(shares_occurrency_frequence)
         .and_then(|e| e.checked_div(U256Primitive::from(100)))
