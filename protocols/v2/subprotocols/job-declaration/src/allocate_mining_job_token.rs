@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, B0255, B064K};
 use core::convert::TryInto;
 
@@ -14,6 +14,17 @@ pub struct AllocateMiningJobToken<'decoder> {
     pub request_id: u32,
 }
 
+impl fmt::Display for AllocateMiningJobToken<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "AllocateMiningJobToken(user_identifier: {}, request_id: {})",
+            self.user_identifier.as_utf8_or_hex(),
+            self.request_id
+        )
+    }
+}
+
 /// Message used by JDS to accept [`AllocateMiningJobToken`] message.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -27,4 +38,16 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     pub mining_job_token: B0255<'decoder>,
     /// Bitcoin transaction outputs added by JDS.
     pub coinbase_outputs: B064K<'decoder>,
+}
+
+impl fmt::Display for AllocateMiningJobTokenSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "AllocateMiningJobTokenSuccess(request_id: {}, mining_job_token: {}, coinbase_outputs: {})",
+            self.request_id,
+            self.mining_job_token,
+            self.coinbase_outputs
+        )
+    }
 }
