@@ -729,7 +729,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
             m.request_id, m.channel_id
         );
-        debug!("OpenStandardMiningChannelSuccess: {:?}", m);
+        debug!("OpenStandardMiningChannelSuccess: {}", m);
         let tproxy_e1_len = super::super::utils::proxy_extranonce1_len(
             m.extranonce_size as usize,
             self.min_extranonce_size.into(),
@@ -800,7 +800,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
         info!("Received SubmitSharesSuccess");
-        debug!("SubmitSharesSuccess: {:?}", m);
+        debug!("SubmitSharesSuccess: {}", m);
         Ok(SendTo::None(None))
     }
 
@@ -839,7 +839,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             m.job_id,
             m.is_future()
         );
-        debug!("NewExtendedMiningJob: {:?}", m);
+        debug!("NewExtendedMiningJob: {}", m);
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))
         } else {
@@ -866,7 +866,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             "Received SetNewPrevHash channel id: {}, job id: {}",
             m.channel_id, m.job_id
         );
-        debug!("SetNewPrevHash: {:?}", m);
+        debug!("SetNewPrevHash: {}", m);
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))
         } else {
@@ -884,7 +884,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             "Received SetCustomMiningJobSuccess for channel id: {} for job id: {}",
             m.channel_id, m.job_id
         );
-        debug!("SetCustomMiningJobSuccess: {:?}", m);
+        debug!("SetCustomMiningJobSuccess: {}", m);
         self.last_job_id = Some(m.job_id);
         Ok(SendTo::None(None))
     }
@@ -904,7 +904,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
         info!("Received SetTarget for channel id: {}", m.channel_id);
-        debug!("SetTarget: {:?}", m);
+        debug!("SetTarget: {}", m);
         let m = m.into_static();
         self.target.safe_lock(|t| *t = m.maximum_target.to_vec())?;
         Ok(SendTo::None(None))

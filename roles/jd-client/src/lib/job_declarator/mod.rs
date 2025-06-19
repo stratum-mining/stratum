@@ -471,7 +471,7 @@ impl JobDeclarator {
                             }
                         }
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobError(m)))) => {
-                            error!("Job is not verified: {:?}", m);
+                            error!("Job is not verified: {}", m);
                         }
                         Ok(SendTo::None(None)) => (),
                         Ok(SendTo::Respond(m)) => {

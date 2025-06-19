@@ -320,11 +320,11 @@ impl JobDeclaratorDownstream {
                                 Self::send(self_mutex.clone(), m).await.unwrap();
                             }
                             Ok(SendTo::RelayNewMessage(message)) => {
-                                error!("JD Server: unexpected relay new message {:?}", message);
+                                error!("JD Server: unexpected relay new message {}", message);
                             }
                             Ok(SendTo::RelayNewMessageToRemote(remote, message)) => {
                                 error!(
-                                    "JD Server: unexpected relay new message to remote. Remote: {:?}, Message: {:?}",
+                                    "JD Server: unexpected relay new message to remote. Remote: {:?}, Message: {}",
                                     remote,
                                     message
                                 );
