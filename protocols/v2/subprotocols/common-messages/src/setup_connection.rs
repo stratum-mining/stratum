@@ -2,7 +2,7 @@ use crate::{
     SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
     SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
 };
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{
     binary_codec_sv2,
     binary_codec_sv2::CVec,
@@ -52,6 +52,25 @@ pub struct SetupConnection<'decoder> {
     pub firmware: Str0255<'decoder>,
     /// Device identifier.
     pub device_id: Str0255<'decoder>,
+}
+
+impl fmt::Display for SetupConnection<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetupConnection(protocol: {}, min_version: {}, max_version: {}, flags: {}, endpoint_host: {}, endpoint_port: {}, vendor: {}, hardware_version: {}, firmware: {}, device_id: {})",
+            self.protocol as u8,
+            self.min_version,
+            self.max_version,
+            self.flags,
+            self.endpoint_host.as_utf8_or_hex(),
+            self.endpoint_port,
+            self.vendor.as_utf8_or_hex(),
+            self.hardware_version.as_utf8_or_hex(),
+            self.firmware.as_utf8_or_hex(),
+            self.device_id.as_utf8_or_hex()
+        )
+    }
 }
 
 impl SetupConnection<'_> {
@@ -287,6 +306,16 @@ pub struct SetupConnectionSuccess {
     pub flags: u32,
 }
 
+impl fmt::Display for SetupConnectionSuccess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetupConnectionSuccess(used_version: {}, flags: {})",
+            self.used_version, self.flags
+        )
+    }
+}
+
 /// Message used by an upstream role to reject a connection setup request from a downstream role.
 ///
 /// This message is sent in response to a [`SetupConnection`] message.
@@ -314,6 +343,17 @@ pub struct SetupConnectionError<'decoder> {
     /// - unsupported-protocol
     /// - protocol-version-mismatch
     pub error_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for SetupConnectionError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetupConnectionError(flags: {}, error_code: {})",
+            self.flags,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
 }
 
 #[repr(C)]
