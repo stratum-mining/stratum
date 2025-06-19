@@ -3,7 +3,7 @@ use binary_sv2::{
     binary_codec_sv2::{self, free_vec, CVec},
     Deserialize, Error, Serialize, U256,
 };
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt};
 
 /// Message used by an upstream(Template Provider) to indicate the latest block header hash
 /// to mine on.
@@ -31,6 +31,20 @@ pub struct SetNewPrevHash<'decoder> {
     /// may be lower than the target implied by nBits in several cases, including weak-block based
     /// block propagation.
     pub target: U256<'decoder>,
+}
+
+impl fmt::Display for SetNewPrevHash<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetNewPrevHash {{ template_id: {}, prev_hash: {}, header_timestamp: {}, n_bits: {}, target: {} }}",
+            self.template_id,
+            self.prev_hash,
+            self.header_timestamp,
+            self.n_bits,
+            self.target
+        )
+    }
 }
 
 /// C representation of [`SetNewPrevHash`].

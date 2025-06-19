@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{
     binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2},
     Deserialize, Error, Seq0255, Serialize, B0255, B064K, U256,
@@ -50,6 +50,29 @@ pub struct NewTemplate<'decoder> {
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
+}
+
+impl fmt::Display for NewTemplate<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NewTemplate(template_id: {}, future_template: {}, version: {}, coinbase_tx_version: {}, \
+             coinbase_prefix: {}, coinbase_tx_input_sequence: {}, coinbase_tx_value_remaining: {}, \
+             coinbase_tx_outputs_count: {}, coinbase_tx_outputs: {}, coinbase_tx_locktime: {}, \
+             merkle_path: {})",
+            self.template_id,
+            self.future_template,
+            self.version,
+            self.coinbase_tx_version,
+            self.coinbase_prefix,
+            self.coinbase_tx_input_sequence,
+            self.coinbase_tx_value_remaining,
+            self.coinbase_tx_outputs_count,
+            self.coinbase_tx_outputs,
+            self.coinbase_tx_locktime,
+            self.merkle_path
+        )
+    }
 }
 
 /// C representation of [`NewTemplate`].
