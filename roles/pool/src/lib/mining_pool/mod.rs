@@ -1149,7 +1149,7 @@ async fn send_set_target_downstream(
 
     let mining_msg = Mining::SetTarget(target_message);
 
-    info!("Set Target Message: {:?}", mining_msg);
+    info!("Sending SetTarget message to downstream: {:?}", mining_msg);
 
     let sv2_frame: StdFrame = AnyMessage::Mining(mining_msg).try_into()?;
 
@@ -1158,35 +1158,35 @@ async fn send_set_target_downstream(
     Ok(())
 }
 
-fn process_extended_channel(
+fn run_vardiff_on_extended_channel(
     channel_id: u32,
     channel: Arc<RwLock<ExtendedChannel<'static>>>,
     vardiff_state: Arc<RwLock<Box<dyn Vardiff>>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
-    let Ok(mut channel_atomic) = channel.write() else {
+    let Ok(mut channel_state) = channel.write() else {
         debug!("Failed to lock extended channel {channel_id}");
         return;
     };
 
-    let Ok(mut vardiff_atomic) = vardiff_state.write() else {
+    let Ok(mut vardiff_state) = vardiff_state.write() else {
         debug!("Failed to lock vardiff state for extended channel {channel_id}");
         return;
     };
 
-    let hashrate = channel_atomic.get_nominal_hashrate();
-    let target = channel_atomic.get_target();
-    let shares_per_minute = channel_atomic.get_shares_per_minute();
+    let hashrate = channel_state.get_nominal_hashrate();
+    let target = channel_state.get_target();
+    let shares_per_minute = channel_state.get_shares_per_minute();
 
-    let Ok(new_hashrate_opt) = vardiff_atomic.try_vardiff(hashrate, target, shares_per_minute)
+    let Ok(new_hashrate_opt) = vardiff_state.try_vardiff(hashrate, target, shares_per_minute)
     else {
         debug!("Vardiff computation failed for extended channel {channel_id}");
         return;
     };
 
     if let Some(new_hashrate) = new_hashrate_opt {
-        if let Ok(()) = channel_atomic.update_channel(new_hashrate, None) {
-            let updated_target = channel_atomic.get_target();
+        if let Ok(()) = channel_state.update_channel(new_hashrate, None) {
+            let updated_target = channel_state.get_target();
             updates.push((channel_id, updated_target.clone()));
 
             debug!(
@@ -1199,35 +1199,35 @@ fn process_extended_channel(
     }
 }
 
-fn process_standard_channel(
+fn run_vardiff_on_standard_channel(
     channel_id: u32,
     channel: Arc<RwLock<StandardChannel<'static>>>,
     vardiff_state: &Arc<RwLock<Box<dyn Vardiff>>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
-    let Ok(mut channel_atomic) = channel.write() else {
+    let Ok(mut channel_state) = channel.write() else {
         debug!("Failed to lock standard channel {channel_id}");
         return;
     };
 
-    let Ok(mut vardiff_atomic) = vardiff_state.write() else {
+    let Ok(mut vardiff_state) = vardiff_state.write() else {
         debug!("Failed to lock vardiff state for standard channel {channel_id}");
         return;
     };
 
-    let hashrate = channel_atomic.get_nominal_hashrate();
-    let target = channel_atomic.get_target();
-    let shares_per_minute = channel_atomic.get_shares_per_minute();
+    let hashrate = channel_state.get_nominal_hashrate();
+    let target = channel_state.get_target();
+    let shares_per_minute = channel_state.get_shares_per_minute();
 
-    let Ok(new_hashrate_opt) = vardiff_atomic.try_vardiff(hashrate, target, shares_per_minute)
+    let Ok(new_hashrate_opt) = vardiff_state.try_vardiff(hashrate, target, shares_per_minute)
     else {
         debug!("Vardiff computation failed for standard channel {channel_id}");
         return;
     };
 
     if let Some(new_hashrate) = new_hashrate_opt {
-        if let Ok(()) = channel_atomic.update_channel(new_hashrate, None) {
-            let updated_target = channel_atomic.get_target();
+        if let Ok(()) = channel_state.update_channel(new_hashrate, None) {
+            let updated_target = channel_state.get_target();
             updates.push((channel_id, updated_target.clone()));
 
             debug!(
@@ -1265,7 +1265,7 @@ async fn spawn_vardiff_loop(
         _ = downstream.safe_lock(|d| {
             for (channel_id, vardiff_state) in &d.vardiff {
                 if let Some(channel) = d.extended_channels.get(channel_id) {
-                    process_extended_channel(
+                    run_vardiff_on_extended_channel(
                         *channel_id,
                         channel.clone(),
                         vardiff_state.clone(),
@@ -1274,7 +1274,7 @@ async fn spawn_vardiff_loop(
                 }
 
                 if let Some(channel) = d.standard_channels.get(channel_id) {
-                    process_standard_channel(
+                    run_vardiff_on_standard_channel(
                         *channel_id,
                         channel.clone(),
                         vardiff_state,
