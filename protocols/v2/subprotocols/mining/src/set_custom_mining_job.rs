@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
@@ -52,6 +52,26 @@ pub struct SetCustomMiningJob<'decoder> {
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
+impl fmt::Display for SetCustomMiningJob<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version={}, prev_hash={}, min_ntime={}, nbits={}, coinbase_tx_version={}, coinbase_prefix={}, coinbase_tx_input_n_sequence={}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
+            self.channel_id,
+            self.request_id,
+            self.token,
+            self.version,
+            self.prev_hash,
+            self.min_ntime,
+            self.nbits,
+            self.coinbase_tx_version,
+            self.coinbase_prefix,
+            self.coinbase_tx_input_n_sequence,
+            self.coinbase_tx_outputs,
+            self.coinbase_tx_locktime,
+            self.merkle_path
+        )
+    }
+}
+
 /// Message used by upstream to accept [`SetCustomMiningJob`] request.
 ///
 /// Upon receiving this message, downstream can start submitting shares for this job immediately (by
@@ -64,6 +84,16 @@ pub struct SetCustomMiningJobSuccess {
     pub request_id: u32,
     /// Upstream’s identification of the mining job.
     pub job_id: u32,
+}
+
+impl fmt::Display for SetCustomMiningJobSuccess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetCustomMiningJobSuccess(channel_id={}, request_id={}, job_id={})",
+            self.channel_id, self.request_id, self.job_id
+        )
+    }
 }
 
 /// Message used by upstream to reject [`SetCustomMiningJob`] request.
@@ -80,4 +110,16 @@ pub struct SetCustomMiningJobError<'decoder> {
     /// - invalid-mining-job-token
     /// - invalid-job-param-value-{field_name}
     pub error_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for SetCustomMiningJobError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetCustomMiningJobError(channel_id={}, request_id={}, error_code={})",
+            self.channel_id,
+            self.request_id,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
 }

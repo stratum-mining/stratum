@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, B032};
 use core::convert::TryInto;
 
@@ -24,6 +24,16 @@ pub struct SubmitSharesStandard {
     pub ntime: u32,
     /// Full `nVersion` field.
     pub version: u32,
+}
+
+impl fmt::Display for SubmitSharesStandard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSharesStandard(channel_id={}, sequence_number={}, job_id={}, nonce={}, ntime={}, version={})",
+            self.channel_id, self.sequence_number, self.job_id, self.nonce, self.ntime, self.version
+        )
+    }
 }
 
 /// Message used by downstream to send result of its hashing work to an upstream.
@@ -62,6 +72,16 @@ pub struct SubmitSharesExtended<'decoder> {
     pub extranonce: B032<'decoder>,
 }
 
+impl fmt::Display for SubmitSharesExtended<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSharesExtended(channel_id={}, sequence_number={}, job_id={}, nonce={}, ntime={}, version={}, extranonce={})",
+            self.channel_id, self.sequence_number, self.job_id, self.nonce, self.ntime, self.version, self.extranonce
+        )
+    }
+}
+
 /// Message used by upstream to accept [`SubmitSharesStandard`] or [`SubmitSharesExtended`].
 ///
 /// Because it is a common case that shares submission is successful, this response can be provided
@@ -80,6 +100,16 @@ pub struct SubmitSharesSuccess {
     pub new_submits_accepted_count: u32,
     /// Sum of shares acknowledged within this batch.
     pub new_shares_sum: u64,
+}
+
+impl fmt::Display for SubmitSharesSuccess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSharesSuccess(channel_id={}, last_sequence_number={}, new_submits_accepted_count={}, new_shares_sum={})",
+            self.channel_id, self.last_sequence_number, self.new_submits_accepted_count, self.new_shares_sum
+        )
+    }
 }
 
 /// Message used by upstream to reject [`SubmitSharesStandard`] or [`SubmitSharesExtended`].
@@ -102,6 +132,16 @@ pub struct SubmitSharesError<'decoder> {
     /// - difficulty-too-low
     /// - invalid-job-id
     pub error_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for SubmitSharesError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSharesError(channel_id={}, sequence_number={}, error_code={})",
+            self.channel_id, self.sequence_number, self.error_code
+        )
+    }
 }
 
 impl SubmitSharesError<'_> {

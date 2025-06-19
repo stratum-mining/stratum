@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255};
 use core::convert::TryInto;
 
@@ -14,4 +14,15 @@ pub struct CloseChannel<'decoder> {
     pub channel_id: u32,
     /// Reason for closing the channel.
     pub reason_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for CloseChannel<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CloseChannel(channel_id: {}, reason_code: {})",
+            self.channel_id,
+            self.reason_code.as_utf8_or_hex()
+        )
+    }
 }
