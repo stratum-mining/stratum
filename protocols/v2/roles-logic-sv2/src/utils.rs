@@ -1190,4 +1190,26 @@ mod tests {
             max_difficulty
         );
     }
+
+    #[test]
+    fn test_hash_rate_from_target_with_max_target() {
+        use codec_sv2::binary_sv2::U256;
+        // This is the maximum value for a 256-bit unsigned integer
+        let max_u128 = 340282366920938463463374607431768211455u128;
+        // Compose the bytes for U256::MAX
+        let mut max_bytes = [0u8; 32];
+        max_bytes[..16].copy_from_slice(&max_u128.to_be_bytes());
+        max_bytes[16..].copy_from_slice(&max_u128.to_be_bytes());
+        let target = U256::from(max_bytes);
+        let share_per_min = 4.0;
+        let result = hash_rate_from_target(target, share_per_min);
+        assert!(
+            matches!(
+                result,
+                Err(Error::HashrateError(InputError::ArithmeticOverflow))
+            ),
+            "Expected ArithmeticOverflow error, got: {:?}",
+            result
+        );
+    }
 }
