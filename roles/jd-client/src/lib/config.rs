@@ -10,7 +10,7 @@ use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{net::SocketAddr, time::Duration};
-use stratum_common::bitcoin::{Amount, TxOut};
+use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 /// Represents the configuration of a Job Declarator Client (JDC).
 ///

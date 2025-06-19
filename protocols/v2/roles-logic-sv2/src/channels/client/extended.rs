@@ -10,17 +10,17 @@ use crate::{
     },
     utils::{bytes_to_hex, merkle_root_from_path, target_to_difficulty, u256_to_block_hash},
 };
-use binary_sv2::Sv2Option;
+use bitcoin::{
+    blockdata::block::{Header, Version},
+    hashes::sha256d::Hash,
+    CompactTarget, Target as BitcoinTarget,
+};
+use codec_sv2::binary_sv2::{self, Sv2Option};
 use mining_sv2::{
     NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target,
     MAX_EXTRANONCE_LEN,
 };
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{
-    blockdata::block::{Header, Version},
-    hashes::sha256d::Hash,
-    CompactTarget, Target as BitcoinTarget,
-};
 use tracing::debug;
 
 // ExtendedJob is a tuple of:
@@ -390,7 +390,7 @@ mod tests {
         extended::ExtendedChannel,
         share_accounting::{ShareValidationError, ShareValidationResult},
     };
-    use binary_sv2::Sv2Option;
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
         MAX_EXTRANONCE_LEN,

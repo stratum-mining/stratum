@@ -1,8 +1,8 @@
 #![allow(clippy::new_ret_no_self)]
 use crate::Error;
 use async_channel::{unbounded, Receiver, Sender};
-use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
+    binary_sv2::{Deserialize, GetSize, Serialize},
     noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE},
     HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder, State,
 };

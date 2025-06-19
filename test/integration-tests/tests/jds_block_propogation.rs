@@ -2,7 +2,7 @@ use integration_tests_sv2::{
     interceptor::{IgnoreMessage, MessageDirection},
     *,
 };
-use roles_logic_sv2::{job_declaration_sv2::*, template_distribution_sv2::*};
+use stratum_common::roles_logic_sv2::{job_declaration_sv2::*, template_distribution_sv2::*};
 
 // Block propogated from JDS to TP
 #[tokio::test]

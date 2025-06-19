@@ -9,7 +9,9 @@ use super::super::{
     mining_pool::{EitherFrame, StdFrame},
 };
 use async_channel::{Receiver, Sender};
-use roles_logic_sv2::{
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use stratum_common::roles_logic_sv2::{
+    self,
     common_messages_sv2::{
         has_requires_std_job, has_version_rolling, has_work_selection, SetupConnection,
         SetupConnectionSuccess,
@@ -20,7 +22,6 @@ use roles_logic_sv2::{
     parsers::{AnyMessage, CommonMessages},
     utils::Mutex,
 };
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{debug, error, info};
 
 /// Handles the `SetupConnection` message for downstream connections.

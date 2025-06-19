@@ -14,14 +14,15 @@ use crate::{
         u256_to_block_hash,
     },
 };
-use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
-use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{
+use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
     transaction::TxOut,
     CompactTarget, Target as BitcoinTarget,
 };
+use codec_sv2::binary_sv2;
+use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
+use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -604,10 +605,10 @@ mod tests {
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
-    use binary_sv2::Sv2Option;
+    use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
     use std::convert::TryInto;
-    use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;

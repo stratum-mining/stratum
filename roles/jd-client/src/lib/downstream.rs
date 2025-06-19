@@ -28,8 +28,11 @@ use super::{
     upstream_sv2::Upstream as UpstreamMiningNode,
 };
 use async_channel::{bounded, Receiver, SendError, Sender};
-use roles_logic_sv2::{
+use stratum_common::roles_logic_sv2::{
+    self,
+    bitcoin::{consensus::Decodable, TxOut},
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
+    codec_sv2,
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
@@ -48,8 +51,6 @@ use tracing::{debug, error, info, warn};
 
 use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-
-use stratum_common::bitcoin::{consensus::Decodable, TxOut};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -939,9 +940,11 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
     }
 }
 
-use binary_sv2::Str0255;
-use network_helpers_sv2::noise_connection::Connection;
 use std::net::SocketAddr;
+use stratum_common::{
+    network_helpers_sv2::noise_connection::Connection,
+    roles_logic_sv2::codec_sv2::binary_sv2::Str0255,
+};
 use tokio::{
     net::TcpListener,
     task::AbortHandle,

@@ -11,7 +11,7 @@ binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = [ "noise_sv2" ] }
 noise_sv2 = { path = "../../protocols/v2/noise-sv2" }
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
-network_helpers_sv2 = { version = "3.0.0", path = "../../roles/roles-utils/network-helpers" }
+network_helpers_sv2 = { version = "4.0.0", path = "../../roles/roles-utils/network-helpers" }
 rand = "0.8"
 tokio = { version = "1.44.1", features = [ "full" ] }
 async-channel = "1.5.1"

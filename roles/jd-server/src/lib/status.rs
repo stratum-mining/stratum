@@ -8,7 +8,7 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
-use roles_logic_sv2::parsers::Mining;
+use stratum_common::roles_logic_sv2::parsers::Mining;
 
 use super::error::JdsError;
 
@@ -162,7 +162,11 @@ mod tests {
 
     use super::*;
     use async_channel::{bounded, RecvError};
-    use roles_logic_sv2::mining_sv2::OpenMiningChannelError;
+    use stratum_common::roles_logic_sv2::{
+        self,
+        codec_sv2::{self, binary_sv2, noise_sv2},
+        mining_sv2::OpenMiningChannelError,
+    };
 
     #[tokio::test]
     async fn test_send_status_downstream_listener_shutdown() {

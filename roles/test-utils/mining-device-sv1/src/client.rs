@@ -3,7 +3,6 @@ use async_channel::{unbounded, Receiver, Sender};
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use primitive_types::U256;
-use roles_logic_sv2::utils::Mutex;
 use std::{
     convert::TryInto,
     net::SocketAddr,
@@ -11,6 +10,7 @@ use std::{
     sync::Arc,
     time::{self, Duration},
 };
+use stratum_common::roles_logic_sv2::utils::Mutex;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,

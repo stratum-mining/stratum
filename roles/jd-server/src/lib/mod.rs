@@ -23,15 +23,18 @@ pub mod job_declarator;
 pub mod mempool;
 pub mod status;
 use async_channel::{bounded, unbounded, Receiver, Sender};
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use config::JobDeclaratorServerConfig;
 use error::JdsError;
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
-use roles_logic_sv2::{parsers::AnyMessage as JdsMessages, utils::Mutex};
 pub use rpc_sv2::Uri;
 use std::{ops::Sub, str::FromStr, sync::Arc};
+use stratum_common::roles_logic_sv2::{
+    codec_sv2::{StandardEitherFrame, StandardSv2Frame},
+    parsers::AnyMessage as JdsMessages,
+    utils::Mutex,
+};
 use tokio::{select, task};
 use tracing::{error, info, warn};
 

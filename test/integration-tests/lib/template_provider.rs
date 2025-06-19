@@ -1,6 +1,6 @@
 use corepc_node::{Conf, ConnectParams, Node};
 use std::{env, fs::create_dir_all, path::PathBuf};
-use stratum_common::bitcoin::{Address, Amount, Txid};
+use stratum_common::roles_logic_sv2::bitcoin::{Address, Amount, Txid};
 
 use crate::utils::{http, tarball};
 

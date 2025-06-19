@@ -19,12 +19,13 @@ pub mod error;
 use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;
 use async_channel::Receiver;
-use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
-use roles_logic_sv2::utils::Mutex;
 use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{str::FromStr, sync::Arc};
-use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
+use stratum_common::roles_logic_sv2::{
+    bitcoin::{blockdata::transaction::Transaction, hash_types::Txid},
+    utils::Mutex,
+};
 
 /// Wrapper around a known transaction and its hash.
 #[derive(Clone, Debug)]
