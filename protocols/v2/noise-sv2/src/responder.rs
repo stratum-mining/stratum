@@ -60,6 +60,7 @@ const VERSION: u16 = 0;
 /// a connection with the initiator. The responder manages key generation, Diffie-Hellman exchanges,
 /// message decryption, and state transitions, ensuring secure communication. Sensitive
 /// cryptographic material is securely erased when no longer needed.
+#[derive(Clone)]
 pub struct Responder {
     // Cipher used for encrypting and decrypting messages during the handshake.
     //

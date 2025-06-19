@@ -105,6 +105,7 @@ const PARITY: secp256k1::Parity = secp256k1::Parity::Even;
 /// Manages the encryption and decryption of messages between two parties, the [`Initiator`] and
 /// [`Responder`], using the Noise protocol. A symmetric cipher is used for both encrypting
 /// outgoing messages and decrypting incoming messages.
+#[derive(Clone)]
 pub struct NoiseCodec {
     // Cipher to encrypt outgoing messages.
     encryptor: GenericCipher,

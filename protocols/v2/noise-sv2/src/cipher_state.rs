@@ -175,6 +175,7 @@ where
 // `GenericCipher` enables easy switching between ciphers while maintaining secure key and nonce
 // management.
 #[allow(clippy::large_enum_variant)]
+#[derive(Clone)]
 pub enum GenericCipher {
     ChaCha20Poly1305(Cipher<ChaCha20Poly1305>),
     #[allow(dead_code)]
@@ -302,6 +303,7 @@ impl CipherState<Aes256Gcm> for GenericCipher {
 // It stores the optional encryption key, the nonce, and the optional cipher instance itself. The
 // [`CipherState`] trait is implemented to provide a consistent interface for managing cipher
 // state across different AEAD ciphers.
+#[derive(Clone)]
 pub struct Cipher<C: AeadCipher> {
     // Optional 32-byte encryption key.
     k: Option<[u8; 32]>,
