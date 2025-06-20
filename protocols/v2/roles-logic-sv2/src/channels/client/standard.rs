@@ -135,6 +135,10 @@ impl<'a> StandardChannel<'a> {
         &self.stale_jobs
     }
 
+    pub fn get_share_accounting(&self) -> &ShareAccounting {
+        &self.share_accounting
+    }
+
     /// Called when the Group Channel receives a new extended job.
     ///
     /// Essentially converts the extended job into a standard job (with the current channel's

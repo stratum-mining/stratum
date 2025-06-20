@@ -171,6 +171,10 @@ impl<'a> ExtendedChannel<'a> {
         &self.stale_jobs
     }
 
+    pub fn get_share_accounting(&self) -> &ShareAccounting {
+        &self.share_accounting
+    }
+
     /// Called when a `NewExtendedMiningJob` message is received from upstream.
     pub fn on_new_extended_mining_job(
         &mut self,
