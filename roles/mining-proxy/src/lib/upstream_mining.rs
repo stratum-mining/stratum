@@ -15,26 +15,31 @@ use super::{
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     EXTRANONCE_RANGE_1_LENGTH,
 };
-use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{
-    channel_logic::{
-        channel_factory::{ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share},
-        proxy_group_channel::GroupChannels,
+use stratum_common::{
+    network_helpers_sv2::noise_connection::Connection,
+    roles_logic_sv2::{
+        bitcoin::TxOut,
+        channel_logic::{
+            channel_factory::{
+                ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share,
+            },
+            proxy_group_channel::GroupChannels,
+        },
+        codec_sv2,
+        codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame},
+        common_messages_sv2::{Protocol, SetupConnection},
+        common_properties::{
+            IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper, UpstreamChannel,
+        },
+        errors::Error,
+        handlers::mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
+        job_dispatcher::GroupChannelJobDispatcher,
+        mining_sv2::*,
+        parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
+        template_distribution_sv2::SubmitSolution,
+        utils::{GroupId, Id, Mutex},
     },
-    common_messages_sv2::{Protocol, SetupConnection},
-    common_properties::{
-        IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper, UpstreamChannel,
-    },
-    errors::Error,
-    handlers::mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
-    job_dispatcher::GroupChannelJobDispatcher,
-    mining_sv2::*,
-    parsers::{AnyMessage, CommonMessages, Mining, MiningDeviceMessages},
-    template_distribution_sv2::SubmitSolution,
-    utils::{GroupId, Id, Mutex},
 };
-use stratum_common::bitcoin::TxOut;
 
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

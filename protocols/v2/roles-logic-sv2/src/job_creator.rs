@@ -3,23 +3,20 @@
 //! This module provides logic to create extended mining jobs given a template from
 //! a template provider as well as logic to clean up old templates when new blocks are mined.
 use crate::{errors, utils::Id, Error};
-use binary_sv2::B064K;
+use bitcoin::{
+    absolute::LockTime,
+    blockdata::{
+        transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
+        witness::Witness,
+    },
+    consensus,
+    consensus::Decodable,
+    Amount,
+};
+use codec_sv2::binary_sv2::{self, B064K};
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::{
-    bitcoin,
-    bitcoin::{
-        absolute::LockTime,
-        blockdata::{
-            transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
-            witness::Witness,
-        },
-        consensus,
-        consensus::Decodable,
-        Amount,
-    },
-};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -435,16 +432,14 @@ pub mod tests {
     use super::*;
     use crate::utils::merkle_root_from_path;
     #[cfg(feature = "prop_test")]
-    use binary_sv2::u256_from_int;
+    use codec_sv2::binary_sv2::u256_from_int;
     use quickcheck::{Arbitrary, Gen};
     use std::{cmp, vec};
 
     #[cfg(feature = "prop_test")]
     use std::borrow::BorrowMut;
 
-    use stratum_common::bitcoin::{
-        consensus::Encodable, secp256k1::Secp256k1, Network, PrivateKey, PublicKey,
-    };
+    use bitcoin::{consensus::Encodable, secp256k1::Secp256k1, Network, PrivateKey, PublicKey};
 
     pub fn template_from_gen(g: &mut Gen) -> NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
@@ -501,7 +496,7 @@ pub mod tests {
     }
 
     #[cfg(feature = "prop_test")]
-    use stratum_common::bitcoin::ScriptBuf;
+    use bitcoin::ScriptBuf;
 
     // Test job_id_from_template
     #[cfg(feature = "prop_test")]

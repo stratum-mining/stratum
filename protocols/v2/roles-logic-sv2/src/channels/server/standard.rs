@@ -10,9 +10,7 @@ use crate::{
     },
     utils::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
-use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
-use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{
+use bitcoin::{
     absolute::LockTime,
     blockdata::{
         block::{Header, Version},
@@ -23,6 +21,9 @@ use stratum_common::bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
     CompactTarget, Sequence, Target as BitcoinTarget,
 };
+use codec_sv2::binary_sv2;
+use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
+use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -539,10 +540,10 @@ mod tests {
             standard::StandardChannel,
         },
     };
-    use binary_sv2::Sv2Option;
+    use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
+    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::{NewMiningJob, SubmitSharesStandard, Target};
     use std::convert::TryInto;
-    use stratum_common::bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;

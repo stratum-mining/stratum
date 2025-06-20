@@ -1,21 +1,8 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
-use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
 use primitive_types::U256;
 use rand::{thread_rng, Rng};
-use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
-    errors::Error,
-    handlers::{
-        common::ParseCommonMessagesFromUpstream,
-        mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
-    },
-    mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages},
-    utils::{Id, Mutex},
-};
 use std::{
     net::{SocketAddr, ToSocketAddrs},
     sync::{
@@ -25,8 +12,23 @@ use std::{
     thread::available_parallelism,
     time::{Duration, Instant},
 };
-use stratum_common::bitcoin::{
-    blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
+use stratum_common::{
+    network_helpers_sv2::noise_connection::Connection,
+    roles_logic_sv2::{
+        self,
+        bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget},
+        codec_sv2,
+        codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame},
+        common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
+        errors::Error,
+        handlers::{
+            common::ParseCommonMessagesFromUpstream,
+            mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
+        },
+        mining_sv2::*,
+        parsers::{Mining, MiningDeviceMessages},
+        utils::{Id, Mutex},
+    },
 };
 use tokio::net::TcpStream;
 use tracing::{debug, error, info};
@@ -92,9 +94,8 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
-use roles_logic_sv2::common_messages_sv2::Reconnect;
 use std::convert::TryInto;
-use stratum_common::bitcoin::block::Version;
+use stratum_common::roles_logic_sv2::{bitcoin::block::Version, common_messages_sv2::Reconnect};
 
 impl SetupConnectionHandler {
     pub fn new() -> Self {

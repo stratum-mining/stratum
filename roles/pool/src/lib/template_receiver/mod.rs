@@ -13,19 +13,22 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
-use roles_logic_sv2::{
-    handlers::template_distribution::ParseTemplateDistributionMessagesFromServer,
-    parsers::{AnyMessage, TemplateDistribution},
-    template_distribution_sv2::{
-        CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
-    },
-    utils::Mutex,
-};
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use stratum_common::{
+    network_helpers_sv2::noise_connection::Connection,
+    roles_logic_sv2::{
+        self, codec_sv2,
+        codec_sv2::{HandshakeRole, Initiator},
+        handlers::template_distribution::ParseTemplateDistributionMessagesFromServer,
+        parsers::{AnyMessage, TemplateDistribution},
+        template_distribution_sv2::{
+            CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
+        },
+        utils::Mutex,
+    },
+};
 use tokio::{net::TcpStream, task};
 use tracing::{info, warn};
 

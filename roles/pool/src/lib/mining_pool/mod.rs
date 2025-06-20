@@ -26,23 +26,11 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::U256;
-use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use config_helpers::CoinbaseOutputError;
 use error_handling::handle_result;
 use key_utils::SignatureService;
-use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
-use roles_logic_sv2::{
-    channels::server::{extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel},
-    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
-    errors::Error,
-    handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
-    mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN},
-    parsers::{AnyMessage, Mining},
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution},
-    utils::{Id as IdFactory, Mutex},
-};
+use secp256k1;
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -50,8 +38,27 @@ use std::{
     sync::{Arc, RwLock},
 };
 use stratum_common::{
-    bitcoin::{Amount, ScriptBuf, TxOut},
-    secp256k1,
+    network_helpers_sv2::noise_connection::Connection,
+    roles_logic_sv2::{
+        self,
+        bitcoin::{Amount, ScriptBuf, TxOut},
+        channels::server::{
+            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+        },
+        codec_sv2,
+        codec_sv2::{
+            binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
+        },
+        common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
+        errors::Error,
+        handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
+        mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN},
+        parsers::{AnyMessage, Mining},
+        template_distribution_sv2::{
+            NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
+        },
+        utils::{Id as IdFactory, Mutex},
+    },
 };
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
@@ -1120,15 +1127,15 @@ impl Pool {
 
 #[cfg(test)]
 mod test {
-    use binary_sv2::{B0255, B064K};
     use ext_config::{Config, File, FileFormat};
     use std::convert::TryInto;
-    use tracing::error;
-
-    use stratum_common::{
-        bitcoin,
-        bitcoin::{absolute::LockTime, consensus, transaction::Version, Transaction, Witness},
+    use stratum_common::roles_logic_sv2::{
+        bitcoin::{
+            self, absolute::LockTime, consensus, transaction::Version, Transaction, Witness,
+        },
+        codec_sv2::binary_sv2::{B0255, B064K},
     };
+    use tracing::error;
 
     use super::PoolConfig;
 

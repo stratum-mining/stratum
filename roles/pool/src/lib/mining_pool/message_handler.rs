@@ -6,14 +6,19 @@
 //! reacts to various mining-related messages received from a connected downstream miner.
 
 use super::super::mining_pool::Downstream;
-use binary_sv2::Str0255;
-use roles_logic_sv2::{
+use std::{
+    convert::TryInto,
+    sync::{Arc, RwLock},
+};
+use stratum_common::roles_logic_sv2::{
+    bitcoin::Amount,
     channels::server::{
         error::{ExtendedChannelError, StandardChannelError},
         extended::ExtendedChannel,
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
     },
+    codec_sv2::binary_sv2::Str0255,
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     mining_sv2::*,
@@ -21,11 +26,6 @@ use roles_logic_sv2::{
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
 };
-use std::{
-    convert::TryInto,
-    sync::{Arc, RwLock},
-};
-use stratum_common::bitcoin::Amount;
 use tracing::{error, info};
 
 impl ParseMiningMessagesFromDownstream<()> for Downstream {

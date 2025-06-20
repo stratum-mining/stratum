@@ -5,12 +5,12 @@
 //! send messages to.
 
 use nohash_hasher::BuildNoHashHasher;
-use roles_logic_sv2::{
+use std::{collections::HashMap, fmt::Debug as D, sync::Arc};
+use stratum_common::roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream, IsMiningUpstream, PairSettings},
     utils::Mutex,
     Error,
 };
-use std::{collections::HashMap, fmt::Debug as D, sync::Arc};
 
 /// Proxy selector for routing messages to downstream mining nodes.
 ///

@@ -1,7 +1,7 @@
 use crate::job::Job;
 use primitive_types::U256;
 use std::convert::TryInto;
-use stratum_common::bitcoin::{
+use stratum_common::roles_logic_sv2::bitcoin::{
     blockdata::block::{Header, Version},
     hash_types::{BlockHash, TxMerkleNode},
     hashes::{sha256d::Hash as DHash, Hash},

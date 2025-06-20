@@ -174,14 +174,15 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.13.1"
+version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ca9a001c1e8ba5149f91a74362376cc6bc5b919d92d988668657bd570bdcec"
+checksum = "bb812ffb58524bdd10860d7d974e2f01cc0950c2438a74ee5ec2e2280c6c4ffa"
 dependencies = [
  "async-task",
  "concurrent-queue",
  "fastrand",
  "futures-lite",
+ "pin-project-lite",
  "slab",
 ]
 
@@ -202,9 +203,9 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "2.4.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43a2b323ccce0a1d90b449fd71f2a06ca7faa7c54c2751f06c9bd851fc061059"
+checksum = "1237c0ae75a0f3765f58910ff9cdd0a12eeb39ab2f4c7de23262f337f0aacbb3"
 dependencies = [
  "async-lock",
  "cfg-if",
@@ -213,7 +214,7 @@ dependencies = [
  "futures-lite",
  "parking",
  "polling",
- "rustix 0.38.44",
+ "rustix",
  "slab",
  "tracing",
  "windows-sys 0.59.0",
@@ -515,9 +516,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.17.0"
+version = "3.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
+checksum = "793db76d6187cd04dff33004d8e6c9cc4e05cd330500379d2394209271b4aeee"
 
 [[package]]
 name = "byte-slice-cast"
@@ -636,7 +637,6 @@ dependencies = [
  "framing_sv2",
  "noise_sv2",
  "rand 0.8.5",
- "stratum-common",
  "tracing",
 ]
 
@@ -651,7 +651,6 @@ name = "common_messages_sv2"
 version = "5.1.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -973,7 +972,6 @@ dependencies = [
  "binary_sv2",
  "buffer_sv2",
  "noise_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1207,9 +1205,9 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
-version = "0.4.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
+checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
 name = "hex"
@@ -1377,8 +1375,6 @@ name = "integration_tests_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
- "binary_sv2",
- "codec_sv2",
  "config-helpers",
  "corepc-node",
  "flate2",
@@ -1389,11 +1385,9 @@ dependencies = [
  "mining_device_sv1",
  "mining_proxy_sv2",
  "minreq",
- "network_helpers_sv2",
  "once_cell",
  "pool_sv2",
  "rand 0.9.0",
- "roles_logic_sv2",
  "stratum-common",
  "tar",
  "tokio",
@@ -1420,20 +1414,16 @@ version = "0.1.4"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
  "primitive-types",
- "roles_logic_sv2",
+ "secp256k1 0.28.2",
  "serde",
  "stratum-common",
  "tokio",
@@ -1446,21 +1436,16 @@ name = "jd_server"
 version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
- "noise_sv2",
  "rand 0.8.5",
- "roles_logic_sv2",
  "rpc_sv2",
  "serde",
  "serde_json",
@@ -1475,7 +1460,6 @@ name = "job_declaration_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1556,12 +1540,6 @@ dependencies = [
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.4.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
-
-[[package]]
-name = "linux-raw-sys"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe7db12097d22ec582439daf8618b8fdd1a7bef6270e9af3b1ebcd30893cf413"
@@ -1603,16 +1581,12 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "primitive-types",
  "rand 0.8.5",
- "roles_logic_sv2",
  "sha2 0.10.8",
  "stratum-common",
  "tokio",
@@ -1628,7 +1602,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "primitive-types",
- "roles_logic_sv2",
  "serde",
  "serde_json",
  "stratum-common",
@@ -1644,17 +1617,13 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
  "once_cell",
- "roles_logic_sv2",
  "serde",
  "stratum-common",
  "tokio",
@@ -1667,7 +1636,6 @@ name = "mining_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1717,15 +1685,13 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "3.1.0"
+version = "4.0.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
- "binary_sv2",
  "codec_sv2",
  "futures",
  "serde_json",
- "stratum-common",
  "sv1_api",
  "tokio",
  "tokio-util",
@@ -1747,7 +1713,6 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "secp256k1 0.28.2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1968,15 +1933,15 @@ dependencies = [
 
 [[package]]
 name = "polling"
-version = "3.7.4"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a604568c3202727d1507653cb121dbd627a58684eb09a820fd746bee38b4442f"
+checksum = "b53a684391ad002dd6a596ceb6c74fd004fdce75f4be2e3f615068abbea5fd50"
 dependencies = [
  "cfg-if",
  "concurrent-queue",
  "hermit-abi",
  "pin-project-lite",
- "rustix 0.38.44",
+ "rustix",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -2010,21 +1975,17 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 1.1.1",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
  "hex",
  "integration_tests_sv2",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
- "noise_sv2",
  "rand 0.8.5",
- "roles_logic_sv2",
+ "secp256k1 0.28.2",
  "serde",
  "stratum-common",
  "tokio",
@@ -2178,16 +2139,15 @@ dependencies = [
 name = "roles_logic_sv2"
 version = "3.0.0"
 dependencies = [
- "binary_sv2",
+ "bitcoin",
  "chacha20poly1305",
+ "codec_sv2",
  "common_messages_sv2",
- "framing_sv2",
  "hex-conservative 0.3.0",
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",
  "primitive-types",
- "stratum-common",
  "template_distribution_sv2",
  "tracing",
 ]
@@ -2242,27 +2202,14 @@ checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustix"
-version = "0.38.44"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154"
+checksum = "c71e83d6afe7ff64890ec6b71d6a69bb8a610ab78ce364b3352876bb4c801266"
 dependencies = [
  "bitflags",
  "errno",
  "libc",
- "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "rustix"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e56a18552996ac8d29ecc3b190b4fdbb2d91ca4ec396de7bbffaf43f3d637e96"
-dependencies = [
- "bitflags",
- "errno",
- "libc",
- "linux-raw-sys 0.9.3",
+ "linux-raw-sys",
  "windows-sys 0.59.0",
 ]
 
@@ -2478,10 +2425,10 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-common"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
- "bitcoin",
- "secp256k1 0.28.2",
+ "network_helpers_sv2",
+ "roles_logic_sv2",
 ]
 
 [[package]]
@@ -2555,7 +2502,7 @@ checksum = "7437ac7763b9b123ccf33c338a5cc1bac6f69b45a136c19bdd8a65e3916435bf"
 dependencies = [
  "fastrand",
  "once_cell",
- "rustix 1.0.3",
+ "rustix",
  "windows-sys 0.59.0",
 ]
 
@@ -2564,7 +2511,6 @@ name = "template_distribution_sv2"
 version = "3.1.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -2752,20 +2698,15 @@ version = "1.0.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "once_cell",
  "primitive-types",
  "rand 0.8.5",
- "roles_logic_sv2",
  "serde",
  "serde_json",
  "sha2 0.10.8",

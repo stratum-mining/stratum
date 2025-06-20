@@ -1,11 +1,15 @@
 [package]
 name = "stratum-common"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2018"
 description = "SV2 pool role"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
-bitcoin = {version="0.32.5",optional=true}
-secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
+roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2" }
+network_helpers_sv2 = { path = "../roles/roles-utils/network-helpers", features = ["with_buffer_pool"], optional = true }
+
+[features]
+with_network_helpers = ["dep:network_helpers_sv2"]
+sv1 = ["network_helpers_sv2/sv1"]

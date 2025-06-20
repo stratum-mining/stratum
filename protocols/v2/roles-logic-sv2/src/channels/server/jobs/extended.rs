@@ -6,13 +6,13 @@ use crate::{
     template_distribution_sv2::NewTemplate,
     utils::deserialize_outputs,
 };
-use binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
-use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
-use std::convert::TryInto;
-use stratum_common::bitcoin::{
+use bitcoin::{
     consensus::{deserialize, serialize},
     transaction::{Transaction, TxOut},
 };
+use codec_sv2::binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
+use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
+use std::convert::TryInto;
 
 /// Abstraction of an extended mining job with:
 /// - the `NewTemplate` OR `SetCustomMiningJob` message that originated it

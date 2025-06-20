@@ -273,7 +273,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
 }
 
 pub fn measure_hashrate(duration_secs: u64) -> f64 {
-    use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
+    use stratum_common::roles_logic_sv2::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
     let mut share = {
         let mut rng = rng();

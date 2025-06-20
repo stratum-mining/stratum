@@ -36,7 +36,8 @@ use tokio::{
 
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
-use roles_logic_sv2::{
+use stratum_common::roles_logic_sv2::{
+    self,
     common_properties::{IsDownstream, IsMiningDownstream},
     mining_sv2::Target,
     utils::{hash_rate_to_target, Mutex},
@@ -723,8 +724,8 @@ impl IsDownstream for Downstream {
 
 #[cfg(test)]
 mod tests {
-    use binary_sv2::U256;
     use roles_logic_sv2::mining_sv2::Target;
+    use stratum_common::roles_logic_sv2::codec_sv2::binary_sv2::U256;
 
     use super::*;
 

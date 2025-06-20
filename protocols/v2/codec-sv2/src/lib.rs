@@ -67,6 +67,8 @@ pub use noise_sv2::{self, Initiator, NoiseCodec, Responder};
 
 pub use buffer_sv2;
 
+pub use binary_sv2;
+
 pub use framing_sv2::{self, framing::handshake_message_to_frame as h2f};
 
 /// Represents the role in the Noise handshake process, either as an initiator or a responder.

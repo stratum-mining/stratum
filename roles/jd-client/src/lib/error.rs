@@ -12,8 +12,12 @@
 //! This module ensures that all errors can be passed around consistently, including across async
 //! boundaries.
 use ext_config::ConfigError;
-use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
 use std::fmt;
+use stratum_common::roles_logic_sv2::{
+    self,
+    codec_sv2::{self, binary_sv2, framing_sv2},
+    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
+};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 

@@ -6,6 +6,8 @@ pub mod sv1_connection;
 use async_channel::{RecvError, SendError};
 use codec_sv2::Error as CodecError;
 
+pub use codec_sv2;
+
 #[derive(Debug)]
 pub enum Error {
     HandshakeRemoteInvalidMessage,

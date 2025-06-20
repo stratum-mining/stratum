@@ -1,7 +1,7 @@
 use crate::utils::deserialize_outputs;
-use binary_sv2::{Sv2Option, U256};
+use bitcoin::transaction::TxOut;
+use codec_sv2::binary_sv2::{Sv2Option, U256};
 use mining_sv2::NewMiningJob;
-use stratum_common::bitcoin::transaction::TxOut;
 use template_distribution_sv2::NewTemplate;
 
 /// Abstraction of a standard mining job with:

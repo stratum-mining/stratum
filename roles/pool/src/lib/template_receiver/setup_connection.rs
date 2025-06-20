@@ -8,14 +8,15 @@ use super::super::{
     mining_pool::{EitherFrame, StdFrame},
 };
 use async_channel::{Receiver, Sender};
-use roles_logic_sv2::{
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use stratum_common::roles_logic_sv2::{
+    self, codec_sv2,
     common_messages_sv2::{Protocol, Reconnect, SetupConnection, SetupConnectionError},
     errors::Error,
     handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
     parsers::{AnyMessage, CommonMessages},
     utils::Mutex,
 };
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{error, info};
 
 /// Handles the connection setup process with the Template Provider.

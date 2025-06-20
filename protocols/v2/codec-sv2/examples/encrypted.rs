@@ -24,14 +24,16 @@ use codec_sv2::{
 };
 #[cfg(feature = "noise_sv2")]
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
+
 use std::convert::TryInto;
 #[cfg(feature = "noise_sv2")]
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
 };
-#[cfg(feature = "noise_sv2")]
-use stratum_common::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
 
 // Arbitrary message type.
 // Supported Sv2 message types are listed in the [Sv2 Spec Message

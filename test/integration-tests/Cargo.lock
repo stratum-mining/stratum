@@ -515,7 +515,6 @@ dependencies = [
  "framing_sv2",
  "noise_sv2",
  "rand 0.8.5",
- "stratum-common",
  "tracing",
 ]
 
@@ -530,7 +529,6 @@ name = "common_messages_sv2"
 version = "5.1.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -831,7 +829,6 @@ dependencies = [
  "binary_sv2",
  "buffer_sv2",
  "noise_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1204,8 +1201,6 @@ name = "integration_tests_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "binary_sv2",
- "codec_sv2",
  "config-helpers",
  "corepc-node",
  "flate2",
@@ -1216,11 +1211,9 @@ dependencies = [
  "mining_device_sv1",
  "mining_proxy_sv2",
  "minreq",
- "network_helpers_sv2",
  "once_cell",
  "pool_sv2",
  "rand 0.9.0",
- "roles_logic_sv2",
  "stratum-common",
  "sv1_api",
  "tar",
@@ -1248,20 +1241,16 @@ version = "0.1.4"
 dependencies = [
  "async-channel",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
  "primitive-types",
- "roles_logic_sv2",
+ "secp256k1 0.28.2",
  "serde",
  "stratum-common",
  "tokio",
@@ -1274,21 +1263,16 @@ name = "jd_server"
 version = "0.1.3"
 dependencies = [
  "async-channel",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
- "noise_sv2",
  "rand 0.8.5",
- "roles_logic_sv2",
  "rpc_sv2",
  "serde",
  "serde_json",
@@ -1303,7 +1287,6 @@ name = "job_declaration_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1403,16 +1386,12 @@ version = "0.1.3"
 dependencies = [
  "async-channel",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "primitive-types",
  "rand 0.8.5",
- "roles_logic_sv2",
  "sha2 0.10.8",
  "stratum-common",
  "tokio",
@@ -1428,7 +1407,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "primitive-types",
- "roles_logic_sv2",
  "serde",
  "serde_json",
  "stratum-common",
@@ -1444,17 +1422,13 @@ version = "0.1.3"
 dependencies = [
  "async-channel",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
  "once_cell",
- "roles_logic_sv2",
  "serde",
  "stratum-common",
  "tokio",
@@ -1467,7 +1441,6 @@ name = "mining_sv2"
 version = "4.0.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1517,14 +1490,12 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "3.1.0"
+version = "4.0.0"
 dependencies = [
  "async-channel",
- "binary_sv2",
  "codec_sv2",
  "futures",
  "serde_json",
- "stratum-common",
  "sv1_api",
  "tokio",
  "tokio-util",
@@ -1546,7 +1517,6 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "secp256k1 0.28.2",
- "stratum-common",
 ]
 
 [[package]]
@@ -1777,19 +1747,15 @@ version = "0.1.3"
 dependencies = [
  "async-channel",
  "async-recursion 1.1.1",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "config-helpers",
  "error_handling",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
- "noise_sv2",
  "rand 0.8.5",
- "roles_logic_sv2",
+ "secp256k1 0.28.2",
  "serde",
  "stratum-common",
  "tokio",
@@ -1938,16 +1904,15 @@ dependencies = [
 name = "roles_logic_sv2"
 version = "3.0.0"
 dependencies = [
- "binary_sv2",
+ "bitcoin",
  "chacha20poly1305",
+ "codec_sv2",
  "common_messages_sv2",
- "framing_sv2",
  "hex-conservative 0.3.0",
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",
  "primitive-types",
- "stratum-common",
  "template_distribution_sv2",
  "tracing",
 ]
@@ -2231,10 +2196,10 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-common"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
- "bitcoin",
- "secp256k1 0.28.2",
+ "network_helpers_sv2",
+ "roles_logic_sv2",
 ]
 
 [[package]]
@@ -2318,7 +2283,6 @@ name = "template_distribution_sv2"
 version = "3.1.0"
 dependencies = [
  "binary_sv2",
- "stratum-common",
 ]
 
 [[package]]
@@ -2506,20 +2470,15 @@ version = "1.0.0"
 dependencies = [
  "async-channel",
  "async-recursion 0.3.2",
- "binary_sv2",
  "buffer_sv2",
  "clap",
- "codec_sv2",
  "config",
  "error_handling",
- "framing_sv2",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "once_cell",
  "primitive-types",
  "rand 0.8.5",
- "roles_logic_sv2",
  "serde",
  "serde_json",
  "stratum-common",
