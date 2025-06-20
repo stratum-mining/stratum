@@ -110,6 +110,10 @@ impl<'a> ExtendedChannel<'a> {
         self.version_rolling
     }
 
+    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
+        self.chain_tip.as_ref()
+    }
+
     /// Sets the extranonce prefix.
     ///
     /// Note: after this, all new jobs will be associated with the new extranonce prefix.
