@@ -1,0 +1,17 @@
+[profile.default]
+
+# SRI has flaky integration tests, which we are ok to live with for now
+# but if a test fails more than 3 times, it's safe to assume it's failing deterministically
+# and that's a reliable indication that we shouldn't merge this PR
+retries = { backoff = "fixed", count = 3, delay = "2s" }
+
+# only run one test at a time, which allows a human-friendly experience for inspecting logs
+test-threads = 1
+
+# label as slow if a test runs for more than 60s
+# kill it after 120s
+slow-timeout = { period = "60s", terminate-after = 2 }
+
+# display status for all levels (pass, fail, flaky, slow, etc)
+status-level = "all"
+final-status-level = "all"
