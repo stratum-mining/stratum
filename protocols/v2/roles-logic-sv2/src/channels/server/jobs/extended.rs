@@ -81,7 +81,7 @@ impl<'a> ExtendedJob<'a> {
         let coinbase_tx_prefix = self.get_coinbase_tx_prefix().inner_as_ref();
         let coinbase_tx_suffix = self.get_coinbase_tx_suffix().inner_as_ref();
 
-        let mut serialized_coinbase = Vec::new();
+        let mut serialized_coinbase: Vec<u8> = vec![];
         serialized_coinbase.extend(coinbase_tx_prefix);
         serialized_coinbase.extend(vec![0; MAX_EXTRANONCE_LEN]);
         serialized_coinbase.extend(coinbase_tx_suffix);
@@ -99,9 +99,9 @@ impl<'a> ExtendedJob<'a> {
             // because chain_tip is where prev_hash and nbits are coming from
             if job_min_ntime < chain_tip.min_ntime() {
                 return Err(ExtendedJobError::InvalidMinNTime);
+            } else {
+                job_min_ntime
             }
-
-            job_min_ntime
         } else {
             // future jobs are not allowed to be converted into `SetCustomMiningJob` messages
             return Err(ExtendedJobError::FutureJobNotAllowed);
@@ -123,7 +123,6 @@ impl<'a> ExtendedJob<'a> {
         let coinbase_tx_version = deserialized_coinbase.version.0 as u32;
         let coinbase_tx_locktime = deserialized_coinbase.lock_time.to_consensus_u32();
         let coinbase_tx_input_n_sequence = deserialized_coinbase.input[0].sequence.0 as u32;
-        let coinbase_tx_value_remaining = 0; // this will be removed soon
 
         let mut serialized_outputs = Vec::new();
         for output in &deserialized_coinbase.output {
@@ -145,7 +144,6 @@ impl<'a> ExtendedJob<'a> {
             coinbase_tx_version,
             coinbase_prefix,
             coinbase_tx_input_n_sequence,
-            coinbase_tx_value_remaining,
             coinbase_tx_outputs,
             coinbase_tx_locktime,
             merkle_path: self.get_merkle_path().clone(),
