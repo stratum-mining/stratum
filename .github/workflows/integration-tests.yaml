@@ -27,10 +27,6 @@ jobs:
       - name: Install cargo-nextest
         run: cargo install cargo-nextest --locked
 
-      - name: Roles Integration Tests
-        run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --nocapture
-
-      - name: SV1 Integration Tests
+      - name: Integration Tests
         run: |
          RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --features sv1 --nocapture
