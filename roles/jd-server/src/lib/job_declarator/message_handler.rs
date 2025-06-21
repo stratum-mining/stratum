@@ -59,7 +59,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
             mining_job_token: token.to_le_bytes().to_vec().try_into().unwrap(),
-            coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
+            coinbase_outputs: self.coinbase_output.clone().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         info!(

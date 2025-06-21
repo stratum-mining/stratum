@@ -198,7 +198,7 @@ impl TemplateRx {
             AllocateMiningJobTokenSuccess {
                 request_id: 0,
                 mining_job_token: vec![0; 32].try_into().unwrap(),
-                coinbase_output: miner_coinbase_output.to_vec().try_into().unwrap(),
+                coinbase_outputs: miner_coinbase_output.to_vec().try_into().unwrap(),
             }
         }
     }
@@ -245,7 +245,7 @@ impl TemplateRx {
                         coinbase_output_constraints_sent = true;
 
                         let jds_coinbase_outputs =
-                            last_token.clone().unwrap().coinbase_output.to_vec();
+                            last_token.clone().unwrap().coinbase_outputs.to_vec();
                         let deserialized_jds_coinbase_outputs: Vec<TxOut> =
                             deserialize(&jds_coinbase_outputs).expect("Invalid coinbase output");
 
@@ -301,7 +301,7 @@ impl TemplateRx {
                                         .unwrap();
                                     // Get the pool's coinbase output from the last token.
                                     let token = last_token.clone().unwrap();
-                                    let pool_outputs = token.coinbase_output.to_vec();
+                                    let pool_outputs = token.coinbase_outputs.to_vec();
 
                                     // Notify the downstream mining node about the new template.
                                     super::downstream::DownstreamMiningNode::on_new_template(
@@ -359,7 +359,7 @@ impl TemplateRx {
 
                                     // Extract mining token and pool coinbase output from the token.
                                     let mining_token = token.mining_job_token.to_vec();
-                                    let pool_coinbase_outputs = token.coinbase_output.to_vec();
+                                    let pool_coinbase_outputs = token.coinbase_outputs.to_vec();
 
                                     let mut deserialized_outputs: Vec<TxOut> =
                                         deserialize(&pool_coinbase_outputs).unwrap();

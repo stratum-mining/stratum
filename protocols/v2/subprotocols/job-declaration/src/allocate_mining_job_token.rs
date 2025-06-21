@@ -26,5 +26,5 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     /// declaration or for identifying custom mining job on mining connection.
     pub mining_job_token: B0255<'decoder>,
     /// Bitcoin transaction outputs added by JDS.
-    pub coinbase_output: B064K<'decoder>,
+    pub coinbase_outputs: B064K<'decoder>,
 }
