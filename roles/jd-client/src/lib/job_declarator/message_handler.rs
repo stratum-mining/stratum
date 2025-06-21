@@ -51,7 +51,7 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
             "Received `DeclareMiningJobSuccess` with id {}",
             message.request_id
         );
-        debug!("`DeclareMiningJobSuccess`: {:?}", message);
+        debug!("`DeclareMiningJobSuccess`: {}", message);
         let message = JobDeclaration::DeclareMiningJobSuccess(message.into_static());
         Ok(SendTo::None(Some(message)))
     }
@@ -69,7 +69,7 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
             "Received `DeclareMiningJobError`, error code: {}",
             std::str::from_utf8(message.error_code.as_ref()).unwrap_or("unknown error code")
         );
-        debug!("`DeclareMiningJobError`: {:?}", message);
+        debug!("`DeclareMiningJobError`: {}", message);
         Ok(SendTo::None(None))
     }
 
@@ -96,7 +96,7 @@ impl ParseJobDeclarationMessagesFromUpstream for JobDeclarator {
             "Received `ProvideMissingTransactions` with id: {}",
             message.request_id
         );
-        debug!("`ProvideMissingTransactions`: {:?}", message);
+        debug!("`ProvideMissingTransactions`: {}", message);
 
         // Find the corresponding declared job in the window using the request ID.
         // Extract the full transaction list from the found job's details.
