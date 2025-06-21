@@ -44,6 +44,19 @@ jobs:
         run: |
           cargo run --manifest-path=protocols/v2/framing-sv2/Cargo.toml --example sv2_frame
 
+      - name: Run codec-sv2 examples
+        run: |
+          cargo run --manifest-path=protocols/v2/codec-sv2/Cargo.toml --example unencrypted
+          cargo run --manifest-path=protocols/v2/codec-sv2/Cargo.toml --example encrypted --features=noise_sv2
+
+      - name: Run binary-sv2 examples
+        run: |
+          cargo run --manifest-path=protocols/v2/binary-sv2/Cargo.toml --example encode_decode
+
+      - name: Run noise-sv2 examples
+        run: |
+          cargo run --manifest-path=protocols/v2/noise-sv2/Cargo.toml --example handshake
+
       - name: fuzz tests
         run: |
           if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
