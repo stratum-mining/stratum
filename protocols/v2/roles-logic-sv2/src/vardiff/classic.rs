@@ -1,6 +1,6 @@
 use crate::utils::hash_rate_from_target;
 use mining_sv2::Target;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Default minimum hashrate (H/s) if not specified.
 const DEFAULT_MIN_HASHRATE: f32 = 1.0;
@@ -132,7 +132,7 @@ impl Vardiff for VardiffState {
         ) {
             Ok(hashrate) => hashrate as f32,
             Err(e) => {
-                warn!(
+                debug!(
                     target: "vardiff",
                     "Target->Hashrate conversion failed: {:?}. Falling back using previous hashrate and realized_shares_per_minute", e
                 );

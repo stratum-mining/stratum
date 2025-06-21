@@ -25,6 +25,7 @@ use stratum_common::roles_logic_sv2::{
     parsers::Mining,
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
+    VardiffState,
 };
 use tracing::{error, info};
 
@@ -200,8 +201,13 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let messages = messages.into_iter().map(SendTo::Respond).collect();
 
+        let vardiff = VardiffState::new()?;
+
         self.standard_channels
             .insert(channel_id, Arc::new(RwLock::new(standard_channel.clone())));
+
+        self.vardiff
+            .insert(channel_id, Arc::new(RwLock::new(Box::new(vardiff))));
 
         if let Some(group_channel_guard) = &self.group_channel {
             let mut group_channel = group_channel_guard
@@ -389,8 +395,12 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let messages = messages.into_iter().map(SendTo::Respond).collect();
 
+        let vardiff = VardiffState::new()?;
+
         self.extended_channels
             .insert(channel_id, Arc::new(RwLock::new(extended_channel.clone())));
+        self.vardiff
+            .insert(channel_id, Arc::new(RwLock::new(Box::new(vardiff))));
 
         Ok(SendTo::Multiple(messages))
     }
@@ -572,7 +582,15 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .write()
             .map_err(|e| Error::PoisonLock(e.to_string()))?;
 
+        let mut vardiff = self
+            .vardiff
+            .get(&channel_id)
+            .expect("Vardiff must exist")
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
         let res = standard_channel.validate_share(m.clone());
+        vardiff.increment_shares_since_last_update();
         match res {
             Ok(ShareValidationResult::Valid) => {
                 info!(
@@ -724,7 +742,15 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .write()
             .map_err(|e| Error::PoisonLock(e.to_string()))?;
 
+        let mut vardiff = self
+            .vardiff
+            .get(&channel_id)
+            .expect("Vardiff must exist")
+            .write()
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
+
         let res = extended_channel.validate_share(m.clone());
+        vardiff.increment_shares_since_last_update();
         match res {
             Ok(ShareValidationResult::Valid) => {
                 info!(

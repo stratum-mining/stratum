@@ -140,6 +140,10 @@ impl<'a> ExtendedChannel<'a> {
         self.chain_tip.as_ref()
     }
 
+    pub fn get_shares_per_minute(&self) -> f32 {
+        self.expected_share_per_minute
+    }
+
     /// Only for testing purposes, not meant to be used in real apps.
     #[cfg(test)]
     fn set_chain_tip(&mut self, chain_tip: ChainTip) {
@@ -183,12 +187,20 @@ impl<'a> ExtendedChannel<'a> {
         &self.target
     }
 
+    pub fn set_target(&mut self, target: Target) {
+        self.target = target;
+    }
+
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
         &self.future_template_to_job_id
     }
 
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
+    }
+
+    pub fn set_nominal_hashrate(&mut self, hashrate: f32) {
+        self.nominal_hashrate = hashrate;
     }
 
     /// Updates the channel's nominal hashrate and target.
