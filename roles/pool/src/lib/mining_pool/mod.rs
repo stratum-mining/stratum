@@ -46,14 +46,16 @@ use stratum_common::{
         channels::server::{
             extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
         },
-        codec_sv2,
         codec_sv2::{
-            binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
+            self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
         },
         common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
         errors::Error,
         handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
-        mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, MAX_EXTRANONCE_LEN},
+        mining_sv2::{
+            ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
+            MAX_EXTRANONCE_LEN,
+        },
         parsers::{AnyMessage, Mining},
         template_distribution_sv2::{
             NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
