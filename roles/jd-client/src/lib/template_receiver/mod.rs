@@ -17,7 +17,7 @@ use stratum_common::{
         self,
         bitcoin::{
             consensus::{deserialize, serialize, Encodable},
-            Amount, Transaction, TxOut,
+            Amount, TxOut,
         },
         codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame},
         handlers::{template_distribution::ParseTemplateDistributionMessagesFromServer, SendTo_},
@@ -194,19 +194,10 @@ impl TemplateRx {
             JobDeclarator::get_last_token(&jd).await
         } else {
             // This is when JDC is doing solo mining
-            let deserialized_miner_coinbase_output: Transaction =
-                deserialize(miner_coinbase_output).expect("Invalid coinbase output");
-            let miner_coinbase_output_sigops = deserialized_miner_coinbase_output
-                .output
-                .iter()
-                .map(|output| output.script_pubkey.count_sigops() as u16)
-                .sum::<u16>();
 
             AllocateMiningJobTokenSuccess {
                 request_id: 0,
                 mining_job_token: vec![0; 32].try_into().unwrap(),
-                coinbase_output_max_additional_size: 100,
-                coinbase_output_max_additional_sigops: miner_coinbase_output_sigops,
                 coinbase_output: miner_coinbase_output.to_vec().try_into().unwrap(),
             }
         }
@@ -252,16 +243,25 @@ impl TemplateRx {
                     // Send CoinbaseOutputConstraints to the Template Provider if not already sent.
                     if !coinbase_output_constraints_sent {
                         coinbase_output_constraints_sent = true;
+
+                        let jds_coinbase_outputs =
+                            last_token.clone().unwrap().coinbase_output.to_vec();
+                        let deserialized_jds_coinbase_outputs: Vec<TxOut> =
+                            deserialize(&jds_coinbase_outputs).expect("Invalid coinbase output");
+
+                        let mut coinbase_output_max_additional_size = 0;
+                        let mut coinbase_output_max_additional_sigops = 0;
+
+                        for output in deserialized_jds_coinbase_outputs {
+                            coinbase_output_max_additional_size += output.size();
+                            coinbase_output_max_additional_sigops +=
+                                output.script_pubkey.count_sigops() as u16;
+                        }
+
                         Self::send_coinbase_output_constraints(
                             &self_mutex,
-                            last_token
-                                .clone()
-                                .unwrap()
-                                .coinbase_output_max_additional_size,
-                            last_token
-                                .clone()
-                                .unwrap()
-                                .coinbase_output_max_additional_sigops,
+                            coinbase_output_max_additional_size as u32,
+                            coinbase_output_max_additional_sigops,
                         )
                         .await;
                     }
