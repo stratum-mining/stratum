@@ -11,6 +11,8 @@ use std::net::SocketAddr;
 use stratum_common::roles_logic_sv2::parsers_sv2::AnyMessage;
 use tokio::{net::TcpStream, select};
 
+const DEFAULT_TIMEOUT: u64 = 60;
+
 /// Allows to intercept messages sent between two roles.
 ///
 /// Can be useful for testing purposes, as it allows to assert that the roles have sent specific
@@ -27,6 +29,9 @@ use tokio::{net::TcpStream, select};
 /// queues via [`Sniffer::next_message_from_downstream`] and
 /// [`Sniffer::next_message_from_upstream`], respectively.
 ///
+/// The `timeout` parameter can be used to configure the timeout for the sniffer. If not provided,
+/// the default timeout is 1 minute.
+///
 /// In order to replace or ignore the messages sent between the roles, [`InterceptAction`] can be
 /// used in [`Sniffer::new`].
 #[derive(Debug, Clone)]
@@ -38,6 +43,7 @@ pub struct Sniffer<'a> {
     messages_from_upstream: MessagesAggregator,
     check_on_drop: bool,
     action: Vec<InterceptAction>,
+    timeout: Option<u64>,
 }
 
 impl<'a> Sniffer<'a> {
@@ -49,6 +55,7 @@ impl<'a> Sniffer<'a> {
         upstream_address: SocketAddr,
         check_on_drop: bool,
         action: Vec<InterceptAction>,
+        timeout: Option<u64>,
     ) -> Self {
         Self {
             identifier,
@@ -58,6 +65,7 @@ impl<'a> Sniffer<'a> {
             messages_from_upstream: MessagesAggregator::new(),
             check_on_drop,
             action,
+            timeout,
         }
     }
 
@@ -137,9 +145,8 @@ impl<'a> Sniffer<'a> {
                 return;
             }
 
-            // 1 min timeout
-            // only for worst case, ideally should never be triggered
-            if now.elapsed().as_secs() > 60 {
+            // configurable timeout, 1 minute default
+            if now.elapsed().as_secs() > self.timeout.unwrap_or(DEFAULT_TIMEOUT) {
                 panic!("Timeout waiting for message type");
             }
 
@@ -190,9 +197,8 @@ impl<'a> Sniffer<'a> {
                 return true;
             }
 
-            // 1 min timeout
-            // only for worst case, ideally should never be triggered
-            if now.elapsed().as_secs() > 60 {
+            // configurable timeout, 1 minute default
+            if now.elapsed().as_secs() > self.timeout.unwrap_or(DEFAULT_TIMEOUT) {
                 panic!("Timeout waiting for message type");
             }
 

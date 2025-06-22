@@ -16,7 +16,7 @@ async fn translate_sv1_to_sv2_successfully() {
     let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
-        start_sniffer("0", pool_addr, false, vec![]);
+        start_sniffer("0", pool_addr, false, vec![], None);
     let (_, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr);
     start_mining_device_sv1(tproxy_addr, false, None);
     pool_translator_sniffer
