@@ -1,5 +1,6 @@
 use integration_tests_sv2::{
     interceptor::{IgnoreMessage, MessageDirection},
+    template_provider::DifficultyLevel,
     *,
 };
 use stratum_common::roles_logic_sv2::{job_declaration_sv2::*, template_distribution_sv2::*};
@@ -8,7 +9,7 @@ use stratum_common::roles_logic_sv2::{job_declaration_sv2::*, template_distribut
 #[tokio::test]
 async fn propogated_from_jdc_to_tp() {
     start_tracing();
-    let (tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let current_block_hash = tp.get_best_block_hash().unwrap();
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());

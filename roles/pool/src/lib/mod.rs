@@ -206,6 +206,7 @@ impl PoolSv2 {
 mod tests {
     use super::*;
     use ext_config::{Config, File, FileFormat};
+    use integration_tests_sv2::template_provider::DifficultyLevel;
 
     #[tokio::test]
     async fn pool_bad_coinbase_output() {
@@ -238,7 +239,8 @@ mod tests {
 
     #[tokio::test]
     async fn shutdown_pool() {
-        let template_provider = integration_tests_sv2::start_template_provider(None);
+        let template_provider =
+            integration_tests_sv2::start_template_provider(None, DifficultyLevel::Low);
         let config_path = "config-examples/pool-config-local-tp-example.toml";
         let mut config: PoolConfig = match Config::builder()
             .add_source(File::new(config_path, FileFormat::Toml))

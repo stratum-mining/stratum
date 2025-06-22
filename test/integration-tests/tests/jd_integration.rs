@@ -1,6 +1,7 @@
 // This file contains integration tests for the `JDC/S` module.
 use integration_tests_sv2::{
     interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
+    template_provider::DifficultyLevel,
     *,
 };
 use stratum_common::roles_logic_sv2::{
@@ -18,7 +19,7 @@ use stratum_common::roles_logic_sv2::{
 #[tokio::test]
 async fn jds_should_not_panic_if_jdc_shutsdown() {
     start_tracing();
-    let (tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (sniffer_a, sniffer_addr_a) = start_sniffer("0", jds_addr, false, vec![]);
@@ -49,7 +50,7 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
 #[tokio::test]
 async fn jdc_tp_success_setup() {
     start_tracing();
-    let (tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (tp_jdc_sniffer, tp_jdc_sniffer_addr) = start_sniffer("0", tp_addr, false, vec![]);
@@ -73,7 +74,7 @@ async fn jdc_tp_success_setup() {
 #[tokio::test]
 async fn jdc_does_not_stackoverflow_when_no_token() {
     start_tracing();
-    let (tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let block_from_message = IgnoreMessage::new(
@@ -121,8 +122,8 @@ async fn jdc_does_not_stackoverflow_when_no_token() {
 #[tokio::test]
 async fn jds_receive_solution_while_processing_declared_job_test() {
     start_tracing();
-    let (tp_1, tp_addr_1) = start_template_provider(None);
-    let (tp_2, tp_addr_2) = start_template_provider(None);
+    let (tp_1, tp_addr_1) = start_template_provider(None, DifficultyLevel::Low);
+    let (tp_2, tp_addr_2) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr_1)).await;
     let (_jds, jds_addr) = start_jds(tp_1.rpc_info());
 
@@ -205,8 +206,8 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
 #[tokio::test]
 async fn jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transaction_success() {
     start_tracing();
-    let (tp_1, tp_addr_1) = start_template_provider(None);
-    let (tp_2, tp_addr_2) = start_template_provider(None);
+    let (tp_1, tp_addr_1) = start_template_provider(None, DifficultyLevel::Low);
+    let (tp_2, tp_addr_2) = start_template_provider(None, DifficultyLevel::Low);
 
     assert!(tp_2.fund_wallet().is_ok());
     assert!(tp_2.create_mempool_transaction().is_ok());

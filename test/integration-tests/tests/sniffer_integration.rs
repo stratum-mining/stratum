@@ -1,6 +1,7 @@
 // This file contains integration tests for the `Sniffer` module.
 use integration_tests_sv2::{
     interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
+    template_provider::DifficultyLevel,
     *,
 };
 use std::convert::TryInto;
@@ -15,7 +16,7 @@ use stratum_common::roles_logic_sv2::{
 #[tokio::test]
 async fn test_sniffer_interception() {
     start_tracing();
-    let (_tp, tp_addr) = start_template_provider(None);
+    let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let ignore_message =
         IgnoreMessage::new(MessageDirection::ToDownstream, MESSAGE_TYPE_NEW_TEMPLATE);
     let setup_connection_message =
@@ -107,7 +108,7 @@ async fn test_sniffer_interception() {
 #[tokio::test]
 async fn test_sniffer_wait_for_message_type_with_remove() {
     start_tracing();
-    let (_tp, tp_addr) = start_template_provider(None);
+    let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (sniffer, sniffer_addr) = start_sniffer("", tp_addr, false, vec![]);
     let _ = start_pool(Some(sniffer_addr)).await;
     assert!(

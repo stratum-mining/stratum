@@ -1,5 +1,5 @@
 // This file contains integration tests for the `TranslatorSv2` module.
-use integration_tests_sv2::{interceptor::MessageDirection, *};
+use integration_tests_sv2::{interceptor::MessageDirection, template_provider::DifficultyLevel, *};
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::*,
     mining_sv2::*,
@@ -13,7 +13,7 @@ use stratum_common::roles_logic_sv2::{
 #[tokio::test]
 async fn translate_sv1_to_sv2_successfully() {
     start_tracing();
-    let (_tp, tp_addr) = start_template_provider(None);
+    let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
     let (pool_translator_sniffer, pool_translator_sniffer_addr) =
         start_sniffer("0", pool_addr, false, vec![]);
