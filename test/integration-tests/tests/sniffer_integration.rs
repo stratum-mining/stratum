@@ -56,12 +56,14 @@ async fn test_sniffer_interception() {
             setup_connection_success_replacement.into(),
             ignore_message.into(),
         ],
+        None,
     );
     let (sniffer_b, sniffer_b_addr) = start_sniffer(
         "B",
         sniffer_a_addr,
         false,
         vec![setup_connection_replacement.into()],
+        None,
     );
     let _ = start_pool(Some(sniffer_b_addr)).await;
     sniffer_a
@@ -109,7 +111,7 @@ async fn test_sniffer_interception() {
 async fn test_sniffer_wait_for_message_type_with_remove() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
-    let (sniffer, sniffer_addr) = start_sniffer("", tp_addr, false, vec![]);
+    let (sniffer, sniffer_addr) = start_sniffer("", tp_addr, false, vec![], None);
     let _ = start_pool(Some(sniffer_addr)).await;
     assert!(
         sniffer

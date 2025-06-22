@@ -17,7 +17,7 @@ use stratum_common::roles_logic_sv2::{
 async fn success_pool_template_provider_connection() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
-    let (sniffer, sniffer_addr) = start_sniffer("", tp_addr, true, vec![]);
+    let (sniffer, sniffer_addr) = start_sniffer("", tp_addr, true, vec![], None);
     let _ = start_pool(Some(sniffer_addr)).await;
     // here we assert that the downstream(pool in this case) have sent `SetupConnection` message
     // with the correct parameters, protocol, flags, min_version and max_version.  Note that the
@@ -93,12 +93,17 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer";
     let (tp_pool_sniffer, tp_pool_sniffer_addr) =
-        start_sniffer(tp_pool_sniffer_identifier, tp_addr, false, vec![]);
+        start_sniffer(tp_pool_sniffer_identifier, tp_addr, false, vec![], None);
     let (_, pool_addr) = start_pool(Some(tp_pool_sniffer_addr)).await;
     let pool_translator_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job pool_translator sniffer";
-    let (pool_translator_sniffer, pool_translator_sniffer_addr) =
-        start_sniffer(pool_translator_sniffer_identifier, pool_addr, false, vec![]);
+    let (pool_translator_sniffer, pool_translator_sniffer_addr) = start_sniffer(
+        pool_translator_sniffer_identifier,
+        pool_addr,
+        false,
+        vec![],
+        None,
+    );
     let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr);
 
     tp_pool_sniffer
@@ -159,7 +164,7 @@ async fn pool_standard_channel_receives_share() {
     start_tracing();
     let (_tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
-    let (sniffer, sniffer_addr) = start_sniffer("A", pool_addr, false, vec![]);
+    let (sniffer, sniffer_addr) = start_sniffer("A", pool_addr, false, vec![], None);
     start_mining_device_sv2(sniffer_addr, None, None, None, 1, None, true);
     sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
