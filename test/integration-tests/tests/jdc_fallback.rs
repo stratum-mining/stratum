@@ -1,5 +1,6 @@
 use integration_tests_sv2::{
     interceptor::{MessageDirection, ReplaceMessage},
+    template_provider::DifficultyLevel,
     *,
 };
 use std::convert::TryInto;
@@ -17,7 +18,7 @@ use stratum_common::roles_logic_sv2::{
 #[tokio::test]
 async fn test_jdc_pool_fallback_after_submit_rejection() {
     start_tracing();
-    let (tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool_1, pool_addr_1) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and first pool
     let (sniffer_1, sniffer_addr_1) = start_sniffer(

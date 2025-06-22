@@ -99,10 +99,13 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     (pool, listening_address)
 }
 
-pub fn start_template_provider(sv2_interval: Option<u32>) -> (TemplateProvider, SocketAddr) {
+pub fn start_template_provider(
+    sv2_interval: Option<u32>,
+    difficulty_level: DifficultyLevel,
+) -> (TemplateProvider, SocketAddr) {
     let address = get_available_address();
     let sv2_interval = sv2_interval.unwrap_or(20);
-    let template_provider = TemplateProvider::start(address.port(), sv2_interval);
+    let template_provider = TemplateProvider::start(address.port(), sv2_interval, difficulty_level);
     template_provider.generate_blocks(1);
     (template_provider, address)
 }
