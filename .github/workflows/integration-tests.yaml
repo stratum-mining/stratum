@@ -24,10 +24,9 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Roles Integration Tests
-        run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose --test '*' -- --nocapture
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest --locked
 
-      - name: SV1 Integration Tests
+      - name: Integration Tests
         run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo test --manifest-path=test/integration-tests/Cargo.toml --verbose --test 'sv1' --features sv1 -- --nocapture
+         RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --features sv1 --nocapture
