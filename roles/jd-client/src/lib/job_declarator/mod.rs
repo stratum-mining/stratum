@@ -432,7 +432,6 @@ impl JobDeclarator {
                                         template.coinbase_tx_version,
                                         template.coinbase_prefix,
                                         template.coinbase_tx_input_sequence,
-                                        template.coinbase_tx_value_remaining,
                                         pool_outs,
                                         template.coinbase_tx_locktime,
                                         template.template_id
@@ -553,7 +552,6 @@ impl JobDeclarator {
                 template.coinbase_tx_version,
                 template.coinbase_prefix,
                 template.coinbase_tx_input_sequence,
-                template.coinbase_tx_value_remaining,
                 pool_outs,
                 template.coinbase_tx_locktime,
                 template.template_id,

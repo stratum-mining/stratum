@@ -30,7 +30,7 @@ use super::{
 use async_channel::{bounded, Receiver, SendError, Sender};
 use stratum_common::roles_logic_sv2::{
     self,
-    bitcoin::{consensus::Decodable, TxOut},
+    bitcoin::{consensus::deserialize, Amount, TxOut},
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     codec_sv2,
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
@@ -491,7 +491,7 @@ impl DownstreamMiningNode {
     pub async fn on_new_template(
         self_mutex: &Arc<Mutex<Self>>,
         mut new_template: NewTemplate<'static>,
-        pool_output: &[u8],
+        pool_outputs: &[u8],
     ) -> Result<(), Error> {
         // Check if a channel is open. If not, just set the flag and return.
         if !self_mutex.safe_lock(|s| s.status.have_channel()).unwrap() {
@@ -499,17 +499,18 @@ impl DownstreamMiningNode {
             return Ok(());
         }
 
-        // Decode the pool's coinbase output.
-        let mut pool_out = &pool_output[0..];
-        let pool_output =
-            TxOut::consensus_decode(&mut pool_out).expect("Upstream sent an invalid coinbase");
+        let mut deserialized_outputs: Vec<TxOut> = deserialize(pool_outputs).unwrap();
+
+        // we know the first output is where the template revenue must
+        // be allocated
+        deserialized_outputs[0].value = Amount::from_sat(new_template.coinbase_tx_value_remaining);
 
         // Update the channel factory with the new template and pool outputs and get messages to
         // send downstream.
         let to_send = self_mutex
             .safe_lock(|s| {
                 let channel = s.status.get_channel();
-                channel.update_pool_outputs(vec![pool_output]);
+                channel.update_pool_outputs(deserialized_outputs);
                 channel.on_new_template(&mut new_template)
             })
             .unwrap()?;

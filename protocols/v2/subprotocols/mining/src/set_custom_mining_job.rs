@@ -44,9 +44,6 @@ pub struct SetCustomMiningJob<'decoder> {
     pub coinbase_prefix: B0255<'decoder>,
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_n_sequence: u32,
-    /// The value, in satoshis, available for spending in coinbase outputs added by the client.
-    /// Includes both transaction fees and block subsidy.
-    pub coinbase_tx_value_remaining: u64,
     /// All the outputs that will be included in the coinbase txs
     pub coinbase_tx_outputs: B064K<'decoder>,
     /// The `locktime` field in the coinbase transaction.
