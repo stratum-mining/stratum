@@ -2,9 +2,7 @@
 //!
 //! This module contains logic for creating and managing channels.
 
-use super::extended_to_standard_job;
 use crate::{
-    common_properties::StandardChannel,
     job_creator::{self, JobsCreators},
     parsers::Mining,
     utils::{GroupId, Id, Mutex},
@@ -13,10 +11,9 @@ use crate::{
 
 use codec_sv2::binary_sv2;
 use mining_sv2::{
-    ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
-    OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
-    SetCustomMiningJobSuccess, SetNewPrevHash, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, Target,
+    ExtendedExtranonce, NewExtendedMiningJob, OpenExtendedMiningChannelSuccess,
+    OpenMiningChannelError, SetCustomMiningJob, SetCustomMiningJobSuccess, SetNewPrevHash,
+    SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, Target,
 };
 
 use hex::DisplayHex;
@@ -210,9 +207,6 @@ impl Share {
 /// Basic logic shared between all the channel factories
 struct ChannelFactory {
     ids: Arc<Mutex<GroupId>>,
-    standard_channels_for_non_hom_downstreams:
-        HashMap<u64, StandardChannel, BuildNoHashHasher<u64>>,
-    standard_channels_for_hom_downstreams: HashMap<u32, StandardChannel, BuildNoHashHasher<u32>>,
     extended_channels:
         HashMap<u32, OpenExtendedMiningChannelSuccess<'static>, BuildNoHashHasher<u32>>,
     extranonces: ExtendedExtranonce,
@@ -231,25 +225,6 @@ struct ChannelFactory {
 }
 
 impl ChannelFactory {
-    pub fn add_standard_channel(
-        &mut self,
-        request_id: u32,
-        downstream_hash_rate: f32,
-        is_header_only: bool,
-        id: u32,
-    ) -> Result<Vec<Mining>, Error> {
-        match is_header_only {
-            true => {
-                self.new_standard_channel_for_hom_downstream(request_id, downstream_hash_rate, id)
-            }
-            false => self.new_standard_channel_for_non_hom_downstream(
-                request_id,
-                downstream_hash_rate,
-                id,
-            ),
-        }
-    }
-
     /// Called when a `OpenExtendedMiningChannel` message is received.
     /// Here we save the downstream's target (based on hashrate) and the
     /// channel's extranonce details before returning the relevant SV2 mining messages
@@ -348,314 +323,6 @@ impl ChannelFactory {
         self.extended_channels.insert(channel_id, success.clone());
         Some(())
     }
-    /// Called when an `OpenStandardChannel` message is received for a header only mining channel.
-    /// Here we save the downstream's target (based on hashrate) and and the
-    /// channel's extranonce details before returning the relevant SV2 mining messages
-    /// to be sent downstream.
-    fn new_standard_channel_for_hom_downstream(
-        &mut self,
-        request_id: u32,
-        downstream_hash_rate: f32,
-        id: u32,
-    ) -> Result<Vec<Mining>, Error> {
-        let hom_group_id = 0;
-        let mut result = vec![];
-        let channel_id = id;
-        let target = match crate::utils::hash_rate_to_target(
-            downstream_hash_rate.into(),
-            self.share_per_min.into(),
-        ) {
-            Ok(target) => target,
-            Err(e) => {
-                error!(
-                    "Impossible to get target: {:?}. Request id: {:?}",
-                    e, request_id
-                );
-                return Err(e);
-            }
-        };
-        let extranonce = self
-            .extranonces
-            .next_prefix_standard()
-            .map_err(|_| Error::ExtranonceSpaceEnded)?;
-        let standard_channel = StandardChannel {
-            channel_id,
-            group_id: hom_group_id,
-            target: target.clone().into(),
-            extranonce: extranonce.clone(),
-        };
-        self.standard_channels_for_hom_downstreams
-            .insert(channel_id, standard_channel);
-
-        // First message to be sent is OpenStandardMiningChannelSuccess
-        result.push(Mining::OpenStandardMiningChannelSuccess(
-            OpenStandardMiningChannelSuccess {
-                request_id: request_id.into(),
-                channel_id,
-                target,
-                extranonce_prefix: extranonce.into(),
-                group_channel_id: hom_group_id,
-            },
-        ));
-        self.prepare_standard_jobs_and_p_hash(&mut result, channel_id)?;
-        self.channel_to_group_id.insert(channel_id, hom_group_id);
-        Ok(result)
-    }
-
-    /// This function is called when downstream have a group channel
-    /// should not all standard channel's be non HOM??
-    fn new_standard_channel_for_non_hom_downstream(
-        &mut self,
-        request_id: u32,
-        downstream_hash_rate: f32,
-        group_id: u32,
-    ) -> Result<Vec<Mining>, Error> {
-        let mut result = vec![];
-        let channel_id = self
-            .ids
-            .safe_lock(|ids| ids.new_channel_id(group_id))
-            .unwrap();
-        let complete_id = GroupId::into_complete_id(group_id, channel_id);
-        let target = match crate::utils::hash_rate_to_target(
-            downstream_hash_rate.into(),
-            self.share_per_min.into(),
-        ) {
-            Ok(target_) => target_,
-            Err(e) => {
-                info!(
-                    "Impossible to get target: {:?}. Request id: {:?}",
-                    e, request_id
-                );
-                return Err(e);
-            }
-        };
-        let extranonce = self
-            .extranonces
-            .next_prefix_standard()
-            .map_err(|_| Error::ExtranonceSpaceEnded)?;
-        let standard_channel = StandardChannel {
-            channel_id,
-            group_id,
-            target: target.clone().into(),
-            extranonce: extranonce.clone(),
-        };
-        self.standard_channels_for_non_hom_downstreams
-            .insert(complete_id, standard_channel);
-
-        // First message to be sent is OpenStandardMiningChannelSuccess
-        result.push(Mining::OpenStandardMiningChannelSuccess(
-            OpenStandardMiningChannelSuccess {
-                request_id: request_id.into(),
-                channel_id,
-                target,
-                extranonce_prefix: extranonce.into(),
-                group_channel_id: group_id,
-            },
-        ));
-        self.prepare_jobs_and_p_hash(&mut result, complete_id);
-        self.channel_to_group_id.insert(channel_id, group_id);
-        Ok(result)
-    }
-
-    // When a hom downstream opens a channel, we use this function to prepare all the standard jobs
-    // (future and not) that we need to be sent downstream
-    fn prepare_standard_jobs_and_p_hash(
-        &mut self,
-        result: &mut Vec<Mining>,
-        channel_id: u32,
-    ) -> Result<(), Error> {
-        // Safe cause the function is private and we always add the channel before calling this
-        // funtion
-        let standard_channel = self
-            .standard_channels_for_hom_downstreams
-            .get(&channel_id)
-            .unwrap();
-        // OPTIMIZATION this could be memoized somewhere cause is very likely that we will receive a
-        // lot od OpenStandardMiningChannel requests consecutively
-        let job_id = self.job_ids.next();
-        let future_jobs: Option<Vec<NewMiningJob<'static>>> = self
-            .future_jobs
-            .iter()
-            .map(|j| {
-                extended_to_standard_job(
-                    &j.0,
-                    &standard_channel.extranonce.clone().to_vec()[..],
-                    standard_channel.channel_id,
-                    Some(job_id),
-                )
-            })
-            .collect();
-
-        // OPTIMIZATION the extranonce is cloned so many time but maybe is avoidable?
-        let last_valid_job = match &self.last_valid_job {
-            Some((j, _)) => Some(
-                extended_to_standard_job(
-                    j,
-                    &standard_channel.extranonce.clone().to_vec(),
-                    standard_channel.channel_id,
-                    Some(self.job_ids.next()),
-                )
-                .ok_or(Error::ImpossibleToCalculateMerkleRoot)?,
-            ),
-            None => None,
-        };
-
-        // This is the same thing of just check if there is a prev hash add it to result. If there
-        // is last_job add it to result and add each future job to result.
-        // But using the pattern match is more clear how each option is handled
-        match (
-            &self.last_prev_hash,
-            last_valid_job,
-            self.future_jobs.is_empty(),
-        ) {
-            // If we do not have anything just do nothing
-            (None, None, true) => Ok(()),
-            // If we have only future jobs we need to send them all after the
-            // SetupConnectionSuccess message
-            (None, None, false) => {
-                // Safe unwrap cause we check that self.future_jobs is not empty
-                let mut future_jobs = future_jobs.unwrap();
-                while let Some(job) = future_jobs.pop() {
-                    result.push(Mining::NewMiningJob(job));
-                }
-                Ok(())
-            }
-            // If we have just a prev hash we need to send it after the SetupConnectionSuccess
-            // message
-            (Some((prev_h, _)), None, true) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id, None);
-                result.push(Mining::SetNewPrevHash(prev_h.clone()));
-                Ok(())
-            }
-            // If we have a prev hash and a last valid job we need to send new mining job before the
-            // prev hash
-            (Some((prev_h, _)), Some(mut job), true) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
-
-                // set future_job to true
-                job.set_future();
-
-                result.push(Mining::NewMiningJob(job));
-                result.push(Mining::SetNewPrevHash(prev_h.clone()));
-                Ok(())
-            }
-            // If we have everything we need, send the future jobs and the the prev hash
-            (Some((prev_h, _)), Some(mut job), false) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
-
-                job.set_future();
-
-                result.push(Mining::NewMiningJob(job));
-                result.push(Mining::SetNewPrevHash(prev_h.clone()));
-
-                // Safe unwrap cause we check that self.future_jobs is not empty
-                let mut future_jobs = future_jobs.unwrap();
-
-                while let Some(job) = future_jobs.pop() {
-                    result.push(Mining::NewMiningJob(job));
-                }
-                Ok(())
-            }
-            // This can not happen because we can not have a valid job without a prev hash
-            (None, Some(_), true) => unreachable!(),
-            // This can not happen because we can not have a valid job without a prev hash
-            (None, Some(_), false) => unreachable!(),
-            // This can not happen because as soon as a prev hash is received we flush the future
-            // jobs
-            (Some(_), None, false) => unreachable!(),
-        }
-    }
-
-    // When a new non HOM downstream opens a channel, we use this function to prepare all the
-    // extended jobs (future and non) and the prev hash that we need to send downstream
-    fn prepare_jobs_and_p_hash(&mut self, result: &mut Vec<Mining>, complete_id: u64) {
-        // If group is 0 it means that we are preparing jobs and p hash for a non HOM downstream
-        // that want to open a new extended channel in that case we want to use the channel id
-        // TODO verify that this is true also for the case where the channel factory is in a proxy
-        // and not in a pool.
-        let group_id = match GroupId::into_group_id(complete_id) {
-            0 => GroupId::into_channel_id(complete_id),
-            a => a,
-        };
-        // This is the same thing of just check if there is a prev hash add it to result if there
-        // is last_job add it to result and add each future job to result.
-        // But using the pattern match is more clear how each option is handled
-        match (
-            self.last_prev_hash.as_mut(),
-            self.last_valid_job.as_mut(),
-            self.future_jobs.is_empty(),
-        ) {
-            // If we do not have anything just do nothing
-            (None, None, true) => (),
-            // If we have only future jobs we need to send them all after the
-            // SetupConnectionSuccess message
-            (None, None, false) => {
-                for (job, group_id_job_sent) in &mut self.future_jobs {
-                    if !group_id_job_sent.contains(&group_id) {
-                        let mut job = job.clone();
-                        job.channel_id = group_id;
-                        group_id_job_sent.push(group_id);
-                        result.push(Mining::NewExtendedMiningJob(job));
-                    }
-                }
-            }
-            // If we have just a prev hash we need to send it after the SetupConnectionSuccess
-            // message
-            (Some((prev_h, group_id_p_hash_sent)), None, true) => {
-                if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id, None);
-                    group_id_p_hash_sent.push(group_id);
-                    result.push(Mining::SetNewPrevHash(prev_h.clone()));
-                }
-            }
-            // If we have a prev hash and a last valid job we need to send before the prev hash and
-            // the the valid job
-            (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), true) => {
-                if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
-                    group_id_p_hash_sent.push(group_id);
-                    result.push(Mining::SetNewPrevHash(prev_h));
-                }
-                if !group_id_job_sent.contains(&group_id) {
-                    let mut job = job.clone();
-                    job.channel_id = group_id;
-                    group_id_job_sent.push(group_id);
-                    result.push(Mining::NewExtendedMiningJob(job));
-                }
-            }
-            // If we have everything we need, send before the prev hash and then all the jobs
-            (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), false) => {
-                if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
-                    group_id_p_hash_sent.push(group_id);
-                    result.push(Mining::SetNewPrevHash(prev_h));
-                }
-
-                if !group_id_job_sent.contains(&group_id) {
-                    let mut job = job.clone();
-                    job.channel_id = group_id;
-                    group_id_job_sent.push(group_id);
-                    result.push(Mining::NewExtendedMiningJob(job));
-                }
-
-                for (job, group_id_future_j_sent) in &mut self.future_jobs {
-                    if !group_id_future_j_sent.contains(&group_id) {
-                        let mut job = job.clone();
-                        job.channel_id = group_id;
-                        group_id_future_j_sent.push(group_id);
-                        result.push(Mining::NewExtendedMiningJob(job));
-                    }
-                }
-            }
-            // This can not happen because we can not have a valid job without a prev hash
-            (None, Some(_), true) => unreachable!(),
-            // This can not happen because we can not have a valid job without a prev hash
-            (None, Some(_), false) => unreachable!(),
-            // This can not happen because as soon as a prev hash is received we flush the future
-            // jobs
-            (Some(_), None, false) => unreachable!(),
-        }
-    }
 
     /// Called when a new prev hash is received. If the respective job is available in the future
     /// job queue, we move the future job into the valid job slot and store the prev hash as the
@@ -675,14 +342,7 @@ impl ChannelFactory {
         }
         self.future_jobs = vec![];
         self.last_prev_hash_ = Some(crate::utils::u256_to_block_hash(m.prev_hash.clone()));
-        let mut ids = vec![];
-        for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
-            let group_id = GroupId::into_group_id(*complete_id);
-            if !ids.contains(&group_id) {
-                ids.push(group_id)
-            }
-        }
-        self.last_prev_hash = Some((m, ids));
+        self.last_prev_hash = Some((m, vec![]));
         Ok(())
     }
 
@@ -696,28 +356,14 @@ impl ChannelFactory {
             (true, _) => {
                 let mut result = HashMap::with_hasher(BuildNoHashHasher::default());
                 self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
-                let mut ids = vec![];
-                for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
-                    let group_id = GroupId::into_group_id(*complete_id);
-                    if !ids.contains(&group_id) {
-                        ids.push(group_id)
-                    }
-                }
-                self.future_jobs.push((m, ids));
+                self.future_jobs.push((m, vec![]));
                 Ok(result)
             }
             (false, Some(_)) => {
                 let mut result = HashMap::with_hasher(BuildNoHashHasher::default());
                 self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
                 // If job is not future it must always be paired with the last received prev hash
-                let mut ids = vec![];
-                for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
-                    let group_id = GroupId::into_group_id(*complete_id);
-                    if !ids.contains(&group_id) {
-                        ids.push(group_id)
-                    }
-                }
-                self.last_valid_job = Some((m, ids));
+                self.last_valid_job = Some((m, vec![]));
                 if let Some((_p_hash, _)) = &self.last_prev_hash {
                     Ok(result)
                 } else {
@@ -737,26 +383,6 @@ impl ChannelFactory {
         result: &mut HashMap<u32, Mining, BuildNoHashHasher<u32>>,
         m: &NewExtendedMiningJob<'static>,
     ) -> Result<(), Error> {
-        for (id, channel) in &self.standard_channels_for_hom_downstreams {
-            let job_id = self.job_ids.next();
-            let mut standard_job = extended_to_standard_job(
-                m,
-                &channel.extranonce.clone().to_vec()[..],
-                *id,
-                Some(job_id),
-            )
-            .unwrap();
-            standard_job.channel_id = *id;
-            let standard_job = Mining::NewMiningJob(standard_job);
-            result.insert(*id, standard_job);
-        }
-        for id in self.standard_channels_for_non_hom_downstreams.keys() {
-            let group_id = GroupId::into_group_id(*id);
-            let mut extended = m.clone();
-            extended.channel_id = group_id;
-            let extended_job = Mining::NewExtendedMiningJob(extended);
-            result.insert(group_id, extended_job);
-        }
         for id in self.extended_channels.keys() {
             let mut extended = m.clone();
             extended.channel_id = *id;
@@ -941,38 +567,9 @@ impl ChannelFactory {
                 }
                 Some((dowstream_target, extranonce))
             }
-            Share::Standard((share, group_id)) => match &self.kind {
-                ExtendedChannelKind::Pool => {
-                    let complete_id = GroupId::into_complete_id(*group_id, share.channel_id);
-                    let mut channel = self
-                        .standard_channels_for_non_hom_downstreams
-                        .get(&complete_id);
-                    if channel.is_none() {
-                        channel = self
-                            .standard_channels_for_hom_downstreams
-                            .get(&share.channel_id);
-                    };
-                    Some((
-                        channel?.target.clone(),
-                        channel?.extranonce.clone().to_vec(),
-                    ))
-                }
-                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
-                    let complete_id = GroupId::into_complete_id(*group_id, share.channel_id);
-                    let mut channel = self
-                        .standard_channels_for_non_hom_downstreams
-                        .get(&complete_id);
-                    if channel.is_none() {
-                        channel = self
-                            .standard_channels_for_hom_downstreams
-                            .get(&share.channel_id);
-                    };
-                    Some((
-                        channel?.target.clone(),
-                        channel?.extranonce.clone().to_vec(),
-                    ))
-                }
-            },
+            Share::Standard((_share, _group_id)) => {
+                unimplemented!()
+            }
         }
     }
     /// Updates the downstream target for the given channel_id
@@ -1006,12 +603,6 @@ impl PoolChannelFactory {
     ) -> Self {
         let inner = ChannelFactory {
             ids,
-            standard_channels_for_non_hom_downstreams: HashMap::with_hasher(
-                BuildNoHashHasher::default(),
-            ),
-            standard_channels_for_hom_downstreams: HashMap::with_hasher(
-                BuildNoHashHasher::default(),
-            ),
             extended_channels: HashMap::with_hasher(BuildNoHashHasher::default()),
             extranonces,
             share_per_min,
@@ -1031,18 +622,6 @@ impl PoolChannelFactory {
             pool_coinbase_outputs,
             negotiated_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
         }
-    }
-
-    /// Calls [`ChannelFactory::add_standard_channel`]
-    pub fn add_standard_channel(
-        &mut self,
-        request_id: u32,
-        downstream_hash_rate: f32,
-        is_header_only: bool,
-        id: u32,
-    ) -> Result<Vec<Mining>, Error> {
-        self.inner
-            .add_standard_channel(request_id, downstream_hash_rate, is_header_only, id)
     }
 
     /// Calls [`ChannelFactory::new_extended_channel`]
@@ -1355,12 +934,6 @@ impl ProxyExtendedChannelFactory {
         };
         let inner = ChannelFactory {
             ids,
-            standard_channels_for_non_hom_downstreams: HashMap::with_hasher(
-                BuildNoHashHasher::default(),
-            ),
-            standard_channels_for_hom_downstreams: HashMap::with_hasher(
-                BuildNoHashHasher::default(),
-            ),
             extended_channels: HashMap::with_hasher(BuildNoHashHasher::default()),
             extranonces,
             share_per_min,
@@ -1379,18 +952,6 @@ impl ProxyExtendedChannelFactory {
             pool_coinbase_outputs,
             extended_channel_id,
         }
-    }
-
-    /// Calls [`ChannelFactory::add_standard_channel`]
-    pub fn add_standard_channel(
-        &mut self,
-        request_id: u32,
-        downstream_hash_rate: f32,
-        id_header_only: bool,
-        id: u32,
-    ) -> Result<Vec<Mining>, Error> {
-        self.inner
-            .add_standard_channel(request_id, downstream_hash_rate, id_header_only, id)
     }
 
     /// Calls [`ChannelFactory::new_extended_channel`]
@@ -1805,231 +1366,5 @@ impl ExtendedChannelKind {
             }
             ExtendedChannelKind::Pool => warn!("Try to set upstream target for a pool"),
         }
-    }
-}
-#[cfg(test)]
-mod test {
-    use super::*;
-    use bitcoin::{Amount, PublicKey, Target, TxOut, WPubkeyHash};
-    use codec_sv2::binary_sv2::{Seq0255, B064K, U256};
-    use mining_sv2::OpenStandardMiningChannel;
-
-    const BLOCK_REWARD: u64 = 2_000_000_000;
-
-    // Block 1296 data
-    // 01000000
-    // c1397d4a33adeeb3383803e9ac3db4b2c2c9d6737cbabc13a534d24600000000
-    // 89687b66140ac9874656270e066ed7ef81d5133ada2d0133f09322a87b161738
-    // 4eb87749
-    // ffff001d
-    // 07cacb0e
-    const _PUB_K: &str = "04c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2";
-    const _BLOCK_HASH: &str = "000000009a4aed3e8ba7a978c6b50fea886fb496d66e696090a91d527200b002";
-    const VERSION: u32 = 1;
-    // version 01000000
-    // inputs 01
-    // prev out 0000000000000000000000000000000000000000000000000000000000000000ffffffff
-    // script len 07
-    // script 04ffff001d0177
-    // sequence ffffffff
-    // n inputs 01
-    // amunt 00f2052a01000000
-    // out lne 43
-    // push 41
-    // pub k 04c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2
-    // checksig ac
-    // locktime 00000000
-    const COINBASE: &str = "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0704ffff001d0177ffffffff0100f2052a01000000434104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac00000000";
-    const COINBASE_OUTPUT: &str = "4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac";
-    const MERKLE_PATH: &str = "59bf8acbc9d60dfae841abecc3882b4181f2bdd8ac6c1d94001165ab3aef50b0";
-    const NONCE: &str = "07cacb0e";
-    const NTIME: &str = "4eb87749";
-
-    // Prev  block data (1295)
-    //01000000
-    //cf578a234f330c287354e24234ff6b86d6ab9e4ddd3e5ba71a6bcbf600000000
-    //72d12b99bdb63762bedc5db30bcffbd7903721bc736dd683de37b1a3632f9000
-    //time: 2e8c7749 -> 49778c2e -> 1232571438
-    //nbits: ffff001d -> 4294901789
-    //29444816
-    const PREV_HASH: &str = "0000000046d234a513bcba7c73d6c9c2b2b43dace9033838b3eead334a7d39c1";
-    const PREV_HEADER_TIMESTAMP: u32 = 1232571438;
-    const PREV_HEADER_NBITS: u32 = 486604799;
-
-    fn _get_pub_key_hash() -> WPubkeyHash {
-        let into_bin = decode_hex(_PUB_K).unwrap();
-        let pk = PublicKey::from_slice(&into_bin[..]);
-        let hash = pk.unwrap().pubkey_hash();
-        WPubkeyHash::from_raw_hash(hash.to_raw_hash())
-    }
-
-    fn get_coinbase() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
-        let parsed = decode_hex(COINBASE).unwrap();
-        // Coinbase prefix in Sv2 is the bip34 block height in this tx there is no prefix
-        let prefix = parsed[42..42].to_vec();
-        let extranonce = parsed[42..49].to_vec();
-        let suffix = parsed[49..].to_vec();
-        (prefix, extranonce, suffix)
-    }
-
-    fn get_coinbase_outputs() -> B064K<'static> {
-        decode_hex(COINBASE_OUTPUT).unwrap().try_into().unwrap()
-    }
-
-    fn get_merkle_path() -> Seq0255<'static, U256<'static>> {
-        let mut m_path = decode_hex(MERKLE_PATH).unwrap();
-        m_path.reverse();
-        let path: U256 = m_path.try_into().unwrap();
-        vec![path].try_into().unwrap()
-    }
-
-    fn nbit_to_target(nbit: u32) -> U256<'static> {
-        let mut target = Target::from_compact(CompactTarget::from_consensus(nbit))
-            .to_be_bytes()
-            .to_vec();
-        target.reverse();
-        target.try_into().unwrap()
-    }
-
-    fn decode_hex(s: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
-
-    #[test]
-    fn test_complete_mining_round() {
-        let (prefix, coinbase_extranonce, _) = get_coinbase();
-
-        // Initialize a Channel of type Pool
-        let out = TxOut {value: Amount::from_sat(BLOCK_REWARD), script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
-        let creator = JobsCreators::new(7);
-        let share_per_min = 1.0;
-        // Create an ExtendedExtranonce of len 7:
-        // upstream part is 0 bytes cause we are a pool so no more upstreams
-        // self part is 7 bytes
-        // downstream part is 0 cause in the test the downstream is HOM so we do not need to
-        // reserve space for downstream
-        let mut inner = coinbase_extranonce.clone();
-        inner[6] = 0;
-        let extranonces = ExtendedExtranonce::new_with_inner_only_test(0..0, 0..0, 0..7, inner)
-            .expect("Failed to create ExtendedExtranonce with valid ranges");
-
-        let ids = Arc::new(Mutex::new(GroupId::new()));
-        let channel_kind = ExtendedChannelKind::Pool;
-        let mut channel = PoolChannelFactory::new(
-            ids,
-            extranonces,
-            creator,
-            share_per_min,
-            channel_kind,
-            vec![out],
-        );
-
-        // Build a NewTemplate
-        let new_template = NewTemplate {
-            template_id: 10,
-            future_template: true,
-            version: VERSION,
-            coinbase_tx_version: 1,
-            coinbase_prefix: prefix.try_into().unwrap(),
-            coinbase_tx_input_sequence: u32::MAX,
-            coinbase_tx_value_remaining: 5_000_000_000,
-            coinbase_tx_outputs_count: 0,
-            coinbase_tx_outputs: get_coinbase_outputs(),
-            coinbase_tx_locktime: 0,
-            merkle_path: get_merkle_path(),
-        };
-
-        // "Send" the NewTemplate to the channel
-        let _ = channel.on_new_template(&mut (new_template.clone()));
-
-        // Build a PrevHash
-        let mut p_hash = decode_hex(PREV_HASH).unwrap();
-        p_hash.reverse();
-        let prev_hash = SetNewPrevHashFromTp {
-            template_id: 10,
-            prev_hash: p_hash.try_into().unwrap(),
-            header_timestamp: PREV_HEADER_TIMESTAMP,
-            n_bits: PREV_HEADER_NBITS,
-            target: nbit_to_target(PREV_HEADER_NBITS),
-        };
-
-        // "Send" the SetNewPrevHash to channel
-        let _ = channel.on_new_prev_hash_from_tp(&prev_hash);
-
-        // Build open standard channel
-        let open_standard_channel = OpenStandardMiningChannel {
-            request_id: 100.into(),
-            user_identity: "Gigi".to_string().try_into().unwrap(),
-            nominal_hash_rate: 100_000_000_000_000.0,
-            max_target: [255; 32].into(),
-        };
-
-        // "Send" the OpenStandardMiningChannel to channel
-        let result = loop {
-            let id = channel.new_standard_id_for_hom();
-            let result = channel
-                .add_standard_channel(
-                    open_standard_channel.get_request_id_as_u32(),
-                    open_standard_channel.nominal_hash_rate,
-                    true,
-                    id,
-                )
-                .unwrap();
-            let downsteram_extranonce = match &result[0] {
-                Mining::OpenStandardMiningChannelSuccess(msg) => {
-                    msg.extranonce_prefix.clone().to_vec()
-                }
-                _ => panic!(),
-            };
-            if downsteram_extranonce == coinbase_extranonce {
-                break result;
-            }
-        };
-        let mut result = result.iter();
-
-        // Get the expected job id and channel_id
-        let mut channel_id = u32::MAX;
-        let job_id = loop {
-            match result.next().unwrap() {
-                Mining::OpenStandardMiningChannelSuccess(success) => {
-                    channel_id = success.channel_id
-                }
-                Mining::SetNewPrevHash(_) => (),
-                Mining::NewMiningJob(job) => break job.job_id,
-                _ => panic!(),
-            }
-        };
-        // make sure job management in channel factory is updated
-        (0..job_id - 1).for_each(|_| {
-            channel.job_creator.reset_new_templates(None);
-            let _ = channel.on_new_template(&mut (new_template.clone()));
-            let _ = channel.on_new_prev_hash_from_tp(&prev_hash);
-        });
-
-        // Build the success share
-        let share = SubmitSharesStandard {
-            channel_id,
-            sequence_number: 2,
-            job_id,
-            nonce: u32::from_le_bytes(decode_hex(NONCE).unwrap().try_into().unwrap()),
-            ntime: u32::from_le_bytes(decode_hex(NTIME).unwrap().try_into().unwrap()),
-            version: 1,
-        };
-
-        // "Send" the Share to channel
-        match channel.on_submit_shares_standard(share).unwrap() {
-            OnNewShare::SendErrorDownstream(e) => panic!(
-                "{:?} \n {}",
-                e,
-                std::str::from_utf8(&e.error_code.to_vec()[..]).unwrap()
-            ),
-            OnNewShare::SendSubmitShareUpstream(_) => panic!(),
-            OnNewShare::RelaySubmitShareUpstream => panic!(),
-            OnNewShare::ShareMeetBitcoinTarget(_) => assert!(true),
-            OnNewShare::ShareMeetDownstreamTarget => panic!(),
-        };
     }
 }

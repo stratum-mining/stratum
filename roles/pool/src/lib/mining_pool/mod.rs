@@ -49,7 +49,6 @@ use stratum_common::{
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
         },
-        common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
         errors::Error,
         handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
         mining_sv2::{
@@ -115,8 +114,8 @@ pub struct Downstream {
     receiver: Receiver<EitherFrame>,
     // Channel sender for outgoing SV2 frames to the network connection task.
     sender: Sender<EitherFrame>,
-    // Common data negotiated during the connection setup (e.g., protocol version, flags).
-    downstream_data: CommonDownstreamData,
+    // Whether the downstream requires standard jobs.
+    requires_standard_jobs: bool,
     // Sender channel to forward valid `SubmitSolution` messages received from this
     // downstream miner to the main [`Pool`] task, which then sends them upstream.
     solution_sender: Sender<SubmitSolution<'static>>,
@@ -187,7 +186,7 @@ impl Downstream {
     ) -> PoolResult<Arc<Mutex<Self>>> {
         // Handle the SV2 SetupConnection message exchange.
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        let downstream_data =
+        let requires_standard_jobs =
             SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
                 .await?;
 
@@ -239,7 +238,7 @@ impl Downstream {
             id,
             receiver,
             sender: sender.clone(),
-            downstream_data,
+            requires_standard_jobs,
             solution_sender,
             channel_id_factory,
             extended_channels: HashMap::new(),
@@ -429,17 +428,6 @@ pub fn verify_token(
     is_verified
 }
 
-impl IsDownstream for Downstream {
-    // Returns the `CommonDownstreamData` negotiated during connection setup.
-    fn get_downstream_mining_data(&self) -> CommonDownstreamData {
-        self.downstream_data
-    }
-}
-
-// Marker trait implementation indicating this struct represents a mining downstream. Do we really
-// need this?
-impl IsMiningDownstream for Downstream {}
-
 impl Pool {
     /// Binds to the configured listen address and starts accepting incoming TCP connections.
     ///
@@ -542,7 +530,7 @@ impl Pool {
         .await?;
 
         // Extract the assigned ID after successful creation.
-        let (_, channel_id) = downstream.safe_lock(|d| (d.downstream_data.header_only, d.id))?;
+        let channel_id = downstream.safe_lock(|d| d.id)?;
 
         // Add the new downstream to the central map.
         self_.safe_lock(|p| {
