@@ -54,7 +54,6 @@ use stratum_common::{
             framing_sv2, HandshakeRole, Initiator,
         },
         common_messages_sv2::{Protocol, Reconnect, SetupConnection},
-        common_properties::{IsMiningUpstream, IsUpstream},
         handlers::{
             common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
             mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
@@ -545,50 +544,6 @@ impl Upstream {
             }
             tokio::task::yield_now().await;
         }
-    }
-}
-
-// not really used..
-impl IsUpstream for Upstream {
-    fn get_version(&self) -> u16 {
-        todo!()
-    }
-
-    fn get_flags(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_supported_protocols(&self) -> Vec<Protocol> {
-        todo!()
-    }
-
-    fn get_id(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
-        todo!()
-    }
-}
-
-// Not really used...
-impl IsMiningUpstream for Upstream {
-    fn total_hash_rate(&self) -> u64 {
-        todo!()
-    }
-
-    fn add_hash_rate(&mut self, _to_add: u64) {
-        todo!()
-    }
-
-    fn get_opened_channels(
-        &mut self,
-    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
-        todo!()
-    }
-
-    fn update_channels(&mut self, _c: roles_logic_sv2::common_properties::UpstreamChannel) {
-        todo!()
     }
 }
 

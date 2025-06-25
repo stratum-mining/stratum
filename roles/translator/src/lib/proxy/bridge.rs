@@ -588,10 +588,6 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
-    use stratum_common::roles_logic_sv2::{
-        bitcoin::{absolute::LockTime, consensus, transaction::Version},
-        codec_sv2::binary_sv2,
-    };
 
     pub mod test_utils {
         use super::*;
@@ -653,88 +649,5 @@ mod test {
                 id: 0,
             }
         }
-    }
-
-    #[test]
-    fn test_version_bits_insert() {
-        use stratum_common::roles_logic_sv2::bitcoin::{
-            self, blockdata::witness::Witness, hashes::Hash,
-        };
-
-        let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16, None)
-            .expect("Failed to create ExtendedExtranonce with valid ranges");
-        let (bridge, _) = test_utils::create_bridge(extranonces);
-        bridge
-            .safe_lock(|bridge| {
-                let channel_id = 1;
-                let out_id = bitcoin::hashes::sha256d::Hash::from_slice(&[
-                    0_u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0,
-                ])
-                .unwrap();
-                let p_out = bitcoin::OutPoint {
-                    txid: bitcoin::Txid::from_raw_hash(out_id),
-                    vout: 0xffff_ffff,
-                };
-                let in_ = bitcoin::TxIn {
-                    previous_output: p_out,
-                    script_sig: vec![89_u8; 16].into(),
-                    sequence: bitcoin::Sequence(0),
-                    witness: Witness::from(vec![] as Vec<Vec<u8>>),
-                };
-                let tx = bitcoin::Transaction {
-                    version: Version::ONE,
-                    lock_time: LockTime::from_consensus(0),
-                    input: vec![in_],
-                    output: vec![],
-                };
-                let tx = consensus::serialize(&tx);
-                let _down = bridge
-                    .channel_factory
-                    .add_standard_channel(0, 10_000_000_000.0, true, 1)
-                    .unwrap();
-                let prev_hash = SetNewPrevHash {
-                    channel_id,
-                    job_id: 0,
-                    prev_hash: [
-                        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                        3, 3, 3, 3, 3, 3, 3,
-                    ]
-                    .into(),
-                    min_ntime: 989898,
-                    nbits: 9,
-                };
-                bridge.channel_factory.on_new_prev_hash(prev_hash).unwrap();
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as u32;
-                let new_mining_job = NewExtendedMiningJob {
-                    channel_id,
-                    job_id: 0,
-                    min_ntime: binary_sv2::Sv2Option::new(Some(now)),
-                    version: 0b0000_0000_0000_0000,
-                    version_rolling_allowed: false,
-                    merkle_path: vec![].into(),
-                    coinbase_tx_prefix: tx[0..42].to_vec().try_into().unwrap(),
-                    coinbase_tx_suffix: tx[58..].to_vec().try_into().unwrap(),
-                };
-                bridge
-                    .channel_factory
-                    .on_new_extended_mining_job(new_mining_job.clone())
-                    .unwrap();
-
-                // pass sv1_submit into Bridge::translate_submit
-                let sv1_submit = test_utils::create_sv1_submit(0);
-                let sv2_message = bridge
-                    .translate_submit(channel_id, sv1_submit, None)
-                    .unwrap();
-                // assert sv2 message equals sv1 with version bits added
-                assert_eq!(
-                    new_mining_job.version, sv2_message.version,
-                    "Version bits were not inserted for non version rolling sv1 message"
-                );
-            })
-            .unwrap();
     }
 }
