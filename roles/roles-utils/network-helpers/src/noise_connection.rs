@@ -17,10 +17,7 @@ use tokio::{
 };
 use tracing::{debug, error};
 
-#[derive(Debug)]
-pub struct Connection {
-    pub state: codec_sv2::State,
-}
+pub struct Connection;
 
 async fn send_message<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
     writer: &mut OwnedWriteHalf,
@@ -142,11 +139,11 @@ impl Connection {
 
         // Spawn Reader
         let read_state = state.clone();
-        Self::spawn_reader(reader, read_state, address, sender_incoming.clone());
+        Self::spawn_reader(reader, read_state, address, sender_incoming);
 
         // Spawn Writer
         let write_state = state;
-        Self::spawn_writer(writer, write_state, address, receiver_outgoing.clone());
+        Self::spawn_writer(writer, write_state, address, receiver_outgoing);
 
         Ok((receiver_incoming, sender_outgoing))
     }
