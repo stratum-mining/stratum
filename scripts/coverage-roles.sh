@@ -10,7 +10,6 @@ cd roles
 tarpaulin
 
 crates=(
-  "mining-proxy"
   "pool"
   "test-utils/mining-device"
   "test-utils/mining-device-sv1"
