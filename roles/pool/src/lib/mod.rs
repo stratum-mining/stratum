@@ -72,7 +72,10 @@ impl PoolSv2 {
 
         // Prepare coinbase output information required by TemplateRx.
         let coinbase_output_result = get_coinbase_output(&config)?;
-        let coinbase_output_len = coinbase_output_result.len() as u32;
+        let coinbase_output_len = coinbase_output_result
+            .iter()
+            .map(|output| output.size() as u32)
+            .sum();
         let tp_authority_public_key = config.tp_authority_public_key().cloned();
         let coinbase_output_sigops = coinbase_output_result
             .iter()
