@@ -19,6 +19,22 @@ use tracing::{debug, error};
 
 pub struct Connection;
 
+struct ConnectionState<Message> {
+    sender_incoming: Sender<StandardEitherFrame<Message>>,
+    receiver_incoming: Receiver<StandardEitherFrame<Message>>,
+    sender_outgoing: Sender<StandardEitherFrame<Message>>,
+    receiver_outgoing: Receiver<StandardEitherFrame<Message>>,
+}
+
+impl<Message> ConnectionState<Message> {
+    fn close_all(&self) {
+        self.sender_incoming.close();
+        self.receiver_incoming.close();
+        self.sender_outgoing.close();
+        self.receiver_outgoing.close();
+    }
+}
+
 async fn send_message<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
     writer: &mut OwnedWriteHalf,
     msg: StandardEitherFrame<Message>,
