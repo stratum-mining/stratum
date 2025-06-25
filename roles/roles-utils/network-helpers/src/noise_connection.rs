@@ -6,7 +6,7 @@ use codec_sv2::{
     noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE},
     HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder, State,
 };
-use std::convert::TryInto;
+use std::{convert::TryInto, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
@@ -153,13 +153,20 @@ impl Connection {
         let (sender_incoming, receiver_incoming) = unbounded();
         let (sender_outgoing, receiver_outgoing) = unbounded();
 
+        let conn_state = Arc::new(ConnectionState {
+            sender_incoming,
+            receiver_incoming: receiver_incoming.clone(),
+            sender_outgoing: sender_outgoing.clone(),
+            receiver_outgoing,
+        });
+
         // Spawn Reader
         let read_state = state.clone();
-        Self::spawn_reader(reader, read_state, address, sender_incoming);
+        Self::spawn_reader(reader, read_state, address, conn_state.clone());
 
         // Spawn Writer
         let write_state = state;
-        Self::spawn_writer(writer, write_state, address, receiver_outgoing);
+        Self::spawn_writer(writer, write_state, address, conn_state);
 
         Ok((receiver_incoming, sender_outgoing))
     }
@@ -168,8 +175,9 @@ impl Connection {
         mut reader: OwnedReadHalf,
         mut reader_state: State,
         address: std::net::SocketAddr,
-        sender_incoming: Sender<StandardEitherFrame<Message>>,
+        conn_state: Arc<ConnectionState<Message>>,
     ) -> task::JoinHandle<()> {
+        let sender_incoming = conn_state.sender_incoming.clone();
         task::spawn(async move {
             let mut decoder = StandardNoiseDecoder::<Message>::new();
             loop {
@@ -177,6 +185,7 @@ impl Connection {
                     Ok(frame) => {
                         if sender_incoming.send(frame).await.is_err() {
                             error!("Shutting down reader for {}", address);
+                            conn_state.close_all();
                             break;
                         }
                     }
@@ -185,7 +194,7 @@ impl Connection {
                     }
                     Err(e) => {
                         error!("Reader shutting down due to error: {:?}", e);
-                        sender_incoming.close();
+                        conn_state.close_all();
                         break;
                     }
                 }
@@ -197,8 +206,9 @@ impl Connection {
         mut writer: OwnedWriteHalf,
         mut write_state: State,
         address: std::net::SocketAddr,
-        receiver_outgoing: Receiver<StandardEitherFrame<Message>>,
+        conn_state: Arc<ConnectionState<Message>>,
     ) -> task::JoinHandle<()> {
+        let receiver_outgoing = conn_state.receiver_outgoing.clone();
         task::spawn(async move {
             let mut encoder = codec_sv2::NoiseEncoder::<Message>::new();
             while let Ok(frame) = receiver_outgoing.recv().await {
@@ -207,10 +217,12 @@ impl Connection {
                 {
                     error!("Error while writing to client {}: {:?}", address, e);
                     let _ = writer.shutdown().await;
+                    conn_state.close_all();
                     break;
                 }
             }
             let _ = writer.shutdown().await;
+            conn_state.close_all();
         })
     }
 }
