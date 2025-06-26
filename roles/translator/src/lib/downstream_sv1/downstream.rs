@@ -37,8 +37,6 @@ use tokio::{
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
 use stratum_common::roles_logic_sv2::{
-    self,
-    common_properties::{IsDownstream, IsMiningDownstream},
     mining_sv2::Target,
     utils::{hash_rate_to_target, Mutex},
     vardiff::Vardiff,
@@ -116,8 +114,6 @@ impl Downstream {
         difficulty_mgmt: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> Self {
-        use roles_logic_sv2::utils::hash_rate_to_target;
-
         let hashrate = difficulty_mgmt.min_individual_miner_hashrate;
         let target = hash_rate_to_target(hashrate.into(), difficulty_mgmt.shares_per_minute.into())
             .unwrap()
@@ -711,21 +707,9 @@ impl IsServer<'static> for Downstream {
     }
 }
 
-// Can we remove this?
-impl IsMiningDownstream for Downstream {}
-// Can we remove this?
-impl IsDownstream for Downstream {
-    fn get_downstream_mining_data(
-        &self,
-    ) -> roles_logic_sv2::common_properties::CommonDownstreamData {
-        todo!()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use roles_logic_sv2::mining_sv2::Target;
-    use stratum_common::roles_logic_sv2::codec_sv2::binary_sv2::U256;
+    use stratum_common::roles_logic_sv2::{codec_sv2::binary_sv2::U256, mining_sv2::Target};
 
     use super::*;
 

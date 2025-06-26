@@ -10,7 +10,6 @@ use rand::{rng, Rng};
 use std::{
     convert::{TryFrom, TryInto},
     net::SocketAddr,
-    str::FromStr,
     sync::Once,
 };
 use translator_sv2::TranslatorSv2;
@@ -340,37 +339,6 @@ pub fn start_mining_device_sv2(
         )
         .await;
     });
-}
-
-pub fn start_mining_sv2_proxy(upstreams: &[SocketAddr]) -> SocketAddr {
-    use mining_proxy_sv2::{ChannelKind, UpstreamMiningValues};
-    let upstreams = upstreams
-        .iter()
-        .map(|upstream| UpstreamMiningValues {
-            address: upstream.ip().to_string(),
-            port: upstream.port(),
-            pub_key: Secp256k1PublicKey::from_str(
-                "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72",
-            )
-            .unwrap(),
-            channel_kind: ChannelKind::Extended,
-        })
-        .collect();
-    let mining_proxy_listening_address = get_available_address();
-    let config = mining_proxy_sv2::MiningProxyConfig {
-        upstreams,
-        listen_address: mining_proxy_listening_address.ip().to_string(),
-        listen_mining_port: mining_proxy_listening_address.port(),
-        max_supported_version: 2,
-        min_supported_version: 2,
-        downstream_share_per_minute: 1.0,
-        expected_total_downstream_hr: 10_000.0,
-        reconnect: true,
-    };
-    tokio::spawn(async move {
-        mining_proxy_sv2::start_mining_proxy(config).await;
-    });
-    mining_proxy_listening_address
 }
 
 #[cfg(feature = "sv1")]

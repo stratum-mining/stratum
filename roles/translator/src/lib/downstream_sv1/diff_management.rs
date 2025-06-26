@@ -403,7 +403,7 @@ mod test {
             .unwrap();
         let mut share = generate_random_80_byte_array();
         while elapsed <= total_run_time {
-            mock_mine(initial_target.clone().into(), &mut share);
+            mock_mine(initial_target.clone(), &mut share);
             Downstream::save_share(downstream.clone()).unwrap();
             Downstream::try_update_difficulty_settings(downstream.clone())
                 .await
