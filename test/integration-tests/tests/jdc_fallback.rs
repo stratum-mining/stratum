@@ -1,5 +1,6 @@
 use integration_tests_sv2::{
     interceptor::{MessageDirection, ReplaceMessage},
+    template_provider::DifficultyLevel,
     *,
 };
 use std::convert::TryInto;
@@ -17,7 +18,7 @@ use stratum_common::roles_logic_sv2::{
 #[tokio::test]
 async fn test_jdc_pool_fallback_after_submit_rejection() {
     start_tracing();
-    let (tp, tp_addr) = start_template_provider(None);
+    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let (_pool_1, pool_addr_1) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and first pool
     let (sniffer_1, sniffer_addr_1) = start_sniffer(
@@ -37,16 +38,17 @@ async fn test_jdc_pool_fallback_after_submit_rejection() {
             )
             .into(),
         ],
+        None,
     );
     let (_pool_2, pool_addr_2) = start_pool(Some(tp_addr)).await;
     // Sniffer between JDC and second pool
-    let (sniffer_2, sniffer_addr_2) = start_sniffer("1", pool_addr_2, false, vec![]);
+    let (sniffer_2, sniffer_addr_2) = start_sniffer("1", pool_addr_2, false, vec![], None);
     let (_jds_1, jds_addr_1) = start_jds(tp.rpc_info());
     // Sniffer between JDC and first JDS
-    let (sniffer_3, sniffer_addr_3) = start_sniffer("2", jds_addr_1, false, vec![]);
+    let (sniffer_3, sniffer_addr_3) = start_sniffer("2", jds_addr_1, false, vec![], None);
     let (_jds_2, jds_addr_2) = start_jds(tp.rpc_info());
     // Sniffer between JDC and second JDS
-    let (sniffer_4, sniffer_addr_4) = start_sniffer("3", jds_addr_2, false, vec![]);
+    let (sniffer_4, sniffer_addr_4) = start_sniffer("3", jds_addr_2, false, vec![], None);
     let (_jdc, jdc_addr) = start_jdc(
         &[
             (sniffer_addr_1, sniffer_addr_3),
