@@ -8,17 +8,15 @@ const VERSION_TP: &str = "0.1.15";
 
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
-        ("macos", "aarch64") => format!(
-            "bitcoin-sv2-tp-{VERSION_TP}-arm64-apple-darwin-unsigned.tar.gz"
-        ),
-        ("macos", "x86_64") => format!(
-            "bitcoin-sv2-tp-{VERSION_TP}-x86_64-apple-darwin-unsigned.tar.gz"
-        ),
+        ("macos", "aarch64") => {
+            format!("bitcoin-sv2-tp-{VERSION_TP}-arm64-apple-darwin-unsigned.tar.gz")
+        }
+        ("macos", "x86_64") => {
+            format!("bitcoin-sv2-tp-{VERSION_TP}-x86_64-apple-darwin-unsigned.tar.gz")
+        }
         ("linux", "x86_64") => format!("bitcoin-sv2-tp-{VERSION_TP}-x86_64-linux-gnu.tar.gz"),
         ("linux", "aarch64") => format!("bitcoin-sv2-tp-{VERSION_TP}-aarch64-linux-gnu.tar.gz"),
-        _ => format!(
-            "bitcoin-sv2-tp-{VERSION_TP}-x86_64-apple-darwin-unsigned.zip"
-        ),
+        _ => format!("bitcoin-sv2-tp-{VERSION_TP}-x86_64-apple-darwin-unsigned.zip"),
     }
 }
 
@@ -67,9 +65,8 @@ impl TemplateProvider {
                         env::var("BITCOIND_DOWNLOAD_ENDPOINT").unwrap_or_else(|_| {
                             "https://github.com/Sjors/bitcoin/releases/download".to_owned()
                         });
-                    let url = format!(
-                        "{download_endpoint}/sv2-tp-{VERSION_TP}/{download_filename}"
-                    );
+                    let url =
+                        format!("{download_endpoint}/sv2-tp-{VERSION_TP}/{download_filename}");
                     http::make_get_request(&url, 5)
                 }
             };

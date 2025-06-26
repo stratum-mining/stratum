@@ -26,8 +26,6 @@ pub struct Client {
 
 impl Client {
     pub fn new(client_id: u32) -> Client {
-        
-
         Client {
             client_id,
             extranonce1: extranonce_from_hex("00000000"),
