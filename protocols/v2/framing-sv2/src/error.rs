@@ -23,7 +23,7 @@ impl fmt::Display for Error {
         use Error::*;
         match self {
             BinarySv2Error(ref e) => {
-                write!(f, "BinarySv2Error: `{:?}`", e)
+                write!(f, "BinarySv2Error: `{e:?}`")
             }
             ExpectedHandshakeFrame => {
                 write!(f, "Expected `HandshakeFrame`, received `Sv2Frame`")
@@ -34,8 +34,7 @@ impl fmt::Display for Error {
             UnexpectedHeaderLength(actual_size) => {
                 write!(
                     f,
-                    "Unexpected `Header` length: `{}`, should be equal or more to {}",
-                    actual_size, SV2_FRAME_HEADER_SIZE
+                    "Unexpected `Header` length: `{actual_size}`, should be equal or more to {SV2_FRAME_HEADER_SIZE}"
                 )
             }
         }

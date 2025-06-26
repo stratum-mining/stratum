@@ -534,7 +534,7 @@ impl Miner {
         // target is sent in LE format, we'll keep it that way
         let hex_string = target
             .iter()
-            .fold("".to_string(), |acc, b| acc + format!("{:02x}", b).as_str());
+            .fold("".to_string(), |acc, b| acc + format!("{b:02x}").as_str());
         info!("Set target to {}", hex_string);
         // Store the target as U256 in little-endian format
         self.target = Some(U256::from_little_endian(target.as_slice()));

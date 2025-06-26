@@ -86,12 +86,12 @@ fn server_pool_listen(listener: TcpListener) {
     loop {
         match listener.accept() {
             Ok((stream, addr)) => {
-                println!("SERVER - Accepting from: {}", addr);
+                println!("SERVER - Accepting from: {addr}");
                 let server = Server::new(stream);
                 let _ = Arc::new(Mutex::new(server));
             }
             Err(e) => {
-                eprintln!("SERVER - Accept error: {}", e);
+                eprintln!("SERVER - Accept error: {e}");
                 break;
             }
         }
@@ -139,7 +139,7 @@ impl Server<'_> {
             thread::spawn(move || loop {
                 if let Ok(mut self_) = cloned.try_lock() {
                     if let Ok(line) = self_.receiver_incoming.try_recv() {
-                        println!("SERVER - message: {}", line);
+                        println!("SERVER - message: {line}");
                         let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
                         if let Ok(message) = message {
                             if let Ok(Some(resp)) = self_.handle_message(message) {
@@ -171,7 +171,7 @@ impl Server<'_> {
                     run_time -= notify_time as i32;
 
                     if run_time <= 0 {
-                        println!("Test Success - ran for {} seconds", TEST_DURATION);
+                        println!("Test Success - ran for {TEST_DURATION} seconds");
                         exit(0)
                     }
                 }
@@ -305,7 +305,7 @@ impl Client<'static> {
             thread::sleep(Duration::from_secs(1));
             match TcpStream::connect(socket) {
                 Ok(st) => {
-                    println!("CLIENT - connected to server at {}", socket);
+                    println!("CLIENT - connected to server at {socket}");
                     let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
                     let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
 
@@ -560,7 +560,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         &mut self,
         message: Message,
     ) -> Result<Option<json_rpc::Message>, Error<'a>> {
-        println!("{:?}", message);
+        println!("{message:?}");
         Ok(None)
     }
 }
@@ -621,7 +621,7 @@ mod utils {
     pub fn encode_hex(bytes: &[u8]) -> String {
         let mut s = String::with_capacity(bytes.len() * 2);
         for &b in bytes {
-            write!(&mut s, "{:02x}", b).unwrap();
+            write!(&mut s, "{b:02x}").unwrap();
         }
         s
     }

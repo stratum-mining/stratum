@@ -301,9 +301,9 @@ impl fmt::Display for Sv2Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Sv2Error::*;
         match self {
-            BinaryError(ref e) => write!(f, "{:?}", e),
-            CodecError(ref e) => write!(f, "{:?}", e),
-            PayloadTooBig(ref e) => write!(f, "Payload is too big: {:?}", e),
+            BinaryError(ref e) => write!(f, "{e:?}"),
+            CodecError(ref e) => write!(f, "{e:?}"),
+            PayloadTooBig(ref e) => write!(f, "Payload is too big: {e:?}"),
             InvalidSv2Frame => write!(f, "Invalid Sv2 frame"),
             MissingBytes => write!(f, "Missing expected bytes"),
             EncoderBusy => write!(f, "Encoder is busy"),
@@ -381,7 +381,7 @@ fn encode_(
     let frame =
         StandardSv2Frame::<Sv2Message<'static>>::from_message(message.clone(), m_type, 0, c_bit)
             .ok_or(Sv2Error::PayloadTooBig(
-                format!("{}", message).as_bytes().into(),
+                format!("{message}").as_bytes().into(),
             ))?;
     encoder
         .encoder

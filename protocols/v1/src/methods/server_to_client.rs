@@ -563,7 +563,7 @@ fn configure_response_parsing_all_fields() {
         }"#;
     let client_response = serde_json::from_str(client_response_str).unwrap();
     let server_configure = Configure::try_from(&client_response).unwrap();
-    println!("{:?}", server_configure);
+    println!("{server_configure:?}");
 
     let version_rolling = server_configure.version_rolling.unwrap();
     assert!(version_rolling.version_rolling);
@@ -584,7 +584,7 @@ fn configure_response_parsing_no_vr_min_bit_count() {
         }"#;
     let client_response = serde_json::from_str(client_response_str).unwrap();
     let server_configure = Configure::try_from(&client_response).unwrap();
-    println!("{:?}", server_configure);
+    println!("{server_configure:?}");
 
     let version_rolling = server_configure.version_rolling.unwrap();
     assert!(version_rolling.version_rolling);

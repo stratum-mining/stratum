@@ -79,8 +79,7 @@ pub fn test_try_vardiff_stable_hashrate_minimal_change_or_no_change<V: Vardiff>(
     if let Some(new_hashrate) = result {
         let diff_percentage = ((new_hashrate - initial_hashrate).abs() / initial_hashrate) * 100.0;
         println!(
-            "Stable hashrate test: new hashrate {}, initial {}, diff_pct {}",
-            new_hashrate, initial_hashrate, diff_percentage
+            "Stable hashrate test: new hashrate {new_hashrate}, initial {initial_hashrate}, diff_pct {diff_percentage}"
         );
         assert!(
             diff_percentage < 20.0,
@@ -119,7 +118,7 @@ pub fn test_try_vardiff_low_hashrate_decrease_target<V: Vardiff>(vardiff: &mut V
     let target: Target = hash_rate_to_target(new_hashrate.into(), TEST_SHARES_PER_MINUTE.into())
         .unwrap()
         .into();
-    println!("target: {:?}", target);
+    println!("target: {target:?}");
     assert!(
         target < initial_target,
         "Target should become harder (larger value)"

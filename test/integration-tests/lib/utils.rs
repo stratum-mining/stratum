@@ -349,8 +349,7 @@ pub mod http {
                         return res.as_bytes().to_vec();
                     } else if (500..600).contains(&status_code) {
                         eprintln!(
-                            "Attempt {}: URL {} returned a server error code {}",
-                            attempt, download_url, status_code
+                            "Attempt {attempt}: URL {download_url} returned a server error code {status_code}"
                         );
                     } else {
                         panic!(
@@ -371,7 +370,7 @@ pub mod http {
 
             if attempt < retries {
                 let delay = 1u64 << (attempt - 1);
-                eprintln!("Retrying in {} seconds (exponential backoff)...", delay);
+                eprintln!("Retrying in {delay} seconds (exponential backoff)...");
                 std::thread::sleep(std::time::Duration::from_secs(delay));
             }
         }

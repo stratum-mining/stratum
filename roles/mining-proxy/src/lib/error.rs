@@ -26,9 +26,9 @@ impl From<SendError<EitherFrame>> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::SendError(e) => write!(f, "Send error: {}", e),
-            Error::UpstreamNotAvailabe(addr) => write!(f, "Upstream not available: {}", addr),
-            Error::SetupConnectionError(msg) => write!(f, "Setup connection error: {}", msg),
+            Error::SendError(e) => write!(f, "Send error: {e}"),
+            Error::UpstreamNotAvailabe(addr) => write!(f, "Upstream not available: {addr}"),
+            Error::SetupConnectionError(msg) => write!(f, "Setup connection error: {msg}"),
             Error::BadCliArgs => write!(f, "Bad CLI arguments provided"),
         }
     }

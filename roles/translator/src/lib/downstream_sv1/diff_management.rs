@@ -291,7 +291,7 @@ mod test {
         let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
         assert!(
             error <= error_margin as f32,
-            "Calculated shares per minute are outside the 99.99...% confidence interval. Error: {:?}, Error margin: {:?}, {:?}", error, error_margin,calculated_share_per_min
+            "Calculated shares per minute are outside the 99.99...% confidence interval. Error: {error:?}, Error margin: {error_margin:?}, {calculated_share_per_min:?}"
         );
     }
 
@@ -403,7 +403,7 @@ mod test {
             .unwrap();
         let mut share = generate_random_80_byte_array();
         while elapsed <= total_run_time {
-            mock_mine(initial_target.clone().into(), &mut share);
+            mock_mine(initial_target.clone(), &mut share);
             Downstream::save_share(downstream.clone()).unwrap();
             Downstream::try_update_difficulty_settings(downstream.clone())
                 .await

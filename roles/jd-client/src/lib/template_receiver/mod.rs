@@ -142,7 +142,7 @@ impl TemplateRx {
         let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
         match sender_to_tp.send(either_frame).await {
             Ok(_) => (),
-            Err(e) => panic!("{:?}", e),
+            Err(e) => panic!("{e:?}"),
         }
     }
 

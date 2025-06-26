@@ -23,7 +23,7 @@ fn main() {
         let data_slice = pool.get_data_owned();
         slices.push_back(data_slice);
         println!("{:?}", &pool);
-        println!("");
+        println!();
     };
 
     // Write a small message to the first slot

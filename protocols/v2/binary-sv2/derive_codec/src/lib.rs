@@ -342,10 +342,10 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
                 break;
             }
             TokenTree::Punct(p) => {
-                struct_generics = format!("{}{}", struct_generics, p);
+                struct_generics = format!("{struct_generics}{p}");
             }
             TokenTree::Ident(i) => {
-                struct_generics = format!("{}{}", struct_generics, i);
+                struct_generics = format!("{struct_generics}{i}");
             }
             // Never executed at runtime it ok to panic
             _ => panic!("Struct {} has no fields", struct_name),

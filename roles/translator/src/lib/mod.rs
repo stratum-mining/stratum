@@ -381,7 +381,7 @@ mod tests {
         translator.shutdown();
         let ip = config.downstream_address.clone();
         let port = config.downstream_port;
-        let translator_addr = format!("{}:{}", ip, port);
+        let translator_addr = format!("{ip}:{port}");
         assert!(std::net::TcpListener::bind(translator_addr).is_ok());
     }
 }

@@ -107,32 +107,32 @@ impl fmt::Display for Error<'_> {
         use Error::*;
         match self {
             BadCliArgs => write!(f, "Bad CLI arg input"),
-            BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
-            BadConfigDeserialize(ref e) => write!(f, "Bad `config` TOML deserialize: `{:?}`", e),
-            BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
-            CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
-            FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
-            InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{:?}", e),
-            Io(ref e) => write!(f, "I/O error: `{:?}", e),
-            ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
-            RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
-            V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
-            SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{:?}`", e),
-            UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
+            BadSerdeJson(ref e) => write!(f, "Bad serde json: `{e:?}`"),
+            BadConfigDeserialize(ref e) => write!(f, "Bad `config` TOML deserialize: `{e:?}`"),
+            BinarySv2(ref e) => write!(f, "Binary SV2 error: `{e:?}`"),
+            CodecNoise(ref e) => write!(f, "Noise error: `{e:?}"),
+            FramingSv2(ref e) => write!(f, "Framing SV2 error: `{e:?}`"),
+            InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{e:?}"),
+            Io(ref e) => write!(f, "I/O error: `{e:?}"),
+            ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{e:?}`"),
+            RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{e:?}`"),
+            V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{e:?}`"),
+            SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{e:?}`"),
+            UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{e:?}`"),
             PoisonLock => write!(f, "Poison Lock error"),
-            ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
-            TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{:?}`", e),
-            ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
+            ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{e:?}`"),
+            TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{e:?}`"),
+            ChannelErrorSender(ref e) => write!(f, "Channel send error: `{e:?}`"),
             SetDifficultyToMessage(ref e) => {
-                write!(f, "Error converting SetDifficulty to Message: `{:?}`", e)
+                write!(f, "Error converting SetDifficulty to Message: `{e:?}`")
             }
-            VecToSlice32(ref e) => write!(f, "Standard Error: `{:?}`", e),
-            Infallible(ref e) => write!(f, "Infallible Error:`{:?}`", e),
+            VecToSlice32(ref e) => write!(f, "Standard Error: `{e:?}`"),
+            Infallible(ref e) => write!(f, "Infallible Error:`{e:?}`"),
             Sv2ProtocolError(ref e) => {
-                write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+                write!(f, "Received Sv2 Protocol Error from upstream: `{e:?}`")
             }
             TargetError(ref e) => {
-                write!(f, "Impossible to get target from hashrate: `{:?}`", e)
+                write!(f, "Impossible to get target from hashrate: `{e:?}`")
             }
             Sv1MessageTooLong => {
                 write!(f, "Received an sv1 message that is longer than max len")

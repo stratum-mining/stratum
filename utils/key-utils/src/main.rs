@@ -23,8 +23,8 @@ fn main() {
     let (secret, public) = generate_key();
     let secret: String = secret.into();
     let public: String = public.into();
-    println!("Secret Key: {}", secret);
-    println!("Public Key: {}", public);
+    println!("Secret Key: {secret}");
+    println!("Public Key: {public}");
 }
 
 #[cfg(not(feature = "std"))]

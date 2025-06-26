@@ -44,7 +44,7 @@ impl<'a> From<Extranonce<'a>> for Value {
 /// FIXME: find a nicer solution
 fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
     if s.len() % 2 != 0 {
-        Ok(hex::decode(format!("0{}", s))?)
+        Ok(hex::decode(format!("0{s}"))?)
     } else {
         Ok(hex::decode(s)?)
     }
