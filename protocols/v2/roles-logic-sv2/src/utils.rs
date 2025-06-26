@@ -210,7 +210,7 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
 pub fn bytes_to_hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for &b in bytes {
-        write!(&mut s, "{:02x}", b)
+        write!(&mut s, "{b:02x}")
             .expect("Writing hex bytes to pre-allocated string should never fail");
     }
     s

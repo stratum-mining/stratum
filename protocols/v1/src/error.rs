@@ -38,15 +38,14 @@ impl std::fmt::Display for Error<'_> {
         match self {
             Error::BadBytesConvert(ref e) => write!(
                 f,
-                "Bad U256 or B032 conversion (U256 length must be exactly 32 bytes; B032 length must be <= 32 bytes): {:?}", 
-                e
+                "Bad U256 or B032 conversion (U256 length must be exactly 32 bytes; B032 length must be <= 32 bytes): {e:?}"
             ),
-            Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{:?}`", e),
-            Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{:?}`", e),
+            Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{e:?}`"),
+            Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e:?}`"),
             Error::IncorrectClientStatus(s) => {
-                write!(f, "Client status is incompatible with message: `{}`", s)
+                write!(f, "Client status is incompatible with message: `{s}`")
             }
-            Error::Infallible(ref e) => write!(f, "Infallible error{:?}", e),
+            Error::Infallible(ref e) => write!(f, "Infallible error{e:?}"),
             Error::InvalidJsonRpcMessageKind => write!(
                 f,
                 "Server received a `json_rpc` response when it should only receive requests"
@@ -54,8 +53,7 @@ impl std::fmt::Display for Error<'_> {
             Error::InvalidReceiver(ref e) => write!(
                 f,
                 "Client received an invalid message that was intended to be sent from the
-            client to the server, NOT from the server to the client. Invalid message: `{:?}`",
-                e
+            client to the server, NOT from the server to the client. Invalid message: `{e:?}`"
             ),
             Error::InvalidSubmission => {
                 write!(f, "Server received an invalid `mining.submit` message.")
@@ -63,16 +61,14 @@ impl std::fmt::Display for Error<'_> {
             Error::Method(ref e) => {
                 write!(
                     f,
-                    "Error converting valid `json_rpc` SV1 message: `{:?}`",
-                    e
+                    "Error converting valid `json_rpc` SV1 message: `{e:?}`"
                 )
             }
             Error::UnauthorizedClient(id) => write!(
                 f,
-                "Client with id `{}` expected to be authorized but is unauthorized.",
-                id
+                "Client with id `{id}` expected to be authorized but is unauthorized."
             ),
-            Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{}`.", e),
+            Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{e}`."),
             Error::InvalidVersionMask(e) => write!(f, "First 3 bits of version rolling mask must be 0 and last 13 bits of version rolling mask must be 0. Version rolling mask is: `{:b}`.", e.0),
         }
     }

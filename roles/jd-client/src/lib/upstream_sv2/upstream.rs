@@ -691,7 +691,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             range_2,
             Some(self.jdc_signature.as_bytes().to_vec()),
         )
-        .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{:?}", err)))?;
+        .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{err:?}")))?;
 
         // Job creator for the factory.
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);

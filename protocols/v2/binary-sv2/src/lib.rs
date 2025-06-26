@@ -620,8 +620,7 @@ mod test {
                 c: 32,
             };
             let len = expected.get_size();
-            let mut buffer = Vec::new();
-            buffer.resize(len, 0);
+            let mut buffer = vec![0; len];
             to_writer(expected.clone(), &mut buffer).unwrap();
             let deserialized: Test = from_bytes(&mut buffer[..]).unwrap();
             assert_eq!(deserialized, expected);

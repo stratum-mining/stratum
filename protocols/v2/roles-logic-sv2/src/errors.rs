@@ -167,8 +167,7 @@ impl Display for Error {
             BadPayloadSize => write!(f, "Payload is too big to fit into the frame"),
             BinarySv2Error(v) => write!(
                 f,
-                "BinarySv2Error: error in serializing/deserializing binary format {:?}",
-                v
+                "BinarySv2Error: error in serializing/deserializing binary format {v:?}"
             ),
             DownstreamDown => {
                 write!(
@@ -176,25 +175,25 @@ impl Display for Error {
                     "Downstream is not connected anymore"
                 )
             }
-            ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {}", l),
+            ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {l}"),
             NoGroupsFound => write!(
                 f,
                 "A channel was attempted to be added to an Upstream, but no groups are specified"
             ),
-            UnexpectedMessage(type_) => write!(f, "Error: Unexpected message received. Recv m type: {:x}", type_),
+            UnexpectedMessage(type_) => write!(f, "Error: Unexpected message received. Recv m type: {type_:x}"),
             NoGroupIdOnExtendedChannel => write!(f, "Extended channels do not have group IDs"),
             NoPairableUpstream(a) => {
-                write!(f, "No pairable upstream node: {:?}", a)
+                write!(f, "No pairable upstream node: {a:?}")
             }
             NoCompatibleUpstream(a) => {
-                write!(f, "No compatible upstream node: {:?}", a)
+                write!(f, "No compatible upstream node: {a:?}")
             }
             NoFutureJobs => write!(f, "GroupChannelJobDispatcher does not have any future jobs"),
             NoDownstreamsConnected => write!(f, "NoDownstreamsConnected"),
             PrevHashRequireNonExistentJobId(id) => {
-                write!(f, "PrevHashRequireNonExistentJobId {}", id)
+                write!(f, "PrevHashRequireNonExistentJobId {id}")
             }
-            RequestIdNotMapped(id) => write!(f, "RequestIdNotMapped {}", id),
+            RequestIdNotMapped(id) => write!(f, "RequestIdNotMapped {id}"),
             NoUpstreamsConnected => write!(f, "There are no upstream connected"),
             UnexpectedPoolMessage => write!(f, "Unexpected `PoolMessage` type"),
             UnimplementedProtocol => write!(
@@ -203,16 +202,14 @@ impl Display for Error {
             ),
             UnknownRequestId(id) => write!(
                 f,
-                "Upstream is answering with a wrong request ID {} or
+                "Upstream is answering with a wrong request ID {id} or
                 DownstreamMiningSelector::on_open_standard_channel_request has not been called
-                before relaying open channel request to upstream",
-                id
+                before relaying open channel request to upstream"
             ),
             InvalidExtranonceSize(required_min, requested) => {
                 write!(
                     f,
-                    "Invalid extranonce size: required min {}, requested {}",
-                    required_min, requested
+                    "Invalid extranonce size: required min {required_min}, requested {requested}"
                 )
             },
             NoMoreExtranonces => write!(f, "No more extranonces"),
@@ -228,37 +225,37 @@ impl Display for Error {
             VersionTooBig => write!(f, "We are trying to construct a block header with version bigger than i32::MAX"),
             TxVersionTooBig => write!(f, "Tx version can not be greater than i32::MAX"),
             TxVersionTooLow => write!(f, "Tx version can not be lower than 1"),
-            TxDecodingError(e) => write!(f, "Impossible to decode tx: {:?}", e),
+            TxDecodingError(e) => write!(f, "Impossible to decode tx: {e:?}"),
             NotFoundChannelId => write!(f, "No downstream has been registered for this channel id"),
             NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
             NoValidTranslatorJob => write!(f, "Impossible to create a extended job for channel cause no valid job has been received from upstream yet"),
             NoTemplateForId => write!(f, "Impossible to retrieve a template for the required job id"),
-            NoValidTemplate(e) => write!(f, "Impossible to retrieve a template for the required template id: {}", e),
-            PoisonLock(e) => write!(f, "Poison lock: {}", e),
-            JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
-            TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
-            HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
-            LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
+            NoValidTemplate(e) => write!(f, "Impossible to retrieve a template for the required template id: {e}"),
+            PoisonLock(e) => write!(f, "Poison lock: {e}"),
+            JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {ds_job_id}, Upstream job id = {us_job_id}"),
+            TargetError(e) => write!(f, "Impossible to get Target: {e:?}"),
+            HashrateError(e) => write!(f, "Impossible to get Hashrate: {e:?}"),
+            LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {e:?}"),
             JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
-            IoError(e) => write!(f, "IO error: {:?}", e),
-            ExtendedExtranonceCreationFailed(e) => write!(f, "Failed to create ExtendedExtranonce: {}", e),
-            FromSliceError(e) => write!(f, "Failed to hash from slice: {}", e),
-            InvalidUserIdentity(e) => write!(f, "Invalid user identity: {}", e),
-            ExtranoncePrefixFactoryError(e) => write!(f, "Failed to create ExtranoncePrefixFactory: {:?}", e),
-            Vardiff(e) => write!(f, "Failed to adjust diff in vardiff module: {:?}", e),
-            FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {:?}", e),
-            FailedToCreateExtendedChannel(e) => write!(f, "Failed to create ExtendedChannel: {:?}", e),
-            FailedToProcessNewTemplateGroupChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
-            FailedToProcessSetNewPrevHashGroupChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
+            IoError(e) => write!(f, "IO error: {e:?}"),
+            ExtendedExtranonceCreationFailed(e) => write!(f, "Failed to create ExtendedExtranonce: {e}"),
+            FromSliceError(e) => write!(f, "Failed to hash from slice: {e}"),
+            InvalidUserIdentity(e) => write!(f, "Invalid user identity: {e}"),
+            ExtranoncePrefixFactoryError(e) => write!(f, "Failed to create ExtranoncePrefixFactory: {e:?}"),
+            Vardiff(e) => write!(f, "Failed to adjust diff in vardiff module: {e:?}"),
+            FailedToCreateStandardChannel(e) => write!(f, "Failed to create StandardChannel: {e:?}"),
+            FailedToCreateExtendedChannel(e) => write!(f, "Failed to create ExtendedChannel: {e:?}"),
+            FailedToProcessNewTemplateGroupChannel(e) => write!(f, "Failed to process NewTemplate: {e:?}"),
+            FailedToProcessSetNewPrevHashGroupChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
             NoActiveJob => write!(f, "No active job"),
-            FailedToUpdateStandardChannel(e) => write!(f, "Failed to update StandardChannel: {:?}", e),
-            FailedToUpdateExtendedChannel(e) => write!(f, "Failed to update ExtendedChannel: {:?}", e),
+            FailedToUpdateStandardChannel(e) => write!(f, "Failed to update StandardChannel: {e:?}"),
+            FailedToUpdateExtendedChannel(e) => write!(f, "Failed to update ExtendedChannel: {e:?}"),
             FailedToSendSolution => write!(f, "Failed to send solution"),
-            FailedToSetCustomMiningJob(e) => write!(f, "Failed to set custom mining job: {:?}", e),
-            FailedToProcessNewTemplateExtendedChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
-            FailedToProcessNewTemplateStandardChannel(e) => write!(f, "Failed to process NewTemplate: {:?}", e),
-            FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
-            FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {:?}", e),
+            FailedToSetCustomMiningJob(e) => write!(f, "Failed to set custom mining job: {e:?}"),
+            FailedToProcessNewTemplateExtendedChannel(e) => write!(f, "Failed to process NewTemplate: {e:?}"),
+            FailedToProcessNewTemplateStandardChannel(e) => write!(f, "Failed to process NewTemplate: {e:?}"),
+            FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
+            FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
         }
     }
 }

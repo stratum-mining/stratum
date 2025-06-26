@@ -463,7 +463,7 @@ mod tests {
         jdc.shutdown();
         let ip = config.listening_address().ip();
         let port = config.listening_address().port();
-        let jdc_addr = format!("{}:{}", ip, port);
+        let jdc_addr = format!("{ip}:{port}");
         assert!(std::net::TcpListener::bind(jdc_addr).is_ok());
     }
 }

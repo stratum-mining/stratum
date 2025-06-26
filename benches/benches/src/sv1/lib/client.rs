@@ -3,7 +3,6 @@
 //! messages. It also provides a trait implementation for handling server messages and managing
 //! client state.
 
-use std::fmt::Write;
 use v1::{
     client_to_server,
     error::Error,
@@ -27,7 +26,9 @@ pub struct Client {
 
 impl Client {
     pub fn new(client_id: u32) -> Client {
-        let client = Client {
+        
+
+        Client {
             client_id,
             extranonce1: extranonce_from_hex("00000000"),
             extranonce2_size: 4,
@@ -37,9 +38,7 @@ impl Client {
             last_notify: None,
             sented_authorize_request: vec![],
             authorized: vec![],
-        };
-
-        client
+        }
     }
 
     // this is what we want to benchmark
@@ -262,6 +261,6 @@ mod utils {
     }
 
     pub fn encode_hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{:02x}", b)).collect()
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
 }

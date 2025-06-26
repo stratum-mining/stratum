@@ -129,7 +129,7 @@ impl MiniRpcClient {
                 format!(
                     "Basic {}",
                     base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", username, password))
+                        .encode(format!("{username}:{password}"))
                 ),
             )
             .body(Full::<Bytes>::from(request_body))

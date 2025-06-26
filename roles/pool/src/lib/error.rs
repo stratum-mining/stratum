@@ -65,23 +65,23 @@ impl std::fmt::Display for PoolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use PoolError::*;
         match self {
-            Io(ref e) => write!(f, "I/O error: `{:?}", e),
-            ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
-            ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
-            BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
-            Codec(ref e) => write!(f, "Codec SV2 error: `{:?}", e),
-            CoinbaseOutput(ref e) => write!(f, "Coinbase output error: `{:?}", e),
-            Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
-            Noise(ref e) => write!(f, "Noise SV2 error: `{:?}", e),
-            RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
-            PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
-            ComponentShutdown(ref e) => write!(f, "Component shutdown: {:?}", e),
-            Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
+            Io(ref e) => write!(f, "I/O error: `{e:?}"),
+            ChannelSend(ref e) => write!(f, "Channel send failed: `{e:?}`"),
+            ChannelRecv(ref e) => write!(f, "Channel recv failed: `{e:?}`"),
+            BinarySv2(ref e) => write!(f, "Binary SV2 error: `{e:?}`"),
+            Codec(ref e) => write!(f, "Codec SV2 error: `{e:?}"),
+            CoinbaseOutput(ref e) => write!(f, "Coinbase output error: `{e:?}"),
+            Framing(ref e) => write!(f, "Framing SV2 error: `{e:?}`"),
+            Noise(ref e) => write!(f, "Noise SV2 error: `{e:?}"),
+            RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{e:?}`"),
+            PoisonLock(ref e) => write!(f, "Poison lock: {e:?}"),
+            ComponentShutdown(ref e) => write!(f, "Component shutdown: {e:?}"),
+            Custom(ref e) => write!(f, "Custom SV2 error: `{e:?}`"),
             Sv2ProtocolError(ref e) => {
-                write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+                write!(f, "Received Sv2 Protocol Error from upstream: `{e:?}`")
             }
             PoolError::Vardiff(ref e) => {
-                write!(f, "Received Vardiff Error : {:?}", e)
+                write!(f, "Received Vardiff Error : {e:?}")
             }
         }
     }

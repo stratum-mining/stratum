@@ -226,12 +226,12 @@ impl Arbitrary for Submit<'static> {
     fn arbitrary(g: &mut Gen) -> Self {
         let mut extra = Vec::<u8>::arbitrary(g);
         extra.resize(32, 0);
-        println!("\nEXTRA: {:?}\n", extra);
+        println!("\nEXTRA: {extra:?}\n");
         let bits = Option::<u32>::arbitrary(g);
-        println!("\nBITS: {:?}\n", bits);
+        println!("\nBITS: {bits:?}\n");
         let extra: Extranonce = extra.try_into().unwrap();
         let bits = bits.map(HexU32Be);
-        println!("\nBITS: {:?}\n", bits);
+        println!("\nBITS: {bits:?}\n");
         Submit {
             user_name: String::arbitrary(g),
             job_id: String::arbitrary(g),
@@ -248,12 +248,12 @@ impl Arbitrary for Submit<'static> {
 #[quickcheck_macros::quickcheck]
 fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
     let message = Into::<Message>::into(submit.clone());
-    println!("\nMESSAGE: {:?}\n", message);
+    println!("\nMESSAGE: {message:?}\n");
     let request = match message {
         Message::StandardRequest(s) => s,
         _ => panic!(),
     };
-    println!("\nREQUEST: {:?}\n", request);
+    println!("\nREQUEST: {request:?}\n");
     submit == TryInto::<Submit>::try_into(request).unwrap()
 }
 

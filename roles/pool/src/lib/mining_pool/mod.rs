@@ -294,8 +294,7 @@ impl Downstream {
                     if let Err(e) = status_tx
                         .send(status::Status {
                             state: status::State::Healthy(format!(
-                                "Downstream connection dropped: {}",
-                                e
+                                "Downstream connection dropped: {e}"
                             )),
                         })
                         .await

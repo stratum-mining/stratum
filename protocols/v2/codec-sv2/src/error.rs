@@ -62,10 +62,10 @@ impl fmt::Display for Error {
         use Error::*;
         match self {
             #[cfg(feature = "noise_sv2")]
-            AeadError(e) => write!(f, "Aead Error: `{:?}`", e),
-            BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
-            FramingError(e) => write!(f, "Framing error in codec: `{:?}`", e),
-            FramingSv2Error(e) => write!(f, "Framing Sv2 Error: `{:?}`", e),
+            AeadError(e) => write!(f, "Aead Error: `{e:?}`"),
+            BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{e:?}`"),
+            FramingError(e) => write!(f, "Framing error in codec: `{e:?}`"),
+            FramingSv2Error(e) => write!(f, "Framing Sv2 Error: `{e:?}`"),
             #[cfg(feature = "noise_sv2")]
             InvalidStepForInitiator => write!(
                 f,
@@ -76,9 +76,9 @@ impl fmt::Display for Error {
                 f,
                 "This noise handshake step can not be executed by a responder"
             ),
-            MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
+            MissingBytes(u) => write!(f, "Missing `{u}` Noise bytes"),
             #[cfg(feature = "noise_sv2")]
-            NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
+            NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{e:?}`"),
             #[cfg(feature = "noise_sv2")]
             NotInHandShakeState => write!(
                 f,

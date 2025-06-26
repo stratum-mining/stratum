@@ -74,7 +74,7 @@ impl ConnectionSV1 {
                     res = receiver_outgoing.recv().fuse() => {
                         let to_send = res.expect("Failed to receive message");
                         let to_send = match serde_json::to_string(&to_send) {
-                            Ok(string) => format!("{}\n", string),
+                            Ok(string) => format!("{string}\n"),
                             Err(_e) => {
                                 break;
                             }

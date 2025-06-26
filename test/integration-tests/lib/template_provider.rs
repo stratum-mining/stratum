@@ -9,18 +9,15 @@ const VERSION_TP: &str = "0.1.15";
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
         ("macos", "aarch64") => format!(
-            "bitcoin-sv2-tp-{}-arm64-apple-darwin-unsigned.tar.gz",
-            VERSION_TP
+            "bitcoin-sv2-tp-{VERSION_TP}-arm64-apple-darwin-unsigned.tar.gz"
         ),
         ("macos", "x86_64") => format!(
-            "bitcoin-sv2-tp-{}-x86_64-apple-darwin-unsigned.tar.gz",
-            VERSION_TP
+            "bitcoin-sv2-tp-{VERSION_TP}-x86_64-apple-darwin-unsigned.tar.gz"
         ),
-        ("linux", "x86_64") => format!("bitcoin-sv2-tp-{}-x86_64-linux-gnu.tar.gz", VERSION_TP),
-        ("linux", "aarch64") => format!("bitcoin-sv2-tp-{}-aarch64-linux-gnu.tar.gz", VERSION_TP),
+        ("linux", "x86_64") => format!("bitcoin-sv2-tp-{VERSION_TP}-x86_64-linux-gnu.tar.gz"),
+        ("linux", "aarch64") => format!("bitcoin-sv2-tp-{VERSION_TP}-aarch64-linux-gnu.tar.gz"),
         _ => format!(
-            "bitcoin-sv2-tp-{}-x86_64-apple-darwin-unsigned.zip",
-            VERSION_TP
+            "bitcoin-sv2-tp-{VERSION_TP}-x86_64-apple-darwin-unsigned.zip"
         ),
     }
 }
@@ -40,10 +37,10 @@ impl TemplateProvider {
         let tp_dir = current_dir.join("template-provider");
         let mut conf = Conf::default();
         conf.wallet = Some(port.to_string());
-        let staticdir = format!(".bitcoin-{}", port);
+        let staticdir = format!(".bitcoin-{port}");
         conf.staticdir = Some(tp_dir.join(staticdir));
-        let port_arg = format!("-sv2port={}", port);
-        let sv2_interval_arg = format!("-sv2interval={}", sv2_interval);
+        let port_arg = format!("-sv2port={port}");
+        let sv2_interval_arg = format!("-sv2interval={sv2_interval}");
         conf.args.extend(vec![
             "-txindex=1",
             "-sv2",
@@ -59,7 +56,7 @@ impl TemplateProvider {
         let arch = env::consts::ARCH;
         let download_filename = get_bitcoind_filename(os, arch);
         let bitcoin_exe_home = tp_dir
-            .join(format!("bitcoin-sv2-tp-{}", VERSION_TP))
+            .join(format!("bitcoin-sv2-tp-{VERSION_TP}"))
             .join("bin");
 
         if !bitcoin_exe_home.exists() {
@@ -71,8 +68,7 @@ impl TemplateProvider {
                             "https://github.com/Sjors/bitcoin/releases/download".to_owned()
                         });
                     let url = format!(
-                        "{}/sv2-tp-{}/{}",
-                        download_endpoint, VERSION_TP, download_filename
+                        "{download_endpoint}/sv2-tp-{VERSION_TP}/{download_filename}"
                     );
                     http::make_get_request(&url, 5)
                 }
@@ -112,7 +108,7 @@ impl TemplateProvider {
                     if current_time.elapsed() > timeout {
                         panic!("Failed to start bitcoind: {}", e);
                     }
-                    println!("Failed to start bitcoind due to {}", e);
+                    println!("Failed to start bitcoind due to {e}");
                 }
             }
         }

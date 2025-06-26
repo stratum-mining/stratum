@@ -1312,8 +1312,7 @@ mod test {
         let payload_length = extract_payload(serialized_frame).len();
         assert_eq!(
             message_length, payload_length,
-            "Header declared length [{} bytes] differs from the actual payload length [{} bytes]",
-            message_length, payload_length,
+            "Header declared length [{message_length} bytes] differs from the actual payload length [{payload_length} bytes]",
         );
     }
 }

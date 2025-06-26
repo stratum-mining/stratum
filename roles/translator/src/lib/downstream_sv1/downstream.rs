@@ -286,7 +286,7 @@ impl Downstream {
                     res = receiver_outgoing.recv().fuse() => {
                         let to_send = handle_result!(tx_status_writer, res);
                         let to_send = match serde_json::to_string(&to_send) {
-                            Ok(string) => format!("{}\n", string),
+                            Ok(string) => format!("{string}\n"),
                             Err(_e) => {
                                 debug!("\nDownstream: Bad SV1 server message\n");
                                 break;
