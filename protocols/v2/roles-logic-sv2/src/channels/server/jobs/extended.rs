@@ -35,7 +35,7 @@ impl<'a> ExtendedJob<'a> {
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
         job_message: NewExtendedMiningJob<'a>,
-    ) -> Self {
+    ) -> Result<Self, ExtendedJobError> {
         let mut template_coinbase_outputs = Vec::<TxOut>::consensus_decode(
             &mut template
                 .coinbase_tx_outputs
@@ -43,7 +43,7 @@ impl<'a> ExtendedJob<'a> {
                 .to_vec()
                 .as_slice(),
         )
-        .expect("Failed to deserialize template outputs");
+        .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbaseOutputs)?;
 
         // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
         if template_coinbase_outputs.is_empty() {
@@ -54,19 +54,19 @@ impl<'a> ExtendedJob<'a> {
                     .to_vec()
                     .as_slice(),
             )
-            .expect("Failed to deserialize template outputs")];
+            .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbaseOutputs)?];
         }
 
         let mut coinbase_outputs = vec![];
         coinbase_outputs.extend(additional_coinbase_outputs);
         coinbase_outputs.extend(template_coinbase_outputs);
 
-        Self {
+        Ok(Self {
             origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
             job_message,
-        }
+        })
     }
 
     pub fn from_custom_job(

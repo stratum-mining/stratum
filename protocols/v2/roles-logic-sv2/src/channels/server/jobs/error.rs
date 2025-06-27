@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub enum ExtendedJobError {
     FailedToDeserializeCoinbase,
+    FailedToDeserializeCoinbaseOutputs,
     CoinbaseInputCountMismatch,
     FailedToSerializeCoinbaseOutputs,
     FailedToSerializeCoinbasePrefix,
@@ -8,7 +9,9 @@ pub enum ExtendedJobError {
     InvalidMinNTime,
 }
 
-pub enum StandardJobError {}
+pub enum StandardJobError {
+    FailedToDeserializeCoinbaseOutputs,
+}
 
 #[derive(Debug)]
 pub enum JobFactoryError {

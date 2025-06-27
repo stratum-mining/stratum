@@ -106,7 +106,8 @@ impl JobFactory {
             extranonce_prefix,
             additional_coinbase_outputs,
             job_message,
-        );
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         Ok(job)
     }
@@ -171,7 +172,8 @@ impl JobFactory {
             extranonce_prefix,
             additional_coinbase_outputs,
             job_message,
-        );
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         Ok(job)
     }
