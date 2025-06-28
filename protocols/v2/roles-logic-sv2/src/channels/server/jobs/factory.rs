@@ -5,7 +5,7 @@ use crate::{
         server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
     },
     template_distribution_sv2::NewTemplate,
-    utils::{deserialize_outputs, merkle_root_from_path, Id as JobIdFactory},
+    utils::{merkle_root_from_path, Id as JobIdFactory},
 };
 use bitcoin::{
     absolute::LockTime,
@@ -106,7 +106,8 @@ impl JobFactory {
             extranonce_prefix,
             additional_coinbase_outputs,
             job_message,
-        );
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         Ok(job)
     }
@@ -171,7 +172,8 @@ impl JobFactory {
             extranonce_prefix,
             additional_coinbase_outputs,
             job_message,
-        );
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         Ok(job)
     }
@@ -189,7 +191,8 @@ impl JobFactory {
             .inner_as_ref()
             .to_vec();
 
-        let coinbase_outputs = deserialize_outputs(serialized_outputs);
+        let coinbase_outputs = Vec::<TxOut>::consensus_decode(&mut serialized_outputs.as_slice())
+            .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         let job_id = self.job_id_factory.next();
 
@@ -228,8 +231,10 @@ impl JobFactory {
     // this is only used to extract coinbase_tx_prefix and coinbase_tx_suffix from the custom
     // coinbase
     fn custom_coinbase(&self, m: SetCustomMiningJob<'_>) -> Result<Transaction, JobFactoryError> {
-        let deserialized_outputs =
-            deserialize_outputs(m.coinbase_tx_outputs.inner_as_ref().to_vec());
+        let deserialized_outputs = Vec::<TxOut>::consensus_decode(
+            &mut m.coinbase_tx_outputs.inner_as_ref().to_vec().as_slice(),
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(m.coinbase_prefix.inner_as_ref());
@@ -322,18 +327,28 @@ impl JobFactory {
             outputs.push(output.clone());
         }
 
-        let serialized_template_outputs = template.coinbase_tx_outputs.to_vec();
-        let mut cursor = 0;
-        let mut txouts = &serialized_template_outputs[cursor..];
-        while let Ok(out) = TxOut::consensus_decode(&mut txouts) {
-            let len = match out.script_pubkey.len() {
-                a @ 0..=252 => 8 + 1 + a,
-                a @ 253..=10000 => 8 + 3 + a,
-                _ => break,
-            };
-            cursor += len;
-            outputs.push(out);
+        let mut template_outputs = Vec::<TxOut>::consensus_decode(
+            &mut template
+                .coinbase_tx_outputs
+                .inner_as_ref()
+                .to_vec()
+                .as_slice(),
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
+
+        // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
+        if template_outputs.is_empty() {
+            template_outputs = vec![TxOut::consensus_decode(
+                &mut template
+                    .coinbase_tx_outputs
+                    .inner_as_ref()
+                    .to_vec()
+                    .as_slice(),
+            )
+            .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?];
         }
+
+        outputs.append(&mut template_outputs);
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(&template.coinbase_prefix.to_vec());
@@ -522,11 +537,11 @@ mod tests {
             coinbase_prefix: vec![82, 0].try_into().unwrap(),
             coinbase_tx_input_n_sequence: 4294967295,
             coinbase_tx_outputs: vec![
-                0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170, 14,
-                231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0, 0, 0, 0, 0, 0, 38, 106,
-                36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223,
-                163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78,
-                140, 249,
+                2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170,
+                14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0, 0, 0, 0, 0, 0, 38,
+                106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153,
+                223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151,
+                78, 140, 249,
             ]
             .try_into()
             .unwrap(),

@@ -4,10 +4,9 @@ use crate::{
         server::jobs::{error::ExtendedJobError, JobOrigin},
     },
     template_distribution_sv2::NewTemplate,
-    utils::deserialize_outputs,
 };
 use bitcoin::{
-    consensus::{deserialize, serialize},
+    consensus::{deserialize, serialize, Decodable},
     transaction::{Transaction, TxOut},
 };
 use codec_sv2::binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
@@ -36,19 +35,38 @@ impl<'a> ExtendedJob<'a> {
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
         job_message: NewExtendedMiningJob<'a>,
-    ) -> Self {
+    ) -> Result<Self, ExtendedJobError> {
+        let mut template_coinbase_outputs = Vec::<TxOut>::consensus_decode(
+            &mut template
+                .coinbase_tx_outputs
+                .inner_as_ref()
+                .to_vec()
+                .as_slice(),
+        )
+        .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbaseOutputs)?;
+
+        // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
+        if template_coinbase_outputs.is_empty() {
+            template_coinbase_outputs = vec![TxOut::consensus_decode(
+                &mut template
+                    .coinbase_tx_outputs
+                    .inner_as_ref()
+                    .to_vec()
+                    .as_slice(),
+            )
+            .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbaseOutputs)?];
+        }
+
         let mut coinbase_outputs = vec![];
         coinbase_outputs.extend(additional_coinbase_outputs);
-        coinbase_outputs.extend(deserialize_outputs(
-            template.coinbase_tx_outputs.inner_as_ref().to_vec(),
-        ));
+        coinbase_outputs.extend(template_coinbase_outputs);
 
-        Self {
+        Ok(Self {
             origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
             job_message,
-        }
+        })
     }
 
     pub fn from_custom_job(
@@ -124,10 +142,7 @@ impl<'a> ExtendedJob<'a> {
         let coinbase_tx_locktime = deserialized_coinbase.lock_time.to_consensus_u32();
         let coinbase_tx_input_n_sequence = deserialized_coinbase.input[0].sequence.0 as u32;
 
-        let mut serialized_outputs = Vec::new();
-        for output in &deserialized_coinbase.output {
-            serialized_outputs.extend_from_slice(&serialize(output));
-        }
+        let serialized_outputs = serialize(&deserialized_coinbase.output);
 
         let coinbase_tx_outputs: B064K<'a> = serialized_outputs
             .try_into()

@@ -1,5 +1,5 @@
-use crate::utils::deserialize_outputs;
-use bitcoin::transaction::TxOut;
+use crate::channels::server::jobs::error::StandardJobError;
+use bitcoin::{consensus::Decodable, transaction::TxOut};
 use codec_sv2::binary_sv2::{Sv2Option, U256};
 use mining_sv2::NewMiningJob;
 use template_distribution_sv2::NewTemplate;
@@ -23,18 +23,38 @@ impl<'a> StandardJob<'a> {
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
         job_message: NewMiningJob<'a>,
-    ) -> Self {
+    ) -> Result<Self, StandardJobError> {
+        let mut template_coinbase_outputs = Vec::<TxOut>::consensus_decode(
+            &mut template
+                .coinbase_tx_outputs
+                .inner_as_ref()
+                .to_vec()
+                .as_slice(),
+        )
+        .map_err(|_| StandardJobError::FailedToDeserializeCoinbaseOutputs)?;
+
+        // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
+        if template_coinbase_outputs.is_empty() {
+            template_coinbase_outputs = vec![TxOut::consensus_decode(
+                &mut template
+                    .coinbase_tx_outputs
+                    .inner_as_ref()
+                    .to_vec()
+                    .as_slice(),
+            )
+            .map_err(|_| StandardJobError::FailedToDeserializeCoinbaseOutputs)?];
+        }
+
         let mut coinbase_outputs = vec![];
         coinbase_outputs.extend(additional_coinbase_outputs);
-        coinbase_outputs.extend(deserialize_outputs(
-            template.coinbase_tx_outputs.inner_as_ref().to_vec(),
-        ));
-        Self {
+        coinbase_outputs.extend(template_coinbase_outputs);
+
+        Ok(Self {
             template,
             extranonce_prefix,
             coinbase_outputs,
             job_message,
-        }
+        })
     }
 
     pub fn get_job_id(&self) -> u32 {

@@ -8,10 +8,8 @@
 use bitcoin::{
     blockdata::block::{Header, Version},
     consensus,
-    consensus::Decodable,
     hash_types::{BlockHash, TxMerkleNode},
     hashes::{sha256d::Hash as DHash, Hash},
-    transaction::TxOut,
     Block, CompactTarget, Transaction,
 };
 use codec_sv2::binary_sv2::U256;
@@ -228,36 +226,6 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
         root = *hash.as_ref();
     }
     root
-}
-
-/// Deserializes a list of outputs from a serialized format.
-pub fn deserialize_outputs(serialized_outputs: Vec<u8>) -> Vec<TxOut> {
-    let mut deserialized_outputs: Vec<TxOut> = vec![];
-
-    // The serialized outputs are in Bitcoin consensus format
-    // We need to parse them one by one, keeping track of cursor position
-    let mut cursor = 0;
-    let mut txouts = &serialized_outputs[cursor..];
-
-    // Iteratively decode each TxOut until we can't decode any more
-    while let Ok(out) = TxOut::consensus_decode(&mut txouts) {
-        // Calculate the size of this TxOut based on its script_pubkey length
-        // 8 bytes for value + variable bytes for script_pubkey length
-        // For small scripts (0-252 bytes): 1 byte length prefix
-        // For medium scripts (253-1000000 bytes): 3 byte length prefix (1 marker + 2 byte
-        // length)
-        let len = match out.script_pubkey.len() {
-            a @ 0..=252 => 8 + 1 + a,       // 8 (value) + 1 (compact size) + script_len
-            a @ 253..=1000000 => 8 + 3 + a, // 8 (value) + 3 (compact size) + script_len
-            _ => break,                     // Unreasonably large script, likely an error
-        };
-
-        // Move the cursor forward by the size of this TxOut
-        cursor += len;
-        deserialized_outputs.push(out);
-    }
-
-    deserialized_outputs
 }
 
 /// A list of potential errors during conversion between hashrate and target
