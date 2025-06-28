@@ -24,7 +24,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
             "Received NewTemplate with id: {}, is future: {}",
             m.template_id, m.future_template
         );
-        debug!("NewTemplate: {:?}", m);
+        debug!("NewTemplate: {}", m);
         let new_template = m.into_static();
         let new_template = TemplateDistribution::NewTemplate(new_template);
         Ok(SendTo::None(Some(new_template)))
@@ -37,7 +37,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
     // other components like the `JobDeclarator` and downstream.
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {
         info!("Received SetNewPrevHash for template: {}", m.template_id);
-        debug!("SetNewPrevHash: {:?}", m);
+        debug!("SetNewPrevHash: {}", m);
         let new_prev_hash = SetNewPrevHash {
             template_id: m.template_id,
             prev_hash: m.prev_hash.into_static(),
@@ -63,7 +63,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
             "Received RequestTransactionDataSuccess for template: {}",
             m.template_id
         );
-        debug!("RequestTransactionDataSuccess: {:?}", m);
+        debug!("RequestTransactionDataSuccess: {}", m);
         let m = RequestTransactionDataSuccess {
             transaction_list: m.transaction_list.into_static(),
             excess_data: m.excess_data.into_static(),

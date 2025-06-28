@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt};
 
 /// Message used by an upstream to provide an updated mining job to downstream.
 ///
@@ -44,6 +44,16 @@ pub struct NewMiningJob<'decoder> {
     ///
     /// Note that this field is fixed and cannot be modified by the downstream node.
     pub merkle_root: U256<'decoder>,
+}
+
+impl fmt::Display for NewMiningJob<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: {}, merkle_root: {})",
+            self.channel_id, self.job_id, self.min_ntime, self.version, self.merkle_root
+        )
+    }
 }
 
 impl NewMiningJob<'_> {
@@ -109,6 +119,23 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub coinbase_tx_prefix: B064K<'decoder>,
     /// Suffix part of the coinbase transaction.
     pub coinbase_tx_suffix: B064K<'decoder>,
+}
+
+impl fmt::Display for NewExtendedMiningJob<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: {}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
+            self.channel_id,
+            self.job_id,
+            self.min_ntime,
+            self.version,
+            self.version_rolling_allowed,
+            self.merkle_path,
+            self.coinbase_tx_prefix,
+            self.coinbase_tx_suffix
+        )
+    }
 }
 
 impl NewExtendedMiningJob<'_> {

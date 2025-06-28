@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{
     binary_codec_sv2::{self, free_vec, CVec},
     Deserialize, Error, Serialize, B064K,
@@ -37,6 +37,20 @@ pub struct SubmitSolution<'decoder> {
     /// Full serialized coinbase transaction, meeting all the requirements of the `NewMiningJob` or
     /// `NewExtendedMiningJob` message.
     pub coinbase_tx: B064K<'decoder>,
+}
+
+impl fmt::Display for SubmitSolution<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSolution {{ template_id: {}, version: {}, header_timestamp: {}, header_nonce: {}, coinbase_tx: {} }}",
+            self.template_id,
+            self.version,
+            self.header_timestamp,
+            self.header_nonce,
+            self.coinbase_tx
+        )
+    }
 }
 
 /// C representation of [`SubmitSolution`].

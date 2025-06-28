@@ -91,7 +91,7 @@ impl SetupConnectionHandler {
 
         match message {
             CommonMessages::SetupConnectionSuccess(m) => {
-                debug!("Sent back SetupConnectionSuccess: {:?}", m);
+                debug!("Sent back SetupConnectionSuccess: {}", m);
                 Ok(CommonDownstreamData {
                     header_only: has_requires_std_job(m.flags),
                     work_selection: has_work_selection(m.flags),

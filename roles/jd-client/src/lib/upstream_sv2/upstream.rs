@@ -673,7 +673,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
             m.request_id, m.channel_id
         );
-        debug!("OpenStandardMiningChannelSuccess: {:?}", m);
+        debug!("OpenStandardMiningChannelSuccess: {}", m);
         // --- Create the PoolChannelFactory  ---
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let jdc_signature_len = self.jdc_signature.len();
@@ -798,7 +798,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             "Received SetExtranoncePrefix for channel id: {}",
             m.channel_id
         );
-        debug!("SetExtranoncePrefix: {:?}", m);
+        debug!("SetExtranoncePrefix: {}", m);
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -813,7 +813,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         info!("Received SubmitSharesSuccess");
-        debug!("SubmitSharesSuccess: {:?}", m);
+        debug!("SubmitSharesSuccess: {}", m);
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -904,7 +904,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
             "Received SetCustomMiningJobSuccess for channel id: {} for job id: {}",
             m.channel_id, m.job_id
         );
-        debug!("SetCustomMiningJobSuccess: {:?}", m);
+        debug!("SetCustomMiningJobSuccess: {}", m);
         if let Some(template_id) = self.template_to_job_id.take_template_id(m.request_id) {
             self.template_to_job_id
                 .register_job_id(template_id, m.job_id);
@@ -937,7 +937,7 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
         info!("Received SetTarget for channel id: {}", m.channel_id);
-        debug!("SetTarget: {:?}", m);
+        debug!("SetTarget: {}", m);
         if let Some(factory) = self.channel_factory.as_mut() {
             factory.update_target_for_channel(m.channel_id, m.maximum_target.clone().into());
             factory.set_target(&mut m.maximum_target.clone().into());

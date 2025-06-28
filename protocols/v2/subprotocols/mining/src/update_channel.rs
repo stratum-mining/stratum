@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, U256};
 use core::convert::TryInto;
 
@@ -34,6 +34,16 @@ pub struct UpdateChannel<'decoder> {
     pub maximum_target: U256<'decoder>,
 }
 
+impl fmt::Display for UpdateChannel<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "⛏️ UpdateChannel(channel_id={}, nominal_hash_rate={}, maximum_target={})",
+            self.channel_id, self.nominal_hash_rate, self.maximum_target
+        )
+    }
+}
+
 /// Message used by upstream to notify downstream about an error in the [`UpdateChannel`] message.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateChannelError<'decoder> {
@@ -45,4 +55,14 @@ pub struct UpdateChannelError<'decoder> {
     /// - max-target-out-of-range
     /// - invalid-channel-id
     pub error_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for UpdateChannelError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "UpdateChannelError(channel_id={}, error_code={})",
+            self.channel_id, self.error_code
+        )
+    }
 }

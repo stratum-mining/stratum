@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{
     binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2},
     Deserialize, Error, Seq064K, Serialize, Str0255, B016M, B064K,
@@ -17,6 +17,16 @@ pub struct RequestTransactionData {
     ///
     /// This must be identical to previously exchanged [`crate::NewTemplate::template_id`].
     pub template_id: u64,
+}
+
+impl fmt::Display for RequestTransactionData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestTransactionData(template_id: {})",
+            self.template_id
+        )
+    }
 }
 
 /// Message used by an upstream(Template Provider) to respond successfully to a
@@ -60,6 +70,16 @@ pub struct RequestTransactionDataSuccess<'decoder> {
     pub excess_data: B064K<'decoder>,
     /// The transaction data, serialized as a series of B0_16M byte arrays.
     pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
+}
+
+impl fmt::Display for RequestTransactionDataSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestTransactionDataSuccess(template_id: {}, excess_data: {}, transaction_list: {})",
+            self.template_id, self.excess_data, self.transaction_list
+        )
+    }
 }
 
 /// C representation of [`RequestTransactionDataSuccess`].
@@ -123,6 +143,17 @@ pub struct RequestTransactionDataError<'decoder> {
     /// Possible error codes:
     /// - template-id-not-found
     pub error_code: Str0255<'decoder>,
+}
+
+impl fmt::Display for RequestTransactionDataError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestTransactionDataError(template_id: {}, error_code: {})",
+            self.template_id,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
 }
 
 /// C representation of [`RequestTransactionDataError`].
