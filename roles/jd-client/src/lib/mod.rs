@@ -233,7 +233,7 @@ impl JobDeclaratorClient {
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         shutdown: Arc<Notify>,
     ) {
-        let miner_tx_out = config.get_txout().expect("Failed to get txout");
+        let miner_tx_out = config.get_txout();
 
         // Spawn the downstream listener task. In solo mode, `upstream` and `jd` are `None`.
         let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
@@ -245,7 +245,7 @@ impl JobDeclaratorClient {
             config.cert_validity_sec(),
             task_collector.clone(),
             tx_status.clone(),
-            miner_tx_out.clone(),
+            miner_tx_out,
             None,
             config.clone(),
             shutdown,

@@ -71,7 +71,7 @@ impl PoolSv2 {
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
 
         // Prepare coinbase output information required by TemplateRx.
-        let coinbase_output_result = get_coinbase_output(&config)?;
+        let coinbase_output_result = get_coinbase_output(&config);
         let coinbase_output_len = coinbase_output_result
             .iter()
             .map(|output| output.size() as u32)

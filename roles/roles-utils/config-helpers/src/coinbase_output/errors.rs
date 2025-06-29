@@ -19,8 +19,6 @@ pub enum Error {
     RawDescriptorGrandchild,
     /// Error parsing a raw descriptor as hex.
     Hex(hex::HexToBytesError),
-    /// Empty coinbase outputs in config
-    EmptyCoinbaseOutputs,
     /// Invalid `output_script_value` for script type. It must be a valid public key/script
     InvalidOutputScript,
     /// Unknown script type in config
@@ -41,7 +39,6 @@ impl fmt::Display for Error {
             RawDescriptorNChildren(n) => write!(f, "Found raw() descriptor with {n} children; must be exactly one hex-encoded script"),
             RawDescriptorGrandchild => write!(f, "Found descriptor of the form raw(X(y)); X must be a hex-encoded script and have no subexpression"),
             Hex(ref e) => write!(f, "Decoding hex-formatted script: {e}"),
-            EmptyCoinbaseOutputs => write!(f, "Empty coinbase outputs in config"),
             UnknownOutputScriptType => write!(f, "Unknown script type in config"),
             InvalidOutputScript => write!(f, "Invalid output_script_value for your script type. It must be a valid public key/script"),
             Miniscript(ref e) => write!(f, "Miniscript: {e}"),
