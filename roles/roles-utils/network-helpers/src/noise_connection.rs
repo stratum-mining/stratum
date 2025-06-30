@@ -192,6 +192,10 @@ impl Connection {
 
             loop {
                 tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {
+                        info!("Ctrl+C received for {}, shutting down connection", address);
+                        break;
+                    }
                     // Incoming message from network
                     res = receive_message(&mut reader, &mut read_state, &mut decoder) => {
                         match res {
