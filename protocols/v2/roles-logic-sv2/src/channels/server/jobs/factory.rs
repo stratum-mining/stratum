@@ -5,7 +5,7 @@ use crate::{
         server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
     },
     template_distribution_sv2::NewTemplate,
-    utils::{merkle_root_from_path, Id as JobIdFactory},
+    utils::{deserialize_template_outputs, merkle_root_from_path, Id as JobIdFactory},
 };
 use bitcoin::{
     absolute::LockTime,
@@ -327,26 +327,11 @@ impl JobFactory {
             outputs.push(output.clone());
         }
 
-        let mut template_outputs = Vec::<TxOut>::consensus_decode(
-            &mut template
-                .coinbase_tx_outputs
-                .inner_as_ref()
-                .to_vec()
-                .as_slice(),
+        let mut template_outputs = deserialize_template_outputs(
+            template.coinbase_tx_outputs.to_vec(),
+            template.coinbase_tx_outputs_count,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
-
-        // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
-        if template_outputs.is_empty() {
-            template_outputs = vec![TxOut::consensus_decode(
-                &mut template
-                    .coinbase_tx_outputs
-                    .inner_as_ref()
-                    .to_vec()
-                    .as_slice(),
-            )
-            .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?];
-        }
 
         outputs.append(&mut template_outputs);
 
