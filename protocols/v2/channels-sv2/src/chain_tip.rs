@@ -1,5 +1,5 @@
 //! # Chain Tip
-use codec_sv2::binary_sv2::U256;
+use binary_sv2::U256;
 
 /// An abstraction over the chain tip, carrying information from `SetNewPrevHash` messages.
 ///

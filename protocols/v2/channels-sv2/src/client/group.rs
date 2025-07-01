@@ -1,6 +1,6 @@
 //! Abstraction over the state of a Sv2 Group Channel, as seen by a Mining Client
 
-use crate::channels::client::error::GroupChannelError;
+use crate::client::error::GroupChannelError;
 
 use std::collections::{HashMap, HashSet};
 

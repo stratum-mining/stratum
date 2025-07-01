@@ -1,0 +1,24 @@
+[package]
+name = "channels_sv2"
+version = "0.1.0"
+authors = ["The Stratum V2 Developers"]
+edition = "2018"
+readme = "README.md"
+description = "Sv2 Channel Primitives"
+documentation = "https://docs.rs/channels_sv2"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+homepage = "https://stratumprotocol.org"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+binary_sv2 = { path = "../binary-sv2", version = "^3.0.0" }
+common_messages_sv2 = { path = "../subprotocols/common-messages", version = "^5.0.0" }
+mining_sv2 = { path = "../subprotocols/mining", version = "^4.0.0" }
+template_distribution_sv2 = { path = "../subprotocols/template-distribution", version = "^3.0.0" }
+job_declaration_sv2 = { path = "../subprotocols/job-declaration", version = "^4.0.0" }
+tracing = { version = "0.1"}
+bitcoin = { version = "0.32.5" }
+primitive-types = "0.13.1"

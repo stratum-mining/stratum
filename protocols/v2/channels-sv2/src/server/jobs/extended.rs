@@ -1,19 +1,17 @@
 use super::Job;
 use crate::{
-    channels::{
-        chain_tip::ChainTip,
-        server::jobs::{error::ExtendedJobError, JobOrigin},
-    },
-    template_distribution_sv2::NewTemplate,
-    utils::deserialize_template_outputs,
+    chain_tip::ChainTip,
+    server::jobs::{error::ExtendedJobError, JobOrigin},
+    template::deserialize_template_outputs,
 };
+use binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
 use bitcoin::{
     consensus::{deserialize, serialize},
     transaction::{Transaction, TxOut},
 };
-use codec_sv2::binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
 use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
 use std::convert::TryInto;
+use template_distribution_sv2::NewTemplate;
 
 /// Abstraction of an extended mining job with:
 /// - the `NewTemplate` OR `SetCustomMiningJob` message that originated it

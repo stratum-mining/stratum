@@ -1,4 +1,4 @@
-use crate::channels::server::jobs::error::JobFactoryError;
+use crate::server::jobs::error::JobFactoryError;
 
 #[derive(Debug)]
 pub enum ExtendedChannelError {

@@ -1,9 +1,9 @@
 use crate::{
-    channels::server::jobs::{error::StandardJobError, Job},
-    utils::deserialize_template_outputs,
+    server::jobs::{error::StandardJobError, Job},
+    template::deserialize_template_outputs,
 };
+use binary_sv2::{Sv2Option, U256};
 use bitcoin::transaction::TxOut;
-use codec_sv2::binary_sv2::{Sv2Option, U256};
 use mining_sv2::NewMiningJob;
 use template_distribution_sv2::NewTemplate;
 

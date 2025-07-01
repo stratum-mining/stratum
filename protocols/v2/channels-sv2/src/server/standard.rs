@@ -1,115 +1,101 @@
-//! Mining Server abstraction over the state of a Sv2 Extended Channel
-
+//! Abstraction over the state of a Sv2 Standard Channel, as seen by a Mining Server
 use crate::{
-    channels::{
-        chain_tip::ChainTip,
-        server::{
-            error::ExtendedChannelError,
-            jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
-            share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
-        },
+    chain_tip::ChainTip,
+    server::{
+        error::StandardChannelError,
+        jobs::{factory::JobFactory, job_store::JobStore, standard::StandardJob},
+        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
-    utils::{
-        bytes_to_hex, hash_rate_to_target, merkle_root_from_path, target_to_difficulty,
-        u256_to_block_hash,
-    },
+    target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
+use binary_sv2::{self};
 use bitcoin::{
-    blockdata::block::{Header, Version},
+    absolute::LockTime,
+    blockdata::{
+        block::{Header, Version},
+        witness::Witness,
+    },
+    consensus::Encodable,
     hashes::sha256d::Hash,
-    transaction::TxOut,
-    CompactTarget, Target as BitcoinTarget,
+    transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
+    CompactTarget, Sequence, Target as BitcoinTarget,
 };
-use codec_sv2::binary_sv2;
-use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
+use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
 use std::{collections::HashMap, convert::TryInto};
-use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
+use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
-/// Mining Server abstraction of a Sv2 Extended Channel.
+/// Abstraction of a Sv2 Standard Channel.
 ///
 /// It keeps track of:
 /// - the channel's unique `channel_id`
 /// - the channel's `user_identity`
 /// - the channel's unique `extranonce_prefix`
-/// - the channel's rollable extranonce size
 /// - the channel's requested max target (limit established by the client)
 /// - the channel's target
 /// - the channel's nominal hashrate
-/// - the channels' mapping between `template_id`s and `job_id`s
+/// - the channel's active job
 /// - the channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
 ///   `SetNewPrevHash` message)
-/// - the channel's active job
 /// - the channel's past jobs (which were active jobs under the current chain tip, indexed by
 ///   `job_id`)
 /// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
 ///   indexed by `job_id`)
-/// - the channel's share validation state
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a> {
-    channel_id: u32,
+pub struct StandardChannel<'a> {
+    pub channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
-    rollable_extranonce_size: u16,
     requested_max_target: Target,
-    target: Target, // todo: try to use Target from rust-bitcoin
+    target: Target,
     nominal_hashrate: f32,
-    job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
-    job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
+    job_store: Box<dyn JobStore<StandardJob<'a>>>,
+    job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl<'a> StandardChannel<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_id: u32,
         user_identity: String,
         extranonce_prefix: Vec<u8>,
-        max_target: Target,
+        requested_max_target: Target,
         nominal_hashrate: f32,
-        version_rolling_allowed: bool,
-        requested_min_rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
-    ) -> Result<Self, ExtendedChannelError> {
-        let target_u256 =
+        job_store: Box<dyn JobStore<StandardJob<'a>>>,
+    ) -> Result<Self, StandardChannelError> {
+        let calculated_target =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
                 Ok(target_u256) => target_u256,
                 Err(_) => {
-                    return Err(ExtendedChannelError::InvalidNominalHashrate);
+                    return Err(StandardChannelError::InvalidNominalHashrate);
                 }
             };
 
-        let target: Target = target_u256.clone().into();
+        let target: Target = calculated_target.into();
 
-        if target > max_target {
-            return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
-        }
-
-        let available_rollable_extranonce_size =
-            (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        if requested_min_rollable_extranonce_size > available_rollable_extranonce_size {
-            return Err(ExtendedChannelError::RequestedMinExtranonceSizeTooLarge);
+        if target > requested_max_target {
+            return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
         Ok(Self {
             channel_id,
             user_identity,
             extranonce_prefix,
-            rollable_extranonce_size: available_rollable_extranonce_size,
-            requested_max_target: max_target,
+            requested_max_target,
             target,
             nominal_hashrate,
-            job_store,
-            job_factory: JobFactory::new(version_rolling_allowed),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
+            job_factory: JobFactory::new(true),
             chain_tip: None,
+            job_store,
         })
     }
 
@@ -125,47 +111,25 @@ impl<'a> ExtendedChannel<'a> {
         &self.extranonce_prefix
     }
 
-    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
-        self.chain_tip.as_ref()
-    }
-
-    pub fn get_shares_per_minute(&self) -> f32 {
-        self.expected_share_per_minute
-    }
-
-    /// Only for testing purposes, not meant to be used in real apps.
-    #[cfg(test)]
-    fn set_chain_tip(&mut self, chain_tip: ChainTip) {
-        self.chain_tip = Some(chain_tip);
-    }
-
-    /// Sets the extranonce prefix.
-    ///
-    /// Note: after this, all new jobs will be associated with the new extranonce prefix.
-    /// Jobs created before this call will remain associated with the previous extranonce prefix,
-    /// and share validation will be done accordingly.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
-    ) -> Result<(), ExtendedChannelError> {
-        let new_rollable_extranonce_size =
-            MAX_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
-
-        // we return an error if the new extranonce_prefix would violate
-        // min_rollable_extranonce_size that was already established with the client when the
-        // channel was created
-        if new_rollable_extranonce_size < self.rollable_extranonce_size {
-            return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
+    ) -> Result<(), StandardChannelError> {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+            return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
-        self.rollable_extranonce_size = new_rollable_extranonce_size;
 
         Ok(())
     }
 
-    pub fn get_rollable_extranonce_size(&self) -> u16 {
-        self.rollable_extranonce_size
+    pub fn set_target(&mut self, target: Target) {
+        self.target = target;
+    }
+
+    pub fn set_nominal_hashrate(&mut self, nominal_hashrate: f32) {
+        self.nominal_hashrate = nominal_hashrate;
     }
 
     pub fn get_requested_max_target(&self) -> &Target {
@@ -176,20 +140,8 @@ impl<'a> ExtendedChannel<'a> {
         &self.target
     }
 
-    pub fn set_target(&mut self, target: Target) {
-        self.target = target;
-    }
-
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        self.job_store.get_future_template_to_job_id()
-    }
-
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
-    }
-
-    pub fn set_nominal_hashrate(&mut self, hashrate: f32) {
-        self.nominal_hashrate = hashrate;
     }
 
     /// Updates the channel's nominal hashrate and target.
@@ -197,16 +149,16 @@ impl<'a> ExtendedChannel<'a> {
     /// If requested_max_target is None, we use the cached value in the channel state.
     pub fn update_channel(
         &mut self,
-        new_nominal_hashrate: f32,
+        nominal_hashrate: f32,
         requested_max_target: Option<Target>,
-    ) -> Result<(), ExtendedChannelError> {
+    ) -> Result<(), StandardChannelError> {
         let target_u256 = match hash_rate_to_target(
-            new_nominal_hashrate.into(),
+            nominal_hashrate.into(),
             self.expected_share_per_minute.into(),
         ) {
             Ok(target_u256) => target_u256,
             Err(_) => {
-                return Err(ExtendedChannelError::InvalidNominalHashrate);
+                return Err(StandardChannelError::InvalidNominalHashrate);
             }
         };
 
@@ -215,7 +167,7 @@ impl<'a> ExtendedChannel<'a> {
             None => self.requested_max_target.clone(),
         };
 
-        // debug hex of target_u256 and max_Target
+        // debug hex of target_u256 and max_target
         // just like in share validation
         let mut target_bytes = target_u256.to_vec();
         target_bytes.reverse(); // Convert to big-endian for display
@@ -240,33 +192,54 @@ impl<'a> ExtendedChannel<'a> {
         let new_target: Target = target_u256.into();
 
         if new_target > requested_max_target {
-            return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
+            return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
-        self.nominal_hashrate = new_nominal_hashrate;
         self.target = new_target;
+        self.nominal_hashrate = nominal_hashrate;
         self.requested_max_target = requested_max_target;
-
         Ok(())
     }
 
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
         self.job_store.get_active_job()
     }
 
-    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
+    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
+        self.job_store.get_future_template_to_job_id()
+    }
+
+    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         self.job_store.get_future_jobs()
     }
 
-    pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
+    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         self.job_store.get_past_jobs()
+    }
+
+    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+        self.job_store.get_stale_jobs()
+    }
+
+    pub fn get_shares_per_minute(&self) -> f32 {
+        self.expected_share_per_minute
+    }
+
+    pub fn get_chain_tip(&self) -> Option<&ChainTip> {
+        self.chain_tip.as_ref()
+    }
+
+    /// Only for testing purposes, not meant to be used in real apps.
+    #[cfg(test)]
+    fn set_chain_tip(&mut self, chain_tip: ChainTip) {
+        self.chain_tip = Some(chain_tip);
     }
 
     pub fn get_share_accounting(&self) -> &ShareAccounting {
         &self.share_accounting
     }
 
-    /// Updates the channel state with a new template.
+    /// Updates the channel state with a new job.
     ///
     /// If the template is a future template, the chain tip is not used.
     /// If the template is not a future template, the chain tip must be set.
@@ -277,36 +250,36 @@ impl<'a> ExtendedChannel<'a> {
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<(), ExtendedChannelError> {
+    ) -> Result<(), StandardChannelError> {
         match template.future_template {
             true => {
                 let new_job = self
                     .job_factory
-                    .new_extended_job(
+                    .new_standard_job(
                         self.channel_id,
                         None,
                         self.extranonce_prefix.clone(),
                         template.clone(),
                         coinbase_reward_outputs,
                     )
-                    .map_err(ExtendedChannelError::JobFactoryError)?;
+                    .map_err(StandardChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {
                 match self.chain_tip.clone() {
                     // we can only create non-future jobs if we have a chain tip
-                    None => return Err(ExtendedChannelError::ChainTipNotSet),
+                    None => return Err(StandardChannelError::ChainTipNotSet),
                     Some(chain_tip) => {
                         let new_job = self
                             .job_factory
-                            .new_extended_job(
+                            .new_standard_job(
                                 self.channel_id,
                                 Some(chain_tip),
                                 self.extranonce_prefix.clone(),
                                 template.clone(),
                                 coinbase_reward_outputs,
                             )
-                            .map_err(ExtendedChannelError::JobFactoryError)?;
+                            .map_err(StandardChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);
                     }
                 }
@@ -316,35 +289,29 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
-    /// Updates the channel state with a new `SetNewPrevHash` message (Template Distribution
-    /// Protocol variant).
+    /// Updates the channel state with a new `SetNewPrevHash` message.
     ///
     /// If there are no future jobs, returns an error.
-    /// If there is some future job matching the `template_id`` that `SetNewPrevHash` points to,
-    /// this future job is "activated" and set as the active job.
+    /// If there are future jobs, the active job is set to the job with the given `template_id`.
     ///
     /// All past jobs are cleared.
     ///
     /// The chain tip information is not kept in the channel state.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashTdp<'a>,
-    ) -> Result<(), ExtendedChannelError> {
+        set_new_prev_hash: SetNewPrevHash<'a>,
+    ) -> Result<(), StandardChannelError> {
         match self.job_store.get_future_jobs().is_empty() {
             true => {
-                return Err(ExtendedChannelError::TemplateIdNotFound);
+                return Err(StandardChannelError::TemplateIdNotFound);
             }
             false => {
-                // the SetNewPrevHash message was addressed to a specific future template
                 self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
                 );
             }
         }
-
-        // clear seen shares, as shares for past chain tip will be rejected as stale
-        self.share_accounting.flush_seen_shares();
 
         // update the chain tip
         let set_new_prev_hash_static = set_new_prev_hash.into_static();
@@ -358,36 +325,12 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
-    /// Updates the channel state with a new custom mining job.
-    ///
-    /// If there is an active job, it is moved to the past jobs.
-    /// The new custom mining job is then set as the active job.
-    ///
-    /// Returns the job id of the new custom mining job.
-    ///
-    /// To be used by a Sv2 Pool Server upon receiving a `SetCustomMiningJob` message.
-    pub fn on_set_custom_mining_job(
-        &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
-    ) -> Result<u32, ExtendedChannelError> {
-        let new_job = self
-            .job_factory
-            .new_custom_job(set_custom_mining_job, self.extranonce_prefix.clone())
-            .map_err(ExtendedChannelError::JobFactoryError)?;
-
-        let job_id = new_job.get_job_id();
-
-        self.job_store.add_active_job(new_job);
-
-        Ok(job_id)
-    }
-
     /// Validates a share.
     ///
     /// Updates the channel state with the result of the share validation.
     pub fn validate_share(
         &mut self,
-        share: SubmitSharesExtended,
+        share: SubmitSharesStandard,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -428,25 +371,11 @@ impl<'a> ExtendedChannel<'a> {
                 .expect("stale job must exist")
         };
 
-        let extranonce_prefix = job.get_extranonce_prefix();
-        let mut full_extranonce = vec![];
-        full_extranonce.extend(extranonce_prefix.clone());
-        full_extranonce.extend(share.extranonce.inner_as_ref());
-
-        // calculate the merkle root from:
-        // - job coinbase_tx_prefix
-        // - full extranonce
-        // - job coinbase_tx_suffix
-        // - job merkle_path
-        let merkle_root: [u8; 32] = merkle_root_from_path(
-            job.get_coinbase_tx_prefix().inner_as_ref(),
-            job.get_coinbase_tx_suffix().inner_as_ref(),
-            full_extranonce.as_ref(),
-            &job.get_merkle_path().inner_as_ref(),
-        )
-        .ok_or(ShareValidationError::Invalid)?
-        .try_into()
-        .expect("merkle root must be 32 bytes");
+        let merkle_root: [u8; 32] = job
+            .get_merkle_root()
+            .inner_as_ref()
+            .try_into()
+            .expect("merkle root must be 32 bytes");
 
         let chain_tip = self
             .chain_tip
@@ -455,16 +384,6 @@ impl<'a> ExtendedChannel<'a> {
 
         let prev_hash = chain_tip.prev_hash();
         let nbits = CompactTarget::from_consensus(chain_tip.nbits());
-
-        // validate when version rolling is not allowed
-        if !job.version_rolling_allowed() {
-            // If version rolling is not allowed, ensure bits 13-28 are 0
-            // This is done by checking if the version & 0x1fffe000 == 0
-            // ref: https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki
-            if (share.version & 0x1fffe000) != 0 {
-                return Err(ShareValidationError::VersionRollingNotAllowed);
-            }
-        }
 
         // create the header for validation
         let header = Header {
@@ -481,7 +400,6 @@ impl<'a> ExtendedChannel<'a> {
         let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
         let hash_as_target: Target = raw_hash.into();
         let hash_as_diff = target_to_difficulty(hash_as_target.clone());
-
         let network_target = BitcoinTarget::from_compact(nbits);
 
         // print hash_as_target and self.target as human readable hex
@@ -507,23 +425,31 @@ impl<'a> ExtendedChannel<'a> {
                 hash.to_raw_hash(),
             );
 
-            let mut coinbase = vec![];
-            coinbase.extend(job.get_coinbase_tx_prefix().inner_as_ref());
-            coinbase.extend(full_extranonce);
-            coinbase.extend(job.get_coinbase_tx_suffix().inner_as_ref());
+            let mut script_sig = job.get_template().coinbase_prefix.to_vec();
+            script_sig.extend(job.get_extranonce_prefix());
 
-            match job.get_origin() {
-                JobOrigin::NewTemplate(template) => {
-                    let template_id = template.template_id;
-                    return Ok(ShareValidationResult::BlockFound(
-                        Some(template_id),
-                        coinbase,
-                    ));
-                }
-                JobOrigin::SetCustomMiningJob(_set_custom_mining_job) => {
-                    return Ok(ShareValidationResult::BlockFound(None, coinbase));
-                }
-            }
+            let tx_in = TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: script_sig.into(),
+                sequence: Sequence(job.get_template().coinbase_tx_input_sequence),
+                witness: Witness::from(vec![vec![0; 32]]),
+            };
+
+            let coinbase = Transaction {
+                version: TxVersion::non_standard(job.get_template().coinbase_tx_version as i32),
+                lock_time: LockTime::from_consensus(job.get_template().coinbase_tx_locktime),
+                input: vec![tx_in],
+                output: job.get_coinbase_outputs().to_vec(),
+            };
+            let mut serialized_coinbase = Vec::new();
+            coinbase
+                .consensus_encode(&mut serialized_coinbase)
+                .map_err(|_| ShareValidationError::InvalidCoinbase)?;
+
+            return Ok(ShareValidationResult::BlockFound(
+                Some(job.get_template().template_id),
+                serialized_coinbase,
+            ));
         }
 
         // check if the share hash meets the channel target
@@ -564,20 +490,20 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::{
+    use crate::{
         chain_tip::ChainTip,
         server::{
-            error::ExtendedChannelError,
-            extended::ExtendedChannel,
-            jobs::{job_store::DefaultJobStore, JobOrigin},
+            error::StandardChannelError,
+            jobs::{job_store::DefaultJobStore, standard::StandardJob},
             share_accounting::{ShareValidationError, ShareValidationResult},
+            standard::StandardChannel,
         },
     };
+    use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
-    use codec_sv2::binary_sv2::Sv2Option;
-    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
+    use mining_sv2::{NewMiningJob, SubmitSharesStandard, Target};
     use std::convert::TryInto;
-    use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
+    use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
 
@@ -586,29 +512,27 @@ mod tests {
         // note:
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
-        let channel_id = 1;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
+
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
-            channel_id,
+        let max_target: Target = [0xff; 32].into();
+        let nominal_hashrate = 10.0;
+        let share_batch_size = 100;
+        let expected_share_per_minute = 1.0;
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.clone(),
             max_target,
             nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -620,8 +544,8 @@ mod tests {
             future_template: true,
             version: 536870912,
             coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
             coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
             coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
@@ -631,7 +555,7 @@ mod tests {
             ]
             .try_into()
             .unwrap(),
-            coinbase_tx_locktime: 0,
+            coinbase_tx_locktime: 158,
             merkle_path: vec![].try_into().unwrap(),
         };
 
@@ -650,55 +574,34 @@ mod tests {
             script_pubkey: script,
         }];
 
-        assert!(channel.get_future_jobs().is_empty());
-        channel
+        assert!(standard_channel.get_future_jobs().is_empty());
+
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
-        assert!(channel.get_active_job().is_none());
 
-        let future_job_id = channel
-            .get_future_template_to_job_id()
-            .get(&template.template_id)
-            .unwrap();
-
-        let future_job = channel
-            .get_future_jobs()
-            .get(future_job_id)
-            .unwrap()
-            .clone();
-
-        // we know that the provided template + coinbase_reward_outputs should generate this future
-        // job
-        let expected_job = NewExtendedMiningJob {
-            channel_id: 1,
+        let expected_future_standard_job = NewMiningJob {
+            channel_id: standard_channel_id,
             job_id: 1,
-            min_ntime: Sv2Option::new(None),
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
             version: 536870912,
-            version_rolling_allowed: true,
-            coinbase_tx_prefix: vec![
-                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
-            ]
-            .try_into()
-            .unwrap(),
-            coinbase_tx_suffix: vec![
-                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
-                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
-                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
-                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
-                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            ]
-            .try_into()
-            .unwrap(),
-            merkle_path: vec![].try_into().unwrap(),
+            min_ntime: Sv2Option::new(None),
         };
 
-        assert_eq!(future_job.get_job_message(), &expected_job);
+        let future_standard_job_from_channel =
+            standard_channel.get_future_jobs().get(&1).unwrap().clone();
+        assert_eq!(
+            future_standard_job_from_channel.get_job_message(),
+            &expected_future_standard_job
+        );
 
-        let ntime = 1746839905;
-        let set_new_prev_hash = SetNewPrevHash {
-            template_id: 1,
+        let ntime = 1747092633;
+        let set_new_prev_hash = SetNewPrevHashTdp {
+            template_id: template.template_id,
             prev_hash: [
                 200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
                 205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
@@ -713,15 +616,13 @@ mod tests {
             .into(),
         };
 
-        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
-
-        // we just activated the only future job
-        assert!(channel.get_future_jobs().is_empty());
-
-        let mut previously_future_job = future_job.clone();
+        standard_channel
+            .on_set_new_prev_hash(set_new_prev_hash)
+            .unwrap();
+        let mut previously_future_job = future_standard_job_from_channel.clone();
         previously_future_job.activate(ntime);
 
-        let activated_job = channel.get_active_job().unwrap();
+        let activated_job = standard_channel.get_active_job().unwrap();
 
         // assert that the activated job is the same as the previously future job
         assert_eq!(
@@ -736,53 +637,50 @@ mod tests {
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
 
-        let channel_id = 1;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
+
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
-            channel_id,
+        let max_target: Target = [0xff; 32].into();
+        let nominal_hashrate = 10.0;
+        let share_batch_size = 100;
+        let expected_share_per_minute = 1.0;
+
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.clone(),
             max_target,
             nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
         )
         .unwrap();
 
-        let ntime = 1746839905;
+        let ntime = 1747092633;
         let prev_hash = [
             200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
             88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
         ]
         .into();
-        let n_bits = 503543726;
+        let nbits = 503543726;
 
-        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
-        channel.set_chain_tip(chain_tip);
-
+        let chain_tip = ChainTip::new(prev_hash, nbits, ntime);
         let template = NewTemplate {
             template_id: 1,
             future_template: false,
             version: 536870912,
             coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
             coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
             coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
@@ -792,7 +690,7 @@ mod tests {
             ]
             .try_into()
             .unwrap(),
-            coinbase_tx_locktime: 0,
+            coinbase_tx_locktime: 158,
             merkle_path: vec![].try_into().unwrap(),
         };
 
@@ -811,312 +709,58 @@ mod tests {
             script_pubkey: script,
         }];
 
-        channel
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        assert!(channel.get_future_jobs().is_empty());
-
-        let active_job = channel.get_active_job().unwrap().clone();
-
-        // we know that the provided template + coinbase_reward_outputs should generate this
-        // non-future job
-        let expected_job = NewExtendedMiningJob {
-            channel_id: 1,
+        let expected_active_standard_job = NewMiningJob {
+            channel_id: standard_channel_id,
             job_id: 1,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
             min_ntime: Sv2Option::new(Some(ntime)),
-            version: 536870912,
-            version_rolling_allowed: true,
-            coinbase_tx_prefix: vec![
-                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
-            ]
-            .try_into()
-            .unwrap(),
-            coinbase_tx_suffix: vec![
-                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
-                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
-                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
-                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
-                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            ]
-            .try_into()
-            .unwrap(),
-            merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(active_job.get_job_message(), &expected_job);
-    }
-
-    #[test]
-    fn test_custom_job_creation_flow() {
-        // this extended channel lives on JDC
-        let jdc_channel_id = 1;
-        let user_identity = "user_identity".to_string();
-        let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
-        ]
-        .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
-
-        // this extended channel lives on JDC
-        let mut jdc_extended_channel = ExtendedChannel::new(
-            jdc_channel_id,
-            user_identity,
-            extranonce_prefix,
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-        )
-        .unwrap();
-
-        let template = NewTemplate {
-            template_id: 1,
-            future_template: true,
-            version: 536870912,
-            coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
-            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
-            coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
-                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
-                139, 235, 216, 54, 151, 78, 140, 249,
-            ]
-            .try_into()
-            .unwrap(),
-            coinbase_tx_locktime: 0,
-            merkle_path: vec![].try_into().unwrap(),
-        };
-
-        // match the original script format used to generate the coinbase_reward_outputs for the
-        // expected job
-        let pubkey_hash = [
-            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
-            8, 252,
-        ];
-        let mut script_bytes = vec![0]; // SegWit version 0
-        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
-        script_bytes.extend_from_slice(&pubkey_hash);
-        let script = ScriptBuf::from(script_bytes);
-        let coinbase_reward_outputs = vec![TxOut {
-            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
-            script_pubkey: script,
-        }];
-
-        jdc_extended_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs.clone())
-            .unwrap();
-
-        let ntime = 1746839905;
-        let prev_hash = [
-            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
-            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-        ]
-        .into();
-        let n_bits = 503543726;
-        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
-        let set_new_prev_hash = SetNewPrevHash {
-            template_id: 1,
-            prev_hash: [
-                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
-                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-            ]
-            .into(),
-            header_timestamp: ntime,
-            n_bits: 503543726,
-            target: [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                174, 119, 3, 0, 0,
-            ]
-            .into(),
-        };
-
-        jdc_extended_channel
-            .on_set_new_prev_hash(set_new_prev_hash)
-            .unwrap();
-
-        let jdc_active_job = jdc_extended_channel.get_active_job().unwrap().clone();
-
-        let mining_job_token = vec![0].try_into().unwrap();
-        let set_custom_mining_job = jdc_active_job
-            .clone()
-            .into_custom_job(0, mining_job_token, chain_tip)
-            .unwrap();
-
-        // this extended channel lives on Pool Mining Server
-        let pool_channel_id = 1;
-        let user_identity = "user_identity".to_string();
-        let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
-        ]
-        .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
-
-        // this extended channel lives on Pool Mining Server
-        let mut pool_extended_channel = ExtendedChannel::new(
-            pool_channel_id,
-            user_identity,
-            extranonce_prefix.clone(),
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-        )
-        .unwrap();
-
-        pool_extended_channel
-            .on_set_custom_mining_job(set_custom_mining_job.clone())
-            .unwrap();
-
-        let pool_active_job = pool_extended_channel.get_active_job().unwrap().clone();
-        assert_eq!(
-            pool_active_job.get_origin(),
-            &JobOrigin::SetCustomMiningJob(set_custom_mining_job)
-        );
+        let active_standard_job_from_channel = standard_channel.get_active_job().unwrap().clone();
 
         assert_eq!(
-            pool_active_job.get_job_message(),
-            jdc_active_job.get_job_message()
+            active_standard_job_from_channel.get_job_message(),
+            &expected_active_standard_job
         );
-
-        assert_eq!(pool_active_job.get_extranonce_prefix(), &extranonce_prefix);
-
-        assert_eq!(
-            pool_active_job.get_coinbase_outputs(),
-            jdc_active_job.get_coinbase_outputs()
-        );
-    }
-
-    #[test]
-    fn test_coinbase_reward_outputs_sum_above_template_value() {
-        // note:
-        // the messages on this test were collected from a sane message flow
-        // we use them as test vectors to assert correct behavior of job creation
-
-        let channel_id = 1;
-        let user_identity = "user_identity".to_string();
-        let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
-        ]
-        .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
-
-        let mut channel = ExtendedChannel::new(
-            channel_id,
-            user_identity,
-            extranonce_prefix,
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-        )
-        .unwrap();
-
-        let template = NewTemplate {
-            template_id: 1,
-            future_template: true,
-            version: 536870912,
-            coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
-            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
-            coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
-                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
-                139, 235, 216, 54, 151, 78, 140, 249,
-            ]
-            .try_into()
-            .unwrap(),
-            coinbase_tx_locktime: 0,
-            merkle_path: vec![].try_into().unwrap(),
-        };
-
-        let pubkey_hash = [
-            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
-            8, 252,
-        ];
-        let mut script_bytes = vec![0]; // SegWit version 0
-        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
-        script_bytes.extend_from_slice(&pubkey_hash);
-        let script = ScriptBuf::from(script_bytes);
-
-        let invalid_coinbase_reward_outputs = vec![TxOut {
-            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE + 1), /* oops: one too many extra
-                                                                      * sats */
-            script_pubkey: script,
-        }];
-
-        let res = channel.on_new_template(template.clone(), invalid_coinbase_reward_outputs);
-
-        assert!(res.is_err());
-        assert!(channel.get_future_jobs().is_empty());
     }
 
     #[test]
     fn test_share_validation_block_found() {
         // note:
         // the messages on this test were collected from a sane message flow
-        // we use them as test vectors to assert correct behavior of job creation and share
-        // validation
+        // we use them as test vectors to assert correct behavior of job creation
 
-        let channel_id = 1;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
+
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
+        let max_target: Target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let expected_share_per_minute = 1.0;
 
-        let mut channel = ExtendedChannel::new(
-            channel_id,
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.clone(),
             max_target,
             nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -1124,15 +768,13 @@ mod tests {
         .unwrap();
 
         // channel target: 04325c53ef368eb04325c53ef368eb04325c53ef368eb04325c53ef368eb0431
-
-        let template_id = 1;
         let template = NewTemplate {
-            template_id,
+            template_id: 1,
             future_template: false,
             version: 536870912,
             coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
             coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
             coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
@@ -1142,7 +784,7 @@ mod tests {
             ]
             .try_into()
             .unwrap(),
-            coinbase_tx_locktime: 0,
+            coinbase_tx_locktime: 158,
             merkle_path: vec![].try_into().unwrap(),
         };
 
@@ -1170,27 +812,28 @@ mod tests {
         .into();
         let n_bits = 545259519;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
-        channel.set_chain_tip(chain_tip);
 
-        // prepare channel with non-future job
-        channel
+        // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 00009a270ad03f1256312c7f196ab1a66bf8951f282fc75d9c81393cbb6427a8
-        // which satisfies network target
+        let active_standard_job = standard_channel.get_active_job().unwrap();
+
+        // this share has hash 40b4c57b2c65052bbe1092e556146ad78cdd9e5ffaeff856a0eb54ee7b816da7
+        // which satisfied the network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
-        let share_valid_block = SubmitSharesExtended {
-            channel_id,
+        let share_valid_block = SubmitSharesStandard {
+            channel_id: standard_channel_id,
             sequence_number: 0,
-            job_id: 1,
-            nonce: 741057,
-            ntime: 1745596971,
+            job_id: active_standard_job.get_job_id(),
+            nonce: 3,
+            ntime: 1745596932,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
 
-        let res = channel.validate_share(share_valid_block);
+        let res = standard_channel.validate_share(share_valid_block);
 
         assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_, _))));
     }
@@ -1199,32 +842,29 @@ mod tests {
     fn test_share_validation_does_not_meet_target() {
         // note:
         // the messages on this test were collected from a sane message flow
-        // we use them as test vectors to assert correct behavior of job creation and share
-        // validation
+        // we use them as test vectors to assert correct behavior of job creation
 
-        let channel_id = 1;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
+
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
+        let max_target: Target = [0xff; 32].into();
         let nominal_hashrate = 100.0; // bigger hashrate to get higher difficulty
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let expected_share_per_minute = 1.0;
 
-        let mut channel = ExtendedChannel::new(
-            channel_id,
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.clone(),
             max_target,
             nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -1232,15 +872,13 @@ mod tests {
         .unwrap();
 
         // channel target: 000aebbc990fff5144366f000aebbc990fff5144366f000aebbc990fff514435
-
-        let template_id = 1;
         let template = NewTemplate {
-            template_id,
+            template_id: 1,
             future_template: false,
             version: 536870912,
             coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
             coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
             coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
@@ -1250,7 +888,7 @@ mod tests {
             ]
             .try_into()
             .unwrap(),
-            coinbase_tx_locktime: 0,
+            coinbase_tx_locktime: 158,
             merkle_path: vec![].try_into().unwrap(),
         };
 
@@ -1278,27 +916,28 @@ mod tests {
         .into();
         let n_bits = 453040064;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
-        channel.set_chain_tip(chain_tip);
 
-        // prepare channel with non-future job
-        channel
+        // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 6f33ea329093baa13e37d11b3afa91960f8d84f0ec064c1376522548c0852d79
+        let active_standard_job = standard_channel.get_active_job().unwrap();
+
+        // this share has hash a5b65006d89dab9de2b23ececd3b0435f163607f7da1ba2f0bcde62b29e8cd44
         // which does not meet the channel target
         // 000aebbc990fff5144366f000aebbc990fff5144366f000aebbc990fff514435
-        let share_low_diff = SubmitSharesExtended {
-            channel_id,
+        let share_low_diff = SubmitSharesStandard {
+            channel_id: standard_channel_id,
             sequence_number: 0,
-            job_id: 1,
-            nonce: 741057,
-            ntime: 1745596971,
+            job_id: active_standard_job.get_job_id(),
+            nonce: 3,
+            ntime: 1745596932,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
 
-        let res = channel.validate_share(share_low_diff);
+        let res = standard_channel.validate_share(share_low_diff);
 
         assert!(matches!(
             res.unwrap_err(),
@@ -1310,32 +949,29 @@ mod tests {
     fn test_share_validation_valid_share() {
         // note:
         // the messages on this test were collected from a sane message flow
-        // we use them as test vectors to assert correct behavior of job creation and share
-        // validation
+        // we use them as test vectors to assert correct behavior of job creation
 
-        let channel_id = 1;
+        let standard_channel_id = 1;
         let user_identity = "user_identity".to_string();
+
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
+        let max_target: Target = [0xff; 32].into();
         let nominal_hashrate = 1_000.0; // bigger hashrate to get higher difficulty
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let expected_share_per_minute = 1.0;
 
-        let mut channel = ExtendedChannel::new(
-            channel_id,
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.clone(),
             max_target,
             nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -1345,14 +981,13 @@ mod tests {
         // channel target is:
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
 
-        let template_id = 1;
         let template = NewTemplate {
-            template_id,
+            template_id: 1,
             future_template: false,
             version: 536870912,
             coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
             coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
             coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
@@ -1362,7 +997,7 @@ mod tests {
             ]
             .try_into()
             .unwrap(),
-            coinbase_tx_locktime: 0,
+            coinbase_tx_locktime: 158,
             merkle_path: vec![].try_into().unwrap(),
         };
 
@@ -1381,56 +1016,38 @@ mod tests {
             script_pubkey: script,
         }];
 
-        // network tarkget is: 000000000000d7c0000000000000000000000000000000000000000000000000
-        let n_bits = 453040064;
-        let ntime = 1745611105;
+        // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
+        let ntime = 1745596910;
         let prev_hash = [
-            23, 205, 72, 134, 153, 86, 220, 153, 224, 28, 216, 146, 228, 120, 227, 157, 213, 99,
-            160, 163, 128, 59, 139, 190, 158, 62, 0, 0, 0, 0, 0, 0,
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
         ]
         .into();
+        let n_bits = 453040064;
         let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
-        channel.set_chain_tip(chain_tip);
 
-        // prepare channel with non-future job
-        channel
+        // prepare standard channel with non-future job
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 0001099d7c957a0502952177aada0254921f04306a174543389263d1dd487cce
+        // this share has hash 000010dcb838b589e5b0365350425ea82f368d330616f783d32dadf9b497bd02
         // which does meet the channel target
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // but does not meet network target
         // 000000000000d7c0000000000000000000000000000000000000000000000000
-        let valid_share = SubmitSharesExtended {
-            channel_id,
+        let valid_share = SubmitSharesStandard {
+            channel_id: standard_channel_id,
             sequence_number: 1,
             job_id: 1,
-            nonce: 159386,
+            nonce: 31978,
             ntime: 1745611105,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
         };
+        let res = standard_channel.validate_share(valid_share);
 
-        let res = channel.validate_share(valid_share);
         assert!(matches!(res, Ok(ShareValidationResult::Valid)));
-
-        // try to cheat by re-submitting the same share
-        // with a different sequence number
-        let repeated_share = SubmitSharesExtended {
-            channel_id,
-            sequence_number: 2,
-            job_id: 1,
-            nonce: 159386,
-            ntime: 1745611105,
-            version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
-        };
-
-        let res = channel.validate_share(repeated_share);
-
-        // assert duplicate share is rejected
-        assert!(matches!(res, Err(ShareValidationError::DuplicateShare)));
     }
 
     #[test]
@@ -1439,28 +1056,23 @@ mod tests {
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
-
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
         // this is the most permissive possible max_target
         let max_target: Target = [0xff; 32].into();
 
         // Create a channel with initial hashrate
-        let mut channel = ExtendedChannel::new(
+        let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
             max_target.clone(),
             initial_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -1492,7 +1104,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(ExtendedChannelError::InvalidNominalHashrate)
+            Err(StandardChannelError::InvalidNominalHashrate)
         ));
 
         // Create a not so permissive max_target so we can test a target that exceeds it
@@ -1514,7 +1126,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(ExtendedChannelError::RequestedMaxTargetOutOfRange)
+            Err(StandardChannelError::RequestedMaxTargetOutOfRange)
         ));
 
         // Test successful update with not_so_permissive_max_target
@@ -1534,25 +1146,21 @@ mod tests {
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         let max_target = [0xff; 32].into();
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
             max_target,
             nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -1564,7 +1172,7 @@ mod tests {
 
         let new_extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 2,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
         ]
         .to_vec();
 
@@ -1574,18 +1182,13 @@ mod tests {
         let current_extranonce_prefix = channel.get_extranonce_prefix();
         assert_eq!(current_extranonce_prefix, &new_extranonce_prefix);
 
-        let new_extranonce_prefix_too_large = [
+        let new_extranonce_prefix_too_long = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 2, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1,
         ]
         .to_vec();
-
-        // try to set a new extranonce_prefix that is too large
-        let result = channel.set_extranonce_prefix(new_extranonce_prefix_too_large.clone());
-        assert!(result.is_err());
-        assert!(matches!(
-            result,
-            Err(ExtendedChannelError::NewExtranoncePrefixTooLarge)
-        ));
+        assert!(channel
+            .set_extranonce_prefix(new_extranonce_prefix_too_long)
+            .is_err());
     }
 }
