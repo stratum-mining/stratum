@@ -42,7 +42,7 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{Amount, TxOut},
-        channels::server::{
+        channels_sv2::server::{
             extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
         },
         codec_sv2::{

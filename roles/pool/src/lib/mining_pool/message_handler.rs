@@ -12,7 +12,7 @@ use std::{
 };
 use stratum_common::roles_logic_sv2::{
     bitcoin::{consensus::Decodable, transaction::TxOut, Amount},
-    channels::server::{
+    channels_sv2::server::{
         error::{ExtendedChannelError, StandardChannelError},
         extended::ExtendedChannel,
         group::GroupChannel,
