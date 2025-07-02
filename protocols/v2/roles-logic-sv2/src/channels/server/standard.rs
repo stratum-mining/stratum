@@ -61,6 +61,7 @@ pub struct StandardChannel<'a> {
 }
 
 impl<'a> StandardChannel<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_id: u32,
         user_identity: String,
@@ -219,7 +220,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.job_store.get_stale_jobs()
+        self.job_store.get_stale_jobs()
     }
 
     pub fn get_shares_per_minute(&self) -> f32 {
@@ -264,7 +265,6 @@ impl<'a> StandardChannel<'a> {
                         coinbase_reward_outputs,
                     )
                     .map_err(StandardChannelError::JobFactoryError)?;
-                let new_job_id = new_job.get_job_id();
                 self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {

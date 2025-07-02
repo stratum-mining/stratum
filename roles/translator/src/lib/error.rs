@@ -315,7 +315,7 @@ impl From<async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::
     }
 }
 
-impl<'a> From<VardiffError> for Error<'a> {
+impl From<VardiffError> for Error<'_> {
     fn from(value: VardiffError) -> Self {
         Self::RolesSv2Logic(value.into())
     }

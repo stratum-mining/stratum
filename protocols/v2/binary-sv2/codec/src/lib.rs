@@ -480,7 +480,7 @@ impl From<Vec<u8>> for EncodableField<'_> {
 }
 
 #[cfg(feature = "with_buffer_pool")]
-impl<'a> From<buffer_sv2::Slice> for EncodableField<'a> {
+impl From<buffer_sv2::Slice> for EncodableField<'_> {
     fn from(_v: buffer_sv2::Slice) -> Self {
         unreachable!()
     }

@@ -27,7 +27,7 @@ pub struct ExtendedJob<'a> {
     job_message: NewExtendedMiningJob<'a>,
 }
 
-impl<'a> Job for ExtendedJob<'a> {
+impl Job for ExtendedJob<'_> {
     fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }

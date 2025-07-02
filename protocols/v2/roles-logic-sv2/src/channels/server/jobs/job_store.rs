@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::TryInto, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug};
 
 use super::Job;
 
@@ -35,6 +35,12 @@ impl<T: Job + Clone> DefaultJobStore<T> {
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
         }
+    }
+}
+
+impl<T: Job + Clone> Default for DefaultJobStore<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

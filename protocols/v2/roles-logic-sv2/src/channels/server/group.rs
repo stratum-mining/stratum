@@ -3,11 +3,7 @@ use crate::channels::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
-        jobs::{
-            extended::ExtendedJob,
-            factory::JobFactory,
-            job_store::{self, JobStore},
-        },
+        jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore},
     },
 };
 use bitcoin::transaction::TxOut;
@@ -111,7 +107,6 @@ impl<'a> GroupChannel<'a> {
                         coinbase_reward_outputs,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
-                let new_job_id = new_job.get_job_id();
                 self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {

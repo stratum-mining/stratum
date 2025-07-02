@@ -5,12 +5,7 @@ use crate::{
         chain_tip::ChainTip,
         server::{
             error::ExtendedChannelError,
-            jobs::{
-                extended::ExtendedJob,
-                factory::JobFactory,
-                job_store::{DefaultJobStore, JobStore},
-                JobOrigin,
-            },
+            jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
             share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
     },
@@ -27,7 +22,7 @@ use bitcoin::{
 };
 use codec_sv2::binary_sv2;
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
-use std::{collections::HashMap, convert::TryInto, fmt::Display};
+use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -186,7 +181,7 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.job_store.get_future_template_to_job_id()
+        self.job_store.get_future_template_to_job_id()
     }
 
     pub fn get_nominal_hashrate(&self) -> f32 {
@@ -295,7 +290,6 @@ impl<'a> ExtendedChannel<'a> {
                         coinbase_reward_outputs,
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
-                let new_job_id = new_job.get_job_id();
                 self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {
