@@ -27,12 +27,17 @@ struct ConnectionState {
 }
 
 impl ConnectionState {
-    fn new(receiver_outgoing: Receiver<json_rpc::Message>, sender_outgoing: Sender<json_rpc::Message>, receiver_incoming:  Receiver<json_rpc::Message>,sender_incoming: Sender<json_rpc::Message> )-> Self {
+    fn new(
+        receiver_outgoing: Receiver<json_rpc::Message>,
+        sender_outgoing: Sender<json_rpc::Message>,
+        receiver_incoming: Receiver<json_rpc::Message>,
+        sender_incoming: Sender<json_rpc::Message>,
+    ) -> Self {
         Self {
             receiver_incoming,
             receiver_outgoing,
             sender_incoming,
-            sender_outgoing
+            sender_outgoing,
         }
     }
 
@@ -52,20 +57,25 @@ impl ConnectionSV1 {
         let (sender_incoming, receiver_incoming) = unbounded();
         let (sender_outgoing, receiver_outgoing) = unbounded();
 
-        let sender_outgoing_clone = sender_outgoing.clone();
-
         let buffer_read_half = BufReader::new(read_half);
         let buffer_write_half = BufWriter::new(write_half);
+
+        let connection_state = ConnectionState::new(
+            receiver_outgoing.clone(),
+            sender_outgoing.clone(),
+            receiver_incoming.clone(),
+            sender_incoming.clone(),
+        );
 
         tokio::spawn(async move {
             tokio::select! {
                 _ = Self::run_reader(buffer_read_half, sender_incoming.clone()) => {
                     tracing::info!("Reader task exited. Closing writer sender.");
-                    sender_outgoing_clone.close();
+                    connection_state.close();
                 }
                 _ = Self::run_writer(buffer_write_half, receiver_outgoing.clone()) => {
                     tracing::info!("Writer task exited.Closing reader sender.");
-                    sender_incoming.close();
+                    connection_state.close();
                 }
             }
         });
@@ -125,11 +135,6 @@ impl ConnectionSV1 {
                 }
             }
         }
-    }
-
-    pub fn close(&self) {
-        self.receiver.close();
-        self.sender.close();
     }
 
     /// Send a message to the other side of the connection.
