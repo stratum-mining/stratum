@@ -5,7 +5,7 @@ use crate::{
         chain_tip::ChainTip,
         server::{
             error::ExtendedChannelError,
-            jobs::{extended::ExtendedJob, factory::JobFactory, JobOrigin},
+            jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
             share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
     },
@@ -47,7 +47,7 @@ use tracing::debug;
 /// - the channel's share validation state
 /// - the channel's job factory
 /// - the channel's chain tip
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExtendedChannel<'a> {
     channel_id: u32,
     user_identity: String,
@@ -56,15 +56,7 @@ pub struct ExtendedChannel<'a> {
     requested_max_target: Target,
     target: Target, // todo: try to use Target from rust-bitcoin
     nominal_hashrate: f32,
-    // maps template_id to job_id on future jobs
-    future_template_to_job_id: HashMap<u64, u32>,
-    // future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, ExtendedJob<'a>>,
-    active_job: Option<ExtendedJob<'a>>,
-    // past jobs are indexed with job_id (u32)
-    past_jobs: HashMap<u32, ExtendedJob<'a>>,
-    // stale jobs are indexed with job_id (u32)
-    stale_jobs: HashMap<u32, ExtendedJob<'a>>,
+    job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
     job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
@@ -83,6 +75,7 @@ impl<'a> ExtendedChannel<'a> {
         requested_min_rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
+        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
     ) -> Result<Self, ExtendedChannelError> {
         let target_u256 =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
@@ -112,11 +105,7 @@ impl<'a> ExtendedChannel<'a> {
             requested_max_target: max_target,
             target,
             nominal_hashrate,
-            future_template_to_job_id: HashMap::new(),
-            future_jobs: HashMap::new(),
-            active_job: None,
-            past_jobs: HashMap::new(),
-            stale_jobs: HashMap::new(),
+            job_store,
             job_factory: JobFactory::new(version_rolling_allowed),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
@@ -192,7 +181,7 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.future_template_to_job_id
+        self.job_store.get_future_template_to_job_id()
     }
 
     pub fn get_nominal_hashrate(&self) -> f32 {
@@ -262,15 +251,15 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
-        self.active_job.as_ref()
+        self.job_store.get_active_job()
     }
 
     pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        &self.future_jobs
+        self.job_store.get_future_jobs()
     }
 
     pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        &self.past_jobs
+        self.job_store.get_past_jobs()
     }
 
     pub fn get_share_accounting(&self) -> &ShareAccounting {
@@ -301,10 +290,7 @@ impl<'a> ExtendedChannel<'a> {
                         coinbase_reward_outputs,
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
-                let new_job_id = new_job.get_job_id();
-                self.future_jobs.insert(new_job_id, new_job);
-                self.future_template_to_job_id
-                    .insert(template.template_id, new_job_id);
+                self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -321,15 +307,7 @@ impl<'a> ExtendedChannel<'a> {
                                 coinbase_reward_outputs,
                             )
                             .map_err(ExtendedChannelError::JobFactoryError)?;
-                        // if there's already some active job, move it to the past jobs
-                        // and set the new job as the active job
-                        if let Some(active_job) = self.active_job.take() {
-                            self.past_jobs.insert(active_job.get_job_id(), active_job);
-                            self.active_job = Some(new_job);
-                        } else {
-                            // if there's no active job, simply set the new job as the active job
-                            self.active_job = Some(new_job);
-                        }
+                        self.job_store.add_active_job(new_job);
                     }
                 }
             }
@@ -352,44 +330,18 @@ impl<'a> ExtendedChannel<'a> {
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
-        match self.future_jobs.is_empty() {
+        match self.job_store.get_future_jobs().is_empty() {
             true => {
                 return Err(ExtendedChannelError::TemplateIdNotFound);
             }
             false => {
                 // the SetNewPrevHash message was addressed to a specific future template
-                let future_job_id = self
-                    .future_template_to_job_id
-                    .remove(&set_new_prev_hash.template_id)
-                    .ok_or(ExtendedChannelError::TemplateIdNotFound)?;
-
-                // move currently active job to past jobs (so it can be marked as stale)
-                let currently_active_job = self.active_job.take();
-                if let Some(active_job) = currently_active_job {
-                    self.past_jobs.insert(active_job.get_job_id(), active_job);
-                }
-
-                // activate the future job
-                let mut activated_job = self
-                    .future_jobs
-                    .remove(&future_job_id)
-                    .expect("future job must exist");
-
-                activated_job.activate(set_new_prev_hash.header_timestamp);
-
-                self.active_job = Some(activated_job);
-
-                self.future_jobs.clear();
-                self.future_template_to_job_id.clear();
+                self.job_store.activate_future_job(
+                    set_new_prev_hash.template_id,
+                    set_new_prev_hash.header_timestamp,
+                );
             }
         }
-
-        // mark all past jobs as stale, so that shares can be rejected with the appropriate error
-        // code
-        self.stale_jobs = self.past_jobs.clone();
-
-        // clear past jobs, as we're no longer going to validate shares for them
-        self.past_jobs.clear();
 
         // clear seen shares, as shares for past chain tip will be rejected as stale
         self.share_accounting.flush_seen_shares();
@@ -425,11 +377,7 @@ impl<'a> ExtendedChannel<'a> {
 
         let job_id = new_job.get_job_id();
 
-        if let Some(active_job) = self.active_job.take() {
-            self.past_jobs.insert(active_job.get_job_id(), active_job);
-        }
-
-        self.active_job = Some(new_job);
+        self.job_store.add_active_job(new_job);
 
         Ok(job_id)
     }
@@ -445,15 +393,15 @@ impl<'a> ExtendedChannel<'a> {
 
         // check if job_id is active job
         let is_active_job = self
-            .active_job
-            .as_ref()
+            .job_store
+            .get_active_job()
             .is_some_and(|job| job.get_job_id() == job_id);
 
         // check if job_id is past job
-        let is_past_job = self.past_jobs.contains_key(&job_id);
+        let is_past_job = self.job_store.get_past_jobs().contains_key(&job_id);
 
         // check if job_id is stale job
-        let is_stale_job = self.stale_jobs.contains_key(&job_id);
+        let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
 
         if is_stale_job {
             return Err(ShareValidationError::Stale);
@@ -465,11 +413,19 @@ impl<'a> ExtendedChannel<'a> {
         }
 
         let job = if is_active_job {
-            self.active_job.as_ref().expect("active job must exist")
+            self.job_store
+                .get_active_job()
+                .expect("active job must exist")
         } else if is_past_job {
-            self.past_jobs.get(&job_id).expect("past job must exist")
+            self.job_store
+                .get_past_jobs()
+                .get(&job_id)
+                .expect("past job must exist")
         } else {
-            self.stale_jobs.get(&job_id).expect("stale job must exist")
+            self.job_store
+                .get_stale_jobs()
+                .get(&job_id)
+                .expect("stale job must exist")
         };
 
         let extranonce_prefix = job.get_extranonce_prefix();
@@ -610,10 +566,11 @@ impl<'a> ExtendedChannel<'a> {
 mod tests {
     use crate::channels::{
         chain_tip::ChainTip,
+        client::extended::ExtendedJob,
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::JobOrigin,
+            jobs::{job_store::DefaultJobStore, JobOrigin},
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
@@ -643,6 +600,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -654,6 +612,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -791,6 +750,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -802,6 +762,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -905,6 +866,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         // this extended channel lives on JDC
         let mut jdc_extended_channel = ExtendedChannel::new(
@@ -917,6 +879,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1009,6 +972,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         // this extended channel lives on Pool Mining Server
         let mut pool_extended_channel = ExtendedChannel::new(
@@ -1021,6 +985,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1066,6 +1031,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1077,6 +1043,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1141,6 +1108,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1152,6 +1120,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1247,6 +1216,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1258,6 +1228,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1356,6 +1327,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1367,6 +1339,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1475,6 +1448,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         // this is the most permissive possible max_target
         let max_target: Target = [0xff; 32].into();
@@ -1490,6 +1464,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1569,6 +1544,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::new());
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1580,6 +1556,7 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 

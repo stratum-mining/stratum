@@ -1,3 +1,4 @@
+use super::Job;
 use crate::{
     channels::{
         chain_tip::ChainTip,
@@ -24,6 +25,16 @@ pub struct ExtendedJob<'a> {
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
     job_message: NewExtendedMiningJob<'a>,
+}
+
+impl Job for ExtendedJob<'_> {
+    fn get_job_id(&self) -> u32 {
+        self.job_message.job_id
+    }
+
+    fn activate(&mut self, min_ntime: u32) {
+        self.activate(min_ntime);
+    }
 }
 
 impl<'a> ExtendedJob<'a> {

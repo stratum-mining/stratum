@@ -15,6 +15,7 @@ use stratum_common::roles_logic_sv2::{
     channels::server::{
         error::{ExtendedChannelError, StandardChannelError},
         extended::ExtendedChannel,
+        jobs::job_store::DefaultJobStore,
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
     },
@@ -83,7 +84,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .to_vec();
 
         let channel_id = self.channel_id_factory.next();
-
+        let job_store = Box::new(DefaultJobStore::new());
         let mut standard_channel = match StandardChannel::new(
             channel_id,
             user_identity,
@@ -92,6 +93,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             nominal_hash_rate,
             self.share_batch_size,
             self.shares_per_minute,
+            job_store,
         ) {
             Ok(channel) => channel,
             Err(e) => match e {
@@ -204,7 +206,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         let vardiff = VardiffState::new()?;
 
         self.standard_channels
-            .insert(channel_id, Arc::new(RwLock::new(standard_channel.clone())));
+            .insert(channel_id, Arc::new(RwLock::new(standard_channel)));
 
         self.vardiff
             .insert(channel_id, Arc::new(RwLock::new(Box::new(vardiff))));
@@ -269,7 +271,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         };
 
         let channel_id = self.channel_id_factory.next();
-
+        let job_store = Box::new(DefaultJobStore::new());
         let mut extended_channel = match ExtendedChannel::new(
             channel_id,
             user_identity,
@@ -280,6 +282,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             requested_min_rollable_extranonce_size,
             self.share_batch_size,
             self.shares_per_minute,
+            job_store,
         ) {
             Ok(channel) => channel,
             Err(e) => match e {
@@ -398,7 +401,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         let vardiff = VardiffState::new()?;
 
         self.extended_channels
-            .insert(channel_id, Arc::new(RwLock::new(extended_channel.clone())));
+            .insert(channel_id, Arc::new(RwLock::new(extended_channel)));
         self.vardiff
             .insert(channel_id, Arc::new(RwLock::new(Box::new(vardiff))));
 

@@ -1,4 +1,4 @@
-use crate::channels::server::jobs::error::StandardJobError;
+use crate::channels::server::jobs::{error::StandardJobError, Job};
 use bitcoin::{consensus::Decodable, transaction::TxOut};
 use codec_sv2::binary_sv2::{Sv2Option, U256};
 use mining_sv2::NewMiningJob;
@@ -15,6 +15,16 @@ pub struct StandardJob<'a> {
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
     job_message: NewMiningJob<'a>,
+}
+
+impl Job for StandardJob<'_> {
+    fn get_job_id(&self) -> u32 {
+        self.job_message.job_id
+    }
+
+    fn activate(&mut self, min_ntime: u32) {
+        self.activate(min_ntime);
+    }
 }
 
 impl<'a> StandardJob<'a> {
