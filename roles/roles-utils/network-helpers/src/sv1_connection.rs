@@ -2,7 +2,7 @@ use async_channel::{unbounded, Receiver, Sender};
 use futures::{FutureExt, StreamExt};
 use sv1_api::json_rpc;
 use tokio::{
-    io::{AsyncWriteExt, BufReader},
+    io::{AsyncWriteExt, BufReader, BufWriter},
     net::TcpStream,
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
@@ -19,79 +19,86 @@ pub struct ConnectionSV1 {
     sender: Sender<json_rpc::Message>,
 }
 
-const MAX_LINE_LENGTH: usize = 2_usize.pow(16);
+const MAX_LINE_LENGTH: usize = 1 << 16;
 
 impl ConnectionSV1 {
-    /// Create a new connection set up to communicate with the other side of the given stream.
-    ///
-    /// Two tasks are spawned to handle reading and writing messages. The reading task will read
-    /// messages from the stream and send them to the receiver channel. The writing task will read
-    /// messages from the sender channel and write them to the stream.
     pub async fn new(stream: TcpStream) -> Self {
-        let (reader_stream, mut writer_stream) = stream.into_split();
+        let (read_half, write_half) = stream.into_split();
         let (sender_incoming, receiver_incoming) = unbounded();
-        let (sender_outgoing, receiver_outgoing) = unbounded::<json_rpc::Message>();
+        let (sender_outgoing, receiver_outgoing) = unbounded();
 
-        // Read Job
-        tokio::task::spawn(async move {
-            let reader = BufReader::new(reader_stream);
-            let mut messages =
-                FramedRead::new(reader, LinesCodec::new_with_max_length(MAX_LINE_LENGTH));
-            loop {
-                tokio::select! {
-                    res = messages.next().fuse() => {
-                        match res {
-                            Some(Ok(incoming)) => {
-                                let incoming: json_rpc::Message = serde_json::from_str(&incoming).expect("Failed to parse incoming message");
-                                if sender_incoming
-                                    .send(incoming)
-                                    .await
-                                    .is_err()
-                                {
-                                    break;
-                                }
+        let sender_outgoing_clone = sender_outgoing.clone();
 
-                            }
-                            Some(Err(e)) => {
-                                break tracing::error!("Error reading from stream: {:?}", e);
-                            }
-                            None => {
-                                tracing::error!("No message received");
-                            }
-                        }
-                    },
-                    _ = tokio::signal::ctrl_c().fuse() => {
-                        break;
-                    }
-                };
+        let buffer_read_half = BufReader::new(read_half);
+        let buffer_write_half = BufWriter::new(write_half);
+
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = Self::run_reader(buffer_read_half, sender_incoming.clone()) => {
+                    tracing::info!("Reader task exited. Closing writer sender.");
+                    sender_outgoing_clone.close();
+                }
+                _ = Self::run_writer(buffer_write_half, receiver_outgoing.clone()) => {
+                    tracing::info!("Writer task exited.Closing reader sender.");
+                    sender_incoming.close();
+                }
             }
         });
 
-        // Write Job
-        tokio::task::spawn(async move {
-            loop {
-                tokio::select! {
-                    res = receiver_outgoing.recv().fuse() => {
-                        let to_send = res.expect("Failed to receive message");
-                        let to_send = match serde_json::to_string(&to_send) {
-                            Ok(string) => format!("{string}\n"),
-                            Err(_e) => {
-                                break;
-                            }
-                        };
-                        let _ = writer_stream
-                            .write_all(to_send.as_bytes())
-                            .await;
-                    },
-                    _ = tokio::signal::ctrl_c().fuse() => {
-                        break;
-                    }
-                };
-            }
-        });
         Self {
             receiver: receiver_incoming,
             sender: sender_outgoing,
+        }
+    }
+
+    async fn run_reader(
+        reader: BufReader<tokio::net::tcp::OwnedReadHalf>,
+        sender: Sender<json_rpc::Message>,
+    ) {
+        let mut lines = FramedRead::new(reader, LinesCodec::new_with_max_length(MAX_LINE_LENGTH));
+        while let Some(result) = lines.next().await {
+            match result {
+                Ok(line) => match serde_json::from_str::<json_rpc::Message>(&line) {
+                    Ok(msg) => {
+                        if sender.send(msg).await.is_err() {
+                            tracing::warn!("Receiver dropped, stopping reader");
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to deserialize message: {e:?}");
+                    }
+                },
+                Err(e) => {
+                    tracing::error!("Error reading from stream: {e:?}");
+                    break;
+                }
+            }
+        }
+    }
+
+    async fn run_writer(
+        mut writer: BufWriter<tokio::net::tcp::OwnedWriteHalf>,
+        receiver: Receiver<json_rpc::Message>,
+    ) {
+        while let Ok(msg) = receiver.recv().await {
+            match serde_json::to_string(&msg) {
+                Ok(line) => {
+                    let data = format!("{line}\n");
+                    if writer.write_all(data.as_bytes()).await.is_err() {
+                        tracing::error!("Failed to write to stream");
+                        break;
+                    }
+                    if writer.flush().await.is_err() {
+                        tracing::error!("Failed to flush writer.");
+                        break;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to serialize message: {e:?}");
+                    break;
+                }
+            }
         }
     }
 
