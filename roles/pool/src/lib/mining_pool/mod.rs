@@ -44,7 +44,8 @@ use stratum_common::{
         self,
         bitcoin::{Amount, ScriptBuf, TxOut},
         channels::server::{
-            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+            extended::ExtendedChannel, group::GroupChannel, jobs::job_store::DefaultJobStore,
+            standard::StandardChannel,
         },
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
@@ -241,8 +242,8 @@ impl Downstream {
             // we know this will result in group_channel_id == 1
             // so we use that for every standard channel
             let group_channel_id = channel_id_factory.next();
-
-            let mut group_channel = GroupChannel::new(group_channel_id);
+            let job_store = Box::new(DefaultJobStore::new());
+            let mut group_channel = GroupChannel::new(group_channel_id, job_store);
 
             group_channel
                 .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
@@ -504,7 +505,7 @@ impl Pool {
 
                                 match responder {
                                     Ok(resp) => {
-                                        if let Ok((receiver, sender)) = Connection::new(stream, HandshakeRole::Responder(resp)).await {
+                                        if let Ok((receiver, sender)) = Connection::new::<Message>(stream, HandshakeRole::Responder(resp)).await {
                                             handle_result!(
                                                 status_tx,
                                                 Self::accept_incoming_connection_(

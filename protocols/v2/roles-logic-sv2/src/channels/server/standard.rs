@@ -4,7 +4,7 @@ use crate::{
         chain_tip::ChainTip,
         server::{
             error::StandardChannelError,
-            jobs::{factory::JobFactory, standard::StandardJob},
+            jobs::{factory::JobFactory, job_store::JobStore, standard::StandardJob},
             share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
         },
     },
@@ -45,7 +45,7 @@ use tracing::debug;
 ///   indexed by `job_id`)
 /// - the channel's job factory
 /// - the channel's chain tip
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StandardChannel<'a> {
     pub channel_id: u32,
     user_identity: String,
@@ -53,17 +53,9 @@ pub struct StandardChannel<'a> {
     requested_max_target: Target,
     target: Target,
     nominal_hashrate: f32,
-    // maps template_id to job_id on future jobs
-    future_template_to_job_id: HashMap<u64, u32>,
-    // future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, StandardJob<'a>>,
-    active_job: Option<StandardJob<'a>>,
-    // past jobs are indexed with job_id (u32)
-    past_jobs: HashMap<u32, StandardJob<'a>>,
-    // stale jobs are indexed with job_id (u32)
-    stale_jobs: HashMap<u32, StandardJob<'a>>,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
+    job_store: Box<dyn JobStore<StandardJob<'a>>>,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
 }
@@ -77,6 +69,7 @@ impl<'a> StandardChannel<'a> {
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
+        job_store: Box<dyn JobStore<StandardJob<'a>>>,
     ) -> Result<Self, StandardChannelError> {
         let calculated_target =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
@@ -99,15 +92,11 @@ impl<'a> StandardChannel<'a> {
             requested_max_target,
             target,
             nominal_hashrate,
-            future_template_to_job_id: HashMap::new(),
-            future_jobs: HashMap::new(),
-            active_job: None,
-            past_jobs: HashMap::new(),
-            stale_jobs: HashMap::new(),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             job_factory: JobFactory::new(true),
             chain_tip: None,
+            job_store,
         })
     }
 
@@ -214,23 +203,23 @@ impl<'a> StandardChannel<'a> {
     }
 
     pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
-        self.active_job.as_ref()
+        self.job_store.get_active_job()
     }
 
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.future_template_to_job_id
+        self.job_store.get_future_template_to_job_id()
     }
 
     pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.future_jobs
+        self.job_store.get_future_jobs()
     }
 
     pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.past_jobs
+        self.job_store.get_past_jobs()
     }
 
     pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.stale_jobs
+        &self.job_store.get_stale_jobs()
     }
 
     pub fn get_shares_per_minute(&self) -> f32 {
@@ -276,9 +265,7 @@ impl<'a> StandardChannel<'a> {
                     )
                     .map_err(StandardChannelError::JobFactoryError)?;
                 let new_job_id = new_job.get_job_id();
-                self.future_jobs.insert(new_job_id, new_job);
-                self.future_template_to_job_id
-                    .insert(template.template_id, new_job_id);
+                self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -295,15 +282,7 @@ impl<'a> StandardChannel<'a> {
                                 coinbase_reward_outputs,
                             )
                             .map_err(StandardChannelError::JobFactoryError)?;
-
-                        // if there's already some active job, move it to the past jobs
-                        // and set the new job as the active job
-                        if let Some(active_job) = self.active_job.take() {
-                            self.past_jobs.insert(active_job.get_job_id(), active_job);
-                            self.active_job = Some(new_job);
-                        } else {
-                            self.active_job = Some(new_job);
-                        }
+                        self.job_store.add_active_job(new_job);
                     }
                 }
             }
@@ -324,48 +303,17 @@ impl<'a> StandardChannel<'a> {
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
     ) -> Result<(), StandardChannelError> {
-        match self.future_jobs.is_empty() {
+        match self.job_store.get_future_jobs().is_empty() {
             true => {
                 return Err(StandardChannelError::TemplateIdNotFound);
             }
             false => {
-                // the SetNewPrevHash message was addressed to a specific future template
-                if !self
-                    .future_template_to_job_id
-                    .contains_key(&set_new_prev_hash.template_id)
-                {
-                    return Err(StandardChannelError::TemplateIdNotFound);
-                }
-
-                // move currently active job to past jobs (so it can be marked as stale)
-                let currently_active_job = self.active_job.take();
-                if let Some(active_job) = currently_active_job {
-                    self.past_jobs.insert(active_job.get_job_id(), active_job);
-                }
-
-                let future_job_id = self
-                    .future_template_to_job_id
-                    .remove(&set_new_prev_hash.template_id)
-                    .expect("future job must exist");
-
-                // activate the future job
-                let mut activated_job = self
-                    .future_jobs
-                    .remove(&future_job_id)
-                    .expect("future job must exist");
-
-                activated_job.activate(set_new_prev_hash.header_timestamp);
-
-                self.active_job = Some(activated_job);
+                self.job_store.activate_future_job(
+                    set_new_prev_hash.template_id,
+                    set_new_prev_hash.header_timestamp,
+                );
             }
         }
-
-        // mark all past jobs as stale, so that shares can be rejected with the appropriate error
-        // code
-        self.stale_jobs = self.past_jobs.clone();
-
-        // clear past jobs, as we're no longer going to validate shares for them
-        self.past_jobs.clear();
 
         // update the chain tip
         let set_new_prev_hash_static = set_new_prev_hash.into_static();
@@ -390,15 +338,15 @@ impl<'a> StandardChannel<'a> {
 
         // check if job_id is active job
         let is_active_job = self
-            .active_job
-            .as_ref()
+            .job_store
+            .get_active_job()
             .is_some_and(|job| job.get_job_id() == job_id);
 
         // check if job_id is past job
-        let is_past_job = self.past_jobs.contains_key(&job_id);
+        let is_past_job = self.job_store.get_past_jobs().contains_key(&job_id);
 
         // check if job_id is stale job
-        let is_stale_job = self.stale_jobs.contains_key(&job_id);
+        let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
 
         if is_stale_job {
             return Err(ShareValidationError::Stale);
@@ -410,11 +358,19 @@ impl<'a> StandardChannel<'a> {
         }
 
         let job = if is_active_job {
-            self.active_job.as_ref().expect("active job must exist")
+            self.job_store
+                .get_active_job()
+                .expect("active job must exist")
         } else if is_past_job {
-            self.past_jobs.get(&job_id).expect("past job must exist")
+            self.job_store
+                .get_past_jobs()
+                .get(&job_id)
+                .expect("past job must exist")
         } else {
-            self.stale_jobs.get(&job_id).expect("stale job must exist")
+            self.job_store
+                .get_stale_jobs()
+                .get(&job_id)
+                .expect("stale job must exist")
         };
 
         let merkle_root: [u8; 32] = job
@@ -540,6 +496,7 @@ mod tests {
         chain_tip::ChainTip,
         server::{
             error::StandardChannelError,
+            jobs::{job_store::DefaultJobStore, standard::StandardJob},
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
@@ -570,6 +527,7 @@ mod tests {
         let nominal_hashrate = 10.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -579,6 +537,7 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -694,6 +653,8 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -702,6 +663,7 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -793,6 +755,8 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -801,6 +765,7 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -894,6 +859,8 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -902,6 +869,7 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -998,6 +966,8 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -1006,6 +976,7 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1093,7 +1064,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
         let share_batch_size = 100;
-
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
         // this is the most permissive possible max_target
         let max_target: Target = [0xff; 32].into();
 
@@ -1106,6 +1077,7 @@ mod tests {
             initial_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 
@@ -1183,6 +1155,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let share_batch_size = 100;
+        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
         let mut channel = StandardChannel::new(
             channel_id,
@@ -1192,6 +1165,7 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
+            job_store,
         )
         .unwrap();
 

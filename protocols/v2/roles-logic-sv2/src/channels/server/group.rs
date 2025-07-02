@@ -3,7 +3,11 @@ use crate::channels::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
-        jobs::{extended::ExtendedJob, factory::JobFactory},
+        jobs::{
+            extended::ExtendedJob,
+            factory::JobFactory,
+            job_store::{self, JobStore},
+        },
     },
 };
 use bitcoin::transaction::TxOut;
@@ -26,28 +30,22 @@ use std::collections::{HashMap, HashSet};
 /// - the group channel's past jobs
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GroupChannel<'a> {
     group_channel_id: u32,
     standard_channel_ids: HashSet<u32>,
     job_factory: JobFactory,
-    // maps template_id to job_id on future jobs
-    future_template_to_job_id: HashMap<u64, u32>,
-    // future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, ExtendedJob<'a>>,
-    active_job: Option<ExtendedJob<'a>>,
+    job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
     chain_tip: Option<ChainTip>,
 }
 
 impl<'a> GroupChannel<'a> {
-    pub fn new(group_channel_id: u32) -> Self {
+    pub fn new(group_channel_id: u32, job_store: Box<dyn JobStore<ExtendedJob<'a>>>) -> Self {
         Self {
             group_channel_id,
             standard_channel_ids: HashSet::new(),
             job_factory: JobFactory::new(true),
-            future_template_to_job_id: HashMap::new(),
-            future_jobs: HashMap::new(),
-            active_job: None,
+            job_store,
             chain_tip: None,
         }
     }
@@ -79,15 +77,15 @@ impl<'a> GroupChannel<'a> {
     }
 
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
-        self.active_job.as_ref()
+        self.job_store.get_active_job()
     }
 
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.future_template_to_job_id
+        self.job_store.get_future_template_to_job_id()
     }
 
     pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        &self.future_jobs
+        self.job_store.get_future_jobs()
     }
 
     /// Updates the group channel state with a new template.
@@ -114,9 +112,7 @@ impl<'a> GroupChannel<'a> {
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
                 let new_job_id = new_job.get_job_id();
-                self.future_jobs.insert(new_job_id, new_job);
-                self.future_template_to_job_id
-                    .insert(template.template_id, new_job_id);
+                self.job_store.add_future_job(template.template_id, new_job);
             }
             false => {
                 match self.chain_tip.clone() {
@@ -135,7 +131,7 @@ impl<'a> GroupChannel<'a> {
                                 coinbase_reward_outputs,
                             )
                             .map_err(GroupChannelError::JobFactoryError)?;
-                        self.active_job = Some(new_job);
+                        self.job_store.set_active_job(new_job);
                     }
                 }
             }
@@ -154,29 +150,15 @@ impl<'a> GroupChannel<'a> {
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), GroupChannelError> {
-        match self.future_jobs.is_empty() {
+        match self.job_store.get_future_jobs().is_empty() {
             true => {
                 return Err(GroupChannelError::TemplateIdNotFound);
             }
             false => {
-                // the SetNewPrevHash message was addressed to a specific future template
-                let future_job_id = self
-                    .future_template_to_job_id
-                    .remove(&set_new_prev_hash.template_id)
-                    .ok_or(GroupChannelError::TemplateIdNotFound)?;
-
-                // activate the future job
-                let mut activated_job = self
-                    .future_jobs
-                    .remove(&future_job_id)
-                    .expect("future job must exist");
-
-                activated_job.activate(set_new_prev_hash.header_timestamp);
-
-                self.active_job = Some(activated_job);
-
-                self.future_jobs.clear();
-                self.future_template_to_job_id.clear();
+                self.job_store.activate_future_job(
+                    set_new_prev_hash.template_id,
+                    set_new_prev_hash.header_timestamp,
+                );
             }
         }
 
@@ -195,7 +177,10 @@ impl<'a> GroupChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::{chain_tip::ChainTip, server::group::GroupChannel};
+    use crate::channels::{
+        chain_tip::ChainTip,
+        server::{group::GroupChannel, jobs::job_store::DefaultJobStore},
+    };
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::NewExtendedMiningJob;
@@ -210,8 +195,8 @@ mod tests {
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
-
-        let mut group_channel = GroupChannel::new(group_channel_id);
+        let job_store = Box::new(DefaultJobStore::new());
+        let mut group_channel = GroupChannel::new(group_channel_id, job_store);
 
         let template = NewTemplate {
             template_id: 1,
@@ -338,7 +323,8 @@ mod tests {
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
 
-        let mut group_channel = GroupChannel::new(group_channel_id);
+        let job_store = Box::new(DefaultJobStore::new());
+        let mut group_channel = GroupChannel::new(group_channel_id, job_store);
 
         let ntime = 1746839905;
         let prev_hash = [
@@ -428,7 +414,8 @@ mod tests {
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
 
-        let mut group_channel = GroupChannel::new(group_channel_id);
+        let job_store = Box::new(DefaultJobStore::new());
+        let mut group_channel = GroupChannel::new(group_channel_id, job_store);
 
         let template = NewTemplate {
             template_id: 1,
