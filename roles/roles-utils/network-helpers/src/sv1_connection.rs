@@ -95,6 +95,11 @@ impl ConnectionSV1 {
         }
     }
 
+    pub fn close(&self) {
+        self.receiver.close();
+        self.sender.close();
+    }
+
     /// Send a message to the other side of the connection.
     pub async fn send(&self, msg: json_rpc::Message) -> bool {
         self.sender.send(msg).await.is_ok()
