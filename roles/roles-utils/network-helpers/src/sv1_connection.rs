@@ -1,5 +1,5 @@
 use async_channel::{unbounded, Receiver, Sender};
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use sv1_api::json_rpc;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -17,6 +17,31 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 pub struct ConnectionSV1 {
     receiver: Receiver<json_rpc::Message>,
     sender: Sender<json_rpc::Message>,
+}
+
+struct ConnectionState {
+    receiver_outgoing: Receiver<json_rpc::Message>,
+    sender_outgoing: Sender<json_rpc::Message>,
+    receiver_incoming: Receiver<json_rpc::Message>,
+    sender_incoming: Sender<json_rpc::Message>,
+}
+
+impl ConnectionState {
+    fn new(receiver_outgoing: Receiver<json_rpc::Message>, sender_outgoing: Sender<json_rpc::Message>, receiver_incoming:  Receiver<json_rpc::Message>,sender_incoming: Sender<json_rpc::Message> )-> Self {
+        Self {
+            receiver_incoming,
+            receiver_outgoing,
+            sender_incoming,
+            sender_outgoing
+        }
+    }
+
+    fn close(&self) {
+        self.receiver_incoming.close();
+        self.receiver_outgoing.close();
+        self.sender_incoming.close();
+        self.sender_outgoing.close();
+    }
 }
 
 const MAX_LINE_LENGTH: usize = 1 << 16;
