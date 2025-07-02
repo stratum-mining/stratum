@@ -33,6 +33,7 @@ config-helpers = { path = "../../roles/roles-utils/config-helpers" }
 stratum-common = { path = "../../common" , features = ["with_network_helpers", "sv1"]}
 translator_sv2 = { path = "../../roles/translator" }
 sv1_api = { path = "../../protocols/v1", optional = true }
+tokio-util = "0.7.15"
 
 [lib]
 path = "lib/mod.rs"

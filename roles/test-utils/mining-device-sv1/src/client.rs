@@ -17,6 +17,7 @@ use tokio::{
     task,
     time::sleep,
 };
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 use v1::{
     client_to_server,
@@ -79,6 +80,7 @@ impl Client {
         upstream_addr: SocketAddr,
         single_submit: bool,
         custom_target: Option<[u8; 32]>,
+        cancel_token: CancellationToken,
     ) {
         let stream = loop {
             if let Ok(stream) = TcpStream::connect(upstream_addr).await {
@@ -121,9 +123,10 @@ impl Client {
 
         // Reads messages sent by the Upstream from the socket to be passed to the
         // `receiver_incoming`
+        let cancel_token_reader = cancel_token.clone();
         task::spawn(async move {
             tokio::select!(
-                _ = tokio::signal::ctrl_c() => { },
+                _ = cancel_token_reader.cancelled() => { },
                 _ = async {
                     let mut messages = BufReader::new(reader).lines();
                     while let Ok(message) = messages.next_line().await {
@@ -147,9 +150,10 @@ impl Client {
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
+        let cancel_token_writer = cancel_token.clone();
         task::spawn(async move {
             tokio::select!(
-              _ = tokio::signal::ctrl_c() => { },
+              _ = cancel_token_writer.cancelled() => { },
               _ = async {
                   loop {
                       let message: String = receiver_outgoing.recv().await.expect("SV1 Miner: Failed to receive message");
@@ -219,17 +223,22 @@ impl Client {
         // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
         // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
         let cloned = client.clone();
+        let cancel_token_submit = cancel_token.clone();
         task::spawn(async move {
             tokio::select!(
               _ = recv_stop_submitting.changed() => {
                 warn!("Stopping miner")
               },
-              _ = tokio::signal::ctrl_c() => {
+              _ = cancel_token_submit.cancelled() => {
                   info!("Stopping miner");
               },
               _ = async {
               let recv = receiver_share.clone();
               loop {
+                if cancel_token_submit.is_cancelled() {
+                    info!("Stopping miner due to cancellation");
+                    break;
+                }
                   let (nonce, job_id, _version, ntime) = recv.recv().await.unwrap();
                   if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
                       continue;
@@ -271,8 +280,9 @@ impl Client {
         }
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
+        let cancel_token_select = cancel_token.clone();
         tokio::select!(
-            _ = tokio::signal::ctrl_c() => {
+            _ = cancel_token_select.cancelled() => {
                 warn!("Stopping sv1 miner");
             },
             _ = async {

@@ -2,6 +2,7 @@ pub(crate) mod client;
 pub(crate) mod job;
 pub(crate) mod miner;
 use std::{net::SocketAddr, str::FromStr};
+use tokio_util::sync::CancellationToken;
 
 pub(crate) use client::Client;
 
@@ -15,6 +16,7 @@ async fn main() {
         SocketAddr::from_str(ADDR).expect("Invalid upstream address"),
         false,
         None,
+        CancellationToken::new(),
     )
     .await
 }

@@ -13,6 +13,7 @@ use std::{
     str::FromStr,
     sync::Once,
 };
+use tokio_util::sync::CancellationToken;
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
@@ -312,10 +313,14 @@ pub fn start_mining_device_sv1(
     upstream_addr: SocketAddr,
     single_submit: bool,
     custom_target: Option<[u8; 32]>,
+    cancel_token: CancellationToken,
 ) {
+    let cancel_token_clone = cancel_token.clone();
     tokio::spawn(async move {
-        mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
-            .await;
+        tokio::select! {
+            _ = mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target, cancel_token) => {},
+            _ = cancel_token_clone.cancelled() => {},
+        }
     });
 }
 
