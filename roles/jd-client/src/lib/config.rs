@@ -9,7 +9,11 @@
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
-use std::{net::SocketAddr, time::Duration};
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 /// Represents the configuration of a Job Declarator Client (JDC).
@@ -55,6 +59,8 @@ pub struct JobDeclaratorClientConfig {
     coinbase_outputs: Vec<CoinbaseOutput>,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
+    /// The path to the log file where JDC will write logs.
+    log_file: Option<PathBuf>,
 }
 
 impl JobDeclaratorClientConfig {
@@ -84,6 +90,7 @@ impl JobDeclaratorClientConfig {
             timeout,
             coinbase_outputs: protocol_config.coinbase_outputs,
             jdc_signature,
+            log_file: None,
         }
     }
 
@@ -161,6 +168,15 @@ impl JobDeclaratorClientConfig {
         match result.is_empty() {
             true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
             _ => Ok(result),
+        }
+    }
+
+    pub fn log_file(&self) -> Option<&Path> {
+        self.log_file.as_deref()
+    }
+    pub fn set_log_file(&mut self, log_file: Option<PathBuf>) {
+        if let Some(log_file) = log_file {
+            self.log_file = Some(log_file);
         }
     }
 }

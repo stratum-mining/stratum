@@ -39,6 +39,11 @@ coinbase_outputs = [
     #{ output_script_type = "P2TR", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
 ]
 
+# Enable this option to set a predefined log file path.
+# When enabled, logs will always be written to this file.
+# The CLI option --log-file (or -f) will override this setting if provided.
+# log_file = "./jd-client.log"
+
 [timeout]
 unit = "secs"
 value = 1

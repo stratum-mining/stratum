@@ -7,7 +7,7 @@
 
 mod args;
 use args::process_cli_args;
-
+use config_helpers::logging::init_logging;
 use jd_client::JobDeclaratorClient;
 use tracing::error;
 
@@ -61,8 +61,7 @@ use tracing::error;
 /// defined in `jd_client::JobDeclaratorClient`. Errors during startup are logged.
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
-    let proxy_config = match process_cli_args() {
+    let jdc_config = match process_cli_args() {
         Ok(p) => p,
         Err(e) => {
             error!("Job Declarator Client Config error: {}", e);
@@ -70,6 +69,8 @@ async fn main() {
         }
     };
 
-    let jdc = JobDeclaratorClient::new(proxy_config);
+    init_logging(jdc_config.log_file());
+
+    let jdc = JobDeclaratorClient::new(jdc_config);
     jdc.start().await;
 }
