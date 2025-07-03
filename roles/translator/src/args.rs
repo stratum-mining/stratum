@@ -22,6 +22,12 @@ pub struct Args {
         default_value = "proxy-config.toml"
     )]
     pub config_path: PathBuf,
+    #[arg(
+        short = 'f',
+        long = "log-file",
+        help = "Path to the log file. If not set, logs will only be written to stdout."
+    )]
+    pub log_file: Option<PathBuf>,
 }
 
 /// Process CLI args, if any.
@@ -41,6 +47,9 @@ pub fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
         .build()?;
 
     // Deserialize settings into TranslatorConfig
-    let config = settings.try_deserialize::<TranslatorConfig>()?;
+    let mut config = settings.try_deserialize::<TranslatorConfig>()?;
+
+    config.set_log_dir(args.log_file);
+
     Ok(config)
 }

@@ -2747,6 +2747,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
+ "config-helpers",
  "error_handling",
  "futures",
  "key-utils",
@@ -2761,7 +2762,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
