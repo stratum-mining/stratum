@@ -18,16 +18,25 @@ pub struct Args {
         default_value = "pool-config.toml"
     )]
     pub config_path: PathBuf,
+    #[arg(
+        short = 'f',
+        long = "log-file",
+        help = "Path to the log file. If not set, logs will only be written to stdout."
+    )]
+    pub log_file: Option<PathBuf>,
 }
 
 /// Parses CLI arguments and loads the PoolConfig from the specified file.
 pub fn process_cli_args() -> PoolConfig {
     let args = Args::parse();
     let config_path = args.config_path.to_str().expect("Invalid config path");
-    let config: PoolConfig = Config::builder()
+    let mut config: PoolConfig = Config::builder()
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()
         .and_then(|settings| settings.try_deserialize::<PoolConfig>())
         .expect("Failed to load or deserialize config");
+
+    config.set_log_dir(args.log_file);
+
     config
 }

@@ -11,12 +11,13 @@ use tracing::{error, info};
 
 mod args;
 use args::process_cli_args;
+use config_helpers::logging::init_logging;
 
 /// Initializes logging, parses arguments, loads configuration, and starts the Pool runtime.
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
     let config = process_cli_args();
+    init_logging(config.log_dir());
     let _ = PoolSv2::new(config).start().await;
     select! {
         interrupt_signal = tokio::signal::ctrl_c() => {
