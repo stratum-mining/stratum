@@ -1638,6 +1638,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
+ "config-helpers",
  "futures",
  "key-utils",
  "nohash-hasher",
@@ -1646,7 +1647,6 @@ dependencies = [
  "stratum-common",
  "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
