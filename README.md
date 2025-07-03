@@ -120,10 +120,10 @@ Email us at: stratumv2@gmail.com
 SRI contributors are independently, financially supported by following entities: 
 
 <p float="left">
-  <a href="https://hrf.org"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/main/src/.vuepress/public/assets/hrf-logo-boxed.svg" width="250" /></a>
-  <a href="https://spiral.xyz"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/main/src/.vuepress/public/assets/Spiral-logo-boxed.svg" width="250" /></a>
-  <a href="https://opensats.org/"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/main/src/.vuepress/public/assets/opensats-logo-boxed.svg" width="250" /></a>
-  <a href="https://vinteum.org/"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/main/src/.vuepress/public/assets/vinteum-logo-boxed.png" width="250" /></a>
+  <a href="https://hrf.org"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/refs/heads/main/public/assets/hrf-logo-boxed.svg" width="250" /></a>
+  <a href="https://spiral.xyz"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/refs/heads/main/public/assets/Spiral-logo-boxed.svg" width="250" /></a>
+  <a href="https://opensats.org/"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/refs/heads/main/public/assets/opensats-logo-boxed.svg" width="250" /></a>
+  <a href="https://vinteum.org/"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/refs/heads/main/public/assets/vinteum-logo-boxed.png" width="250" /></a>
 </p>
 
 ## 📖 License
