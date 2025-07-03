@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use ext_config::{Config, File, FileFormat};
 use jd_server::{
@@ -23,6 +25,12 @@ pub struct Args {
         default_value = "jds-config.toml"
     )]
     pub config_path: std::path::PathBuf,
+    #[arg(
+        short = 'f',
+        long = "log-file",
+        help = "Path to the log file. If not set, logs will only be written to stdout."
+    )]
+    pub log_file: Option<PathBuf>,
 }
 
 /// Process CLI args and load configuration.
@@ -46,11 +54,14 @@ pub fn process_cli_args() -> Result<JobDeclaratorServerConfig, JdsError> {
         })?;
 
     // Deserialize settings into JobDeclaratorServerConfig
-    let config = settings
+    let mut config = settings
         .try_deserialize::<JobDeclaratorServerConfig>()
         .map_err(|e| {
             error!("Failed to deserialize config: {}", e);
             JdsError::BadCliArgs
         })?;
+
+    config.set_log_file(args.log_file);
+
     Ok(config)
 }

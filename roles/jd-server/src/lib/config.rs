@@ -14,7 +14,11 @@
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
-use std::{convert::TryInto, time::Duration};
+use std::{
+    convert::TryInto,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 #[derive(Debug, serde::Deserialize, Clone)]
@@ -32,6 +36,7 @@ pub struct JobDeclaratorServerConfig {
     core_rpc_pass: String,
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     mempool_update_interval: Duration,
+    log_file: Option<PathBuf>,
 }
 
 impl JobDeclaratorServerConfig {
@@ -57,6 +62,7 @@ impl JobDeclaratorServerConfig {
             core_rpc_user: core_rpc.user,
             core_rpc_pass: core_rpc.pass,
             mempool_update_interval,
+            log_file: None,
         }
     }
 
@@ -141,6 +147,14 @@ impl JobDeclaratorServerConfig {
         match result.is_empty() {
             true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
             _ => Ok(result),
+        }
+    }
+    pub fn log_file(&self) -> Option<&Path> {
+        self.log_file.as_deref()
+    }
+    pub fn set_log_file(&mut self, log_file: Option<PathBuf>) {
+        if let Some(path) = log_file {
+            self.log_file = Some(path);
         }
     }
 }

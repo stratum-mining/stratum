@@ -1462,7 +1462,6 @@ dependencies = [
  "stratum-common",
  "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
