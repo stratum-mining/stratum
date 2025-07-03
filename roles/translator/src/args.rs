@@ -22,11 +22,32 @@ pub struct Args {
         default_value = "proxy-config.toml"
     )]
     pub config_path: PathBuf,
+    #[arg(
+        short = 'f',
+        long = "log-file",
+        help = "Path to the log file. If not set, logs will only be written to stdout."
+    )]
+    pub log_file: Option<PathBuf>,
+    #[arg(
+        long = "log-level",
+        help = "Log level (error, warn, info, debug, trace)",
+        default_value = "info"
+    )]
+    pub log_level: String,
+    #[arg(
+        short = 'v',
+        long = "verbose-stdout",
+        help = "If set, logs will also be written to stdout. Requires --log-file (-f).",
+        default_value_t = false,
+        action = clap::ArgAction::SetTrue,
+        requires= "log_file"
+    )]
+    pub verbose_stdout: bool,
 }
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
+pub fn process_cli_args<'a>() -> ProxyResult<'a, (TranslatorConfig, Args)> {
     // Parse CLI arguments
     let args = Args::parse();
 
@@ -42,5 +63,5 @@ pub fn process_cli_args<'a>() -> ProxyResult<'a, TranslatorConfig> {
 
     // Deserialize settings into TranslatorConfig
     let config = settings.try_deserialize::<TranslatorConfig>()?;
-    Ok(config)
+    Ok((config, args))
 }
