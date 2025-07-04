@@ -893,23 +893,25 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         // check that all script_pubkeys from self.empty_pool_coinbase_outputs are present in the
         // custom job coinbase outputs
-        for pool_output in self.empty_pool_coinbase_outputs.iter() {
-            let script_found = custom_job_coinbase_outputs
+        let missing_script = self.empty_pool_coinbase_outputs.iter().find(|pool_output| {
+            !custom_job_coinbase_outputs
                 .iter()
-                .any(|custom_output| custom_output.script_pubkey == pool_output.script_pubkey);
+                .any(|custom_output| custom_output.script_pubkey == pool_output.script_pubkey)
+        });
 
-            if !script_found {
-                error!("SetCustomMiningJobError: pool-payout-script-missing");
-                let error = SetCustomMiningJobError {
-                    request_id: m.request_id,
-                    channel_id: m.channel_id,
-                    error_code: "pool-payout-script-missing"
-                        .to_string()
-                        .try_into()
-                        .expect("error code must be valid string"),
-                };
-                return Ok(SendTo::Respond(Mining::SetCustomMiningJobError(error)));
-            }
+        if missing_script.is_some() {
+            error!("SetCustomMiningJobError: pool-payout-script-missing");
+
+            let error = SetCustomMiningJobError {
+                request_id: m.request_id,
+                channel_id: m.channel_id,
+                error_code: "pool-payout-script-missing"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+
+            return Ok(SendTo::Respond(Mining::SetCustomMiningJobError(error)));
         }
 
         let channel_id = m.channel_id;
