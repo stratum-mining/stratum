@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255};
 use core::convert::TryInto;
 
@@ -18,6 +18,17 @@ pub struct Reconnect<'decoder> {
     pub new_host: Str0255<'decoder>,
     /// When 0, downstream node should attempt to reconnect to current pool host.
     pub new_port: u16,
+}
+
+impl fmt::Display for Reconnect<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Reconnect(new_host: {}, new_port: {})",
+            self.new_host.as_utf8_or_hex(),
+            self.new_port
+        )
+    }
 }
 
 impl PartialEq for Reconnect<'_> {

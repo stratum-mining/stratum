@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, B032, U256};
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt};
 
 /// Message used by JDC to push a solution to JDS as soon as it finds a new valid block.
 ///
@@ -34,4 +34,19 @@ pub struct PushSolution<'decoder> {
     /// [`BIP9`]: https://en.bitcoin.it/wiki/BIP_0009
     /// [`BIP320`]: https://en.bitcoin.it/wiki/BIP_0320
     pub version: u32,
+}
+
+impl fmt::Display for PushSolution<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "PushSolution(extranonce: {}, prev_hash: {}, ntime: {}, nonce: {}, nbits: {}, version: {})",
+            self.extranonce,
+            self.prev_hash,
+            self.ntime,
+            self.nonce,
+            self.nbits,
+            self.version
+        )
+    }
 }

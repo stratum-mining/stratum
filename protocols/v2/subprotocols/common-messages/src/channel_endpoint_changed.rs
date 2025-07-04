@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 use core::convert::TryInto;
 
@@ -15,4 +15,10 @@ use core::convert::TryInto;
 pub struct ChannelEndpointChanged {
     /// Unique identifier of the channel that has changed its endpoint.
     pub channel_id: u32,
+}
+
+impl fmt::Display for ChannelEndpointChanged {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ChannelEndpointChanged(channel_id: {})", self.channel_id)
+    }
 }

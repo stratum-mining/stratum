@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 use core::convert::TryInto;
 
@@ -29,4 +29,15 @@ pub struct CoinbaseOutputConstraints {
     pub coinbase_output_max_additional_size: u32,
     /// Additional sigops needed in coinbase transaction outputs.
     pub coinbase_output_max_additional_sigops: u16,
+}
+
+impl fmt::Display for CoinbaseOutputConstraints {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CoinbaseOutputConstraints(coinbase_output_max_additional_size: {}, coinbase_output_max_additional_sigops: {})",
+            self.coinbase_output_max_additional_size,
+            self.coinbase_output_max_additional_sigops
+        )
+    }
 }

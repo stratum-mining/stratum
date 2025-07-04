@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U256};
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt};
 
 /// Message used by upstream to share or distribute the latest block hash.
 ///
@@ -26,4 +26,14 @@ pub struct SetNewPrevHash<'decoder> {
     pub min_ntime: u32,
     /// Block header field.
     pub nbits: u32,
+}
+
+impl fmt::Display for SetNewPrevHash<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, min_ntime={}, nbits={})",
+            self.channel_id, self.job_id, self.prev_hash, self.min_ntime, self.nbits
+        )
+    }
 }

@@ -949,7 +949,7 @@ impl ParseMiningMessagesFromUpstream<DownstreamMiningNode> for UpstreamMiningNod
             "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
             m.request_id, m.channel_id
         );
-        debug!("OpenStandardMiningChannelSuccess: {:?}", m);
+        debug!("OpenStandardMiningChannelSuccess: {}", m);
         let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
         let range_1 = range_0.end..(range_0.end + EXTRANONCE_RANGE_1_LENGTH);
@@ -1005,7 +1005,7 @@ impl ParseMiningMessagesFromUpstream<DownstreamMiningNode> for UpstreamMiningNod
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         info!("Received SubmitSharesSuccess");
-        debug!("SubmitSharesSuccess: {:?}", m);
+        debug!("SubmitSharesSuccess: {}", m);
         match &self
             .downstream_selector
             .downstream_from_channel_id(m.channel_id)
@@ -1065,7 +1065,7 @@ impl ParseMiningMessagesFromUpstream<DownstreamMiningNode> for UpstreamMiningNod
             m.job_id,
             m.is_future()
         );
-        debug!("NewExtendedMiningJob: {:?}", m);
+        debug!("NewExtendedMiningJob: {}", m);
         let mut res = vec![];
         match &mut self.channel_kind {
             ChannelKind::Group(group) => {
@@ -1155,7 +1155,7 @@ impl ParseMiningMessagesFromUpstream<DownstreamMiningNode> for UpstreamMiningNod
             "Received SetNewPrevHash channel id: {}, job id: {}",
             m.channel_id, m.job_id
         );
-        debug!("SetNewPrevHash: {:?}", m);
+        debug!("SetNewPrevHash: {}", m);
         match &mut self.channel_kind {
             ChannelKind::Group(group) => {
                 group.update_new_prev_hash(&m);
@@ -1195,7 +1195,7 @@ impl ParseMiningMessagesFromUpstream<DownstreamMiningNode> for UpstreamMiningNod
             "Received SetCustomMiningJobSuccess for channel id: {} for job id: {}",
             m.channel_id, m.job_id
         );
-        debug!("SetCustomMiningJobSuccess: {:?}", m);
+        debug!("SetCustomMiningJobSuccess: {}", m);
         Ok(SendTo::None(None))
     }
 

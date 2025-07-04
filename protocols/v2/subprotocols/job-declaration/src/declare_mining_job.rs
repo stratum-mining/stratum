@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
@@ -34,6 +34,22 @@ pub struct DeclareMiningJob<'decoder> {
     pub excess_data: B064K<'decoder>,
 }
 
+impl fmt::Display for DeclareMiningJob<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: {}, coinbase_prefix: {}, coinbase_suffix: {}, tx_ids_list: {}, excess_data: {})",
+            self.request_id,
+            self.mining_job_token,
+            self.version,
+            self.coinbase_prefix,
+            self.coinbase_suffix,
+            self.tx_ids_list,
+            self.excess_data
+        )
+    }
+}
+
 /// Messaged used by JDS to accept [`DeclareMiningJob`] message.
 ///
 /// If [`Full Template`] mode is used, JDS MAY request txdata via `ProvideMissingTransactions`
@@ -54,6 +70,16 @@ pub struct DeclareMiningJobSuccess<'decoder> {
     pub new_mining_job_token: B0255<'decoder>,
 }
 
+impl fmt::Display for DeclareMiningJobSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DeclareMiningJobSuccess(request_id: {}, new_mining_job_token: {})",
+            self.request_id, self.new_mining_job_token
+        )
+    }
+}
+
 /// Messaged used by JDS to reject [`DeclareMiningJob`] message.
 ///
 /// Downstream should consider this as a trigger to fallback into some other Pool/JDS or solo
@@ -72,4 +98,16 @@ pub struct DeclareMiningJobError<'decoder> {
     pub error_code: Str0255<'decoder>,
     /// Optional details about the error.
     pub error_details: B064K<'decoder>,
+}
+
+impl fmt::Display for DeclareMiningJobError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DeclareMiningJobError(request_id: {}, error_code: {}, error_details: {})",
+            self.request_id,
+            self.error_code.as_utf8_or_hex(),
+            self.error_details
+        )
+    }
 }

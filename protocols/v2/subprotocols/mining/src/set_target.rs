@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{fmt, vec::Vec};
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U256};
 use core::convert::TryInto;
 
@@ -20,4 +20,14 @@ pub struct SetTarget<'decoder> {
     pub channel_id: u32,
     /// Maximum value of produced hash that will be accepted by a upstream to accept shares.
     pub maximum_target: U256<'decoder>,
+}
+
+impl fmt::Display for SetTarget<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetTarget(channel_id={}, maximum_target={})",
+            self.channel_id, self.maximum_target
+        )
+    }
 }

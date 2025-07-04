@@ -410,7 +410,7 @@ impl ParseMiningMessagesFromUpstream<()> for Device {
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<()>, Error> {
         info!("Received SubmitSharesSuccess");
-        debug!("SubmitSharesSuccess: {:?}", m);
+        debug!("SubmitSharesSuccess: {}", m);
         Ok(SendTo::None(None))
     }
 
@@ -429,7 +429,7 @@ impl ParseMiningMessagesFromUpstream<()> for Device {
             m.job_id,
             m.is_future()
         );
-        debug!("NewMiningJob: {:?}", m);
+        debug!("NewMiningJob: {}", m);
         match (m.is_future(), self.prev_hash.as_ref()) {
             (false, Some(p_h)) => {
                 self.miner
@@ -458,7 +458,7 @@ impl ParseMiningMessagesFromUpstream<()> for Device {
             "Received SetNewPrevHash channel id: {}, job id: {}",
             m.channel_id, m.job_id
         );
-        debug!("SetNewPrevHash: {:?}", m);
+        debug!("SetNewPrevHash: {}", m);
         let jobs: Vec<&NewMiningJob<'static>> = self
             .jobs
             .iter()
@@ -497,7 +497,7 @@ impl ParseMiningMessagesFromUpstream<()> for Device {
 
     fn handle_set_target(&mut self, m: SetTarget) -> Result<SendTo<()>, Error> {
         info!("Received SetTarget for channel id: {}", m.channel_id);
-        debug!("SetTarget: {:?}", m);
+        debug!("SetTarget: {}", m);
         self.miner
             .safe_lock(|miner| miner.new_target(m.maximum_target.to_vec()))
             .unwrap();

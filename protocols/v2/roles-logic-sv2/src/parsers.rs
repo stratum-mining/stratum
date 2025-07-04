@@ -31,7 +31,10 @@ use codec_sv2::{
     framing_sv2::framing::Sv2Frame,
 };
 use common_messages_sv2::*;
-use core::convert::{TryFrom, TryInto};
+use core::{
+    convert::{TryFrom, TryInto},
+    fmt,
+};
 use job_declaration_sv2::*;
 use mining_sv2::*;
 use template_distribution_sv2::*;
@@ -135,6 +138,18 @@ pub enum CommonMessages<'a> {
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
+impl fmt::Display for CommonMessages<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommonMessages::ChannelEndpointChanged(m) => write!(f, "{m}"),
+            CommonMessages::Reconnect(m) => write!(f, "{m}"),
+            CommonMessages::SetupConnection(m) => write!(f, "{m}"),
+            CommonMessages::SetupConnectionError(m) => write!(f, "{m}"),
+            CommonMessages::SetupConnectionSuccess(m) => write!(f, "{m}"),
+        }
+    }
+}
+
 /// A parser of messages of Template Distribution subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
 pub enum TemplateDistribution<'a> {
@@ -145,6 +160,28 @@ pub enum TemplateDistribution<'a> {
     RequestTransactionDataSuccess(RequestTransactionDataSuccess<'a>),
     SetNewPrevHash(SetNewPrevHash<'a>),
     SubmitSolution(SubmitSolution<'a>),
+}
+
+impl fmt::Display for TemplateDistribution<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TemplateDistribution::CoinbaseOutputConstraints(m) => {
+                write!(f, "CoinbaseOutputConstraints: {m}")
+            }
+            TemplateDistribution::NewTemplate(m) => write!(f, "{m}"),
+            TemplateDistribution::RequestTransactionData(m) => {
+                write!(f, "{m}")
+            }
+            TemplateDistribution::RequestTransactionDataError(m) => {
+                write!(f, "{m}")
+            }
+            TemplateDistribution::RequestTransactionDataSuccess(m) => {
+                write!(f, "{m}")
+            }
+            TemplateDistribution::SetNewPrevHash(m) => write!(f, "{m}"),
+            TemplateDistribution::SubmitSolution(m) => write!(f, "{m}"),
+        }
+    }
 }
 
 /// A parser of messages of Job Declaration subprotocol, to be used for parsing raw messages
@@ -158,6 +195,29 @@ pub enum JobDeclaration<'a> {
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
     PushSolution(PushSolution<'a>),
+}
+
+impl fmt::Display for JobDeclaration<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JobDeclaration::AllocateMiningJobToken(m) => write!(f, "AllocateMiningJobToken: {m}"),
+            JobDeclaration::AllocateMiningJobTokenSuccess(m) => {
+                write!(f, "AllocateMiningJobTokenSuccess: {m}")
+            }
+            JobDeclaration::DeclareMiningJob(m) => write!(f, "DeclareMiningJob: {m}"),
+            JobDeclaration::DeclareMiningJobError(m) => write!(f, "DeclareMiningJobError: {m}"),
+            JobDeclaration::DeclareMiningJobSuccess(m) => {
+                write!(f, "DeclareMiningJobSuccess: {m}")
+            }
+            JobDeclaration::ProvideMissingTransactions(m) => {
+                write!(f, "ProvideMissingTransactions: {m}")
+            }
+            JobDeclaration::ProvideMissingTransactionsSuccess(m) => {
+                write!(f, "ProvideMissingTransactionsSuccess: {m}")
+            }
+            JobDeclaration::PushSolution(m) => write!(f, "PushSolution: {m}"),
+        }
+    }
 }
 
 /// Mining subprotocol messages: categorization, encapsulation, and parsing.
@@ -206,6 +266,34 @@ pub enum Mining<'a> {
     SubmitSharesSuccess(SubmitSharesSuccess),
     UpdateChannel(UpdateChannel<'a>),
     UpdateChannelError(UpdateChannelError<'a>),
+}
+
+impl fmt::Display for Mining<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Mining::CloseChannel(m) => write!(f, "{m}"),
+            Mining::NewExtendedMiningJob(m) => write!(f, "{m}"),
+            Mining::NewMiningJob(m) => write!(f, "{m}"),
+            Mining::OpenExtendedMiningChannel(m) => write!(f, "{m}"),
+            Mining::OpenExtendedMiningChannelSuccess(m) => write!(f, "{m}"),
+            Mining::OpenMiningChannelError(m) => write!(f, "{m}"),
+            Mining::OpenStandardMiningChannel(m) => write!(f, "{m}"),
+            Mining::OpenStandardMiningChannelSuccess(m) => write!(f, "{m}"),
+            Mining::SetCustomMiningJob(m) => write!(f, "{m}"),
+            Mining::SetCustomMiningJobError(m) => write!(f, "{m}"),
+            Mining::SetCustomMiningJobSuccess(m) => write!(f, "{m}"),
+            Mining::SetExtranoncePrefix(m) => write!(f, "{m}"),
+            Mining::SetGroupChannel(m) => write!(f, "{m}"),
+            Mining::SetNewPrevHash(m) => write!(f, "{m}"),
+            Mining::SetTarget(m) => write!(f, "{m}"),
+            Mining::SubmitSharesError(m) => write!(f, "{m}"),
+            Mining::SubmitSharesExtended(m) => write!(f, "{m}"),
+            Mining::SubmitSharesStandard(m) => write!(f, "{m}"),
+            Mining::SubmitSharesSuccess(m) => write!(f, "{m}"),
+            Mining::UpdateChannel(m) => write!(f, "{m}"),
+            Mining::UpdateChannelError(m) => write!(f, "{m}"),
+        }
+    }
 }
 
 impl Mining<'_> {
@@ -1016,6 +1104,17 @@ pub enum AnyMessage<'a> {
     Mining(Mining<'a>),
     JobDeclaration(JobDeclaration<'a>),
     TemplateDistribution(TemplateDistribution<'a>),
+}
+
+impl fmt::Display for AnyMessage<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AnyMessage::Common(m) => write!(f, "CommonMessage: {m}"),
+            AnyMessage::Mining(m) => write!(f, "MiningMessage: {m}"),
+            AnyMessage::JobDeclaration(m) => write!(f, "JobDeclarationMessage: {m}"),
+            AnyMessage::TemplateDistribution(m) => write!(f, "TemplateDistributionMessage: {m}"),
+        }
+    }
 }
 
 impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {

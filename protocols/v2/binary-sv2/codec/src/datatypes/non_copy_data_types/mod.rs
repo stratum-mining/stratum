@@ -31,9 +31,9 @@
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 
-use alloc::string::String;
 #[cfg(feature = "prop_test")]
 use alloc::vec::Vec;
+use alloc::{borrow::ToOwned, fmt, string::String};
 
 mod inner;
 mod seq_inner;
@@ -73,6 +73,230 @@ pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
 /// Type alias for a variable-sized byte array with a maximum size of ~16 MB,
 /// represented using the `Inner` type with a 3-byte header.
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
+
+impl fmt::Display for U32AsRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self.inner_as_ref();
+        write!(
+            f,
+            "U32AsRef({})",
+            u32::from_le_bytes([inner[0], inner[1], inner[2], inner[3]])
+        )
+    }
+}
+
+impl fmt::Display for B0255<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self
+            .inner_as_ref()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        write!(f, "B0255({inner})")
+    }
+}
+
+impl fmt::Display for Sv2Option<'_, u32> {
+    // internally Sv2Option is pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self.to_owned().into_inner();
+        match inner {
+            Some(value) => write!(f, "Sv2Option({value})"),
+            None => write!(f, "Sv2Option(None)"),
+        }
+    }
+}
+
+impl Str0255<'_> {
+    /// Returns the value as a UTF-8 string if possible, otherwise as a hex string prefixed with 0x.
+    pub fn as_utf8_or_hex(&self) -> String {
+        match core::str::from_utf8(self.inner_as_ref()) {
+            Ok(s) => alloc::string::String::from(s),
+            Err(_) => format!(
+                "0x{}",
+                self.inner_as_ref()
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>()
+            ),
+        }
+    }
+}
+
+impl fmt::Display for B064K<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self
+            .inner_as_ref()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        write!(f, "B064K({inner})")
+    }
+}
+
+impl fmt::Display for U256<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self
+            .inner_as_ref()
+            .iter()
+            .rev()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        write!(f, "U256({inner})")
+    }
+}
+
+impl fmt::Display for Seq0255<'_, U256<'_>> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.0.len();
+        let as_hex = |item: &U256<'_>| {
+            item.inner_as_ref()
+                .iter()
+                .rev()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        write!(f, "Seq0255<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "{}]", as_hex(&self.0[0])),
+            2 => write!(f, "{}, {}]", as_hex(&self.0[0]), as_hex(&self.0[1])),
+            3 => write!(
+                f,
+                "[{}, {}, {}]",
+                as_hex(&self.0[0]),
+                as_hex(&self.0[1]),
+                as_hex(&self.0[2])
+            ),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                as_hex(&self.0[0]),
+                as_hex(&self.0[1]),
+                as_hex(&self.0[len - 2]),
+                as_hex(&self.0[len - 1])
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Seq064K<'_, B016M<'_>> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.0.len();
+        let as_hex = |item: &B016M<'_>| {
+            item.inner_as_ref()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", as_hex(&self.0[0])),
+            2 => write!(f, "[{}, {}]", as_hex(&self.0[0]), as_hex(&self.0[1])),
+            3 => write!(
+                f,
+                "[{}, {}, {}]",
+                as_hex(&self.0[0]),
+                as_hex(&self.0[1]),
+                as_hex(&self.0[2])
+            ),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                as_hex(&self.0[0]),
+                as_hex(&self.0[1]),
+                as_hex(&self.0[len - 2]),
+                as_hex(&self.0[len - 1])
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Seq064K<'_, U256<'_>> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.0.len();
+        let as_hex = |item: &U256<'_>| {
+            item.inner_as_ref()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", as_hex(&self.0[0])),
+            2 => write!(f, "[{}, {}]", as_hex(&self.0[0]), as_hex(&self.0[1])),
+            3 => write!(
+                f,
+                "[{}, {}, {}]",
+                as_hex(&self.0[0]),
+                as_hex(&self.0[1]),
+                as_hex(&self.0[2])
+            ),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                as_hex(&self.0[0]),
+                as_hex(&self.0[1]),
+                as_hex(&self.0[len - 2]),
+                as_hex(&self.0[len - 1])
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Seq064K<'_, u16> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.0.len();
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", self.0[0]),
+            2 => write!(f, "[{}, {}]", self.0[0], self.0[1]),
+            3 => write!(f, "[{}, {}, {}]", self.0[0], self.0[1], self.0[2]),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                self.0[0],
+                self.0[1],
+                self.0[len - 2],
+                self.0[len - 1]
+            ),
+        }
+    }
+}
+impl fmt::Display for Seq064K<'_, u32> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.0.len();
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", self.0[0]),
+            2 => write!(f, "[{}, {}]", self.0[0], self.0[1]),
+            3 => write!(f, "[{}, {}, {}]", self.0[0], self.0[1], self.0[2]),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                self.0[0],
+                self.0[1],
+                self.0[len - 2],
+                self.0[len - 1]
+            ),
+        }
+    }
+}
+
+impl fmt::Display for B032<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let item = self
+            .inner_as_ref()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        write!(f, "B032({item})")
+    }
+}
 
 impl From<[u8; 32]> for U256<'_> {
     fn from(v: [u8; 32]) -> Self {
