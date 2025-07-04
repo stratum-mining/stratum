@@ -11,7 +11,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 use stratum_common::roles_logic_sv2::{
-    bitcoin::Amount,
+    bitcoin::{consensus::Decodable, transaction::TxOut, Amount},
     channels::server::{
         error::{ExtendedChannelError, StandardChannelError},
         extended::ExtendedChannel,
@@ -884,10 +884,35 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         // this is a naive implementation, but ideally we should check the SetCustomMiningJob
         // message parameters, especially:
         // - the mining_job_token
-        // - the coinbase reward outputs
+        // - the amount of the pool payout output
 
-        // some of these checks are actually pending on spec discussion of
-        // https://github.com/stratum-mining/sv2-spec/issues/133
+        let custom_job_coinbase_outputs = Vec::<TxOut>::consensus_decode(
+            &mut m.coinbase_tx_outputs.inner_as_ref().to_vec().as_slice(),
+        )
+        .map_err(|_| Error::FailedToDeserializeCoinbaseOutputs)?;
+
+        // check that all script_pubkeys from self.empty_pool_coinbase_outputs are present in the
+        // custom job coinbase outputs
+        let missing_script = self.empty_pool_coinbase_outputs.iter().find(|pool_output| {
+            !custom_job_coinbase_outputs
+                .iter()
+                .any(|custom_output| custom_output.script_pubkey == pool_output.script_pubkey)
+        });
+
+        if missing_script.is_some() {
+            error!("SetCustomMiningJobError: pool-payout-script-missing");
+
+            let error = SetCustomMiningJobError {
+                request_id: m.request_id,
+                channel_id: m.channel_id,
+                error_code: "pool-payout-script-missing"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+
+            return Ok(SendTo::Respond(Mining::SetCustomMiningJobError(error)));
+        }
 
         let channel_id = m.channel_id;
         if !self.extended_channels.contains_key(&channel_id) {

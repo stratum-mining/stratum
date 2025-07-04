@@ -134,6 +134,7 @@ pub enum Error {
     NoActiveJob,
     FailedToSendSolution,
     FailedToSetCustomMiningJob(ExtendedChannelError),
+    FailedToDeserializeCoinbaseOutputs,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -256,6 +257,7 @@ impl Display for Error {
             FailedToProcessNewTemplateStandardChannel(e) => write!(f, "Failed to process NewTemplate: {e:?}"),
             FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
             FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
+            FailedToDeserializeCoinbaseOutputs => write!(f, "Failed to deserialize coinbase outputs"),
         }
     }
 }
