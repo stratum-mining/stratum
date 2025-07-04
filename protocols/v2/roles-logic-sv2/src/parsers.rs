@@ -335,6 +335,94 @@ impl Mining<'_> {
     }
 }
 
+impl CommonMessages<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> CommonMessages<'static> {
+        match self {
+            CommonMessages::ChannelEndpointChanged(m) => CommonMessages::ChannelEndpointChanged(m),
+            CommonMessages::Reconnect(m) => CommonMessages::Reconnect(m.into_static()),
+            CommonMessages::SetupConnection(m) => CommonMessages::SetupConnection(m.into_static()),
+            CommonMessages::SetupConnectionError(m) => {
+                CommonMessages::SetupConnectionError(m.into_static())
+            }
+            CommonMessages::SetupConnectionSuccess(m) => CommonMessages::SetupConnectionSuccess(m),
+        }
+    }
+}
+
+impl TemplateDistribution<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> TemplateDistribution<'static> {
+        match self {
+            TemplateDistribution::CoinbaseOutputConstraints(m) => {
+                TemplateDistribution::CoinbaseOutputConstraints(m)
+            }
+            TemplateDistribution::NewTemplate(m) => {
+                TemplateDistribution::NewTemplate(m.into_static())
+            }
+            TemplateDistribution::RequestTransactionData(m) => {
+                TemplateDistribution::RequestTransactionData(m)
+            }
+            TemplateDistribution::RequestTransactionDataError(m) => {
+                TemplateDistribution::RequestTransactionDataError(m.into_static())
+            }
+            TemplateDistribution::RequestTransactionDataSuccess(m) => {
+                TemplateDistribution::RequestTransactionDataSuccess(m.into_static())
+            }
+            TemplateDistribution::SetNewPrevHash(m) => {
+                TemplateDistribution::SetNewPrevHash(m.into_static())
+            }
+            TemplateDistribution::SubmitSolution(m) => {
+                TemplateDistribution::SubmitSolution(m.into_static())
+            }
+        }
+    }
+}
+
+impl JobDeclaration<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> JobDeclaration<'static> {
+        match self {
+            JobDeclaration::AllocateMiningJobToken(m) => {
+                JobDeclaration::AllocateMiningJobToken(m.into_static())
+            }
+            JobDeclaration::AllocateMiningJobTokenSuccess(m) => {
+                JobDeclaration::AllocateMiningJobTokenSuccess(m.into_static())
+            }
+            JobDeclaration::DeclareMiningJob(m) => {
+                JobDeclaration::DeclareMiningJob(m.into_static())
+            }
+            JobDeclaration::DeclareMiningJobError(m) => {
+                JobDeclaration::DeclareMiningJobError(m.into_static())
+            }
+            JobDeclaration::DeclareMiningJobSuccess(m) => {
+                JobDeclaration::DeclareMiningJobSuccess(m.into_static())
+            }
+            JobDeclaration::ProvideMissingTransactions(m) => {
+                JobDeclaration::ProvideMissingTransactions(m.into_static())
+            }
+            JobDeclaration::ProvideMissingTransactionsSuccess(m) => {
+                JobDeclaration::ProvideMissingTransactionsSuccess(m.into_static())
+            }
+            JobDeclaration::PushSolution(m) => JobDeclaration::PushSolution(m.into_static()),
+        }
+    }
+}
+
+impl AnyMessage<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> AnyMessage<'static> {
+        match self {
+            AnyMessage::Common(m) => AnyMessage::Common(m.into_static()),
+            AnyMessage::Mining(m) => AnyMessage::Mining(m.into_static()),
+            AnyMessage::JobDeclaration(m) => AnyMessage::JobDeclaration(m.into_static()),
+            AnyMessage::TemplateDistribution(m) => {
+                AnyMessage::TemplateDistribution(m.into_static())
+            }
+        }
+    }
+}
+
 /// A trait that every Sv2 message parser must implement.
 /// It helps parsing from Rust types to raw messages.
 pub trait IsSv2Message {
