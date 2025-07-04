@@ -63,7 +63,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         info!(
-            "Sending AllocateMiningJobTokenSuccess to proxy {:?}",
+            "Sending AllocateMiningJobTokenSuccess to proxy {}",
             message_enum
         );
         Ok(SendTo::Respond(message_enum))
@@ -78,7 +78,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
             "Received `DeclareMiningJob` with id: {}",
             message.request_id
         );
-        debug!("`DeclareMiningJob`: {:?}", message);
+        debug!("`DeclareMiningJob`: {}", message);
         if let Some(old_mining_job) = self.declared_mining_job.0.take() {
             clear_declared_mining_job(old_mining_job, &message, self.mempool.clone())?;
         }
@@ -156,7 +156,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
             "Received `ProvideMissingTransactionsSuccess` with id: {}",
             message.request_id
         );
-        debug!("`ProvideMissingTransactionsSuccess`: {:?}", message);
+        debug!("`ProvideMissingTransactionsSuccess`: {}", message);
         let (declared_mining_job, ref mut transactions_with_state, missing_indexes) =
             &mut self.declared_mining_job;
         let mut unknown_transactions: Vec<Transaction> = vec![];
@@ -223,7 +223,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
 
     fn handle_push_solution(&mut self, message: PushSolution<'_>) -> Result<SendTo, Error> {
         info!("Received PushSolution from JDC");
-        debug!("`PushSolution`: {:?}", message);
+        debug!("`PushSolution`: {}", message);
         let m = JobDeclaration::PushSolution(message.clone().into_static());
         Ok(SendTo::None(Some(m)))
     }

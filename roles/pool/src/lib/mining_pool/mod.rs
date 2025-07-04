@@ -380,7 +380,7 @@ impl Downstream {
     ) -> PoolResult<()> {
         match send_to {
             Ok(SendTo::Respond(message)) => {
-                debug!("Sending to downstream: {:?}", message);
+                debug!("Sending to downstream: {}", message);
                 // returning an error will send the error to the main thread,
                 // and the main thread will drop the downstream from the pool
                 if let &Mining::OpenMiningChannelError(_) = &message {
@@ -591,7 +591,7 @@ impl Pool {
             .safe_lock(|s| s.status_tx.clone())
             .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
         while let Ok(new_prev_hash) = rx.recv().await {
-            debug!("New prev hash received: {:?}", new_prev_hash);
+            debug!("New prev hash received: {}", new_prev_hash);
             let res = self_
                 .safe_lock(|s| {
                     s.last_new_prev_hash = Some(new_prev_hash.clone());
@@ -724,7 +724,7 @@ impl Pool {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         while let Ok(new_template) = rx.recv().await {
             info!(
-                "New template received, creating a new mining job(s): {:?}",
+                "New template received, creating a new mining job(s): {}",
                 new_template
             );
 
@@ -1151,7 +1151,7 @@ async fn send_set_target_downstream(
 
     let mining_msg = Mining::SetTarget(target_message);
 
-    info!("Sending SetTarget message to downstream: {:?}", mining_msg);
+    info!("Sending SetTarget message to downstream: {}", mining_msg);
 
     let sv2_frame: StdFrame = AnyMessage::Mining(mining_msg).try_into()?;
 

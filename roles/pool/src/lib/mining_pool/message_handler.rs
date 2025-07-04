@@ -71,7 +71,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .map(|s| s.to_string())
             .map_err(|e| Error::InvalidUserIdentity(e.to_string()))?;
 
-        info!("Received OpenStandardMiningChannel: {:?}", incoming);
+        info!("Received OpenStandardMiningChannel: {}", incoming);
 
         let nominal_hash_rate = incoming.nominal_hash_rate;
         let requested_max_target = incoming.max_target.into_static();
@@ -240,7 +240,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .map(|s| s.to_string())
             .map_err(|e| Error::InvalidUserIdentity(e.to_string()))?;
 
-        info!("Received OpenExtendedMiningChannel: {:?}", m);
+        info!("Received OpenExtendedMiningChannel: {}", m);
 
         let nominal_hash_rate = m.nominal_hash_rate;
         let requested_max_target = m.max_target.into_static();
@@ -418,7 +418,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
     //   target difficulty.
     // - `Err(Error)` - If calculating the target fails or the channel factory interaction fails.
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
-        info!("Received UpdateChannel message: {:?}", m);
+        info!("Received UpdateChannel message: {}", m);
 
         let channel_id = m.channel_id;
         let new_nominal_hash_rate = m.nominal_hash_rate;
@@ -560,7 +560,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
-        info!("Received: {:?}", m);
+        info!("Received: {}", m);
 
         let channel_id = m.channel_id;
         if !self.standard_channels.contains_key(&channel_id) {
@@ -613,7 +613,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                     new_submits_accepted_count,
                     new_shares_sum,
                 };
-                info!("SubmitSharesStandard: {:?} ✅", success);
+                info!("SubmitSharesStandard: {} ✅", success);
                 Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
             }
             Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
@@ -722,7 +722,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        info!("Received: {:?}", m);
+        info!("Received: {}", m);
 
         let channel_id = m.channel_id;
         if !self.extended_channels.contains_key(&channel_id) {
@@ -773,7 +773,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                     new_submits_accepted_count,
                     new_shares_sum,
                 };
-                info!("SubmitSharesExtended: {:?} ✅", success);
+                info!("SubmitSharesExtended: {} ✅", success);
                 Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
             }
             Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
@@ -879,7 +879,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
     //   custom job setup.
     // - `Err(Error)` - If the channel factory interaction fails.
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
-        info!("Received SetCustomMiningJob: {:?}", m);
+        info!("Received SetCustomMiningJob: {}", m);
 
         // this is a naive implementation, but ideally we should check the SetCustomMiningJob
         // message parameters, especially:

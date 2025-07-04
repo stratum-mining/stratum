@@ -315,7 +315,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
             std::str::from_utf8(req.user_identity.as_ref()).unwrap_or("Unknown identity"),
             req.get_request_id_as_u32()
         );
-        debug!("OpenStandardMiningChannel: {:?}", req);
+        debug!("OpenStandardMiningChannel: {}", req);
         let downstream_mining_data = self.get_downstream_mining_data();
         let routing_logic = super::get_routing_logic();
 
@@ -392,7 +392,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         info!("Received SubmitSharesStandard");
-        debug!("SubmitSharesStandard {:?}", m);
+        debug!("SubmitSharesStandard {}", m);
         // TODO maybe we want to check if shares meet target before
         // sending them upstream If that is the case it should be
         // done by GroupChannel not here

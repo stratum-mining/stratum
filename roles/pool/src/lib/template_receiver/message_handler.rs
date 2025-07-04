@@ -20,7 +20,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
             "Received NewTemplate with id: {}, is future: {}",
             m.template_id, m.future_template
         );
-        debug!("NewTemplate: {:?}", m);
+        debug!("NewTemplate: {}", m);
         let new_template = TemplateDistribution::NewTemplate(m.into_static());
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
@@ -31,7 +31,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
     // Handles a `SetNewPrevHash` and return `RelayNewMessageToRemote`
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {
         info!("Received SetNewPrevHash for template: {}", m.template_id);
-        debug!("SetNewPrevHash: {:?}", m);
+        debug!("SetNewPrevHash: {}", m);
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(m.into_static());
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
@@ -52,7 +52,7 @@ impl ParseTemplateDistributionMessagesFromServer for TemplateRx {
             "Received RequestTransactionDataSuccess for template: {}",
             m.template_id
         );
-        debug!("RequestTransactionDataSuccess: {:?}", m);
+        debug!("RequestTransactionDataSuccess: {}", m);
         // Just ignore tx data messages this are meant for the declarators
         Ok(SendTo::None(None))
     }
