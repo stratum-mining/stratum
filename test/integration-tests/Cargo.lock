@@ -575,6 +575,8 @@ dependencies = [
  "miniscript",
  "roles_logic_sv2",
  "serde",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1264,7 +1266,6 @@ dependencies = [
  "stratum-common",
  "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1288,7 +1289,6 @@ dependencies = [
  "stratum-common",
  "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1443,6 +1443,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
+ "config-helpers",
  "futures",
  "key-utils",
  "nohash-hasher",
@@ -1451,7 +1452,6 @@ dependencies = [
  "stratum-common",
  "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1778,7 +1778,6 @@ dependencies = [
  "stratum-common",
  "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -2539,6 +2538,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
+ "config-helpers",
  "error_handling",
  "futures",
  "key-utils",
@@ -2552,7 +2552,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
