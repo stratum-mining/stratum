@@ -34,7 +34,6 @@ use stratum_common::roles_logic_sv2::{
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     codec_sv2,
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
-    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::{
         common::{ParseCommonMessagesFromDownstream, SendTo as SendToCommon},
@@ -110,24 +109,17 @@ pub enum DownstreamMiningNodeStatus {
     Initializing(Option<Arc<Mutex<UpstreamMiningNode>>>),
     /// The downstream node has completed the initial setup and is paired with an upstream pool.
     /// Holds common downstream data and a reference to the upstream.
-    Paired((CommonDownstreamData, Arc<Mutex<UpstreamMiningNode>>)),
+    Paired(Arc<Mutex<UpstreamMiningNode>>),
     /// A mining channel (specifically an Extended channel in this implementation)
     /// has been successfully opened for the downstream node.
-    /// Holds the `PoolChannelFactory` for this channel, common downstream data,
-    /// and a reference to the upstream.
-    ChannelOpened(
-        (
-            PoolChannelFactory,
-            CommonDownstreamData,
-            Arc<Mutex<UpstreamMiningNode>>,
-        ),
-    ),
+    /// Holds the `PoolChannelFactory` for this channel and a reference to the upstream.
+    ChannelOpened((PoolChannelFactory, Arc<Mutex<UpstreamMiningNode>>)),
     /// The downstream node has completed initialization and is operating in solo mining mode.
     /// Holds common downstream data.
-    SoloMinerPaired(CommonDownstreamData),
+    SoloMinerPaired,
     /// The solo miner has opened a mining channel.
     /// Holds the `PoolChannelFactory` for this channel and common downstream data.
-    SoloMinerChannelOpend((PoolChannelFactory, CommonDownstreamData)),
+    SoloMinerChannelOpend(PoolChannelFactory),
 }
 
 impl DownstreamMiningNodeStatus {
@@ -138,21 +130,21 @@ impl DownstreamMiningNodeStatus {
             DownstreamMiningNodeStatus::Initializing(_) => false,
             DownstreamMiningNodeStatus::Paired(_) => true,
             DownstreamMiningNodeStatus::ChannelOpened(_) => true,
-            DownstreamMiningNodeStatus::SoloMinerPaired(_) => true,
+            DownstreamMiningNodeStatus::SoloMinerPaired => true,
             DownstreamMiningNodeStatus::SoloMinerChannelOpend(_) => true,
         }
     }
 
     // Transitions the status from `Initializing` to either `Paired` (if an upstream exists)
     // or `SoloMinerPaired` (if in solo mining mode).
-    fn pair(&mut self, data: CommonDownstreamData) {
+    fn pair(&mut self) {
         match self {
             DownstreamMiningNodeStatus::Initializing(Some(up)) => {
-                let self_ = Self::Paired((data, up.clone()));
+                let self_ = Self::Paired(up.clone());
                 let _ = std::mem::replace(self, self_);
             }
             DownstreamMiningNodeStatus::Initializing(None) => {
-                let self_ = Self::SoloMinerPaired(data);
+                let self_ = Self::SoloMinerPaired;
                 let _ = std::mem::replace(self, self_);
             }
             _ => panic!("Try to pair an already paired downstream"),
@@ -165,14 +157,14 @@ impl DownstreamMiningNodeStatus {
     fn set_channel(&mut self, channel: PoolChannelFactory) -> bool {
         match self {
             DownstreamMiningNodeStatus::Initializing(_) => false,
-            DownstreamMiningNodeStatus::Paired((data, up)) => {
-                let self_ = Self::ChannelOpened((channel, *data, up.clone()));
+            DownstreamMiningNodeStatus::Paired(up) => {
+                let self_ = Self::ChannelOpened((channel, up.clone()));
                 let _ = std::mem::replace(self, self_);
                 true
             }
             DownstreamMiningNodeStatus::ChannelOpened(_) => false,
-            DownstreamMiningNodeStatus::SoloMinerPaired(data) => {
-                let self_ = Self::SoloMinerChannelOpend((channel, *data));
+            DownstreamMiningNodeStatus::SoloMinerPaired => {
+                let self_ = Self::SoloMinerChannelOpend(channel);
                 let _ = std::mem::replace(self, self_);
                 true
             }
@@ -186,9 +178,9 @@ impl DownstreamMiningNodeStatus {
         match self {
             DownstreamMiningNodeStatus::Initializing(_) => panic!(),
             DownstreamMiningNodeStatus::Paired(_) => panic!(),
-            DownstreamMiningNodeStatus::ChannelOpened((channel, _, _)) => channel,
-            DownstreamMiningNodeStatus::SoloMinerPaired(_) => panic!(),
-            DownstreamMiningNodeStatus::SoloMinerChannelOpend((channel, _)) => channel,
+            DownstreamMiningNodeStatus::ChannelOpened((channel, _)) => channel,
+            DownstreamMiningNodeStatus::SoloMinerPaired => panic!(),
+            DownstreamMiningNodeStatus::SoloMinerChannelOpend(channel) => channel,
         }
     }
 
@@ -198,7 +190,7 @@ impl DownstreamMiningNodeStatus {
             DownstreamMiningNodeStatus::Initializing(_) => false,
             DownstreamMiningNodeStatus::Paired(_) => false,
             DownstreamMiningNodeStatus::ChannelOpened(_) => true,
-            DownstreamMiningNodeStatus::SoloMinerPaired(_) => false,
+            DownstreamMiningNodeStatus::SoloMinerPaired => false,
             DownstreamMiningNodeStatus::SoloMinerChannelOpend(_) => true,
         }
     }
@@ -208,10 +200,10 @@ impl DownstreamMiningNodeStatus {
     fn get_upstream(&mut self) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
         match self {
             DownstreamMiningNodeStatus::Initializing(Some(up)) => Some(up.clone()),
-            DownstreamMiningNodeStatus::Paired((_, up)) => Some(up.clone()),
-            DownstreamMiningNodeStatus::ChannelOpened((_, _, up)) => Some(up.clone()),
+            DownstreamMiningNodeStatus::Paired(up) => Some(up.clone()),
+            DownstreamMiningNodeStatus::ChannelOpened((_, up)) => Some(up.clone()),
             DownstreamMiningNodeStatus::Initializing(None) => None,
-            DownstreamMiningNodeStatus::SoloMinerPaired(_) => None,
+            DownstreamMiningNodeStatus::SoloMinerPaired => None,
             DownstreamMiningNodeStatus::SoloMinerChannelOpend(_) => None,
         }
     }
@@ -221,7 +213,7 @@ impl DownstreamMiningNodeStatus {
         matches!(
             self,
             DownstreamMiningNodeStatus::Initializing(None)
-                | DownstreamMiningNodeStatus::SoloMinerPaired(_)
+                | DownstreamMiningNodeStatus::SoloMinerPaired
                 | DownstreamMiningNodeStatus::SoloMinerChannelOpend(_)
         )
     }
@@ -931,12 +923,7 @@ impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {
             // require extended channels
             flags: 0b0000_0000_0000_0010,
         };
-        let data = CommonDownstreamData {
-            header_only: false,
-            work_selection: false,
-            version_rolling: true,
-        };
-        self.status.pair(data);
+        self.status.pair();
         Ok(SendToCommon::Respond(response.into()))
     }
 }
@@ -1108,20 +1095,3 @@ pub async fn listen_for_downstream_mining(
 
     info!("Downstream mining listener has shut down.");
 }
-
-impl IsDownstream for DownstreamMiningNode {
-    // Retrieves the `CommonDownstreamData` from the current status of the downstream node.
-    fn get_downstream_mining_data(&self) -> CommonDownstreamData {
-        match self.status {
-            DownstreamMiningNodeStatus::Initializing(_) => panic!(),
-            DownstreamMiningNodeStatus::Paired((data, _)) => data,
-            DownstreamMiningNodeStatus::ChannelOpened((_, data, _)) => data,
-            DownstreamMiningNodeStatus::SoloMinerPaired(data) => data,
-            DownstreamMiningNodeStatus::SoloMinerChannelOpend((_, data)) => data,
-        }
-    }
-}
-
-/// Implementation of the `IsMiningDownstream` trait for `DownstreamMiningNode`. Marker trait,
-/// should we remove this?
-impl IsMiningDownstream for DownstreamMiningNode {}

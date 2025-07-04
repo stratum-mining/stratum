@@ -53,14 +53,6 @@ jobs:
           flags: mining_device-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Upload mining_proxy_sv2-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./roles/target/tarpaulin-reports/mining-proxy-coverage
-          file: ./roles/target/tarpaulin-reports/mining-proxy-coverage/cobertura.xml
-          flags: mining_proxy_sv2-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Upload pool_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:

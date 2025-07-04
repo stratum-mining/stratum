@@ -2,7 +2,6 @@
 resolver="2"
 
 members = [
-    "mining-proxy",
     "pool",
     "test-utils/mining-device",
     "test-utils/mining-device-sv1",

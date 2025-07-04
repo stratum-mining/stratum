@@ -13,8 +13,7 @@ use tracing::error;
 
 /// This will start:
 /// 1. An Upstream, this will connect with the mining Pool
-/// 2. A listener that will wait for a mining downstream with ExtendedChannel capabilities (tproxy,
-///    mining-proxy)
+/// 2. A listener that will wait for a tproxy
 /// 3. A JobDeclarator, this will connect with the job-declarator-server
 /// 4. A TemplateRx, this will connect with bitcoind
 ///
