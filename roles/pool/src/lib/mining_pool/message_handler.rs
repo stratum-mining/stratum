@@ -15,6 +15,7 @@ use stratum_common::roles_logic_sv2::{
     channels::server::{
         error::{ExtendedChannelError, StandardChannelError},
         extended::ExtendedChannel,
+        group::GroupChannel,
         jobs::job_store::DefaultJobStore,
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
@@ -72,6 +73,33 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .map_err(|e| Error::InvalidUserIdentity(e.to_string()))?;
 
         info!("Received OpenStandardMiningChannel: {}", incoming);
+
+        let last_future_template = self.last_future_template.clone();
+        let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
+
+        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
+        // so while we don't clean that up, we only set the value of the first output
+        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
+        pool_coinbase_outputs[0].value =
+            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
+
+        if !self.downstream_data.header_only && self.group_channel.is_none() {
+            // we only create one group channel for all standard channels
+
+            let group_channel_id = self.channel_id_factory.next();
+            let job_store = Box::new(DefaultJobStore::new());
+
+            let mut group_channel = GroupChannel::new(group_channel_id, job_store);
+            group_channel
+                .on_new_template(last_future_template.clone(), pool_coinbase_outputs.clone())
+                .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
+
+            group_channel
+                .on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())
+                .map_err(Error::FailedToProcessSetNewPrevHashGroupChannel)?;
+
+            self.group_channel = Some(Arc::new(RwLock::new(group_channel)));
+        }
 
         let nominal_hash_rate = incoming.nominal_hash_rate;
         let requested_max_target = incoming.max_target.into_static();
@@ -158,14 +186,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             open_standard_mining_channel_success,
         ));
 
-        let last_future_template = self.last_future_template.clone();
-
-        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
-        // so while we don't clean that up, we only set the value of the first output
-        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
-        pool_coinbase_outputs[0].value =
-            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
-
         // create a future standard job based on the last future template
         standard_channel
             .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
@@ -185,7 +205,6 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         messages.push(Mining::NewMiningJob(future_standard_job_message));
 
         // SetNewPrevHash message activates the future job
-        let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
         let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
         let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
         let n_bits = last_set_new_prev_hash_tdp.n_bits;

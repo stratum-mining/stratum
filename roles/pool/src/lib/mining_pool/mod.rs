@@ -44,8 +44,7 @@ use stratum_common::{
         self,
         bitcoin::{Amount, ScriptBuf, TxOut},
         channels::server::{
-            extended::ExtendedChannel, group::GroupChannel, jobs::job_store::DefaultJobStore,
-            standard::StandardChannel,
+            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
         },
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
@@ -194,7 +193,7 @@ impl Downstream {
 
         let id = pool.safe_lock(|p| p.downstream_id_factory.next())?;
 
-        let mut channel_id_factory = IdFactory::new();
+        let channel_id_factory = IdFactory::new();
 
         // extranonce prefix factories are shared across all downstreams
         // that avoids extranonce_prefix collision across different downstreams
@@ -235,29 +234,6 @@ impl Downstream {
         pool_coinbase_outputs[0].value =
             Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
-        let group_channel = if !downstream_data.header_only {
-            // naive approach:
-            // we create one group channel for the entire connection
-            // and add all standard channels to this same single group channel
-            // we know this will result in group_channel_id == 1
-            // so we use that for every standard channel
-            let group_channel_id = channel_id_factory.next();
-            let job_store = Box::new(DefaultJobStore::new());
-            let mut group_channel = GroupChannel::new(group_channel_id, job_store);
-
-            group_channel
-                .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
-                .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
-
-            group_channel
-                .on_set_new_prev_hash(last_new_prev_hash.clone())
-                .map_err(Error::FailedToProcessSetNewPrevHashGroupChannel)?;
-
-            Some(Arc::new(RwLock::new(group_channel)))
-        } else {
-            None
-        };
-
         // Create the Downstream instance, wrapped for shared access.
         let self_ = Arc::new(Mutex::new(Downstream {
             id,
@@ -269,7 +245,7 @@ impl Downstream {
             extended_channels: HashMap::new(),
             standard_channels: HashMap::new(),
             vardiff: HashMap::new(),
-            group_channel,
+            group_channel: None,
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
             share_batch_size,
