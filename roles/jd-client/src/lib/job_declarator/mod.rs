@@ -32,7 +32,7 @@ use stratum_common::{
         mining_sv2::SubmitSharesExtended,
         parsers::{AnyMessage, JobDeclaration},
         template_distribution_sv2::SetNewPrevHash,
-        utils::Mutex,
+        utils::{deserialize_template_outputs, Mutex},
     },
 };
 use tokio::task::AbortHandle;
@@ -424,26 +424,11 @@ impl JobDeclarator {
                                 // SetNewPrevHash.
                                 let set_new_prev_hash = last_declare.prev_hash;
 
-                                let mut template_coinbase_outputs = Vec::<TxOut>::consensus_decode(
-                                    &mut template
-                                        .coinbase_tx_outputs
-                                        .inner_as_ref()
-                                        .to_vec()
-                                        .as_slice(),
+                                let mut template_coinbase_outputs = deserialize_template_outputs(
+                                    template.coinbase_tx_outputs.to_vec(),
+                                    template.coinbase_tx_outputs_count,
                                 )
                                 .expect("Failed to deserialize template outputs");
-
-                                // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
-                                if template_coinbase_outputs.is_empty() {
-                                    template_coinbase_outputs = vec![TxOut::consensus_decode(
-                                        &mut template
-                                            .coinbase_tx_outputs
-                                            .inner_as_ref()
-                                            .to_vec()
-                                            .as_slice(),
-                                    )
-                                    .expect("Failed to deserialize template outputs")];
-                                }
 
                                 let mut pool_coinbase_outputs = Vec::<TxOut>::consensus_decode(
                                     &mut last_declare.coinbase_pool_output.as_slice(),
@@ -570,26 +555,11 @@ impl JobDeclarator {
             // The token received from JDS for this job.
             let signed_token = job.mining_job_token.clone();
             // Prepare the pool's coinbase output by appending the template's outputs.
-            let mut template_coinbase_outputs = Vec::<TxOut>::consensus_decode(
-                &mut template
-                    .coinbase_tx_outputs
-                    .inner_as_ref()
-                    .to_vec()
-                    .as_slice(),
+            let mut template_coinbase_outputs = deserialize_template_outputs(
+                template.coinbase_tx_outputs.to_vec(),
+                template.coinbase_tx_outputs_count,
             )
             .expect("Failed to deserialize template outputs");
-
-            // temporary workaround for https://github.com/Sjors/bitcoin/issues/92
-            if template_coinbase_outputs.is_empty() {
-                template_coinbase_outputs = vec![TxOut::consensus_decode(
-                    &mut template
-                        .coinbase_tx_outputs
-                        .inner_as_ref()
-                        .to_vec()
-                        .as_slice(),
-                )
-                .expect("Failed to deserialize template outputs")];
-            }
 
             let mut pool_coinbase_outputs =
                 Vec::<TxOut>::consensus_decode(&mut pool_outs.as_slice())

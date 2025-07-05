@@ -566,7 +566,6 @@ impl<'a> ExtendedChannel<'a> {
 mod tests {
     use crate::channels::{
         chain_tip::ChainTip,
-        client::extended::ExtendedJob,
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
