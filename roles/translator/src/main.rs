@@ -1,11 +1,38 @@
 mod args;
-pub use translator_sv2::{
-    config, downstream_sv1, error, proxy, status, upstream_sv2, TranslatorSv2,
-};
+use std::process;
 
-use tracing::info;
+use args::Args;
+use config::TranslatorConfig;
+use translator_sv2::error::TproxyError;
+pub use translator_sv2::{config, error, status, sv1, sv2, TranslatorSv2};
 
-use crate::args::process_cli_args;
+use ext_config::{Config, File, FileFormat};
+
+use tracing::error;
+
+/// Process CLI args, if any.
+#[allow(clippy::result_large_err)]
+fn process_cli_args() -> Result<TranslatorConfig, TproxyError> {
+    // Parse CLI arguments
+    let args = Args::from_args().map_err(|help| {
+        error!("{}", help);
+        TproxyError::BadCliArgs
+    })?;
+
+    // Build configuration from the provided file path
+    let config_path = args.config_path.to_str().ok_or_else(|| {
+        error!("Invalid configuration path.");
+        TproxyError::BadCliArgs
+    })?;
+
+    let settings = Config::builder()
+        .add_source(File::new(config_path, FileFormat::Toml))
+        .build()?;
+
+    // Deserialize settings into TranslatorConfig
+    let config = settings.try_deserialize::<TranslatorConfig>()?;
+    Ok(config)
+}
 
 /// Entrypoint for the Translator binary.
 ///
@@ -19,7 +46,8 @@ async fn main() {
         Ok(p) => p,
         Err(e) => panic!("failed to load config: {e}"),
     };
-    info!("Proxy Config: {:?}", &proxy_config);
 
     TranslatorSv2::new(proxy_config).start().await;
+
+    process::exit(1);
 }

@@ -229,26 +229,23 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
     let min_individual_miner_hashrate = measure_hashrate(1) as f32;
-    let channel_diff_update_interval = 60;
-    let channel_nominal_hashrate = min_individual_miner_hashrate;
+
+    // Create upstream configuration
+    let upstream_config = translator_sv2::config::Upstream::new(
+        upstream_address,
+        upstream_port,
+        upstream_authority_pubkey,
+    );
+
+    // Create downstream difficulty configuration
     let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
         min_individual_miner_hashrate,
         SHARES_PER_MINUTE,
         0,
         0,
     );
-    let upstream_difficulty_config = translator_sv2::config::UpstreamDifficultyConfig::new(
-        channel_diff_update_interval,
-        channel_nominal_hashrate,
-        0,
-        false,
-    );
-    let upstream_conf = translator_sv2::config::UpstreamConfig::new(
-        upstream_address,
-        upstream_port,
-        upstream_authority_pubkey,
-        upstream_difficulty_config,
-    );
+
+    // Create downstream configuration
     let downstream_conf = translator_sv2::config::DownstreamConfig::new(
         listening_address.ip().to_string(),
         listening_port,
@@ -258,16 +255,22 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let min_extranonce2_size = 4;
 
     let config = translator_sv2::config::TranslatorConfig::new(
-        upstream_conf,
+        vec![upstream_config], // New API expects a vector of upstreams
         downstream_conf,
         2,
         2,
         min_extranonce2_size,
+        "test_user".to_string(), // user_identity parameter
+        true,                    // aggregate_channels parameter
     );
-    let translator_v2 = translator_sv2::TranslatorSv2::new(config);
-    let clone_translator_v2 = translator_v2.clone();
-    tokio::spawn(async move {
-        clone_translator_v2.start().await;
+    let translator_v2 = translator_sv2::TranslatorSv2::new(config.clone());
+    let translator_for_spawn = translator_sv2::TranslatorSv2::new(config);
+    // Spawn using thread instead of tokio::spawn to avoid Send issues
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            translator_for_spawn.start().await;
+        });
     });
     (translator_v2, listening_address)
 }
