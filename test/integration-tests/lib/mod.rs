@@ -229,14 +229,14 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
     let min_individual_miner_hashrate = measure_hashrate(1) as f32;
-    
+
     // Create upstream configuration
     let upstream_config = translator_sv2::config::Upstream::new(
         upstream_address,
         upstream_port,
         upstream_authority_pubkey,
     );
-    
+
     // Create downstream difficulty configuration
     let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
         min_individual_miner_hashrate,
@@ -244,7 +244,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
         0,
         0,
     );
-    
+
     // Create downstream configuration
     let downstream_conf = translator_sv2::config::DownstreamConfig::new(
         listening_address.ip().to_string(),
@@ -261,7 +261,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
         2,
         min_extranonce2_size,
         "test_user".to_string(), // user_identity parameter
-        true, // aggregate_channels parameter
+        true,                    // aggregate_channels parameter
     );
     let translator_v2 = translator_sv2::TranslatorSv2::new(config.clone());
     let translator_for_spawn = translator_sv2::TranslatorSv2::new(config);
