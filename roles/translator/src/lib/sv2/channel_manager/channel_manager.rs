@@ -533,9 +533,11 @@ impl ChannelManager {
                     let mode = self
                         .channel_manager_data
                         .super_safe_lock(|c| c.mode.clone());
-                    if mode == ChannelMode::Aggregated && self
+                    if mode == ChannelMode::Aggregated
+                        && self
                             .channel_manager_data
-                            .super_safe_lock(|c| c.upstream_extended_channel.is_some()) {
+                            .super_safe_lock(|c| c.upstream_extended_channel.is_some())
+                    {
                         let upstream_extended_channel_id =
                             self.channel_manager_data.super_safe_lock(|c| {
                                 let upstream_extended_channel = c
@@ -564,8 +566,7 @@ impl ChannelManager {
                                 .safe_lock(|e| e.get_range0_len())
                                 .unwrap()
                         });
-                        if let Some(downstream_extranonce_prefix) = downstream_extranonce_prefix
-                        {
+                        if let Some(downstream_extranonce_prefix) = downstream_extranonce_prefix {
                             // Skip the upstream prefix (range0) and take the remaining
                             // bytes (translator proxy prefix)
                             let translator_prefix = &downstream_extranonce_prefix[range0_len..];

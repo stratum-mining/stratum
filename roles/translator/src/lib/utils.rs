@@ -63,8 +63,7 @@ pub fn validate_sv1_share(
     let version = (job.version.0 & !mask) | (share_version & mask);
 
     let prev_hash_vec: Vec<u8> = job.prev_hash.clone().into();
-    let prev_hash =
-        binary_sv2::U256::from_vec_(prev_hash_vec).map_err(TproxyError::BinarySv2)?;
+    let prev_hash = binary_sv2::U256::from_vec_(prev_hash_vec).map_err(TproxyError::BinarySv2)?;
 
     // calculate the merkle root from:
     // - job coinbase_tx_prefix

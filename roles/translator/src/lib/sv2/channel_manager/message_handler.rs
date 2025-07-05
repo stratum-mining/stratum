@@ -66,10 +66,8 @@ impl ParseMiningMessagesFromUpstream<Downstream> for ChannelManagerData {
             self.upstream_extended_channel = Some(Arc::new(RwLock::new(extended_channel.clone())));
 
             let upstream_extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
-            let translator_proxy_extranonce_prefix_len = proxy_extranonce_prefix_len(
-                m.extranonce_size.into(),
-                downstream_extranonce_len,
-            );
+            let translator_proxy_extranonce_prefix_len =
+                proxy_extranonce_prefix_len(m.extranonce_size.into(), downstream_extranonce_len);
             // range 0 is the extranonce1 from upstream
             // range 1 is the extranonce1 added by the tproxy
             // range 2 is the extranonce2 used by the miner for rolling (this is the one that is
