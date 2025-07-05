@@ -23,6 +23,8 @@ use mining_proxy_sv2::start_mining_proxy;
 mod args;
 use args::process_cli_args;
 
+use config_helpers::logging::init_logging;
+
 /// 1. the proxy scan all the upstreams and map them
 /// 2. downstream open a connection with proxy
 /// 3. downstream send SetupConnection
@@ -35,13 +37,13 @@ use args::process_cli_args;
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
-    let config = match process_cli_args() {
+    let (config, args) = match process_cli_args() {
         Ok(c) => c,
         Err(e) => {
             error!("Mining Proxy Config error: {}", e);
             return;
         }
     };
+    init_logging(args.log_file.as_ref(), &args.log_level, args.verbose_stdout);
     start_mining_proxy(config).await;
 }
