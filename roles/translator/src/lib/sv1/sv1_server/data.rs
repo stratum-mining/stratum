@@ -8,7 +8,7 @@ use std::{
 };
 
 pub struct Sv1ServerData {
-    pub downstreams: HashMap<u32, Downstream>,
+    pub downstreams: HashMap<u32, Arc<Downstream>>,
     pub vardiff: HashMap<u32, Arc<RwLock<VardiffState>>>,
     pub prevhash: Option<SetNewPrevHash<'static>>,
     pub downstream_id_factory: IdFactory,

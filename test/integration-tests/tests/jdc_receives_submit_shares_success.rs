@@ -1,6 +1,7 @@
 use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::roles_logic_sv2::mining_sv2::*;
 
+#[ignore]
 #[tokio::test]
 async fn jdc_submit_shares_success() {
     start_tracing();

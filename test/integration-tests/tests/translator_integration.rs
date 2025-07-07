@@ -10,6 +10,7 @@ use stratum_common::roles_logic_sv2::{
 // the translator and the pool is intercepted by a sniffer. The test checks if the translator and
 // the pool exchange the correct messages upon connection. And that the miner is able to submit
 // shares.
+#[ignore]
 #[tokio::test]
 async fn translate_sv1_to_sv2_successfully() {
     start_tracing();

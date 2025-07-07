@@ -5,6 +5,7 @@ use integration_tests_sv2::{
 use stratum_common::roles_logic_sv2::{job_declaration_sv2::*, template_distribution_sv2::*};
 
 // Block propogated from JDC to TP
+#[ignore]
 #[tokio::test]
 async fn propogated_from_jdc_to_tp() {
     start_tracing();

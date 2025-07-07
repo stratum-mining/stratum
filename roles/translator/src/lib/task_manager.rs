@@ -50,8 +50,12 @@ impl TaskManager {
     /// manager have finished executing. Tasks are joined in reverse order
     /// (most recently spawned first).
     pub async fn join_all(&self) {
-        let mut tasks = self.tasks.lock().unwrap();
-        while let Some(handle) = tasks.pop() {
+        let handles = {
+            let mut tasks = self.tasks.lock().unwrap();
+            std::mem::take(&mut *tasks)
+        };
+
+        for handle in handles {
             let _ = handle.await;
         }
     }

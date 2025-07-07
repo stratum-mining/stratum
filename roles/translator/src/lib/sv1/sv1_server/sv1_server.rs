@@ -179,17 +179,17 @@ impl Sv1Server {
 
                             let connection = ConnectionSV1::new(stream).await;
                             let downstream_id = self.sv1_server_data.super_safe_lock(|v| v.downstream_id_factory.next());
-                            let downstream = Downstream::new(
+                            let downstream = Arc::new(Downstream::new(
                                 downstream_id,
                                 connection.sender().clone(),
                                 connection.receiver().clone(),
                                 self.sv1_server_channel_state.downstream_to_sv1_server_sender.clone(),
-                                self.sv1_server_channel_state.sv1_server_to_downstream_sender.clone(),
+                                self.sv1_server_channel_state.sv1_server_to_downstream_sender.clone().subscribe(),
                                 first_target.clone(),
                                 self.config
                                     .downstream_difficulty_config
                                     .min_individual_miner_hashrate,
-                            );
+                            ));
                             // vardiff initialization
                             let vardiff = Arc::new(RwLock::new(VardiffState::new().expect("Failed to create vardiffstate")));
                             _ = self.sv1_server_data
@@ -201,7 +201,7 @@ impl Sv1Server {
                             info!("Downstream {} registered successfully", downstream_id);
 
                             self
-                                .open_extended_mining_channel(downstream)
+                                .open_extended_mining_channel(downstream.clone())
                                 .await?;
                         }
                         Err(e) => {
@@ -358,16 +358,12 @@ impl Sv1Server {
                     };
 
                     Downstream::run_downstream_tasks(
-                        Arc::new(downstream),
+                        downstream,
                         notify_shutdown,
                         shutdown_complete_tx,
                         status_sender,
                         task_manager,
                     );
-
-                    // Small delay to ensure the downstream task has subscribed to the broadcast
-                    // receiver
-                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
                     let set_difficulty = get_set_difficulty(first_target).map_err(|_| {
                         TproxyError::General("Failed to generate set_difficulty".into())
@@ -443,7 +439,7 @@ impl Sv1Server {
     /// * `Err(TproxyError)` - Error setting up the channel
     pub async fn open_extended_mining_channel(
         &self,
-        downstream: Downstream,
+        downstream: Arc<Downstream>,
     ) -> Result<(), TproxyError> {
         let config = &self.config.downstream_difficulty_config;
 
@@ -492,8 +488,8 @@ impl Sv1Server {
     /// * `None` - If no downstream with the given ID is found
     pub fn get_downstream(
         downstream_id: u32,
-        downstream: HashMap<u32, Downstream>,
-    ) -> Option<Downstream> {
+        downstream: HashMap<u32, Arc<Downstream>>,
+    ) -> Option<Arc<Downstream>> {
         downstream.get(&downstream_id).cloned()
     }
 

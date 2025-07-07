@@ -29,7 +29,7 @@ use v1::{
 /// Each downstream connection runs in its own async task that processes messages
 /// from both the miner and the server, ensuring proper message ordering and
 /// handling connection-specific state.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Downstream {
     pub downstream_data: Arc<Mutex<DownstreamData>>,
     downstream_channel_state: DownstreamChannelState,
@@ -54,7 +54,7 @@ impl Downstream {
         downstream_sv1_sender: Sender<json_rpc::Message>,
         downstream_sv1_receiver: Receiver<json_rpc::Message>,
         sv1_server_sender: Sender<DownstreamMessages>,
-        sv1_server_receiver: broadcast::Sender<(u32, Option<u32>, json_rpc::Message)>,
+        sv1_server_receiver: broadcast::Receiver<(u32, Option<u32>, json_rpc::Message)>,
         target: Target,
         hashrate: f32,
     ) -> Self {
@@ -100,6 +100,10 @@ impl Downstream {
         status_sender: StatusSender,
         task_manager: Arc<TaskManager>,
     ) {
+        let mut sv1_server_receiver = self
+            .downstream_channel_state
+            .sv1_server_receiver
+            .resubscribe();
         let mut shutdown_rx = notify_shutdown.subscribe();
         let downstream_id = self.downstream_data.super_safe_lock(|d| d.downstream_id);
 
@@ -107,11 +111,6 @@ impl Downstream {
 
         task_manager.spawn(async move {
             loop {
-                let sv1_server_receiver = self
-                    .downstream_channel_state
-                    .sv1_server_receiver
-                    .subscribe();
-
                 tokio::select! {
                     msg = shutdown_rx.recv() => {
                         match msg {
@@ -147,7 +146,7 @@ impl Downstream {
                     }
 
                     // Handle server -> downstream message
-                    res = Self::handle_sv1_server_message(self.clone(), sv1_server_receiver) => {
+                    res = Self::handle_sv1_server_message(self.clone(),&mut sv1_server_receiver) => {
                         if let Err(e) = res {
                             error!("Downstream {downstream_id}: error in server message handler: {e:?}");
                             handle_error(&status_sender, e).await;
@@ -191,7 +190,7 @@ impl Downstream {
     /// * `Err(TproxyError)` - Error processing the message
     pub async fn handle_sv1_server_message(
         self: Arc<Self>,
-        mut sv1_server_receiver: broadcast::Receiver<(u32, Option<u32>, json_rpc::Message)>,
+        sv1_server_receiver: &mut broadcast::Receiver<(u32, Option<u32>, json_rpc::Message)>,
     ) -> Result<(), TproxyError> {
         match sv1_server_receiver.recv().await {
             Ok((channel_id, downstream_id, message)) => {

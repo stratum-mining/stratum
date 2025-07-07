@@ -6,7 +6,7 @@
 //! Each task wraps its report in a [`Status`] and sends it over an async channel,
 //! tagged with a [`Sender`] variant that identifies the source subsystem.
 
-use tracing::error;
+use tracing::{debug, error, warn};
 
 use crate::error::TproxyError;
 
@@ -33,10 +33,25 @@ impl StatusSender {
     /// Sends a [`Status`] update.
     pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {
         match self {
-            Self::Downstream { tx, .. } => tx.send(status).await,
-            Self::Sv1Server(tx) => tx.send(status).await,
-            Self::ChannelManager(tx) => tx.send(status).await,
-            Self::Upstream(tx) => tx.send(status).await,
+            Self::Downstream { downstream_id, tx } => {
+                debug!(
+                    "Sending status from Downstream [{}]: {:?}",
+                    downstream_id, status.state
+                );
+                tx.send(status).await
+            }
+            Self::Sv1Server(tx) => {
+                debug!("Sending status from Sv1Server: {:?}", status.state);
+                tx.send(status).await
+            }
+            Self::ChannelManager(tx) => {
+                debug!("Sending status from ChannelManager: {:?}", status.state);
+                tx.send(status).await
+            }
+            Self::Upstream(tx) => {
+                debug!("Sending status from Upstream: {:?}", status.state);
+                tx.send(status).await
+            }
         }
     }
 }
@@ -66,16 +81,30 @@ pub struct Status {
 /// Constructs and sends a [`Status`] update based on the [`Sender`] and error context.
 async fn send_status(sender: &StatusSender, error: TproxyError) {
     let state = match sender {
-        StatusSender::Downstream { downstream_id, .. } => State::DownstreamShutdown {
-            downstream_id: *downstream_id,
-            reason: error,
-        },
-        StatusSender::Sv1Server(_) => State::Sv1ServerShutdown(error),
-        StatusSender::ChannelManager(_) => State::ChannelManagerShutdown(error),
-        StatusSender::Upstream(_) => State::UpstreamShutdown(error),
+        StatusSender::Downstream { downstream_id, .. } => {
+            warn!("Downstream [{downstream_id}] shutting down due to error: {error:?}");
+            State::DownstreamShutdown {
+                downstream_id: *downstream_id,
+                reason: error,
+            }
+        }
+        StatusSender::Sv1Server(_) => {
+            warn!("Sv1Server shutting down due to error: {error:?}");
+            State::Sv1ServerShutdown(error)
+        }
+        StatusSender::ChannelManager(_) => {
+            warn!("ChannelManager shutting down due to error: {error:?}");
+            State::ChannelManagerShutdown(error)
+        }
+        StatusSender::Upstream(_) => {
+            warn!("Upstream shutting down due to error: {error:?}");
+            State::UpstreamShutdown(error)
+        }
     };
 
-    let _ = sender.send(Status { state }).await;
+    if let Err(e) = sender.send(Status { state }).await {
+        error!("Failed to send status update from {sender:?}: {e:?}");
+    }
 }
 
 /// Centralized error dispatcher for the Translator.
@@ -83,6 +112,6 @@ async fn send_status(sender: &StatusSender, error: TproxyError) {
 /// Used by the `handle_result!` macro across the codebase.
 /// Decides whether the task should `Continue` or `Break` based on the error type and source.
 pub async fn handle_error(sender: &StatusSender, e: TproxyError) {
-    error!("Error: {:?}", &e);
+    error!("Error in {:?}: {:?}", sender, e);
     send_status(sender, e).await;
 }

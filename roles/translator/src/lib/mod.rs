@@ -10,11 +10,12 @@
 //! provides the `start` method as the main entry point for running the translator service.
 //! It relies on several sub-modules (`config`, `downstream_sv1`, `upstream_sv2`, `proxy`, `status`,
 //! etc.) for specialized functionalities.
+#![allow(clippy::module_inception)]
 use async_channel::unbounded;
 pub use roles_logic_sv2::utils::Mutex;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub use v1::server_to_client;
 
@@ -56,6 +57,8 @@ impl TranslatorSv2 {
     /// This method starts the main event loop, which handles connections,
     /// protocol translation, job management, and status reporting.
     pub async fn start(self) {
+        info!("TranslatorSv2 starting... setting up subsystems");
+
         let (notify_shutdown, _) = tokio::sync::broadcast::channel::<ShutdownMessage>(1);
         let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel::<()>(1);
         let task_manager = Arc::new(TaskManager::new());
@@ -64,15 +67,14 @@ impl TranslatorSv2 {
 
         let (channel_manager_to_upstream_sender, channel_manager_to_upstream_receiver) =
             unbounded();
-
         let (upstream_to_channel_manager_sender, upstream_to_channel_manager_receiver) =
             unbounded();
-
         let (channel_manager_to_sv1_server_sender, channel_manager_to_sv1_server_receiver) =
             unbounded();
-
         let (sv1_server_to_channel_manager_sender, sv1_server_to_channel_manager_receiver) =
             unbounded();
+
+        debug!("Channels initialized.");
 
         let upstream_addresses = self
             .config
@@ -85,6 +87,7 @@ impl TranslatorSv2 {
             })
             .collect::<Vec<_>>();
 
+        info!("Attempting to initialize upstream...");
         let upstream = match Upstream::new(
             &upstream_addresses,
             upstream_to_channel_manager_sender.clone(),
@@ -94,13 +97,17 @@ impl TranslatorSv2 {
         )
         .await
         {
-            Ok(upstream) => upstream,
+            Ok(upstream) => {
+                info!("Upstream initialized successfully.");
+                upstream
+            }
             Err(e) => {
-                error!("Failed to initialize upstream connection: {:?}", e);
+                error!("Failed to initialize upstream connection: {e:?}");
                 return;
             }
         };
 
+        info!("Initializing channel manager...");
         let channel_manager = Arc::new(ChannelManager::new(
             channel_manager_to_upstream_sender,
             upstream_to_channel_manager_receiver,
@@ -113,6 +120,7 @@ impl TranslatorSv2 {
             },
         ));
 
+        info!("Setting up SV1 server...");
         let downstream_addr: SocketAddr = SocketAddr::new(
             self.config.downstream_address.parse().unwrap(),
             self.config.downstream_port,
@@ -125,6 +133,7 @@ impl TranslatorSv2 {
             self.config.clone(),
         ));
 
+        info!("Spawning channel manager background tasks...");
         ChannelManager::run_channel_manager_tasks(
             channel_manager.clone(),
             notify_shutdown.clone(),
@@ -134,6 +143,7 @@ impl TranslatorSv2 {
         )
         .await;
 
+        info!("Starting upstream listener task...");
         if let Err(e) = upstream
             .start(
                 notify_shutdown.clone(),
@@ -143,9 +153,11 @@ impl TranslatorSv2 {
             )
             .await
         {
-            error!("Failed to start upstream listener: {:?}", e);
+            error!("Failed to start upstream listener: {e:?}");
             return;
         }
+
+        info!("Spawning status listener task...");
         let notify_shutdown_clone = notify_shutdown.clone();
         let shutdown_complete_tx_clone = shutdown_complete_tx.clone();
         let status_sender_clone = status_sender.clone();
@@ -154,7 +166,7 @@ impl TranslatorSv2 {
             loop {
                 tokio::select! {
                     _ = tokio::signal::ctrl_c() => {
-                        info!("Ctrl+c received. Intiating graceful shutdown...");
+                        info!("Ctrl+C received — initiating graceful shutdown...");
                         notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                         break;
                     }
@@ -162,21 +174,21 @@ impl TranslatorSv2 {
                         if let Ok(status) = message {
                             match status.state {
                                 State::DownstreamShutdown{downstream_id,..} => {
-                                    warn!("Downstream {downstream_id:?} disconnected, signalling sv1 server");
+                                    warn!("Downstream {downstream_id:?} disconnected — notifying SV1 server.");
                                     notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdown(downstream_id)).unwrap();
                                 }
                                 State::Sv1ServerShutdown(_) => {
-                                    warn!("Sv1 Server send shutdown signal");
+                                    warn!("SV1 Server shutdown requested — initiating full shutdown.");
                                     notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                                     break;
                                 }
                                 State::ChannelManagerShutdown(_) => {
-                                    warn!("Channel manager send shutdown signal");
+                                    warn!("Channel Manager shutdown requested — initiating full shutdown.");
                                     notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                                     break;
                                 }
                                 State::UpstreamShutdown(msg) => {
-                                    warn!("Upstream disconnected: {msg:?}, attempting reconnection...");
+                                    warn!("Upstream connection dropped: {msg:?} — attempting reconnection...");
 
                                     match Upstream::new(
                                         &upstream_addresses,
@@ -195,16 +207,16 @@ impl TranslatorSv2 {
                                                 )
                                                 .await
                                             {
-                                                error!("Restarted upstream start failed: {e:?}");
+                                                error!("Restarted upstream failed to start: {e:?}");
                                                 notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                                                 break;
                                             } else {
-                                                notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdownAll).unwrap();
                                                 info!("Upstream restarted successfully.");
+                                                notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdownAll).unwrap();
                                             }
                                         }
                                         Err(e) => {
-                                            error!("Failed to reinitialize upstream after shutdown: {e:?}");
+                                            error!("Failed to reinitialize upstream after disconnect: {e:?}");
                                             notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                                             break;
                                         }
@@ -217,6 +229,7 @@ impl TranslatorSv2 {
             }
         });
 
+        info!("Starting SV1 server...");
         if let Err(e) = Sv1Server::start(
             sv1_server,
             notify_shutdown.clone(),
@@ -226,22 +239,24 @@ impl TranslatorSv2 {
         )
         .await
         {
-            error!("Error starting sv1 server: {:?}", e);
+            error!("SV1 server startup failed: {e:?}");
             notify_shutdown.send(ShutdownMessage::ShutdownAll).unwrap();
         }
 
         drop(shutdown_complete_tx);
-        info!("waiting for shutdown complete...");
+        info!("Waiting for shutdown completion signals from subsystems...");
         let shutdown_timeout = tokio::time::Duration::from_secs(30);
         tokio::select! {
             _ = shutdown_complete_rx.recv() => {
-                info!("All tasks reported shutdown complete.");
+                info!("All subsystems reported shutdown complete.");
             }
             _ = tokio::time::sleep(shutdown_timeout) => {
+                warn!("Graceful shutdown timed out after {shutdown_timeout:?} — forcing shutdown.");
                 task_manager.abort_all().await;
-                warn!("Graceful shutdown timed out after {:?}. Some tasks might still be running.", shutdown_timeout);
             }
         }
+        info!("Joining remaining tasks...");
         task_manager.join_all().await;
+        info!("TranslatorSv2 shutdown complete.");
     }
 }

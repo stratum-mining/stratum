@@ -487,7 +487,7 @@ impl ChannelManager {
                         let translator_identity = if let Some(dot_index) = user_identity.find('.') {
                             format!("{}.translator-proxy", &user_identity[..dot_index])
                         } else {
-                            format!("{}.translator-proxy", user_identity)
+                            format!("{user_identity}.translator-proxy")
                         };
                         user_identity = translator_identity;
                         open_channel_msg.user_identity =
