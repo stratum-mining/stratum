@@ -56,6 +56,7 @@ pub struct JobDeclaratorClientConfig {
     timeout: Duration,
     /// A list of coinbase outputs to be included in the block templates.
     /// This is only used during solo-mining.
+    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
     #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
     coinbase_outputs: Vec<CoinbaseOutput>,
     /// A signature string identifying this JDC instance.

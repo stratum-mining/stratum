@@ -28,6 +28,7 @@ pub struct JobDeclaratorServerConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
+    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
     #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
     coinbase_outputs: Vec<CoinbaseOutput>,
     core_rpc_url: String,
