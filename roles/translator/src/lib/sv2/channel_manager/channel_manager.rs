@@ -462,10 +462,6 @@ impl ChannelManager {
                                                 .on_new_extended_mining_job(job.clone());
                                         }
                                     });
-                                    // this is done to make sure that the job is sent after the
-                                    // the downstream is ready to receive the job (subscribed to the
-                                    // broadcast receiver of the sv1 server)
-                                    tokio::time::sleep(Duration::from_secs(3)).await;
                                     self.channel_state
                                         .sv1_server_sender
                                         .send(Mining::NewExtendedMiningJob(job.clone()))
