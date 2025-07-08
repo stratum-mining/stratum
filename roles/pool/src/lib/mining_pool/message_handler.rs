@@ -83,7 +83,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         pool_coinbase_outputs[0].value =
             Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
-        if !self.downstream_data.header_only && self.group_channel.is_none() {
+        if !self.requires_standard_jobs && self.group_channel.is_none() {
             // we only create one group channel for all standard channels
 
             let group_channel_id = self.channel_id_factory.next();

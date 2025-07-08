@@ -40,7 +40,6 @@ use stratum_common::{
         self,
         codec_sv2::{self, binary_sv2::u256_from_int, framing_sv2, HandshakeRole, Initiator},
         common_messages_sv2::{Protocol, SetupConnection},
-        common_properties::{IsMiningUpstream, IsUpstream},
         handlers::{
             common::{ParseCommonMessagesFromUpstream, SendTo as SendToCommon},
             mining::{ParseMiningMessagesFromUpstream, SendTo},
@@ -601,50 +600,6 @@ impl Upstream {
             firmware,
             device_id,
         })
-    }
-}
-
-// Can be removed?
-impl IsUpstream for Upstream {
-    fn get_version(&self) -> u16 {
-        todo!()
-    }
-
-    fn get_flags(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_supported_protocols(&self) -> Vec<Protocol> {
-        todo!()
-    }
-
-    fn get_id(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
-        todo!()
-    }
-}
-
-// Can be removed?
-impl IsMiningUpstream for Upstream {
-    fn total_hash_rate(&self) -> u64 {
-        todo!()
-    }
-
-    fn add_hash_rate(&mut self, _to_add: u64) {
-        todo!()
-    }
-
-    fn get_opened_channels(
-        &mut self,
-    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
-        todo!()
-    }
-
-    fn update_channels(&mut self, _c: roles_logic_sv2::common_properties::UpstreamChannel) {
-        todo!()
     }
 }
 

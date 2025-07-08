@@ -39,8 +39,6 @@ use mining_sv2::{
     UpdateChannel, UpdateChannelError,
 };
 
-use crate::common_properties::{IsMiningDownstream, IsMiningUpstream};
-
 use super::SendTo_;
 
 use crate::utils::Mutex;
@@ -64,7 +62,7 @@ pub enum SupportedChannelTypes {
 ///
 /// This trait defines methods for parsing and routing downstream messages
 /// related to mining operations.
-pub trait ParseMiningMessagesFromDownstream<Up: IsMiningUpstream + D>
+pub trait ParseMiningMessagesFromDownstream<Up: D>
 where
     Self: Sized + D,
 {
@@ -78,7 +76,7 @@ where
         payload: &mut [u8],
     ) -> Result<SendTo<Up>, Error>
     where
-        Self: IsMiningDownstream + Sized,
+        Self: Sized,
     {
         match Self::handle_message_mining_deserialized(
             self_mutex,
@@ -95,7 +93,7 @@ where
         message: Result<Mining<'_>, Error>,
     ) -> Result<SendTo<Up>, Error>
     where
-        Self: IsMiningDownstream + Sized,
+        Self: Sized,
     {
         let (channel_type, is_work_selection_enabled) = self_mutex
             .safe_lock(|self_| (self_.get_channel_type(), self_.is_work_selection_enabled()))?;
@@ -237,7 +235,7 @@ where
 ///
 /// This trait provides the functionality to handle and route various types of mining messages
 /// from the upstream based on the message type and payload.
-pub trait ParseMiningMessagesFromUpstream<Down: IsMiningDownstream + D>
+pub trait ParseMiningMessagesFromUpstream<Down: D>
 where
     Self: Sized + D,
 {
