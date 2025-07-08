@@ -49,6 +49,11 @@ jobs:
           cd protocols/v2/binary-sv2
           cargo doc --features with_buffer_pool
 
+      - name: Rust Docs crate channels_sv2
+        run: |
+          cd protocols/v2/channels-sv2
+          cargo doc
+
       - name: Rust Docs crate framing_sv2
         run: |
           cd protocols/v2/framing-sv2

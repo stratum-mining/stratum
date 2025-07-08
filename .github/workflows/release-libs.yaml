@@ -86,6 +86,11 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/subprotocols/template-distribution
 
+      # channels_sv2 (depends on binary_sv2, common_messages_sv2, mining_sv2, template_distribution_sv2, job_declaration_sv2)
+      - name: Publish crate channels_sv2
+        run: |
+          ./scripts/release-libs.sh protocols/v2/channels-sv2
+
       # sv1_api (depends on binary_sv2)
       - name: Publish crate v1
         run: |

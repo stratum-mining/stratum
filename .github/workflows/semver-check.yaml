@@ -93,6 +93,10 @@ jobs:
         working-directory: protocols/v2/roles-logic-sv2
         run: cargo semver-checks --default-features
 
+      - name: Run semver checks for protocols/v2/channels-sv2
+        working-directory: protocols/v2/channels-sv2
+        run: cargo semver-checks
+
       - name: Run semver checks for protocols/v1
         working-directory: protocols/v1
         run: cargo semver-checks

@@ -53,6 +53,14 @@ jobs:
           flags: codec_sv2-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Upload channels_sv2-coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./protocols/target/tarpaulin-reports/channels-sv2-coverage
+          file: ./protocols/target/tarpaulin-reports/channels-sv2-coverage/cobertura.xml
+          flags: channels_sv2-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload common_messages_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
