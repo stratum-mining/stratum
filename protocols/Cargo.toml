@@ -17,6 +17,7 @@ members = [
     "v2/sv2-ffi",
     "v2/roles-logic-sv2",
     "v2/channels-sv2",
+    "v2/parsers-sv2",
 ]
 
 [profile.dev]

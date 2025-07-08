@@ -26,7 +26,8 @@
 //!   especially in the context of shared state.
 
 use super::SendTo_;
-use crate::{errors::Error, parsers::TemplateDistribution, utils::Mutex};
+use crate::{errors::Error, utils::Mutex};
+use parsers_sv2::TemplateDistribution;
 use template_distribution_sv2::{
     CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
@@ -57,7 +58,7 @@ where
     ) -> Result<SendTo, Error> {
         Self::handle_message_template_distribution_deserialized(
             self_,
-            (message_type, payload).try_into(),
+            (message_type, payload).try_into().map_err(Into::into),
         )
     }
 
@@ -144,7 +145,7 @@ where
     ) -> Result<SendTo, Error> {
         Self::handle_message_template_distribution_deserialized(
             self_,
-            (message_type, payload).try_into(),
+            (message_type, payload).try_into().map_err(Into::into),
         )
     }
 

@@ -28,7 +28,8 @@
 //! - Error handling mechanisms to address unexpected messages and ensure safe processing,
 //!   particularly in the context of shared state.
 
-use crate::{parsers::JobDeclaration, utils::Mutex};
+use crate::utils::Mutex;
+use parsers_sv2::JobDeclaration;
 use std::sync::Arc;
 
 /// see [`SendTo_`]
@@ -58,7 +59,10 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_job_declaration_deserialized(self_, (message_type, payload).try_into())
+        Self::handle_message_job_declaration_deserialized(
+            self_,
+            (message_type, payload).try_into().map_err(Into::into),
+        )
     }
 
     /// Routes a deserialized job declaration message to the appropriate handler function.
@@ -141,7 +145,10 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_job_declaration_deserialized(self_, (message_type, payload).try_into())
+        Self::handle_message_job_declaration_deserialized(
+            self_,
+            (message_type, payload).try_into().map_err(Into::into),
+        )
     }
 
     /// Routes a deserialized job declaration message to the appropriate handler function.
