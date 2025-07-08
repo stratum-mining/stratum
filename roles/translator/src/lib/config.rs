@@ -11,6 +11,8 @@
 //! - Supported protocol versions
 //! - Downstream difficulty adjustment parameters ([`DownstreamDifficultyConfig`])
 //! - Upstream difficulty adjustment parameters ([`UpstreamDifficultyConfig`])
+use std::path::{Path, PathBuf};
+
 use key_utils::Secp256k1PublicKey;
 use serde::Deserialize;
 
@@ -37,7 +39,21 @@ pub struct TranslatorConfig {
     pub downstream_difficulty_config: DownstreamDifficultyConfig,
     /// Configuration settings for managing difficulty on the upstream connection.
     pub upstream_difficulty_config: UpstreamDifficultyConfig,
+    /// The path to the log file for the Translator.
+    log_file: Option<PathBuf>,
 }
+
+impl TranslatorConfig {
+    pub fn set_log_dir(&mut self, log_dir: Option<PathBuf>) {
+        if let Some(dir) = log_dir {
+            self.log_file = Some(dir);
+        }
+    }
+    pub fn log_dir(&self) -> Option<&Path> {
+        self.log_file.as_deref()
+    }
+}
+
 /// Configuration settings specific to the upstream connection.
 pub struct UpstreamConfig {
     /// The address of the upstream server.
@@ -109,6 +125,7 @@ impl TranslatorConfig {
             min_extranonce2_size,
             downstream_difficulty_config: downstream.difficulty_config,
             upstream_difficulty_config: upstream.difficulty_config,
+            log_file: None,
         }
     }
 }

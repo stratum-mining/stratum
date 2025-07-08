@@ -8,6 +8,8 @@
 //! - Managing [`TemplateProviderConfig`], [`AuthorityConfig`], [`CoinbaseOutput`], and
 //!   [`ConnectionConfig`]
 //! - Validating and converting coinbase outputs
+use std::path::{Path, PathBuf};
+
 use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
@@ -24,6 +26,7 @@ pub struct PoolConfig {
     pool_signature: String,
     shares_per_minute: f32,
     share_batch_size: usize,
+    log_file: Option<PathBuf>,
 }
 
 impl PoolConfig {
@@ -47,6 +50,7 @@ impl PoolConfig {
             pool_signature: pool_connection.signature,
             shares_per_minute,
             share_batch_size,
+            log_file: None,
         }
     }
 
@@ -108,6 +112,17 @@ impl PoolConfig {
     /// Change TP address.
     pub fn set_tp_address(&mut self, tp_address: String) {
         self.tp_address = tp_address;
+    }
+
+    /// Sets the log directory.
+    pub fn set_log_dir(&mut self, log_dir: Option<PathBuf>) {
+        if let Some(dir) = log_dir {
+            self.log_file = Some(dir);
+        }
+    }
+    /// Returns the log directory.
+    pub fn log_dir(&self) -> Option<&Path> {
+        self.log_file.as_deref()
     }
 }
 

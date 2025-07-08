@@ -15,3 +15,5 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
 miniscript = { version = "12.3.2", default-features = false, features = [ "no-std" ] }
 roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = { version = "0.1" }

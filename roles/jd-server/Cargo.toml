@@ -24,7 +24,6 @@ rand = "0.8.4"
 tokio = { version = "1.44.1", features = ["full"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 tracing = { version = "0.1" }
-tracing-subscriber = "0.3"
 error_handling = { path = "../../utils/error-handling" }
 nohash-hasher = "0.2.0"
 serde_json = { version = "1.0", default-features = false, features = ["alloc","raw_value"] }

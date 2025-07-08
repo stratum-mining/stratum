@@ -22,6 +22,11 @@ min_supported_version = 2
 # Min value: 2
 min_extranonce2_size = 4
 
+# Enable this option to set a predefined log file path.
+# When enabled, logs will always be written to this file.
+# The CLI option --log-file (or -f) will override this setting if provided.
+# log_file = "./tproxy.log"
+
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting (e.g.: 10 Th/s = 10_000_000_000_000.0)

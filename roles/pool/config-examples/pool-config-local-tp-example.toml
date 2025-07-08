@@ -20,6 +20,12 @@ coinbase_outputs = [
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum V2 SRI Pool"
 
+# Enable this option to set a predefined log file path.
+# When enabled, logs will always be written to this file.
+# The CLI option --log-file (or -f) will override this setting if provided.
+# log_file = "./pool.log"
+
+
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 tp_address = "127.0.0.1:8442"
