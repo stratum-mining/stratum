@@ -85,7 +85,6 @@ async fn success_pool_template_provider_connection() {
 //   occurred with non-future jobs.
 //
 // Related issue: https://github.com/stratum-mining/stratum/issues/1324
-#[ignore]
 #[tokio::test]
 async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     start_tracing();

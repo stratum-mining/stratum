@@ -20,10 +20,7 @@ use roles_logic_sv2::{
     parsers::{AnyMessage, Mining},
     utils::Mutex,
 };
-use std::{
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::sync::{Arc, RwLock};
 use tokio::sync::{broadcast, mpsc};
 use tracing::{error, info, warn};
 
