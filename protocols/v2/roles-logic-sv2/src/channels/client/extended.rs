@@ -178,7 +178,7 @@ impl<'a> ExtendedChannel<'a> {
     /// Called when a `NewExtendedMiningJob` message is received from upstream.
     pub fn on_new_extended_mining_job(
         &mut self,
-        new_extended_mining_job: NewExtendedMiningJob<'a>,
+        new_extended_mining_job: NewExtendedMiningJob<'static>,
     ) {
         match new_extended_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
@@ -209,7 +209,7 @@ impl<'a> ExtendedChannel<'a> {
     /// The chain tip information is not kept in the channel state.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashMp<'a>,
+        set_new_prev_hash: SetNewPrevHashMp<'static>,
     ) -> Result<(), ExtendedChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {

@@ -2466,19 +2466,23 @@ dependencies = [
 
 [[package]]
 name = "translator_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-channel",
  "async-recursion 0.3.2",
+ "binary_sv2",
  "buffer_sv2",
- "clap",
+ "codec_sv2",
  "config",
  "error_handling",
+ "framing_sv2",
  "futures",
  "key-utils",
+ "network_helpers_sv2",
  "once_cell",
  "primitive-types",
  "rand 0.8.5",
+ "roles_logic_sv2",
  "serde",
  "serde_json",
  "stratum-common",

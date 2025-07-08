@@ -13,7 +13,6 @@ use stratum_common::roles_logic_sv2::{
 // the currently connected pool.
 //
 // This ignore directive can be removed once this issue is resolved: https://github.com/stratum-mining/stratum/issues/1574.
-#[ignore]
 #[tokio::test]
 async fn test_jdc_pool_fallback_after_submit_rejection() {
     start_tracing();
