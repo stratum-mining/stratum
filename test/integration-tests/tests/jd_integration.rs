@@ -8,7 +8,7 @@ use stratum_common::roles_logic_sv2::{
     codec_sv2::binary_sv2::{Seq064K, B032, U256},
     common_messages_sv2::*,
     job_declaration_sv2::{ProvideMissingTransactionsSuccess, PushSolution, *},
-    parsers::AnyMessage,
+    parsers_sv2::AnyMessage,
 };
 
 // This test verifies that jd-server does not exit when a connected jd-client shuts down.
@@ -137,7 +137,7 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
     let submit_solution_replace = ReplaceMessage::new(
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-        AnyMessage::JobDeclaration(roles_logic_sv2::parsers::JobDeclaration::PushSolution(
+        AnyMessage::JobDeclaration(roles_logic_sv2::parsers_sv2::JobDeclaration::PushSolution(
             PushSolution {
                 ntime: 0,
                 nbits: 0,
@@ -218,7 +218,7 @@ async fn jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transa
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
         AnyMessage::JobDeclaration(
-            roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactionsSuccess(
+            roles_logic_sv2::parsers_sv2::JobDeclaration::ProvideMissingTransactionsSuccess(
                 ProvideMissingTransactionsSuccess {
                     request_id: 1,
                     transaction_list: Seq064K::new(Vec::new()).unwrap(),

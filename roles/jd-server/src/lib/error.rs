@@ -22,7 +22,7 @@ use std::{
 use stratum_common::roles_logic_sv2::{
     self,
     codec_sv2::{self, binary_sv2, noise_sv2},
-    parsers::Mining,
+    parsers_sv2::Mining,
 };
 
 use crate::mempool::error::JdsMempoolError;

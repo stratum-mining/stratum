@@ -6,7 +6,7 @@ use integration_tests_sv2::{
 use std::convert::TryInto;
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
-    parsers::{AnyMessage, CommonMessages},
+    parsers_sv2::{AnyMessage, CommonMessages},
     template_distribution_sv2::*,
 };
 

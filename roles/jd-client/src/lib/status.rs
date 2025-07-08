@@ -163,5 +163,6 @@ pub async fn handle_error(
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        Error::Parser(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
     }
 }

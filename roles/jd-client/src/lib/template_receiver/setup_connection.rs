@@ -11,7 +11,7 @@ use stratum_common::roles_logic_sv2::{
     codec_sv2::{StandardEitherFrame, StandardSv2Frame},
     common_messages_sv2::{Protocol, Reconnect, SetupConnection},
     handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
-    parsers::AnyMessage,
+    parsers_sv2::AnyMessage,
     utils::Mutex,
     Error,
 };

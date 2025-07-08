@@ -17,6 +17,7 @@ use stratum_common::roles_logic_sv2::{
     self,
     codec_sv2::{self, binary_sv2, framing_sv2},
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
+    parsers_sv2::ParserError,
 };
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
@@ -73,6 +74,7 @@ pub enum Error<'a> {
     // Channel Sender Errors
     ChannelErrorSender(ChannelSendError<'a>),
     Infallible(std::convert::Infallible),
+    Parser(ParserError),
 }
 
 impl fmt::Display for Error<'_> {
@@ -95,7 +97,14 @@ impl fmt::Display for Error<'_> {
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{e:?}`"),
             VecToSlice32(ref e) => write!(f, "Standard Error: `{e:?}`"),
             Infallible(ref e) => write!(f, "Infallible Error:`{e:?}`"),
+            Parser(ref e) => write!(f, "Parser error: `{e:?}`"),
         }
+    }
+}
+
+impl From<ParserError> for Error<'_> {
+    fn from(e: ParserError) -> Self {
+        Error::Parser(e)
     }
 }
 

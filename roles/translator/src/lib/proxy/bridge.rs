@@ -35,7 +35,7 @@ use stratum_common::roles_logic_sv2::{
     mining_sv2::{
         ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target,
     },
-    parsers::Mining,
+    parsers_sv2::Mining,
     utils::{GroupId, Mutex},
     Error as RolesLogicError,
 };

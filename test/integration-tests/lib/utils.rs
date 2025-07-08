@@ -20,7 +20,7 @@ use stratum_common::{
             framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame,
             Sv2Frame,
         },
-        parsers::{
+        parsers_sv2::{
             message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
             JobDeclaration::{
                 AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,

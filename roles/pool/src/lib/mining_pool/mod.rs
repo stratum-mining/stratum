@@ -54,7 +54,7 @@ use stratum_common::{
             ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
             MAX_EXTRANONCE_LEN,
         },
-        parsers::{AnyMessage, Mining},
+        parsers_sv2::{AnyMessage, Mining},
         template_distribution_sv2::{
             NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
         },
@@ -389,7 +389,7 @@ impl Downstream {
     /// This method is used to send message to downstream.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers::Mining<'static>,
+        message: roles_logic_sv2::parsers_sv2::Mining<'static>,
     ) -> PoolResult<()> {
         //let message = if let Mining::NewExtendedMiningJob(job) = message {
         //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)

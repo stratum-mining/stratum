@@ -14,7 +14,7 @@ use stratum_common::roles_logic_sv2::{
     self,
     codec_sv2::{self, binary_sv2, framing_sv2, Frame},
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
-    parsers::{AnyMessage, Mining},
+    parsers_sv2::{AnyMessage, Mining, ParserError},
     vardiff::error::VardiffError,
 };
 use v1::server_to_client::{Notify, SetDifficulty};
@@ -100,6 +100,7 @@ pub enum Error<'a> {
     #[allow(clippy::enum_variant_names)]
     TargetError(roles_logic_sv2::errors::Error),
     Sv1MessageTooLong,
+    Parser(ParserError),
 }
 
 impl fmt::Display for Error<'_> {
@@ -137,6 +138,7 @@ impl fmt::Display for Error<'_> {
             Sv1MessageTooLong => {
                 write!(f, "Received an sv1 message that is longer than max len")
             }
+            Parser(ref e) => write!(f, "Parser error: `{e:?}`"),
         }
     }
 }
@@ -144,6 +146,12 @@ impl fmt::Display for Error<'_> {
 impl From<binary_sv2::Error> for Error<'_> {
     fn from(e: binary_sv2::Error) -> Self {
         Error::BinarySv2(e)
+    }
+}
+
+impl From<ParserError> for Error<'_> {
+    fn from(e: ParserError) -> Self {
+        Error::Parser(e)
     }
 }
 

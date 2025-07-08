@@ -32,7 +32,7 @@ pub use rpc_sv2::Uri;
 use std::{ops::Sub, str::FromStr, sync::Arc};
 use stratum_common::roles_logic_sv2::{
     codec_sv2::{StandardEitherFrame, StandardSv2Frame},
-    parsers::AnyMessage as JdsMessages,
+    parsers_sv2::AnyMessage as JdsMessages,
     utils::Mutex,
 };
 use tokio::{select, task};

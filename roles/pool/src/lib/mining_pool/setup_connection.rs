@@ -15,7 +15,7 @@ use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{has_requires_std_job, SetupConnection, SetupConnectionSuccess},
     errors::Error,
     handlers::common::ParseCommonMessagesFromDownstream,
-    parsers::{AnyMessage, CommonMessages},
+    parsers_sv2::{AnyMessage, CommonMessages},
     utils::Mutex,
 };
 use tracing::{debug, error, info};

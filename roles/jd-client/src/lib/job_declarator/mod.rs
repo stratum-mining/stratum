@@ -30,7 +30,7 @@ use stratum_common::{
         handlers::SendTo_,
         job_declaration_sv2::{AllocateMiningJobTokenSuccess, PushSolution},
         mining_sv2::SubmitSharesExtended,
-        parsers::{AnyMessage, JobDeclaration},
+        parsers_sv2::{AnyMessage, JobDeclaration},
         template_distribution_sv2::SetNewPrevHash,
         utils::{deserialize_template_outputs, Mutex},
     },

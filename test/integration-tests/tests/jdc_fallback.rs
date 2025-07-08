@@ -6,7 +6,7 @@ use std::convert::TryInto;
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::*,
     mining_sv2::{SubmitSharesError, *},
-    parsers::{AnyMessage, Mining},
+    parsers_sv2::{AnyMessage, Mining},
 };
 
 // Tests whether JDC will switch to a new pool after receiving a `SubmitSharesError` message from

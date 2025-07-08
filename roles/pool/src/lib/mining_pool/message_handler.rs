@@ -24,7 +24,7 @@ use stratum_common::roles_logic_sv2::{
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     mining_sv2::*,
-    parsers::Mining,
+    parsers_sv2::Mining,
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
     VardiffState,

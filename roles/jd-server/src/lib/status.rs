@@ -8,7 +8,7 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
-use stratum_common::roles_logic_sv2::parsers::Mining;
+use stratum_common::roles_logic_sv2::parsers_sv2::Mining;
 
 use super::error::JdsError;
 

@@ -48,7 +48,7 @@ use stratum_common::{
             ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
             SetNewPrevHash, SubmitSharesExtended,
         },
-        parsers::Mining,
+        parsers_sv2::Mining,
         utils::Mutex,
         Error as RolesLogicError,
         Error::NoUpstreamsConnected,
@@ -542,7 +542,7 @@ impl Upstream {
                 sv2_submit.job_id = handle_result!(tx_status, handle_result!(tx_status, job_id));
 
                 let message = Message::Mining(
-                    roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
+                    roles_logic_sv2::parsers_sv2::Mining::SubmitSharesExtended(sv2_submit),
                 );
 
                 let frame: StdFrame = handle_result!(tx_status, message.try_into());

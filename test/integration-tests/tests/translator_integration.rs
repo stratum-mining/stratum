@@ -3,7 +3,7 @@ use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::*,
     mining_sv2::*,
-    parsers::{AnyMessage, CommonMessages, Mining},
+    parsers_sv2::{AnyMessage, CommonMessages, Mining},
 };
 
 // This test runs an sv2 translator between an sv1 mining device and a pool. the connection between

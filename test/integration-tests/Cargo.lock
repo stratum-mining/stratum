@@ -1667,6 +1667,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsers_sv2"
+version = "0.1.0"
+dependencies = [
+ "codec_sv2",
+ "common_messages_sv2",
+ "job_declaration_sv2",
+ "mining_sv2",
+ "template_distribution_sv2",
+]
+
+[[package]]
 name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1967,6 +1978,7 @@ dependencies = [
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",
+ "parsers_sv2",
  "primitive-types",
  "template_distribution_sv2",
  "tracing",

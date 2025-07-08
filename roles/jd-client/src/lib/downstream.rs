@@ -41,7 +41,7 @@ use stratum_common::roles_logic_sv2::{
     },
     job_creator::JobsCreators,
     mining_sv2::*,
-    parsers::{AnyMessage, Mining, MiningDeviceMessages},
+    parsers_sv2::{AnyMessage, Mining, MiningDeviceMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
@@ -1054,7 +1054,7 @@ pub async fn listen_for_downstream_mining(
                     payload,
                 ) {
                     let message = match message {
-                        roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
+                        roles_logic_sv2::parsers_sv2::CommonMessages::SetupConnectionSuccess(m) => m,
                         _ => panic!(),
                     };
 
