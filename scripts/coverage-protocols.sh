@@ -24,6 +24,7 @@ crates=(
   "v2/subprotocols/job-declaration"
   "v2/sv2-ffi"
   "v2/roles-logic-sv2"
+  "v2/parsers-sv2"
 )
 
 for crate in "${crates[@]}"; do

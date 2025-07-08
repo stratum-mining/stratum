@@ -91,6 +91,11 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/channels-sv2
 
+      # parsers_sv2 (depends on binary_sv2, framing_sv2, common_messages, mining, template_distribution, job_declaration)
+      - name: Publish crate parsers_sv2
+        run: |
+          ./scripts/release-libs.sh protocols/v2/parsers-sv2
+
       # sv1_api (depends on binary_sv2)
       - name: Publish crate v1
         run: |

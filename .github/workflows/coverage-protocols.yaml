@@ -93,6 +93,14 @@ jobs:
           flags: noise_sv2-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Upload parsers_sv2-coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./protocols/target/tarpaulin-reports/parsers-sv2-coverage
+          file: ./protocols/target/tarpaulin-reports/parsers-sv2-coverage/cobertura.xml
+          flags: parsers_sv2-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload roles_logic_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:

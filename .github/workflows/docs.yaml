@@ -54,6 +54,11 @@ jobs:
           cd protocols/v2/channels-sv2
           cargo doc
 
+      - name: Rust Docs crate parsers_sv2
+        run: |
+          cd protocols/v2/parsers-sv2
+          cargo doc
+
       - name: Rust Docs crate framing_sv2
         run: |
           cd protocols/v2/framing-sv2
