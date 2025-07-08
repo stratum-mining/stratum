@@ -1,4 +1,5 @@
 pub mod noise_connection;
+pub mod noise_stream;
 pub mod plain_connection;
 #[cfg(feature = "sv1")]
 pub mod sv1_connection;
