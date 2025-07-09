@@ -535,7 +535,7 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
 name = "common_messages_sv2"
-version = "5.1.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
 ]
@@ -835,7 +835,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "framing_sv2"
-version = "5.1.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
