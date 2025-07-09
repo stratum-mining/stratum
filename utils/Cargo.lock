@@ -323,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "5.1.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
 ]
@@ -511,7 +511,7 @@ dependencies = [
 
 [[package]]
 name = "framing_sv2"
-version = "5.1.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
