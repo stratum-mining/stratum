@@ -184,6 +184,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
+    /// Provides with the amount of bytes to read.
+    pub fn writable_len(&self) -> usize {
+        self.missing_noise_b
+    }
+
     /// Provides a writable buffer for receiving incoming Noise-encrypted Sv2 data.
     ///
     /// This buffer is used to store incoming data, and its size is adjusted based on the number
