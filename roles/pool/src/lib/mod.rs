@@ -71,7 +71,7 @@ impl PoolSv2 {
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
 
         // Prepare coinbase output information required by TemplateRx.
-        let coinbase_output_result = get_coinbase_output(&config)?;
+        let coinbase_output_result = get_coinbase_output(&config);
         let coinbase_output_len = coinbase_output_result
             .iter()
             .map(|output| output.size() as u32)
@@ -209,35 +209,6 @@ impl PoolSv2 {
 mod tests {
     use super::*;
     use ext_config::{Config, File, FileFormat};
-
-    #[tokio::test]
-    async fn pool_bad_coinbase_output() {
-        let invalid_coinbase_output = vec![config_helpers::CoinbaseOutput::new(
-            "P2PK".to_string(),
-            "wrong".to_string(),
-        )];
-        let config_path = "config-examples/pool-config-hosted-tp-example.toml";
-        let mut config: PoolConfig = match Config::builder()
-            .add_source(File::new(config_path, FileFormat::Toml))
-            .build()
-        {
-            Ok(settings) => match settings.try_deserialize::<PoolConfig>() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Failed to deserialize config: {}", e);
-                    return;
-                }
-            },
-            Err(e) => {
-                error!("Failed to build config: {}", e);
-                return;
-            }
-        };
-        config.set_coinbase_outputs(invalid_coinbase_output);
-        let pool = PoolSv2::new(config);
-        let result = pool.start().await;
-        assert!(result.is_err());
-    }
 
     #[tokio::test]
     async fn shutdown_pool() {

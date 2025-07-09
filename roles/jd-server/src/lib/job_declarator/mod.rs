@@ -31,10 +31,7 @@ use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
     roles_logic_sv2::{
         self,
-        bitcoin::{
-            consensus::{encode::serialize, Encodable},
-            Block, Transaction, Txid,
-        },
+        bitcoin::{consensus::encode::serialize, Block, Transaction, Txid},
         codec_sv2::{
             binary_sv2,
             binary_sv2::{B0255, U256},
@@ -121,7 +118,6 @@ impl JobDeclaratorDownstream {
         mempool: Arc<Mutex<JDsMempool>>,
         sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
     ) -> Self {
-        let mut coinbase_output = vec![];
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
         let tokens = Id::new();
@@ -129,11 +125,7 @@ impl JobDeclaratorDownstream {
             known_transactions: vec![],
             unknown_transactions: vec![],
         };
-        config
-            .get_txout()
-            .expect("Invalid coinbase output in config")
-            .consensus_encode(&mut coinbase_output)
-            .expect("Invalid coinbase output in config");
+        let coinbase_output = serialize(&config.get_txout());
 
         Self {
             full_template_mode_required,

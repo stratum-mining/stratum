@@ -26,7 +26,6 @@ use super::{
     status,
 };
 use async_channel::{Receiver, Sender};
-use config_helpers::CoinbaseOutputError;
 use error_handling::handle_result;
 use key_utils::SignatureService;
 use nohash_hasher::BuildNoHashHasher;
@@ -42,7 +41,7 @@ use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
     roles_logic_sv2::{
         self,
-        bitcoin::{Amount, ScriptBuf, TxOut},
+        bitcoin::{Amount, TxOut},
         channels::server::{
             extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
         },
@@ -85,19 +84,15 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// It iterates through the configured outputs, attempts to convert them into the
 /// internal `CoinbaseOutput_` representation and then into `bitcoin::ScriptBuf`.
 /// Sets the value to 0 sats as per SV2 pool requirements (actual value determined later)
-pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, CoinbaseOutputError> {
-    let mut result = Vec::new();
-    for coinbase_output_pool in config.coinbase_outputs() {
-        let output_script: ScriptBuf = coinbase_output_pool.clone().try_into()?;
-        result.push(TxOut {
+pub fn get_coinbase_output(config: &PoolConfig) -> Vec<TxOut> {
+    config
+        .coinbase_outputs()
+        .iter()
+        .map(|out| TxOut {
             value: Amount::from_sat(0),
-            script_pubkey: output_script,
-        });
-    }
-    match result.is_empty() {
-        true => Err(CoinbaseOutputError::EmptyCoinbaseOutputs),
-        _ => Ok(result),
-    }
+            script_pubkey: out.script_pubkey().to_owned(),
+        })
+        .collect()
 }
 
 /// Represents a single connection to a downstream miner.
@@ -1026,7 +1021,7 @@ impl Pool {
             config,
             recv_stop_signal,
             shares_per_minute,
-            pool_coinbase_outputs.expect("Invalid coinbase output in config"),
+            pool_coinbase_outputs,
         )
         .await
         {
@@ -1310,7 +1305,7 @@ mod test {
         let _coinbase_tx_value_remaining: u64 = 625000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config).unwrap();
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config);
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 

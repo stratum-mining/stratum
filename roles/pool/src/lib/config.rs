@@ -22,6 +22,8 @@ pub struct PoolConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
+    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
+    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
     coinbase_outputs: Vec<CoinbaseOutput>,
     pool_signature: String,
     shares_per_minute: f32,
@@ -31,6 +33,10 @@ pub struct PoolConfig {
 
 impl PoolConfig {
     /// Creates a new instance of the [`PoolConfig`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `coinbase_outputs` is empty.
     pub fn new(
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
@@ -39,6 +45,10 @@ impl PoolConfig {
         shares_per_minute: f32,
         share_batch_size: usize,
     ) -> Self {
+        assert!(
+            !coinbase_outputs.is_empty(),
+            "set of coinbase outputs must be nonempty"
+        );
         Self {
             listen_address: pool_connection.listen_address,
             tp_address: template_provider.address,

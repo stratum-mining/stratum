@@ -56,6 +56,8 @@ pub struct JobDeclaratorClientConfig {
     timeout: Duration,
     /// A list of coinbase outputs to be included in the block templates.
     /// This is only used during solo-mining.
+    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
+    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
     coinbase_outputs: Vec<CoinbaseOutput>,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
@@ -65,6 +67,10 @@ pub struct JobDeclaratorClientConfig {
 
 impl JobDeclaratorClientConfig {
     /// Creates a new instance of [`JobDeclaratorClientConfig`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `protocol_config.coinbase_outputs` is empty.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         listening_address: SocketAddr,
@@ -76,6 +82,10 @@ impl JobDeclaratorClientConfig {
         timeout: Duration,
         jdc_signature: String,
     ) -> Self {
+        assert!(
+            !protocol_config.coinbase_outputs.is_empty(),
+            "set of coinbase outputs must be nonempty"
+        );
         Self {
             listening_address,
             max_supported_version: protocol_config.max_supported_version,
@@ -156,19 +166,14 @@ impl JobDeclaratorClientConfig {
         &self.jdc_signature
     }
 
-    pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
-        let mut result = Vec::new();
-        for coinbase_output_pool in &self.coinbase_outputs {
-            let output_script = coinbase_output_pool.clone().try_into()?;
-            result.push(TxOut {
+    pub fn get_txout(&self) -> Vec<TxOut> {
+        self.coinbase_outputs
+            .iter()
+            .map(|out| TxOut {
                 value: Amount::from_sat(0),
-                script_pubkey: output_script,
-            });
-        }
-        match result.is_empty() {
-            true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
-            _ => Ok(result),
-        }
+                script_pubkey: out.script_pubkey().to_owned(),
+            })
+            .collect()
     }
 
     pub fn log_file(&self) -> Option<&Path> {

@@ -15,7 +15,6 @@ use config_helpers::CoinbaseOutput;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
-    convert::TryInto,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -29,6 +28,8 @@ pub struct JobDeclaratorServerConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
+    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
+    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
     coinbase_outputs: Vec<CoinbaseOutput>,
     core_rpc_url: String,
     core_rpc_port: u16,
@@ -41,6 +42,10 @@ pub struct JobDeclaratorServerConfig {
 
 impl JobDeclaratorServerConfig {
     /// Creates a new instance of [`JobDeclaratorServerConfig`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `coinbase_outputs` is empty.
     pub fn new(
         listen_jd_address: String,
         authority_public_key: Secp256k1PublicKey,
@@ -50,6 +55,10 @@ impl JobDeclaratorServerConfig {
         core_rpc: CoreRpc,
         mempool_update_interval: Duration,
     ) -> Self {
+        assert!(
+            !coinbase_outputs.is_empty(),
+            "cannot have empty coinbase outputs array"
+        );
         Self {
             full_template_mode_required: true,
             listen_jd_address,
@@ -135,19 +144,14 @@ impl JobDeclaratorServerConfig {
         self.coinbase_outputs = outputs;
     }
 
-    pub fn get_txout(&self) -> Result<Vec<TxOut>, config_helpers::CoinbaseOutputError> {
-        let mut result = Vec::new();
-        for coinbase_output_pool in &self.coinbase_outputs {
-            let output_script = coinbase_output_pool.clone().try_into()?;
-            result.push(TxOut {
+    pub fn get_txout(&self) -> Vec<TxOut> {
+        self.coinbase_outputs
+            .iter()
+            .map(|out| TxOut {
                 value: Amount::from_sat(0),
-                script_pubkey: output_script,
-            });
-        }
-        match result.is_empty() {
-            true => Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs),
-            _ => Ok(result),
-        }
+                script_pubkey: out.script_pubkey().to_owned(),
+            })
+            .collect()
     }
     pub fn log_file(&self) -> Option<&Path> {
         self.log_file.as_deref()
@@ -185,12 +189,33 @@ impl CoreRpc {
 #[cfg(test)]
 mod tests {
     use super::super::JobDeclaratorServer;
-    use config_helpers::CoinbaseOutput;
-    use ext_config::{Config, File, FileFormat};
-    use std::{convert::TryInto, path::PathBuf};
-    use stratum_common::roles_logic_sv2::bitcoin::{Amount, ScriptBuf, TxOut};
+    use ext_config::{Config, ConfigError, File, FileFormat};
+    use std::path::PathBuf;
+    use stratum_common::roles_logic_sv2::bitcoin::{self, Amount, ScriptBuf, TxOut};
 
     use crate::config::JobDeclaratorServerConfig;
+
+    const COINBASE_CONFIG_TEMPLATE: &'static str = r#"
+        full_template_mode_required = true
+        authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+        authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+        cert_validity_sec = 3600
+
+        coinbase_outputs = %COINBASE_OUTPUTS%
+
+        listen_jd_address = "127.0.0.1:34264"
+        core_rpc_url =  "http://127.0.0.1"
+        core_rpc_port = 48332
+        core_rpc_user =  "username"
+        core_rpc_pass =  "password"
+        [mempool_update_interval]
+        unit = "secs"
+        value = 1
+    "#;
+    const TEST_PK_HEX: &'static str =
+        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075";
+    const TEST_INVALID_PK_HEX: &'static str =
+        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7ffffff";
 
     fn load_config(path: &str) -> JobDeclaratorServerConfig {
         let config_path = PathBuf::from(path);
@@ -210,6 +235,16 @@ mod tests {
         settings.try_deserialize().expect("Failed to parse config")
     }
 
+    fn load_coinbase_config_str(path: &str) -> Result<JobDeclaratorServerConfig, ConfigError> {
+        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_OUTPUTS%", path);
+        let settings = Config::builder()
+            .add_source(File::from_str(&s, FileFormat::Toml))
+            .build()
+            .expect("Failed to build config");
+
+        settings.try_deserialize()
+    }
+
     #[tokio::test]
     async fn test_offline_rpc_url() {
         let mut config = load_config("config-examples/jds-config-hosted-example.toml");
@@ -220,15 +255,20 @@ mod tests {
 
     #[test]
     fn test_get_txout_non_empty() {
-        let config = load_config("config-examples/jds-config-hosted-example.toml");
-        let outputs = config.get_txout().expect("Failed to get coinbase output");
+        let pk = TEST_PK_HEX
+            .parse::<bitcoin::PublicKey>()
+            .expect("Failed to parse public key");
+        let config = load_coinbase_config_str(&format!(
+            "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{pk}\" }} ]"
+        ))
+        .expect("Failed to parse config");
 
-        let expected_output = CoinbaseOutput {
-            output_script_type: "P2WPKH".to_string(),
-            output_script_value:
-                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        };
-        let expected_script: ScriptBuf = expected_output.try_into().unwrap();
+        let outputs = config.get_txout();
+        let expected_script = ScriptBuf::from_hex(&format!(
+            "0014{}",
+            pk.wpubkey_hash().expect("compressed key")
+        ))
+        .expect("hex");
         let expected_transaction_output = TxOut {
             value: Amount::from_sat(0),
             script_pubkey: expected_script,
@@ -239,74 +279,41 @@ mod tests {
 
     #[test]
     fn test_get_txout_empty() {
-        let mut config = load_config("config-examples/jds-config-hosted-example.toml");
-        config.set_coinbase_outputs(Vec::new());
-
-        let result = &config.get_txout();
-        assert!(
-            matches!(
-                result,
-                Err(config_helpers::CoinbaseOutputError::EmptyCoinbaseOutputs)
-            ),
-            "Expected an error for empty coinbase outputs"
+        let error =
+            load_coinbase_config_str("[]").expect_err("cannot parse config with empty list");
+        assert_eq!(
+            error.to_string(),
+            "invalid length 0, expected a list with exactly one coinbase output, or a single descriptor string",
         );
     }
 
     #[test]
-    fn test_try_from_valid_input() {
-        let input = config_helpers::CoinbaseOutput::new(
-            "P2PKH".to_string(),
-            "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        );
-        let result: Result<ScriptBuf, _> = input.try_into();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_try_from_invalid_input() {
-        let input = config_helpers::CoinbaseOutput::new(
-            "INVALID".to_string(),
-            "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        );
-        let result: Result<ScriptBuf, _> = input.try_into();
-        assert!(matches!(
-            result,
-            Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
-        ));
-    }
-
-    #[test]
-    fn get_txout_invalid_output_script_type() {
-        let mut config = load_config("config-examples/jds-config-hosted-example.toml");
-        config.set_coinbase_outputs(vec![config_helpers::CoinbaseOutput::new(
-            "INVALID".to_string(),
-            "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        )]);
-        let outputs = config.get_txout();
-        assert!(
-            matches!(
-                outputs,
-                Err(config_helpers::CoinbaseOutputError::UnknownOutputScriptType)
-            ),
-            "Expected an error for unknown output script type"
+    fn test_get_txout_invalid_script_type() {
+        // This error message was introduced in https://github.com/stratum-mining/stratum/pull/1720
+        // as part of a change to allow Vec or non-Vec coinbase output lists to be parsed. We
+        // have https://github.com/stratum-mining/stratum/issues/1793 to track improving it.
+        let error = load_coinbase_config_str(&format!(
+            "[ {{ output_script_type = \"INVALID\", output_script_value = \"{TEST_PK_HEX}\" }} ]"
+        ))
+        .expect_err("Cannot parse config with bad script type");
+        assert_eq!(
+            error.to_string(),
+            "could not parse descriptor string (or old-style list format)",
         );
     }
 
     #[test]
-    fn get_txout_supported_output_script_types() {
-        let config = load_config("config-examples/jds-config-hosted-example.toml");
-        let outputs = config.get_txout().expect("Failed to get coinbase output");
-        let expected_output = CoinbaseOutput {
-            output_script_type: "P2WPKH".to_string(),
-            output_script_value:
-                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
-        };
-        let expected_script: ScriptBuf = expected_output.try_into().unwrap();
-        let expected_transaction_output = TxOut {
-            value: Amount::from_sat(0),
-            script_pubkey: expected_script,
-        };
-
-        assert_eq!(outputs[0], expected_transaction_output);
+    fn test_get_txout_invalid_value() {
+        // This error message was introduced in https://github.com/stratum-mining/stratum/pull/1720
+        // as part of a change to allow Vec or non-Vec coinbase output lists to be parsed. We
+        // have https://github.com/stratum-mining/stratum/issues/1793 to track improving it.
+        let error = load_coinbase_config_str(&format!(
+            "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{TEST_INVALID_PK_HEX}\" }} ]"
+        ))
+        .expect_err("Cannot parse config with bad pubkeys");
+        assert_eq!(
+            error.to_string(),
+            "could not parse descriptor string (or old-style list format)",
+        );
     }
 }
