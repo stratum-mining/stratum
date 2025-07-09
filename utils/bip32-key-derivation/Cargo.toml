@@ -20,7 +20,7 @@ name = "bip32_derivation-bin"
 path = "src/main.rs"
 
 [dependencies]
-stratum-common = { path = "../../common" }
+stratum-common = { path = "../../common", version = "3.0.0" }
 
 
 [dev-dependencies]
