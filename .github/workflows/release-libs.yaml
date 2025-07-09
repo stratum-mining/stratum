@@ -29,38 +29,47 @@ jobs:
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
 
-      - name: Publish crate common
-        run: |
-          ./scripts/release-libs.sh common
-
+      # Base dependencies with no local dependencies
       - name: Publish crate buffer_sv2
         run: |
           ./scripts/release-libs.sh utils/buffer
 
-      - name: Publish crate binary_sv2 derive_codec
+      - name: Publish crate error-handling
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/derive_codec
+          ./scripts/release-libs.sh utils/error-handling
 
-      - name: Publish crate binary_sv2 codec
+      - name: Publish crate key-utils
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/codec
-
-      - name: Publish crate binary_sv2
-        run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2
-
-      - name: Publish crate framing_sv2
-        run: |
-          ./scripts/release-libs.sh protocols/v2/framing-sv2
+          ./scripts/release-libs.sh utils/key-utils
 
       - name: Publish crate noise_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/noise-sv2
 
+      # binary_sv2 (depends on buffer_sv2)
+      - name: Publish crate binary_sv2 codec
+        run: |
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/codec
+
+      - name: Publish crate binary_sv2 derive_codec
+        run: |
+          ./scripts/release-libs.sh protocols/v2/binary-sv2/derive_codec
+
+      - name: Publish crate binary_sv2
+        run: |
+          ./scripts/release-libs.sh protocols/v2/binary-sv2
+
+      # framing_sv2(depends on binary_sv2, buffer_sv2, noise_sv2)
+      - name: Publish crate framing_sv2
+        run: |
+          ./scripts/release-libs.sh protocols/v2/framing-sv2
+
+      # codec_sv2 (depends on framing_sv2, noise_sv2, binary_sv2, buffer_sv2, key-utils)
       - name: Publish crate codec_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/codec-sv2
 
+      # Subprotocols (depend on binary_sv2)
       - name: Publish crate common_messages
         run: |
           ./scripts/release-libs.sh protocols/v2/subprotocols/common-messages
@@ -77,33 +86,35 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/subprotocols/template-distribution
 
-      - name: Publish crate sv2_ffi
-        run: |
-          ./scripts/release-libs.sh protocols/v2/sv2-ffi
-
-      - name: Publish crate roles_logic_sv2
-        run: |
-          ./scripts/release-libs.sh protocols/v2/roles-logic-sv2
-
+      # sv1_api (depends on binary_sv2)
       - name: Publish crate v1
         run: |
           ./scripts/release-libs.sh protocols/v1
 
-      - name: Publish crate bip32-key-derivation
+      # sv2_ffi (depends on codec_sv2, binary_sv2, common_messages, template_distribution)
+      - name: Publish crate sv2_ffi
         run: |
-          ./scripts/release-libs.sh utils/bip32-key-derivation
+          ./scripts/release-libs.sh protocols/v2/sv2-ffi
 
-      - name: Publish crate error-handling
+      # Roles logic (depends on codec_sv2 and subprotocols)
+      - name: Publish crate roles_logic_sv2
         run: |
-          ./scripts/release-libs.sh utils/error-handling
+          ./scripts/release-libs.sh protocols/v2/roles-logic-sv2
 
-      - name: Publish crate key-utils
-        run: |
-          ./scripts/release-libs.sh utils/key-utils
-
+      # Network helpers (depends on codec_sv2, sv1_api)
       - name: Publish crate network_helpers_sv2
         run: |
           ./scripts/release-libs.sh roles/roles-utils/network-helpers
+
+      # Common (depends on roles_logic_sv2 and network_helpers_sv2)
+      - name: Publish crate common
+        run: |
+          ./scripts/release-libs.sh common
+
+      # Utilities that depend on stratum-common
+      - name: Publish crate bip32-key-derivation
+        run: |
+          ./scripts/release-libs.sh utils/bip32-key-derivation
 
       - name: Publish crate rpc_sv2
         run: |
