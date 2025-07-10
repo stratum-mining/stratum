@@ -81,18 +81,12 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// Parses the coinbase output configurations from the [`PoolConfig`] and converts them
 /// into `bitcoin::TxOut` objects required by the pool logic.
 ///
-/// It iterates through the configured outputs, attempts to convert them into the
-/// internal `CoinbaseOutput_` representation and then into `bitcoin::ScriptBuf`.
 /// Sets the value to 0 sats as per SV2 pool requirements (actual value determined later)
 pub fn get_coinbase_output(config: &PoolConfig) -> Vec<TxOut> {
-    config
-        .coinbase_outputs()
-        .iter()
-        .map(|out| TxOut {
-            value: Amount::from_sat(0),
-            script_pubkey: out.script_pubkey().to_owned(),
-        })
-        .collect()
+    vec![TxOut {
+        value: Amount::from_sat(0),
+        script_pubkey: config.coinbase_output().script_pubkey().into(),
+    }]
 }
 
 /// Represents a single connection to a downstream miner.
