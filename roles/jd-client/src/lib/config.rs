@@ -6,7 +6,7 @@
 //! of the main configuration.
 
 #![allow(dead_code)]
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
@@ -58,7 +58,7 @@ pub struct JobDeclaratorClientConfig {
     /// This is only used during solo-mining.
     #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
     #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_outputs: Vec<CoinbaseRewardScript>,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
     /// The path to the log file where JDC will write logs.
@@ -237,7 +237,7 @@ pub struct ProtocolConfig {
     // The minimum supported SV2 protocol version.
     min_supported_version: u16,
     // A list of coinbase outputs to be included in block templates.
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_outputs: Vec<CoinbaseRewardScript>,
 }
 
 impl ProtocolConfig {
@@ -245,7 +245,7 @@ impl ProtocolConfig {
     pub fn new(
         max_supported_version: u16,
         min_supported_version: u16,
-        coinbase_outputs: Vec<CoinbaseOutput>,
+        coinbase_outputs: Vec<CoinbaseRewardScript>,
     ) -> Self {
         Self {
             max_supported_version,

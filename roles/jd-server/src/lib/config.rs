@@ -11,7 +11,7 @@
 //!
 //! Also defines a helper struct [`CoreRpc`] to group RPC parameters.
 
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
@@ -30,7 +30,7 @@ pub struct JobDeclaratorServerConfig {
     cert_validity_sec: u64,
     #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
     #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_outputs: Vec<CoinbaseRewardScript>,
     core_rpc_url: String,
     core_rpc_port: u16,
     core_rpc_user: String,
@@ -51,7 +51,7 @@ impl JobDeclaratorServerConfig {
         authority_public_key: Secp256k1PublicKey,
         authority_secret_key: Secp256k1SecretKey,
         cert_validity_sec: u64,
-        coinbase_outputs: Vec<CoinbaseOutput>,
+        coinbase_outputs: Vec<CoinbaseRewardScript>,
         core_rpc: CoreRpc,
         mempool_update_interval: Duration,
     ) -> Self {
@@ -111,7 +111,7 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Returns the coinbase outputs.
-    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseOutput> {
+    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseRewardScript> {
         &self.coinbase_outputs
     }
 
@@ -140,7 +140,7 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Sets coinbase outputs.
-    pub fn set_coinbase_outputs(&mut self, outputs: Vec<CoinbaseOutput>) {
+    pub fn set_coinbase_outputs(&mut self, outputs: Vec<CoinbaseRewardScript>) {
         self.coinbase_outputs = outputs;
     }
 
