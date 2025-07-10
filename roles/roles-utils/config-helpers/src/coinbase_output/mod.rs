@@ -120,17 +120,21 @@ mod tests {
     fn fixed_vector_addr() {
         // Valid
         assert_eq!(
-            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe8")
-                .unwrap()
-                .script_pubkey()
-                .to_hex_string(),
+            CoinbaseRewardScript::from_descriptor(
+                "addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe8"
+            )
+            .unwrap()
+            .script_pubkey()
+            .to_hex_string(),
             "76a91477bff20c60e522dfaa3350c39b030a5d004e839a88ac",
         );
         assert_eq!(
-            CoinbaseRewardScript::from_descriptor("addr(3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy)#rsjl0crt")
-                .unwrap()
-                .script_pubkey()
-                .to_hex_string(),
+            CoinbaseRewardScript::from_descriptor(
+                "addr(3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy)#rsjl0crt"
+            )
+            .unwrap()
+            .script_pubkey()
+            .to_hex_string(),
             "a914b472a266d0bd89c13706a4132ccfb16f7c3b9fcb87",
         );
         assert_eq!(
@@ -175,18 +179,22 @@ mod tests {
             "Miniscript: Invalid descriptor: Invalid checksum '', expected 'wdnlkpe8'",
         );
         assert_eq!(
-            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe7")
-                .unwrap_err()
-                .to_string(),
+            CoinbaseRewardScript::from_descriptor(
+                "addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe7"
+            )
+            .unwrap_err()
+            .to_string(),
             "Miniscript: Invalid descriptor: Invalid checksum 'wdnlkpe7', expected 'wdnlkpe8'",
         );
         // Bad base58ck checksum even though the descriptor checksum is OK. Note that rust-bitcoin
         // 0.32 interprets bad bech32 checksums as "base58 errors" because it doessn't know
         // what encoding an invalid string is supposed to have. See https://github.com/rust-bitcoin/rust-bitcoin/issues/3044
         assert_eq!(
-            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3)#5v55uzec")
-                .unwrap_err()
-                .to_string(),
+            CoinbaseRewardScript::from_descriptor(
+                "addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3)#5v55uzec"
+            )
+            .unwrap_err()
+            .to_string(),
             "Bitcoin address: base58 error",
         );
         assert_eq!(
