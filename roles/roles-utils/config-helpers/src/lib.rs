@@ -1,7 +1,7 @@
 use serde::{Deserialize, Deserializer};
 
 mod coinbase_output;
-pub use coinbase_output::{CoinbaseOutput, Error as CoinbaseOutputError};
+pub use coinbase_output::{CoinbaseRewardScript, Error as CoinbaseOutputError};
 
 pub mod logging;
 
@@ -17,7 +17,7 @@ pub use toml::duration_from_toml;
 /// as a first step in transitioning the `coinbase_outputs` field of various configuration
 /// files away from a vector toward a single object. As part of a larger refactoring, it
 /// should be changed to return a single [`CoinbaseOutput`] directly.
-pub fn deserialize_vec_exactly_1<'de, D>(d: D) -> Result<Vec<CoinbaseOutput>, D::Error>
+pub fn deserialize_vec_exactly_1<'de, D>(d: D) -> Result<Vec<CoinbaseRewardScript>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -27,8 +27,8 @@ where
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum Helper {
-        Single(CoinbaseOutput),
-        Vec(Vec<CoinbaseOutput>),
+        Single(CoinbaseRewardScript),
+        Vec(Vec<CoinbaseRewardScript>),
     }
 
     match Helper::deserialize(d) {

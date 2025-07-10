@@ -13,13 +13,13 @@ pub use errors::Error;
 /// Typically used for parsing coinbase outputs defined in SRI role configuration files.
 #[derive(Debug, serde::Deserialize, Clone)]
 #[serde(try_from = "serde_types::SerdeCoinbaseOutput")]
-pub struct CoinbaseOutput {
+pub struct CoinbaseRewardScript {
     script_pubkey: ScriptBuf,
     ok_for_mainnet: bool,
 }
 
-impl CoinbaseOutput {
-    /// Creates a new [`CoinbaseOutput`] from a descriptor string.
+impl CoinbaseRewardScript {
+    /// Creates a new [`CoinbaseRewardScript`] from a descriptor string.
     pub fn from_descriptor(mut s: &str) -> Result<Self, Error> {
         // Taproot descriptors cannot be parsed with `expression::Tree::from_str` and
         // need special handling. So we special-case them early and just pass to
@@ -120,21 +120,21 @@ mod tests {
     fn fixed_vector_addr() {
         // Valid
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe8")
+            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe8")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
             "76a91477bff20c60e522dfaa3350c39b030a5d004e839a88ac",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy)#rsjl0crt")
+            CoinbaseRewardScript::from_descriptor("addr(3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy)#rsjl0crt")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
             "a914b472a266d0bd89c13706a4132ccfb16f7c3b9fcb87",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor(
+            CoinbaseRewardScript::from_descriptor(
                 "addr(bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4)#uyjndxcw"
             )
             .unwrap()
@@ -143,7 +143,7 @@ mod tests {
             "0014751e76e8199196d454941c45d1b3a323f1433bd6",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor(
+            CoinbaseRewardScript::from_descriptor(
                 "addr(bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3)#8kzm8txf"
             )
             .unwrap()
@@ -153,14 +153,14 @@ mod tests {
         );
         // no checksum is ok
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)")
+            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
             "76a91477bff20c60e522dfaa3350c39b030a5d004e839a88ac",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2,)")
+            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2,)")
                 .unwrap_err()
                 .to_string(),
             "Found addr() descriptor with 2 children; must be exactly one valid address",
@@ -169,13 +169,13 @@ mod tests {
         // Invalid
         // But empty checksum is not (in Miniscript 13 these error messages will be cleaner)
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#")
+            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#")
                 .unwrap_err()
                 .to_string(),
             "Miniscript: Invalid descriptor: Invalid checksum '', expected 'wdnlkpe8'",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe7")
+            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)#wdnlkpe7")
                 .unwrap_err()
                 .to_string(),
             "Miniscript: Invalid descriptor: Invalid checksum 'wdnlkpe7', expected 'wdnlkpe8'",
@@ -184,13 +184,13 @@ mod tests {
         // 0.32 interprets bad bech32 checksums as "base58 errors" because it doessn't know
         // what encoding an invalid string is supposed to have. See https://github.com/rust-bitcoin/rust-bitcoin/issues/3044
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3)#5v55uzec")
+            CoinbaseRewardScript::from_descriptor("addr(1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3)#5v55uzec")
                 .unwrap_err()
                 .to_string(),
             "Bitcoin address: base58 error",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor(
+            CoinbaseRewardScript::from_descriptor(
                 "addr(bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t3)#wfr7lfxf"
             )
             .unwrap_err()
@@ -199,32 +199,32 @@ mod tests {
         );
         // Flagrantly bad stuff -- should probably PR these upstream to rust-miniscript.
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr()")
+            CoinbaseRewardScript::from_descriptor("addr()")
                 .unwrap_err()
                 .to_string(),
             "Bitcoin address: base58 error",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(It's a mad mad world!?! 🙃)")
+            CoinbaseRewardScript::from_descriptor("addr(It's a mad mad world!?! 🙃)")
                 .unwrap_err()
                 .to_string(),
             "Miniscript: unprintable character 0xf0",
         );
         // This error is just wrong lol. Fixed in Miniscript 13.
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(It's a mad mad world!?! 🙃)#abcdefg")
+            CoinbaseRewardScript::from_descriptor("addr(It's a mad mad world!?! 🙃)#abcdefg")
                 .unwrap_err()
                 .to_string(),
             "Miniscript: Invalid descriptor: Invalid character in checksum: '🙃'",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(It's a mad mad world!?!)#hmeprl29")
+            CoinbaseRewardScript::from_descriptor("addr(It's a mad mad world!?!)#hmeprl29")
                 .unwrap_err()
                 .to_string(),
             "Bitcoin address: base58 error",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("addr(It's a mad mad world!?!)#🙃🙃🙃🙃🙃🙃")
+            CoinbaseRewardScript::from_descriptor("addr(It's a mad mad world!?!)#🙃🙃🙃🙃🙃🙃")
                 .unwrap_err()
                 .to_string(),
             "Miniscript: Invalid descriptor: Invalid checksum '🙃🙃🙃🙃🙃🙃', expected 'hmeprl29'",
@@ -235,7 +235,7 @@ mod tests {
     fn fixed_vector_combo() {
         // We do not support combo descriptors. Nobody should.
         assert_eq!(
-            CoinbaseOutput::from_descriptor(
+            CoinbaseRewardScript::from_descriptor(
                 "combo(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798)"
             )
             .unwrap_err()
@@ -248,11 +248,11 @@ mod tests {
     fn fixed_vector_musig() {
         // We do not support musig descriptors. One day.
         assert_eq!(
-            CoinbaseOutput::from_descriptor("musig(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556)").unwrap_err().to_string(),
+            CoinbaseRewardScript::from_descriptor("musig(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556)").unwrap_err().to_string(),
             "Miniscript: unexpected «musig(2 args) while parsing Miniscript»"
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("tr(musig(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556))").unwrap_err().to_string(),
+            CoinbaseRewardScript::from_descriptor("tr(musig(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556))").unwrap_err().to_string(),
             "Miniscript: expected )",
         );
     }
@@ -261,21 +261,21 @@ mod tests {
     fn fixed_vector_raw() {
         // Empty raw descriptors are OK; correspond to the empty script.
         assert_eq!(
-            CoinbaseOutput::from_descriptor("raw()")
+            CoinbaseRewardScript::from_descriptor("raw()")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
             "",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("raw(deadbeef)")
+            CoinbaseRewardScript::from_descriptor("raw(deadbeef)")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
             "deadbeef",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("raw(DEADBEEF)")
+            CoinbaseRewardScript::from_descriptor("raw(DEADBEEF)")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
@@ -283,20 +283,20 @@ mod tests {
         );
         // Should we allow this? We do, so I guess we should test it and make sure we don't stop..
         assert_eq!(
-            CoinbaseOutput::from_descriptor("raw(DEADbeef)")
+            CoinbaseRewardScript::from_descriptor("raw(DEADbeef)")
                 .unwrap()
                 .script_pubkey()
                 .to_hex_string(),
             "deadbeef",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("raw(0)")
+            CoinbaseRewardScript::from_descriptor("raw(0)")
                 .unwrap_err()
                 .to_string(),
             "Decoding hex-formatted script: odd length, failed to create bytes from hex",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("raw(0,1)")
+            CoinbaseRewardScript::from_descriptor("raw(0,1)")
                 .unwrap_err()
                 .to_string(),
             "Found raw() descriptor with 2 children; must be exactly one hex-encoded script",
@@ -306,11 +306,11 @@ mod tests {
     #[test]
     fn fixed_vector_miniscript() {
         assert_eq!(
-            CoinbaseOutput::from_descriptor("sh(wsh(multi(2,0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556)))#qpcmf2lu").unwrap().script_pubkey().to_hex_string(),
+            CoinbaseRewardScript::from_descriptor("sh(wsh(multi(2,0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556)))#qpcmf2lu").unwrap().script_pubkey().to_hex_string(),
             "a9141cb55de50b72c67709ab16307d69557e6bb1a98787",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor(
+            CoinbaseRewardScript::from_descriptor(
                 "tr(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798)"
             )
             .unwrap()
@@ -319,7 +319,7 @@ mod tests {
             "5120da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21",
         );
         assert_eq!(
-            CoinbaseOutput::from_descriptor("tr(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,{pk(03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556),{multi_a(2,026a245bf6dc698504c89a20cfded60853152b695336c28063b61c65cbd269e6b4,0231ecbfac95d972f0b8f81ec6e01e9c621d91a4b48d5f9d12d7e95febe9f34d64),multi_a(2,026a245bf6dc698504c89a20cfded60853152b695336c28063b61c65cbd269e6b4,0231ecbfac95d972f0b8f81ec6e01e9c621d91a4b48d5f9d12d7e95febe9f34d64)}})")
+            CoinbaseRewardScript::from_descriptor("tr(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,{pk(03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556),{multi_a(2,026a245bf6dc698504c89a20cfded60853152b695336c28063b61c65cbd269e6b4,0231ecbfac95d972f0b8f81ec6e01e9c621d91a4b48d5f9d12d7e95febe9f34d64),multi_a(2,026a245bf6dc698504c89a20cfded60853152b695336c28063b61c65cbd269e6b4,0231ecbfac95d972f0b8f81ec6e01e9c621d91a4b48d5f9d12d7e95febe9f34d64)}})")
             .unwrap()
             .script_pubkey()
             .to_hex_string(),
@@ -331,33 +331,33 @@ mod tests {
     fn fixed_vector_keys() {
         // xpub
         assert_eq!(
-            CoinbaseOutput::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8)").unwrap().script_pubkey().to_hex_string(),
+            CoinbaseRewardScript::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8)").unwrap().script_pubkey().to_hex_string(),
             "76a9143442193e1bb70916e914552172cd4e2dbc9df81188ac",
         );
         // xpub with non-hardened path
         assert_eq!(
-            CoinbaseOutput::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/1/2/3)").unwrap().script_pubkey().to_hex_string(),
+            CoinbaseRewardScript::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/1/2/3)").unwrap().script_pubkey().to_hex_string(),
             "76a914f2d2e1401c88353c2298d1a928d4ed827ff46ff688ac",
         );
         // xpub with hardened path (not allowed)
         assert_eq!(
-            CoinbaseOutput::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/1'/2/3)").unwrap_err().to_string(),
+            CoinbaseRewardScript::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/1'/2/3)").unwrap_err().to_string(),
             "Miniscript: unexpected «cannot parse multi-path keys, keys with a wildcard or keys with hardened derivation steps as a DerivedDescriptorKey»",
         );
         // no wildcards allowed (at least for now; gmax thinks it would be cool if we would
         // instantiate it with the blockheight or something, but need to work out UX)
         assert_eq!(
-            CoinbaseOutput::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/*)").unwrap_err().to_string(),
+            CoinbaseRewardScript::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/*)").unwrap_err().to_string(),
             "Miniscript: unexpected «cannot parse multi-path keys, keys with a wildcard or keys with hardened derivation steps as a DerivedDescriptorKey»",
         );
         // No multipath descriptors allowed; this is not a wallet with change
         assert_eq!(
-            CoinbaseOutput::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/<0;1>)").unwrap_err().to_string(),
+            CoinbaseRewardScript::from_descriptor("pkh(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/<0;1>)").unwrap_err().to_string(),
             "Miniscript: unexpected «cannot parse multi-path keys, keys with a wildcard or keys with hardened derivation steps as a DerivedDescriptorKey»",
         );
         // Private keys are not allowed, or xprvs.
         assert_eq!(
-            CoinbaseOutput::from_descriptor(
+            CoinbaseRewardScript::from_descriptor(
                 "pkh(L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1)"
             )
             .unwrap_err()
@@ -366,7 +366,7 @@ mod tests {
         );
         // This is a confusing error message which should be fixed in Miniscript 13.
         assert_eq!(
-            CoinbaseOutput::from_descriptor("pkh(xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi)").unwrap_err().to_string(),
+            CoinbaseRewardScript::from_descriptor("pkh(xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi)").unwrap_err().to_string(),
             "Miniscript: unexpected «Public keys must be 64/66/130 characters in size»",
         );
     }

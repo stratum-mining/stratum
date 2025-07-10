@@ -1,5 +1,5 @@
 use crate::{sniffer::*, template_provider::*};
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use corepc_node::{ConnectParams, CookieValues};
 use interceptor::InterceptAction;
 use jd_client::JobDeclaratorClient;
@@ -69,7 +69,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     )
     .expect("failed");
     let cert_validity_sec = 3600;
-    let coinbase_outputs = vec![CoinbaseOutput::from_descriptor(
+    let coinbase_outputs = vec![CoinbaseRewardScript::from_descriptor(
         "wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap()];
@@ -131,7 +131,7 @@ pub fn start_jdc(
         "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
     )
     .unwrap();
-    let coinbase_outputs = vec![CoinbaseOutput::from_descriptor(
+    let coinbase_outputs = vec![CoinbaseRewardScript::from_descriptor(
         "wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap()];
@@ -185,7 +185,7 @@ pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, Soc
     .unwrap();
     let listen_jd_address = get_available_address();
     let cert_validity_sec = 3600;
-    let coinbase_outputs = vec![CoinbaseOutput::from_descriptor(
+    let coinbase_outputs = vec![CoinbaseRewardScript::from_descriptor(
         "wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap()];

@@ -10,7 +10,7 @@
 //! - Validating and converting coinbase outputs
 use std::path::{Path, PathBuf};
 
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 /// Configuration for the Pool, including connection, authority, and coinbase settings.
@@ -24,7 +24,7 @@ pub struct PoolConfig {
     cert_validity_sec: u64,
     #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
     #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_outputs: Vec<CoinbaseRewardScript>,
     pool_signature: String,
     shares_per_minute: f32,
     share_batch_size: usize,
@@ -41,7 +41,7 @@ impl PoolConfig {
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
-        coinbase_outputs: Vec<CoinbaseOutput>,
+        coinbase_outputs: Vec<CoinbaseRewardScript>,
         shares_per_minute: f32,
         share_batch_size: usize,
     ) -> Self {
@@ -65,7 +65,7 @@ impl PoolConfig {
     }
 
     /// Returns the coinbase outputs.
-    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseOutput> {
+    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseRewardScript> {
         self.coinbase_outputs.as_ref()
     }
 
@@ -110,7 +110,7 @@ impl PoolConfig {
     }
 
     /// Sets the coinbase outputs.
-    pub fn set_coinbase_outputs(&mut self, coinbase_outputs: Vec<CoinbaseOutput>) {
+    pub fn set_coinbase_outputs(&mut self, coinbase_outputs: Vec<CoinbaseRewardScript>) {
         self.coinbase_outputs = coinbase_outputs;
     }
 
