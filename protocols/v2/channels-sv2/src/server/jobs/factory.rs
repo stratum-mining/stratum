@@ -75,6 +75,14 @@ impl JobFactory {
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
     ) -> Result<StandardJob<'a>, JobFactoryError> {
+        let coinbase_outputs_sum = additional_coinbase_outputs
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>();
+        if coinbase_outputs_sum != template.coinbase_tx_value_remaining {
+            return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
+        }
+
         let job_id = self.job_id_factory.next();
 
         let version = template.version;
@@ -145,6 +153,14 @@ impl JobFactory {
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+        let coinbase_outputs_sum = additional_coinbase_outputs
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>();
+        if coinbase_outputs_sum != template.coinbase_tx_value_remaining {
+            return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
+        }
+
         let job_id = self.job_id_factory.next();
 
         let version = template.version;
