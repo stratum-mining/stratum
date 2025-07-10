@@ -28,9 +28,7 @@ pub struct JobDeclaratorServerConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
-    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
-    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseRewardScript>,
+    coinbase_output: CoinbaseRewardScript,
     core_rpc_url: String,
     core_rpc_port: u16,
     core_rpc_user: String,
@@ -51,21 +49,17 @@ impl JobDeclaratorServerConfig {
         authority_public_key: Secp256k1PublicKey,
         authority_secret_key: Secp256k1SecretKey,
         cert_validity_sec: u64,
-        coinbase_outputs: Vec<CoinbaseRewardScript>,
+        coinbase_output: CoinbaseRewardScript,
         core_rpc: CoreRpc,
         mempool_update_interval: Duration,
     ) -> Self {
-        assert!(
-            !coinbase_outputs.is_empty(),
-            "cannot have empty coinbase outputs array"
-        );
         Self {
             full_template_mode_required: true,
             listen_jd_address,
             authority_public_key,
             authority_secret_key,
             cert_validity_sec,
-            coinbase_outputs,
+            coinbase_output,
             core_rpc_url: core_rpc.url,
             core_rpc_port: core_rpc.port,
             core_rpc_user: core_rpc.user,
@@ -111,8 +105,8 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Returns the coinbase outputs.
-    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseRewardScript> {
-        &self.coinbase_outputs
+    pub fn coinbase_outputs(&self) -> &CoinbaseRewardScript {
+        &self.coinbase_output
     }
 
     /// Returns the certificate validity in seconds.
@@ -140,18 +134,15 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Sets coinbase outputs.
-    pub fn set_coinbase_outputs(&mut self, outputs: Vec<CoinbaseRewardScript>) {
-        self.coinbase_outputs = outputs;
+    pub fn set_coinbase_outputs(&mut self, output: CoinbaseRewardScript) {
+        self.coinbase_output = output;
     }
 
     pub fn get_txout(&self) -> Vec<TxOut> {
-        self.coinbase_outputs
-            .iter()
-            .map(|out| TxOut {
-                value: Amount::from_sat(0),
-                script_pubkey: out.script_pubkey().to_owned(),
-            })
-            .collect()
+        vec![TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: self.coinbase_output.script_pubkey().to_owned(),
+        }]
     }
     pub fn log_file(&self) -> Option<&Path> {
         self.log_file.as_deref()
