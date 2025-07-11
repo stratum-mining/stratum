@@ -1,3 +1,13 @@
+//! A Noise-encrypted wrapper around a `TcpStream`, providing framed read/write I/O using the SV2
+//! protocol and a stateful Noise handshake.
+//!
+//! This module provides `NoiseTcpStream`, which wraps a `TcpStream` and performs a Noise-based
+//! authenticated key exchange based on the provided [`HandshakeRole`].
+//!
+//! After a successful handshake, the stream can be split into a `NoiseTcpReadHalf` and
+//! `NoiseTcpWriteHalf`, which support frame-based encoding/decoding of SV2 messages with optional
+//! non-blocking behavior.
+
 use crate::Error;
 use codec_sv2::{
     binary_sv2::{Deserialize, GetSize, Serialize},
@@ -14,11 +24,25 @@ use std::convert::TryInto;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, error};
 
+/// A Noise-secured duplex stream over TCP that wraps a `TcpStream`
+/// and provides secure read/write capabilities using the Noise protocol.
+///
+/// This stream performs the full Noise handshake during construction
+/// and returns a bidirectional encrypted stream split into read and write halves.
+///
+/// **Note:** This struct is **not cancellation-safe**.
+/// If `read_frame()` or `write_frame()` is canceled mid-way,
+/// internal state may be left in an inconsistent state, which can lead to
+/// protocol errors or dropped frames.
 pub struct NoiseTcpStream<Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static> {
     reader: NoiseTcpReadHalf<Message>,
     writer: NoiseTcpWriteHalf<Message>,
 }
 
+/// The reading half of a `NoiseTcpStream`.
+///
+/// It buffers incoming encrypted bytes, attempts to decode full Noise frames,
+/// and exposes a method to retrieve structured messages of type `Message`.
 pub struct NoiseTcpReadHalf<Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static>
 {
     reader: OwnedReadHalf,
@@ -28,6 +52,10 @@ pub struct NoiseTcpReadHalf<Message: Serialize + for<'a> Deserialize<'a> + GetSi
     bytes_read: usize,
 }
 
+/// The writing half of a `NoiseTcpStream`.
+///
+/// It accepts structured messages, encodes them via the Noise protocol,
+/// and writes the result to the socket.
 pub struct NoiseTcpWriteHalf<
     Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static,
 > {
@@ -40,10 +68,10 @@ impl<Message> NoiseTcpStream<Message>
 where
     Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static,
 {
-    pub fn into_split(self) -> (NoiseTcpReadHalf<Message>, NoiseTcpWriteHalf<Message>) {
-        (self.reader, self.writer)
-    }
-
+    /// Constructs a new `NoiseTcpStream` over the given TCP stream,
+    /// performing the Noise handshake in the given `role`.
+    ///
+    /// On success, returns a stream with encrypted communication channels.
     pub async fn new(stream: TcpStream, role: HandshakeRole) -> Result<Self, Error> {
         let (mut reader, mut writer) = stream.into_split();
 
@@ -131,12 +159,22 @@ where
             },
         })
     }
+
+    /// Consumes the stream and returns its reader and writer halves.
+    pub fn into_split(self) -> (NoiseTcpReadHalf<Message>, NoiseTcpWriteHalf<Message>) {
+        (self.reader, self.writer)
+    }
 }
 
 impl<Message> NoiseTcpWriteHalf<Message>
 where
     Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static,
 {
+    /// Encrypts and writes a full message frame to the socket.
+    ///
+    /// Returns an error if the socket is closed or the message cannot be encoded.
+    ///
+    /// Not cancellation-safe: A canceled write may cause partial writes or state corruption.
     pub async fn write_frame(&mut self, frame: StandardEitherFrame<Message>) -> Result<(), Error> {
         let buf = self.encoder.encode(frame, &mut self.state)?;
         self.writer
@@ -146,6 +184,12 @@ where
         Ok(())
     }
 
+    /// Attempts to write a message without blocking.
+    ///
+    /// Returns:
+    /// - `Ok(true)` if the entire frame was written successfully.
+    /// - `Ok(false)` if the socket is not ready (would block).
+    /// - `Err(_)` on socket or encoding errors.
     pub fn try_write_frame(&mut self, frame: StandardEitherFrame<Message>) -> Result<bool, Error> {
         let buf = self.encoder.encode(frame, &mut self.state)?;
 
@@ -162,6 +206,12 @@ impl<Message> NoiseTcpReadHalf<Message>
 where
     Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static,
 {
+    /// Reads and decodes a complete frame from the socket.
+    ///
+    /// This method blocks until a full frame is read and decoded,
+    /// handling `MissingBytes` errors from the codec automatically.
+    ///
+    /// Not cancellation-safe: Cancellation may leave partially-read state behind.
     pub async fn read_frame(&mut self) -> Result<StandardEitherFrame<Message>, Error> {
         loop {
             let expected = self.decoder.writable_len();
@@ -201,6 +251,12 @@ where
         }
     }
 
+    /// Attempts to read and decode a frame without blocking.
+    ///
+    /// Returns:
+    /// - `Ok(Some(frame))` if a full frame is successfully decoded.
+    /// - `Ok(None)` if not enough data is available yet.
+    /// - `Err(_)` on socket or decoding errors.
     pub fn try_read_frame(&mut self) -> Result<Option<StandardEitherFrame<Message>>, Error> {
         let expected = self.decoder.writable_len();
 
