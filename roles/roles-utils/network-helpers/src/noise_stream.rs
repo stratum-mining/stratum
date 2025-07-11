@@ -13,6 +13,7 @@ use codec_sv2::{noise_sv2::ELLSWIFT_ENCODING_SIZE, HandShakeFrame, StandardEithe
 use std::convert::TryInto;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, error};
+
 pub struct NoiseTcpStream<Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static> {
     reader: NoiseTcpReadHalf<Message>,
     writer: NoiseTcpWriteHalf<Message>,
@@ -23,6 +24,8 @@ pub struct NoiseTcpReadHalf<Message: Serialize + for<'a> Deserialize<'a> + GetSi
     reader: OwnedReadHalf,
     decoder: StandardNoiseDecoder<Message>,
     state: State,
+    current_frame_buf: Vec<u8>,
+    bytes_read: usize,
 }
 
 pub struct NoiseTcpWriteHalf<
@@ -118,6 +121,8 @@ where
                 reader,
                 decoder,
                 state: state.clone(),
+                current_frame_buf: vec![],
+                bytes_read: 0,
             },
             writer: NoiseTcpWriteHalf {
                 writer,
@@ -147,11 +152,32 @@ where
     Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static,
 {
     pub async fn read_frame(&mut self) -> Result<StandardEitherFrame<Message>, Error> {
-        let writable = self.decoder.writable();
-        self.reader
-            .read_exact(writable)
-            .await
-            .map_err(|_| Error::SocketClosed)?;
+        let frame_len = self.decoder.writable_len();
+
+        if self.bytes_read == 0 {
+            self.current_frame_buf.resize(frame_len, 0);
+        }
+
+        while self.bytes_read < frame_len {
+            let n = self
+                .reader
+                .read(&mut self.current_frame_buf[self.bytes_read..frame_len])
+                .await
+                .map_err(|_| Error::SocketClosed)?;
+
+            if n == 0 {
+                return Err(Error::SocketClosed);
+            }
+
+            self.bytes_read += n;
+        }
+
+        self.decoder
+            .writable()
+            .copy_from_slice(&self.current_frame_buf);
+
+        self.bytes_read = 0;
+
         self.decoder
             .next_frame(&mut self.state)
             .map_err(Error::CodecError)
@@ -177,10 +203,11 @@ async fn receive_message<'a, Message: Serialize + Deserialize<'a> + GetSize + Se
     state: &mut State,
     decoder: &mut StandardNoiseDecoder<Message>,
 ) -> Result<StandardEitherFrame<Message>, Error> {
-    let writable = decoder.writable();
+    let mut buffer = vec![0u8; decoder.writable_len()];
     reader
-        .read_exact(writable)
+        .read_exact(&mut buffer)
         .await
         .map_err(|_| Error::SocketClosed)?;
+    decoder.writable().copy_from_slice(&buffer);
     decoder.next_frame(state).map_err(Error::CodecError)
 }
