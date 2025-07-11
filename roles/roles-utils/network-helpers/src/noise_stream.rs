@@ -152,21 +152,26 @@ where
     Message: Serialize + for<'a> Deserialize<'a> + GetSize + Send + 'static,
 {
     pub async fn read_frame(&mut self) -> Result<StandardEitherFrame<Message>, Error> {
-        let frame_len = self.decoder.writable_len();
+        loop {
+            let expected = self.decoder.writable_len();
 
-        if self.bytes_read == 0 {
-            self.current_frame_buf.resize(frame_len, 0);
-        }
+            if self.current_frame_buf.len() != expected {
+                self.current_frame_buf.resize(expected, 0);
+                self.bytes_read = 0;
+            }
 
-        while self.bytes_read < frame_len {
-            let n = self
-                .reader
-                .read(&mut self.current_frame_buf[self.bytes_read..frame_len])
-                .await
-                .map_err(|_| Error::SocketClosed)?;
+            while self.bytes_read < expected {
+                let n = self
+                    .reader
+                    .read(&mut self.current_frame_buf[self.bytes_read..])
+                    .await
+                    .map_err(|_| Error::SocketClosed)?;
 
-            if n == 0 {
-                return Err(Error::SocketClosed);
+                if n == 0 {
+                    return Err(Error::SocketClosed);
+                }
+
+                self.bytes_read += n;
             }
 
             self.bytes_read += n;
