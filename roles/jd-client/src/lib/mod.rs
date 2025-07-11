@@ -24,7 +24,7 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-use stratum_common::roles_logic_sv2::utils::Mutex;
+use stratum_common::roles_logic_sv2::{bitcoin::TxOut, utils::Mutex};
 use tokio::{sync::Notify, task::AbortHandle};
 
 use tracing::{error, info};
@@ -363,7 +363,7 @@ impl JobDeclaratorClient {
             config.cert_validity_sec(),
             task_collector.clone(),
             tx_status.clone(),
-            vec![],
+            TxOut::NULL,
             Some(jd),
             config.clone(),
             shutdown,

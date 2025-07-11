@@ -159,11 +159,11 @@ impl JobDeclaratorClientConfig {
         &self.jdc_signature
     }
 
-    pub fn get_txout(&self) -> Vec<TxOut> {
-        vec![TxOut {
+    pub fn get_txout(&self) -> TxOut {
+        TxOut {
             value: Amount::from_sat(0),
             script_pubkey: self.coinbase_output.script_pubkey().to_owned(),
-        }]
+        }
     }
 
     pub fn log_file(&self) -> Option<&Path> {

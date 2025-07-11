@@ -84,8 +84,8 @@ pub struct DownstreamMiningNode {
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     // Sender for communicating status updates (e.g., disconnection) back to the main Status loop.
     tx_status: status::Sender,
-    // The miner's configured coinbase output(s). Used in solo mining mode.
-    miner_coinbase_output: Vec<TxOut>,
+    // The miner's configured coinbase output. Used in solo mining mode.
+    miner_coinbase_output: TxOut,
     // The template ID of the last job sent to this downstream. Used to correlate
     // submitted shares with the correct job ID when sending upstream.
     last_template_id: u64,
@@ -233,7 +233,7 @@ impl DownstreamMiningNode {
         withhold: bool,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         tx_status: status::Sender,
-        miner_coinbase_output: Vec<TxOut>,
+        miner_coinbase_output: TxOut,
         jd: Option<Arc<Mutex<JobDeclarator>>>,
         jdc_signature: String,
     ) -> Self {
@@ -674,7 +674,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
                 end: extranonce_len,
             };
             let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-            let coinbase_outputs = self.miner_coinbase_output.clone();
+            let coinbase_output = self.miner_coinbase_output.clone();
 
             // Create the ExtendedExtranonce structure.
             let extranonces = ExtendedExtranonce::new(
@@ -700,7 +700,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
                 creator,
                 share_per_min,
                 kind,
-                coinbase_outputs,
+                vec![coinbase_output],
             );
 
             // Set the created channel factory in the downstream's status.
@@ -967,7 +967,7 @@ pub async fn listen_for_downstream_mining(
     cert_validity_sec: u64,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     tx_status: async_channel::Sender<status::Status<'static>>,
-    miner_coinbase_output: Vec<TxOut>,
+    miner_coinbase_output: TxOut,
     jd: Option<Arc<Mutex<JobDeclarator>>>,
     config: JobDeclaratorClientConfig,
     shutdown: Arc<Notify>,
