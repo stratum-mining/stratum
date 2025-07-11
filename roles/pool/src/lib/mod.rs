@@ -72,15 +72,9 @@ impl PoolSv2 {
 
         // Prepare coinbase output information required by TemplateRx.
         let coinbase_output_result = get_coinbase_output(&config);
-        let coinbase_output_len = coinbase_output_result
-            .iter()
-            .map(|output| output.size() as u32)
-            .sum();
+        let coinbase_output_len = coinbase_output_result.size() as u32;
         let tp_authority_public_key = config.tp_authority_public_key().cloned();
-        let coinbase_output_sigops = coinbase_output_result
-            .iter()
-            .map(|output| output.script_pubkey.count_sigops() as u16)
-            .sum::<u16>();
+        let coinbase_output_sigops = coinbase_output_result.script_pubkey.count_sigops() as u16;
 
         // --- Spawn Template Receiver Task ---
         let tp_address = config.tp_address().clone();
