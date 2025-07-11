@@ -200,6 +200,16 @@ where
             Err(_) => Err(Error::SocketClosed),
         }
     }
+
+    /// Gracefully shuts down the writing half of the stream.
+    ///
+    /// Returns an error if the shutdown fails.
+    pub async fn shutdown(&mut self) -> Result<(), Error> {
+        self.writer
+            .shutdown()
+            .await
+            .map_err(|_| Error::SocketClosed)
+    }
 }
 
 impl<Message> NoiseTcpReadHalf<Message>
