@@ -174,18 +174,55 @@ where
                 self.bytes_read += n;
             }
 
-            self.bytes_read += n;
+            self.decoder
+                .writable()
+                .copy_from_slice(&self.current_frame_buf[..]);
+
+            self.bytes_read = 0;
+
+            match self.decoder.next_frame(&mut self.state) {
+                Ok(frame) => return Ok(frame),
+                Err(codec_sv2::Error::MissingBytes(_)) => {
+                    continue;
+                }
+                Err(e) => return Err(Error::CodecError(e)),
+            }
+        }
+    }
+
+    pub fn try_read_frame(&mut self) -> Result<Option<StandardEitherFrame<Message>>, Error> {
+        let expected = self.decoder.writable_len();
+
+        if self.current_frame_buf.len() != expected {
+            self.current_frame_buf.resize(expected, 0);
+            self.bytes_read = 0;
+        }
+
+        match self
+            .reader
+            .try_read(&mut self.current_frame_buf[self.bytes_read..])
+        {
+            Ok(0) => return Err(Error::SocketClosed),
+            Ok(n) => self.bytes_read += n,
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => return Ok(None),
+            Err(_) => return Err(Error::SocketClosed),
+        }
+
+        if self.bytes_read < expected {
+            return Ok(None);
         }
 
         self.decoder
             .writable()
-            .copy_from_slice(&self.current_frame_buf);
+            .copy_from_slice(&self.current_frame_buf[..]);
 
         self.bytes_read = 0;
 
-        self.decoder
-            .next_frame(&mut self.state)
-            .map_err(Error::CodecError)
+        match self.decoder.next_frame(&mut self.state) {
+            Ok(frame) => Ok(Some(frame)),
+            Err(codec_sv2::Error::MissingBytes(_)) => Ok(None),
+            Err(e) => Err(Error::CodecError(e)),
+        }
     }
 }
 
