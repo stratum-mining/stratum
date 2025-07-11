@@ -7,7 +7,7 @@ use std::sync::Arc;
 use stratum_common::roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseTemplateDistributionMessagesFromServer, SendTo},
-    parsers::TemplateDistribution,
+    parsers_sv2::TemplateDistribution,
     template_distribution_sv2::*,
     utils::Mutex,
 };

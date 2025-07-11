@@ -4,7 +4,6 @@
 
 use crate::{
     job_creator::{self, JobsCreators},
-    parsers::Mining,
     utils::{GroupId, Id, Mutex},
     Error,
 };
@@ -15,6 +14,7 @@ use mining_sv2::{
     OpenMiningChannelError, SetCustomMiningJob, SetCustomMiningJobSuccess, SetNewPrevHash,
     SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, Target,
 };
+use parsers_sv2::Mining;
 
 use hex::DisplayHex;
 use nohash_hasher::BuildNoHashHasher;

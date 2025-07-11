@@ -42,7 +42,7 @@ use stratum_common::{
         },
         handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
         job_declaration_sv2::{DeclareMiningJob, PushSolution},
-        parsers::{AnyMessage as JdsMessages, JobDeclaration},
+        parsers_sv2::{AnyMessage as JdsMessages, JobDeclaration},
         utils::{Id, Mutex},
     },
 };
@@ -230,7 +230,7 @@ impl JobDeclaratorDownstream {
     /// Wraps the message into a `StdFrame` and sends it through the established channel.
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers::JobDeclaration<'static>,
+        message: roles_logic_sv2::parsers_sv2::JobDeclaration<'static>,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = JdsMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();

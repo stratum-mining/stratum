@@ -1,21 +1,20 @@
 //! Abstraction over the state of a Sv2 Standard Channel, as seen by a Mining Client
 
 use crate::{
-    channels::{
-        chain_tip::ChainTip,
-        client::{
-            error::StandardChannelError,
-            share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
-        },
+    chain_tip::ChainTip,
+    client::{
+        error::StandardChannelError,
+        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
-    utils::{bytes_to_hex, merkle_root_from_path, target_to_difficulty, u256_to_block_hash},
+    merkle_root::merkle_root_from_path,
+    target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
+use binary_sv2::{self, Sv2Option};
 use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
     CompactTarget, Target as BitcoinTarget,
 };
-use codec_sv2::binary_sv2::{self, Sv2Option};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
     Target, MAX_EXTRANONCE_LEN,
@@ -346,11 +345,11 @@ impl<'a> StandardChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::client::{
+    use crate::client::{
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
     };
-    use codec_sv2::binary_sv2::Sv2Option;
+    use binary_sv2::Sv2Option;
     use mining_sv2::{NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard};
 
     #[test]

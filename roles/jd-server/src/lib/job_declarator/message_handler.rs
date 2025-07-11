@@ -12,14 +12,14 @@ use stratum_common::roles_logic_sv2::{
         DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
         ProvideMissingTransactionsSuccess, PushSolution,
     },
-    parsers::JobDeclaration,
+    parsers_sv2::JobDeclaration,
     utils::Mutex,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
 
 use super::{signed_token, TransactionState};
-use stratum_common::roles_logic_sv2::{errors::Error, parsers::AnyMessage as AllMessages};
+use stratum_common::roles_logic_sv2::{errors::Error, parsers_sv2::AnyMessage as AllMessages};
 use tracing::{debug, info};
 
 use super::JobDeclaratorDownstream;

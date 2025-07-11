@@ -26,7 +26,7 @@ use stratum_common::{
             mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
         },
         mining_sv2::*,
-        parsers::{Mining, MiningDeviceMessages},
+        parsers_sv2::{Mining, MiningDeviceMessages},
         utils::{Id, Mutex},
     },
 };

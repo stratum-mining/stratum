@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use std::net::SocketAddr;
-use stratum_common::roles_logic_sv2::parsers::AnyMessage;
+use stratum_common::roles_logic_sv2::parsers_sv2::AnyMessage;
 use tokio::{net::TcpStream, select};
 
 /// Allows to intercept messages sent between two roles.

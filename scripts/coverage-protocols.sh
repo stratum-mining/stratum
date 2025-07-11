@@ -14,6 +14,7 @@ crates=(
   "v2/binary-sv2/codec"
   "v2/binary-sv2/derive_codec"
   "v2/binary-sv2"
+  "v2/channels-sv2"
   "v2/noise-sv2"
   "v2/framing-sv2"
   "v2/codec-sv2"
@@ -23,6 +24,7 @@ crates=(
   "v2/subprotocols/job-declaration"
   "v2/sv2-ffi"
   "v2/roles-logic-sv2"
+  "v2/parsers-sv2"
 )
 
 for crate in "${crates[@]}"; do

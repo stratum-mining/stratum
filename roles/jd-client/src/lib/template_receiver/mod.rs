@@ -22,7 +22,7 @@ use stratum_common::{
         codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame},
         handlers::{template_distribution::ParseTemplateDistributionMessagesFromServer, SendTo_},
         job_declaration_sv2::AllocateMiningJobTokenSuccess,
-        parsers::{AnyMessage, TemplateDistribution},
+        parsers_sv2::{AnyMessage, TemplateDistribution},
         template_distribution_sv2::{
             CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, SubmitSolution,
         },
@@ -35,7 +35,7 @@ use tracing::{error, info, warn};
 mod message_handler;
 mod setup_connection;
 
-pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
+pub type SendTo = SendTo_<roles_logic_sv2::parsers_sv2::TemplateDistribution<'static>, ()>;
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;

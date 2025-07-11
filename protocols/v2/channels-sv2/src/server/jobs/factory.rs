@@ -1,12 +1,11 @@
 //! Abstraction of a factory for creating Sv2 Extended or Standard Jobs.
 use crate::{
-    channels::{
-        chain_tip::ChainTip,
-        server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
-    },
-    template_distribution_sv2::NewTemplate,
-    utils::{deserialize_template_outputs, merkle_root_from_path, Id as JobIdFactory},
+    chain_tip::ChainTip,
+    merkle_root::merkle_root_from_path,
+    server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
+    template::deserialize_template_outputs,
 };
+use binary_sv2::{Sv2Option, B064K};
 use bitcoin::{
     absolute::LockTime,
     blockdata::witness::Witness,
@@ -14,9 +13,27 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
     Amount, Sequence,
 };
-use codec_sv2::binary_sv2::{Sv2Option, B064K};
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
 use std::convert::TryInto;
+use template_distribution_sv2::NewTemplate;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct JobIdFactory {
+    state: u32,
+}
+
+impl JobIdFactory {
+    /// Creates a new [`Id`] instance initialized to `0`.
+    fn new() -> Self {
+        Self { state: 0 }
+    }
+
+    /// Increments then returns the internal state on a new ID.
+    fn next(&mut self) -> u32 {
+        self.state += 1;
+        self.state
+    }
+}
 
 /// A Factory for creating Extended or Standard Jobs.
 ///
@@ -58,6 +75,14 @@ impl JobFactory {
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
     ) -> Result<StandardJob<'a>, JobFactoryError> {
+        let coinbase_outputs_sum = additional_coinbase_outputs
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>();
+        if coinbase_outputs_sum != template.coinbase_tx_value_remaining {
+            return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
+        }
+
         let job_id = self.job_id_factory.next();
 
         let version = template.version;
@@ -128,6 +153,14 @@ impl JobFactory {
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+        let coinbase_outputs_sum = additional_coinbase_outputs
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>();
+        if coinbase_outputs_sum != template.coinbase_tx_value_remaining {
+            return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
+        }
+
         let job_id = self.job_id_factory.next();
 
         let version = template.version;

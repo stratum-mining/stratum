@@ -1,5 +1,5 @@
 //! Abstraction over the state of a Sv2 Group Channel, as seen by a Mining Server
-use crate::channels::{
+use crate::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
@@ -172,12 +172,12 @@ impl<'a> GroupChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::channels::{
+    use crate::{
         chain_tip::ChainTip,
         server::{group::GroupChannel, jobs::job_store::DefaultJobStore},
     };
+    use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
-    use codec_sv2::binary_sv2::Sv2Option;
     use mining_sv2::NewExtendedMiningJob;
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};

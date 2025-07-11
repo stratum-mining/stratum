@@ -6,7 +6,7 @@
 //! Centralizes and simplifies error handling across the system.
 
 /// Identifies which component sent a status update.
-use stratum_common::roles_logic_sv2::{self, parsers::Mining};
+use stratum_common::roles_logic_sv2::{self, parsers_sv2::Mining};
 
 use super::error::PoolError;
 
@@ -170,5 +170,6 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         PoolError::Vardiff(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
+        PoolError::Parser(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
     }
 }

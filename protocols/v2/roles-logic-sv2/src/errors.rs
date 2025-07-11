@@ -3,15 +3,12 @@
 //! This module defines error types and utilities for handling errors in the `roles_logic_sv2`
 //! module. It includes the [`Error`] enum for representing various errors.
 
-use crate::{
-    channels::server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
-    parsers::AnyMessage as AllMessages,
-    utils::InputError,
-    vardiff::error::VardiffError,
-};
+use crate::{utils::InputError, vardiff::error::VardiffError};
 use bitcoin::hashes::FromSliceError;
+use channels_sv2::server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError};
 use codec_sv2::binary_sv2::Error as BinarySv2Error;
 use mining_sv2::ExtendedExtranonceError;
+use parsers_sv2::AnyMessage as AllMessages;
 use std::{
     fmt::{self, Display, Formatter},
     sync::{MutexGuard, PoisonError},
@@ -132,6 +129,8 @@ pub enum Error {
     FailedToSendSolution,
     FailedToSetCustomMiningJob(ExtendedChannelError),
     FailedToDeserializeCoinbaseOutputs,
+    /// Error from parsers_sv2
+    ParserError(parsers_sv2::ParserError),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -155,6 +154,12 @@ impl From<FromSliceError> for Error {
 impl From<VardiffError> for Error {
     fn from(value: VardiffError) -> Self {
         Error::Vardiff(value)
+    }
+}
+
+impl From<parsers_sv2::ParserError> for Error {
+    fn from(v: parsers_sv2::ParserError) -> Error {
+        Error::ParserError(v)
     }
 }
 
@@ -252,6 +257,7 @@ impl Display for Error {
             FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
             FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
             FailedToDeserializeCoinbaseOutputs => write!(f, "Failed to deserialize coinbase outputs"),
+            ParserError(v) => write!(f, "Parser error: {v}"),
         }
     }
 }

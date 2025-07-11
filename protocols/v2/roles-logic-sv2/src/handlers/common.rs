@@ -25,7 +25,9 @@
 //!   Stratum V2 networks.
 
 use super::SendTo_;
-use crate::{errors::Error, parsers::CommonMessages, utils::Mutex};
+use crate::{errors::Error, utils::Mutex};
+use parsers_sv2::CommonMessages;
+
 use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
     SetupConnectionSuccess, *,
@@ -49,7 +51,10 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_common_deserialized(self_, (message_type, payload).try_into())
+        Self::handle_message_common_deserialized(
+            self_,
+            (message_type, payload).try_into().map_err(Into::into),
+        )
     }
 
     /// Takes a message and it calls the appropriate handler function
@@ -117,7 +122,10 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        Self::handle_message_common_deserialized(self_, (message_type, payload).try_into())
+        Self::handle_message_common_deserialized(
+            self_,
+            (message_type, payload).try_into().map_err(Into::into),
+        )
     }
 
     /// It takes a message do setup connection message, it calls

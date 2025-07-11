@@ -14,7 +14,7 @@ use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{Protocol, Reconnect, SetupConnection, SetupConnectionError},
     errors::Error,
     handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
-    parsers::{AnyMessage, CommonMessages},
+    parsers_sv2::{AnyMessage, CommonMessages},
     utils::Mutex,
 };
 use tracing::{error, info};

@@ -277,6 +277,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "channels_sv2"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "bitcoin",
+ "common_messages_sv2",
+ "job_declaration_sv2",
+ "mining_sv2",
+ "primitive-types",
+ "template_distribution_sv2",
+ "tracing",
+]
+
+[[package]]
 name = "cipher"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -795,6 +809,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsers_sv2"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "common_messages_sv2",
+ "framing_sv2",
+ "job_declaration_sv2",
+ "mining_sv2",
+ "template_distribution_sv2",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -923,16 +949,18 @@ dependencies = [
 
 [[package]]
 name = "roles_logic_sv2"
-version = "3.0.0"
+version = "4.0.0"
 dependencies = [
  "bitcoin",
  "chacha20poly1305",
+ "channels_sv2",
  "codec_sv2",
  "common_messages_sv2",
  "hex-conservative 0.3.0",
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",
+ "parsers_sv2",
  "primitive-types",
  "template_distribution_sv2",
  "tracing",

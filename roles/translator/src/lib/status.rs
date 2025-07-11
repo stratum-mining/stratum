@@ -209,7 +209,7 @@ pub async fn handle_error(
         Error::Sv2ProtocolError(ref inner) => {
             match inner {
                 // dont notify main thread just continue
-                roles_logic_sv2::parsers::Mining::SubmitSharesError(_) => {
+                roles_logic_sv2::parsers_sv2::Mining::SubmitSharesError(_) => {
                     error_handling::ErrorBranch::Continue
                 }
                 _ => send_status(sender, e, error_handling::ErrorBranch::Break).await,
@@ -221,5 +221,6 @@ pub async fn handle_error(
         Error::Sv1MessageTooLong => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
+        Error::Parser(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
     }
 }

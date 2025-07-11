@@ -7,7 +7,7 @@ use async_channel::Sender;
 use std::net::SocketAddr;
 use stratum_common::roles_logic_sv2::{
     codec_sv2::{StandardEitherFrame, Sv2Frame},
-    parsers::AnyMessage,
+    parsers_sv2::AnyMessage,
 };
 use tokio::net::TcpStream;
 
@@ -113,7 +113,7 @@ mod tests {
     use stratum_common::roles_logic_sv2::{
         codec_sv2::{StandardEitherFrame, Sv2Frame},
         common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
-        parsers::CommonMessages,
+        parsers_sv2::CommonMessages,
     };
 
     #[tokio::test]

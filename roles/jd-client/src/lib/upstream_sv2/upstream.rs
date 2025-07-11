@@ -60,7 +60,7 @@ use stratum_common::{
         },
         job_declaration_sv2::DeclareMiningJob,
         mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob, SetGroupChannel},
-        parsers::{AnyMessage, Mining, MiningDeviceMessages},
+        parsers_sv2::{AnyMessage, Mining, MiningDeviceMessages},
         utils::{Id, Mutex},
         Error as RolesLogicError,
     },

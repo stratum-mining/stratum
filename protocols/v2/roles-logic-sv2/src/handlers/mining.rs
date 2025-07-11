@@ -27,7 +27,7 @@
 //! - Support for managing mining channels, extranonce prefixes, and share submissions, while
 //!   handling edge cases and ensuring the correctness of the mining process.
 
-use crate::{errors::Error, parsers::Mining};
+use crate::errors::Error;
 use codec_sv2::binary_sv2;
 use core::convert::TryInto;
 use mining_sv2::{
@@ -38,6 +38,7 @@ use mining_sv2::{
     SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
     UpdateChannel, UpdateChannelError,
 };
+use parsers_sv2::Mining;
 
 use super::SendTo_;
 
@@ -80,7 +81,7 @@ where
     {
         match Self::handle_message_mining_deserialized(
             self_mutex,
-            (message_type, payload).try_into(),
+            (message_type, payload).try_into().map_err(Into::into),
         ) {
             Err(Error::UnexpectedMessage(0)) => Err(Error::UnexpectedMessage(message_type)),
             result => result,
@@ -253,7 +254,7 @@ where
     ) -> Result<SendTo<Down>, Error> {
         match Self::handle_message_mining_deserialized(
             self_mutex,
-            (message_type, payload).try_into(),
+            (message_type, payload).try_into().map_err(Into::into),
         ) {
             Err(Error::UnexpectedMessage(0)) => Err(Error::UnexpectedMessage(message_type)),
             result => result,

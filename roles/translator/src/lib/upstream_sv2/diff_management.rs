@@ -16,7 +16,7 @@ use super::super::{
 };
 use std::{sync::Arc, time::Duration};
 use stratum_common::roles_logic_sv2::{
-    codec_sv2::binary_sv2::U256, mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex,
+    codec_sv2::binary_sv2::U256, mining_sv2::UpdateChannel, parsers_sv2::Mining, utils::Mutex,
     Error as RolesLogicError,
 };
 

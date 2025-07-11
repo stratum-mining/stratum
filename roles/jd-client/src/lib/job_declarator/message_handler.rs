@@ -10,7 +10,7 @@ use stratum_common::roles_logic_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     },
-    parsers::JobDeclaration,
+    parsers_sv2::JobDeclaration,
 };
 use tracing::{debug, error, info};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;

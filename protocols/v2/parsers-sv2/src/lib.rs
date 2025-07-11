@@ -20,21 +20,21 @@
 //! - **Mining Protocol**: Manages standard mining communication (e.g., job dispatch, shares
 //!   submission).
 
-use crate::Error;
-use codec_sv2::{
-    binary_sv2::{
-        self,
-        decodable::{DecodableField, FieldMarker},
-        encodable::EncodableField,
-        from_bytes, Deserialize, GetSize,
-    },
-    framing_sv2::framing::Sv2Frame,
+pub mod error;
+
+use binary_sv2::{
+    self,
+    decodable::{DecodableField, FieldMarker},
+    encodable::EncodableField,
+    from_bytes, Deserialize, GetSize,
 };
 use common_messages_sv2::*;
 use core::{
     convert::{TryFrom, TryInto},
     fmt,
 };
+pub use error::ParserError;
+use framing_sv2::framing::Sv2Frame;
 use job_declaration_sv2::*;
 use mining_sv2::*;
 use template_distribution_sv2::*;
@@ -781,22 +781,22 @@ pub enum CommonMessageTypes {
 }
 
 impl TryFrom<u8> for CommonMessageTypes {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: u8) -> Result<CommonMessageTypes, Error> {
+    fn try_from(v: u8) -> Result<CommonMessageTypes, ParserError> {
         match v {
             MESSAGE_TYPE_SETUP_CONNECTION => Ok(CommonMessageTypes::SetupConnection),
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS => Ok(CommonMessageTypes::SetupConnectionSuccess),
             MESSAGE_TYPE_SETUP_CONNECTION_ERROR => Ok(CommonMessageTypes::SetupConnectionError),
             MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED => Ok(CommonMessageTypes::ChannelEndpointChanged),
             MESSAGE_TYPE_RECONNECT => Ok(CommonMessageTypes::Reconnect),
-            _ => Err(Error::UnexpectedMessage(v)),
+            _ => Err(ParserError::UnexpectedMessage(v)),
         }
     }
 }
 
 impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: CommonMessageTypes = v.0.try_into()?;
@@ -840,9 +840,9 @@ pub enum TemplateDistributionTypes {
 }
 
 impl TryFrom<u8> for TemplateDistributionTypes {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: u8) -> Result<TemplateDistributionTypes, Error> {
+    fn try_from(v: u8) -> Result<TemplateDistributionTypes, ParserError> {
         match v {
             MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS => {
                 Ok(TemplateDistributionTypes::CoinbaseOutputConstraints)
@@ -859,13 +859,13 @@ impl TryFrom<u8> for TemplateDistributionTypes {
                 Ok(TemplateDistributionTypes::RequestTransactionDataError)
             }
             MESSAGE_TYPE_SUBMIT_SOLUTION => Ok(TemplateDistributionTypes::SubmitSolution),
-            _ => Err(Error::UnexpectedMessage(v)),
+            _ => Err(ParserError::UnexpectedMessage(v)),
         }
     }
 }
 
 impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: TemplateDistributionTypes = v.0.try_into()?;
@@ -918,9 +918,9 @@ pub enum JobDeclarationTypes {
 }
 
 impl TryFrom<u8> for JobDeclarationTypes {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: u8) -> Result<JobDeclarationTypes, Error> {
+    fn try_from(v: u8) -> Result<JobDeclarationTypes, ParserError> {
         match v {
             MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN => {
                 Ok(JobDeclarationTypes::AllocateMiningJobToken)
@@ -940,13 +940,13 @@ impl TryFrom<u8> for JobDeclarationTypes {
                 Ok(JobDeclarationTypes::ProvideMissingTransactionsSuccess)
             }
             MESSAGE_TYPE_PUSH_SOLUTION => Ok(JobDeclarationTypes::PushSolution),
-            _ => Err(Error::UnexpectedMessage(v)),
+            _ => Err(ParserError::UnexpectedMessage(v)),
         }
     }
 }
 
 impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: JobDeclarationTypes = v.0.try_into()?;
@@ -1016,9 +1016,9 @@ pub enum MiningTypes {
 }
 
 impl TryFrom<u8> for MiningTypes {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: u8) -> Result<MiningTypes, Error> {
+    fn try_from(v: u8) -> Result<MiningTypes, ParserError> {
         match v {
             MESSAGE_TYPE_CLOSE_CHANNEL => Ok(MiningTypes::CloseChannel),
             MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB => Ok(MiningTypes::NewExtendedMiningJob),
@@ -1047,14 +1047,14 @@ impl TryFrom<u8> for MiningTypes {
             MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS => Ok(MiningTypes::SubmitSharesSuccess),
             MESSAGE_TYPE_UPDATE_CHANNEL => Ok(MiningTypes::UpdateChannel),
             MESSAGE_TYPE_UPDATE_CHANNEL_ERROR => Ok(MiningTypes::UpdateChannelError),
-            MESSAGE_TYPE_SETUP_CONNECTION => Err(Error::UnexpectedMessage(v)),
-            _ => Err(Error::UnexpectedMessage(v)),
+            MESSAGE_TYPE_SETUP_CONNECTION => Err(ParserError::UnexpectedMessage(v)),
+            _ => Err(ParserError::UnexpectedMessage(v)),
         }
     }
 }
 
 impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: MiningTypes = v.0.try_into()?;
@@ -1170,11 +1170,11 @@ impl GetSize for MiningDeviceMessages<'_> {
     }
 }
 impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let is_common: Result<CommonMessageTypes, Error> = v.0.try_into();
-        let is_mining: Result<MiningTypes, Error> = v.0.try_into();
+        let is_common: Result<CommonMessageTypes, ParserError> = v.0.try_into();
+        let is_mining: Result<MiningTypes, ParserError> = v.0.try_into();
         match (is_common, is_mining) {
             (Ok(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
             (Err(_), Ok(_)) => Ok(Self::Mining(v.try_into()?)),
@@ -1206,7 +1206,7 @@ impl fmt::Display for AnyMessage<'_> {
 }
 
 impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(value: MiningDeviceMessages<'a>) -> Result<Self, Self::Error> {
         match value {
@@ -1274,13 +1274,14 @@ impl IsSv2Message for MiningDeviceMessages<'_> {
 }
 
 impl<'a> TryFrom<(u8, &'a mut [u8])> for AnyMessage<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let is_common: Result<CommonMessageTypes, Error> = v.0.try_into();
-        let is_mining: Result<MiningTypes, Error> = v.0.try_into();
-        let is_job_declaration: Result<JobDeclarationTypes, Error> = v.0.try_into();
-        let is_template_distribution: Result<TemplateDistributionTypes, Error> = v.0.try_into();
+        let is_common: Result<CommonMessageTypes, ParserError> = v.0.try_into();
+        let is_mining: Result<MiningTypes, ParserError> = v.0.try_into();
+        let is_job_declaration: Result<JobDeclarationTypes, ParserError> = v.0.try_into();
+        let is_template_distribution: Result<TemplateDistributionTypes, ParserError> =
+            v.0.try_into();
         match (
             is_common,
             is_mining,
@@ -1347,68 +1348,64 @@ impl<'a, T: Into<CommonMessages<'a>>> From<T> for MiningDeviceMessages<'a> {
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage<'decoder>>
     for Sv2Frame<AnyMessage<'decoder>, B>
 {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: AnyMessage<'decoder>) -> Result<Self, Error> {
+    fn try_from(v: AnyMessage<'decoder>) -> Result<Self, ParserError> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
         Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
-            .ok_or(Error::BadPayloadSize)
+            .ok_or(ParserError::BadPayloadSize)
     }
 }
 
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decoder>>
     for Sv2Frame<MiningDeviceMessages<'decoder>, B>
 {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, Error> {
+    fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, ParserError> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
         Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
-            .ok_or(Error::BadPayloadSize)
+            .ok_or(ParserError::BadPayloadSize)
     }
 }
 
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decoder>>
     for Sv2Frame<TemplateDistribution<'decoder>, B>
 {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(v: TemplateDistribution<'decoder>) -> Result<Self, Error> {
+    fn try_from(v: TemplateDistribution<'decoder>) -> Result<Self, ParserError> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
         Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
-            .ok_or(Error::BadPayloadSize)
+            .ok_or(ParserError::BadPayloadSize)
     }
 }
 
 impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
-    type Error = Error;
+    type Error = ParserError;
 
-    fn try_from(value: AnyMessage<'a>) -> Result<Self, Error> {
+    fn try_from(value: AnyMessage<'a>) -> Result<Self, ParserError> {
         match value {
             AnyMessage::Common(message) => Ok(Self::Common(message)),
             AnyMessage::Mining(message) => Ok(Self::Mining(message)),
-            AnyMessage::JobDeclaration(_) => Err(Error::UnexpectedPoolMessage),
-            AnyMessage::TemplateDistribution(_) => Err(Error::UnexpectedPoolMessage),
+            AnyMessage::JobDeclaration(_) => Err(ParserError::UnexpectedPoolMessage),
+            AnyMessage::TemplateDistribution(_) => Err(ParserError::UnexpectedPoolMessage),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        mining_sv2::NewMiningJob,
-        parsers::{AnyMessage, Mining},
-    };
-    use codec_sv2::{
-        binary_sv2::{Sv2Option, U256},
-        StandardSv2Frame,
-    };
+    use crate::{AnyMessage, Mining};
+    use binary_sv2::{Sv2Option, U256};
+    use codec_sv2::StandardSv2Frame;
+    use mining_sv2::NewMiningJob;
     use std::convert::{TryFrom, TryInto};
 
     pub type Message = AnyMessage<'static>;

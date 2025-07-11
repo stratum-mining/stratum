@@ -19,7 +19,7 @@ use std::{
 use stratum_common::roles_logic_sv2::{
     self,
     codec_sv2::{self, binary_sv2, noise_sv2},
-    parsers::Mining,
+    parsers_sv2::{Mining, ParserError},
     vardiff::error::VardiffError,
 };
 
@@ -53,11 +53,18 @@ pub enum PoolError {
     /// Error related to the SV2 protocol, including an error code and a `Mining` message.
     Sv2ProtocolError((u32, Mining<'static>)),
     Vardiff(VardiffError),
+    Parser(ParserError),
 }
 
 impl From<VardiffError> for PoolError {
     fn from(value: VardiffError) -> Self {
         PoolError::Vardiff(value)
+    }
+}
+
+impl From<ParserError> for PoolError {
+    fn from(value: ParserError) -> Self {
+        PoolError::Parser(value)
     }
 }
 
@@ -83,6 +90,7 @@ impl std::fmt::Display for PoolError {
             PoolError::Vardiff(ref e) => {
                 write!(f, "Received Vardiff Error : {e:?}")
             }
+            Parser(ref e) => write!(f, "Parser error: `{e:?}`"),
         }
     }
 }

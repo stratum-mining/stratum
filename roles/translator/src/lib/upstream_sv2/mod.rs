@@ -10,7 +10,7 @@
 
 use stratum_common::roles_logic_sv2::{
     codec_sv2::{StandardEitherFrame, StandardSv2Frame},
-    parsers::AnyMessage,
+    parsers_sv2::AnyMessage,
 };
 
 pub mod diff_management;

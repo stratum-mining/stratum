@@ -22,7 +22,7 @@ use stratum_common::{
         self, codec_sv2,
         codec_sv2::{HandshakeRole, Initiator},
         handlers::template_distribution::ParseTemplateDistributionMessagesFromServer,
-        parsers::{AnyMessage, TemplateDistribution},
+        parsers_sv2::{AnyMessage, TemplateDistribution},
         template_distribution_sv2::{
             CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
         },

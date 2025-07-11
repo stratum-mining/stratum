@@ -5,7 +5,7 @@ use integration_tests_sv2::{interceptor::MessageDirection, *};
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, *},
     mining_sv2::*,
-    parsers::{AnyMessage, CommonMessages, Mining, TemplateDistribution},
+    parsers_sv2::{AnyMessage, CommonMessages, Mining, TemplateDistribution},
     template_distribution_sv2::*,
 };
 
