@@ -125,7 +125,7 @@ impl JobDeclaratorDownstream {
             known_transactions: vec![],
             unknown_transactions: vec![],
         };
-        let coinbase_output = serialize(&config.get_txout());
+        let coinbase_output = serialize(&vec![config.get_txout()]);
 
         Self {
             full_template_mode_required,
