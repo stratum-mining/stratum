@@ -5,9 +5,9 @@ use integration_tests_sv2::{
 };
 use stratum_common::roles_logic_sv2::{job_declaration_sv2::*, template_distribution_sv2::*};
 
-// Block propogated from JDS to TP
+// Block propagated from JDS to TP
 #[tokio::test]
-async fn propogated_from_jds_to_tp() {
+async fn propagated_from_jds_to_tp() {
     start_tracing();
     let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
     let current_block_hash = tp.get_best_block_hash().unwrap();
