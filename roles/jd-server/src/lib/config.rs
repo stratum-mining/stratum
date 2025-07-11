@@ -192,7 +192,7 @@ mod tests {
         authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
         cert_validity_sec = 3600
 
-        coinbase_outputs = %COINBASE_OUTPUTS%
+        coinbase_output = %COINBASE_OUTPUT%
 
         listen_jd_address = "127.0.0.1:34264"
         core_rpc_url =  "http://127.0.0.1"
@@ -227,7 +227,7 @@ mod tests {
     }
 
     fn load_coinbase_config_str(path: &str) -> Result<JobDeclaratorServerConfig, ConfigError> {
-        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_OUTPUTS%", path);
+        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_OUTPUT%", path);
         let settings = Config::builder()
             .add_source(File::from_str(&s, FileFormat::Toml))
             .build()
@@ -249,10 +249,8 @@ mod tests {
         let pk = TEST_PK_HEX
             .parse::<bitcoin::PublicKey>()
             .expect("Failed to parse public key");
-        let config = load_coinbase_config_str(&format!(
-            "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{pk}\" }} ]"
-        ))
-        .expect("Failed to parse config");
+        let config =
+            load_coinbase_config_str(&format!("\"wpkh({pk})\"")).expect("Failed to parse config");
 
         let outputs = config.get_txout();
         let expected_script = ScriptBuf::from_hex(&format!(
@@ -271,40 +269,30 @@ mod tests {
     #[test]
     fn test_get_txout_empty() {
         let error =
-            load_coinbase_config_str("[]").expect_err("cannot parse config with empty list");
+            load_coinbase_config_str("\"\"").expect_err("cannot parse config with empty txout");
         assert_eq!(
             error.to_string(),
-            "invalid length 0, expected a list with exactly one coinbase output, or a single descriptor string",
+            "Miniscript: unexpected «(0 args) while parsing Miniscript»",
         );
     }
 
     #[test]
-    fn test_get_txout_invalid_script_type() {
-        // This error message was introduced in https://github.com/stratum-mining/stratum/pull/1720
-        // as part of a change to allow Vec or non-Vec coinbase output lists to be parsed. We
-        // have https://github.com/stratum-mining/stratum/issues/1793 to track improving it.
-        let error = load_coinbase_config_str(&format!(
-            "[ {{ output_script_type = \"INVALID\", output_script_value = \"{TEST_PK_HEX}\" }} ]"
-        ))
-        .expect_err("Cannot parse config with bad script type");
+    fn test_get_txout_invalid_miniscript() {
+        let error = load_coinbase_config_str(&format!("\"INVALID\""))
+            .expect_err("Cannot parse config with bad miniscript");
         assert_eq!(
             error.to_string(),
-            "could not parse descriptor string (or old-style list format)",
+            "Miniscript: unexpected «INVALID(0 args) while parsing Miniscript»",
         );
     }
 
     #[test]
     fn test_get_txout_invalid_value() {
-        // This error message was introduced in https://github.com/stratum-mining/stratum/pull/1720
-        // as part of a change to allow Vec or non-Vec coinbase output lists to be parsed. We
-        // have https://github.com/stratum-mining/stratum/issues/1793 to track improving it.
-        let error = load_coinbase_config_str(&format!(
-            "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{TEST_INVALID_PK_HEX}\" }} ]"
-        ))
-        .expect_err("Cannot parse config with bad pubkeys");
+        let error = load_coinbase_config_str(&format!("\"wpkh({TEST_INVALID_PK_HEX})\""))
+            .expect_err("Cannot parse config with bad pubkeys");
         assert_eq!(
             error.to_string(),
-            "could not parse descriptor string (or old-style list format)",
+            "Miniscript: unexpected «Error while parsing simple public key»",
         );
     }
 }
