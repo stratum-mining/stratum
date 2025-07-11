@@ -138,11 +138,11 @@ impl JobDeclaratorServerConfig {
         self.coinbase_output = output;
     }
 
-    pub fn get_txout(&self) -> Vec<TxOut> {
-        vec![TxOut {
+    pub fn get_txout(&self) -> TxOut {
+        TxOut {
             value: Amount::from_sat(0),
             script_pubkey: self.coinbase_output.script_pubkey().to_owned(),
-        }]
+        }
     }
     pub fn log_file(&self) -> Option<&Path> {
         self.log_file.as_deref()
@@ -252,7 +252,7 @@ mod tests {
         let config =
             load_coinbase_config_str(&format!("\"wpkh({pk})\"")).expect("Failed to parse config");
 
-        let outputs = config.get_txout();
+        let output = config.get_txout();
         let expected_script = ScriptBuf::from_hex(&format!(
             "0014{}",
             pk.wpubkey_hash().expect("compressed key")
@@ -263,7 +263,7 @@ mod tests {
             script_pubkey: expected_script,
         };
 
-        assert_eq!(outputs[0], expected_transaction_output);
+        assert_eq!(output, expected_transaction_output);
     }
 
     #[test]
