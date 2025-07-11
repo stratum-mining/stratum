@@ -145,6 +145,17 @@ where
             .map_err(|_| Error::SocketClosed)?;
         Ok(())
     }
+
+    pub fn try_write_frame(&mut self, frame: StandardEitherFrame<Message>) -> Result<bool, Error> {
+        let buf = self.encoder.encode(frame, &mut self.state)?;
+
+        match self.writer.try_write(buf.as_ref()) {
+            Ok(n) if n == buf.len() => Ok(true),
+            Ok(_) => Err(Error::SocketClosed),
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(false),
+            Err(_) => Err(Error::SocketClosed),
+        }
+    }
 }
 
 impl<Message> NoiseTcpReadHalf<Message>
