@@ -32,7 +32,7 @@ pub(super) struct LegacyCoinbaseOutput {
     pub(super) output_script_value: String,
 }
 
-impl TryFrom<LegacyCoinbaseOutput> for super::CoinbaseOutput {
+impl TryFrom<LegacyCoinbaseOutput> for super::CoinbaseRewardScript {
     type Error = super::Error;
     fn try_from(value: LegacyCoinbaseOutput) -> Result<Self, Self::Error> {
         let script_pubkey = match value.output_script_type.as_str() {
@@ -125,7 +125,7 @@ pub struct SerdeCoinbaseOutput {
     inner: SerdeCoinbaseOutputInner,
 }
 
-impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseOutput {
+impl TryFrom<SerdeCoinbaseOutput> for super::CoinbaseRewardScript {
     type Error = super::Error;
     fn try_from(value: SerdeCoinbaseOutput) -> Result<Self, Self::Error> {
         match value.inner {

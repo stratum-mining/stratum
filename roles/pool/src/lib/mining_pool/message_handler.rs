@@ -77,10 +77,8 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         let last_future_template = self.last_future_template.clone();
         let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
 
-        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
-        // so while we don't clean that up, we only set the value of the first output
-        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
-        pool_coinbase_outputs[0].value =
+        let mut pool_coinbase_output = self.empty_pool_coinbase_output.clone();
+        pool_coinbase_output.value =
             Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
         if !self.requires_standard_jobs && self.group_channel.is_none() {
@@ -91,7 +89,10 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
             let mut group_channel = GroupChannel::new(group_channel_id, job_store);
             group_channel
-                .on_new_template(last_future_template.clone(), pool_coinbase_outputs.clone())
+                .on_new_template(
+                    last_future_template.clone(),
+                    vec![pool_coinbase_output.clone()],
+                )
                 .map_err(Error::FailedToProcessNewTemplateGroupChannel)?;
 
             group_channel
@@ -188,7 +189,10 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         // create a future standard job based on the last future template
         standard_channel
-            .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
+            .on_new_template(
+                last_future_template.clone(),
+                vec![pool_coinbase_output.clone()],
+            )
             .map_err(Error::FailedToCreateStandardChannel)?;
 
         let future_standard_job_id = standard_channel
@@ -371,15 +375,13 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let last_future_template = self.last_future_template.clone();
 
-        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
-        // so while we don't clean that up, we only set the value of the first output
-        let mut pool_coinbase_outputs = self.empty_pool_coinbase_outputs.clone();
-        pool_coinbase_outputs[0].value =
+        let mut pool_coinbase_output = self.empty_pool_coinbase_output.clone();
+        pool_coinbase_output.value =
             Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
         // create a future extended job based on the last future template
         extended_channel
-            .on_new_template(last_future_template.clone(), pool_coinbase_outputs)
+            .on_new_template(last_future_template.clone(), vec![pool_coinbase_output])
             .map_err(Error::FailedToCreateExtendedChannel)?;
 
         let future_extended_job_id = extended_channel
@@ -910,15 +912,13 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         )
         .map_err(|_| Error::FailedToDeserializeCoinbaseOutputs)?;
 
-        // check that all script_pubkeys from self.empty_pool_coinbase_outputs are present in the
-        // custom job coinbase outputs
-        let missing_script = self.empty_pool_coinbase_outputs.iter().find(|pool_output| {
-            !custom_job_coinbase_outputs
-                .iter()
-                .any(|custom_output| custom_output.script_pubkey == pool_output.script_pubkey)
+        // check that the script_pubkey from self.empty_pool_coinbase_output
+        // is present in the custom job coinbase outputs
+        let missing_script = !custom_job_coinbase_outputs.iter().any(|pool_output| {
+            pool_output.script_pubkey == self.empty_pool_coinbase_output.script_pubkey
         });
 
-        if missing_script.is_some() {
+        if missing_script {
             error!("SetCustomMiningJobError: pool-payout-script-missing");
 
             let error = SetCustomMiningJobError {
