@@ -44,7 +44,7 @@ SRI is fully open-source, community-developed, independent of any single entity,
 
 To get started with the Stratum V2 Reference Implementation (SRI), please follow the detailed setup instructions available on the official website:
 
-[Getting Started with Stratum V2](https://stratumprotocol.org/getting-started/)
+[Getting Started with Stratum V2](https://stratumprotocol.org/blog/getting-started/)
 
 This guide provides all the necessary information on prerequisites, installation, and configuration to help you begin using, testing or contributing to SRI.
 
