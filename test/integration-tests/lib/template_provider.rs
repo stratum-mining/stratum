@@ -1,8 +1,8 @@
-use corepc_node::{Conf, ConnectParams, Node};
+use corepc_node::{types::GetBlockchainInfo, Conf, ConnectParams, Node};
 use std::{env, fs::create_dir_all, path::PathBuf};
 use stratum_common::roles_logic_sv2::bitcoin::{Address, Amount, Txid};
 
-use crate::utils::{http, tarball};
+use crate::utils::{fs_utils, http, tarball};
 
 const VERSION_TP: &str = "0.1.15";
 
@@ -28,17 +28,66 @@ pub struct TemplateProvider {
     bitcoind: Node,
 }
 
+/// Represents the consensus difficulty level of the network.
+///
+/// Low: regtest mode (every share is a block)
+///
+/// Mid: signet mode with genesis difficulty
+/// (most of the time, a CPU should find a block in a minute or less)
+///
+/// High: signet mode with premined blocks raising difficulty to 77761.11
+/// (most of the time, a CPU should take a REALLY long time to find a block)
+///
+/// Note: signet mode has signetchallenge=51, which means no signature is needed on the coinbase.
+pub enum DifficultyLevel {
+    Low,
+    Mid,
+    High,
+}
+
 impl TemplateProvider {
     /// Start a new [`TemplateProvider`] instance.
-    pub fn start(port: u16, sv2_interval: u32) -> Self {
+    pub fn start(port: u16, sv2_interval: u32, difficulty_level: DifficultyLevel) -> Self {
         let current_dir: PathBuf = std::env::current_dir().expect("failed to read current dir");
         let tp_dir = current_dir.join("template-provider");
         let mut conf = Conf::default();
         conf.wallet = Some(port.to_string());
+
         let staticdir = format!(".bitcoin-{port}");
-        conf.staticdir = Some(tp_dir.join(staticdir));
+        conf.staticdir = Some(tp_dir.join(staticdir.clone()));
         let port_arg = format!("-sv2port={port}");
         let sv2_interval_arg = format!("-sv2interval={sv2_interval}");
+
+        match difficulty_level {
+            DifficultyLevel::Low => {
+                // use default corepc-node settings, which means regtest mode
+                // where every share is a block
+            }
+            DifficultyLevel::Mid => {
+                // use signet mode with genesis difficulty
+                // (signetchallenge=51, no signature needed on the coinbase)
+                // most of the time, a CPU should find a block in a minute or less
+                conf.args = vec!["-signet", "-fallbackfee=0.0001", "-signetchallenge=51"];
+                conf.network = "signet";
+            }
+            DifficultyLevel::High => {
+                // use signet mode with premined blocks raising difficulty to 77761.11
+                // (signetchallenge=51, no signature needed on the coinbase)
+                // most of the time, a CPU should take a REALLY long time to find a block
+                conf.args = vec!["-signet", "-fallbackfee=0.0001", "-signetchallenge=51"];
+                conf.network = "signet";
+
+                // Create signet datadir
+                let signet_datadir = tp_dir.join(staticdir.clone()).join("signet");
+                create_dir_all(signet_datadir.clone()).expect("Failed to create signet directory");
+
+                // Copy high difficulty signet data into signet datadir
+                let high_diff_chain_dir = current_dir.join("high_diff_chain");
+                fs_utils::copy_dir_contents(&high_diff_chain_dir, &signet_datadir)
+                    .expect("Failed to copy high difficulty chain data");
+            }
+        }
+
         conf.args.extend(vec![
             "-txindex=1",
             "-sv2",
@@ -129,6 +178,13 @@ impl TemplateProvider {
         &self.bitcoind.params
     }
 
+    /// Return the result of `getblockchaininfo` RPC call.
+    pub fn get_blockchain_info(&self) -> Result<GetBlockchainInfo, corepc_node::Error> {
+        let client = &self.bitcoind.client;
+        let blockchain_info = client.get_blockchain_info()?;
+        Ok(blockchain_info)
+    }
+
     /// Create and broadcast a transaction to the mempool.
     ///
     /// It is recommended to use [`TemplateProvider::fund_wallet`] before calling this method to
@@ -164,14 +220,14 @@ impl TemplateProvider {
 
 #[cfg(test)]
 mod tests {
-    use super::TemplateProvider;
+    use super::{DifficultyLevel, TemplateProvider};
     use crate::utils::get_available_address;
 
     #[tokio::test]
     async fn test_create_mempool_transaction() {
         let address = get_available_address();
         let port = address.port();
-        let tp = TemplateProvider::start(port, 1);
+        let tp = TemplateProvider::start(port, 1, DifficultyLevel::Low);
         assert!(tp.fund_wallet().is_ok());
         assert!(tp.create_mempool_transaction().is_ok());
     }
