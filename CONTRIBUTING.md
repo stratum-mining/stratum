@@ -105,7 +105,7 @@ The SRI project follows an open contributor model, where anyone is welcome to co
 
 Unsure where to begin contributing to SRI? You can start by looking through `good first issue` and `help wanted` issues:
 
-* [Good first issue](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) are issues which should only require a few lines of code, and a test or two.
-* [Help wanted](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) - issues which should be a bit more involved than `good first issue` issues.
+* [Good first issue](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) : are issues which should only require a few lines of code, and a test or two.
+* [Help wanted](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) : issues which should be a bit more involved than `good first issue` issues.
 
 Another way to better understand where to focus your contribution is by looking at our roadmap: https://github.com/orgs/stratum-mining/projects/5
