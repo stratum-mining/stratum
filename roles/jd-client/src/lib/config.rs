@@ -55,7 +55,7 @@ pub struct JobDeclaratorClientConfig {
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     timeout: Duration,
     /// This is only used during solo-mining.
-    coinbase_output: CoinbaseRewardScript,
+    coinbase_reward_script: CoinbaseRewardScript,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
     /// The path to the log file where JDC will write logs.
@@ -67,7 +67,7 @@ impl JobDeclaratorClientConfig {
     ///
     /// # Panics
     ///
-    /// Panics if `protocol_config.coinbase_outputs` is empty.
+    /// Panics if `protocol_config.coinbase_reward_script` is empty.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         listening_address: SocketAddr,
@@ -91,7 +91,7 @@ impl JobDeclaratorClientConfig {
             tp_authority_public_key: tp_config.tp_authority_public_key,
             upstreams,
             timeout,
-            coinbase_output: protocol_config.coinbase_output,
+            coinbase_reward_script: protocol_config.coinbase_reward_script,
             jdc_signature,
             log_file: None,
         }
@@ -162,7 +162,7 @@ impl JobDeclaratorClientConfig {
     pub fn get_txout(&self) -> TxOut {
         TxOut {
             value: Amount::from_sat(0),
-            script_pubkey: self.coinbase_output.script_pubkey().to_owned(),
+            script_pubkey: self.coinbase_reward_script.script_pubkey().to_owned(),
         }
     }
 
@@ -227,7 +227,7 @@ pub struct ProtocolConfig {
     // The minimum supported SV2 protocol version.
     min_supported_version: u16,
     // A coinbase output to be included in block templates.
-    coinbase_output: CoinbaseRewardScript,
+    coinbase_reward_script: CoinbaseRewardScript,
 }
 
 impl ProtocolConfig {
@@ -235,12 +235,12 @@ impl ProtocolConfig {
     pub fn new(
         max_supported_version: u16,
         min_supported_version: u16,
-        coinbase_output: CoinbaseRewardScript,
+        coinbase_reward_script: CoinbaseRewardScript,
     ) -> Self {
         Self {
             max_supported_version,
             min_supported_version,
-            coinbase_output,
+            coinbase_reward_script,
         }
     }
 }
