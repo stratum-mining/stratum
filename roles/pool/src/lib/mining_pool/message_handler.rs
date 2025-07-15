@@ -77,9 +77,10 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         let last_future_template = self.last_future_template.clone();
         let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
 
-        let mut pool_coinbase_output = self.empty_pool_coinbase_output.clone();
-        pool_coinbase_output.value =
-            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
+        let pool_coinbase_output = TxOut {
+            value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+            script_pubkey: self.coinbase_reward_script.script_pubkey(),
+        };
 
         if !self.requires_standard_jobs && self.group_channel.is_none() {
             // we only create one group channel for all standard channels
@@ -375,9 +376,10 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let last_future_template = self.last_future_template.clone();
 
-        let mut pool_coinbase_output = self.empty_pool_coinbase_output.clone();
-        pool_coinbase_output.value =
-            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
+        let pool_coinbase_output = TxOut {
+            value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+            script_pubkey: self.coinbase_reward_script.script_pubkey(),
+        };
 
         // create a future extended job based on the last future template
         extended_channel
@@ -912,10 +914,10 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         )
         .map_err(|_| Error::FailedToDeserializeCoinbaseOutputs)?;
 
-        // check that the script_pubkey from self.empty_pool_coinbase_output
+        // check that the script_pubkey from self.coinbase_reward_script
         // is present in the custom job coinbase outputs
         let missing_script = !custom_job_coinbase_outputs.iter().any(|pool_output| {
-            pool_output.script_pubkey == self.empty_pool_coinbase_output.script_pubkey
+            *pool_output.script_pubkey == *self.coinbase_reward_script.script_pubkey()
         });
 
         if missing_script {

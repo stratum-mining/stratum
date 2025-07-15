@@ -13,8 +13,9 @@ pub mod template_receiver;
 use async_channel::{bounded, unbounded};
 use config::PoolConfig;
 use error::PoolError;
-use mining_pool::{get_coinbase_output, Pool};
+use mining_pool::Pool;
 use std::sync::{Arc, Mutex};
+use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 use template_receiver::TemplateRx;
 use tokio::select;
 use tracing::{error, info, warn};
@@ -71,10 +72,15 @@ impl PoolSv2 {
         let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
 
         // Prepare coinbase output information required by TemplateRx.
-        let coinbase_output_result = get_coinbase_output(&config);
-        let coinbase_output_len = coinbase_output_result.size() as u32;
+        // We use an empty output here only for calculation of the size and sigops of the coinbase
+        // output. We still don't know the template revenue.
+        let empty_coinbase_output = TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: config.coinbase_reward_script().script_pubkey(),
+        };
+        let coinbase_output_len = empty_coinbase_output.size() as u32;
         let tp_authority_public_key = config.tp_authority_public_key().cloned();
-        let coinbase_output_sigops = coinbase_output_result.script_pubkey.count_sigops() as u16;
+        let coinbase_output_sigops = empty_coinbase_output.script_pubkey.count_sigops() as u16;
 
         // --- Spawn Template Receiver Task ---
         let tp_address = config.tp_address().clone();
