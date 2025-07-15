@@ -2,7 +2,7 @@ mod errors;
 mod serde_types;
 
 use miniscript::{
-    bitcoin::{address::NetworkUnchecked, hex::FromHex as _, Address, Network, Script, ScriptBuf},
+    bitcoin::{address::NetworkUnchecked, hex::FromHex as _, Address, Network, ScriptBuf},
     DefiniteDescriptorKey, Descriptor,
 };
 
@@ -107,8 +107,8 @@ impl CoinbaseRewardScript {
     }
 
     /// The `scriptPubKey` associated with the coinbase output
-    pub fn script_pubkey(&self) -> &Script {
-        &self.script_pubkey
+    pub fn script_pubkey(&self) -> ScriptBuf {
+        self.script_pubkey.clone()
     }
 }
 
