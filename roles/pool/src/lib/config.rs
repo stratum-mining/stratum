@@ -22,7 +22,7 @@ pub struct PoolConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
-    coinbase_output: CoinbaseRewardScript,
+    coinbase_reward_script: CoinbaseRewardScript,
     pool_signature: String,
     shares_per_minute: f32,
     share_batch_size: usize,
@@ -34,12 +34,12 @@ impl PoolConfig {
     ///
     /// # Panics
     ///
-    /// Panics if `coinbase_outputs` is empty.
+    /// Panics if `coinbase_reward_script` is empty.
     pub fn new(
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
-        coinbase_output: CoinbaseRewardScript,
+        coinbase_reward_script: CoinbaseRewardScript,
         shares_per_minute: f32,
         share_batch_size: usize,
     ) -> Self {
@@ -50,7 +50,7 @@ impl PoolConfig {
             authority_public_key: authority_config.public_key,
             authority_secret_key: authority_config.secret_key,
             cert_validity_sec: pool_connection.cert_validity_sec,
-            coinbase_output,
+            coinbase_reward_script,
             pool_signature: pool_connection.signature,
             shares_per_minute,
             share_batch_size,
@@ -59,8 +59,8 @@ impl PoolConfig {
     }
 
     /// Returns the coinbase output.
-    pub fn coinbase_output(&self) -> &CoinbaseRewardScript {
-        &self.coinbase_output
+    pub fn coinbase_reward_script(&self) -> &CoinbaseRewardScript {
+        &self.coinbase_reward_script
     }
 
     /// Returns Pool listenining address.
@@ -104,8 +104,8 @@ impl PoolConfig {
     }
 
     /// Sets the coinbase output.
-    pub fn set_coinbase_output(&mut self, coinbase_output: CoinbaseRewardScript) {
-        self.coinbase_output = coinbase_output;
+    pub fn set_coinbase_reward_script(&mut self, coinbase_output: CoinbaseRewardScript) {
+        self.coinbase_reward_script = coinbase_output;
     }
 
     /// Returns the shares per minute.

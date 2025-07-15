@@ -85,7 +85,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub fn get_coinbase_output(config: &PoolConfig) -> TxOut {
     TxOut {
         value: Amount::from_sat(0),
-        script_pubkey: config.coinbase_output().script_pubkey().into(),
+        script_pubkey: config.coinbase_reward_script().script_pubkey().into(),
     }
 }
 
