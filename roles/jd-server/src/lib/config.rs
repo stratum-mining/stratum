@@ -28,7 +28,7 @@ pub struct JobDeclaratorServerConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
-    coinbase_output: CoinbaseRewardScript,
+    coinbase_reward_script: CoinbaseRewardScript,
     core_rpc_url: String,
     core_rpc_port: u16,
     core_rpc_user: String,
@@ -43,13 +43,13 @@ impl JobDeclaratorServerConfig {
     ///
     /// # Panics
     ///
-    /// Panics if `coinbase_outputs` is empty.
+    /// Panics if `coinbase_reward_scripts` is empty.
     pub fn new(
         listen_jd_address: String,
         authority_public_key: Secp256k1PublicKey,
         authority_secret_key: Secp256k1SecretKey,
         cert_validity_sec: u64,
-        coinbase_output: CoinbaseRewardScript,
+        coinbase_reward_script: CoinbaseRewardScript,
         core_rpc: CoreRpc,
         mempool_update_interval: Duration,
     ) -> Self {
@@ -59,7 +59,7 @@ impl JobDeclaratorServerConfig {
             authority_public_key,
             authority_secret_key,
             cert_validity_sec,
-            coinbase_output,
+            coinbase_reward_script,
             core_rpc_url: core_rpc.url,
             core_rpc_port: core_rpc.port,
             core_rpc_user: core_rpc.user,
@@ -105,8 +105,8 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Returns the coinbase outputs.
-    pub fn coinbase_outputs(&self) -> &CoinbaseRewardScript {
-        &self.coinbase_output
+    pub fn coinbase_reward_scripts(&self) -> &CoinbaseRewardScript {
+        &self.coinbase_reward_script
     }
 
     /// Returns the certificate validity in seconds.
@@ -134,14 +134,14 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Sets coinbase outputs.
-    pub fn set_coinbase_outputs(&mut self, output: CoinbaseRewardScript) {
-        self.coinbase_output = output;
+    pub fn set_coinbase_reward_scripts(&mut self, output: CoinbaseRewardScript) {
+        self.coinbase_reward_script = output;
     }
 
     pub fn get_txout(&self) -> TxOut {
         TxOut {
             value: Amount::from_sat(0),
-            script_pubkey: self.coinbase_output.script_pubkey().to_owned(),
+            script_pubkey: self.coinbase_reward_script.script_pubkey().to_owned(),
         }
     }
     pub fn log_file(&self) -> Option<&Path> {
@@ -192,7 +192,7 @@ mod tests {
         authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
         cert_validity_sec = 3600
 
-        coinbase_output = %COINBASE_OUTPUT%
+        coinbase_reward_script = %COINBASE_REWARD_SCRIPT%
 
         listen_jd_address = "127.0.0.1:34264"
         core_rpc_url =  "http://127.0.0.1"
@@ -227,7 +227,7 @@ mod tests {
     }
 
     fn load_coinbase_config_str(path: &str) -> Result<JobDeclaratorServerConfig, ConfigError> {
-        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_OUTPUT%", path);
+        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_REWARD_SCRIPT%", path);
         let settings = Config::builder()
             .add_source(File::from_str(&s, FileFormat::Toml))
             .build()
