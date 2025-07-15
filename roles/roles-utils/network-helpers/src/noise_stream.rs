@@ -251,6 +251,7 @@ where
             match self.decoder.next_frame(&mut self.state) {
                 Ok(frame) => return Ok(frame),
                 Err(codec_sv2::Error::MissingBytes(_)) => {
+                    tokio::task::yield_now().await;
                     continue;
                 }
                 Err(e) => return Err(Error::CodecError(e)),
