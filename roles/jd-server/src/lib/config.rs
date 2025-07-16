@@ -18,7 +18,6 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
@@ -138,12 +137,6 @@ impl JobDeclaratorServerConfig {
         self.coinbase_reward_script = output;
     }
 
-    pub fn get_txout(&self) -> TxOut {
-        TxOut {
-            value: Amount::from_sat(0),
-            script_pubkey: self.coinbase_reward_script.script_pubkey().to_owned(),
-        }
-    }
     pub fn log_file(&self) -> Option<&Path> {
         self.log_file.as_deref()
     }
@@ -252,7 +245,10 @@ mod tests {
         let config =
             load_coinbase_config_str(&format!("\"wpkh({pk})\"")).expect("Failed to parse config");
 
-        let output = config.get_txout();
+        let output = TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: config.coinbase_reward_scripts().script_pubkey(),
+        };
         let expected_script = ScriptBuf::from_hex(&format!(
             "0014{}",
             pk.wpubkey_hash().expect("compressed key")

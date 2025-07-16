@@ -31,10 +31,9 @@ use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
     roles_logic_sv2::{
         self,
-        bitcoin::{consensus::encode::serialize, Block, Transaction, Txid},
+        bitcoin::{consensus::encode::serialize, Amount, Block, Transaction, TxOut, Txid},
         codec_sv2::{
-            binary_sv2,
-            binary_sv2::{B0255, U256},
+            binary_sv2::{self, B0255, U256},
             HandshakeRole, Responder,
         },
         common_messages_sv2::{
@@ -125,7 +124,10 @@ impl JobDeclaratorDownstream {
             known_transactions: vec![],
             unknown_transactions: vec![],
         };
-        let coinbase_output = serialize(&vec![config.get_txout()]);
+        let coinbase_output = serialize(&vec![TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: config.coinbase_reward_scripts().script_pubkey().to_owned(),
+        }]);
 
         Self {
             full_template_mode_required,
