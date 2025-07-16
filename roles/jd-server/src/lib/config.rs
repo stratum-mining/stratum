@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_txout_non_empty() {
+    fn test_get_non_empty_coinbase_reward_script() {
         let pk = TEST_PK_HEX
             .parse::<bitcoin::PublicKey>()
             .expect("Failed to parse public key");
@@ -263,7 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_txout_empty() {
+    fn test_get_coinbase_reward_script_empty() {
         let error =
             load_coinbase_config_str("\"\"").expect_err("cannot parse config with empty txout");
         assert_eq!(
@@ -273,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_txout_invalid_miniscript() {
+    fn test_get_invalid_miniscript_in_coinbase_reward_script() {
         let error = load_coinbase_config_str(&format!("\"INVALID\""))
             .expect_err("Cannot parse config with bad miniscript");
         assert_eq!(
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_txout_invalid_value() {
+    fn test_get_invalid_value_in_coinbase_reward_script() {
         let error = load_coinbase_config_str(&format!("\"wpkh({TEST_INVALID_PK_HEX})\""))
             .expect_err("Cannot parse config with bad pubkeys");
         assert_eq!(
