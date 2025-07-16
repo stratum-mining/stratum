@@ -77,7 +77,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
     )
     .expect("failed");
     let cert_validity_sec = 3600;
-    let coinbase_output = CoinbaseRewardScript::from_descriptor(
+    let coinbase_reward_script = CoinbaseRewardScript::from_descriptor(
         "wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap();
@@ -100,7 +100,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         connection_config,
         template_provider_config,
         authority_config,
-        coinbase_output,
+        coinbase_reward_script,
         SHARES_PER_MINUTE,
         share_batch_size,
     );
@@ -139,7 +139,7 @@ pub fn start_jdc(
         "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n".to_string(),
     )
     .unwrap();
-    let coinbase_output = CoinbaseRewardScript::from_descriptor(
+    let coinbase_reward_script = CoinbaseRewardScript::from_descriptor(
         "wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap();
@@ -162,7 +162,7 @@ pub fn start_jdc(
     let protocol_config = ProtocolConfig::new(
         max_supported_version,
         min_supported_version,
-        coinbase_output,
+        coinbase_reward_script,
     );
     let jdc_signature = "JDC".to_string();
     let jd_client_proxy = JobDeclaratorClientConfig::new(
@@ -193,7 +193,7 @@ pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, Soc
     .unwrap();
     let listen_jd_address = get_available_address();
     let cert_validity_sec = 3600;
-    let coinbase_output = CoinbaseRewardScript::from_descriptor(
+    let coinbase_reward_script = CoinbaseRewardScript::from_descriptor(
         "wpkh(036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075)",
     )
     .unwrap();
@@ -216,7 +216,7 @@ pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, Soc
             authority_public_key,
             authority_secret_key,
             cert_validity_sec,
-            coinbase_output,
+            coinbase_reward_script,
             core_rpc,
             std::time::Duration::from_secs(1),
         );
