@@ -5,13 +5,15 @@ use interceptor::InterceptAction;
 use jd_client::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use once_cell::sync::OnceCell;
 use pool_sv2::PoolSv2;
 use rand::{rng, Rng};
 use std::{
     convert::{TryFrom, TryInto},
     net::SocketAddr,
-    sync::Once,
 };
+use tracing::Level;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use translator_sv2::TranslatorSv2;
 use utils::get_available_address;
 
@@ -28,12 +30,18 @@ pub(crate) mod utils;
 
 const SHARES_PER_MINUTE: f32 = 120.0;
 
-static LOGGER: Once = Once::new();
+static LOGGER: OnceCell<()> = OnceCell::new();
 
 /// Each test function should call `start_tracing()` to enable logging.
 pub fn start_tracing() {
-    LOGGER.call_once(|| {
-        tracing_subscriber::fmt::init();
+    LOGGER.get_or_init(|| {
+        let env_filter = EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| EnvFilter::new(Level::INFO.to_string()));
+
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(fmt::layer())
+            .init();
     });
 }
 

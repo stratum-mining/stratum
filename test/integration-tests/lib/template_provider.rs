@@ -1,6 +1,7 @@
 use corepc_node::{types::GetBlockchainInfo, Conf, ConnectParams, Node};
 use std::{env, fs::create_dir_all, path::PathBuf};
 use stratum_common::roles_logic_sv2::bitcoin::{Address, Amount, Txid};
+use tracing::warn;
 
 use crate::utils::{fs_utils, http, tarball};
 
@@ -110,6 +111,7 @@ impl TemplateProvider {
             let tarball_bytes = match env::var("BITCOIND_TARBALL_FILE") {
                 Ok(path) => tarball::read_from_file(&path),
                 Err(_) => {
+                    warn!("Downloading template provider for the testing session. This could take a while...");
                     let download_endpoint =
                         env::var("BITCOIND_DOWNLOAD_ENDPOINT").unwrap_or_else(|_| {
                             "https://github.com/Sjors/bitcoin/releases/download".to_owned()
