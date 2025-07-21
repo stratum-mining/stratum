@@ -10,7 +10,7 @@
 //! - Validating and converting coinbase outputs
 use std::path::{Path, PathBuf};
 
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 /// Configuration for the Pool, including connection, authority, and coinbase settings.
@@ -22,9 +22,7 @@ pub struct PoolConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
-    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
-    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_reward_script: CoinbaseRewardScript,
     pool_signature: String,
     shares_per_minute: f32,
     share_batch_size: usize,
@@ -36,19 +34,15 @@ impl PoolConfig {
     ///
     /// # Panics
     ///
-    /// Panics if `coinbase_outputs` is empty.
+    /// Panics if `coinbase_reward_script` is empty.
     pub fn new(
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
         authority_config: AuthorityConfig,
-        coinbase_outputs: Vec<CoinbaseOutput>,
+        coinbase_reward_script: CoinbaseRewardScript,
         shares_per_minute: f32,
         share_batch_size: usize,
     ) -> Self {
-        assert!(
-            !coinbase_outputs.is_empty(),
-            "set of coinbase outputs must be nonempty"
-        );
         Self {
             listen_address: pool_connection.listen_address,
             tp_address: template_provider.address,
@@ -56,7 +50,7 @@ impl PoolConfig {
             authority_public_key: authority_config.public_key,
             authority_secret_key: authority_config.secret_key,
             cert_validity_sec: pool_connection.cert_validity_sec,
-            coinbase_outputs,
+            coinbase_reward_script,
             pool_signature: pool_connection.signature,
             shares_per_minute,
             share_batch_size,
@@ -64,9 +58,9 @@ impl PoolConfig {
         }
     }
 
-    /// Returns the coinbase outputs.
-    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseOutput> {
-        self.coinbase_outputs.as_ref()
+    /// Returns the coinbase output.
+    pub fn coinbase_reward_script(&self) -> &CoinbaseRewardScript {
+        &self.coinbase_reward_script
     }
 
     /// Returns Pool listenining address.
@@ -109,9 +103,9 @@ impl PoolConfig {
         self.share_batch_size
     }
 
-    /// Sets the coinbase outputs.
-    pub fn set_coinbase_outputs(&mut self, coinbase_outputs: Vec<CoinbaseOutput>) {
-        self.coinbase_outputs = coinbase_outputs;
+    /// Sets the coinbase output.
+    pub fn set_coinbase_reward_script(&mut self, coinbase_output: CoinbaseRewardScript) {
+        self.coinbase_reward_script = coinbase_output;
     }
 
     /// Returns the shares per minute.

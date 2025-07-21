@@ -19,13 +19,13 @@
 //! - `Pool`: Central manager for all downstream connections and job updates.
 //! - `Downstream`: Represents a miner and handles its connection lifecycle.
 //! - `PoolChannelFactory`: Manages the creation and tracking of mining channels.
-use crate::config::PoolConfig;
-
 use super::{
     error::{PoolError, PoolResult},
     status,
 };
+use crate::config::PoolConfig;
 use async_channel::{Receiver, Sender};
+use config_helpers::CoinbaseRewardScript;
 use error_handling::handle_result;
 use key_utils::SignatureService;
 use nohash_hasher::BuildNoHashHasher;
@@ -78,23 +78,6 @@ pub type StdFrame = StandardSv2Frame<Message>;
 /// A standard SV2 frame that can contain either type of frame.
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-/// Parses the coinbase output configurations from the [`PoolConfig`] and converts them
-/// into `bitcoin::TxOut` objects required by the pool logic.
-///
-/// It iterates through the configured outputs, attempts to convert them into the
-/// internal `CoinbaseOutput_` representation and then into `bitcoin::ScriptBuf`.
-/// Sets the value to 0 sats as per SV2 pool requirements (actual value determined later)
-pub fn get_coinbase_output(config: &PoolConfig) -> Vec<TxOut> {
-    config
-        .coinbase_outputs()
-        .iter()
-        .map(|out| TxOut {
-            value: Amount::from_sat(0),
-            script_pubkey: out.script_pubkey().to_owned(),
-        })
-        .collect()
-}
-
 /// Represents a single connection to a downstream miner.
 ///
 /// Encapsulates the state and communication channels for one miner. An instance
@@ -131,7 +114,7 @@ pub struct Downstream {
     shares_per_minute: f32,
     last_future_template: NewTemplate<'static>,
     last_new_prev_hash: SetNewPrevHashTdp<'static>,
-    empty_pool_coinbase_outputs: Vec<TxOut>,
+    coinbase_reward_script: CoinbaseRewardScript,
 }
 
 /// The central state manager for the mining pool.
@@ -177,7 +160,7 @@ impl Downstream {
         status_tx: status::Sender,
         address: SocketAddr,
         shares_per_minute: f32,
-        empty_pool_coinbase_outputs: Vec<TxOut>,
+        coinbase_reward_script: CoinbaseRewardScript,
     ) -> PoolResult<Arc<Mutex<Self>>> {
         // Handle the SV2 SetupConnection message exchange.
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
@@ -222,12 +205,6 @@ impl Downstream {
                 .expect("last_new_prev_hash must be Some")
         })?;
 
-        // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit of a hack
-        // so while we don't clean that up, we only set the value of the first output
-        let mut pool_coinbase_outputs = empty_pool_coinbase_outputs.clone();
-        pool_coinbase_outputs[0].value =
-            Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
-
         // Create the Downstream instance, wrapped for shared access.
         let self_ = Arc::new(Mutex::new(Downstream {
             id,
@@ -246,7 +223,7 @@ impl Downstream {
             shares_per_minute,
             last_future_template,
             last_new_prev_hash,
-            empty_pool_coinbase_outputs,
+            coinbase_reward_script,
         }));
 
         tokio::spawn(spawn_vardiff_loop(self_.clone(), sender.clone(), id));
@@ -434,7 +411,6 @@ impl Pool {
         config: PoolConfig,
         mut recv_stop_signal: tokio::sync::watch::Receiver<()>,
         shares_per_minute: f32,
-        pool_coinbase_outputs: Vec<TxOut>,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         // Bind the TCP listener to the address specified in the config.
@@ -473,7 +449,7 @@ impl Pool {
                                                     sender,
                                                     address,
                                                     shares_per_minute,
-                                                    pool_coinbase_outputs.clone()
+                                                    config.coinbase_reward_script().clone()
                                                 ).await
                                             );
                                         }
@@ -505,7 +481,7 @@ impl Pool {
         sender: Sender<EitherFrame>,
         address: SocketAddr,
         shares_per_minute: f32,
-        pool_coinbase_outputs: Vec<TxOut>,
+        coinbase_reward_script: CoinbaseRewardScript,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
@@ -520,7 +496,7 @@ impl Pool {
             status_tx.listener_to_connection(),
             address,
             shares_per_minute,
-            pool_coinbase_outputs,
+            coinbase_reward_script,
         )
         .await?;
 
@@ -702,12 +678,10 @@ impl Pool {
                 let standard_job_messages = downstream.safe_lock(|d| {
                     let mut messages = Vec::new();
 
-                    // note: the fact that we're parsing a Vec<TxOut> from the config file is a
-                    // bit of a hack so while we don't clean that up, we
-                    // only set the value of the first output
-                    let mut pool_coinbase_outputs = d.empty_pool_coinbase_outputs.clone();
-                    pool_coinbase_outputs[0].value =
-                        Amount::from_sat(new_template.coinbase_tx_value_remaining);
+                    let pool_coinbase_output = TxOut {
+                        value: Amount::from_sat(new_template.coinbase_tx_value_remaining),
+                        script_pubkey: d.coinbase_reward_script.script_pubkey(),
+                    };
 
                     match new_template.future_template {
                         true => {
@@ -724,7 +698,7 @@ impl Pool {
                                 standard_channel
                                     .on_new_template(
                                         new_template.clone(),
-                                        pool_coinbase_outputs.clone(),
+                                        vec![pool_coinbase_output.clone()],
                                     )
                                     .map_err(Error::FailedToProcessNewTemplateStandardChannel)?;
 
@@ -761,7 +735,7 @@ impl Pool {
                                 standard_channel
                                     .on_new_template(
                                         new_template.clone(),
-                                        pool_coinbase_outputs.clone(),
+                                        vec![pool_coinbase_output.clone()],
                                     )
                                     .map_err(Error::FailedToProcessNewTemplateStandardChannel)?;
 
@@ -793,12 +767,10 @@ impl Pool {
                 }
 
                 let extended_job_messages = downstream.safe_lock(|d| {
-                    // note: the fact that we're parsing a Vec<TxOut> from the config file is a bit
-                    // of a hack so while we don't clean that up, we only set
-                    // the value of the first output
-                    let mut pool_coinbase_outputs = d.empty_pool_coinbase_outputs.clone();
-                    pool_coinbase_outputs[0].value =
-                        Amount::from_sat(new_template.coinbase_tx_value_remaining);
+                    let pool_coinbase_output = TxOut {
+                        value: Amount::from_sat(new_template.coinbase_tx_value_remaining),
+                        script_pubkey: d.coinbase_reward_script.script_pubkey(),
+                    };
 
                     let mut messages = Vec::new();
                     match new_template.future_template {
@@ -813,7 +785,7 @@ impl Pool {
                                 group_channel
                                     .on_new_template(
                                         new_template.clone(),
-                                        pool_coinbase_outputs.clone(),
+                                        vec![pool_coinbase_output.clone()],
                                     )
                                     .map_err(|e| {
                                         Error::FailedToProcessNewTemplateGroupChannel(e)
@@ -841,7 +813,7 @@ impl Pool {
                                 extended_channel
                                     .on_new_template(
                                         new_template.clone(),
-                                        pool_coinbase_outputs.clone(),
+                                        vec![pool_coinbase_output.clone()],
                                     )
                                     .map_err(|e| {
                                         Error::FailedToProcessNewTemplateExtendedChannel(e)
@@ -872,7 +844,7 @@ impl Pool {
                                 group_channel
                                     .on_new_template(
                                         new_template.clone(),
-                                        pool_coinbase_outputs.clone(),
+                                        vec![pool_coinbase_output.clone()],
                                     )
                                     .map_err(|e| {
                                         Error::FailedToProcessNewTemplateGroupChannel(e)
@@ -895,7 +867,7 @@ impl Pool {
                                 extended_channel
                                     .on_new_template(
                                         new_template.clone(),
-                                        pool_coinbase_outputs.clone(),
+                                        vec![pool_coinbase_output.clone()],
                                     )
                                     .map_err(|e| {
                                         Error::FailedToProcessNewTemplateExtendedChannel(e)
@@ -971,8 +943,6 @@ impl Pool {
             end: MAX_EXTRANONCE_LEN,
         };
 
-        let pool_coinbase_outputs = get_coinbase_output(&config);
-        info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonce_prefix_factory_extended = ExtendedExtranonce::new(
             range_0.clone(),
             range_1.clone(),
@@ -1011,19 +981,12 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
-        let pool_coinbase_outputs = get_coinbase_output(&config);
-
         info!("Starting up Pool server");
         let status_tx_clone = status_tx.clone();
         // Task to handle multiple downstream connection.
-        if let Err(e) = Self::accept_incoming_connection(
-            cloned,
-            config,
-            recv_stop_signal,
-            shares_per_minute,
-            pool_coinbase_outputs,
-        )
-        .await
+        if let Err(e) =
+            Self::accept_incoming_connection(cloned, config, recv_stop_signal, shares_per_minute)
+                .await
         {
             error!("Pool stopped accepting connections due to: {}", &e);
             let _ = status_tx_clone
@@ -1263,7 +1226,8 @@ mod test {
     use std::convert::TryInto;
     use stratum_common::roles_logic_sv2::{
         bitcoin::{
-            self, absolute::LockTime, consensus, transaction::Version, Transaction, Witness,
+            self, absolute::LockTime, consensus, transaction::Version, Amount, Transaction, TxOut,
+            Witness,
         },
         codec_sv2::binary_sv2::{B0255, B064K},
     };
@@ -1302,10 +1266,9 @@ mod test {
         let _version = 536870912;
         let coinbase_tx_version = 2;
         let coinbase_tx_input_sequence = 4294967295;
-        let _coinbase_tx_value_remaining: u64 = 625000000;
+        let coinbase_tx_value_remaining: u64 = 0;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config);
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 
@@ -1326,11 +1289,16 @@ mod test {
             sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
             witness,
         };
+
+        let coinbase_tx_output = TxOut {
+            value: Amount::from_sat(coinbase_tx_value_remaining),
+            script_pubkey: config.coinbase_reward_script().script_pubkey(),
+        };
         let coinbase = Transaction {
             version: Version::non_standard(coinbase_tx_version),
             lock_time: LockTime::from_consensus(coinbase_tx_locktime),
             input: vec![tx_in],
-            output: coinbase_tx_outputs,
+            output: vec![coinbase_tx_output],
         };
 
         let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, script_prefix_length);

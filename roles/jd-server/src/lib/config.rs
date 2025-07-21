@@ -11,14 +11,13 @@
 //!
 //! Also defines a helper struct [`CoreRpc`] to group RPC parameters.
 
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
@@ -28,9 +27,7 @@ pub struct JobDeclaratorServerConfig {
     authority_public_key: Secp256k1PublicKey,
     authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
-    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
-    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_reward_script: CoinbaseRewardScript,
     core_rpc_url: String,
     core_rpc_port: u16,
     core_rpc_user: String,
@@ -45,27 +42,23 @@ impl JobDeclaratorServerConfig {
     ///
     /// # Panics
     ///
-    /// Panics if `coinbase_outputs` is empty.
+    /// Panics if `coinbase_reward_scripts` is empty.
     pub fn new(
         listen_jd_address: String,
         authority_public_key: Secp256k1PublicKey,
         authority_secret_key: Secp256k1SecretKey,
         cert_validity_sec: u64,
-        coinbase_outputs: Vec<CoinbaseOutput>,
+        coinbase_reward_script: CoinbaseRewardScript,
         core_rpc: CoreRpc,
         mempool_update_interval: Duration,
     ) -> Self {
-        assert!(
-            !coinbase_outputs.is_empty(),
-            "cannot have empty coinbase outputs array"
-        );
         Self {
             full_template_mode_required: true,
             listen_jd_address,
             authority_public_key,
             authority_secret_key,
             cert_validity_sec,
-            coinbase_outputs,
+            coinbase_reward_script,
             core_rpc_url: core_rpc.url,
             core_rpc_port: core_rpc.port,
             core_rpc_user: core_rpc.user,
@@ -111,8 +104,8 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Returns the coinbase outputs.
-    pub fn coinbase_outputs(&self) -> &Vec<CoinbaseOutput> {
-        &self.coinbase_outputs
+    pub fn coinbase_reward_scripts(&self) -> &CoinbaseRewardScript {
+        &self.coinbase_reward_script
     }
 
     /// Returns the certificate validity in seconds.
@@ -140,19 +133,10 @@ impl JobDeclaratorServerConfig {
     }
 
     /// Sets coinbase outputs.
-    pub fn set_coinbase_outputs(&mut self, outputs: Vec<CoinbaseOutput>) {
-        self.coinbase_outputs = outputs;
+    pub fn set_coinbase_reward_scripts(&mut self, output: CoinbaseRewardScript) {
+        self.coinbase_reward_script = output;
     }
 
-    pub fn get_txout(&self) -> Vec<TxOut> {
-        self.coinbase_outputs
-            .iter()
-            .map(|out| TxOut {
-                value: Amount::from_sat(0),
-                script_pubkey: out.script_pubkey().to_owned(),
-            })
-            .collect()
-    }
     pub fn log_file(&self) -> Option<&Path> {
         self.log_file.as_deref()
     }
@@ -201,7 +185,7 @@ mod tests {
         authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
         cert_validity_sec = 3600
 
-        coinbase_outputs = %COINBASE_OUTPUTS%
+        coinbase_reward_script = %COINBASE_REWARD_SCRIPT%
 
         listen_jd_address = "127.0.0.1:34264"
         core_rpc_url =  "http://127.0.0.1"
@@ -236,7 +220,7 @@ mod tests {
     }
 
     fn load_coinbase_config_str(path: &str) -> Result<JobDeclaratorServerConfig, ConfigError> {
-        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_OUTPUTS%", path);
+        let s = COINBASE_CONFIG_TEMPLATE.replace("%COINBASE_REWARD_SCRIPT%", path);
         let settings = Config::builder()
             .add_source(File::from_str(&s, FileFormat::Toml))
             .build()
@@ -254,16 +238,17 @@ mod tests {
     }
 
     #[test]
-    fn test_get_txout_non_empty() {
+    fn test_get_non_empty_coinbase_reward_script() {
         let pk = TEST_PK_HEX
             .parse::<bitcoin::PublicKey>()
             .expect("Failed to parse public key");
-        let config = load_coinbase_config_str(&format!(
-            "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{pk}\" }} ]"
-        ))
-        .expect("Failed to parse config");
+        let config =
+            load_coinbase_config_str(&format!("\"wpkh({pk})\"")).expect("Failed to parse config");
 
-        let outputs = config.get_txout();
+        let output = TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: config.coinbase_reward_scripts().script_pubkey(),
+        };
         let expected_script = ScriptBuf::from_hex(&format!(
             "0014{}",
             pk.wpubkey_hash().expect("compressed key")
@@ -274,46 +259,36 @@ mod tests {
             script_pubkey: expected_script,
         };
 
-        assert_eq!(outputs[0], expected_transaction_output);
+        assert_eq!(output, expected_transaction_output);
     }
 
     #[test]
-    fn test_get_txout_empty() {
+    fn test_get_coinbase_reward_script_empty() {
         let error =
-            load_coinbase_config_str("[]").expect_err("cannot parse config with empty list");
+            load_coinbase_config_str("\"\"").expect_err("cannot parse config with empty txout");
         assert_eq!(
             error.to_string(),
-            "invalid length 0, expected a list with exactly one coinbase output, or a single descriptor string",
+            "Miniscript: unexpected «(0 args) while parsing Miniscript»",
         );
     }
 
     #[test]
-    fn test_get_txout_invalid_script_type() {
-        // This error message was introduced in https://github.com/stratum-mining/stratum/pull/1720
-        // as part of a change to allow Vec or non-Vec coinbase output lists to be parsed. We
-        // have https://github.com/stratum-mining/stratum/issues/1793 to track improving it.
-        let error = load_coinbase_config_str(&format!(
-            "[ {{ output_script_type = \"INVALID\", output_script_value = \"{TEST_PK_HEX}\" }} ]"
-        ))
-        .expect_err("Cannot parse config with bad script type");
+    fn test_get_invalid_miniscript_in_coinbase_reward_script() {
+        let error = load_coinbase_config_str(&format!("\"INVALID\""))
+            .expect_err("Cannot parse config with bad miniscript");
         assert_eq!(
             error.to_string(),
-            "could not parse descriptor string (or old-style list format)",
+            "Miniscript: unexpected «INVALID(0 args) while parsing Miniscript»",
         );
     }
 
     #[test]
-    fn test_get_txout_invalid_value() {
-        // This error message was introduced in https://github.com/stratum-mining/stratum/pull/1720
-        // as part of a change to allow Vec or non-Vec coinbase output lists to be parsed. We
-        // have https://github.com/stratum-mining/stratum/issues/1793 to track improving it.
-        let error = load_coinbase_config_str(&format!(
-            "[ {{ output_script_type = \"P2WPKH\", output_script_value = \"{TEST_INVALID_PK_HEX}\" }} ]"
-        ))
-        .expect_err("Cannot parse config with bad pubkeys");
+    fn test_get_invalid_value_in_coinbase_reward_script() {
+        let error = load_coinbase_config_str(&format!("\"wpkh({TEST_INVALID_PK_HEX})\""))
+            .expect_err("Cannot parse config with bad pubkeys");
         assert_eq!(
             error.to_string(),
-            "could not parse descriptor string (or old-style list format)",
+            "Miniscript: unexpected «Error while parsing simple public key»",
         );
     }
 }

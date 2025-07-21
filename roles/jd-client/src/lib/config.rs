@@ -6,7 +6,7 @@
 //! of the main configuration.
 
 #![allow(dead_code)]
-use config_helpers::CoinbaseOutput;
+use config_helpers::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
@@ -54,11 +54,8 @@ pub struct JobDeclaratorClientConfig {
     /// The timeout duration for network operations.
     #[serde(deserialize_with = "config_helpers::duration_from_toml")]
     timeout: Duration,
-    /// A list of coinbase outputs to be included in the block templates.
     /// This is only used during solo-mining.
-    #[serde(alias = "coinbase_output")] // only one is allowed, so don't make the user type the plural
-    #[serde(deserialize_with = "config_helpers::deserialize_vec_exactly_1")]
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    coinbase_reward_script: CoinbaseRewardScript,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
     /// The path to the log file where JDC will write logs.
@@ -70,7 +67,7 @@ impl JobDeclaratorClientConfig {
     ///
     /// # Panics
     ///
-    /// Panics if `protocol_config.coinbase_outputs` is empty.
+    /// Panics if `protocol_config.coinbase_reward_script` is empty.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         listening_address: SocketAddr,
@@ -82,10 +79,6 @@ impl JobDeclaratorClientConfig {
         timeout: Duration,
         jdc_signature: String,
     ) -> Self {
-        assert!(
-            !protocol_config.coinbase_outputs.is_empty(),
-            "set of coinbase outputs must be nonempty"
-        );
         Self {
             listening_address,
             max_supported_version: protocol_config.max_supported_version,
@@ -98,7 +91,7 @@ impl JobDeclaratorClientConfig {
             tp_authority_public_key: tp_config.tp_authority_public_key,
             upstreams,
             timeout,
-            coinbase_outputs: protocol_config.coinbase_outputs,
+            coinbase_reward_script: protocol_config.coinbase_reward_script,
             jdc_signature,
             log_file: None,
         }
@@ -166,14 +159,11 @@ impl JobDeclaratorClientConfig {
         &self.jdc_signature
     }
 
-    pub fn get_txout(&self) -> Vec<TxOut> {
-        self.coinbase_outputs
-            .iter()
-            .map(|out| TxOut {
-                value: Amount::from_sat(0),
-                script_pubkey: out.script_pubkey().to_owned(),
-            })
-            .collect()
+    pub fn get_txout(&self) -> TxOut {
+        TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: self.coinbase_reward_script.script_pubkey().to_owned(),
+        }
     }
 
     pub fn log_file(&self) -> Option<&Path> {
@@ -236,8 +226,8 @@ pub struct ProtocolConfig {
     max_supported_version: u16,
     // The minimum supported SV2 protocol version.
     min_supported_version: u16,
-    // A list of coinbase outputs to be included in block templates.
-    coinbase_outputs: Vec<CoinbaseOutput>,
+    // A coinbase output to be included in block templates.
+    coinbase_reward_script: CoinbaseRewardScript,
 }
 
 impl ProtocolConfig {
@@ -245,12 +235,12 @@ impl ProtocolConfig {
     pub fn new(
         max_supported_version: u16,
         min_supported_version: u16,
-        coinbase_outputs: Vec<CoinbaseOutput>,
+        coinbase_reward_script: CoinbaseRewardScript,
     ) -> Self {
         Self {
             max_supported_version,
             min_supported_version,
-            coinbase_outputs,
+            coinbase_reward_script,
         }
     }
 }
