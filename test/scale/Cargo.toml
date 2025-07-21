@@ -9,7 +9,7 @@ lto = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2.33.3"
+clap = { version = "4.5.41", features = ["derive"] }
 async-channel = "1.5.1"
 async-std="1.8.0"
 bytes = "1.0.1"

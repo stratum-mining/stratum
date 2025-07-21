@@ -6,7 +6,7 @@ use tokio::{
 
 use async_channel::{bounded, Receiver, Sender};
 
-use clap::{App, Arg};
+use clap::Parser;
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardSv2Frame};
 use std::time::Duration;
 
@@ -25,31 +25,27 @@ pub const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3
 
 static HOST: &str = "127.0.0.1";
 
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(help = "Use encryption", long, short, action = clap::ArgAction::SetTrue)]
+    encrypt: bool,
+    #[arg(help = "Number of hops", long, short, value_parser = clap::value_parser!(u16).range(1..))]
+    hops: u16,
+}
+
 #[tokio::main]
 async fn main() {
-    let matches = App::new("ScaleTest")
-        .arg(Arg::with_name("encrypt").short("e").help("Use encryption"))
-        .arg(
-            Arg::with_name("hops")
-                .short("h")
-                .takes_value(true)
-                .help("Number of hops"),
-        )
-        .get_matches();
+    let args = Args::parse();
 
     let total_messages = 1_000_000;
-    let encrypt = matches.is_present("encrypt");
-    let hops: u16 = matches.value_of("hops").unwrap_or("0").parse().unwrap_or(0);
-    let mut orig_port: u16 = 19000;
+    let encrypt = args.encrypt;
+    let hops: u16 = args.hops;
 
     // create channel to tell final server number of messages
     let (tx, rx) = bounded(1);
 
-    if hops > 0 {
-        orig_port = spawn_proxies(encrypt, hops, tx, total_messages).await;
-    } else {
-        println!("Usage: ./program -h <hops> -e");
-    }
+    let orig_port = spawn_proxies(encrypt, hops, tx, total_messages).await;
     println!("Connecting to localhost:{orig_port}");
     setup_driver(orig_port, encrypt, rx, total_messages, hops).await;
 }
