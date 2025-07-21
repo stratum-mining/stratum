@@ -10,14 +10,12 @@ use clap::{App, Arg};
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardSv2Frame};
 use std::time::Duration;
 
-use network_helpers::{
-    noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
-};
+use network_helpers_sv2::{noise_connection::Connection, plain_connection::PlainConnection};
 
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
-    mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages},
+    mining_sv2::SubmitSharesStandard,
+    parsers_sv2::{Mining, MiningDeviceMessages},
 };
 
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -52,7 +50,7 @@ async fn main() {
     } else {
         println!("Usage: ./program -h <hops> -e");
     }
-    println!("Connecting to localhost:{}", orig_port);
+    println!("Connecting to localhost:{orig_port}");
     setup_driver(orig_port, encrypt, rx, total_messages, hops).await;
 }
 
@@ -63,7 +61,7 @@ async fn setup_driver(
     total_messages: i32,
     hops: u16,
 ) {
-    let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port))
+    let server_stream = TcpStream::connect(format!("{HOST}:{server_port}"))
         .await
         .unwrap();
     let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
@@ -72,7 +70,7 @@ async fn setup_driver(
         let k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
         let initiator = Initiator::from_raw_k(k.into_bytes()).unwrap();
 
-        (_, server_sender, _, _) =
+        (_server_receiver, server_sender) =
             Connection::new(server_stream, HandshakeRole::Initiator(initiator))
                 .await
                 .unwrap();
@@ -133,7 +131,14 @@ async fn handle_messages(
     let mut messages_received = 0;
 
     while messages_received <= total_messages {
-        let frame: StdFrame = client.recv().await.unwrap().try_into().unwrap();
+        let recv_msg = match client.recv().await {
+            Ok(msg) => msg,
+            Err(_) => {
+                break;
+            }
+        };
+
+        let frame: StdFrame = recv_msg.try_into().unwrap();
 
         let binary: EitherFrame = frame.into();
 
@@ -155,11 +160,8 @@ async fn create_proxy(
     total_messages: i32,
     tx: Sender<String>,
 ) {
-    println!(
-        "Creating proxy listener {}: {} connecting to: {}",
-        name, listen_port, server_port
-    );
-    let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_port))
+    println!("Creating proxy listener {name}: {listen_port} connecting to: {server_port}");
+    let listener = TcpListener::bind(format!("0.0.0.0:{listen_port}"))
         .await
         .unwrap();
     println!("Bound - now waiting for connection...");
@@ -175,7 +177,7 @@ async fn create_proxy(
             Duration::from_secs(3600),
         )
         .unwrap();
-        (cli_receiver, _, _, _) = Connection::new(cli_stream, HandshakeRole::Responder(responder))
+        (cli_receiver, _) = Connection::new(cli_stream, HandshakeRole::Responder(responder))
             .await
             .unwrap();
     } else {
@@ -184,8 +186,8 @@ async fn create_proxy(
 
     let mut server = None;
     if server_port > 0 {
-        println!("Proxy {} Connecting to server: {}", name, server_port);
-        let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port))
+        println!("Proxy {name} Connecting to server: {server_port}");
+        let server_stream = TcpStream::connect(format!("{HOST}:{server_port}"))
             .await
             .unwrap();
         let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
@@ -193,7 +195,7 @@ async fn create_proxy(
 
         if encrypt {
             let initiator = Initiator::from_raw_k(k_pub.into_bytes()).unwrap();
-            (_, server_sender, _, _) =
+            (_, server_sender) =
                 Connection::new(server_stream, HandshakeRole::Initiator(initiator))
                     .await
                     .unwrap();
@@ -203,7 +205,7 @@ async fn create_proxy(
         server = Some(server_sender);
     }
 
-    println!("Proxy {} has a client", name);
+    println!("Proxy {name} has a client");
     handle_messages(name, cli_receiver, server, total_messages, tx).await;
 }
 
