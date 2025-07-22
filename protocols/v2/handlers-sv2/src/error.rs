@@ -6,7 +6,7 @@ pub enum HandlerError {
     ParserError(ParserError),
     OpenStandardMiningChannelError,
     OpenExtendedMiningChannelError,
-    ChannelErrorSender,
+    External(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl From<ParserError> for HandlerError {
