@@ -25,7 +25,7 @@ use super::{
 };
 use crate::config::PoolConfig;
 use async_channel::{Receiver, Sender};
-use config_helpers::CoinbaseRewardScript;
+use config_helpers_sv2::CoinbaseRewardScript;
 use error_handling::handle_result;
 use key_utils::SignatureService;
 use nohash_hasher::BuildNoHashHasher;

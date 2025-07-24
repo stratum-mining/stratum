@@ -1,5 +1,5 @@
 use crate::{sniffer::*, template_provider::*};
-use config_helpers::CoinbaseRewardScript;
+use config_helpers_sv2::CoinbaseRewardScript;
 use corepc_node::{ConnectParams, CookieValues};
 use interceptor::InterceptAction;
 use jd_client::JobDeclaratorClient;

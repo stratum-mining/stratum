@@ -6,7 +6,7 @@
 //! of the main configuration.
 
 #![allow(dead_code)]
-use config_helpers::CoinbaseRewardScript;
+use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
@@ -52,7 +52,7 @@ pub struct JobDeclaratorClientConfig {
     /// JDC can fallover between these upstreams.
     upstreams: Vec<Upstream>,
     /// The timeout duration for network operations.
-    #[serde(deserialize_with = "config_helpers::duration_from_toml")]
+    #[serde(deserialize_with = "config_helpers_sv2::duration_from_toml")]
     timeout: Duration,
     /// This is only used during solo-mining.
     coinbase_reward_script: CoinbaseRewardScript,

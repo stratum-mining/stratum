@@ -10,7 +10,7 @@
 //! - Validating and converting coinbase outputs
 use std::path::{Path, PathBuf};
 
-use config_helpers::CoinbaseRewardScript;
+use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 /// Configuration for the Pool, including connection, authority, and coinbase settings.
