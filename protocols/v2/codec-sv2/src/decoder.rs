@@ -184,6 +184,19 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
+    /// Returns the number of bytes expected in the next read operation.
+    ///
+    /// This value indicates how many more bytes are required to complete the
+    /// current Noise-encrypted frame. It is used to determine the exact size
+    /// of the writable buffer that should be passed to the underlying stream
+    /// during reading.
+    ///
+    /// The returned length dynamically updates as data is received and processed,
+    /// and ensures that we only read as much as needed to complete the frame.
+    pub fn writable_len(&self) -> usize {
+        self.missing_noise_b
+    }
+
     /// Provides a writable buffer for receiving incoming Noise-encrypted Sv2 data.
     ///
     /// This buffer is used to store incoming data, and its size is adjusted based on the number
