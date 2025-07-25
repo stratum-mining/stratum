@@ -1187,6 +1187,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "handlers_sv2"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "common_messages_sv2",
+ "job_declaration_sv2",
+ "mining_sv2",
+ "parsers_sv2",
+ "template_distribution_sv2",
+ "trait-variant",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2209,6 +2222,7 @@ dependencies = [
  "channels_sv2",
  "codec_sv2",
  "common_messages_sv2",
+ "handlers_sv2",
  "hex-conservative 0.3.0",
  "job_declaration_sv2",
  "mining_sv2",
@@ -2761,6 +2775,17 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "trait-variant"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70977707304198400eb4835a78f6a9f928bf41bba420deb8fdb175cd965d77a7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
