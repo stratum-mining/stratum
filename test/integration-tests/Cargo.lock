@@ -589,11 +589,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "config-helpers"
+name = "config_helpers_sv2"
 version = "0.1.0"
 dependencies = [
  "miniscript",
- "roles_logic_sv2",
  "serde",
  "tracing",
  "tracing-subscriber",
@@ -1255,7 +1254,7 @@ name = "integration_tests_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "config-helpers",
+ "config_helpers_sv2",
  "corepc-node",
  "flate2",
  "jd_client",
@@ -1314,7 +1313,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
- "config-helpers",
+ "config_helpers_sv2",
  "error_handling",
  "futures",
  "key-utils",
@@ -1335,7 +1334,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
- "config-helpers",
+ "config_helpers_sv2",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
@@ -1831,7 +1830,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
- "config-helpers",
+ "config_helpers_sv2",
  "error_handling",
  "key-utils",
  "nohash-hasher",
@@ -2626,7 +2625,7 @@ dependencies = [
  "buffer_sv2",
  "clap",
  "config",
- "config-helpers",
+ "config_helpers_sv2",
  "error_handling",
  "futures",
  "key-utils",

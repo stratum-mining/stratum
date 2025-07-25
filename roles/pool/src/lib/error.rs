@@ -37,7 +37,7 @@ pub enum PoolError {
     /// Error from the `codec_sv2` crate.
     Codec(codec_sv2::Error),
     /// Error related to parsing a coinbase output specification.
-    CoinbaseOutput(config_helpers::CoinbaseOutputError),
+    CoinbaseOutput(config_helpers_sv2::CoinbaseOutputError),
     /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
     /// Error from the `roles_logic_sv2` crate.
@@ -121,8 +121,8 @@ impl From<codec_sv2::Error> for PoolError {
     }
 }
 
-impl From<config_helpers::CoinbaseOutputError> for PoolError {
-    fn from(e: config_helpers::CoinbaseOutputError) -> PoolError {
+impl From<config_helpers_sv2::CoinbaseOutputError> for PoolError {
+    fn from(e: config_helpers_sv2::CoinbaseOutputError) -> PoolError {
         PoolError::CoinbaseOutput(e)
     }
 }

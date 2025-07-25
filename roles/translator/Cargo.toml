@@ -38,7 +38,7 @@ tokio-util = { version = "0.7.10", features = ["codec"] }
 rand = "0.8.4"
 primitive-types = "0.13.1"
 clap = { version = "4.5.39", features = ["derive"] }
-config-helpers = { path = "../roles-utils/config-helpers" }
+config_helpers_sv2 = { path = "../roles-utils/config-helpers" }
 
 
 [dev-dependencies]

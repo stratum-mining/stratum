@@ -7,7 +7,7 @@ pub use translator_sv2::{
 use tracing::info;
 
 use crate::args::process_cli_args;
-use config_helpers::logging::init_logging;
+use config_helpers_sv2::logging::init_logging;
 /// Entrypoint for the Translator binary.
 ///
 /// Loads the configuration from TOML and initializes the main runtime

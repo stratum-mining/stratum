@@ -1,10 +1,10 @@
 [package]
-name = "config-helpers"
+name = "config_helpers_sv2"
 authors = ["The Stratum V2 Developers"]
 version = "0.1.0"
 edition = "2018"
 description = "Helpers for working with Stratum V2 configuration files"
-documentation = ""
+documentation = "https://docs.rs/config_helpers_sv2"
 readme = "README.md"
 homepage = "https://stratumprotocol.org"
 repository = "https://github.com/stratum-mining/stratum"
@@ -14,6 +14,5 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [dependencies]
 serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
 miniscript = { version = "12.3.4", default-features = false, features = [ "no-std" ] }
-roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = { version = "0.1" }
