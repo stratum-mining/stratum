@@ -124,3 +124,7 @@ jobs:
       - name: Run semver checks for roles/roles-utils/rpc
         working-directory: roles/roles-utils/rpc
         run: cargo semver-checks
+
+      - name: Run semver checks for roles/roles-utils/config-helpers
+        working-directory: roles/roles-utils/config-helpers
+        run: cargo semver-checks
