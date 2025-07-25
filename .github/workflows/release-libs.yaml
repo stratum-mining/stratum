@@ -30,6 +30,10 @@ jobs:
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
 
       # Base dependencies with no local dependencies
+      - name: Publish crate config_helpers_sv2
+        run: |
+          ./scripts/release-libs.sh roles/roles-utils/config-helpers
+          
       - name: Publish crate buffer_sv2
         run: |
           ./scripts/release-libs.sh utils/buffer
