@@ -2060,7 +2060,7 @@ dependencies = [
 
 [[package]]
 name = "rpc_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "base64 0.21.7",
  "hex",

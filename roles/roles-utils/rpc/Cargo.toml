@@ -1,6 +1,6 @@
 [package]
 name = "rpc_sv2"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "SV2 JD Server RPC"
