@@ -1,4 +1,8 @@
-//! Abstraction over the state of a Sv2 Standard Channel, as seen by a Mining Client
+//! Sv2 Standard Channel - Mining Client Abstraction.
+//!
+//! This module provides the [`StandardChannel`] struct, which models the state of a mining
+//! client's Sv2 Standard Channel. It tracks channel-level job management, share accounting,
+//! and chain tip state, enabling share validation and mining job lifecycle management.
 
 use crate::{
     chain_tip::ChainTip,
@@ -24,21 +28,18 @@ use tracing::debug;
 
 /// Mining Client abstraction over the state of a Sv2 Standard Channel.
 ///
-/// It keeps track of:
-/// - the channel's unique `channel_id`
-/// - the channel's `user_identity`
-/// - the channel's unique `extranonce_prefix`
-/// - the channel's target
-/// - the channel's nominal hashrate
-/// - the channel's future jobs (indexed by `job_id`, to be activated upon receipt of a
-///   `NewMiningJob` message)
-/// - the channel's active job
-/// - the channel's past jobs (which were active jobs under the current chain tip, indexed by
-///   `job_id`)
-/// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
-///   indexed by `job_id`)
-/// - the channel's share accounting (as seen by the client)
-/// - the channel's chain tip
+/// Tracks:
+/// - unique channel ID
+/// - user identity string
+/// - unique extranonce prefix
+/// - channel target
+/// - nominal hashrate in h/s
+/// - future mining jobs (indexed by job_id, activated upon [`NewMiningJob`] receipt)
+/// - active mining job
+/// - past jobs (active jobs under current chain tip, indexed by job_id)
+/// - stale jobs (jobs from previous chain tip, indexed by job_id)
+/// - share accounting state
+/// - chain tip state
 #[derive(Debug, Clone)]
 pub struct StandardChannel<'a> {
     channel_id: u32,
@@ -55,6 +56,7 @@ pub struct StandardChannel<'a> {
 }
 
 impl<'a> StandardChannel<'a> {
+    /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(
         channel_id: u32,
         user_identity: String,
@@ -77,22 +79,31 @@ impl<'a> StandardChannel<'a> {
         }
     }
 
+    /// Returns the channel ID.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
     }
 
+    /// Returns the user identity string associated with this channel.
     pub fn get_user_identity(&self) -> &String {
         &self.user_identity
     }
 
+    /// Returns the latest chain tip information, if any.
     pub fn get_chain_tip(&self) -> Option<&ChainTip> {
         self.chain_tip.as_ref()
     }
 
+    /// Sets the [`ChainTip`]
     pub fn set_chain_tip(&mut self, chain_tip: ChainTip) {
         self.chain_tip = Some(chain_tip);
     }
 
+    /// Sets the extranonce prefix for the channel.
+    ///
+    /// All new jobs will use the new extranonce prefix. Jobs created before
+    /// this call will continue using their previous prefix for share validation.
+    /// Returns an error if the prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
@@ -102,50 +113,60 @@ impl<'a> StandardChannel<'a> {
         }
 
         self.extranonce_prefix = extranonce_prefix;
-
         Ok(())
     }
 
+    /// Returns the bytes representing the first part of the extranonce.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
     }
 
+    /// Returns the current target for the channel.
     pub fn get_target(&self) -> &Target {
         &self.target
     }
 
+    /// Sets a new target for the channel.
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
     }
 
+    /// Returns the nominal hashrate of the channel in h/s.
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
     }
 
+    /// Returns all future jobs for this channel.
+    ///
+    /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed.
     pub fn get_future_jobs(&self) -> &HashMap<u32, NewMiningJob<'a>> {
         &self.future_jobs
     }
 
+    /// Returns the currently active job, if any.
     pub fn get_active_job(&self) -> Option<&NewMiningJob<'a>> {
         self.active_job.as_ref()
     }
 
+    /// Returns all past jobs for the channel (active jobs under current chain tip).
     pub fn get_past_jobs(&self) -> &HashMap<u32, NewMiningJob<'a>> {
         &self.past_jobs
     }
 
+    /// Returns all stale jobs for the channel (jobs from previous chain tip).
     pub fn get_stale_jobs(&self) -> &HashMap<u32, NewMiningJob<'a>> {
         &self.stale_jobs
     }
 
+    /// Returns the share accounting state for this channel.
     pub fn get_share_accounting(&self) -> &ShareAccounting {
         &self.share_accounting
     }
 
-    /// Called when the Group Channel receives a new extended job.
+    /// Handles a new group channel job by converting it into a standard job
+    /// and activating it in this channel's context.
     ///
-    /// Essentially converts the extended job into a standard job (with the current channel's
-    /// extranonce_prefix) and then calls `on_new_mining_job` to update the channel state.
+    /// The new job is constructed using the current extranonce prefix.
     pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJob<'a>) {
         let merkle_root = merkle_root_from_path(
             new_extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
@@ -168,7 +189,11 @@ impl<'a> StandardChannel<'a> {
         self.on_new_mining_job(new_mining_job);
     }
 
-    /// Called when a `NewMiningJob` message is received from upstream.
+    /// Handles a newly received [`NewMiningJob`] message from upstream.
+    ///
+    /// - If `min_ntime` is present, the job is activated and replaces the current active job.
+    /// - If `min_ntime` is empty, the job is added to future jobs.
+    /// - If an active job exists, it is moved to past jobs on activation.
     pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJob<'a>) {
         match new_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
@@ -185,17 +210,14 @@ impl<'a> StandardChannel<'a> {
         }
     }
 
-    /// Called when a `SetNewPrevHash` message is received from upstream.
+    /// Handles an upstream [`SetNewPrevHash`](SetNewPrevHashMp) message.
     ///
-    /// If the job_id addressed in the `SetNewPrevHash` is not a future job,
-    /// returns an error.
-    ///
-    /// If the job_id addressed in the `SetNewPrevHash` is a future job,
-    /// it is "activated" and set as the active job.
-    ///
-    /// All past jobs are marked as stale, so that shares are not propagated.
-    ///
-    /// The chain tip information is not kept in the channel state.
+    /// - Activates the matching future job as the new active job.
+    /// - Clears all future jobs.
+    /// - Marks all past jobs as stale (they are no longer valid for share propagation).
+    /// - Clears past jobs and the set of seen shares (to avoid memory growth and stale share
+    ///   submissions).
+    /// - Updates chain tip information. Returns error if no matching future job found.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashMp<'a>,
@@ -231,14 +253,13 @@ impl<'a> StandardChannel<'a> {
         Ok(())
     }
 
-    /// Validates a share, to be used before submission upstream.
+    /// Validates a share before submission upstream.
     ///
-    /// Updates the channel state with the result of the share validation.
-    ///
-    /// - Allows the mining client to avoid propagating stale, duplicate or low-diff shares.
-    /// - Allows the mining client to know whether a block was found on some share.
-    /// - Allows the mining client to keep a local version of the share accounting for comparison
-    ///   with the acknowledgements coming from the upstream server.
+    /// - Checks if the share refers to an active or past job; rejects stale jobs.
+    /// - Verifies the share meets the channel target, is not a duplicate, and is not stale.
+    /// - Updates share accounting state based on validation result.
+    /// - Returns whether the share is valid or resulted in a block being found.
+    /// - Returns error describing why share is not valid.
     pub fn validate_share(
         &mut self,
         share: SubmitSharesStandard,

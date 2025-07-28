@@ -1,4 +1,36 @@
-//! Abstraction over the state of a Sv2 Group Channel, as seen by a Mining Server
+//! Sv2 Group Channel - Mining Server Abstraction.
+//!
+//! This module defines the [`GroupChannel`] struct, which provides an abstraction of a Stratum V2
+//! (SV2) group channel as maintained by a mining server.
+//!
+//! A group channel represents a logical grouping of standard channels, allowing multiple mining
+//! entities to share jobs. It manages job distribution and activation for all
+//! associated standard channels, but delegates share validation and accounting to those standard
+//! channels.
+//!
+//! ## Responsibilities
+//!
+//! `GroupChannel` is responsible for managing the state associated with an SV2 group channel,
+//! including:
+//!
+//! - **Group Channel ID**: Holds the unique `group_channel_id`.
+//! - **Standard Channel Management**: Tracks the set of associated standard channel IDs, allowing
+//!   for dynamic addition and removal.
+//! - **Job Factory and Store**: Manages creation and storage of jobs (future and active) using the
+//!   job factory and job store abstractions.
+//! - **Job Lifecycle Management**: Stores jobs received from new templates, including:
+//!   - Future jobs (indexed by `template_id`)
+//!   - Active job (currently being mined)
+//! - **Chain Tip Management**: Tracks the latest known chain tip (block height, previous hash,
+//!   timestamp, and target) for constructing headers and activating jobs.
+//!
+//! ## Notes
+//!
+//! - Share validation and accounting is handled at the standard channel level, not in the group
+//!   channel.
+//! - Past and stale jobs are not tracked in this abstraction.
+//! - Extranonce prefix management is deferred to standard channels; group jobs use an empty prefix.
+
 use crate::{
     chain_tip::ChainTip,
     server::{
@@ -92,22 +124,27 @@ impl<'a> GroupChannel<'a> {
         }
     }
 
+    /// Adds a standard channel ID to this group channel.
     pub fn add_standard_channel_id(&mut self, standard_channel_id: u32) {
         self.standard_channel_ids.insert(standard_channel_id);
     }
 
+    /// Removes a standard channel ID from this group channel.
     pub fn remove_standard_channel_id(&mut self, standard_channel_id: u32) {
         self.standard_channel_ids.remove(&standard_channel_id);
     }
 
+    /// Returns the unique group channel ID for this group channel.
     pub fn get_group_channel_id(&self) -> u32 {
         self.group_channel_id
     }
 
+    /// Returns a reference to the set of standard channel IDs associated with this group channel.
     pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
         &self.standard_channel_ids
     }
 
+    /// Returns the current chain tip, if set.
     pub fn get_chain_tip(&self) -> Option<&ChainTip> {
         self.chain_tip.as_ref()
     }
@@ -118,14 +155,17 @@ impl<'a> GroupChannel<'a> {
         self.chain_tip = Some(chain_tip);
     }
 
+    /// Returns the currently active job, if any.
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_active_job()
     }
 
+    /// Returns the mapping of future template IDs to job IDs.
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
         self.job_store.get_future_template_to_job_id()
     }
 
+    /// Returns all future jobs for this group channel.
     pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
         self.job_store.get_future_jobs()
     }
@@ -134,6 +174,7 @@ impl<'a> GroupChannel<'a> {
     ///
     /// If the template is a future template, the chain tip is not used.
     /// If the template is not a future template, the chain tip must be set.
+    /// Returns an error if a non-future job cannot be created due to missing chain tip.
     pub fn on_new_template(
         &mut self,
         template: NewTemplate<'a>,
@@ -180,13 +221,14 @@ impl<'a> GroupChannel<'a> {
         Ok(())
     }
 
-    /// Updates the channel state with a new `SetNewPrevHash` message (Template Distribution
-    /// Protocol variant).
+    /// Updates the group channel state with a new [`SetNewPrevHash`](SetNewPrevHashTdp) message
+    /// (Template Distribution Protocol variant).
     ///
-    /// If there is some future job matching the `template_id`` that `SetNewPrevHash` points to,
+    /// If there is a future job matching the `template_id` specified in `SetNewPrevHash`,
     /// this future job is "activated" and set as the active job.
     ///
-    /// The chain tip information is not kept in the channel state.
+    /// Updates the chain tip for the group channel.
+    /// Returns an error if no matching future job is found.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,

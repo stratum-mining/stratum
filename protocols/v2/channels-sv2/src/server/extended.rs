@@ -1,4 +1,43 @@
-//! Mining Server abstraction over the state of a Sv2 Extended Channel
+//! # SV2 Extended Channel - Mining Server Abstraction.
+//!
+//! This module defines the [`ExtendedChannel`] struct, which provides an abstraction of a SV2
+//! extended channel as maintained by a mining pool server.
+//!
+//! ## Responsibilities
+//!
+//! `ExtendedChannel` is responsible for managing all the state associated with an SV2 extended
+//! channel, including:
+//!
+//! - **Channel Parameters**: Holds the unique `channel_id`, `user_identity`, `extranonce_prefix`,
+//!   and other parameters negotiated during channel opening.
+//! - **Target Difficulty**: Manages the target difficulty (`target`) and maximum allowed target
+//!   (`requested_max_target`), based on client requests and nominal hashrate.
+//! - **Job Lifecycle Management**: Stores jobs received from new templates or custom job messages,
+//!   including:
+//!   - Future jobs (indexed by `template_id`)
+//!   - Active job (currently being mined)
+//!   - Past and stale jobs (for share validation over time)
+//! - **Share Validation and Accounting**: Validates shares submitted by the miner, updating
+//!   internal accounting and detecting duplicates or stale submissions. Determines if a share meets
+//!   the channel or network target and responds accordingly.
+//! - **Chain Tip Management**: Tracks the latest known chain tip (previous hash, timestamp, and
+//!   target) for constructing headers and validating shares.
+//! - **Version Rolling**: Honors server configuration on whether version rolling is permitted,
+//!   validating submitted BIP320 header versions accordingly.
+//!
+//! ## Usage
+//!
+//! This struct is intended for use on the **pool server side** or by SV2-compliant job declaration
+//! clients. It encapsulates logic for responding to SV2 messages such as `NewTemplate`,
+//! `SetNewPrevHash`, `SetCustomMiningJob`, and `SubmitSharesExtended`.
+//!
+//! ## Notes
+//!
+//! - Only one active job is allowed at a time. Jobs from a previous chain tip become stale when a
+//!   new chain tip is set.
+//! - Share acknowledgment logic is tied to a configured batch size (e.g., every `N` valid shares).
+//! - Extranonce validation supports dynamic updates of `extranonce_prefix` but enforces consistency
+//!   with previously agreed parameters.
 
 use crate::{
     chain_tip::ChainTip,
@@ -193,22 +232,27 @@ impl<'a> ExtendedChannel<'a> {
         })
     }
 
+    /// Returns the unique channel ID for this channel.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
     }
 
+    /// Returns the user identity string associated with this channel.
     pub fn get_user_identity(&self) -> &String {
         &self.user_identity
     }
 
+    /// Returns the extranonce prefix bytes for this channel.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
     }
 
+    /// Returns the current chain tip, if set.
     pub fn get_chain_tip(&self) -> Option<&ChainTip> {
         self.chain_tip.as_ref()
     }
 
+    /// Returns the expected number of shares per minute configured for this channel.
     pub fn get_shares_per_minute(&self) -> f32 {
         self.expected_share_per_minute
     }
@@ -219,11 +263,12 @@ impl<'a> ExtendedChannel<'a> {
         self.chain_tip = Some(chain_tip);
     }
 
-    /// Sets the extranonce prefix.
+    /// Updates the extranonce prefix for this channel.
     ///
-    /// Note: after this, all new jobs will be associated with the new extranonce prefix.
-    /// Jobs created before this call will remain associated with the previous extranonce prefix,
-    /// and share validation will be done accordingly.
+    /// After this call, all newly created jobs will reference the new prefix.
+    /// Jobs created before the update will continue to use the previous prefix,
+    /// and share validation will be performed accordingly.
+    /// Returns an error if the new prefix violates minimum rollable extranonce size.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
@@ -244,37 +289,52 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
+    /// Returns the number of bytes available for the rollable portion of the extranonce.
     pub fn get_rollable_extranonce_size(&self) -> u16 {
         self.rollable_extranonce_size
     }
 
+    /// Returns the requested maximum target for this channel.
     pub fn get_requested_max_target(&self) -> &Target {
         &self.requested_max_target
     }
 
+    /// Returns the current target for this channel.
     pub fn get_target(&self) -> &Target {
         &self.target
     }
 
+    /// Updates the current target for this channel.
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
     }
 
+    /// Returns the mapping of future template IDs to job IDs.
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
         self.job_store.get_future_template_to_job_id()
     }
 
+    /// Returns the nominal hashrate for this channel.
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
     }
 
+    /// Updates the nominal hashrate for this channel.
     pub fn set_nominal_hashrate(&mut self, hashrate: f32) {
         self.nominal_hashrate = hashrate;
     }
 
-    /// Updates the channel's nominal hashrate and target.
+    /// Updates channel configuration with a new nominal hashrate.
     ///
-    /// If requested_max_target is None, we use the cached value in the channel state.
+    /// Adjusts target difficulty and internal state. Returns an error if
+    /// any input parameters are invalid or constraints are violated.
+    ///
+    /// This can be used in two scenarios:
+    /// - Client sent `UpdateChannel` message, which contains a `requested_max_target` parameter
+    ///   that's also used as input.
+    /// - vardiff algorithm estimated a new nominal hashrate, in which case `requested_max_target`
+    ///   is `None` and we use the value from the channel state (that was set either during channel
+    ///   opening or some previous `UpdateChannel` message).
     pub fn update_channel(
         &mut self,
         new_nominal_hashrate: f32,
@@ -329,19 +389,19 @@ impl<'a> ExtendedChannel<'a> {
 
         Ok(())
     }
-
+    /// Returns the currently active job, if any.
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_active_job()
     }
-
+    /// Returns all future jobs for this channel.
     pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
         self.job_store.get_future_jobs()
     }
-
+    /// Returns all past jobs for this channel.
     pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
         self.job_store.get_past_jobs()
     }
-
+    /// Returns a reference to the share accounting state for this channel.
     pub fn get_share_accounting(&self) -> &ShareAccounting {
         &self.share_accounting
     }
