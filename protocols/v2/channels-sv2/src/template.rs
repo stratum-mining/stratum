@@ -1,3 +1,4 @@
+//! Utility to deserialize outputs from a `NewTemplate` message.
 use bitcoin::{consensus::Decodable, transaction::TxOut};
 use std::io::Cursor;
 
