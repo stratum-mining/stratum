@@ -63,7 +63,9 @@ impl<'a> ExtendedJob<'a> {
             job_message,
         })
     }
-
+    /// Creates a new extended job from a custom mining job message.
+    ///
+    /// Used for jobs originating from [`SetCustomMiningJob`] messages.
     pub fn from_custom_job(
         custom_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
@@ -160,46 +162,50 @@ impl<'a> ExtendedJob<'a> {
         })
     }
 
+    /// Returns the job ID for this job.
     pub fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }
 
+    /// Returns the origin message for this job (template or custom job).
     pub fn get_origin(&self) -> &JobOrigin<'a> {
         &self.origin
     }
 
+    /// Returns the coinbase transaction prefix for this job.
     pub fn get_coinbase_tx_prefix(&self) -> &B064K<'a> {
         &self.job_message.coinbase_tx_prefix
     }
 
+    /// Returns the coinbase transaction suffix for this job.
     pub fn get_coinbase_tx_suffix(&self) -> &B064K<'a> {
         &self.job_message.coinbase_tx_suffix
     }
-
+    /// Returns the extranonce prefix used for this job.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
     }
-
+    /// Returns all coinbase outputs for this job.
     pub fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
         &self.coinbase_outputs
     }
-
+    /// Returns the [`NewExtendedMiningJob`] message for this job.
     pub fn get_job_message(&self) -> &NewExtendedMiningJob<'a> {
         &self.job_message
     }
-
+    /// Returns the merkle path for this job.
     pub fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>> {
         &self.job_message.merkle_path
     }
-
+    /// Returns the minimum ntime for this job (if set).
     pub fn get_min_ntime(&self) -> Sv2Option<'a, u32> {
         self.job_message.min_ntime.clone()
     }
-
+    /// Returns the block version for this job.
     pub fn get_version(&self) -> u32 {
         self.job_message.version
     }
-
+    /// Returns true if version rolling is allowed for this job.
     pub fn version_rolling_allowed(&self) -> bool {
         self.job_message.version_rolling_allowed
     }
