@@ -1,3 +1,5 @@
+//! # Channel Error Types
+
 use crate::server::jobs::error::JobFactoryError;
 
 #[derive(Debug)]

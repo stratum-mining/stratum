@@ -1,3 +1,24 @@
+//! Abstraction of a standard mining job for SV2 mining servers.
+//!
+//! This module provides the [`StandardJob`] struct, which encapsulates all the state and
+//! protocol-relevant data for a standard mining job as handled by a mining server.
+//!
+//! ## Responsibilities
+//!
+//! - **Origin Tracking**: Captures the originating `NewTemplate` message and extranonce prefix at
+//!   creation time.
+//! - **Coinbase Outputs Management**: Combines spendable and unspendable coinbase outputs from the
+//!   template and additional outputs.
+//! - **Wire-format Message**: Stores the protocol wire-format `NewMiningJob` message for downstream
+//!   communication.
+//! - **Lifecycle Management**: Supports activation and state transitions of jobs, including
+//!   future/non-future status.
+//!
+//! ## Usage
+//!
+//! Use this struct when creating, activating, or managing standard mining jobs in SV2-compliant
+//! mining servers.
+
 use crate::{
     server::jobs::{error::StandardJobError, Job},
     template::deserialize_template_outputs,
@@ -21,16 +42,22 @@ pub struct StandardJob<'a> {
 }
 
 impl Job for StandardJob<'_> {
+    /// Returns the job ID for this job.
     fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }
 
+    /// Activates the job by setting the minimum ntime field.
     fn activate(&mut self, min_ntime: u32) {
         self.activate(min_ntime);
     }
 }
 
 impl<'a> StandardJob<'a> {
+    /// Creates a new standard job from a template.
+    ///
+    /// Combines coinbase outputs from the template and any additional outputs.
+    /// Returns an error if coinbase outputs cannot be deserialized.
     pub fn from_template(
         template: NewTemplate<'a>,
         extranonce_prefix: Vec<u8>,
@@ -54,35 +81,37 @@ impl<'a> StandardJob<'a> {
             job_message,
         })
     }
-
+    /// Returns the job ID for this job.
     pub fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }
-
+    /// Returns all coinbase outputs (spendable and unspendable) for this job.
     pub fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
         &self.coinbase_outputs
     }
-
+    /// Returns the extranonce prefix used for this job.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
     }
-
+    /// Returns the `NewMiningJob` message for this job.
     pub fn get_job_message(&self) -> &NewMiningJob<'a> {
         &self.job_message
     }
-
+    /// Returns the originating `NewTemplate` message for this job.
     pub fn get_template(&self) -> &NewTemplate<'a> {
         &self.template
     }
-
+    /// Returns the merkle root for this job.
     pub fn get_merkle_root(&self) -> &U256<'a> {
         &self.job_message.merkle_root
     }
-
+    /// Returns true if the job is a future job (not yet activated).
     pub fn is_future(&self) -> bool {
         self.job_message.min_ntime.clone().into_inner().is_none()
     }
-
+    /// Activates the job by setting the minimum ntime field.
+    ///
+    /// Should be called when activating future jobs.
     pub fn activate(&mut self, min_ntime: u32) {
         self.job_message.min_ntime = Sv2Option::new(Some(min_ntime));
     }

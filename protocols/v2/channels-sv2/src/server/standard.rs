@@ -1,4 +1,38 @@
-//! Abstraction over the state of a Sv2 Standard Channel, as seen by a Mining Server
+//! Sv2 Standard Channel - Mining Server Abstraction.
+//!
+//! This module provides the [`StandardChannel`] struct, which models and manages the state of a
+//! Stratum V2 (SV2) standard channel as maintained on a mining server.
+//!
+//! ## Responsibilities
+//!
+//! `StandardChannel` is responsible for managing all the state associated with an SV2 standard
+//! channel, including:
+//!
+//! - **Channel Parameters**: Unique `channel_id`, `user_identity`, `extranonce_prefix`, maximum
+//!   target, nominal hashrate, and other properties negotiated at channel opening.
+//! - **Target Difficulty**: Maintains both the requested maximum target and the current working
+//!   target for the channel, recalculated as hashrate or share rate changes.
+//! - **Job Lifecycle Management**: Manages active, future, past, and stale jobs, including
+//!   activation on new chain tips and template updates.
+//! - **Share Validation and Accounting**: Validates submitted shares, updates share accounting
+//!   state, detects duplicates, and manages batch acknowledgements for SV2 `SubmitShares.Success`
+//!   responses.
+//! - **Chain Tip Management**: Tracks the latest known chain tip (block height, previous hash,
+//!   timestamp, and target) for constructing headers and validating shares.
+//!
+//! ## Usage
+//!
+//! Intended for use by pool servers or SV2-compliant job declaration clients (JDC), not by mining
+//! devices or proxies. Encapsulates logic for handling SV2 messages such as `NewTemplate`,
+//! `SetNewPrevHash`, and `SubmitSharesStandard`.
+//!
+//! ## Notes
+//!
+//! - Only one active job is allowed at a time. When a chain tip updates, jobs from the previous tip
+//!   become stale and are tracked accordingly.
+//! - Share batch acknowledgment logic is tied to the configured batch size.
+//! - Extranonce prefix updates must be consistent with SV2 protocol constraints.
+//! - Job lifecycle and share accounting are managed on a per-channel basis.
 use crate::{
     chain_tip::ChainTip,
     server::{
@@ -177,18 +211,24 @@ impl<'a> StandardChannel<'a> {
         })
     }
 
+    /// Returns the unique channel ID for this channel.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
     }
 
+    /// Returns the user identity string for this channel.
     pub fn get_user_identity(&self) -> &String {
         &self.user_identity
     }
 
+    /// Returns the extranonce prefix bytes.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
     }
 
+    /// Sets a new extranonce prefix for this channel.
+    ///
+    /// Returns an error if the new prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
@@ -201,30 +241,38 @@ impl<'a> StandardChannel<'a> {
 
         Ok(())
     }
-
+    /// Updates the current target for this channel.
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
     }
-
+    /// Updates the nominal hashrate for this channel.
     pub fn set_nominal_hashrate(&mut self, nominal_hashrate: f32) {
         self.nominal_hashrate = nominal_hashrate;
     }
-
+    /// Returns the requested maximum target for this channel.
     pub fn get_requested_max_target(&self) -> &Target {
         &self.requested_max_target
     }
-
+    /// Returns the current target for this channel.
     pub fn get_target(&self) -> &Target {
         &self.target
     }
-
+    /// Returns the nominal hashrate for this channel.
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
     }
 
-    /// Updates the channel's nominal hashrate and target.
+    /// Updates channel configuration with a new nominal hashrate.
     ///
-    /// If requested_max_target is None, we use the cached value in the channel state.
+    /// Adjusts target difficulty and internal state. Returns an error if
+    /// any input parameters are invalid or constraints are violated.
+    ///
+    /// This can be used in two scenarios:
+    /// - Client sent `UpdateChannel` message, which contains a `requested_max_target` parameter
+    ///   that's also used as input.
+    /// - vardiff algorithm estimated a new nominal hashrate, in which case `requested_max_target`
+    ///   is `None` and we use the value from the channel state (that was set either during channel
+    ///   opening or some previous `UpdateChannel` message).
     pub fn update_channel(
         &mut self,
         nominal_hashrate: f32,
@@ -278,31 +326,36 @@ impl<'a> StandardChannel<'a> {
         self.requested_max_target = requested_max_target;
         Ok(())
     }
-
+    /// Returns the currently active job, if any.
     pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
         self.job_store.get_active_job()
     }
-
+    /// Returns the mapping of future template IDs to job IDs.
     pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
         self.job_store.get_future_template_to_job_id()
     }
 
+    /// Returns all future jobs for this channel.
     pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         self.job_store.get_future_jobs()
     }
 
+    /// Returns all past jobs for this channel.
     pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         self.job_store.get_past_jobs()
     }
 
+    /// Returns all stale jobs for this channel.
     pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         self.job_store.get_stale_jobs()
     }
 
+    /// Returns the expected number of shares per minute for this channel.
     pub fn get_shares_per_minute(&self) -> f32 {
         self.expected_share_per_minute
     }
 
+    /// Returns the current chain tip, if set.
     pub fn get_chain_tip(&self) -> Option<&ChainTip> {
         self.chain_tip.as_ref()
     }
@@ -313,6 +366,7 @@ impl<'a> StandardChannel<'a> {
         self.chain_tip = Some(chain_tip);
     }
 
+    /// Returns a reference to the share accounting state for this channel.
     pub fn get_share_accounting(&self) -> &ShareAccounting {
         &self.share_accounting
     }
@@ -433,9 +487,10 @@ impl<'a> StandardChannel<'a> {
         Ok(())
     }
 
-    /// Validates a share.
+    /// Validates a submitted share and updates accounting state.
     ///
-    /// Updates the channel state with the result of the share validation.
+    /// Returns the result of share validation, including block found, valid share, duplicate, or
+    /// error if the share is stale or does not meet target.
     pub fn validate_share(
         &mut self,
         share: SubmitSharesStandard,
