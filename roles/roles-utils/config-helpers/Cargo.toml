@@ -2,7 +2,7 @@
 name = "config_helpers_sv2"
 authors = ["The Stratum V2 Developers"]
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 description = "Helpers for working with Stratum V2 configuration files"
 documentation = "https://docs.rs/config_helpers_sv2"
 readme = "README.md"

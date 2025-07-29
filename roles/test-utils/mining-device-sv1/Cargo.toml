@@ -2,7 +2,7 @@
 name = "mining_device_sv1"
 version = "0.1.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 publish = false
 documentation = "https://github.com/stratum-mining/stratum"
 readme = "README.md"

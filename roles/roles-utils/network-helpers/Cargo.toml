@@ -2,7 +2,7 @@
 name = "network_helpers_sv2"
 version = "4.0.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 description = "Networking utils for SV2 roles"
 documentation = "https://docs.rs/network_helpers_sv2"
 homepage = "https://stratumprotocol.org"

@@ -2,7 +2,7 @@
 name = "pool_sv2"
 version = "0.1.3"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 description = "SV2 pool role"
 documentation = "https://docs.rs/pool_sv2"
 readme = "README.md"
