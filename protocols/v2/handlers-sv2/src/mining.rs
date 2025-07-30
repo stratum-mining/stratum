@@ -38,38 +38,24 @@ pub trait ParseMiningMessagesFromDownstreamSync {
 
         use Mining::*;
         match message {
-            OpenStandardMiningChannel(m) => {
-                if !self.is_downstream_authorized(&m.user_identity)? {
-                    // Add correct error type
-                    return Err(Error::OpenStandardMiningChannelError);
+            OpenStandardMiningChannel(m) => match channel_type {
+                SupportedChannelTypes::Standard
+                | SupportedChannelTypes::Group
+                | SupportedChannelTypes::GroupAndExtended => {
+                    self.handle_open_standard_mining_channel(m)
                 }
-
-                match channel_type {
-                    SupportedChannelTypes::Standard
-                    | SupportedChannelTypes::Group
-                    | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_standard_mining_channel(m)
-                    }
-                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
-                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-                    )),
+                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
+                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+                )),
+            },
+            OpenExtendedMiningChannel(m) => match channel_type {
+                SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
+                    self.handle_open_extended_mining_channel(m)
                 }
-            }
-            OpenExtendedMiningChannel(m) => {
-                if !self.is_downstream_authorized(&m.user_identity)? {
-                    // Add correct Error type
-                    return Err(Error::OpenExtendedMiningChannelError);
-                }
-
-                match channel_type {
-                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
-                        self.handle_open_extended_mining_channel(m)
-                    }
-                    _ => Err(Error::UnexpectedMessage(
-                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-                    )),
-                }
-            }
+                _ => Err(Error::UnexpectedMessage(
+                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+                )),
+            },
             UpdateChannel(m) => self.handle_update_channel(m),
 
             SubmitSharesStandard(m) => match channel_type {
@@ -126,8 +112,6 @@ pub trait ParseMiningMessagesFromDownstreamAsync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
-    fn is_downstream_authorized(&self, user_identity: &Str0255) -> Result<bool, Error>;
-
     async fn handle_mining_message(
         &mut self,
         message_type: u8,
@@ -147,39 +131,24 @@ pub trait ParseMiningMessagesFromDownstreamAsync {
         async move {
             use Mining::*;
             match message {
-                OpenStandardMiningChannel(m) => {
-                    if !self.is_downstream_authorized(&m.user_identity)? {
-                        // Add correct error type
-                        return Err(Error::OpenStandardMiningChannelError);
+                OpenStandardMiningChannel(m) => match channel_type {
+                    SupportedChannelTypes::Standard
+                    | SupportedChannelTypes::Group
+                    | SupportedChannelTypes::GroupAndExtended => {
+                        self.handle_open_standard_mining_channel(m).await
                     }
-
-                    match channel_type {
-                        SupportedChannelTypes::Standard
-                        | SupportedChannelTypes::Group
-                        | SupportedChannelTypes::GroupAndExtended => {
-                            self.handle_open_standard_mining_channel(m).await
-                        }
-                        SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
-                            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-                        )),
+                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(
+                        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+                    )),
+                },
+                OpenExtendedMiningChannel(m) => match channel_type {
+                    SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
+                        self.handle_open_extended_mining_channel(m).await
                     }
-                }
-                OpenExtendedMiningChannel(m) => {
-                    if !self.is_downstream_authorized(&m.user_identity)? {
-                        // Add correct Error type
-                        return Err(Error::OpenExtendedMiningChannelError);
-                    }
-
-                    match channel_type {
-                        SupportedChannelTypes::Extended
-                        | SupportedChannelTypes::GroupAndExtended => {
-                            self.handle_open_extended_mining_channel(m).await
-                        }
-                        _ => Err(Error::UnexpectedMessage(
-                            MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-                        )),
-                    }
-                }
+                    _ => Err(Error::UnexpectedMessage(
+                        MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+                    )),
+                },
                 UpdateChannel(m) => self.handle_update_channel(m).await,
 
                 SubmitSharesStandard(m) => match channel_type {

@@ -4,8 +4,6 @@ use parsers_sv2::ParserError;
 pub enum HandlerError {
     UnexpectedMessage(u8),
     ParserError(ParserError),
-    OpenStandardMiningChannelError,
-    OpenExtendedMiningChannelError,
     External(Box<dyn std::error::Error + Send + Sync>),
 }
 
