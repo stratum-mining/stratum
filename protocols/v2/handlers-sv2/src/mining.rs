@@ -21,7 +21,7 @@ pub enum SupportedChannelTypes {
     GroupAndExtended,
 }
 
-pub trait ParseMiningMessagesFromDownstreamSync {
+pub trait HandleMiningMessagesFromClientSync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
@@ -108,7 +108,7 @@ pub trait ParseMiningMessagesFromDownstreamSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseMiningMessagesFromDownstreamAsync {
+pub trait HandleMiningMessagesFromClientAsync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
@@ -209,7 +209,7 @@ pub trait ParseMiningMessagesFromDownstreamAsync {
     async fn handle_set_custom_mining_job(&mut self, msg: SetCustomMiningJob) -> Result<(), Error>;
 }
 
-pub trait ParseMiningMessagesFromUpstreamSync {
+pub trait HandleMiningMessagesFromServerSync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
@@ -348,7 +348,7 @@ pub trait ParseMiningMessagesFromUpstreamSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseMiningMessagesFromUpstreamAsync {
+pub trait HandleMiningMessagesFromServerAsync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 

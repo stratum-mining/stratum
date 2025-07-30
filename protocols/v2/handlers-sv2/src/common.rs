@@ -5,7 +5,7 @@ use common_messages_sv2::{
 use core::convert::TryInto;
 use parsers_sv2::CommonMessages;
 
-pub trait ParseCommonMessagesFromUpstreamSync {
+pub trait HandleCommonMessagesFromServerSync {
     fn handle_common_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<(), Error> {
         let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
         self.dispatch_common_message(parsed)
@@ -40,7 +40,7 @@ pub trait ParseCommonMessagesFromUpstreamSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseCommonMessagesFromUpstreamAsync {
+pub trait HandleCommonMessagesFromServerAsync {
     async fn handle_common_message(
         &mut self,
         message_type: u8,
@@ -92,10 +92,7 @@ pub trait ParseCommonMessagesFromUpstreamAsync {
     async fn handle_reconnect(&mut self, msg: Reconnect) -> Result<(), Error>;
 }
 
-pub trait ParseCommonMessagesFromDownstreamSync
-where
-    Self: Sized,
-{
+pub trait HandleCommonMessagesFromClientSync {
     fn handle_common_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<(), Error> {
         let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
         self.dispatch_common_message(parsed)
@@ -122,10 +119,7 @@ where
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseCommonMessagesFromDownstreamAsync
-where
-    Self: Sized,
-{
+pub trait HandleCommonMessagesFromClientAsync {
     async fn handle_common_message(
         &mut self,
         message_type: u8,

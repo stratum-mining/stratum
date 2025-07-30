@@ -7,24 +7,23 @@ mod template_distribution;
 pub use error::HandlerError;
 
 pub use common::{
-    ParseCommonMessagesFromDownstreamAsync, ParseCommonMessagesFromDownstreamSync,
-    ParseCommonMessagesFromUpstreamAsync, ParseCommonMessagesFromUpstreamSync,
+    HandleCommonMessagesFromClientAsync, HandleCommonMessagesFromClientSync,
+    HandleCommonMessagesFromServerAsync, HandleCommonMessagesFromServerSync,
 };
 
 pub use mining::{
-    ParseMiningMessagesFromDownstreamAsync, ParseMiningMessagesFromDownstreamSync,
-    ParseMiningMessagesFromUpstreamAsync, ParseMiningMessagesFromUpstreamSync,
-    SupportedChannelTypes,
+    HandleMiningMessagesFromClientAsync, HandleMiningMessagesFromClientSync,
+    HandleMiningMessagesFromServerAsync, HandleMiningMessagesFromServerSync, SupportedChannelTypes,
 };
 
 pub use template_distribution::{
-    ParseTemplateDistributionMessagesFromClientAsync,
-    ParseTemplateDistributionMessagesFromClientSync,
-    ParseTemplateDistributionMessagesFromServerAsync,
-    ParseTemplateDistributionMessagesFromServerSync,
+    HandleTemplateDistributionMessagesFromClientAsync,
+    HandleTemplateDistributionMessagesFromClientSync,
+    HandleTemplateDistributionMessagesFromServerAsync,
+    HandleTemplateDistributionMessagesFromServerSync,
 };
 
 pub use job_declaration::{
-    ParseJobDeclarationMessagesFromDownstreamAsync, ParseJobDeclarationMessagesFromDownstreamSync,
-    ParseJobDeclarationMessagesFromUpstreamAsync, ParseJobDeclarationMessagesFromUpstreamSync,
+    HandleJobDeclarationMessagesFromClientAsync, HandleJobDeclarationMessagesFromClientSync,
+    HandleJobDeclarationMessagesFromServerAsync, HandleJobDeclarationMessagesFromServerSync,
 };

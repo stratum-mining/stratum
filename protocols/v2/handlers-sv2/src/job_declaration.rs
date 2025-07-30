@@ -8,7 +8,7 @@ use job_declaration_sv2::{
 };
 use parsers_sv2::JobDeclaration;
 
-pub trait ParseJobDeclarationMessagesFromUpstreamSync {
+pub trait HandleJobDeclarationMessagesFromServerSync {
     fn handle_job_declaration_message(
         &mut self,
         message_type: u8,
@@ -64,7 +64,7 @@ pub trait ParseJobDeclarationMessagesFromUpstreamSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseJobDeclarationMessagesFromUpstreamAsync {
+pub trait HandleJobDeclarationMessagesFromServerAsync {
     async fn handle_job_declaration_message(
         &mut self,
         message_type: u8,
@@ -129,7 +129,7 @@ pub trait ParseJobDeclarationMessagesFromUpstreamAsync {
     ) -> Result<(), Error>;
 }
 
-pub trait ParseJobDeclarationMessagesFromDownstreamSync {
+pub trait HandleJobDeclarationMessagesFromClientSync {
     fn handle_job_declaration_message(
         &mut self,
         message_type: u8,
@@ -181,7 +181,7 @@ pub trait ParseJobDeclarationMessagesFromDownstreamSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseJobDeclarationMessagesFromDownstreamAsync {
+pub trait HandleJobDeclarationMessagesFromClientAsync {
     async fn handle_job_declaration_message(
         &mut self,
         message_type: u8,
