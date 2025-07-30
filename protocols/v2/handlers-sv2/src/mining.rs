@@ -12,7 +12,6 @@ use parsers_sv2::Mining;
 use std::convert::TryInto;
 
 use mining_sv2::*;
-use std::fmt::Debug as D;
 
 #[derive(PartialEq, Eq)]
 pub enum SupportedChannelTypes {
@@ -22,10 +21,7 @@ pub enum SupportedChannelTypes {
     GroupAndExtended,
 }
 
-pub trait ParseMiningMessagesFromDownstreamSync<Up: D>
-where
-    Self: Sized + D,
-{
+pub trait ParseMiningMessagesFromDownstreamSync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
@@ -126,10 +122,7 @@ where
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseMiningMessagesFromDownstreamAsync<Up: D>
-where
-    Self: Sized + D,
-{
+pub trait ParseMiningMessagesFromDownstreamAsync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
@@ -247,10 +240,7 @@ where
     async fn handle_set_custom_mining_job(&mut self, msg: SetCustomMiningJob) -> Result<(), Error>;
 }
 
-pub trait ParseMiningMessagesFromUpstreamSync<Down: D>
-where
-    Self: Sized + D,
-{
+pub trait ParseMiningMessagesFromUpstreamSync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
@@ -389,10 +379,7 @@ where
 }
 
 #[trait_variant::make(Send)]
-pub trait ParseMiningMessagesFromUpstreamAsync<Down: D>
-where
-    Self: Sized + D,
-{
+pub trait ParseMiningMessagesFromUpstreamAsync {
     fn get_channel_type(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled(&self) -> bool;
 
