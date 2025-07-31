@@ -83,10 +83,13 @@ pub trait HandleMiningMessagesFromClientSync {
                 }
                 _ => Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_CUSTOM_MINING_JOB)),
             },
+            CloseChannel(m) => self.handle_close_channel(m),
 
             _ => Err(Error::UnexpectedMessage(0)),
         }
     }
+
+    fn handle_close_channel(&mut self, msg: CloseChannel) -> Result<(), Error>;
 
     fn handle_open_standard_mining_channel(
         &mut self,
@@ -178,11 +181,14 @@ pub trait HandleMiningMessagesFromClientAsync {
                     }
                     _ => Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_CUSTOM_MINING_JOB)),
                 },
+                CloseChannel(m) => self.handle_close_channel(m).await,
 
                 _ => Err(Error::UnexpectedMessage(0)),
             }
         }
     }
+
+    async fn handle_close_channel(&mut self, msg: CloseChannel) -> Result<(), Error>;
 
     async fn handle_open_standard_mining_channel(
         &mut self,
@@ -445,7 +451,6 @@ pub trait HandleMiningMessagesFromServerAsync {
                     }
                     _ => Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_GROUP_CHANNEL)),
                 },
-
                 _ => Err(Error::UnexpectedMessage(0)),
             }
         }
