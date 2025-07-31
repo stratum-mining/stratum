@@ -489,7 +489,7 @@ impl IsClient<'static> for Client {
     ) -> Result<(), Error<'static>> {
         let dif = conf.value;
         let target =
-            target_from_difficulty(dif).unwrap_or_else(|| panic!("Invalid difficulty: {}", dif));
+            target_from_difficulty(dif).unwrap_or_else(|| panic!("Invalid difficulty: {dif}"));
         self.miner.safe_lock(|m| m.target = Some(target)).unwrap();
         Ok(())
     }
