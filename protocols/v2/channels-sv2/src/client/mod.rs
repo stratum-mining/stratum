@@ -1,4 +1,4 @@
-//! Abstractions for channels to be used by mining clients.
+//! Sv2 channels - Mining Clients Abstractions.
 
 pub mod error;
 pub mod extended;
