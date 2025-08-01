@@ -46,14 +46,63 @@ impl JobIdFactory {
 pub struct JobFactory {
     job_id_factory: JobIdFactory,
     version_rolling_allowed: bool,
+    pool_tag_string: Option<String>,
+    miner_tag_string: Option<String>,
 }
 
 impl JobFactory {
-    pub fn new(version_rolling_allowed: bool) -> Self {
+    /// Creates a new [`JobFactory`] instance.
+    ///
+    /// The `pool_tag_string` and `miner_tag_string` are optional and will be added to the coinbase
+    /// scriptSig.
+    ///
+    /// Version rolling is always allowed for standard jobs, so the `version_rolling_allowed`
+    /// parameter is only relevant for creating extended jobs.
+    pub fn new(
+        version_rolling_allowed: bool,
+        pool_tag_string: Option<String>,
+        miner_tag_string: Option<String>,
+    ) -> Self {
         Self {
             job_id_factory: JobIdFactory::new(),
             version_rolling_allowed,
+            pool_tag_string,
+            miner_tag_string,
         }
+    }
+
+    /// Returns a byte vector with the OP_PUSHBYTES opcode and the pool+miner tag.
+    ///
+    /// The character `/` is used as a delimiter.
+    ///
+    /// If no pool or miner tag is provided, the delimiters are still added.
+    pub fn op_pushbytes_pool_miner_tag(&self) -> Result<Vec<u8>, JobFactoryError> {
+        let mut pool_miner_tag = vec![];
+        pool_miner_tag.extend_from_slice(b"/");
+        if let Some(pool_tag_string) = &self.pool_tag_string {
+            pool_miner_tag.extend_from_slice(pool_tag_string.as_bytes());
+        }
+        pool_miner_tag.extend_from_slice(b"/");
+        if let Some(miner_tag_string) = &self.miner_tag_string {
+            pool_miner_tag.extend_from_slice(miner_tag_string.as_bytes());
+        }
+        pool_miner_tag.extend_from_slice(b"/");
+
+        // Create the proper OP_PUSHBYTES opcode based on data length
+        let op_pushbytes = match pool_miner_tag.len() {
+            // 100 bytes are available for scriptSig
+            // subtract 5 for BIP34
+            // subtract 1 for OP_PUSHBYTES opcode before pool/miner tag
+            // subtract 1+32 for extranonce (OP_PUSHBYTES_32 + 32 bytes)
+            len @ 1..=61 => len as u8,
+            _ => return Err(JobFactoryError::CoinbaseTxPrefixError),
+        };
+
+        let mut op_pushbytes_pool_miner_tag = vec![];
+        op_pushbytes_pool_miner_tag.push(op_pushbytes);
+        op_pushbytes_pool_miner_tag.extend_from_slice(&pool_miner_tag);
+
+        Ok(op_pushbytes_pool_miner_tag)
     }
 
     /// Creates a new job from a template.
@@ -302,7 +351,7 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + m.coinbase_prefix.inner_as_ref().len(); // script_sig_prefix
+            + m.coinbase_prefix.inner_as_ref().len();
 
         let r = serialized_coinbase[0..index].to_vec();
 
@@ -326,7 +375,7 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + m.coinbase_prefix.inner_as_ref().len() // script_sig_prefix
+            + m.coinbase_prefix.inner_as_ref().len()
             + full_extranonce_size;
 
         let r = serialized_coinbase[index..].to_vec();
@@ -368,8 +417,12 @@ impl JobFactory {
 
         outputs.append(&mut template_outputs);
 
+        let op_pushbytes_pool_miner_tag = self.op_pushbytes_pool_miner_tag()?;
+
         let mut script_sig = vec![];
         script_sig.extend_from_slice(&template.coinbase_prefix.to_vec());
+        script_sig.extend_from_slice(&op_pushbytes_pool_miner_tag);
+        script_sig.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
         script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
 
         let tx_in = TxIn {
@@ -395,13 +448,21 @@ impl JobFactory {
         let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
         let serialized_coinbase = serialize(&coinbase);
 
+        // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
+        let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
+            + 3 // three "/" delimiters
+            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
+            + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
+
         let index = 4 // tx version
             + 2 // segwit bytes
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + template.coinbase_prefix.len(); // script_sig_prefix
+            + template.coinbase_prefix.len()
+            + pool_miner_tag_len
+            + 1; // OP_PUSHBYTES_32 (for the extranonce)
 
         let r = serialized_coinbase[0..index].to_vec();
 
@@ -417,6 +478,13 @@ impl JobFactory {
         let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
         let serialized_coinbase = serialize(&coinbase);
 
+        // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
+        let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
+            + 3 // three "/" delimiters
+            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
+            + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
+
+        // 32 bytes
         let full_extranonce_size = MAX_EXTRANONCE_LEN;
 
         let r = serialized_coinbase[4 // tx version
@@ -425,7 +493,9 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + template.coinbase_prefix.len() // script_sig_prefix
+            + template.coinbase_prefix.len()
+            + pool_miner_tag_len
+            + 1 // OP_PUSHBYTES_32 (for the extranonce)
             + full_extranonce_size..]
             .to_vec();
 
@@ -442,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_new_job() {
-        let mut job_factory = JobFactory::new(true);
+        let mut job_factory = JobFactory::new(true, None, None);
 
         // note:
         // the messages on this test were collected from a sane message flow
@@ -509,7 +579,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -531,7 +601,7 @@ mod tests {
 
     #[test]
     fn test_new_custom_job() {
-        let mut job_factory = JobFactory::new(true);
+        let mut job_factory = JobFactory::new(true, None, None);
 
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
