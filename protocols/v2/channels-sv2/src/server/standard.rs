@@ -59,8 +59,18 @@ pub struct StandardChannel<'a> {
 }
 
 impl<'a> StandardChannel<'a> {
+    /// Constructor of `StandardChannel` for a Sv2 Pool Server.
+    /// Not meant for usage on a Sv2 Job Declaration Client.
+    ///
+    /// Initializes the standard channel state with the provided parameters, including channel
+    /// identifiers, difficulty targets, share accounting, and job management.
+    /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
+    /// requirements are not met.
+    ///
+    /// The `pool_tag_string` is added to the coinbase scriptSig (for non-JD jobs) in between `<`
+    /// and `>` delimiters.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new_for_pool(
         channel_id: u32,
         user_identity: String,
         extranonce_prefix: Vec<u8>,
@@ -69,6 +79,73 @@ impl<'a> StandardChannel<'a> {
         share_batch_size: usize,
         expected_share_per_minute: f32,
         job_store: Box<dyn JobStore<StandardJob<'a>>>,
+        pool_tag_string: String,
+    ) -> Result<Self, StandardChannelError> {
+        Self::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            requested_max_target,
+            nominal_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            Some(pool_tag_string),
+            None,
+        )
+    }
+
+    /// Constructor of `StandardChannel` for a Sv2 Job Declaration Client.
+    /// Not meant for usage on a Sv2 Pool Server.
+    ///
+    /// Initializes the extended channel state with the provided parameters, including channel
+    /// identifiers, difficulty targets, share accounting, and job management.
+    /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
+    /// requirements are not met.
+    ///
+    /// If provided, `pool_tag_string` is added to the coinbase scriptSig in between `<` and `>`
+    /// delimiters. The `miner_tag_string` is added to the coinbase scriptSig in between `|` and
+    /// `|` delimiters.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_for_job_declaration_client(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        requested_max_target: Target,
+        nominal_hashrate: f32,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: Box<dyn JobStore<StandardJob<'a>>>,
+        pool_tag_string: Option<String>,
+        miner_tag_string: String,
+    ) -> Result<Self, StandardChannelError> {
+        Self::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            requested_max_target,
+            nominal_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            pool_tag_string,
+            Some(miner_tag_string),
+        )
+    }
+
+    // private constructor
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        requested_max_target: Target,
+        nominal_hashrate: f32,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: Box<dyn JobStore<StandardJob<'a>>>,
+        pool_tag_string: Option<String>,
+        miner_tag_string: Option<String>,
     ) -> Result<Self, StandardChannelError> {
         let calculated_target =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
@@ -93,7 +170,7 @@ impl<'a> StandardChannel<'a> {
             nominal_hashrate,
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
-            job_factory: JobFactory::new(true),
+            job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
             job_store,
         })
@@ -426,6 +503,8 @@ impl<'a> StandardChannel<'a> {
             );
 
             let mut script_sig = job.get_template().coinbase_prefix.to_vec();
+            script_sig.extend(self.job_factory.get_pool_tag());
+            script_sig.extend(self.job_factory.get_miner_tag());
             script_sig.extend(job.get_extranonce_prefix());
 
             let tx_in = TxIn {
@@ -536,6 +615,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
@@ -584,8 +665,8 @@ mod tests {
             channel_id: standard_channel_id,
             job_id: 1,
             merkle_root: [
-                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
-                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+                0, 208, 120, 115, 115, 190, 181, 209, 55, 241, 219, 59, 199, 115, 162, 44, 7, 254,
+                241, 63, 78, 198, 229, 78, 149, 118, 44, 212, 64, 73, 150, 176,
             ]
             .into(),
             version: 536870912,
@@ -662,6 +743,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
@@ -718,8 +801,8 @@ mod tests {
             channel_id: standard_channel_id,
             job_id: 1,
             merkle_root: [
-                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
-                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+                0, 208, 120, 115, 115, 190, 181, 209, 55, 241, 219, 59, 199, 115, 162, 44, 7, 254,
+                241, 63, 78, 198, 229, 78, 149, 118, 44, 212, 64, 73, 150, 176,
             ]
             .into(),
             version: 536870912,
@@ -764,6 +847,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
@@ -821,14 +906,14 @@ mod tests {
 
         let active_standard_job = standard_channel.get_active_job().unwrap();
 
-        // this share has hash 40b4c57b2c65052bbe1092e556146ad78cdd9e5ffaeff856a0eb54ee7b816da7
+        // this share has hash 3c34f63de61283c907b68e3127146d7d11f1fb14e50020a8317a292d11e2dab6
         // which satisfied the network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
         let share_valid_block = SubmitSharesStandard {
             channel_id: standard_channel_id,
             sequence_number: 0,
             job_id: active_standard_job.get_job_id(),
-            nonce: 3,
+            nonce: 0,
             ntime: 1745596932,
             version: 536870912,
         };
@@ -868,6 +953,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
@@ -975,6 +1062,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
@@ -1032,7 +1121,7 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 000010dcb838b589e5b0365350425ea82f368d330616f783d32dadf9b497bd02
+        // this share has hash 0000e07f87197816ac75e59aaa7c8caa839d54dd0eca400e821ffbe7a6425d6e
         // which does meet the channel target
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // but does not meet network target
@@ -1041,7 +1130,7 @@ mod tests {
             channel_id: standard_channel_id,
             sequence_number: 1,
             job_id: 1,
-            nonce: 31978,
+            nonce: 1702,
             ntime: 1745611105,
             version: 536870912,
         };
@@ -1076,6 +1165,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
@@ -1164,6 +1255,8 @@ mod tests {
             share_batch_size,
             expected_share_per_minute,
             job_store,
+            None,
+            None,
         )
         .unwrap();
 
