@@ -88,7 +88,11 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             let group_channel_id = self.channel_id_factory.next();
             let job_store = Box::new(DefaultJobStore::new());
 
-            let mut group_channel = GroupChannel::new(group_channel_id, job_store);
+            let mut group_channel = GroupChannel::new_for_pool(
+                group_channel_id,
+                job_store,
+                self.pool_tag_string.clone(),
+            );
             group_channel
                 .on_new_template(
                     last_future_template.clone(),
@@ -115,7 +119,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let channel_id = self.channel_id_factory.next();
         let job_store = Box::new(DefaultJobStore::new());
-        let mut standard_channel = match StandardChannel::new(
+        let mut standard_channel = match StandardChannel::new_for_pool(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -124,6 +128,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             self.share_batch_size,
             self.shares_per_minute,
             job_store,
+            self.pool_tag_string.clone(),
         ) {
             Ok(channel) => channel,
             Err(e) => match e {
@@ -296,7 +301,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let channel_id = self.channel_id_factory.next();
         let job_store = Box::new(DefaultJobStore::new());
-        let mut extended_channel = match ExtendedChannel::new(
+        let mut extended_channel = match ExtendedChannel::new_for_pool(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -307,6 +312,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             self.share_batch_size,
             self.shares_per_minute,
             job_store,
+            self.pool_tag_string.clone(),
         ) {
             Ok(channel) => channel,
             Err(e) => match e {
