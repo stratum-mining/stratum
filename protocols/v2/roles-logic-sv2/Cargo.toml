@@ -18,7 +18,7 @@ channels_sv2 = { path = "../channels-sv2", version = "^0.1.0" }
 parsers_sv2 = { path = "../parsers-sv2", version = "^0.1.0" }
 handlers_sv2 = { path = "../handlers-sv2", version = "^0.1.0" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^5.0.0" }
-mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^4.0.0" }
+mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^5.0.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^3.0.0" }
 job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^4.0.0" }
 tracing = { version = "0.1"}
