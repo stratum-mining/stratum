@@ -2,7 +2,7 @@
 name = "job_declaration_sv2"
 version = "4.0.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 description = "SV2 job declaration protocol types"
 documentation = "https://docs.rs/job_declaration_sv2"

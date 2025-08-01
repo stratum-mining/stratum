@@ -2,7 +2,7 @@
 name = "derive_codec_sv2"
 version = "1.1.1"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 description = "Derive macro for Sv2 binary format serializer and deserializer"
 documentation = "https://docs.rs/derive_codec_sv2"

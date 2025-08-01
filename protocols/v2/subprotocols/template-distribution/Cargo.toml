@@ -2,7 +2,7 @@
 name = "template_distribution_sv2"
 version = "3.1.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 description = "Sv2 template distribution subprotocol"
 documentation = "https://docs.rs/template_distribution_sv2"
