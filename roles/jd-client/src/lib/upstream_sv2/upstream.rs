@@ -192,8 +192,9 @@ pub struct Upstream {
     template_to_job_id: TemplateToJobId,
     // Simple ID generator for creating unique request IDs for messages sent to the upstream.
     req_ids: Id,
-    // The JDC's signature, used in the `ExtendedExtranonce` calculation.
-    jdc_signature: String,
+    // The miner tag string, to be written into the coinbase scriptSig
+    #[allow(dead_code)]
+    miner_tag_string: String,
 }
 
 impl Upstream {
@@ -223,7 +224,7 @@ impl Upstream {
         tx_status: status::Sender,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
-        jdc_signature: String,
+        miner_tag_string: String,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Attempt to connect to the SV2 Upstream role (pool) with retry logic.
         let socket = loop {
@@ -266,7 +267,7 @@ impl Upstream {
             channel_factory: None,
             template_to_job_id: TemplateToJobId::new(),
             req_ids: Id::new(),
-            jdc_signature,
+            miner_tag_string,
         })))
     }
 
@@ -631,22 +632,16 @@ impl ParseMiningMessagesFromUpstream<Downstream> for Upstream {
         debug!("OpenStandardMiningChannelSuccess: {}", m);
         // --- Create the PoolChannelFactory  ---
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let jdc_signature_len = self.jdc_signature.len();
         let prefix_len = m.extranonce_prefix.to_vec().len();
         let self_len = 0;
         let total_len = prefix_len + m.extranonce_size as usize;
         let range_0 = 0..prefix_len;
-        let range_1 = prefix_len..prefix_len + jdc_signature_len + self_len;
-        let range_2 = prefix_len + jdc_signature_len + self_len..total_len;
+        let range_1 = prefix_len..prefix_len + self_len;
+        let range_2 = prefix_len + self_len..total_len;
 
         // Create an ExtendedExtranonce structure defining the layout of the extranonce.
-        let extranonces = ExtendedExtranonce::new(
-            range_0,
-            range_1,
-            range_2,
-            Some(self.jdc_signature.as_bytes().to_vec()),
-        )
-        .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{err:?}")))?;
+        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2, None)
+            .map_err(|err| RolesLogicError::ExtendedExtranonceCreationFailed(format!("{err:?}")))?;
 
         // Job creator for the factory.
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
