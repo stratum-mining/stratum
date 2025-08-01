@@ -115,6 +115,8 @@ pub struct Downstream {
     last_future_template: NewTemplate<'static>,
     last_new_prev_hash: SetNewPrevHashTdp<'static>,
     coinbase_reward_script: CoinbaseRewardScript,
+    // string to be written into the coinbase scriptSig on non-JD jobs
+    pool_tag_string: String,
 }
 
 /// The central state manager for the mining pool.
@@ -141,6 +143,8 @@ pub struct Pool {
     share_batch_size: usize,
     last_future_template: Option<NewTemplate<'static>>,
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
+    // string to be written into the coinbase scriptSig on non-JD jobs
+    pool_tag_string: String,
 }
 
 impl Downstream {
@@ -205,6 +209,8 @@ impl Downstream {
                 .expect("last_new_prev_hash must be Some")
         })?;
 
+        let pool_tag = pool.safe_lock(|p| p.pool_tag_string.clone())?;
+
         // Create the Downstream instance, wrapped for shared access.
         let self_ = Arc::new(Mutex::new(Downstream {
             id,
@@ -224,6 +230,7 @@ impl Downstream {
             last_future_template,
             last_new_prev_hash,
             coinbase_reward_script,
+            pool_tag_string: pool_tag,
         }));
 
         tokio::spawn(spawn_vardiff_loop(self_.clone(), sender.clone(), id));
@@ -930,34 +937,39 @@ impl Pool {
         shares_per_minute: f32,
         recv_stop_signal: tokio::sync::watch::Receiver<()>,
     ) -> Result<Arc<Mutex<Self>>, PoolError> {
-        let range_0 = std::ops::Range { start: 0, end: 0 };
+        let range_1_start = 0;
+        let range_1_end = 8;
 
-        let pool_signature_len = config.pool_signature().len();
-        let range_1_end = pool_signature_len + 8;
+        // range_0 is not used here
+        let range_0 = std::ops::Range {
+            start: range_1_start,
+            end: range_1_start,
+        };
         let range_1 = std::ops::Range {
-            start: 0,
+            start: range_1_start,
             end: range_1_end,
         };
         let range_2 = std::ops::Range {
             start: range_1_end,
-            end: MAX_EXTRANONCE_LEN,
+            end: FULL_EXTRANONCE_LEN,
         };
+
+        // simulating a scenario where there are multiple mining servers
+        // this static prefix allows unique extranonce_prefix allocation
+        // for this mining server
+        let static_prefix = vec![0x01];
 
         let extranonce_prefix_factory_extended = ExtendedExtranonce::new(
             range_0.clone(),
             range_1.clone(),
             range_2.clone(),
-            Some(config.pool_signature().as_bytes().to_vec()),
+            Some(static_prefix.clone()),
         )
         .expect("Failed to create ExtendedExtranonce with valid ranges");
 
-        let extranonce_prefix_factory_standard = ExtendedExtranonce::new(
-            range_0,
-            range_1,
-            range_2,
-            Some(config.pool_signature().as_bytes().to_vec()),
-        )
-        .expect("Failed to create ExtendedExtranonce with valid ranges");
+        let extranonce_prefix_factory_standard =
+            ExtendedExtranonce::new(range_0, range_1, range_2, Some(static_prefix.clone()))
+                .expect("Failed to create ExtendedExtranonce with valid ranges");
 
         // --- Initialize Pool State ---
         let pool = Arc::new(Mutex::new(Pool {
@@ -975,6 +987,7 @@ impl Pool {
             share_batch_size: config.share_batch_size(),
             last_future_template: None,
             last_new_prev_hash: None,
+            pool_tag_string: config.pool_signature().clone(),
         }));
 
         let cloned = pool.clone();
