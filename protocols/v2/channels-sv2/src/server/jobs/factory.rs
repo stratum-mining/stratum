@@ -511,8 +511,8 @@ mod tests {
     use template_distribution_sv2::NewTemplate;
 
     #[test]
-    fn test_new_job() {
-        let mut job_factory = JobFactory::new(true, None, None);
+    fn test_new_pool_job() {
+        let mut job_factory = JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
 
         // note:
         // the messages on this test were collected from a sane message flow
@@ -577,9 +577,12 @@ mod tests {
             min_ntime: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
+            // contains scriptSig with /Stratum V2 SRI Pool//
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 58, 82, 0, 22, 47, 83, 116,
+                114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 47,
+                32,
             ]
             .try_into()
             .unwrap(),
@@ -601,7 +604,11 @@ mod tests {
 
     #[test]
     fn test_new_custom_job() {
-        let mut job_factory = JobFactory::new(true, None, None);
+        let mut jdc_job_factory = JobFactory::new(
+            true,
+            Some("Stratum V2 SRI Pool".to_string()),
+            Some("Stratum V2 SRI Miner".to_string()),
+        );
 
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
@@ -609,27 +616,19 @@ mod tests {
         ]
         .to_vec();
 
-        let set_custom_mining_job = SetCustomMiningJob {
-            channel_id: 1,
-            request_id: 0,
-            token: vec![0].try_into().unwrap(),
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
             version: 536870912,
-            prev_hash: [
-                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
-                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-            ]
-            .into(),
-            min_ntime: 1746839905,
-            nbits: 503543726,
             coinbase_tx_version: 2,
             coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: 5000000000,
+            coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
-                2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170,
-                14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0, 0, 0, 0, 0, 0, 38,
-                106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153,
-                223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151,
-                78, 140, 249,
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
             ]
             .try_into()
             .unwrap(),
@@ -637,15 +636,65 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
+        // match the original script format used to generate the coinbase_reward_outputs for the
+        // expected job
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(5000000000),
+            script_pubkey: script,
+        }];
+
+        let chain_tip = ChainTip::new(
+            [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            503543726,
+            1746839905,
+        );
+
+        let jdc_job = jdc_job_factory
+            .new_extended_job(
+                1,
+                Some(chain_tip.clone()),
+                extranonce_prefix.clone(),
+                template,
+                coinbase_reward_outputs,
+            )
+            .unwrap();
+
+        let set_custom_mining_job = jdc_job
+            .into_custom_job(0, vec![0].try_into().unwrap(), chain_tip)
+            .unwrap();
+
+        let mut pool_job_factory =
+            JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
+
+        let custom_job = pool_job_factory
+            .new_custom_job(set_custom_mining_job, extranonce_prefix)
+            .unwrap();
+
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
             min_ntime: Sv2Option::new(Some(1746839905)),
             version: 536870912,
             version_rolling_allowed: true,
+            // contains scriptSig with /Stratum V2 SRI Pool/Stratum V2 SRI Miner/
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 78, 82, 0, 42, 47, 83, 116,
+                114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 83,
+                116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 77, 105, 110, 101,
+                114, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -662,10 +711,6 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        let job = job_factory
-            .new_custom_job(set_custom_mining_job, extranonce_prefix)
-            .unwrap();
-
-        assert_eq!(job.get_job_message(), &expected_job);
+        assert_eq!(custom_job.get_job_message(), &expected_job);
     }
 }
