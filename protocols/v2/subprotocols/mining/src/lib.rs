@@ -110,7 +110,7 @@ pub const CHANNEL_BIT_SUBMIT_SHARES_SUCCESS: bool = true;
 pub const CHANNEL_BIT_UPDATE_CHANNEL: bool = true;
 pub const CHANNEL_BIT_UPDATE_CHANNEL_ERROR: bool = true;
 
-pub const MAX_EXTRANONCE_LEN: usize = 32;
+pub const FULL_EXTRANONCE_LEN: usize = 32;
 
 /// Target is a 256-bit unsigned integer in little-endian
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -236,7 +236,7 @@ impl core::convert::TryFrom<alloc::vec::Vec<u8>> for Extranonce {
     type Error = ();
 
     fn try_from(v: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
-        if v.len() > MAX_EXTRANONCE_LEN {
+        if v.len() > FULL_EXTRANONCE_LEN {
             Err(())
         } else {
             Ok(Extranonce { extranonce: v })
@@ -246,7 +246,7 @@ impl core::convert::TryFrom<alloc::vec::Vec<u8>> for Extranonce {
 
 impl Extranonce {
     pub fn new(len: usize) -> Option<Self> {
-        if len > MAX_EXTRANONCE_LEN {
+        if len > FULL_EXTRANONCE_LEN {
             None
         } else {
             let extranonce = vec![0; len];
@@ -520,7 +520,7 @@ impl ExtendedExtranonce {
         }
 
         // Check if range_2.end exceeds MAX_EXTRANONCE_LEN
-        if range_2.end > MAX_EXTRANONCE_LEN {
+        if range_2.end > FULL_EXTRANONCE_LEN {
             return Err(ExtendedExtranonceError::ExceedsMaxLength);
         }
 
@@ -556,11 +556,11 @@ impl ExtendedExtranonce {
         }
 
         // Check if range_2.end exceeds MAX_EXTRANONCE_LEN
-        if range_2.end > MAX_EXTRANONCE_LEN {
+        if range_2.end > FULL_EXTRANONCE_LEN {
             return Err(ExtendedExtranonceError::ExceedsMaxLength);
         }
 
-        inner.resize(MAX_EXTRANONCE_LEN, 0);
+        inner.resize(FULL_EXTRANONCE_LEN, 0);
         Ok(Self {
             inner,
             range_0,
@@ -609,7 +609,7 @@ impl ExtendedExtranonce {
         }
 
         // Check if range_2.end exceeds MAX_EXTRANONCE_LEN
-        if range_2.end > MAX_EXTRANONCE_LEN {
+        if range_2.end > FULL_EXTRANONCE_LEN {
             return Err(ExtendedExtranonceError::ExceedsMaxLength);
         }
 
@@ -741,17 +741,17 @@ pub mod tests {
 
     #[test]
     fn test_extranonce_errors() {
-        let extranonce = Extranonce::try_from(vec![0; MAX_EXTRANONCE_LEN + 1]);
+        let extranonce = Extranonce::try_from(vec![0; FULL_EXTRANONCE_LEN + 1]);
         assert!(extranonce.is_err());
 
-        assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1).is_none());
+        assert!(Extranonce::new(FULL_EXTRANONCE_LEN + 1).is_none());
     }
 
     #[test]
     fn test_from_upstream_extranonce_error() {
         let range_0 = 0..0;
         let range_1 = 0..0;
-        let range_2 = 0..MAX_EXTRANONCE_LEN + 1;
+        let range_2 = 0..FULL_EXTRANONCE_LEN + 1;
         let extranonce = Extranonce::new(10).unwrap();
 
         let extended_extranonce =
@@ -903,7 +903,7 @@ pub mod tests {
     // identity function
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_u256(mut input: Vec<u8>) -> bool {
-        input.resize(MAX_EXTRANONCE_LEN, 0);
+        input.resize(FULL_EXTRANONCE_LEN, 0);
 
         let extranonce_start = Extranonce::try_from(input.clone()).unwrap();
         let u256 = U256::<'static>::from(extranonce_start.clone());
@@ -914,7 +914,7 @@ pub mod tests {
     // do the same of the above but with B032 type
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_b032(mut input: Vec<u8>) -> bool {
-        input.resize(MAX_EXTRANONCE_LEN, 0);
+        input.resize(FULL_EXTRANONCE_LEN, 0);
         let extranonce_start = Extranonce::try_from(input.clone()).unwrap();
         let b032 = B032::<'static>::from(extranonce_start.clone());
         let extranonce_final = Extranonce::from(b032);
@@ -925,7 +925,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_extended_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % FULL_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);
@@ -993,7 +993,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_next_standard_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % FULL_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);
@@ -1046,7 +1046,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_next_stndard2(input: (u8, u8, Vec<u8>, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % FULL_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);
@@ -1078,7 +1078,7 @@ pub mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_next_extended_extranonce(input: (u8, u8, Vec<u8>, usize, usize)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3 % MAX_EXTRANONCE_LEN + 1;
+        let extranonce_len = input.3 % FULL_EXTRANONCE_LEN + 1;
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
         let r0 = r0 % (extranonce_len + 1);

@@ -9,7 +9,7 @@ use bitcoin::{
     consensus::{deserialize, serialize},
     transaction::{Transaction, TxOut},
 };
-use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
+use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, FULL_EXTRANONCE_LEN};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
@@ -96,7 +96,7 @@ impl<'a> ExtendedJob<'a> {
 
         let mut serialized_coinbase: Vec<u8> = vec![];
         serialized_coinbase.extend(coinbase_tx_prefix);
-        serialized_coinbase.extend(vec![0; MAX_EXTRANONCE_LEN]);
+        serialized_coinbase.extend(vec![0; FULL_EXTRANONCE_LEN]);
         serialized_coinbase.extend(coinbase_tx_suffix);
 
         let deserialized_coinbase: Transaction = deserialize(&serialized_coinbase)

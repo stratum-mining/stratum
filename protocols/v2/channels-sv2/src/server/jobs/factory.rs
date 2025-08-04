@@ -13,7 +13,7 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
     Amount, Sequence,
 };
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
+use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, FULL_EXTRANONCE_LEN};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
@@ -320,7 +320,7 @@ impl JobFactory {
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(m.coinbase_prefix.inner_as_ref());
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        script_sig.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
 
         // Create transaction input
         let tx_in = TxIn {
@@ -367,7 +367,7 @@ impl JobFactory {
         let serialized_coinbase = serialize(&coinbase);
 
         // Calculate full extranonce size
-        let full_extranonce_size = MAX_EXTRANONCE_LEN;
+        let full_extranonce_size = FULL_EXTRANONCE_LEN;
 
         let index = 4 // tx version
             + 2 // segwit
@@ -422,8 +422,8 @@ impl JobFactory {
         let mut script_sig = vec![];
         script_sig.extend_from_slice(&template.coinbase_prefix.to_vec());
         script_sig.extend_from_slice(&op_pushbytes_pool_miner_tag);
-        script_sig.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        script_sig.push(FULL_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+        script_sig.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
 
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
@@ -485,7 +485,7 @@ impl JobFactory {
             + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
 
         // 32 bytes
-        let full_extranonce_size = MAX_EXTRANONCE_LEN;
+        let full_extranonce_size = FULL_EXTRANONCE_LEN;
 
         let r = serialized_coinbase[4 // tx version
             + 2 // segwit bytes

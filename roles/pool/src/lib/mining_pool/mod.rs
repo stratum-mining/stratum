@@ -52,7 +52,7 @@ use stratum_common::{
         handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
         mining_sv2::{
             ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
-            MAX_EXTRANONCE_LEN,
+            FULL_EXTRANONCE_LEN,
         },
         parsers_sv2::{AnyMessage, Mining},
         template_distribution_sv2::{
