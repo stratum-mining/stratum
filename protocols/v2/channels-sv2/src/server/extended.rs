@@ -399,27 +399,25 @@ impl<'a> ExtendedChannel<'a> {
     /// Updates the channel state with a new `SetNewPrevHash` message (Template Distribution
     /// Protocol variant).
     ///
-    /// If there are no future jobs, returns an error.
-    /// If there is some future job matching the `template_id`` that `SetNewPrevHash` points to,
-    /// this future job is "activated" and set as the active job.
+    /// If there are future jobs in the Job Store, it activates the future job matching the
+    /// `template_id` and sets it as the active job.
+    ///
+    /// If there are future jobs in the Job Store, but the template id is not found, returns an
+    /// error.
     ///
     /// All past jobs are cleared.
-    ///
-    /// The chain tip information is not kept in the channel state.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
-        match self.job_store.get_future_jobs().is_empty() {
-            true => {
+        // extended channels dedicated to custom work don't need to keep track of future jobs
+        if !self.job_store.get_future_jobs().is_empty() {
+            // the SetNewPrevHash message was addressed to a specific future template
+            if !self.job_store.activate_future_job(
+                set_new_prev_hash.template_id,
+                set_new_prev_hash.header_timestamp,
+            ) {
                 return Err(ExtendedChannelError::TemplateIdNotFound);
-            }
-            false => {
-                // the SetNewPrevHash message was addressed to a specific future template
-                self.job_store.activate_future_job(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
-                );
             }
         }
 
