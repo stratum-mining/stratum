@@ -103,6 +103,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         coinbase_reward_script,
         SHARES_PER_MINUTE,
         share_batch_size,
+        1,
     );
     let pool = PoolSv2::new(config);
     assert!(pool.start().await.is_ok());

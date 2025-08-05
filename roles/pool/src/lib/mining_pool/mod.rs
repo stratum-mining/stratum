@@ -957,7 +957,7 @@ impl Pool {
         // simulating a scenario where there are multiple mining servers
         // this static prefix allows unique extranonce_prefix allocation
         // for this mining server
-        let static_prefix = vec![0x01];
+        let static_prefix = config.server_id().to_be_bytes().to_vec();
 
         let extranonce_prefix_factory_extended = ExtendedExtranonce::new(
             range_0.clone(),
