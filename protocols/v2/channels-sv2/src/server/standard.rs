@@ -371,8 +371,6 @@ impl<'a> StandardChannel<'a> {
     /// If there are future jobs, the active job is set to the job with the given `template_id`.
     ///
     /// All past jobs are cleared.
-    ///
-    /// The chain tip information is not kept in the channel state.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
@@ -382,10 +380,12 @@ impl<'a> StandardChannel<'a> {
                 return Err(StandardChannelError::TemplateIdNotFound);
             }
             false => {
-                self.job_store.activate_future_job(
+                if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
-                );
+                ) {
+                    return Err(StandardChannelError::TemplateIdNotFound);
+                }
             }
         }
 
