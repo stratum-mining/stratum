@@ -12,7 +12,9 @@ use async_channel::{Receiver, Sender};
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::roles_logic_sv2::{
     self,
-    common_messages_sv2::{has_requires_std_job, SetupConnection, SetupConnectionSuccess},
+    common_messages_sv2::{
+        has_requires_std_job, has_work_selection, SetupConnection, SetupConnectionSuccess,
+    },
     errors::Error,
     handlers::common::ParseCommonMessagesFromDownstream,
     parsers_sv2::{AnyMessage, CommonMessages},
@@ -44,7 +46,7 @@ impl SetupConnectionHandler {
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
         address: SocketAddr,
-    ) -> PoolResult<bool> {
+    ) -> PoolResult<(bool, bool)> {
         // read stdFrame from receiver
 
         let mut incoming: StdFrame = match receiver.recv().await {
@@ -88,7 +90,7 @@ impl SetupConnectionHandler {
         match message {
             CommonMessages::SetupConnectionSuccess(m) => {
                 debug!("Sent back SetupConnectionSuccess: {:?}", m);
-                Ok(has_requires_std_job(m.flags))
+                Ok((has_requires_std_job(m.flags), has_work_selection(m.flags)))
             }
             _ => panic!(),
         }

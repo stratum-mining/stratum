@@ -35,12 +35,6 @@ async fn jd_tproxy_integration() {
         .await;
     jdc_pool_sniffer
         .wait_for_message_type(
-            MessageDirection::ToDownstream,
-            MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-        )
-        .await;
-    jdc_pool_sniffer
-        .wait_for_message_type(
             MessageDirection::ToUpstream,
             MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
         )

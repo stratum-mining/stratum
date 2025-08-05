@@ -94,6 +94,8 @@ pub struct Downstream {
     sender: Sender<EitherFrame>,
     // Whether the downstream requires standard jobs.
     requires_standard_jobs: bool,
+    // Whether the downstream requires custom work.
+    requires_custom_work: bool,
     // Sender channel to forward valid `SubmitSolution` messages received from this
     // downstream miner to the main [`Pool`] task, which then sends them upstream.
     solution_sender: Sender<SubmitSolution<'static>>,
@@ -168,7 +170,7 @@ impl Downstream {
     ) -> PoolResult<Arc<Mutex<Self>>> {
         // Handle the SV2 SetupConnection message exchange.
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        let requires_standard_jobs =
+        let (requires_standard_jobs, requires_custom_work) =
             SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
                 .await?;
 
@@ -217,6 +219,7 @@ impl Downstream {
             receiver,
             sender: sender.clone(),
             requires_standard_jobs,
+            requires_custom_work,
             solution_sender,
             channel_id_factory,
             extended_channels: HashMap::new(),
@@ -774,6 +777,12 @@ impl Pool {
                 }
 
                 let extended_job_messages = downstream.safe_lock(|d| {
+                    // if the downstream requires custom work, we don't need to send any extended
+                    // jobs
+                    if d.requires_custom_work {
+                        return Ok(Vec::new());
+                    }
+
                     let pool_coinbase_output = TxOut {
                         value: Amount::from_sat(new_template.coinbase_tx_value_remaining),
                         script_pubkey: d.coinbase_reward_script.script_pubkey(),
