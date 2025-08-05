@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use std::net::SocketAddr;
-use stratum_common::roles_logic_sv2::parsers_sv2::AnyMessage;
+use stratum_common::roles_logic_sv2::parsers_sv2::{message_type_to_name, AnyMessage};
 use tokio::{net::TcpStream, select};
 
 const DEFAULT_TIMEOUT: u64 = 60;
@@ -147,7 +147,10 @@ impl<'a> Sniffer<'a> {
 
             // configurable timeout, 1 minute default
             if now.elapsed().as_secs() > self.timeout.unwrap_or(DEFAULT_TIMEOUT) {
-                panic!("Timeout waiting for message type");
+                panic!(
+                    "Timeout waiting for message type: {}",
+                    message_type_to_name(message_type)
+                );
             }
 
             // sleep to reduce async lock contention
@@ -199,7 +202,10 @@ impl<'a> Sniffer<'a> {
 
             // configurable timeout, 1 minute default
             if now.elapsed().as_secs() > self.timeout.unwrap_or(DEFAULT_TIMEOUT) {
-                panic!("Timeout waiting for message type");
+                panic!(
+                    "Timeout waiting for message type: {}",
+                    message_type_to_name(message_type)
+                );
             }
 
             // sleep to reduce async lock contention
