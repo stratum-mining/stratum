@@ -27,6 +27,7 @@ pub struct PoolConfig {
     shares_per_minute: f32,
     share_batch_size: usize,
     log_file: Option<PathBuf>,
+    server_id: u16,
 }
 
 impl PoolConfig {
@@ -42,6 +43,7 @@ impl PoolConfig {
         coinbase_reward_script: CoinbaseRewardScript,
         shares_per_minute: f32,
         share_batch_size: usize,
+        server_id: u16,
     ) -> Self {
         Self {
             listen_address: pool_connection.listen_address,
@@ -55,6 +57,7 @@ impl PoolConfig {
             shares_per_minute,
             share_batch_size,
             log_file: None,
+            server_id,
         }
     }
 
@@ -127,6 +130,11 @@ impl PoolConfig {
     /// Returns the log directory.
     pub fn log_dir(&self) -> Option<&Path> {
         self.log_file.as_deref()
+    }
+
+    /// Returns the server id.
+    pub fn server_id(&self) -> u16 {
+        self.server_id
     }
 }
 

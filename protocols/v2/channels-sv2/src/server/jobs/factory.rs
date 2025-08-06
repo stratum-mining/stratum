@@ -13,7 +13,7 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
     Amount, Sequence,
 };
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
+use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, FULL_EXTRANONCE_LEN};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
@@ -46,14 +46,63 @@ impl JobIdFactory {
 pub struct JobFactory {
     job_id_factory: JobIdFactory,
     version_rolling_allowed: bool,
+    pool_tag_string: Option<String>,
+    miner_tag_string: Option<String>,
 }
 
 impl JobFactory {
-    pub fn new(version_rolling_allowed: bool) -> Self {
+    /// Creates a new [`JobFactory`] instance.
+    ///
+    /// The `pool_tag_string` and `miner_tag_string` are optional and will be added to the coinbase
+    /// scriptSig.
+    ///
+    /// Version rolling is always allowed for standard jobs, so the `version_rolling_allowed`
+    /// parameter is only relevant for creating extended jobs.
+    pub fn new(
+        version_rolling_allowed: bool,
+        pool_tag_string: Option<String>,
+        miner_tag_string: Option<String>,
+    ) -> Self {
         Self {
             job_id_factory: JobIdFactory::new(),
             version_rolling_allowed,
+            pool_tag_string,
+            miner_tag_string,
         }
+    }
+
+    /// Returns a byte vector with the OP_PUSHBYTES opcode and the pool+miner tag.
+    ///
+    /// The character `/` is used as a delimiter.
+    ///
+    /// If no pool or miner tag is provided, the delimiters are still added.
+    pub fn op_pushbytes_pool_miner_tag(&self) -> Result<Vec<u8>, JobFactoryError> {
+        let mut pool_miner_tag = vec![];
+        pool_miner_tag.extend_from_slice(b"/");
+        if let Some(pool_tag_string) = &self.pool_tag_string {
+            pool_miner_tag.extend_from_slice(pool_tag_string.as_bytes());
+        }
+        pool_miner_tag.extend_from_slice(b"/");
+        if let Some(miner_tag_string) = &self.miner_tag_string {
+            pool_miner_tag.extend_from_slice(miner_tag_string.as_bytes());
+        }
+        pool_miner_tag.extend_from_slice(b"/");
+
+        // Create the proper OP_PUSHBYTES opcode based on data length
+        let op_pushbytes = match pool_miner_tag.len() {
+            // 100 bytes are available for scriptSig
+            // subtract 5 for BIP34
+            // subtract 1 for OP_PUSHBYTES opcode before pool/miner tag
+            // subtract 1+32 for extranonce (OP_PUSHBYTES_32 + 32 bytes)
+            len @ 1..=61 => len as u8,
+            _ => return Err(JobFactoryError::CoinbaseTxPrefixError),
+        };
+
+        let mut op_pushbytes_pool_miner_tag = vec![];
+        op_pushbytes_pool_miner_tag.push(op_pushbytes);
+        op_pushbytes_pool_miner_tag.extend_from_slice(&pool_miner_tag);
+
+        Ok(op_pushbytes_pool_miner_tag)
     }
 
     /// Creates a new job from a template.
@@ -271,7 +320,7 @@ impl JobFactory {
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(m.coinbase_prefix.inner_as_ref());
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        script_sig.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
 
         // Create transaction input
         let tx_in = TxIn {
@@ -302,7 +351,7 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + m.coinbase_prefix.inner_as_ref().len(); // script_sig_prefix
+            + m.coinbase_prefix.inner_as_ref().len();
 
         let r = serialized_coinbase[0..index].to_vec();
 
@@ -318,7 +367,7 @@ impl JobFactory {
         let serialized_coinbase = serialize(&coinbase);
 
         // Calculate full extranonce size
-        let full_extranonce_size = MAX_EXTRANONCE_LEN;
+        let full_extranonce_size = FULL_EXTRANONCE_LEN;
 
         let index = 4 // tx version
             + 2 // segwit
@@ -326,7 +375,7 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + m.coinbase_prefix.inner_as_ref().len() // script_sig_prefix
+            + m.coinbase_prefix.inner_as_ref().len()
             + full_extranonce_size;
 
         let r = serialized_coinbase[index..].to_vec();
@@ -368,9 +417,13 @@ impl JobFactory {
 
         outputs.append(&mut template_outputs);
 
+        let op_pushbytes_pool_miner_tag = self.op_pushbytes_pool_miner_tag()?;
+
         let mut script_sig = vec![];
         script_sig.extend_from_slice(&template.coinbase_prefix.to_vec());
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        script_sig.extend_from_slice(&op_pushbytes_pool_miner_tag);
+        script_sig.push(FULL_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+        script_sig.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
 
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
@@ -395,13 +448,21 @@ impl JobFactory {
         let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
         let serialized_coinbase = serialize(&coinbase);
 
+        // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
+        let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
+            + 3 // three "/" delimiters
+            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
+            + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
+
         let index = 4 // tx version
             + 2 // segwit bytes
             + 1 // number of inputs
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + template.coinbase_prefix.len(); // script_sig_prefix
+            + template.coinbase_prefix.len()
+            + pool_miner_tag_len
+            + 1; // OP_PUSHBYTES_32 (for the extranonce)
 
         let r = serialized_coinbase[0..index].to_vec();
 
@@ -417,7 +478,14 @@ impl JobFactory {
         let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
         let serialized_coinbase = serialize(&coinbase);
 
-        let full_extranonce_size = MAX_EXTRANONCE_LEN;
+        // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
+        let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
+            + 3 // three "/" delimiters
+            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
+            + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
+
+        // 32 bytes
+        let full_extranonce_size = FULL_EXTRANONCE_LEN;
 
         let r = serialized_coinbase[4 // tx version
             + 2 // segwit bytes
@@ -425,7 +493,9 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + template.coinbase_prefix.len() // script_sig_prefix
+            + template.coinbase_prefix.len()
+            + pool_miner_tag_len
+            + 1 // OP_PUSHBYTES_32 (for the extranonce)
             + full_extranonce_size..]
             .to_vec();
 
@@ -441,8 +511,8 @@ mod tests {
     use template_distribution_sv2::NewTemplate;
 
     #[test]
-    fn test_new_job() {
-        let mut job_factory = JobFactory::new(true);
+    fn test_new_pool_job() {
+        let mut job_factory = JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
 
         // note:
         // the messages on this test were collected from a sane message flow
@@ -507,9 +577,12 @@ mod tests {
             min_ntime: Sv2Option::new(None),
             version: 536870912,
             version_rolling_allowed: true,
+            // contains scriptSig with /Stratum V2 SRI Pool//
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 58, 82, 0, 22, 47, 83, 116,
+                114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 47,
+                32,
             ]
             .try_into()
             .unwrap(),
@@ -531,7 +604,11 @@ mod tests {
 
     #[test]
     fn test_new_custom_job() {
-        let mut job_factory = JobFactory::new(true);
+        let mut jdc_job_factory = JobFactory::new(
+            true,
+            Some("Stratum V2 SRI Pool".to_string()),
+            Some("Stratum V2 SRI Miner".to_string()),
+        );
 
         let extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
@@ -539,27 +616,19 @@ mod tests {
         ]
         .to_vec();
 
-        let set_custom_mining_job = SetCustomMiningJob {
-            channel_id: 1,
-            request_id: 0,
-            token: vec![0].try_into().unwrap(),
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
             version: 536870912,
-            prev_hash: [
-                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
-                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-            ]
-            .into(),
-            min_ntime: 1746839905,
-            nbits: 503543726,
             coinbase_tx_version: 2,
             coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: 5000000000,
+            coinbase_tx_outputs_count: 1,
             coinbase_tx_outputs: vec![
-                2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170,
-                14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0, 0, 0, 0, 0, 0, 38,
-                106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153,
-                223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151,
-                78, 140, 249,
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
             ]
             .try_into()
             .unwrap(),
@@ -567,15 +636,65 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
+        // match the original script format used to generate the coinbase_reward_outputs for the
+        // expected job
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(5000000000),
+            script_pubkey: script,
+        }];
+
+        let chain_tip = ChainTip::new(
+            [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            503543726,
+            1746839905,
+        );
+
+        let jdc_job = jdc_job_factory
+            .new_extended_job(
+                1,
+                Some(chain_tip.clone()),
+                extranonce_prefix.clone(),
+                template,
+                coinbase_reward_outputs,
+            )
+            .unwrap();
+
+        let set_custom_mining_job = jdc_job
+            .into_custom_job(0, vec![0].try_into().unwrap(), chain_tip)
+            .unwrap();
+
+        let mut pool_job_factory =
+            JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
+
+        let custom_job = pool_job_factory
+            .new_custom_job(set_custom_mining_job, extranonce_prefix)
+            .unwrap();
+
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
             min_ntime: Sv2Option::new(Some(1746839905)),
             version: 536870912,
             version_rolling_allowed: true,
+            // contains scriptSig with /Stratum V2 SRI Pool/Stratum V2 SRI Miner/
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 78, 82, 0, 42, 47, 83, 116,
+                114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 83,
+                116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 77, 105, 110, 101,
+                114, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -592,10 +711,6 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        let job = job_factory
-            .new_custom_job(set_custom_mining_job, extranonce_prefix)
-            .unwrap();
-
-        assert_eq!(job.get_job_message(), &expected_job);
+        assert_eq!(custom_job.get_job_message(), &expected_job);
     }
 }

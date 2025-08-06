@@ -588,7 +588,7 @@ dependencies = [
 
 [[package]]
 name = "channels_sv2"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
@@ -1656,7 +1656,7 @@ dependencies = [
 
 [[package]]
 name = "mining_sv2"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
 ]
@@ -2215,7 +2215,7 @@ dependencies = [
 
 [[package]]
 name = "roles_logic_sv2"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "bitcoin",
  "chacha20poly1305",

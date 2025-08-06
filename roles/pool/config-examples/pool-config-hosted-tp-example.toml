@@ -11,6 +11,9 @@ listen_address = "0.0.0.0:34254"
 # will be. If you have an address, embed it in a descriptor like `addr(<address here>)`.
 coinbase_reward_script = "addr(tb1qa0sm0hxzj0x25rh8gw5xlzwlsfvvyz8u96w3p8)"
 
+# Server Id (number to guarantee unique search space allocation across different Pool servers)
+server_id = 1
+
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum V2 SRI Pool"
 

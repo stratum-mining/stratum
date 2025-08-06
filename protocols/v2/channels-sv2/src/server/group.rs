@@ -36,11 +36,57 @@ pub struct GroupChannel<'a> {
 }
 
 impl<'a> GroupChannel<'a> {
-    pub fn new(group_channel_id: u32, job_store: Box<dyn JobStore<ExtendedJob<'a>>>) -> Self {
+    /// Constructor of `GroupChannel` for a Sv2 Pool Server.
+    /// Not meant for usage on a Sv2 Job Declaration Client.
+    ///
+    /// Initializes the group channel state with the provided group channel ID and job store.
+    /// The job factory is initialized with version rolling enabled.
+    ///
+    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
+    /// and `//` delimiters: `/pool_tag_string//`
+    pub fn new_for_pool(
+        group_channel_id: u32,
+        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+        pool_tag_string: String,
+    ) -> Self {
+        Self::new(group_channel_id, job_store, Some(pool_tag_string), None)
+    }
+
+    /// Constructor of `GroupChannel` for a Sv2 Job Declaration Client.
+    /// Not meant for usage on a Sv2 Pool Server.
+    ///
+    /// Initializes the extended channel state with the provided parameters, including channel
+    /// identifiers, difficulty targets, share accounting, and job management.
+    /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
+    /// requirements are not met.
+    ///
+    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig in between
+    /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
+    pub fn new_for_job_declaration_client(
+        group_channel_id: u32,
+        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+        pool_tag_string: Option<String>,
+        miner_tag_string: String,
+    ) -> Self {
+        Self::new(
+            group_channel_id,
+            job_store,
+            pool_tag_string,
+            Some(miner_tag_string),
+        )
+    }
+
+    // private constructor
+    fn new(
+        group_channel_id: u32,
+        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+        pool_tag: Option<String>,
+        miner_tag: Option<String>,
+    ) -> Self {
         Self {
             group_channel_id,
             standard_channel_ids: HashSet::new(),
-            job_factory: JobFactory::new(true),
+            job_factory: JobFactory::new(true, pool_tag, miner_tag),
             job_store,
             chain_tip: None,
         }
@@ -191,7 +237,7 @@ mod tests {
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
         let job_store = Box::new(DefaultJobStore::new());
-        let mut group_channel = GroupChannel::new(group_channel_id, job_store);
+        let mut group_channel = GroupChannel::new(group_channel_id, job_store, None, None);
 
         let template = NewTemplate {
             template_id: 1,
@@ -255,7 +301,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -319,7 +365,7 @@ mod tests {
         let group_channel_id = 1;
 
         let job_store = Box::new(DefaultJobStore::new());
-        let mut group_channel = GroupChannel::new(group_channel_id, job_store);
+        let mut group_channel = GroupChannel::new(group_channel_id, job_store, None, None);
 
         let ntime = 1746839905;
         let prev_hash = [
@@ -382,7 +428,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -410,7 +456,7 @@ mod tests {
         let group_channel_id = 1;
 
         let job_store = Box::new(DefaultJobStore::new());
-        let mut group_channel = GroupChannel::new(group_channel_id, job_store);
+        let mut group_channel = GroupChannel::new(group_channel_id, job_store, None, None);
 
         let template = NewTemplate {
             template_id: 1,

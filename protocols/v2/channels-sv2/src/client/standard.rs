@@ -17,7 +17,7 @@ use bitcoin::{
 };
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
-    Target, MAX_EXTRANONCE_LEN,
+    Target, FULL_EXTRANONCE_LEN,
 };
 use std::{collections::HashMap, convert::TryInto};
 use tracing::debug;
@@ -93,7 +93,7 @@ impl<'a> StandardChannel<'a> {
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+        if extranonce_prefix.len() > FULL_EXTRANONCE_LEN {
             return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
         }
 
