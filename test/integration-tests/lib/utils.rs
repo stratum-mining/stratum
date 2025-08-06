@@ -351,8 +351,7 @@ pub mod http {
                         );
                     } else {
                         panic!(
-                            "URL {} returned unexpected status code {}. Aborting.",
-                            download_url, status_code
+                            "URL {download_url} returned unexpected status code {status_code}. Aborting."
                         );
                     }
                 }
@@ -373,10 +372,7 @@ pub mod http {
             }
         }
         // If all retries fail, panic with an error message
-        panic!(
-            "Cannot reach URL {} after {} attempts",
-            download_url, retries
-        );
+        panic!("Cannot reach URL {download_url} after {retries} attempts");
     }
 }
 
@@ -391,10 +387,7 @@ pub mod tarball {
 
     pub fn read_from_file(path: &str) -> Vec<u8> {
         let file = File::open(path).unwrap_or_else(|_| {
-            panic!(
-                "Cannot find {:?} specified with env var BITCOIND_TARBALL_FILE",
-                path
-            )
+            panic!("Cannot find {path:?} specified with env var BITCOIND_TARBALL_FILE")
         });
         let mut reader = BufReader::new(file);
         let mut buffer = Vec::new();

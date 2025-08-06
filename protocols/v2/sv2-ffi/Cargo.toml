@@ -2,7 +2,7 @@
 name = "sv2_ffi"
 version = "2.1.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 description = "SV2 FFI"
 documentation = "https://github.com/stratum-mining/stratum"
 license = "MIT OR Apache-2.0"

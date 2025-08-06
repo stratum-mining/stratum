@@ -2,7 +2,7 @@
 name = "common_messages_sv2"
 version = "5.0.0"
 authors = ["The Stratum V2 Developers"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 description = "Sv2 subprotocol common messages"
 documentation = "https://docs.rs/common_messages_sv2"

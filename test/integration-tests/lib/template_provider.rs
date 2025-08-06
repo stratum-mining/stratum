@@ -154,7 +154,7 @@ impl TemplateProvider {
                 }
                 Err(e) => {
                     if current_time.elapsed() > timeout {
-                        panic!("Failed to start bitcoind: {}", e);
+                        panic!("Failed to start bitcoind: {e}");
                     }
                     println!("Failed to start bitcoind due to {e}");
                 }
