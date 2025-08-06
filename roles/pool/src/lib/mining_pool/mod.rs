@@ -937,6 +937,8 @@ impl Pool {
         shares_per_minute: f32,
         recv_stop_signal: tokio::sync::watch::Receiver<()>,
     ) -> Result<Arc<Mutex<Self>>, PoolError> {
+        // range_1 is used for dynamically allocating extranonce_prefix across different channels
+        // from these 8 bytes, the first 2 bytes are statically defined by static_prefix
         let range_1_start = 0;
         let range_1_end = 8;
 
