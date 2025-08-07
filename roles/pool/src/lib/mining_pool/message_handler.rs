@@ -559,7 +559,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                 channel_id,
                 maximum_target: new_target.clone().into(),
             };
-            return Ok(SendTo::Respond(Mining::SetTarget(set_target)));
+            Ok(SendTo::Respond(Mining::SetTarget(set_target)))
         } else {
             error!("UpdateChannelError: invalid-channel-id");
             let update_channel_error = UpdateChannelError {
@@ -569,9 +569,9 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
                     .try_into()
                     .expect("error code must be valid string"),
             };
-            return Ok(SendTo::Respond(Mining::UpdateChannelError(
+            Ok(SendTo::Respond(Mining::UpdateChannelError(
                 update_channel_error,
-            )));
+            )))
         }
     }
 

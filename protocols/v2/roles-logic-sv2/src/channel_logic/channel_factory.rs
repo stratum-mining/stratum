@@ -960,7 +960,7 @@ impl ProxyExtendedChannelFactory {
         request_id: u32,
         hash_rate: f32,
         min_extranonce_size: u16,
-    ) -> Result<Vec<Mining>, Error> {
+    ) -> Result<Vec<Mining<'_>>, Error> {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }

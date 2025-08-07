@@ -462,7 +462,7 @@ impl IsClient<'static> for Client {
         id: u64,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Error<'_>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
@@ -472,7 +472,7 @@ impl IsClient<'static> for Client {
         }
     }
 
-    fn last_notify(&self) -> Option<server_to_client::Notify> {
+    fn last_notify(&self) -> Option<server_to_client::Notify<'_>> {
         None
     }
 

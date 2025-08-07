@@ -227,9 +227,9 @@ pub trait IsServer<'a> {
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
 
-    fn notify(&mut self) -> Result<json_rpc::Message, Error>;
+    fn notify(&mut self) -> Result<json_rpc::Message, Error<'_>>;
 
-    fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, Error> {
+    fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, Error<'_>> {
         let set_difficulty = server_to_client::SetDifficulty { value };
         Ok(set_difficulty.into())
     }
@@ -421,7 +421,7 @@ pub trait IsClient<'a> {
 
     fn status(&self) -> ClientStatus;
 
-    fn last_notify(&self) -> Option<server_to_client::Notify>;
+    fn last_notify(&self) -> Option<server_to_client::Notify<'_>>;
 
     /// Check if the given user_name has been authorized by the server
     #[allow(clippy::ptr_arg)]
@@ -464,7 +464,7 @@ pub trait IsClient<'a> {
         id: u64,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Error<'_>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
@@ -559,7 +559,7 @@ mod tests {
             true
         }
 
-        fn notify(&mut self) -> Result<json_rpc::Message, Error> {
+        fn notify(&mut self) -> Result<json_rpc::Message, Error<'_>> {
             Ok(json_rpc::Message::StandardRequest(
                 json_rpc::StandardRequest {
                     id: 1,
