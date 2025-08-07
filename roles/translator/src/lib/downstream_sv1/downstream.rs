@@ -702,7 +702,7 @@ impl IsServer<'static> for Downstream {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self) -> Result<json_rpc::Message, v1::error::Error> {
+    fn notify(&mut self) -> Result<json_rpc::Message, v1::error::Error<'_>> {
         unreachable!()
     }
 }

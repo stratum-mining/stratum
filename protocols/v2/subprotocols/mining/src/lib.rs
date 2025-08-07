@@ -266,7 +266,7 @@ impl Extranonce {
     // B032 type is more used, this is why the output signature is not ExtendedExtranoncee the B032
     // type is more used, this is why the output signature is not ExtendedExtranoncee
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Option<B032> {
+    pub fn next(&mut self) -> Option<B032<'_>> {
         increment_bytes_be(&mut self.extranonce).ok()?;
         // below unwraps never panics
         Some(self.extranonce.clone().try_into().unwrap())

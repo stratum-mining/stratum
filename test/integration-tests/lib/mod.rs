@@ -51,7 +51,7 @@ pub fn start_sniffer(
     check_on_drop: bool,
     action: Vec<InterceptAction>,
     timeout: Option<u64>,
-) -> (Sniffer, SocketAddr) {
+) -> (Sniffer<'_>, SocketAddr) {
     let listening_address = get_available_address();
     let sniffer = Sniffer::new(
         identifier,
