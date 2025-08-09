@@ -74,6 +74,20 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         info!("Received OpenStandardMiningChannel: {}", incoming);
 
+        if self.requires_custom_work {
+            error!("OpenStandardMiningChannel: Standard Channels are not supported for this connection");
+            let open_standard_mining_channel_error = OpenMiningChannelError {
+                request_id,
+                error_code: "standard-channels-not-supported-for-custom-work"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+            return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                open_standard_mining_channel_error,
+            )));
+        }
+
         let last_future_template = self.last_future_template.clone();
         let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
 
@@ -380,50 +394,61 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             open_extended_mining_channel_success,
         ));
 
-        let last_future_template = self.last_future_template.clone();
-
-        let pool_coinbase_output = TxOut {
-            value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
-            script_pubkey: self.coinbase_reward_script.script_pubkey(),
-        };
-
-        // create a future extended job based on the last future template
-        extended_channel
-            .on_new_template(last_future_template.clone(), vec![pool_coinbase_output])
-            .map_err(Error::FailedToCreateExtendedChannel)?;
-
-        let future_extended_job_id = extended_channel
-            .get_future_template_to_job_id()
-            .get(&last_future_template.template_id)
-            .expect("future job id must exist");
-        let future_extended_job = extended_channel
-            .get_future_jobs()
-            .get(future_extended_job_id)
-            .expect("future job must exist");
-
-        let future_extended_job_message =
-            future_extended_job.get_job_message().clone().into_static();
-
-        // send this future job as new job message
-        // to be immediately activated with the subsequent SetNewPrevHash message
-        messages.push(Mining::NewExtendedMiningJob(future_extended_job_message));
-
-        // SetNewPrevHash message activates the future job
         let last_set_new_prev_hash_tdp = self.last_new_prev_hash.clone();
-        let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
-        let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
-        let n_bits = last_set_new_prev_hash_tdp.n_bits;
-        let set_new_prev_hash_mining = SetNewPrevHash {
-            channel_id,
-            job_id: *future_extended_job_id,
-            prev_hash,
-            min_ntime: header_timestamp,
-            nbits: n_bits,
-        };
-        extended_channel
-            .on_set_new_prev_hash(self.last_new_prev_hash.clone())
-            .map_err(Error::FailedToCreateExtendedChannel)?;
-        messages.push(Mining::SetNewPrevHash(set_new_prev_hash_mining));
+
+        // if the client requires custom work, we don't need to send any extended jobs
+        // so we just process the SetNewPrevHash message
+        if self.requires_custom_work {
+            extended_channel
+                .on_set_new_prev_hash(last_set_new_prev_hash_tdp)
+                .map_err(Error::FailedToCreateExtendedChannel)?;
+        // if the client does not require custom work, we need to send the future extended job
+        // and the SetNewPrevHash message
+        } else {
+            let last_future_template = self.last_future_template.clone();
+
+            let pool_coinbase_output = TxOut {
+                value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+                script_pubkey: self.coinbase_reward_script.script_pubkey(),
+            };
+
+            // create a future extended job based on the last future template
+            extended_channel
+                .on_new_template(last_future_template.clone(), vec![pool_coinbase_output])
+                .map_err(Error::FailedToCreateExtendedChannel)?;
+
+            let future_extended_job_id = extended_channel
+                .get_future_template_to_job_id()
+                .get(&last_future_template.template_id)
+                .expect("future job id must exist");
+            let future_extended_job = extended_channel
+                .get_future_jobs()
+                .get(future_extended_job_id)
+                .expect("future job must exist");
+
+            let future_extended_job_message =
+                future_extended_job.get_job_message().clone().into_static();
+
+            // send this future job as new job message
+            // to be immediately activated with the subsequent SetNewPrevHash message
+            messages.push(Mining::NewExtendedMiningJob(future_extended_job_message));
+
+            // SetNewPrevHash message activates the future job
+            let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+            let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+            let n_bits = last_set_new_prev_hash_tdp.n_bits;
+            let set_new_prev_hash_mining = SetNewPrevHash {
+                channel_id,
+                job_id: *future_extended_job_id,
+                prev_hash,
+                min_ntime: header_timestamp,
+                nbits: n_bits,
+            };
+            extended_channel
+                .on_set_new_prev_hash(last_set_new_prev_hash_tdp)
+                .map_err(Error::FailedToCreateExtendedChannel)?;
+            messages.push(Mining::SetNewPrevHash(set_new_prev_hash_mining));
+        }
 
         let messages = messages.into_iter().map(SendTo::Respond).collect();
 

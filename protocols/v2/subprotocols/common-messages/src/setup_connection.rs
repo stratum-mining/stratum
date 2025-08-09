@@ -185,7 +185,7 @@ pub fn has_requires_std_job(flags: u32) -> bool {
 /// Helper function to check if `REQUIRES_VERSION_ROLLING` bit flag present.
 pub fn has_version_rolling(flags: u32) -> bool {
     let flags = flags.reverse_bits();
-    let flags = flags << 1;
+    let flags = flags << 2;
     let flag = flags >> 31;
     flag != 0
 }
@@ -193,7 +193,7 @@ pub fn has_version_rolling(flags: u32) -> bool {
 /// Helper function to check if `REQUIRES_WORK_SELECTION` bit flag present.
 pub fn has_work_selection(flags: u32) -> bool {
     let flags = flags.reverse_bits();
-    let flags = flags << 2;
+    let flags = flags << 1;
     let flag = flags >> 31;
     flag != 0
 }
@@ -493,7 +493,7 @@ mod test {
 
     #[test]
     fn test_has_version_rolling() {
-        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0100;
         assert!(has_version_rolling(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         assert!(!has_version_rolling(flags));
@@ -501,7 +501,7 @@ mod test {
 
     #[test]
     fn test_has_work_selection() {
-        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0100;
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
         assert!(has_work_selection(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         assert!(!has_work_selection(flags));
