@@ -125,6 +125,7 @@ pub enum Error {
     FailedToProcessNewTemplateStandardChannel(StandardChannelError),
     FailedToProcessSetNewPrevHashExtendedChannel(ExtendedChannelError),
     FailedToProcessSetNewPrevHashStandardChannel(StandardChannelError),
+    FailedToProcessGroupChannelJob(StandardChannelError),
     NoActiveJob,
     FailedToSendSolution,
     FailedToSetCustomMiningJob(ExtendedChannelError),
@@ -257,6 +258,7 @@ impl Display for Error {
             FailedToProcessSetNewPrevHashExtendedChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
             FailedToProcessSetNewPrevHashStandardChannel(e) => write!(f, "Failed to process SetNewPrevHash: {e:?}"),
             FailedToDeserializeCoinbaseOutputs => write!(f, "Failed to deserialize coinbase outputs"),
+            FailedToProcessGroupChannelJob(e) => write!(f, "Failed to process group channel job: {e:?}"),
             ParserError(v) => write!(f, "Parser error: {v}"),
         }
     }

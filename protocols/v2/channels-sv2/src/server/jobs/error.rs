@@ -5,6 +5,8 @@ pub enum ExtendedJobError {
     CoinbaseInputCountMismatch,
     FailedToSerializeCoinbaseOutputs,
     FailedToSerializeCoinbasePrefix,
+    FailedToConvertToStandardJob,
+    FailedToCalculateMerkleRoot,
     FutureJobNotAllowed,
     InvalidMinNTime,
 }

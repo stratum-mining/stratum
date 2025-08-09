@@ -1,7 +1,8 @@
 use super::Job;
 use crate::{
     chain_tip::ChainTip,
-    server::jobs::{error::ExtendedJobError, JobOrigin},
+    merkle_root::merkle_root_from_path,
+    server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
     template::deserialize_template_outputs,
 };
 use binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
@@ -9,7 +10,7 @@ use bitcoin::{
     consensus::{deserialize, serialize},
     transaction::{Transaction, TxOut},
 };
-use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, FULL_EXTRANONCE_LEN};
+use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, FULL_EXTRANONCE_LEN};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
@@ -158,6 +159,48 @@ impl<'a> ExtendedJob<'a> {
             coinbase_tx_locktime,
             merkle_path: self.get_merkle_path().clone(),
         })
+    }
+
+    pub fn into_standard_job(
+        self,
+        channel_id: u32,
+        extranonce_prefix: Vec<u8>,
+    ) -> Result<StandardJob<'a>, ExtendedJobError> {
+        // here we can only convert extended jobs that were created from a template
+        let template = match self.get_origin() {
+            JobOrigin::NewTemplate(template) => template,
+            JobOrigin::SetCustomMiningJob(_) => {
+                return Err(ExtendedJobError::FailedToConvertToStandardJob);
+            }
+        };
+
+        let merkle_root = merkle_root_from_path(
+            self.get_coinbase_tx_prefix().inner_as_ref(),
+            self.get_coinbase_tx_suffix().inner_as_ref(),
+            &extranonce_prefix,
+            &self.get_merkle_path().inner_as_ref(),
+        )
+        .ok_or(ExtendedJobError::FailedToCalculateMerkleRoot)?
+        .try_into()
+        .map_err(|_| ExtendedJobError::FailedToCalculateMerkleRoot)?;
+
+        let standard_job_message = NewMiningJob {
+            channel_id,
+            job_id: self.get_job_id(),
+            merkle_root,
+            version: self.get_version(),
+            min_ntime: self.get_min_ntime(),
+        };
+
+        let standard_job = StandardJob::from_template(
+            template.clone(),
+            extranonce_prefix,
+            self.get_coinbase_outputs().clone(),
+            standard_job_message,
+        )
+        .map_err(|_| ExtendedJobError::FailedToConvertToStandardJob)?;
+
+        Ok(standard_job)
     }
 
     pub fn get_job_id(&self) -> u32 {
