@@ -7,16 +7,11 @@ mod args;
 
 #[tokio::main]
 async fn main() {
-    let jdc_config = match process_cli_args() {
-        Ok(p) => p,
-        Err(e) => {
-            tracing::error!("Job Declarator Client Config error: {}", e);
-            return;
-        }
-    };
+    let jdc_config = process_cli_args().unwrap_or_else(|e| {
+        tracing::error!("Job Declarator Client config error: {e}");
+        std::process::exit(1);
+    });
 
     init_logging(jdc_config.log_file());
-
-    let jdc = JobDeclaratorClient::new(jdc_config);
-    jdc.start().await;
+    JobDeclaratorClient::new(jdc_config).start().await;
 }

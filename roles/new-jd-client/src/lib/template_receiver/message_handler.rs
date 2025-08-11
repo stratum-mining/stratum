@@ -4,6 +4,7 @@ use stratum_common::roles_logic_sv2::{
     },
     handlers_sv2::{HandleCommonMessagesFromServerAsync, HandlerError as Error},
 };
+use tracing::info;
 
 use crate::template_receiver::TemplateReceiver;
 
@@ -12,7 +13,11 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Error> {
-        todo!()
+        info!(
+            "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
+            msg.used_version, msg.flags
+        );
+        Ok(())
     }
 
     async fn handle_channel_endpoint_changed(

@@ -228,8 +228,10 @@ pub struct Upstream {
     pub authority_pubkey: Secp256k1PublicKey,
     // The address of the upstream pool's main server.
     pub pool_address: String,
+    pub pool_port: u16,
     // The network address of the JDS.
     pub jd_address: String,
+    pub jd_port: u16,
 }
 
 impl Upstream {
@@ -237,12 +239,16 @@ impl Upstream {
     pub fn new(
         authority_pubkey: Secp256k1PublicKey,
         pool_address: String,
+        pool_port: u16,
         jd_address: String,
+        jd_port: u16,
     ) -> Self {
         Self {
             authority_pubkey,
             pool_address,
+            pool_port,
             jd_address,
+            jd_port,
         }
     }
 }
