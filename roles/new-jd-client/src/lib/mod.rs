@@ -79,11 +79,37 @@ impl JobDeclaratorClient {
             jd_to_channel_manager_receiver.clone(),
             channel_manager_to_tp_sender.clone(),
             tp_to_channel_manager_receiver.clone(),
-            channel_manager_to_downstream_sender,
+            channel_manager_to_downstream_sender.clone(),
             downstream_to_channel_manager_receiver,
             status_sender.clone(),
         )
-        .await;
+        .await
+        .unwrap();
+
+        let channel_manager_clone = channel_manager.clone();
+
+        channel_manager
+            .start(
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
+        channel_manager_clone
+            .start_downstream_server(
+                *self.config.authority_public_key(),
+                *self.config.authority_secret_key(),
+                self.config.cert_validity_sec(),
+                *self.config.listening_address(),
+                task_manager.clone(),
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                downstream_to_channel_manager_sender.clone(),
+                channel_manager_to_downstream_sender.clone(),
+            )
+            .await;
 
         // Initialize the template Receiver
         let tp_address = self.config.tp_address().to_string();
@@ -223,7 +249,7 @@ impl JobDeclaratorClient {
 
         drop(shutdown_complete_tx);
         info!("Waiting for shutdown completion signals from subsystems...");
-        let shutdown_timeout = tokio::time::Duration::from_secs(30);
+        let shutdown_timeout = tokio::time::Duration::from_secs(1);
         tokio::select! {
             _ = shutdown_complete_rx.recv() => {
                 info!("All subsystems reported shutdown complete.");

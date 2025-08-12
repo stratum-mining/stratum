@@ -137,7 +137,7 @@ impl TemplateReceiver {
         info!("Initialized state for starting template receiver");
         self.setup_connection(socket_address).await;
 
-        info!("Setup Connection done. connection with template receiver is not setup");
+        info!("Setup Connection done. connection with template receiver is now done");
         task_manager.spawn(async move {
             loop {
                 let mut self_clone_1 = self.clone();
@@ -168,7 +168,9 @@ impl TemplateReceiver {
     }
 
     pub async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
+        error!("I am in handle template provider message");
         let read_frame = self.template_receiver_channel.inbound_rx.recv().await?;
+        error!("I received a frame in template provider message: {read_frame:?}");
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;
