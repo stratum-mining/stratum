@@ -213,7 +213,7 @@ impl<'a> GroupChannel<'a> {
                                 coinbase_reward_outputs,
                             )
                             .map_err(GroupChannelError::JobFactoryError)?;
-                        self.job_store.set_active_job(new_job);
+                        self.job_store.add_active_job(new_job);
                     }
                 }
             }
