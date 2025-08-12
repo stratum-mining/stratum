@@ -11,6 +11,7 @@ use stratum_common::{
         utils::Mutex,
     },
 };
+
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
 
@@ -127,7 +128,6 @@ impl Downstream {
             AnyMessage::Common(_) => {
                 self.handle_common_message(message_type, &mut payload)
                     .await?;
-                // need to look at this
             }
             _ => {
                 return Err(JDCError::UnexpectedMessage);
