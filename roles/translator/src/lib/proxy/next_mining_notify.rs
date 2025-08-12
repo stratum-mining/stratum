@@ -1,7 +1,7 @@
 //! Provides functionality to convert Stratum V2 job into a
 //! Stratum V1 `mining.notify` message.
 use stratum_common::roles_logic_sv2::{
-    job_creator::extended_job_to_non_segwit,
+    channels_sv2::bip141::try_strip_bip141,
     mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},
 };
 use tracing::debug;
@@ -16,12 +16,27 @@ use v1::{
 /// If clean_jobs = false, it means a new job is created, with the same PrevHash
 pub fn create_notify(
     new_prev_hash: SetNewPrevHash<'static>,
-    new_job: NewExtendedMiningJob<'static>,
+    mut new_job: NewExtendedMiningJob<'static>,
     clean_jobs: bool,
 ) -> server_to_client::Notify<'static> {
-    // TODO 32 must be changed!
-    let new_job = extended_job_to_non_segwit(new_job, 32)
-        .expect("failed to convert extended job to non segwit");
+    println!("new_job: {:?}", new_job);
+    let new_job = match try_strip_bip141(
+        new_job.coinbase_tx_prefix.inner_as_ref(),
+        new_job.coinbase_tx_suffix.inner_as_ref(),
+    )
+    .expect("failed trying to strip bip141")
+    {
+        Some((coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141)) => {
+            new_job.coinbase_tx_prefix = coinbase_tx_prefix_stripped_bip141
+                .try_into()
+                .expect("failed trying to serialize coinbase_tx_prefix_stripped_bip141");
+            new_job.coinbase_tx_suffix = coinbase_tx_suffix_stripped_bip141
+                .try_into()
+                .expect("failed trying to serialize coinbase_tx_suffix_stripped_bip141");
+            new_job
+        }
+        None => new_job,
+    };
     // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
     let job_id = new_job.job_id.to_string();
 
