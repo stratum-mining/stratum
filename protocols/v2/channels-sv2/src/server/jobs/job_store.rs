@@ -36,9 +36,6 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns `true` if successful, `false` if not found.
     fn activate_future_job(&mut self, template_id: u64, prev_hash_header_timestamp: u32) -> bool;
 
-    /// Directly sets the active job (without moving previous job to past).
-    fn set_active_job(&mut self, job: T);
-
     /// Returns the mapping from future template IDs to job IDs.
     fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32>;
 
@@ -105,10 +102,6 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
             self.past_jobs.insert(active_job.get_job_id(), active_job);
         }
         // Set the new active job
-        self.active_job = Some(job);
-    }
-
-    fn set_active_job(&mut self, job: T) {
         self.active_job = Some(job);
     }
 
