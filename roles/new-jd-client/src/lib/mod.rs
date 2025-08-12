@@ -145,6 +145,8 @@ impl JobDeclaratorClient {
                 jd_to_channel_manager_sender,
                 notify_shutdown.clone(),
                 shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
             )
             .await
         {
@@ -245,6 +247,8 @@ impl JobDeclaratorClient {
         jd_to_channel_manager_sender: Sender<EitherFrame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: tokio::sync::mpsc::Sender<()>,
+        status_sender: Sender<Status>,
+        task_manager: Arc<TaskManager>,
     ) -> Result<(Upstream, JobDeclarator), JDCError> {
         const MAX_RETRIES: usize = 3;
 
@@ -269,6 +273,8 @@ impl JobDeclaratorClient {
                     channel_manager_to_jd_receiver.clone(),
                     notify_shutdown.clone(),
                     shutdown_complete_tx.clone(),
+                    status_sender.clone(),
+                    task_manager.clone(),
                 )
                 .await
                 {
@@ -304,6 +310,8 @@ async fn try_initialize_single(
     channel_manager_to_jd_receiver: Receiver<EitherFrame>,
     notify_shutdown: broadcast::Sender<ShutdownMessage>,
     shutdown_complete_tx: tokio::sync::mpsc::Sender<()>,
+    status_sender: Sender<Status>,
+    task_manager: Arc<TaskManager>,
 ) -> Result<(Upstream, JobDeclarator), JDCError> {
     info!("Upstream connection in-progress at initialize single");
     let upstream = Upstream::init(
@@ -323,6 +331,8 @@ async fn try_initialize_single(
         channel_manager_to_jd_receiver,
         notify_shutdown,
         shutdown_complete_tx,
+        task_manager.clone(),
+        status_sender.clone(),
     )
     .await?;
 
