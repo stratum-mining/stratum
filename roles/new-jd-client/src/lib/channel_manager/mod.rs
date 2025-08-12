@@ -122,6 +122,10 @@ impl ChannelManager {
                     channel_manager_sender.clone(),
                     channel_manager_receiver.clone(),
                     noise_stream,
+                    notify_shutdown.clone(),
+                    shutdown_complete_tx.clone(),
+                    task_manager_clone.clone(),
+                    status_sender.clone(),
                 );
 
                 downstream

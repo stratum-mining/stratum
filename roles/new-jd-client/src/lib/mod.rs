@@ -320,6 +320,8 @@ async fn try_initialize_single(
         channel_manager_to_upstream_receiver,
         notify_shutdown.clone(),
         shutdown_complete_tx.clone(),
+        task_manager.clone(),
+        status_sender.clone(),
     )
     .await?;
 

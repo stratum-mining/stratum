@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use async_channel::{Receiver, Sender};
+use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::{
@@ -27,22 +27,21 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message, message_from_frame, EitherFrame, Message, ShutdownMessage,
-        StdFrame,
+        get_setup_connection_message, message_from_frame, spawn_io_tasks, EitherFrame, Message,
+        ShutdownMessage, StdFrame,
     },
 };
 
 mod message_handler;
 
-pub struct UpstreamData {
-    noise_stream_reader: Option<NoiseTcpReadHalf<Message>>,
-    noise_stream_writer: Option<NoiseTcpWriteHalf<Message>>,
-}
+pub struct UpstreamData;
 
 #[derive(Clone)]
 pub struct UpstreamChannel {
     channel_manager_sender: Sender<EitherFrame>,
     channel_manager_receiver: Receiver<EitherFrame>,
+    outbound_tx: Sender<EitherFrame>,
+    inbound_rx: Receiver<EitherFrame>,
 }
 
 #[derive(Clone)]
@@ -58,6 +57,8 @@ impl Upstream {
         channel_manager_receiver: Receiver<EitherFrame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: mpsc::Sender<()>,
+        task_manager: Arc<TaskManager>,
+        status_sender: Sender<Status>,
     ) -> Result<Self, JDCError> {
         let (addr, _, pubkey) = upstreams;
         let stream = TcpStream::connect(addr).await?;
@@ -68,14 +69,28 @@ impl Upstream {
             NoiseTcpStream::<Message>::new(stream, HandshakeRole::Initiator(initiator))
                 .await?
                 .into_split();
+
+        let status_sender = StatusSender::Upstream(status_sender);
+        let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
+        let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+
+        spawn_io_tasks(
+            task_manager,
+            noise_stream_reader,
+            noise_stream_writer,
+            outbound_rx,
+            inbound_tx,
+            notify_shutdown,
+            status_sender,
+        );
+
         info!("Noise setup done  in upstream connection");
-        let upstream_data = Arc::new(Mutex::new(UpstreamData {
-            noise_stream_reader: Some(noise_stream_reader),
-            noise_stream_writer: Some(noise_stream_writer),
-        }));
+        let upstream_data = Arc::new(Mutex::new(UpstreamData));
         let upstream_channel = UpstreamChannel {
             channel_manager_receiver,
             channel_manager_sender,
+            outbound_tx,
+            inbound_rx,
         };
         // drop(shutdown_complete_tx);
         return Ok(Upstream {
@@ -88,15 +103,16 @@ impl Upstream {
         &mut self,
         min_version: u16,
         max_version: u16,
-        noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
-        noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
     ) -> Result<(), JDCError> {
         info!("Upstream: initiating SV2 handshake...");
         let setup_connection = get_setup_connection_message(min_version, max_version, true)?;
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
-        noise_stream_writer.write_frame(sv2_frame.into()).await;
+        self.upstream_channel
+            .outbound_tx
+            .send(sv2_frame.into())
+            .await;
 
-        let incoming_frame = noise_stream_reader.read_frame().await.map_err(|e| {
+        let incoming_frame = self.upstream_channel.inbound_rx.recv().await.map_err(|e| {
             error!("Upstream connection closed: {:?}", e);
             JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
         })?;
@@ -124,22 +140,9 @@ impl Upstream {
         task_manager: Arc<TaskManager>,
     ) {
         let status_sender = StatusSender::Upstream(status_sender);
-        let (mut noise_stream_reader, mut noise_stream_writer) =
-            self.upstream_data.super_safe_lock(|data| {
-                (
-                    data.noise_stream_reader.take().unwrap(),
-                    data.noise_stream_writer.take().unwrap(),
-                )
-            });
         let mut shutdown_rx = notify_shutdown.subscribe();
 
-        self.setup_connection(
-            min_version,
-            max_version,
-            &mut noise_stream_reader,
-            &mut noise_stream_writer,
-        )
-        .await;
+        self.setup_connection(min_version, max_version).await;
 
         task_manager.spawn(async move {
             loop {
@@ -152,13 +155,13 @@ impl Upstream {
                             break;
                         }
                     }
-                    res = self_clone_1.handle_pool_message(&mut noise_stream_reader) => {
+                    res = self_clone_1.handle_pool_message() => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
                         }
                     }
-                    res = self_clone_2.handle_channel_manager_message(&mut noise_stream_writer) => {
+                    res = self_clone_2.handle_channel_manager_message() => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
@@ -171,11 +174,8 @@ impl Upstream {
         });
     }
 
-    async fn handle_pool_message(
-        &mut self,
-        noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
-    ) -> Result<(), JDCError> {
-        let read_frame = noise_stream_reader.read_frame().await?;
+    async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
+        let read_frame = self.upstream_channel.inbound_rx.recv().await?;
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;
@@ -212,12 +212,18 @@ impl Upstream {
         Ok(())
     }
 
-    async fn handle_channel_manager_message(
-        &mut self,
-        noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
-    ) -> Result<(), JDCError> {
+    async fn handle_channel_manager_message(&mut self) -> Result<(), JDCError> {
         while let Ok(msg) = self.upstream_channel.channel_manager_receiver.recv().await {
-            noise_stream_writer.write_frame(msg).await?;
+            self.upstream_channel
+                .outbound_tx
+                .send(msg)
+                .await
+                .map_err(|e| {
+                    error!("Upstream connection closed: {:?}", e);
+                    JDCError::CodecNoise(
+                        codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    )
+                })?;
         }
         Ok(())
     }

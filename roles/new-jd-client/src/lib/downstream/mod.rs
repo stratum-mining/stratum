@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_channel::{Receiver, Sender};
+use async_channel::{unbounded, Receiver, Sender};
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
     roles_logic_sv2::{
@@ -18,20 +18,19 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{message_from_frame, EitherFrame, Message, ShutdownMessage, StdFrame},
+    utils::{message_from_frame, spawn_io_tasks, EitherFrame, Message, ShutdownMessage, StdFrame},
 };
 
 mod message_handler;
 
-pub struct DownstreamData {
-    noise_stream_reader: Option<NoiseTcpReadHalf<Message>>,
-    noise_stream_writer: Option<NoiseTcpWriteHalf<Message>>,
-}
+pub struct DownstreamData;
 
 #[derive(Clone)]
 pub struct DownstreamChannel {
     channel_manager_sender: Sender<EitherFrame>,
     channel_manager_receiver: broadcast::Sender<Message>,
+    outbound_tx: Sender<EitherFrame>,
+    inbound_rx: Receiver<EitherFrame>,
 }
 
 #[derive(Clone)]
@@ -45,16 +44,32 @@ impl Downstream {
         channel_manager_sender: Sender<EitherFrame>,
         channel_manager_receiver: broadcast::Sender<Message>,
         noise_stream: NoiseTcpStream<Message>,
+        notify_shutdown: broadcast::Sender<ShutdownMessage>,
+        shutdown_complete_tx: mpsc::Sender<()>,
+        task_manager: Arc<TaskManager>,
+        status_sender: Sender<Status>,
     ) -> Self {
+        let (noise_stream_reader, noise_stream_writer) = noise_stream.into_split();
+        let status_sender = StatusSender::JobDeclarator(status_sender);
+        let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
+        let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+        spawn_io_tasks(
+            task_manager,
+            noise_stream_reader,
+            noise_stream_writer,
+            outbound_rx,
+            inbound_tx,
+            notify_shutdown,
+            status_sender,
+        );
+
         let downstream_channel = DownstreamChannel {
             channel_manager_receiver,
             channel_manager_sender,
+            outbound_tx,
+            inbound_rx,
         };
-        let (noise_stream_reader, noise_stream_writer) = noise_stream.into_split();
-        let downstream_data = Arc::new(Mutex::new(DownstreamData {
-            noise_stream_reader: Some(noise_stream_reader),
-            noise_stream_writer: Some(noise_stream_writer),
-        }));
+        let downstream_data = Arc::new(Mutex::new(DownstreamData));
         Downstream {
             downstream_channel,
             downstream_data,
@@ -72,16 +87,9 @@ impl Downstream {
             downstream_id: 1,
             tx: status_sender,
         };
-        let (mut noise_stream_reader, mut noise_stream_writer) =
-            self.downstream_data.super_safe_lock(|data| {
-                (
-                    data.noise_stream_reader.take().unwrap(),
-                    data.noise_stream_writer.take().unwrap(),
-                )
-            });
+
         let mut shutdown_rx = notify_shutdown.subscribe();
-        self.setup_connection(&mut noise_stream_reader, &mut noise_stream_writer)
-            .await;
+        self.setup_connection().await;
         task_manager.spawn(async move {
             loop {
                 let mut self_clone_1 = self.clone();
@@ -93,13 +101,13 @@ impl Downstream {
                             break;
                         }
                     }
-                    res = self_clone_1.handle_downstream_message(&mut noise_stream_reader) => {
+                    res = self_clone_1.handle_downstream_message() => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
                         }
                     }
-                    res = self_clone_2.handle_channel_manager_message(&mut noise_stream_writer) => {
+                    res = self_clone_2.handle_channel_manager_message() => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
@@ -112,12 +120,8 @@ impl Downstream {
         });
     }
 
-    async fn setup_connection(
-        &mut self,
-        noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
-        noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
-    ) -> Result<(), JDCError> {
-        let mut frame = noise_stream_reader.read_frame().await?;
+    async fn setup_connection(&mut self) -> Result<(), JDCError> {
+        let mut frame = self.downstream_channel.inbound_rx.recv().await?;
         let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame).unwrap();
         match parsed_message {
             AnyMessage::Common(_) => {
@@ -132,25 +136,28 @@ impl Downstream {
         Ok(())
     }
 
-    async fn handle_channel_manager_message(
-        mut self,
-        noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
-    ) -> Result<(), JDCError> {
+    async fn handle_channel_manager_message(mut self) -> Result<(), JDCError> {
         let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
         while let Ok(frame) = receiver.recv().await {
             info!("Got message from channel manager: {frame:?}");
             let message_type = frame.message_type();
             let std_frame = StdFrame::from_message(frame, message_type, 0, true).unwrap();
-            noise_stream_writer.write_frame(std_frame.into()).await?;
+            self.downstream_channel
+                .outbound_tx
+                .send(std_frame.into())
+                .await
+                .map_err(|e| {
+                    error!("Upstream connection closed: {:?}", e);
+                    JDCError::CodecNoise(
+                        codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    )
+                })?;
         }
         Ok(())
     }
 
-    async fn handle_downstream_message(
-        mut self,
-        noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
-    ) -> Result<(), JDCError> {
-        let read_frame = noise_stream_reader.read_frame().await?;
+    async fn handle_downstream_message(mut self) -> Result<(), JDCError> {
+        let read_frame = self.downstream_channel.inbound_rx.recv().await?;
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;
