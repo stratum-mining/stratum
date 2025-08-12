@@ -1,14 +1,23 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
+use async_channel::{Receiver, Sender};
 use buffer_sv2::Slice;
-use stratum_common::roles_logic_sv2::{
-    codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame},
-    common_messages_sv2::{Protocol, SetupConnection},
-    parsers_sv2::{AnyMessage, CommonMessages},
+use stratum_common::{
+    network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
+    roles_logic_sv2::{
+        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame},
+        common_messages_sv2::{Protocol, SetupConnection},
+        parsers_sv2::{AnyMessage, CommonMessages},
+    },
 };
-use tracing::error;
+use tokio::sync::broadcast;
+use tracing::{error, info, warn};
 
-use crate::error::JDCError;
+use crate::{
+    error::JDCError,
+    status::{handle_error, StatusSender},
+    task_manager::TaskManager,
+};
 
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -148,5 +157,80 @@ pub fn into_static(m: AnyMessage<'_>) -> Result<AnyMessage<'static>, JDCError> {
             ))),
         },
         _ => Err(JDCError::UnexpectedMessage),
+    }
+}
+
+pub fn spawn_io_tasks(
+    task_manager: Arc<TaskManager>,
+    mut reader: NoiseTcpReadHalf<Message>,
+    mut writer: NoiseTcpWriteHalf<Message>,
+    outbound_rx: Receiver<EitherFrame>,
+    inbound_tx: Sender<EitherFrame>,
+    notify_shutdown: broadcast::Sender<ShutdownMessage>,
+    status_sender: StatusSender,
+) {
+    {
+        let mut shutdown_rx = notify_shutdown.subscribe();
+        let inbound_tx = inbound_tx.clone();
+        let status_sender = status_sender.clone();
+
+        task_manager.spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown_rx.recv() => {
+                        info!("Reader: shutdown signal received");
+                        break;
+                    }
+                    res = reader.read_frame() => {
+                        match res {
+                            Ok(frame) => {
+                                if let Err(e) = inbound_tx.send(frame).await {
+                                    error!("Failed to send inbound: {:?}", e);
+                                    handle_error(&status_sender, JDCError::ChannelErrorSender).await;
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                error!("Reader error: {:?}", e);
+                                handle_error(&status_sender, e.into()).await;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            warn!("Reader task exited.");
+        });
+    }
+
+    {
+        let mut shutdown_rx = notify_shutdown.subscribe();
+
+        task_manager.spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = shutdown_rx.recv() => {
+                        info!("Writer: shutdown signal received");
+                        break;
+                    }
+                    res = outbound_rx.recv() => {
+                        match res {
+                            Ok(frame) => {
+                                if let Err(e) = writer.write_frame(frame).await {
+                                    error!("Writer error: {:?}", e);
+                                    handle_error(&status_sender, e.into()).await;
+                                    break;
+                                }
+                            }
+                            Err(_) => {
+                                warn!("Writer channel closed.");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            warn!("Writer task exited.");
+        });
     }
 }

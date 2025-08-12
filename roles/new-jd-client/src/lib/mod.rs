@@ -96,6 +96,8 @@ impl JobDeclaratorClient {
             tp_to_channel_manager_sender,
             notify_shutdown.clone(),
             shutdown_complete_tx.clone(),
+            task_manager.clone(),
+            status_sender.clone(),
         )
         .await
         .unwrap();

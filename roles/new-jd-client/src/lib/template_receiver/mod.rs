@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use async_channel::{Receiver, Sender};
+use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
@@ -26,22 +26,21 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::{self, TaskManager},
     utils::{
-        get_setup_connection_message_tp, message_from_frame, EitherFrame, Message, ShutdownMessage,
-        StdFrame,
+        get_setup_connection_message_tp, message_from_frame, spawn_io_tasks, EitherFrame, Message,
+        ShutdownMessage, StdFrame,
     },
 };
 
 mod message_handler;
 
-pub struct TemplateReceiverData {
-    noise_stream_reader: Option<NoiseTcpReadHalf<Message>>,
-    noise_stream_writer: Option<NoiseTcpWriteHalf<Message>>,
-}
+pub struct TemplateReceiverData;
 
 #[derive(Clone)]
 pub struct TemplateReceiverChannel {
     channel_manager_sender: Sender<EitherFrame>,
     channel_manager_receiver: Receiver<EitherFrame>,
+    outbound_tx: Sender<EitherFrame>,
+    inbound_rx: Receiver<EitherFrame>,
 }
 
 #[derive(Clone)]
@@ -58,6 +57,8 @@ impl TemplateReceiver {
         channel_manager_sender: Sender<EitherFrame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: tokio::sync::mpsc::Sender<()>,
+        task_manager: Arc<TaskManager>,
+        status_sender: Sender<Status>,
     ) -> Result<TemplateReceiver, JDCError> {
         const MAX_RETRIES: usize = 3;
 
@@ -79,13 +80,26 @@ impl TemplateReceiver {
                             .await?
                             .into_split();
 
-                    let template_receiver_data = Arc::new(Mutex::new(TemplateReceiverData {
-                        noise_stream_reader: Some(noise_stream_reader),
-                        noise_stream_writer: Some(noise_stream_writer),
-                    }));
+                    let status_sender = StatusSender::TemplateReceiver(status_sender);
+                    let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
+                    let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+
+                    spawn_io_tasks(
+                        task_manager,
+                        noise_stream_reader,
+                        noise_stream_writer,
+                        outbound_rx,
+                        inbound_tx,
+                        notify_shutdown,
+                        status_sender,
+                    );
+
+                    let template_receiver_data = Arc::new(Mutex::new(TemplateReceiverData));
                     let template_receiver_channel = TemplateReceiverChannel {
                         channel_manager_receiver,
                         channel_manager_sender,
+                        inbound_rx,
+                        outbound_tx,
                     };
 
                     return Ok(TemplateReceiver {
@@ -118,22 +132,10 @@ impl TemplateReceiver {
         task_manager: Arc<TaskManager>,
     ) {
         let status_sender = StatusSender::TemplateReceiver(status_sender);
-        let (mut noise_stream_reader, mut noise_stream_writer) =
-            self.template_receiver_data.super_safe_lock(|data| {
-                (
-                    data.noise_stream_reader.take().unwrap(),
-                    data.noise_stream_writer.take().unwrap(),
-                )
-            });
         let mut shutdown_rx = notify_shutdown.subscribe();
 
         info!("Initialized state for starting template receiver");
-        self.setup_connection(
-            socket_address,
-            &mut noise_stream_reader,
-            &mut noise_stream_writer,
-        )
-        .await;
+        self.setup_connection(socket_address).await;
 
         info!("Setup Connection done. connection with template receiver is not setup");
         task_manager.spawn(async move {
@@ -147,13 +149,13 @@ impl TemplateReceiver {
                             break;
                         }
                     }
-                    res = self_clone_1.handle_template_provider_message( &mut noise_stream_reader) => {
+                    res = self_clone_1.handle_template_provider_message() => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
                         }
                     }
-                    res = self_clone_2.handle_channel_manager_message( &mut noise_stream_writer) => {
+                    res = self_clone_2.handle_channel_manager_message() => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
@@ -165,11 +167,8 @@ impl TemplateReceiver {
         });
     }
 
-    pub async fn handle_template_provider_message(
-        &mut self,
-        noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
-    ) -> Result<(), JDCError> {
-        let read_frame = noise_stream_reader.read_frame().await?;
+    pub async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
+        let read_frame = self.template_receiver_channel.inbound_rx.recv().await?;
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;
@@ -206,27 +205,26 @@ impl TemplateReceiver {
         Ok(())
     }
 
-    pub async fn handle_channel_manager_message(
-        &self,
-        noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
-    ) -> Result<(), JDCError> {
+    pub async fn handle_channel_manager_message(&self) -> Result<(), JDCError> {
         while let Ok(msg) = self
             .template_receiver_channel
             .channel_manager_receiver
             .recv()
             .await
         {
-            noise_stream_writer.write_frame(msg).await?;
+            self.template_receiver_channel
+                .outbound_tx
+                .send(msg)
+                .await
+                .map_err(|e| {
+                    error!("Failed to send mining message to channel manager: {:?}", e);
+                    JDCError::ChannelErrorSender
+                })?;
         }
         Ok(())
     }
 
-    pub async fn setup_connection(
-        &mut self,
-        socket_address: String,
-        noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
-        noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
-    ) -> Result<(), JDCError> {
+    pub async fn setup_connection(&mut self, socket_address: String) -> Result<(), JDCError> {
         let socket_iter = socket_address.split_once(":").unwrap();
         let socket_address = SocketAddr::new(
             std::net::IpAddr::V4(Ipv4Addr::from_str(socket_iter.0).unwrap()),
@@ -234,12 +232,20 @@ impl TemplateReceiver {
         );
         let setup_connection = get_setup_connection_message_tp(socket_address);
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
-        noise_stream_writer.write_frame(sv2_frame.into()).await;
+        self.template_receiver_channel
+            .outbound_tx
+            .send(sv2_frame.into())
+            .await;
 
-        let incoming_frame = noise_stream_reader.read_frame().await.map_err(|e| {
-            error!("Upstream connection closed: {:?}", e);
-            JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
-        })?;
+        let incoming_frame = self
+            .template_receiver_channel
+            .inbound_rx
+            .recv()
+            .await
+            .map_err(|e| {
+                error!("Upstream connection closed: {:?}", e);
+                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+            })?;
 
         let mut incoming: StdFrame = incoming_frame.try_into()?;
 
