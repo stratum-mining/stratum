@@ -44,6 +44,7 @@ pub struct JobDeclaratorChannel {
 pub struct JobDeclarator {
     job_declarator_data: Arc<Mutex<JobDeclaratorData>>,
     job_declarator_channel: JobDeclaratorChannel,
+    socket_address: SocketAddr,
 }
 
 impl JobDeclarator {
@@ -54,7 +55,8 @@ impl JobDeclarator {
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: mpsc::Sender<()>,
     ) -> Result<Self, JDCError> {
-        let (addr, _, pubkey) = upstreams;
+        let (_, addr, pubkey) = upstreams;
+        info!("Trying to connect to JD Server at {addr}");
         let stream = TcpStream::connect(addr).await?;
         info!("Connected to JD Server at {}", addr);
         let initiator = Initiator::from_raw_k(pubkey.into_bytes())?;
@@ -73,18 +75,18 @@ impl JobDeclarator {
         Ok(JobDeclarator {
             job_declarator_channel,
             job_declarator_data,
+            socket_address: *addr,
         })
     }
 
     pub async fn start(
         mut self,
-        socket_address: &SocketAddr,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: mpsc::Sender<()>,
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
     ) {
-        let status_sender = StatusSender::ChannelManager(status_sender);
+        let status_sender = StatusSender::JobDeclarator(status_sender);
         let (mut noise_stream_reader, mut noise_stream_writer) =
             self.job_declarator_data.super_safe_lock(|data| {
                 (
@@ -94,12 +96,8 @@ impl JobDeclarator {
             });
         let mut shutdown_rx = notify_shutdown.subscribe();
 
-        self.setup_connection(
-            socket_address,
-            &mut noise_stream_reader,
-            &mut noise_stream_writer,
-        )
-        .await;
+        self.setup_connection(&mut noise_stream_reader, &mut noise_stream_writer)
+            .await;
 
         task_manager.spawn(async move {
             loop {
@@ -132,14 +130,13 @@ impl JobDeclarator {
 
     pub async fn setup_connection(
         &mut self,
-        socket_address: &SocketAddr,
         noise_stream_reader: &mut NoiseTcpReadHalf<Message>,
         noise_stream_writer: &mut NoiseTcpWriteHalf<Message>,
     ) -> Result<(), JDCError> {
         info!("Upstream: initiating SV2 handshake...");
-        let setup_connection = get_setup_connection_message_jds(socket_address);
+        let setup_connection = get_setup_connection_message_jds(&self.socket_address);
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
-        noise_stream_writer.write_frame(sv2_frame.into());
+        noise_stream_writer.write_frame(sv2_frame.into()).await;
 
         let incoming_frame = noise_stream_reader.read_frame().await.map_err(|e| {
             error!("Upstream connection closed: {:?}", e);

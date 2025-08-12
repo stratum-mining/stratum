@@ -5,6 +5,7 @@ use stratum_common::roles_logic_sv2::{
         ProvideMissingTransactions,
     },
 };
+use tracing::info;
 
 use crate::channel_manager::ChannelManager;
 
@@ -13,27 +14,31 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: AllocateMiningJobTokenSuccess<'_>,
     ) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 
     async fn handle_declare_mining_job_error(
         &mut self,
         msg: DeclareMiningJobError<'_>,
     ) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 
     async fn handle_declare_mining_job_success(
         &mut self,
         msg: DeclareMiningJobSuccess<'_>,
     ) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 
     async fn handle_provide_missing_transactions(
         &mut self,
         msg: ProvideMissingTransactions<'_>,
     ) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 }

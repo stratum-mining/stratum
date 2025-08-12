@@ -7,6 +7,7 @@ use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::{
+    channel_manager::ChannelManager,
     config::JobDeclaratorClientConfig,
     error::JDCError,
     job_declarator::JobDeclarator,
@@ -57,9 +58,9 @@ impl JobDeclaratorClient {
             unbounded::<EitherFrame>();
 
         let (channel_manager_to_downstream_sender, channel_manager_to_downstream_receiver) =
-            unbounded::<EitherFrame>();
+            broadcast::channel(10);
         let (downstream_to_channel_manager_sender, downstream_to_channel_manager_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded();
 
         let (channel_manager_to_tp_sender, channel_manager_to_tp_receiver) =
             unbounded::<EitherFrame>();
@@ -67,6 +68,22 @@ impl JobDeclaratorClient {
             unbounded::<EitherFrame>();
 
         debug!("Channels initialized.");
+
+        let listening_address = self.config.listening_address().clone();
+
+        let channel_manager = ChannelManager::new(
+            task_manager.clone(),
+            channel_manager_to_upstream_sender.clone(),
+            upstream_to_channel_manager_receiver.clone(),
+            channel_manager_to_jd_sender.clone(),
+            jd_to_channel_manager_receiver.clone(),
+            channel_manager_to_tp_sender.clone(),
+            tp_to_channel_manager_receiver.clone(),
+            channel_manager_to_downstream_sender,
+            downstream_to_channel_manager_receiver,
+            status_sender.clone(),
+        )
+        .await;
 
         // Initialize the template Receiver
         let tp_address = self.config.tp_address().to_string();
@@ -83,23 +100,23 @@ impl JobDeclaratorClient {
         .await
         .unwrap();
 
+        info!("Template provider setup done");
+
         let notify_shutdown_cl = notify_shutdown.clone();
         let shutdown_complete_tx_cl = shutdown_complete_tx.clone();
         let status_sender_cl = status_sender.clone();
         let task_manager_cl = task_manager.clone();
 
-        task_manager.spawn(async move {
-            template_receiver
-                .start(
-                    tp_address,
-                    notify_shutdown_cl,
-                    shutdown_complete_tx_cl,
-                    status_sender_cl,
-                    task_manager_cl,
-                )
-                .await;
-        });
-        
+        template_receiver
+            .start(
+                tp_address,
+                notify_shutdown_cl,
+                shutdown_complete_tx_cl,
+                status_sender_cl,
+                task_manager_cl,
+            )
+            .await;
+
         let upstream_addresses: Vec<_> = self
             .config
             .upstreams()
@@ -135,6 +152,26 @@ impl JobDeclaratorClient {
                 return;
             }
         };
+
+        upstream
+            .start(
+                self.config.min_supported_version(),
+                self.config.max_supported_version(),
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
+
+        job_declarator
+            .start(
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
 
         info!("Spawning status listener task...");
         let notify_shutdown_clone = notify_shutdown.clone();
@@ -266,6 +303,7 @@ async fn try_initialize_single(
     notify_shutdown: broadcast::Sender<ShutdownMessage>,
     shutdown_complete_tx: tokio::sync::mpsc::Sender<()>,
 ) -> Result<(Upstream, JobDeclarator), JDCError> {
+    info!("Upstream connection in-progress at initialize single");
     let upstream = Upstream::init(
         upstream_addr,
         upstream_to_channel_manager_sender,
@@ -274,6 +312,8 @@ async fn try_initialize_single(
         shutdown_complete_tx.clone(),
     )
     .await?;
+
+    info!("Upstream connection done at initialize single");
 
     let job_declarator = JobDeclarator::init(
         upstream_addr,

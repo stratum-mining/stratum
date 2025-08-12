@@ -117,7 +117,7 @@ impl TemplateReceiver {
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
     ) {
-        let status_sender = StatusSender::ChannelManager(status_sender);
+        let status_sender = StatusSender::TemplateReceiver(status_sender);
         let (mut noise_stream_reader, mut noise_stream_writer) =
             self.template_receiver_data.super_safe_lock(|data| {
                 (
@@ -127,6 +127,7 @@ impl TemplateReceiver {
             });
         let mut shutdown_rx = notify_shutdown.subscribe();
 
+        info!("Initialized state for starting template receiver");
         self.setup_connection(
             socket_address,
             &mut noise_stream_reader,
@@ -134,6 +135,7 @@ impl TemplateReceiver {
         )
         .await;
 
+        info!("Setup Connection done. connection with template receiver is not setup");
         task_manager.spawn(async move {
             loop {
                 let mut self_clone_1 = self.clone();
@@ -232,7 +234,7 @@ impl TemplateReceiver {
         );
         let setup_connection = get_setup_connection_message_tp(socket_address);
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
-        noise_stream_writer.write_frame(sv2_frame.into());
+        noise_stream_writer.write_frame(sv2_frame.into()).await;
 
         let incoming_frame = noise_stream_reader.read_frame().await.map_err(|e| {
             error!("Upstream connection closed: {:?}", e);

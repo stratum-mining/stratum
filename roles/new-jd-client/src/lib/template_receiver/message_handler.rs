@@ -24,17 +24,20 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 
     async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 
     async fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Error> {
-        todo!()
+        info!("Received {msg:#?}");
+        Ok(())
     }
 }

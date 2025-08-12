@@ -63,10 +63,12 @@ impl Upstream {
         let stream = TcpStream::connect(addr).await?;
         info!("Connected to upstream at {}", addr);
         let initiator = Initiator::from_raw_k(pubkey.into_bytes())?;
+        info!("Begin with noise setup in upstream connection");
         let (noise_stream_reader, noise_stream_writer) =
             NoiseTcpStream::<Message>::new(stream, HandshakeRole::Initiator(initiator))
                 .await?
                 .into_split();
+        info!("Noise setup done  in upstream connection");
         let upstream_data = Arc::new(Mutex::new(UpstreamData {
             noise_stream_reader: Some(noise_stream_reader),
             noise_stream_writer: Some(noise_stream_writer),
