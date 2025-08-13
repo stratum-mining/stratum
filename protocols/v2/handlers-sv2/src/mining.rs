@@ -22,19 +22,24 @@ pub enum SupportedChannelTypes {
 }
 
 pub trait HandleMiningMessagesFromClientSync {
-    fn get_channel_type(&self) -> SupportedChannelTypes;
-    fn is_work_selection_enabled(&self) -> bool;
+    fn get_channel_type_client(&self) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_client(&self) -> bool;
+    fn is_downstream_authorized_client(&self, user_identity: &Str0255) -> Result<bool, Error>;
 
-    fn is_downstream_authorized(&self, user_identity: &Str0255) -> Result<bool, Error>;
-
-    fn handle_mining_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<(), Error> {
+    fn handle_mining_message_client(
+        &mut self,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<(), Error> {
         let parsed: Mining = (message_type, payload).try_into()?;
-        self.dispatch_mining_message(parsed)
+        self.dispatch_mining_message_client(parsed)
     }
 
-    fn dispatch_mining_message(&mut self, message: Mining) -> Result<(), Error> {
-        let (channel_type, work_selection) =
-            (self.get_channel_type(), self.is_work_selection_enabled());
+    fn dispatch_mining_message_client(&mut self, message: Mining) -> Result<(), Error> {
+        let (channel_type, work_selection) = (
+            self.get_channel_type_client(),
+            self.is_work_selection_enabled_client(),
+        );
 
         use Mining::*;
         match message {
@@ -112,10 +117,11 @@ pub trait HandleMiningMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromClientAsync {
-    fn get_channel_type(&self) -> SupportedChannelTypes;
-    fn is_work_selection_enabled(&self) -> bool;
+    fn get_channel_type_client(&self) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_client(&self) -> bool;
+    fn is_downstream_authorized_client(&self, user_identity: &Str0255) -> Result<bool, Error>;
 
-    async fn handle_mining_message(
+    async fn handle_mining_message_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -123,13 +129,15 @@ pub trait HandleMiningMessagesFromClientAsync {
         let parsed: Result<Mining, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_mining_message(parsed).await
+            self.dispatch_mining_message_client(parsed).await
         }
     }
 
-    async fn dispatch_mining_message(&mut self, message: Mining) -> Result<(), Error> {
-        let (channel_type, work_selection) =
-            (self.get_channel_type(), self.is_work_selection_enabled());
+    async fn dispatch_mining_message_client(&mut self, message: Mining) -> Result<(), Error> {
+        let (channel_type, work_selection) = (
+            self.get_channel_type_client(),
+            self.is_work_selection_enabled_client(),
+        );
 
         async move {
             use Mining::*;
@@ -216,17 +224,23 @@ pub trait HandleMiningMessagesFromClientAsync {
 }
 
 pub trait HandleMiningMessagesFromServerSync {
-    fn get_channel_type(&self) -> SupportedChannelTypes;
-    fn is_work_selection_enabled(&self) -> bool;
+    fn get_channel_type_server(&self) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_server(&self) -> bool;
 
-    fn handle_mining_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<(), Error> {
+    fn handle_mining_message_server(
+        &mut self,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<(), Error> {
         let parsed: Mining = (message_type, payload).try_into()?;
-        self.dispatch_mining_message(parsed)
+        self.dispatch_mining_message_server(parsed)
     }
 
-    fn dispatch_mining_message(&mut self, message: Mining) -> Result<(), Error> {
-        let (channel_type, work_selection) =
-            (self.get_channel_type(), self.is_work_selection_enabled());
+    fn dispatch_mining_message_server(&mut self, message: Mining) -> Result<(), Error> {
+        let (channel_type, work_selection) = (
+            self.get_channel_type_server(),
+            self.is_work_selection_enabled_server(),
+        );
 
         use Mining::*;
         match message {
@@ -355,10 +369,10 @@ pub trait HandleMiningMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromServerAsync {
-    fn get_channel_type(&self) -> SupportedChannelTypes;
-    fn is_work_selection_enabled(&self) -> bool;
+    fn get_channel_type_server(&self) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_server(&self) -> bool;
 
-    async fn handle_mining_message(
+    async fn handle_mining_message_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -366,13 +380,15 @@ pub trait HandleMiningMessagesFromServerAsync {
         let parsed: Result<Mining, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_mining_message(parsed).await
+            self.dispatch_mining_message_server(parsed).await
         }
     }
 
-    async fn dispatch_mining_message(&mut self, message: Mining) -> Result<(), Error> {
-        let (channel_type, work_selection) =
-            (self.get_channel_type(), self.is_work_selection_enabled());
+    async fn dispatch_mining_message_server(&mut self, message: Mining) -> Result<(), Error> {
+        let (channel_type, work_selection) = (
+            self.get_channel_type_server(),
+            self.is_work_selection_enabled_server(),
+        );
 
         async move {
             use Mining::*;
