@@ -3,7 +3,9 @@ use crate::{
     chain_tip::ChainTip,
     server::{
         error::StandardChannelError,
-        jobs::{factory::JobFactory, job_store::JobStore, standard::StandardJob},
+        jobs::{
+            extended::ExtendedJob, factory::JobFactory, job_store::JobStore, standard::StandardJob,
+        },
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
@@ -322,6 +324,10 @@ impl<'a> StandardChannel<'a> {
     ///
     /// Only meant for usage on a Sv2 Pool Server or a Sv2 Job Declaration Client,
     /// but not on mining clients such as Mining Devices or Proxies.
+    ///
+    /// Only meant to be used in case we want to broadcast standard jobs.
+    /// In case we want to broadcast extended jobs via group channel, use `on_group_channel_job`
+    /// instead.
     pub fn on_new_template(
         &mut self,
         template: NewTemplate<'a>,
@@ -359,6 +365,32 @@ impl<'a> StandardChannel<'a> {
                         self.job_store.add_active_job(new_job);
                     }
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Used as an alternative to `on_new_template` when an extended job is meant to be broadcast
+    /// to the group channel, instead of multiple standard jobs to diffferent standard channels.
+    ///
+    /// We use this method to update the channel state, so it can validate share from the job that
+    /// was broadcasted to the group channel.
+    pub fn on_group_channel_job(
+        &mut self,
+        extended_job: ExtendedJob<'a>,
+    ) -> Result<(), StandardChannelError> {
+        let standard_job = extended_job
+            .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
+            .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
+
+        match standard_job.is_future() {
+            true => {
+                self.job_store
+                    .add_future_job(standard_job.get_template().template_id, standard_job);
+            }
+            false => {
+                self.job_store.add_active_job(standard_job);
             }
         }
 

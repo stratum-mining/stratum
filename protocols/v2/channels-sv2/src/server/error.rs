@@ -27,4 +27,5 @@ pub enum StandardChannelError {
     NewExtranoncePrefixTooLarge,
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,
+    FailedToConvertToStandardJob,
 }
