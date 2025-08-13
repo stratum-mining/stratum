@@ -9,16 +9,16 @@ use core::convert::TryInto;
 use template_distribution_sv2::*;
 
 pub trait HandleTemplateDistributionMessagesFromServerSync {
-    fn handle_template_distribution_message(
+    fn handle_template_distribution_message_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: TemplateDistribution<'_> = (message_type, payload).try_into()?;
-        self.dispatch_template_distribution(parsed)
+        self.dispatch_template_distribution_from_server(parsed)
     }
 
-    fn dispatch_template_distribution(
+    fn dispatch_template_distribution_from_server(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
@@ -60,7 +60,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromServerAsync {
-    async fn handle_template_distribution_message(
+    async fn handle_template_distribution_message_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -68,11 +68,12 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
         let parsed: Result<TemplateDistribution<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_template_distribution(parsed).await
+            self.dispatch_template_distribution_from_server(parsed)
+                .await
         }
     }
 
-    async fn dispatch_template_distribution(
+    async fn dispatch_template_distribution_from_server(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
@@ -115,16 +116,16 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 }
 
 pub trait HandleTemplateDistributionMessagesFromClientSync {
-    fn handle_template_distribution_message(
+    fn handle_template_distribution_message_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: TemplateDistribution<'_> = (message_type, payload).try_into()?;
-        self.dispatch_template_distribution(parsed)
+        self.dispatch_template_distribution_from_client(parsed)
     }
 
-    fn dispatch_template_distribution(
+    fn dispatch_template_distribution_from_client(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
@@ -161,7 +162,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromClientAsync {
-    async fn handle_template_distribution_message(
+    async fn handle_template_distribution_message_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -169,11 +170,12 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
         let parsed: Result<TemplateDistribution<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_template_distribution(parsed).await
+            self.dispatch_template_distribution_from_client(parsed)
+                .await
         }
     }
 
-    async fn dispatch_template_distribution(
+    async fn dispatch_template_distribution_from_client(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {

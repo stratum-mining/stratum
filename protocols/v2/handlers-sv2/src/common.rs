@@ -6,12 +6,19 @@ use core::convert::TryInto;
 use parsers_sv2::CommonMessages;
 
 pub trait HandleCommonMessagesFromServerSync {
-    fn handle_common_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<(), Error> {
+    fn handle_common_message_from_server(
+        &mut self,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<(), Error> {
         let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
-        self.dispatch_common_message(parsed)
+        self.dispatch_common_message_from_server(parsed)
     }
 
-    fn dispatch_common_message(&mut self, message: CommonMessages<'_>) -> Result<(), Error> {
+    fn dispatch_common_message_from_server(
+        &mut self,
+        message: CommonMessages<'_>,
+    ) -> Result<(), Error> {
         match message {
             CommonMessages::SetupConnectionSuccess(msg) => {
                 self.handle_setup_connection_success(msg)
@@ -41,7 +48,7 @@ pub trait HandleCommonMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromServerAsync {
-    async fn handle_common_message(
+    async fn handle_common_message_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -49,11 +56,14 @@ pub trait HandleCommonMessagesFromServerAsync {
         let parsed: Result<CommonMessages<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_common_message(parsed).await
+            self.dispatch_common_message_from_server(parsed).await
         }
     }
 
-    async fn dispatch_common_message(&mut self, message: CommonMessages<'_>) -> Result<(), Error> {
+    async fn dispatch_common_message_from_server(
+        &mut self,
+        message: CommonMessages<'_>,
+    ) -> Result<(), Error> {
         async move {
             match message {
                 CommonMessages::SetupConnectionSuccess(msg) => {
@@ -93,12 +103,19 @@ pub trait HandleCommonMessagesFromServerAsync {
 }
 
 pub trait HandleCommonMessagesFromClientSync {
-    fn handle_common_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<(), Error> {
+    fn handle_common_message_from_client(
+        &mut self,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<(), Error> {
         let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
-        self.dispatch_common_message(parsed)
+        self.dispatch_common_message_from_client(parsed)
     }
 
-    fn dispatch_common_message(&mut self, message: CommonMessages<'_>) -> Result<(), Error> {
+    fn dispatch_common_message_from_client(
+        &mut self,
+        message: CommonMessages<'_>,
+    ) -> Result<(), Error> {
         match message {
             CommonMessages::SetupConnectionSuccess(_) => Err(Error::UnexpectedMessage(
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
@@ -120,7 +137,7 @@ pub trait HandleCommonMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromClientAsync {
-    async fn handle_common_message(
+    async fn handle_common_message_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -128,11 +145,14 @@ pub trait HandleCommonMessagesFromClientAsync {
         let parsed: Result<CommonMessages<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_common_message(parsed).await
+            self.dispatch_common_message_from_client(parsed).await
         }
     }
 
-    async fn dispatch_common_message(&mut self, message: CommonMessages<'_>) -> Result<(), Error> {
+    async fn dispatch_common_message_from_client(
+        &mut self,
+        message: CommonMessages<'_>,
+    ) -> Result<(), Error> {
         async move {
             match message {
                 CommonMessages::SetupConnectionSuccess(_) => Err(Error::UnexpectedMessage(

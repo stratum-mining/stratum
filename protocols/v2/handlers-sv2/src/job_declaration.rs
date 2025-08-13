@@ -9,16 +9,19 @@ use job_declaration_sv2::{
 use parsers_sv2::JobDeclaration;
 
 pub trait HandleJobDeclarationMessagesFromServerSync {
-    fn handle_job_declaration_message(
+    fn handle_job_declaration_message_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload).try_into()?;
-        self.dispatch_job_declaration(parsed)
+        self.dispatch_job_declaration_from_server(parsed)
     }
 
-    fn dispatch_job_declaration(&mut self, message: JobDeclaration<'_>) -> Result<(), Error> {
+    fn dispatch_job_declaration_from_server(
+        &mut self,
+        message: JobDeclaration<'_>,
+    ) -> Result<(), Error> {
         match message {
             JobDeclaration::AllocateMiningJobTokenSuccess(msg) => {
                 self.handle_allocate_mining_job_token_success(msg)
@@ -65,7 +68,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromServerAsync {
-    async fn handle_job_declaration_message(
+    async fn handle_job_declaration_message_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -73,11 +76,14 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
         let parsed: Result<JobDeclaration<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_job_declaration(parsed).await
+            self.dispatch_job_declaration_from_server(parsed).await
         }
     }
 
-    async fn dispatch_job_declaration(&mut self, message: JobDeclaration<'_>) -> Result<(), Error> {
+    async fn dispatch_job_declaration_from_server(
+        &mut self,
+        message: JobDeclaration<'_>,
+    ) -> Result<(), Error> {
         async move {
             match message {
                 JobDeclaration::AllocateMiningJobTokenSuccess(msg) => {
@@ -130,16 +136,19 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
 }
 
 pub trait HandleJobDeclarationMessagesFromClientSync {
-    fn handle_job_declaration_message(
+    fn handle_job_declaration_message_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload).try_into()?;
-        self.dispatch_job_declaration(parsed)
+        self.dispatch_job_declaration_from_client(parsed)
     }
 
-    fn dispatch_job_declaration(&mut self, message: JobDeclaration<'_>) -> Result<(), Error> {
+    fn dispatch_job_declaration_from_client(
+        &mut self,
+        message: JobDeclaration<'_>,
+    ) -> Result<(), Error> {
         match message {
             JobDeclaration::AllocateMiningJobToken(msg) => {
                 self.handle_allocate_mining_job_token(msg)
@@ -182,7 +191,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromClientAsync {
-    async fn handle_job_declaration_message(
+    async fn handle_job_declaration_message_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -190,11 +199,14 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
         let parsed: Result<JobDeclaration<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_job_declaration(parsed).await
+            self.dispatch_job_declaration_from_client(parsed).await
         }
     }
 
-    async fn dispatch_job_declaration(&mut self, message: JobDeclaration<'_>) -> Result<(), Error> {
+    async fn dispatch_job_declaration_from_client(
+        &mut self,
+        message: JobDeclaration<'_>,
+    ) -> Result<(), Error> {
         async move {
             match message {
                 JobDeclaration::AllocateMiningJobToken(msg) => {
