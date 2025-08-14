@@ -962,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "roles_logic_sv2"
-version = "5.0.0"
+version = "4.0.0"
 dependencies = [
  "bitcoin",
  "chacha20poly1305",

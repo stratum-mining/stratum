@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
-roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2", version = "5.0.0" }
+roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2", version = "4.0.0" }
 network_helpers_sv2 = { path = "../roles/roles-utils/network-helpers", version = "4.0.0", features = ["with_buffer_pool"], optional = true }
 
 [features]
