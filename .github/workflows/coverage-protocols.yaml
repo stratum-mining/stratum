@@ -117,14 +117,6 @@ jobs:
           flags: v1-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Upload sv2_ffi-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./protocols/target/tarpaulin-reports/sv2-ffi-coverage
-          file: ./protocols/target/tarpaulin-reports/sv2-ffi-coverage/cobertura.xml
-          flags: sv2_ffi-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Upload template_distribution_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:

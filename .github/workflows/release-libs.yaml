@@ -105,11 +105,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v1
 
-      # sv2_ffi (depends on codec_sv2, binary_sv2, common_messages, template_distribution)
-      - name: Publish crate sv2_ffi
-        run: |
-          ./scripts/release-libs.sh protocols/v2/sv2-ffi
-
       # stratum_translation (depends on binary_sv2, mining_sv2, channels_sv2, v1)
       - name: Publish crate stratum_translation
         run: |
