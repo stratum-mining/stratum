@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "2.1.0"
+version = "3.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
