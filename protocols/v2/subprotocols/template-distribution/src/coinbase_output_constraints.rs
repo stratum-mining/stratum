@@ -23,7 +23,7 @@ use core::convert::TryInto;
 ///
 /// [`NewTemplate`]: crate::NewTemplate
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
-#[repr(C)]
+
 pub struct CoinbaseOutputConstraints {
     /// Additional serialized bytes needed in coinbase transaction outputs.
     pub coinbase_output_max_additional_size: u32,

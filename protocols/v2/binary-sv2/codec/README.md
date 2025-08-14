@@ -12,8 +12,7 @@
 
 - **Comprehensive Encoding and Decoding**: Provides traits (`Encodable`, `Decodable`) for converting between Rust and SV2 data types/structures.  
 - **Support for Complex Data Structures**: Handles primitives, nested structures, and protocol-specific types like `U24`, `U256`,`Str0255` and rest.  
-- **Error Handling**: Robust mechanisms for managing encoding/decoding failures, including size mismatches and invalid data.  
-- **Cross-Language Compatibility**: Utilities like `CVec` and `CError` ensure smooth integration with other programming languages.  
+- **Error Handling**: Robust mechanisms for managing encoding/decoding failures, including size mismatches and invalid data.   
 - **`no_std` Compatibility**: Fully supports constrained environments without the Rust standard library.  
 
 ## Sv2 Type Mapping
