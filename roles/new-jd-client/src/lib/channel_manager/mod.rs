@@ -48,7 +48,7 @@ mod jd_message_handler;
 mod template_message_handler;
 mod upstream_message_handler;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
     template: NewTemplate<'static>,
@@ -69,7 +69,7 @@ pub struct ChannelManagerData {
     template_store: HashMap<u64, NewTemplate<'static>>,
     last_declare_job_store: HashMap<u32, LastDeclareJob>,
     coinbase_outputs: Vec<u8>,
-    upstream_channel_id: u32
+    upstream_channel_id: u32,
 }
 
 #[derive(Clone)]
@@ -145,7 +145,7 @@ impl ChannelManager {
             template_store: HashMap::new(),
             last_declare_job_store: HashMap::new(),
             coinbase_outputs: vec![],
-            upstream_channel_id: 0
+            upstream_channel_id: 0,
         }));
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,

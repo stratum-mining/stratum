@@ -162,13 +162,13 @@ impl JobDeclaratorClient {
         };
 
         channel_manager
-        .start(
-            notify_shutdown.clone(),
-            shutdown_complete_tx.clone(),
-            status_sender.clone(),
-            task_manager.clone(),
-        )
-        .await;
+            .start(
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
 
         upstream
             .start(

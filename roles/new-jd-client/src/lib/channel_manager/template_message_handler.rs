@@ -119,19 +119,18 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             tx_list: transactions_data.to_vec(),
         };
 
-
         let frame: StdFrame =
             AnyMessage::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
                 .try_into()
                 .unwrap();
-        self.channel_manager_channel
-            .jd_sender
-            .send(frame.into())
-            .await;
 
         self.channel_manager_data.super_safe_lock(|data| {
             data.last_declare_job_store.insert(1, last_declare);
         });
+        self.channel_manager_channel
+            .jd_sender
+            .send(frame.into())
+            .await;
 
         Ok(())
     }
@@ -139,7 +138,14 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
         info!("Received handle_set_new_prev_hash from Template provider");
         self.channel_manager_data.super_safe_lock(|data| {
-            data.last_new_prev_hash = Some(msg.into_static());
+            data.last_new_prev_hash = Some(msg.clone().into_static());
+            data.last_declare_job_store.iter_mut().for_each(|(k, v)| {
+                tracing::error!("values {v:?}");
+                if v.template.future_template && v.template.template_id == msg.template_id {
+                    v.prev_hash = Some(msg.clone().into_static());
+                    v.template.future_template = false;
+                }
+            });
         });
         // active the already present future job, and then send the jobs downstream and custom job
         // to upstream.

@@ -1,8 +1,16 @@
+use std::time::Duration;
+
 use stratum_common::roles_logic_sv2::{
-    bitcoin::{self, TxOut}, codec_sv2::binary_sv2::{self, Sv2DataType, B016M}, handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error}, job_declaration_sv2::{
+    bitcoin::{self, TxOut},
+    codec_sv2::binary_sv2::{self, Sv2DataType, B016M},
+    handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error},
+    job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
-    }, parsers_sv2::{AnyMessage, JobDeclaration, TemplateDistribution}, template_distribution_sv2::CoinbaseOutputConstraints
+    },
+    mining_sv2::SetCustomMiningJob,
+    parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
+    template_distribution_sv2::CoinbaseOutputConstraints,
 };
 use tracing::info;
 
@@ -22,8 +30,8 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         });
         if !coinbase_output {
             let deserialized_jds_coinbase_outputs: Vec<TxOut> =
-            bitcoin::consensus::deserialize(&msg.coinbase_outputs.to_vec())
-                .expect("Invalid coinbase output");
+                bitcoin::consensus::deserialize(&msg.coinbase_outputs.to_vec())
+                    .expect("Invalid coinbase output");
 
             let mut coinbase_output_max_additional_size = 0;
             let mut coinbase_output_max_additional_sigops = 0;
@@ -46,7 +54,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
                 .send(frame.into())
                 .await;
         }
-        
+
         Ok(())
     }
 
@@ -63,6 +71,44 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         msg: DeclareMiningJobSuccess<'_>,
     ) -> Result<(), Error> {
         info!("Received handle_declare_mining_job_success from JDS");
+        let (last_declare_job, prev_hash) = self.channel_manager_data.super_safe_lock(|data| {
+            (
+                data.last_declare_job_store.get(&msg.request_id).cloned(),
+                data.last_new_prev_hash.clone(),
+            )
+        });
+
+        let last_declare_job = last_declare_job.unwrap();
+        let new_prev_hash = prev_hash.unwrap();
+        let updated_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+
+        // Now I should send the CustomJob to upstream
+        let to_send = SetCustomMiningJob {
+            channel_id: 1,
+            request_id: 1,
+            token: last_declare_job.declare_job.mining_job_token,
+            version: last_declare_job.declare_job.version,
+            prev_hash: new_prev_hash.prev_hash,
+            min_ntime: updated_timestamp,
+            nbits: new_prev_hash.n_bits,
+            coinbase_tx_version: last_declare_job.template.coinbase_tx_version,
+            coinbase_prefix: last_declare_job.template.coinbase_prefix,
+            coinbase_tx_input_n_sequence: last_declare_job.template.coinbase_tx_input_sequence,
+            coinbase_tx_outputs: last_declare_job.coinbase_pool_output.try_into().unwrap(),
+            coinbase_tx_locktime: last_declare_job.template.coinbase_tx_locktime,
+            merkle_path: last_declare_job.template.merkle_path.clone(),
+        };
+        let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send));
+        let frame: StdFrame = message.try_into().unwrap();
+
+        self.channel_manager_channel
+            .upstream_sender
+            .send(frame.into())
+            .await;
+
         Ok(())
     }
 
@@ -72,16 +118,21 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     ) -> Result<(), Error> {
         info!("Received handle_provide_missing_transactions from JDS");
 
-        let tx_list = self.channel_manager_data.super_safe_lock(|data| {
-            data.last_declare_job_store.get(&msg.request_id).cloned()
-        });
+        let tx_list = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.last_declare_job_store.get(&msg.request_id).cloned());
 
         if tx_list.is_none() {
             // we should return error in this case. Story for another time,
             return Ok(());
         }
 
-        let tx_list: Vec<binary_sv2::B016M>  = tx_list.unwrap().tx_list.iter().map(|data| B016M::from_vec_unchecked(data.clone())).collect();
+        let tx_list: Vec<binary_sv2::B016M> = tx_list
+            .unwrap()
+            .tx_list
+            .iter()
+            .map(|data| B016M::from_vec_unchecked(data.clone()))
+            .collect();
 
         let unknown_tx_position_list: Vec<u16> = msg.unknown_tx_position_list.into_inner();
 
@@ -94,11 +145,15 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
             request_id,
             transaction_list: binary_sv2::Seq064K::new(missing_transactions).unwrap(),
         };
-        let message_enum =
-            AnyMessage::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions));
+        let message_enum = AnyMessage::JobDeclaration(
+            JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions),
+        );
 
         let frame: StdFrame = message_enum.try_into().unwrap();
-        self.channel_manager_channel.jd_sender.send(frame.into()).await;
+        self.channel_manager_channel
+            .jd_sender
+            .send(frame.into())
+            .await;
         Ok(())
     }
 }
