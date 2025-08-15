@@ -7,13 +7,20 @@ use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
         channels_sv2::server::extended::ExtendedChannel,
-        codec_sv2::{self, Responder},
+        codec_sv2::{
+            self,
+            binary_sv2::{Seq064K, B016M},
+            Responder,
+        },
         handlers_sv2::{
             HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
             HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
+        job_declaration_sv2::{
+            AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
+        },
         mining_sv2::{ExtendedExtranonce, FULL_EXTRANONCE_LEN},
-        parsers_sv2::{AnyMessage, TemplateDistribution},
+        parsers_sv2::{AnyMessage, JobDeclaration, TemplateDistribution},
         template_distribution_sv2::{
             CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash as SetNewPrevHashTdp,
             SubmitSolution,
@@ -41,6 +48,15 @@ mod jd_message_handler;
 mod template_message_handler;
 mod upstream_message_handler;
 
+#[derive(Clone)]
+pub struct LastDeclareJob {
+    declare_job: DeclareMiningJob<'static>,
+    template: NewTemplate<'static>,
+    prev_hash: Option<SetNewPrevHashTdp<'static>>,
+    coinbase_pool_output: Vec<u8>,
+    tx_list: Vec<Vec<u8>>,
+}
+
 pub struct ChannelManagerData {
     downstream: HashMap<u32, Downstream>,
     extranonce_prefix_factory_extended: ExtendedExtranonce,
@@ -49,6 +65,10 @@ pub struct ChannelManagerData {
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
     extended_channels: HashMap<u32, ExtendedChannel<'static>>,
     vardiff: HashMap<u32, Box<dyn Vardiff>>,
+    allocate_tokens: Option<AllocateMiningJobTokenSuccess<'static>>,
+    template_store: HashMap<u64, NewTemplate<'static>>,
+    last_declare_job_store: HashMap<u32, LastDeclareJob>,
+    coinbase_outputs: Vec<u8>
 }
 
 #[derive(Clone)]
@@ -120,6 +140,10 @@ impl ChannelManager {
             last_new_prev_hash: None,
             extended_channels: HashMap::new(),
             vardiff: HashMap::new(),
+            allocate_tokens: None,
+            template_store: HashMap::new(),
+            last_declare_job_store: HashMap::new(),
+            coinbase_outputs: vec![]
         }));
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,
@@ -206,6 +230,8 @@ impl ChannelManager {
     ) {
         let status_sender = StatusSender::ChannelManager(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
+        // ask gitgab on default tokens to generate.
+        self.allocate_tokens(1).await;
 
         task_manager.spawn(async move {
             loop {
@@ -373,6 +399,24 @@ impl ChannelManager {
                 }
             }
         }
+        Ok(())
+    }
+
+    async fn allocate_tokens(&self, token_to_allocate: u32) -> Result<(), JDCError> {
+        for i in 0..token_to_allocate {
+            /// Ask gitgab about this
+            let message = JobDeclaration::AllocateMiningJobToken(AllocateMiningJobToken {
+                user_identifier: "jdc".to_string().try_into().unwrap(),
+                request_id: 1,
+            });
+            let frame: StdFrame = AnyMessage::JobDeclaration(message).try_into()?;
+            self.channel_manager_channel
+                .jd_sender
+                .send(frame.into())
+                .await
+                .unwrap();
+        }
+
         Ok(())
     }
 }

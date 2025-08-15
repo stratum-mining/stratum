@@ -137,17 +137,6 @@ impl TemplateReceiver {
 
         info!("Initialized state for starting template receiver");
         self.setup_connection(socket_address).await;
-        let coinbase_output_data_size = AnyMessage::TemplateDistribution(
-            TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
-                coinbase_output_max_additional_size: 0,
-                coinbase_output_max_additional_sigops: 0,
-            }),
-        );
-        let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
-        self.template_receiver_channel
-            .outbound_tx
-            .send(frame.into())
-            .await;
 
         info!("Setup Connection done. connection with template receiver is now done");
         task_manager.spawn(async move {

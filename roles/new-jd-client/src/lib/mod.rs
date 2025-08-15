@@ -89,29 +89,6 @@ impl JobDeclaratorClient {
 
         let channel_manager_clone = channel_manager.clone();
 
-        channel_manager
-            .start(
-                notify_shutdown.clone(),
-                shutdown_complete_tx.clone(),
-                status_sender.clone(),
-                task_manager.clone(),
-            )
-            .await;
-        channel_manager_clone
-            .start_downstream_server(
-                *self.config.authority_public_key(),
-                *self.config.authority_secret_key(),
-                self.config.cert_validity_sec(),
-                *self.config.listening_address(),
-                task_manager.clone(),
-                notify_shutdown.clone(),
-                shutdown_complete_tx.clone(),
-                status_sender.clone(),
-                downstream_to_channel_manager_sender.clone(),
-                channel_manager_to_downstream_sender.clone(),
-            )
-            .await;
-
         // Initialize the template Receiver
         let tp_address = self.config.tp_address().to_string();
         let tp_pubkey = self.config.tp_authority_public_key().copied();
@@ -201,6 +178,29 @@ impl JobDeclaratorClient {
                 shutdown_complete_tx.clone(),
                 status_sender.clone(),
                 task_manager.clone(),
+            )
+            .await;
+
+        channel_manager
+            .start(
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
+        channel_manager_clone
+            .start_downstream_server(
+                *self.config.authority_public_key(),
+                *self.config.authority_secret_key(),
+                self.config.cert_validity_sec(),
+                *self.config.listening_address(),
+                task_manager.clone(),
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                downstream_to_channel_manager_sender.clone(),
+                channel_manager_to_downstream_sender.clone(),
             )
             .await;
 

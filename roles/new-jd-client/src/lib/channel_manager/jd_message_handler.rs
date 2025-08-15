@@ -1,13 +1,12 @@
 use stratum_common::roles_logic_sv2::{
-    handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error},
-    job_declaration_sv2::{
+    bitcoin::{self, TxOut}, codec_sv2::binary_sv2::{self, Sv2DataType, B016M}, handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error}, job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
-        ProvideMissingTransactions,
-    },
+        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+    }, parsers_sv2::{AnyMessage, JobDeclaration, TemplateDistribution}, template_distribution_sv2::CoinbaseOutputConstraints
 };
 use tracing::info;
 
-use crate::channel_manager::ChannelManager;
+use crate::{channel_manager::ChannelManager, utils::StdFrame};
 
 impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     async fn handle_allocate_mining_job_token_success(
@@ -15,6 +14,39 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         msg: AllocateMiningJobTokenSuccess<'_>,
     ) -> Result<(), Error> {
         info!("Received allocate Mining token success from JDS");
+        let coinbase_output = self.channel_manager_data.super_safe_lock(|data| {
+            let value = data.coinbase_outputs == msg.coinbase_outputs.to_vec();
+            data.coinbase_outputs = msg.coinbase_outputs.to_vec();
+            data.allocate_tokens = Some(msg.clone().into_static());
+            value
+        });
+        if !coinbase_output {
+            let deserialized_jds_coinbase_outputs: Vec<TxOut> =
+            bitcoin::consensus::deserialize(&msg.coinbase_outputs.to_vec())
+                .expect("Invalid coinbase output");
+
+            let mut coinbase_output_max_additional_size = 0;
+            let mut coinbase_output_max_additional_sigops = 0;
+
+            for output in deserialized_jds_coinbase_outputs {
+                coinbase_output_max_additional_size += output.size();
+                coinbase_output_max_additional_sigops += output.script_pubkey.count_sigops() as u16;
+            }
+
+            let coinbase_output_data_size = AnyMessage::TemplateDistribution(
+                TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
+                    coinbase_output_max_additional_size: coinbase_output_max_additional_size as u32,
+                    coinbase_output_max_additional_sigops,
+                }),
+            );
+
+            let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
+            self.channel_manager_channel
+                .tp_sender
+                .send(frame.into())
+                .await;
+        }
+        
         Ok(())
     }
 
@@ -39,6 +71,34 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         msg: ProvideMissingTransactions<'_>,
     ) -> Result<(), Error> {
         info!("Received handle_provide_missing_transactions from JDS");
+
+        let tx_list = self.channel_manager_data.super_safe_lock(|data| {
+            data.last_declare_job_store.get(&msg.request_id).cloned()
+        });
+
+        if tx_list.is_none() {
+            // we should return error in this case. Story for another time,
+            return Ok(());
+        }
+
+        let tx_list: Vec<binary_sv2::B016M>  = tx_list.unwrap().tx_list.iter().map(|data| B016M::from_vec_unchecked(data.clone())).collect();
+
+        let unknown_tx_position_list: Vec<u16> = msg.unknown_tx_position_list.into_inner();
+
+        let missing_transactions: Vec<binary_sv2::B016M> = unknown_tx_position_list
+            .iter()
+            .filter_map(|&pos| tx_list.get(pos as usize).cloned())
+            .collect();
+        let request_id = msg.request_id;
+        let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
+            request_id,
+            transaction_list: binary_sv2::Seq064K::new(missing_transactions).unwrap(),
+        };
+        let message_enum =
+            AnyMessage::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions));
+
+        let frame: StdFrame = message_enum.try_into().unwrap();
+        self.channel_manager_channel.jd_sender.send(frame.into()).await;
         Ok(())
     }
 }
