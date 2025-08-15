@@ -15,11 +15,16 @@ use config::PoolConfig;
 use error::PoolError;
 use mining_pool::Pool;
 use std::sync::{Arc, Mutex};
-use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
+use stratum_common::roles_logic_sv2::bitcoin::{
+    absolute::LockTime,
+    blockdata::witness::Witness,
+    script::ScriptBuf,
+    transaction::{OutPoint, Transaction, Version},
+    Amount, Sequence, TxIn, TxOut,
+};
 use template_receiver::TemplateRx;
 use tokio::select;
 use tracing::{error, info, warn};
-
 /// Represents the PoolSv2 instance, which manages the pool's operations.
 ///
 /// This struct holds the pool configuration and provides functionality to start
@@ -80,7 +85,22 @@ impl PoolSv2 {
         };
         let coinbase_output_len = empty_coinbase_output.size() as u32;
         let tp_authority_public_key = config.tp_authority_public_key().cloned();
-        let coinbase_output_sigops = empty_coinbase_output.script_pubkey.count_sigops() as u16;
+
+        // create a dummy coinbase transaction with the empty output
+        // this is used to calculate the sigops of the coinbase output
+        let dummy_coinbase = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::from(vec![vec![0; 32]]),
+            }],
+            output: vec![empty_coinbase_output],
+        };
+
+        let coinbase_output_sigops = dummy_coinbase.total_sigop_cost(|_| None) as u16;
 
         // --- Spawn Template Receiver Task ---
         let tp_address = config.tp_address().clone();

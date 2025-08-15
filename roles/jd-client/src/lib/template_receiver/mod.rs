@@ -16,8 +16,12 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{
+            absolute::LockTime,
+            blockdata::witness::Witness,
             consensus::{deserialize, serialize, Encodable},
-            Amount, TxOut,
+            script::ScriptBuf,
+            transaction::{OutPoint, Transaction, Version},
+            Amount, Sequence, TxIn, TxOut,
         },
         codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame},
         handlers::{template_distribution::ParseTemplateDistributionMessagesFromServer, SendTo_},
@@ -249,14 +253,28 @@ impl TemplateRx {
                         let deserialized_jds_coinbase_outputs: Vec<TxOut> =
                             deserialize(&jds_coinbase_outputs).expect("Invalid coinbase output");
 
-                        let mut coinbase_output_max_additional_size = 0;
-                        let mut coinbase_output_max_additional_sigops = 0;
+                        let coinbase_output_max_additional_size: usize =
+                            deserialized_jds_coinbase_outputs
+                                .iter()
+                                .map(|o| o.size())
+                                .sum();
 
-                        for output in deserialized_jds_coinbase_outputs {
-                            coinbase_output_max_additional_size += output.size();
-                            coinbase_output_max_additional_sigops +=
-                                output.script_pubkey.count_sigops() as u16;
-                        }
+                        // create a dummy coinbase transaction with the empty output
+                        // this is used to calculate the sigops of the coinbase output
+                        let dummy_coinbase = Transaction {
+                            version: Version::TWO,
+                            lock_time: LockTime::ZERO,
+                            input: vec![TxIn {
+                                previous_output: OutPoint::null(),
+                                script_sig: ScriptBuf::new(),
+                                sequence: Sequence::MAX,
+                                witness: Witness::from(vec![vec![0; 32]]),
+                            }],
+                            output: deserialized_jds_coinbase_outputs,
+                        };
+
+                        let coinbase_output_max_additional_sigops =
+                            dummy_coinbase.total_sigop_cost(|_| None) as u16;
 
                         Self::send_coinbase_output_constraints(
                             &self_mutex,
