@@ -126,7 +126,7 @@ impl Downstream {
         let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame).unwrap();
         match parsed_message {
             AnyMessage::Common(_) => {
-                self.handle_common_message(message_type, &mut payload)
+                self.handle_common_message_from_client(message_type, &mut payload)
                     .await?;
             }
             _ => {
@@ -170,7 +170,7 @@ impl Downstream {
 
                 match parsed_message {
                     AnyMessage::Common(_) => {
-                        self.handle_common_message(message_type, &mut payload)
+                        self.handle_common_message_from_client(message_type, &mut payload)
                             .await?;
                     }
                     AnyMessage::Mining(_) => {

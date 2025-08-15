@@ -9,10 +9,10 @@ use tracing::info;
 use crate::channel_manager::ChannelManager;
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
-    fn get_channel_type_server(&self) -> SupportedChannelTypes {
+    fn get_channel_type_for_server(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
-    fn is_work_selection_enabled_server(&self) -> bool {
+    fn is_work_selection_enabled_for_server(&self) -> bool {
         false
     }
     async fn handle_open_standard_mining_channel_success(

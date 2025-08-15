@@ -205,8 +205,11 @@ impl ChannelManager {
 
                     match parsed_message {
                         AnyMessage::JobDeclaration(_) => {
-                            self.handle_job_declaration_message(message_type, &mut payload)
-                                .await;
+                            self.handle_job_declaration_message_from_server(
+                                message_type,
+                                &mut payload,
+                            )
+                            .await;
                         }
                         _ => {
                             error!("Received unsupported message type from upstream.");
@@ -234,7 +237,7 @@ impl ChannelManager {
 
                     match parsed_message {
                         AnyMessage::Mining(_) => {
-                            self.handle_mining_server_message(message_type, &mut payload)
+                            self.handle_mining_message_from_server(message_type, &mut payload)
                                 .await;
                         }
                         _ => {
@@ -263,8 +266,11 @@ impl ChannelManager {
 
                     match parsed_message {
                         AnyMessage::TemplateDistribution(_) => {
-                            self.handle_template_distribution_message(message_type, &mut payload)
-                                .await;
+                            self.handle_template_distribution_message_from_server(
+                                message_type,
+                                &mut payload,
+                            )
+                            .await;
                         }
                         _ => {
                             error!("Received unsupported message type from upstream.");
@@ -297,7 +303,7 @@ impl ChannelManager {
 
                     match parsed_message {
                         AnyMessage::Mining(_) => {
-                            self.handle_mining_client_message(message_type, &mut payload)
+                            self.handle_mining_message_from_client(message_type, &mut payload)
                                 .await;
                         }
                         _ => {

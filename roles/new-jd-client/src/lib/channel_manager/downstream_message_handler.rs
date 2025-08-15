@@ -1,4 +1,5 @@
 use stratum_common::roles_logic_sv2::{
+    codec_sv2::binary_sv2::Str0255,
     handlers_sv2::{
         HandleMiningMessagesFromClientAsync, HandlerError as Error, SupportedChannelTypes,
     },
@@ -9,13 +10,15 @@ use tracing::info;
 use crate::channel_manager::ChannelManager;
 
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
-    fn get_channel_type_client(&self) -> SupportedChannelTypes {
+    fn get_channel_type_for_client(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
-    fn is_work_selection_enabled_client(&self) -> bool {
+    fn is_work_selection_enabled_for_client(&self) -> bool {
         false
     }
-
+    fn is_client_authorized(&self, user_identity: &Str0255) -> Result<bool, Error> {
+        Ok(true)
+    }
     async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
         info!("Received {msg:#?}");
         Ok(())

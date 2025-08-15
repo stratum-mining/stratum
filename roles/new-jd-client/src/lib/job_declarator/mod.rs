@@ -160,7 +160,7 @@ impl JobDeclarator {
             .ok_or(framing_sv2::Error::ExpectedHandshakeFrame)?
             .msg_type();
 
-        self.handle_common_message(message_type, incoming.payload())
+        self.handle_common_message_from_server(message_type, incoming.payload())
             .await?;
 
         Ok(())
@@ -199,7 +199,7 @@ impl JobDeclarator {
 
                 match parsed_message {
                     AnyMessage::Common(_) => {
-                        self.handle_common_message(message_type, &mut payload)
+                        self.handle_common_message_from_server(message_type, &mut payload)
                             .await?;
                     }
                     AnyMessage::JobDeclaration(_) => {
