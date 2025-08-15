@@ -1,18 +1,25 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
+use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
+        channels_sv2::server::extended::ExtendedChannel,
         codec_sv2::{self, Responder},
         handlers_sv2::{
             HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
             HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
+        mining_sv2::{ExtendedExtranonce, FULL_EXTRANONCE_LEN},
         parsers_sv2::{AnyMessage, TemplateDistribution},
-        template_distribution_sv2::CoinbaseOutputConstraints,
-        utils::Mutex,
+        template_distribution_sv2::{
+            CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash as SetNewPrevHashTdp,
+            SubmitSolution,
+        },
+        utils::{Id as IdFactory, Mutex},
+        Vardiff,
     },
 };
 use tokio::{
@@ -22,6 +29,7 @@ use tokio::{
 use tracing::{debug, error, info};
 
 use crate::{
+    config::JobDeclaratorClientConfig,
     downstream::Downstream,
     error::JDCError,
     status::{handle_error, Status, StatusSender},
@@ -35,6 +43,12 @@ mod upstream_message_handler;
 
 pub struct ChannelManagerData {
     downstream: HashMap<u32, Downstream>,
+    extranonce_prefix_factory_extended: ExtendedExtranonce,
+    channel_id_factory: IdFactory,
+    last_future_template: Option<NewTemplate<'static>>,
+    last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
+    extended_channels: HashMap<u32, ExtendedChannel<'static>>,
+    vardiff: HashMap<u32, Box<dyn Vardiff>>,
 }
 
 #[derive(Clone)]
@@ -53,10 +67,16 @@ pub struct ChannelManagerChannel {
 pub struct ChannelManager {
     channel_manager_data: Arc<Mutex<ChannelManagerData>>,
     channel_manager_channel: ChannelManagerChannel,
+    pool_tag_string: Option<String>,
+    miner_tag_string: String,
+    share_batch_size: usize,
+    shares_per_minute: f32,
+    coinbase_reward_script: CoinbaseRewardScript,
 }
 
 impl ChannelManager {
     pub async fn new(
+        config: JobDeclaratorClientConfig,
         task_manager: Arc<TaskManager>,
         upstream_sender: Sender<EitherFrame>,
         upstream_receiver: Receiver<EitherFrame>,
@@ -68,8 +88,38 @@ impl ChannelManager {
         downstream_receiver: Receiver<EitherFrame>,
         status_sender: Sender<Status>,
     ) -> Result<Self, JDCError> {
+        let range_1_start = 0;
+        let range_1_end = 8;
+
+        // range_0 is not used here
+        let range_0 = std::ops::Range {
+            start: range_1_start,
+            end: range_1_start,
+        };
+        let range_1 = std::ops::Range {
+            start: range_1_start,
+            end: range_1_end,
+        };
+        let range_2 = std::ops::Range {
+            start: range_1_end,
+            end: FULL_EXTRANONCE_LEN,
+        };
+
+        // static prefix we can tackle later
+        let extranonce_prefix_factory_extended =
+            ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
+                .expect("Failed to create ExtendedExtranonce with valid ranges");
+        let channel_id_factory = IdFactory::new();
+
+        // make share batch size and share per minute configurable by config
         let channel_manager_data = Arc::new(Mutex::new(ChannelManagerData {
             downstream: HashMap::new(),
+            extranonce_prefix_factory_extended,
+            channel_id_factory,
+            last_future_template: None,
+            last_new_prev_hash: None,
+            extended_channels: HashMap::new(),
+            vardiff: HashMap::new(),
         }));
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,
@@ -84,6 +134,11 @@ impl ChannelManager {
         let channel_manager = ChannelManager {
             channel_manager_data,
             channel_manager_channel,
+            share_batch_size: 0,
+            shares_per_minute: 10.0,
+            pool_tag_string: Some("pool".to_string()),
+            miner_tag_string: "miner".to_string(),
+            coinbase_reward_script: config.coinbase_reward_script,
         };
 
         Ok(channel_manager)

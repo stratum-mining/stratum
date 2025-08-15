@@ -72,6 +72,7 @@ impl JobDeclaratorClient {
         let listening_address = self.config.listening_address().clone();
 
         let channel_manager = ChannelManager::new(
+            self.config.clone(),
             task_manager.clone(),
             channel_manager_to_upstream_sender.clone(),
             upstream_to_channel_manager_receiver.clone(),

@@ -63,6 +63,7 @@ pub enum JDCError {
     NetworkHelpersError(stratum_common::network_helpers_sv2::Error),
     HandlerError(HandlerError),
     UnexpectedMessage,
+    InvalidUserIdentity(String),
 }
 
 impl fmt::Display for JDCError {
@@ -93,6 +94,7 @@ impl fmt::Display for JDCError {
             NetworkHelpersError(ref e) => write!(f, "Network error: {e:?}"),
             HandlerError(ref e) => write!(f, "Error generated from handler: {e:?}"),
             UnexpectedMessage => write!(f, "Unexpected Message"),
+            InvalidUserIdentity(ref s) => write!(f, "User ID is invalid"),
         }
     }
 }

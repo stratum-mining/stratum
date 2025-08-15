@@ -36,7 +36,7 @@ pub struct JobDeclaratorClientConfig {
     #[serde(deserialize_with = "config_helpers_sv2::duration_from_toml")]
     timeout: Duration,
     /// This is only used during solo-mining.
-    coinbase_reward_script: CoinbaseRewardScript,
+    pub coinbase_reward_script: CoinbaseRewardScript,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
     /// The path to the log file where JDC will write logs.
