@@ -1,6 +1,7 @@
 //! Mining Client abstraction over the state of a Sv2 Extended Channel
 
 use crate::{
+    bip141::try_strip_bip141,
     chain_tip::ChainTip,
     client::{
         error::ExtendedChannelError,
@@ -177,8 +178,28 @@ impl<'a> ExtendedChannel<'a> {
     /// Called when a `NewExtendedMiningJob` message is received from upstream.
     pub fn on_new_extended_mining_job(
         &mut self,
-        new_extended_mining_job: NewExtendedMiningJob<'a>,
-    ) {
+        mut new_extended_mining_job: NewExtendedMiningJob<'a>,
+    ) -> Result<(), ExtendedChannelError> {
+        // try to strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix, if they are
+        // present
+        let new_extended_mining_job = match try_strip_bip141(
+            new_extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
+            new_extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
+        )
+        .map_err(ExtendedChannelError::FailedToTryToStripBip141)?
+        {
+            Some((coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141)) => {
+                new_extended_mining_job.coinbase_tx_prefix = coinbase_tx_prefix_stripped_bip141
+                    .try_into()
+                    .map_err(|_| ExtendedChannelError::FailedToSerializeToB064K)?;
+                new_extended_mining_job.coinbase_tx_suffix = coinbase_tx_suffix_stripped_bip141
+                    .try_into()
+                    .map_err(|_| ExtendedChannelError::FailedToSerializeToB064K)?;
+                new_extended_mining_job
+            }
+            None => new_extended_mining_job,
+        };
+
         match new_extended_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
                 if let Some(active_job) = self.active_job.clone() {
@@ -193,6 +214,8 @@ impl<'a> ExtendedChannel<'a> {
                 );
             }
         }
+
+        Ok(())
     }
 
     /// Called when a `SetNewPrevHash` message is received from upstream.
@@ -427,8 +450,8 @@ mod tests {
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
-                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
             ]
             .try_into()
             .unwrap(),
@@ -437,15 +460,16 @@ mod tests {
                 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
                 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
                 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
-                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                235, 216, 54, 151, 78, 140, 249, 0, 0, 0, 0,
             ]
             .try_into()
             .unwrap(),
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        channel.on_new_extended_mining_job(future_job.clone());
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
 
         assert_eq!(channel.get_future_jobs().len(), 1);
         assert_eq!(channel.get_active_job(), None);
@@ -509,8 +533,8 @@ mod tests {
             version: 536870912,
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
-                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+                2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
             ]
             .try_into()
             .unwrap(),
@@ -519,15 +543,16 @@ mod tests {
                 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
                 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
                 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
-                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                235, 216, 54, 151, 78, 140, 249, 0, 0, 0, 0,
             ]
             .try_into()
             .unwrap(),
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        channel.on_new_extended_mining_job(active_job.clone());
+        channel
+            .on_new_extended_mining_job(active_job.clone())
+            .unwrap();
 
         assert_eq!(channel.get_future_jobs().len(), 0);
         assert_eq!(
@@ -538,7 +563,9 @@ mod tests {
 
         let mut new_active_job = active_job.clone();
         new_active_job.job_id = 2;
-        channel.on_new_extended_mining_job(new_active_job.clone());
+        channel
+            .on_new_extended_mining_job(new_active_job.clone())
+            .unwrap();
 
         assert_eq!(channel.get_future_jobs().len(), 0);
         assert_eq!(
@@ -597,7 +624,9 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        channel.on_new_extended_mining_job(future_job.clone());
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
 
         // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
         let nbits = 545259519;
@@ -689,7 +718,9 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        channel.on_new_extended_mining_job(future_job.clone());
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
 
         // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
         let nbits = 453040064;
@@ -784,7 +815,9 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        channel.on_new_extended_mining_job(future_job.clone());
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
 
         // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
         let nbits: u32 = 453040064;

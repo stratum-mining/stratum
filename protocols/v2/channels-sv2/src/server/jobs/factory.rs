@@ -1,11 +1,12 @@
 //! Abstraction of a factory for creating Sv2 Extended or Standard Jobs.
 use crate::{
+    bip141::try_strip_bip141,
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
     server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
     template::deserialize_template_outputs,
 };
-use binary_sv2::{Sv2Option, B064K};
+use binary_sv2::Sv2Option;
 use bitcoin::{
     absolute::LockTime,
     blockdata::witness::Witness,
@@ -142,8 +143,8 @@ impl JobFactory {
             self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
         let merkle_path = template.merkle_path.clone();
         let merkle_root = merkle_root_from_path(
-            coinbase_tx_prefix.inner_as_ref(),
-            coinbase_tx_suffix.inner_as_ref(),
+            &coinbase_tx_prefix,
+            &coinbase_tx_suffix,
             &extranonce_prefix,
             &merkle_path.inner_as_ref(),
         )
@@ -218,6 +219,13 @@ impl JobFactory {
             self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
         let coinbase_tx_suffix =
             self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
+
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
+            try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
+                .map_err(|_| JobFactoryError::FailedToStripBip141)?
+                .ok_or(JobFactoryError::FailedToStripBip141)?;
+
         let merkle_path = template.merkle_path.clone();
 
         let job_message = match template.future_template {
@@ -228,8 +236,12 @@ impl JobFactory {
                 version,
                 version_rolling_allowed: self.version_rolling_allowed,
                 merkle_path,
-                coinbase_tx_prefix,
-                coinbase_tx_suffix,
+                coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
+                    .try_into()
+                    .map_err(|_| JobFactoryError::CoinbaseTxPrefixError)?,
+                coinbase_tx_suffix: coinbase_tx_suffix_stripped_bip141
+                    .try_into()
+                    .map_err(|_| JobFactoryError::CoinbaseTxSuffixError)?,
             },
             false => {
                 let min_ntime = match chain_tip {
@@ -243,8 +255,12 @@ impl JobFactory {
                     version,
                     version_rolling_allowed: self.version_rolling_allowed,
                     merkle_path,
-                    coinbase_tx_prefix,
-                    coinbase_tx_suffix,
+                    coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
+                        .try_into()
+                        .map_err(|_| JobFactoryError::CoinbaseTxPrefixError)?,
+                    coinbase_tx_suffix: coinbase_tx_suffix_stripped_bip141
+                        .try_into()
+                        .map_err(|_| JobFactoryError::CoinbaseTxSuffixError)?,
                 }
             }
         };
@@ -253,6 +269,8 @@ impl JobFactory {
             template,
             extranonce_prefix,
             additional_coinbase_outputs,
+            coinbase_tx_prefix,
+            coinbase_tx_suffix,
             job_message,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
@@ -283,6 +301,12 @@ impl JobFactory {
         let coinbase_tx_prefix = self.custom_coinbase_tx_prefix(set_custom_mining_job.clone())?;
         let coinbase_tx_suffix = self.custom_coinbase_tx_suffix(set_custom_mining_job.clone())?;
 
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
+            try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
+                .map_err(|_| JobFactoryError::FailedToStripBip141)?
+                .ok_or(JobFactoryError::FailedToStripBip141)?;
+
         let merkle_path = set_custom_mining_job.merkle_path.clone().into_static();
 
         let job_message = NewExtendedMiningJob {
@@ -291,8 +315,14 @@ impl JobFactory {
             min_ntime: Sv2Option::new(Some(set_custom_mining_job.min_ntime)),
             version,
             version_rolling_allowed: self.version_rolling_allowed,
-            coinbase_tx_prefix,
-            coinbase_tx_suffix,
+            coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
+                .clone()
+                .try_into()
+                .map_err(|_| JobFactoryError::CoinbaseTxPrefixError)?,
+            coinbase_tx_suffix: coinbase_tx_suffix_stripped_bip141
+                .clone()
+                .try_into()
+                .map_err(|_| JobFactoryError::CoinbaseTxSuffixError)?,
             merkle_path,
         };
 
@@ -300,6 +330,8 @@ impl JobFactory {
             set_custom_mining_job,
             extranonce_prefix,
             coinbase_outputs,
+            coinbase_tx_prefix,
+            coinbase_tx_suffix,
             job_message,
         );
 
@@ -327,7 +359,9 @@ impl JobFactory {
             previous_output: OutPoint::null(),
             script_sig: script_sig.into(),
             sequence: Sequence(m.coinbase_tx_input_n_sequence),
-            witness: Witness::from(vec![vec![0; 32]]),
+            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
+                                                        * assume now, this could change in future
+                                                        * soft forks */
         };
 
         Ok(Transaction {
@@ -341,7 +375,7 @@ impl JobFactory {
     fn custom_coinbase_tx_prefix(
         &self,
         m: SetCustomMiningJob<'_>,
-    ) -> Result<B064K<'static>, JobFactoryError> {
+    ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.custom_coinbase(m.clone())?;
         let serialized_coinbase = serialize(&coinbase);
 
@@ -353,16 +387,15 @@ impl JobFactory {
             + 1 // bytes in script
             + m.coinbase_prefix.inner_as_ref().len();
 
-        let r = serialized_coinbase[0..index].to_vec();
+        let coinbase_tx_prefix = serialized_coinbase[0..index].to_vec();
 
-        r.try_into()
-            .map_err(|_| JobFactoryError::CoinbaseTxPrefixError)
+        Ok(coinbase_tx_prefix)
     }
 
     fn custom_coinbase_tx_suffix(
         &self,
         m: SetCustomMiningJob<'_>,
-    ) -> Result<B064K<'static>, JobFactoryError> {
+    ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.custom_coinbase(m.clone())?;
         let serialized_coinbase = serialize(&coinbase);
 
@@ -378,10 +411,9 @@ impl JobFactory {
             + m.coinbase_prefix.inner_as_ref().len()
             + full_extranonce_size;
 
-        let r = serialized_coinbase[index..].to_vec();
+        let coinbase_tx_suffix = serialized_coinbase[index..].to_vec();
 
-        r.try_into()
-            .map_err(|_| JobFactoryError::CoinbaseTxSuffixError)
+        Ok(coinbase_tx_suffix)
     }
 
     // build a coinbase transaction from some template in the JobFactory
@@ -429,7 +461,9 @@ impl JobFactory {
             previous_output: OutPoint::null(),
             script_sig: script_sig.into(),
             sequence: Sequence(template.coinbase_tx_input_sequence),
-            witness: Witness::from(vec![vec![0; 32]]),
+            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
+                                                        * assume now, this could change in future
+                                                        * soft forks */
         };
 
         Ok(Transaction {
@@ -444,7 +478,7 @@ impl JobFactory {
         &self,
         template: NewTemplate<'_>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<B064K<'static>, JobFactoryError> {
+    ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
         let serialized_coinbase = serialize(&coinbase);
 
@@ -464,17 +498,16 @@ impl JobFactory {
             + pool_miner_tag_len
             + 1; // OP_PUSHBYTES_32 (for the extranonce)
 
-        let r = serialized_coinbase[0..index].to_vec();
+        let coinbase_tx_prefix = serialized_coinbase[0..index].to_vec();
 
-        r.try_into()
-            .map_err(|_| JobFactoryError::CoinbaseTxPrefixError)
+        Ok(coinbase_tx_prefix)
     }
 
     fn coinbase_tx_suffix(
         &self,
         template: NewTemplate<'_>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<B064K<'static>, JobFactoryError> {
+    ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
         let serialized_coinbase = serialize(&coinbase);
 
@@ -487,7 +520,7 @@ impl JobFactory {
         // 32 bytes
         let full_extranonce_size = FULL_EXTRANONCE_LEN;
 
-        let r = serialized_coinbase[4 // tx version
+        let coinbase_tx_suffix = serialized_coinbase[4 // tx version
             + 2 // segwit bytes
             + 1 // number of inputs
             + 32 // prev OutPoint
@@ -499,8 +532,7 @@ impl JobFactory {
             + full_extranonce_size..]
             .to_vec();
 
-        r.try_into()
-            .map_err(|_| JobFactoryError::CoinbaseTxSuffixError)
+        Ok(coinbase_tx_suffix)
     }
 }
 
@@ -579,10 +611,9 @@ mod tests {
             version_rolling_allowed: true,
             // contains scriptSig with /Stratum V2 SRI Pool//
             coinbase_tx_prefix: vec![
-                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 58, 82, 0, 22, 47, 83, 116,
-                114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 47,
-                32,
+                2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 58, 82, 0, 22, 47, 83, 116, 114, 97,
+                116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -591,8 +622,7 @@ mod tests {
                 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
                 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
                 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
-                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                235, 216, 54, 151, 78, 140, 249, 0, 0, 0, 0,
             ]
             .try_into()
             .unwrap(),
@@ -690,11 +720,10 @@ mod tests {
             version_rolling_allowed: true,
             // contains scriptSig with /Stratum V2 SRI Pool/Stratum V2 SRI Miner/
             coinbase_tx_prefix: vec![
-                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 78, 82, 0, 42, 47, 83, 116,
-                114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 83,
-                116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 77, 105, 110, 101,
-                114, 47, 32,
+                2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 78, 82, 0, 42, 47, 83, 116, 114, 97,
+                116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 47, 83, 116, 114,
+                97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 77, 105, 110, 101, 114, 47, 32,
             ]
             .try_into()
             .unwrap(),
@@ -703,8 +732,7 @@ mod tests {
                 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
                 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
                 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
-                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                235, 216, 54, 151, 78, 140, 249, 0, 0, 0, 0,
             ]
             .try_into()
             .unwrap(),

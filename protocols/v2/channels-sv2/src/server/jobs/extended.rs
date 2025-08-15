@@ -19,11 +19,22 @@ use template_distribution_sv2::NewTemplate;
 /// - the extranonce prefix associated with the channel at the time of job creation
 /// - all coinbase outputs (spendable + unspendable) associated with the job
 /// - the `NewExtendedMiningJob` message to be sent across the wire
+///
+/// Please note that `coinbase_tx_prefix` and `coinbase_tx_suffix` are stored in memory with bip141
+/// data (marker, flag and witness). That makes it easy to reconstruct the segwit coinbase while
+/// trying to propagate a block.
+///
+/// However, the `coinbase_tx_prefix` and `coinbase_tx_suffix` contained in the
+/// `NewExtendedMiningJob` message to be sent across the wire DO NOT contain bip141 data.
+/// That makes it easy to calculate the coinbase `txid` (instead of `wtxid`) for merkle root
+/// calculation.
 #[derive(Debug, Clone)]
 pub struct ExtendedJob<'a> {
     origin: JobOrigin<'a>,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
+    coinbase_tx_prefix_with_bip141: Vec<u8>,
+    coinbase_tx_suffix_with_bip141: Vec<u8>,
     job_message: NewExtendedMiningJob<'a>,
 }
 
@@ -45,6 +56,8 @@ impl<'a> ExtendedJob<'a> {
         template: NewTemplate<'a>,
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
+        coinbase_tx_prefix: Vec<u8>,
+        coinbase_tx_suffix: Vec<u8>,
         job_message: NewExtendedMiningJob<'a>,
     ) -> Result<Self, ExtendedJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
@@ -61,6 +74,8 @@ impl<'a> ExtendedJob<'a> {
             origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
+            coinbase_tx_prefix_with_bip141: coinbase_tx_prefix,
+            coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
         })
     }
@@ -69,12 +84,16 @@ impl<'a> ExtendedJob<'a> {
         custom_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
         coinbase_outputs: Vec<TxOut>,
+        coinbase_tx_prefix: Vec<u8>,
+        coinbase_tx_suffix: Vec<u8>,
         job_message: NewExtendedMiningJob<'a>,
     ) -> Self {
         Self {
             origin: JobOrigin::SetCustomMiningJob(custom_job),
             extranonce_prefix,
             coinbase_outputs,
+            coinbase_tx_prefix_with_bip141: coinbase_tx_prefix,
+            coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
         }
     }
@@ -92,13 +111,13 @@ impl<'a> ExtendedJob<'a> {
         token: B0255<'a>,
         chain_tip: ChainTip,
     ) -> Result<SetCustomMiningJob<'a>, ExtendedJobError> {
-        let coinbase_tx_prefix = self.get_coinbase_tx_prefix().inner_as_ref();
-        let coinbase_tx_suffix = self.get_coinbase_tx_suffix().inner_as_ref();
+        let coinbase_tx_prefix = self.get_coinbase_tx_prefix_with_bip141();
+        let coinbase_tx_suffix = self.get_coinbase_tx_suffix_with_bip141();
 
         let mut serialized_coinbase: Vec<u8> = vec![];
-        serialized_coinbase.extend(coinbase_tx_prefix);
+        serialized_coinbase.extend(coinbase_tx_prefix.clone());
         serialized_coinbase.extend(vec![0; FULL_EXTRANONCE_LEN]);
-        serialized_coinbase.extend(coinbase_tx_suffix);
+        serialized_coinbase.extend(coinbase_tx_suffix.clone());
 
         let deserialized_coinbase: Transaction = deserialize(&serialized_coinbase)
             .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbase)?;
@@ -175,8 +194,8 @@ impl<'a> ExtendedJob<'a> {
         };
 
         let merkle_root = merkle_root_from_path(
-            self.get_coinbase_tx_prefix().inner_as_ref(),
-            self.get_coinbase_tx_suffix().inner_as_ref(),
+            &self.get_coinbase_tx_prefix_without_bip141(),
+            &self.get_coinbase_tx_suffix_without_bip141(),
             &extranonce_prefix,
             &self.get_merkle_path().inner_as_ref(),
         )
@@ -211,12 +230,12 @@ impl<'a> ExtendedJob<'a> {
         &self.origin
     }
 
-    pub fn get_coinbase_tx_prefix(&self) -> &B064K<'a> {
-        &self.job_message.coinbase_tx_prefix
+    pub fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8> {
+        self.job_message.coinbase_tx_prefix.inner_as_ref().to_vec()
     }
 
-    pub fn get_coinbase_tx_suffix(&self) -> &B064K<'a> {
-        &self.job_message.coinbase_tx_suffix
+    pub fn get_coinbase_tx_suffix_without_bip141(&self) -> Vec<u8> {
+        self.job_message.coinbase_tx_suffix.inner_as_ref().to_vec()
     }
 
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
@@ -245,6 +264,14 @@ impl<'a> ExtendedJob<'a> {
 
     pub fn version_rolling_allowed(&self) -> bool {
         self.job_message.version_rolling_allowed
+    }
+
+    pub fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8> {
+        self.coinbase_tx_prefix_with_bip141.clone()
+    }
+
+    pub fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8> {
+        self.coinbase_tx_suffix_with_bip141.clone()
     }
 
     /// Activates the job, setting the `min_ntime` field of the `NewExtendedMiningJob` message.
