@@ -1,15 +1,15 @@
 [package]
 name = "translator_sv2"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
-description = "Server used to bridge SV1 miners to SV2 pools"
+description = "SV1 to SV2 translation proxy"
 documentation = "https://docs.rs/translator_sv2"
 readme = "README.md"
 homepage = "https://stratumprotocol.org"
 repository = "https://github.com/stratum-mining/stratum"
 license = "MIT OR Apache-2.0"
-keywords = ["stratum", "mining", "bitcoin", "protocol"]
+keywords = ["stratum", "mining", "bitcoin", "protocol", "translator", "proxy"]
 
 [lib]
 name = "translator_sv2"
@@ -20,11 +20,17 @@ name = "translator_sv2"
 path = "src/main.rs"
 
 [dependencies]
-stratum-common = { path = "../../common", features = ["with_network_helpers"] }
+stratum-common = { path = "../../common" }
 async-channel = "1.5.1"
 async-recursion = "0.3.2"
+binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 buffer_sv2 = { path = "../../utils/buffer" }
+codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
+framing_sv2 = { path = "../../protocols/v2/framing-sv2" }
+network_helpers_sv2 = { path = "../roles-utils/network-helpers", features=["with_buffer_pool", "sv1"] }
 once_cell = "1.12.0"
+roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
+stratum_translation = { path = "../roles-utils/stratum-translation" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 futures = "0.3.25"

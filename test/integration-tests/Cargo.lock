@@ -2331,6 +2331,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "stratum_translation"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "channels_sv2",
+ "mining_sv2",
+ "sv1_api",
+ "tracing",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2637,23 +2648,29 @@ dependencies = [
 
 [[package]]
 name = "translator_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-channel",
  "async-recursion 0.3.2",
+ "binary_sv2",
  "buffer_sv2",
  "clap",
+ "codec_sv2",
  "config",
  "config_helpers_sv2",
  "error_handling",
+ "framing_sv2",
  "futures",
  "key-utils",
+ "network_helpers_sv2",
  "once_cell",
  "primitive-types",
  "rand 0.8.5",
+ "roles_logic_sv2",
  "serde",
  "serde_json",
  "stratum-common",
+ "stratum_translation",
  "sv1_api",
  "tokio",
  "tokio-util",

@@ -10,7 +10,6 @@
 //! - Downstream interface address and port ([`DownstreamConfig`])
 //! - Supported protocol versions
 //! - Downstream difficulty adjustment parameters ([`DownstreamDifficultyConfig`])
-//! - Upstream difficulty adjustment parameters ([`UpstreamDifficultyConfig`])
 use std::path::{Path, PathBuf};
 
 use key_utils::Secp256k1PublicKey;
@@ -19,12 +18,7 @@ use serde::Deserialize;
 /// Configuration for the Translator.
 #[derive(Debug, Deserialize, Clone)]
 pub struct TranslatorConfig {
-    /// The address of the upstream server.
-    pub upstream_address: String,
-    /// The port of the upstream server.
-    pub upstream_port: u16,
-    /// The Secp256k1 public key used to authenticate the upstream authority.
-    pub upstream_authority_pubkey: Secp256k1PublicKey,
+    pub upstreams: Vec<Upstream>,
     /// The address for the downstream interface.
     pub downstream_address: String,
     /// The port for the downstream interface.
@@ -35,15 +29,69 @@ pub struct TranslatorConfig {
     pub min_supported_version: u16,
     /// The minimum size required for the extranonce2 field in mining submissions.
     pub min_extranonce2_size: u16,
+    /// The user identity/username to use when connecting to the pool.
+    /// This will be appended with a counter for each mining channel (e.g., username.miner1,
+    /// username.miner2).
+    pub user_identity: String,
     /// Configuration settings for managing difficulty on the downstream connection.
     pub downstream_difficulty_config: DownstreamDifficultyConfig,
-    /// Configuration settings for managing difficulty on the upstream connection.
-    pub upstream_difficulty_config: UpstreamDifficultyConfig,
+    /// Whether to aggregate all downstream connections into a single upstream channel.
+    /// If true, all miners share one channel. If false, each miner gets its own channel.
+    pub aggregate_channels: bool,
     /// The path to the log file for the Translator.
     log_file: Option<PathBuf>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct Upstream {
+    /// The address of the upstream server.
+    pub address: String,
+    /// The port of the upstream server.
+    pub port: u16,
+    /// The Secp256k1 public key used to authenticate the upstream authority.
+    pub authority_pubkey: Secp256k1PublicKey,
+}
+
+impl Upstream {
+    /// Creates a new `UpstreamConfig` instance.
+    pub fn new(address: String, port: u16, authority_pubkey: Secp256k1PublicKey) -> Self {
+        Self {
+            address,
+            port,
+            authority_pubkey,
+        }
+    }
+}
+
 impl TranslatorConfig {
+    /// Creates a new `TranslatorConfig` instance with the specified upstream and downstream
+    /// configurations and version constraints.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        upstreams: Vec<Upstream>,
+        downstream_address: String,
+        downstream_port: u16,
+        downstream_difficulty_config: DownstreamDifficultyConfig,
+        max_supported_version: u16,
+        min_supported_version: u16,
+        min_extranonce2_size: u16,
+        user_identity: String,
+        aggregate_channels: bool,
+    ) -> Self {
+        Self {
+            upstreams,
+            downstream_address,
+            downstream_port,
+            max_supported_version,
+            min_supported_version,
+            min_extranonce2_size,
+            user_identity,
+            downstream_difficulty_config,
+            aggregate_channels,
+            log_file: None,
+        }
+    }
+
     pub fn set_log_dir(&mut self, log_dir: Option<PathBuf>) {
         if let Some(dir) = log_dir {
             self.log_file = Some(dir);
@@ -54,82 +102,6 @@ impl TranslatorConfig {
     }
 }
 
-/// Configuration settings specific to the upstream connection.
-pub struct UpstreamConfig {
-    /// The address of the upstream server.
-    address: String,
-    /// The port of the upstream server.
-    port: u16,
-    /// The Secp256k1 public key used to authenticate the upstream authority.
-    authority_pubkey: Secp256k1PublicKey,
-    /// Configuration settings for managing difficulty on the upstream connection.
-    difficulty_config: UpstreamDifficultyConfig,
-}
-
-impl UpstreamConfig {
-    /// Creates a new `UpstreamConfig` instance.
-    pub fn new(
-        address: String,
-        port: u16,
-        authority_pubkey: Secp256k1PublicKey,
-        difficulty_config: UpstreamDifficultyConfig,
-    ) -> Self {
-        Self {
-            address,
-            port,
-            authority_pubkey,
-            difficulty_config,
-        }
-    }
-}
-
-/// Configuration settings specific to the downstream connection.
-pub struct DownstreamConfig {
-    /// The address for the downstream interface.
-    address: String,
-    /// The port for the downstream interface.
-    port: u16,
-    /// Configuration settings for managing difficulty on the downstream connection.
-    difficulty_config: DownstreamDifficultyConfig,
-}
-
-impl DownstreamConfig {
-    /// Creates a new `DownstreamConfig` instance.
-    pub fn new(address: String, port: u16, difficulty_config: DownstreamDifficultyConfig) -> Self {
-        Self {
-            address,
-            port,
-            difficulty_config,
-        }
-    }
-}
-
-impl TranslatorConfig {
-    /// Creates a new `TranslatorConfig` instance by combining upstream and downstream
-    /// configurations and specifying version and extranonce constraints.
-    pub fn new(
-        upstream: UpstreamConfig,
-        downstream: DownstreamConfig,
-        max_supported_version: u16,
-        min_supported_version: u16,
-        min_extranonce2_size: u16,
-    ) -> Self {
-        Self {
-            upstream_address: upstream.address,
-            upstream_port: upstream.port,
-            upstream_authority_pubkey: upstream.authority_pubkey,
-            downstream_address: downstream.address,
-            downstream_port: downstream.port,
-            max_supported_version,
-            min_supported_version,
-            min_extranonce2_size,
-            downstream_difficulty_config: downstream.difficulty_config,
-            upstream_difficulty_config: upstream.difficulty_config,
-            log_file: None,
-        }
-    }
-}
-
 /// Configuration settings for managing difficulty adjustments on the downstream connection.
 #[derive(Debug, Deserialize, Clone)]
 pub struct DownstreamDifficultyConfig {
@@ -137,12 +109,9 @@ pub struct DownstreamDifficultyConfig {
     pub min_individual_miner_hashrate: f32,
     /// The target number of shares per minute for difficulty adjustment.
     pub shares_per_minute: f32,
-    /// The number of shares submitted since the last difficulty update.
-    #[serde(default = "u32::default")]
-    pub submits_since_last_update: u32,
-    /// The timestamp of the last difficulty update.
-    #[serde(default = "u64::default")]
-    pub timestamp_of_last_update: u64,
+    /// Whether to enable variable difficulty adjustment mechanism.
+    /// If false, difficulty will be managed by upstream (useful with JDC).
+    pub enable_vardiff: bool,
 }
 
 impl DownstreamDifficultyConfig {
@@ -150,52 +119,150 @@ impl DownstreamDifficultyConfig {
     pub fn new(
         min_individual_miner_hashrate: f32,
         shares_per_minute: f32,
-        submits_since_last_update: u32,
-        timestamp_of_last_update: u64,
+        enable_vardiff: bool,
     ) -> Self {
         Self {
             min_individual_miner_hashrate,
             shares_per_minute,
-            submits_since_last_update,
-            timestamp_of_last_update,
+            enable_vardiff,
         }
     }
 }
-impl PartialEq for DownstreamDifficultyConfig {
-    fn eq(&self, other: &Self) -> bool {
-        other.min_individual_miner_hashrate.round() as u32
-            == self.min_individual_miner_hashrate.round() as u32
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn create_test_upstream() -> Upstream {
+        // Use a valid base58-encoded public key from the key-utils test cases
+        let pubkey_str = "9bDuixKmZqAJnrmP746n8zU1wyAQRrus7th9dxnkPg6RzQvCnan";
+        let pubkey = Secp256k1PublicKey::from_str(pubkey_str).unwrap();
+        Upstream::new("127.0.0.1".to_string(), 4444, pubkey)
     }
-}
 
-/// Configuration settings for difficulty adjustments on the upstream connection.
-#[derive(Debug, Deserialize, Clone)]
-pub struct UpstreamDifficultyConfig {
-    /// The interval in seconds at which the channel difficulty should be updated.
-    pub channel_diff_update_interval: u32,
-    /// The nominal hashrate for the channel, used in difficulty calculations.
-    pub channel_nominal_hashrate: f32,
-    /// The timestamp of the last difficulty update for the channel.
-    #[serde(default = "u64::default")]
-    pub timestamp_of_last_update: u64,
-    /// Indicates whether shares from downstream should be aggregated before submitting upstream.
-    #[serde(default = "bool::default")]
-    pub should_aggregate: bool,
-}
+    fn create_test_difficulty_config() -> DownstreamDifficultyConfig {
+        DownstreamDifficultyConfig::new(100.0, 5.0, true)
+    }
 
-impl UpstreamDifficultyConfig {
-    /// Creates a new `UpstreamDifficultyConfig` instance.
-    pub fn new(
-        channel_diff_update_interval: u32,
-        channel_nominal_hashrate: f32,
-        timestamp_of_last_update: u64,
-        should_aggregate: bool,
-    ) -> Self {
-        Self {
-            channel_diff_update_interval,
-            channel_nominal_hashrate,
-            timestamp_of_last_update,
-            should_aggregate,
-        }
+    #[test]
+    fn test_upstream_creation() {
+        let upstream = create_test_upstream();
+        assert_eq!(upstream.address, "127.0.0.1");
+        assert_eq!(upstream.port, 4444);
+    }
+
+    #[test]
+    fn test_downstream_difficulty_config_creation() {
+        let config = create_test_difficulty_config();
+        assert_eq!(config.min_individual_miner_hashrate, 100.0);
+        assert_eq!(config.shares_per_minute, 5.0);
+        assert!(config.enable_vardiff);
+    }
+
+    #[test]
+    fn test_translator_config_creation() {
+        let upstreams = vec![create_test_upstream()];
+        let difficulty_config = create_test_difficulty_config();
+
+        let config = TranslatorConfig::new(
+            upstreams,
+            "0.0.0.0".to_string(),
+            3333,
+            difficulty_config,
+            2,
+            1,
+            4,
+            "test_user".to_string(),
+            true,
+        );
+
+        assert_eq!(config.upstreams.len(), 1);
+        assert_eq!(config.downstream_address, "0.0.0.0");
+        assert_eq!(config.downstream_port, 3333);
+        assert_eq!(config.max_supported_version, 2);
+        assert_eq!(config.min_supported_version, 1);
+        assert_eq!(config.min_extranonce2_size, 4);
+        assert_eq!(config.user_identity, "test_user");
+        assert!(config.aggregate_channels);
+        assert!(config.log_file.is_none());
+    }
+
+    #[test]
+    fn test_translator_config_log_dir() {
+        let upstreams = vec![create_test_upstream()];
+        let difficulty_config = create_test_difficulty_config();
+
+        let mut config = TranslatorConfig::new(
+            upstreams,
+            "0.0.0.0".to_string(),
+            3333,
+            difficulty_config,
+            2,
+            1,
+            4,
+            "test_user".to_string(),
+            false,
+        );
+
+        assert!(config.log_dir().is_none());
+
+        let log_path = PathBuf::from("/tmp/logs");
+        config.set_log_dir(Some(log_path.clone()));
+        assert_eq!(config.log_dir(), Some(log_path.as_path()));
+
+        config.set_log_dir(None);
+        assert_eq!(config.log_dir(), Some(log_path.as_path())); // Should remain unchanged
+    }
+
+    #[test]
+    fn test_multiple_upstreams() {
+        let upstream1 = create_test_upstream();
+        let mut upstream2 = create_test_upstream();
+        upstream2.address = "192.168.1.1".to_string();
+        upstream2.port = 5555;
+
+        let upstreams = vec![upstream1, upstream2];
+        let difficulty_config = create_test_difficulty_config();
+
+        let config = TranslatorConfig::new(
+            upstreams,
+            "0.0.0.0".to_string(),
+            3333,
+            difficulty_config,
+            2,
+            1,
+            4,
+            "test_user".to_string(),
+            true,
+        );
+
+        assert_eq!(config.upstreams.len(), 2);
+        assert_eq!(config.upstreams[0].address, "127.0.0.1");
+        assert_eq!(config.upstreams[0].port, 4444);
+        assert_eq!(config.upstreams[1].address, "192.168.1.1");
+        assert_eq!(config.upstreams[1].port, 5555);
+    }
+
+    #[test]
+    fn test_vardiff_disabled_config() {
+        let mut difficulty_config = create_test_difficulty_config();
+        difficulty_config.enable_vardiff = false;
+
+        let upstreams = vec![create_test_upstream()];
+        let config = TranslatorConfig::new(
+            upstreams,
+            "0.0.0.0".to_string(),
+            3333,
+            difficulty_config,
+            2,
+            1,
+            4,
+            "test_user".to_string(),
+            false,
+        );
+
+        assert!(!config.downstream_difficulty_config.enable_vardiff);
+        assert!(!config.aggregate_channels);
     }
 }

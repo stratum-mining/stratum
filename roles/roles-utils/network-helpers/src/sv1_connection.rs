@@ -6,6 +6,7 @@ use tokio::{
     net::TcpStream,
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
+use tracing::{error, trace, warn};
 
 /// Represents a connection between two roles communicating using SV1 protocol.
 ///
@@ -70,11 +71,11 @@ impl ConnectionSV1 {
         tokio::spawn(async move {
             tokio::select! {
                 _ = Self::run_reader(buffer_read_half, sender_incoming.clone()) => {
-                    tracing::info!("Reader task exited. Closing writer sender.");
+                    trace!("Reader task exited. Closing writer sender.");
                     connection_state.close();
                 }
                 _ = Self::run_writer(buffer_write_half, receiver_outgoing.clone()) => {
-                    tracing::info!("Writer task exited.Closing reader sender.");
+                    trace!("Writer task exited. Closing reader sender.");
                     connection_state.close();
                 }
             }
@@ -96,16 +97,16 @@ impl ConnectionSV1 {
                 Ok(line) => match serde_json::from_str::<json_rpc::Message>(&line) {
                     Ok(msg) => {
                         if sender.send(msg).await.is_err() {
-                            tracing::warn!("Receiver dropped, stopping reader");
+                            warn!("Receiver dropped, stopping reader");
                             break;
                         }
                     }
                     Err(e) => {
-                        tracing::error!("Failed to deserialize message: {e:?}");
+                        error!("Failed to deserialize message: {e:?}");
                     }
                 },
                 Err(e) => {
-                    tracing::error!("Error reading from stream: {e:?}");
+                    error!("Error reading from stream: {e:?}");
                     break;
                 }
             }
@@ -121,16 +122,16 @@ impl ConnectionSV1 {
                 Ok(line) => {
                     let data = format!("{line}\n");
                     if writer.write_all(data.as_bytes()).await.is_err() {
-                        tracing::error!("Failed to write to stream");
+                        error!("Failed to write to stream");
                         break;
                     }
                     if writer.flush().await.is_err() {
-                        tracing::error!("Failed to flush writer.");
+                        error!("Failed to flush writer.");
                         break;
                     }
                 }
                 Err(e) => {
-                    tracing::error!("Failed to serialize message: {e:?}");
+                    error!("Failed to serialize message: {e:?}");
                     break;
                 }
             }

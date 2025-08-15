@@ -4,7 +4,7 @@ use tokio::task::JoinHandle;
 /// Manages a collection of spawned tokio tasks.
 ///
 /// This struct provides a centralized way to spawn, track, and manage the lifecycle
-/// of async tasks. It maintains a list of join handles that can
+/// of async tasks in the translator. It maintains a list of join handles that can
 /// be used to wait for all tasks to complete or abort them during shutdown.
 pub struct TaskManager {
     tasks: StdMutex<Vec<JoinHandle<()>>>,
@@ -33,13 +33,21 @@ impl TaskManager {
     ///
     /// # Arguments
     /// * `fut` - The future to spawn as a task
+    #[track_caller]
     pub fn spawn<F>(&self, fut: F)
     where
         F: std::future::Future<Output = ()> + Send + 'static,
     {
-        let handle = tokio::spawn(async move {
-            fut.await;
-        });
+        use tracing::Instrument;
+        let location = std::panic::Location::caller();
+        let span = tracing::trace_span!(
+            "task",
+            file = location.file(),
+            line = location.line(),
+            column = location.column(),
+        );
+
+        let handle = tokio::spawn(fut.instrument(span));
         self.tasks.lock().unwrap().push(handle);
     }
 
