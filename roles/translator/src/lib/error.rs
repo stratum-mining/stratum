@@ -10,56 +10,23 @@
 
 use ext_config::ConfigError;
 use std::{fmt, sync::PoisonError};
-use stratum_common::roles_logic_sv2::{
-    self,
-    codec_sv2::{self, binary_sv2, framing_sv2, Frame},
-    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
-    parsers_sv2::{AnyMessage, Mining, ParserError},
-    vardiff::error::VardiffError,
-};
-use v1::server_to_client::{Notify, SetDifficulty};
-
-pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
-
-/// Represents specific errors that can occur when sending messages over various
-/// channels used within the translator.
-///
-/// Each variant corresponds to a failure in sending a particular type of message
-/// on its designated channel.
-#[derive(Debug)]
-pub enum ChannelSendError<'a> {
-    /// Failure sending an SV2 `SubmitSharesExtended` message.
-    SubmitSharesExtended(
-        async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
-    ),
-    /// Failure sending an SV2 `SetNewPrevHash` message.
-    SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
-    /// Failure sending an SV2 `NewExtendedMiningJob` message.
-    NewExtendedMiningJob(async_channel::SendError<NewExtendedMiningJob<'a>>),
-    /// Failure broadcasting an SV1 `Notify` message
-    Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
-    /// Failure sending a generic SV1 message.
-    V1Message(async_channel::SendError<v1::Message>),
-    /// Represents a generic channel send failure, described by a string.
-    General(String),
-    /// Failure sending extranonce information.
-    Extranonce(async_channel::SendError<(ExtendedExtranonce, u32)>),
-    /// Failure sending an SV2 `SetCustomMiningJob` message.
-    SetCustomMiningJob(
-        async_channel::SendError<roles_logic_sv2::mining_sv2::SetCustomMiningJob<'a>>,
-    ),
-    /// Failure sending new template information (prevhash and coinbase).
-    NewTemplate(
-        async_channel::SendError<(
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            Vec<u8>,
-        )>,
-    ),
-}
+use tokio::sync::broadcast;
+use v1::server_to_client::SetDifficulty;
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum TproxyError {
+    /// Error converting a vector to a fixed-size slice
     VecToSlice32(Vec<u8>),
+    /// Generic SV1 protocol error
+    SV1Error,
+    /// Error from the network helpers library
+    NetworkHelpersError(network_helpers_sv2::Error),
+    /// Error from the roles logic library
+    RolesSv2LogicError(roles_logic_sv2::Error),
+    /// Error from roles logic parser library
+    ParserError(roles_logic_sv2::parsers_sv2::ParserError),
+    /// Error from roles logic handlers Library
+    RolesSv2LogicHandlerError(roles_logic_sv2::handlers_sv2::HandlerError),
     /// Errors on bad CLI argument input.
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
@@ -78,35 +45,49 @@ pub enum Error<'a> {
     InvalidExtranonce(String),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
-    /// Errors from `roles_logic_sv2` crate.
-    RolesSv2Logic(roles_logic_sv2::errors::Error),
+    /// Error parsing incoming upstream messages
     UpstreamIncoming(roles_logic_sv2::errors::Error),
-    /// SV1 protocol library error
-    V1Protocol(v1::error::Error<'a>),
+    /// Mining subprotocol error
     #[allow(dead_code)]
     SubprotocolMining(String),
-    // Locking Errors
+    /// Mutex poison lock error
     PoisonLock,
-    // Channel Receiver Error
+    /// Channel receiver error
     ChannelErrorReceiver(async_channel::RecvError),
+    /// Channel sender error
+    ChannelErrorSender,
+    /// Broadcast channel receiver error
+    BroadcastChannelErrorReceiver(broadcast::error::RecvError),
+    /// Tokio channel receiver error
     TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
-    // Channel Sender Errors
-    ChannelErrorSender(ChannelSendError<'a>),
+    /// Error converting SetDifficulty to Message
     SetDifficultyToMessage(SetDifficulty),
-    Infallible(std::convert::Infallible),
-    // used to handle SV2 protocol error messages from pool
-    #[allow(clippy::enum_variant_names)]
-    Sv2ProtocolError(Mining<'a>),
+    /// Target calculation error
     #[allow(clippy::enum_variant_names)]
     TargetError(roles_logic_sv2::errors::Error),
+    /// SV1 message exceeds maximum length
     Sv1MessageTooLong,
-    Parser(ParserError),
+    /// Received an unexpected message type
+    UnexpectedMessage,
+    /// Job not found during share validation
+    JobNotFound,
+    /// Invalid merkle root during share validation
+    InvalidMerkleRoot,
+    /// Shutdown signal received
+    Shutdown,
+    /// Represents a generic channel send failure, described by a string.
+    General(String),
+    /// Error bubbling up from translator-core library
+    TranslatorCore(stratum_translation::error::StratumTranslationError),
 }
 
-impl fmt::Display for Error<'_> {
+impl std::error::Error for TproxyError {}
+
+impl fmt::Display for TproxyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Error::*;
+        use TproxyError::*;
         match self {
+            General(e) => write!(f, "{e}"),
             BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{e:?}`"),
             BadConfigDeserialize(ref e) => write!(f, "Bad `config` TOML deserialize: `{e:?}`"),
@@ -116,215 +97,134 @@ impl fmt::Display for Error<'_> {
             InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{e:?}"),
             Io(ref e) => write!(f, "I/O error: `{e:?}"),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{e:?}`"),
-            RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{e:?}`"),
-            V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{e:?}`"),
             SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{e:?}`"),
             UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{e:?}`"),
             PoisonLock => write!(f, "Poison Lock error"),
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{e:?}`"),
+            BroadcastChannelErrorReceiver(ref e) => {
+                write!(f, "Broadcast channel receive error: {e:?}")
+            }
+            ChannelErrorSender => write!(f, "Sender error"),
             TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{e:?}`"),
-            ChannelErrorSender(ref e) => write!(f, "Channel send error: `{e:?}`"),
             SetDifficultyToMessage(ref e) => {
                 write!(f, "Error converting SetDifficulty to Message: `{e:?}`")
             }
             VecToSlice32(ref e) => write!(f, "Standard Error: `{e:?}`"),
-            Infallible(ref e) => write!(f, "Infallible Error:`{e:?}`"),
-            Sv2ProtocolError(ref e) => {
-                write!(f, "Received Sv2 Protocol Error from upstream: `{e:?}`")
-            }
             TargetError(ref e) => {
                 write!(f, "Impossible to get target from hashrate: `{e:?}`")
             }
             Sv1MessageTooLong => {
                 write!(f, "Received an sv1 message that is longer than max len")
             }
-            Parser(ref e) => write!(f, "Parser error: `{e:?}`"),
+            UnexpectedMessage => {
+                write!(f, "Received a message type that was not expected")
+            }
+            JobNotFound => write!(f, "Job not found during share validation"),
+            InvalidMerkleRoot => write!(f, "Invalid merkle root during share validation"),
+            Shutdown => write!(f, "Shutdown signal"),
+            SV1Error => write!(f, "Sv1 error"),
+            TranslatorCore(ref e) => write!(f, "Translator core error: {e:?}"),
+            NetworkHelpersError(ref e) => write!(f, "Network helpers error: {e:?}"),
+            RolesSv2LogicError(ref e) => write!(f, "Roles logic error: {e:?}"),
+            ParserError(ref e) => write!(f, "Roles logic parser error: {e:?}"),
+            RolesSv2LogicHandlerError(ref e) => write!(f, "Roles logic handler error: {e:?}"),
         }
     }
 }
 
-impl From<binary_sv2::Error> for Error<'_> {
+impl From<binary_sv2::Error> for TproxyError {
     fn from(e: binary_sv2::Error) -> Self {
-        Error::BinarySv2(e)
+        TproxyError::BinarySv2(e)
     }
 }
 
-impl From<ParserError> for Error<'_> {
-    fn from(e: ParserError) -> Self {
-        Error::Parser(e)
+impl From<roles_logic_sv2::handlers_sv2::HandlerError> for TproxyError {
+    fn from(value: roles_logic_sv2::handlers_sv2::HandlerError) -> Self {
+        TproxyError::RolesSv2LogicHandlerError(value)
     }
 }
 
-impl From<codec_sv2::noise_sv2::Error> for Error<'_> {
+impl From<codec_sv2::noise_sv2::Error> for TproxyError {
     fn from(e: codec_sv2::noise_sv2::Error) -> Self {
-        Error::CodecNoise(e)
+        TproxyError::CodecNoise(e)
     }
 }
 
-impl From<framing_sv2::Error> for Error<'_> {
+impl From<framing_sv2::Error> for TproxyError {
     fn from(e: framing_sv2::Error) -> Self {
-        Error::FramingSv2(e)
+        TproxyError::FramingSv2(e)
     }
 }
 
-impl From<std::io::Error> for Error<'_> {
+impl From<std::io::Error> for TproxyError {
     fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
+        TproxyError::Io(e)
     }
 }
 
-impl From<std::num::ParseIntError> for Error<'_> {
+impl From<std::num::ParseIntError> for TproxyError {
     fn from(e: std::num::ParseIntError) -> Self {
-        Error::ParseInt(e)
+        TproxyError::ParseInt(e)
     }
 }
 
-impl From<roles_logic_sv2::errors::Error> for Error<'_> {
-    fn from(e: roles_logic_sv2::errors::Error) -> Self {
-        Error::RolesSv2Logic(e)
-    }
-}
-
-impl From<serde_json::Error> for Error<'_> {
+impl From<serde_json::Error> for TproxyError {
     fn from(e: serde_json::Error) -> Self {
-        Error::BadSerdeJson(e)
+        TproxyError::BadSerdeJson(e)
     }
 }
 
-impl From<ConfigError> for Error<'_> {
+impl From<ConfigError> for TproxyError {
     fn from(e: ConfigError) -> Self {
-        Error::BadConfigDeserialize(e)
+        TproxyError::BadConfigDeserialize(e)
     }
 }
 
-impl<'a> From<v1::error::Error<'a>> for Error<'a> {
-    fn from(e: v1::error::Error<'a>) -> Self {
-        Error::V1Protocol(e)
-    }
-}
-
-impl From<async_channel::RecvError> for Error<'_> {
+impl From<async_channel::RecvError> for TproxyError {
     fn from(e: async_channel::RecvError) -> Self {
-        Error::ChannelErrorReceiver(e)
+        TproxyError::ChannelErrorReceiver(e)
     }
 }
 
-impl From<tokio::sync::broadcast::error::RecvError> for Error<'_> {
+impl From<tokio::sync::broadcast::error::RecvError> for TproxyError {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
-        Error::TokioChannelErrorRecv(e)
+        TproxyError::TokioChannelErrorRecv(e)
     }
 }
 
 //*** LOCK ERRORS ***
-impl<T> From<PoisonError<T>> for Error<'_> {
+impl<T> From<PoisonError<T>> for TproxyError {
     fn from(_e: PoisonError<T>) -> Self {
-        Error::PoisonLock
+        TproxyError::PoisonLock
     }
 }
 
-// *** CHANNEL SENDER ERRORS ***
-impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>
-    for Error<'a>
-{
-    fn from(
-        e: async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
-    ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
-    }
-}
-
-impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
-    for Error<'a>
-{
-    fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
-    }
-}
-
-impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for Error<'a> {
-    fn from(e: tokio::sync::broadcast::error::SendError<Notify<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::Notify(e))
-    }
-}
-
-impl From<async_channel::SendError<v1::Message>> for Error<'_> {
-    fn from(e: async_channel::SendError<v1::Message>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::V1Message(e))
-    }
-}
-
-impl From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'_> {
-    fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
-    }
-}
-
-impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for Error<'a> {
-    fn from(e: async_channel::SendError<NewExtendedMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
-    }
-}
-
-impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for Error<'a> {
-    fn from(e: async_channel::SendError<SetCustomMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
-    }
-}
-
-impl<'a>
-    From<
-        async_channel::SendError<(
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            Vec<u8>,
-        )>,
-    > for Error<'a>
-{
-    fn from(
-        e: async_channel::SendError<(
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            Vec<u8>,
-        )>,
-    ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))
-    }
-}
-
-impl From<Vec<u8>> for Error<'_> {
+impl From<Vec<u8>> for TproxyError {
     fn from(e: Vec<u8>) -> Self {
-        Error::VecToSlice32(e)
+        TproxyError::VecToSlice32(e)
     }
 }
 
-impl From<SetDifficulty> for Error<'_> {
+impl From<SetDifficulty> for TproxyError {
     fn from(e: SetDifficulty) -> Self {
-        Error::SetDifficultyToMessage(e)
+        TproxyError::SetDifficultyToMessage(e)
     }
 }
 
-impl From<std::convert::Infallible> for Error<'_> {
-    fn from(e: std::convert::Infallible) -> Self {
-        Error::Infallible(e)
+impl<'a> From<v1::error::Error<'a>> for TproxyError {
+    fn from(_: v1::error::Error<'a>) -> Self {
+        TproxyError::SV1Error
     }
 }
 
-impl<'a> From<Mining<'a>> for Error<'a> {
-    fn from(e: Mining<'a>) -> Self {
-        Error::Sv2ProtocolError(e)
+impl From<network_helpers_sv2::Error> for TproxyError {
+    fn from(value: network_helpers_sv2::Error) -> Self {
+        TproxyError::NetworkHelpersError(value)
     }
 }
 
-impl From<async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::Slice>>>
-    for Error<'_>
-{
-    fn from(
-        value: async_channel::SendError<Frame<AnyMessage<'_>, codec_sv2::buffer_sv2::Slice>>,
-    ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::General(value.to_string()))
-    }
-}
-
-impl From<VardiffError> for Error<'_> {
-    fn from(value: VardiffError) -> Self {
-        Self::RolesSv2Logic(value.into())
+impl From<stratum_translation::error::StratumTranslationError> for TproxyError {
+    fn from(e: stratum_translation::error::StratumTranslationError) -> Self {
+        TproxyError::TranslatorCore(e)
     }
 }
