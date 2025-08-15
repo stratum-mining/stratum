@@ -68,7 +68,8 @@ pub struct ChannelManagerData {
     allocate_tokens: Option<AllocateMiningJobTokenSuccess<'static>>,
     template_store: HashMap<u64, NewTemplate<'static>>,
     last_declare_job_store: HashMap<u32, LastDeclareJob>,
-    coinbase_outputs: Vec<u8>
+    coinbase_outputs: Vec<u8>,
+    upstream_channel_id: u32
 }
 
 #[derive(Clone)]
@@ -143,7 +144,8 @@ impl ChannelManager {
             allocate_tokens: None,
             template_store: HashMap::new(),
             last_declare_job_store: HashMap::new(),
-            coinbase_outputs: vec![]
+            coinbase_outputs: vec![],
+            upstream_channel_id: 0
         }));
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,

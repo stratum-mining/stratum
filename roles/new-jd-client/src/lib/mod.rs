@@ -161,6 +161,15 @@ impl JobDeclaratorClient {
             }
         };
 
+        channel_manager
+        .start(
+            notify_shutdown.clone(),
+            shutdown_complete_tx.clone(),
+            status_sender.clone(),
+            task_manager.clone(),
+        )
+        .await;
+
         upstream
             .start(
                 self.config.min_supported_version(),
@@ -181,14 +190,6 @@ impl JobDeclaratorClient {
             )
             .await;
 
-        channel_manager
-            .start(
-                notify_shutdown.clone(),
-                shutdown_complete_tx.clone(),
-                status_sender.clone(),
-                task_manager.clone(),
-            )
-            .await;
         channel_manager_clone
             .start_downstream_server(
                 *self.config.authority_public_key(),

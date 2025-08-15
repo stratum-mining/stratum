@@ -139,7 +139,6 @@ impl Downstream {
     async fn handle_channel_manager_message(mut self) -> Result<(), JDCError> {
         let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
         while let Ok(frame) = receiver.recv().await {
-            info!("Got message from channel manager: {frame:?}");
             let message_type = frame.message_type();
             let std_frame = StdFrame::from_message(frame, message_type, 0, true).unwrap();
             self.downstream_channel

@@ -4,7 +4,7 @@ use stratum_common::roles_logic_sv2::{
     },
     mining_sv2::*,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::channel_manager::ChannelManager;
 
@@ -27,7 +27,24 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: OpenExtendedMiningChannelSuccess<'_>,
     ) -> Result<(), Error> {
-        info!("Received handle_open_standard_mining_channel_success from Pool");
+        info!(
+            "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
+            msg.request_id, msg.channel_id
+        );
+
+        let prefix_len = msg.extranonce_prefix.to_vec().len();
+        let self_len = 0;
+        let total_len = prefix_len + msg.extranonce_size as usize;
+        let range_0 = 0..prefix_len;
+        let range_1 = prefix_len..prefix_len + self_len;
+        let range_2 = prefix_len + self_len..total_len;
+
+        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
+        self.channel_manager_data.super_safe_lock(|data| {
+            data.extranonce_prefix_factory_extended = extranonces;
+            data.upstream_channel_id = msg.channel_id;
+        });
+
         Ok(())
     }
 
@@ -77,7 +94,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     }
 
     async fn handle_new_mining_job(&mut self, msg: NewMiningJob<'_>) -> Result<(), Error> {
-        info!("Received handle_new_mining_job from Pool");
+        warn!("Extended job received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
         Ok(())
     }
 
@@ -90,7 +107,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     }
 
     async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
-        info!("Received handle_set_new_prev_hash from Pool");
+        warn!("SNPH received from upstream, proxy ignored it, and used the one declared by JDC");
         Ok(())
     }
 
