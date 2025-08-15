@@ -175,9 +175,7 @@ impl Upstream {
     }
 
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
-        error!("I am in handle Upstream message");
         let read_frame = self.upstream_channel.inbound_rx.recv().await?;
-        error!("I received a frame in upstream message: {read_frame:?}");
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;

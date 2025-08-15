@@ -20,7 +20,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         Ok(true)
     }
     async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_close_channel from Downstream");
         Ok(())
     }
 
@@ -28,7 +28,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenStandardMiningChannel<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_open_standard_mining_channel from Downstream");
         Ok(())
     }
 
@@ -36,12 +36,12 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_open_extended_mining_channel from Downstream");
         Ok(())
     }
 
     async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_update_channel from Downstream");
         Ok(())
     }
 
@@ -49,7 +49,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: SubmitSharesStandard,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_submit_shares_standard from Downstream");
         Ok(())
     }
 
@@ -57,7 +57,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_submit_shares_extended from Downstream");
         Ok(())
     }
 
@@ -65,7 +65,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: SetCustomMiningJob<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_set_custom_mining_job from Downstream");
         Ok(())
     }
 }

@@ -11,7 +11,8 @@ use stratum_common::{
     roles_logic_sv2::{
         codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
         handlers_sv2::HandleCommonMessagesFromServerAsync,
-        parsers_sv2::AnyMessage,
+        parsers_sv2::{AnyMessage, TemplateDistribution},
+        template_distribution_sv2::CoinbaseOutputConstraints,
         utils::Mutex,
     },
 };
@@ -136,6 +137,17 @@ impl TemplateReceiver {
 
         info!("Initialized state for starting template receiver");
         self.setup_connection(socket_address).await;
+        let coinbase_output_data_size = AnyMessage::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
+                coinbase_output_max_additional_size: 0,
+                coinbase_output_max_additional_sigops: 0,
+            }),
+        );
+        let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
+        self.template_receiver_channel
+            .outbound_tx
+            .send(frame.into())
+            .await;
 
         info!("Setup Connection done. connection with template receiver is now done");
         task_manager.spawn(async move {
@@ -151,6 +163,7 @@ impl TemplateReceiver {
                     }
                     res = self_clone_1.handle_template_provider_message() => {
                         if let Err(e) = res {
+                            info!("Template Receiver: template provider handler panic'ed out");
                             handle_error(&status_sender, e).await;
                             break;
                         }
@@ -168,9 +181,7 @@ impl TemplateReceiver {
     }
 
     pub async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
-        error!("I am in handle template provider message");
         let read_frame = self.template_receiver_channel.inbound_rx.recv().await?;
-        error!("I received a frame in template provider message: {read_frame:?}");
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;
@@ -195,8 +206,8 @@ impl TemplateReceiver {
                             })?;
                     }
                     _ => {
-                        error!("Received unsupported message type from upstream.");
-                        return Err(JDCError::UnexpectedMessage);
+                        error!("Received unsupported message type from Template provider.");
+                        // return Err(JDCError::UnexpectedMessage);
                     }
                 }
             }

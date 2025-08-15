@@ -186,10 +186,7 @@ impl JobDeclarator {
     }
 
     async fn handle_job_declarator_message(&mut self) -> Result<(), JDCError> {
-        error!("I am in handle Job declarator message");
         let read_frame = self.job_declarator_channel.inbound_rx.recv().await?;
-        error!("I received a frame in Job declarator message: {read_frame:?}");
-
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
                 let std_frame: StdFrame = sv2_frame;

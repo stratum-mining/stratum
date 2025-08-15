@@ -10,7 +10,8 @@ use stratum_common::{
             HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
             HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
-        parsers_sv2::AnyMessage,
+        parsers_sv2::{AnyMessage, TemplateDistribution},
+        template_distribution_sv2::CoinbaseOutputConstraints,
         utils::Mutex,
     },
 };

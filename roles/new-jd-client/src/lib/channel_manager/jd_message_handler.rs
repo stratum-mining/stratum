@@ -14,7 +14,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: AllocateMiningJobTokenSuccess<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received allocate Mining token success from JDS");
         Ok(())
     }
 
@@ -22,7 +22,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: DeclareMiningJobError<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_declare_mining_job_error from JDS");
         Ok(())
     }
 
@@ -30,7 +30,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: DeclareMiningJobSuccess<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_declare_mining_job_success from JDS");
         Ok(())
     }
 
@@ -38,7 +38,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: ProvideMissingTransactions<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!("Received handle_provide_missing_transactions from JDS");
         Ok(())
     }
 }

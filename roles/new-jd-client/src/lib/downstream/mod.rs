@@ -157,9 +157,7 @@ impl Downstream {
     }
 
     async fn handle_downstream_message(mut self) -> Result<(), JDCError> {
-        error!("I am in handle Downstream message");
         let read_frame = self.downstream_channel.inbound_rx.recv().await?;
-        error!("I received a frame in Downstream message: {read_frame:?}");
 
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {

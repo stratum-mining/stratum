@@ -7,7 +7,16 @@ use stratum_common::{
     roles_logic_sv2::{
         codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame},
         common_messages_sv2::{Protocol, SetupConnection},
-        parsers_sv2::{AnyMessage, CommonMessages},
+        parsers_sv2::{
+            message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
+            JobDeclaration::{
+                AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
+                DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
+                ProvideMissingTransactionsSuccess, PushSolution,
+            },
+            TemplateDistribution,
+            TemplateDistribution::CoinbaseOutputConstraints,
+        },
     },
 };
 use tokio::sync::broadcast;
@@ -118,9 +127,10 @@ pub fn message_from_frame(
             let mut payload = frame.payload().to_vec();
             let message: Result<AnyMessage<'_>, _> =
                 (message_type, payload.as_mut_slice()).try_into();
+
             match message {
                 Ok(message) => {
-                    let message = into_static(message)?;
+                    let message = into_static(message);
                     Ok((message_type, payload.to_vec(), message))
                 }
                 Err(_) => {
@@ -136,27 +146,75 @@ pub fn message_from_frame(
     }
 }
 
-pub fn into_static(m: AnyMessage<'_>) -> Result<AnyMessage<'static>, JDCError> {
+pub fn into_static(m: AnyMessage<'_>) -> AnyMessage<'static> {
     match m {
-        AnyMessage::Mining(m) => Ok(AnyMessage::Mining(m.into_static())),
+        AnyMessage::Mining(m) => AnyMessage::Mining(m.into_static()),
         AnyMessage::Common(m) => match m {
-            CommonMessages::ChannelEndpointChanged(m) => Ok(AnyMessage::Common(
-                CommonMessages::ChannelEndpointChanged(m.into_static()),
-            )),
-            CommonMessages::SetupConnection(m) => Ok(AnyMessage::Common(
-                CommonMessages::SetupConnection(m.into_static()),
-            )),
-            CommonMessages::SetupConnectionError(m) => Ok(AnyMessage::Common(
-                CommonMessages::SetupConnectionError(m.into_static()),
-            )),
-            CommonMessages::SetupConnectionSuccess(m) => Ok(AnyMessage::Common(
-                CommonMessages::SetupConnectionSuccess(m.into_static()),
-            )),
-            CommonMessages::Reconnect(m) => Ok(AnyMessage::Common(CommonMessages::Reconnect(
-                m.into_static(),
-            ))),
+            CommonMessages::ChannelEndpointChanged(m) => {
+                AnyMessage::Common(CommonMessages::ChannelEndpointChanged(m.into_static()))
+            }
+            CommonMessages::SetupConnection(m) => {
+                AnyMessage::Common(CommonMessages::SetupConnection(m.into_static()))
+            }
+            CommonMessages::SetupConnectionError(m) => {
+                AnyMessage::Common(CommonMessages::SetupConnectionError(m.into_static()))
+            }
+            CommonMessages::SetupConnectionSuccess(m) => {
+                AnyMessage::Common(CommonMessages::SetupConnectionSuccess(m.into_static()))
+            }
+            CommonMessages::Reconnect(m) => {
+                AnyMessage::Common(CommonMessages::Reconnect(m.into_static()))
+            }
         },
-        _ => Err(JDCError::UnexpectedMessage),
+        AnyMessage::JobDeclaration(m) => match m {
+            AllocateMiningJobToken(m) => {
+                AnyMessage::JobDeclaration(AllocateMiningJobToken(m.into_static()))
+            }
+            AllocateMiningJobTokenSuccess(m) => {
+                AnyMessage::JobDeclaration(AllocateMiningJobTokenSuccess(m.into_static()))
+            }
+            DeclareMiningJob(m) => AnyMessage::JobDeclaration(DeclareMiningJob(m.into_static())),
+            DeclareMiningJobError(m) => {
+                AnyMessage::JobDeclaration(DeclareMiningJobError(m.into_static()))
+            }
+            DeclareMiningJobSuccess(m) => {
+                AnyMessage::JobDeclaration(DeclareMiningJobSuccess(m.into_static()))
+            }
+            ProvideMissingTransactions(m) => {
+                AnyMessage::JobDeclaration(ProvideMissingTransactions(m.into_static()))
+            }
+            ProvideMissingTransactionsSuccess(m) => {
+                AnyMessage::JobDeclaration(ProvideMissingTransactionsSuccess(m.into_static()))
+            }
+            PushSolution(m) => AnyMessage::JobDeclaration(PushSolution(m.into_static())),
+        },
+        AnyMessage::TemplateDistribution(m) => match m {
+            CoinbaseOutputConstraints(m) => {
+                AnyMessage::TemplateDistribution(CoinbaseOutputConstraints(m.into_static()))
+            }
+            TemplateDistribution::NewTemplate(m) => {
+                AnyMessage::TemplateDistribution(TemplateDistribution::NewTemplate(m.into_static()))
+            }
+            TemplateDistribution::RequestTransactionData(m) => AnyMessage::TemplateDistribution(
+                TemplateDistribution::RequestTransactionData(m.into_static()),
+            ),
+            TemplateDistribution::RequestTransactionDataError(m) => {
+                AnyMessage::TemplateDistribution(TemplateDistribution::RequestTransactionDataError(
+                    m.into_static(),
+                ))
+            }
+            TemplateDistribution::RequestTransactionDataSuccess(m) => {
+                AnyMessage::TemplateDistribution(
+                    TemplateDistribution::RequestTransactionDataSuccess(m.into_static()),
+                )
+            }
+            TemplateDistribution::SetNewPrevHash(m) => AnyMessage::TemplateDistribution(
+                TemplateDistribution::SetNewPrevHash(m.into_static()),
+            ),
+            TemplateDistribution::SubmitSolution(m) => AnyMessage::TemplateDistribution(
+                TemplateDistribution::SubmitSolution(m.into_static()),
+            ),
+        },
     }
 }
 
