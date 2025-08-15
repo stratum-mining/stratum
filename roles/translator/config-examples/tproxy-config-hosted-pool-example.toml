@@ -1,13 +1,3 @@
-# Braiins Pool Upstream Connection
-# upstream_authority_pubkey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
-# upstream_address = "18.196.32.109"
-# upstream_port = 3336
-
-# Hosted SRI Pool Upstream Connection
-upstream_address = "75.119.150.111"
-upstream_port = 34254
-upstream_authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
-
 # Local Mining Device Downstream Connection
 downstream_address = "0.0.0.0"
 downstream_port = 34255
@@ -22,6 +12,13 @@ min_supported_version = 2
 # Min value: 2
 min_extranonce2_size = 4
 
+# User identity/username for pool connection
+# This will be appended with a counter for each mining client (e.g., username.miner1, username.miner2)
+user_identity = "your_username_here"
+
+# Aggregate channels: if true, all miners share one upstream channel; if false, each miner gets its own channel
+aggregate_channels = true
+
 # Enable this option to set a predefined log file path.
 # When enabled, logs will always be written to this file.
 # The CLI option --log-file (or -f) will override this setting if provided.
@@ -33,9 +30,17 @@ min_extranonce2_size = 4
 min_individual_miner_hashrate=10_000_000_000_000.0
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
+# enable variable difficulty adjustment (true by default, set to false when using with JDC)
+enable_vardiff = true
 
-[upstream_difficulty_config]
-# interval in seconds to elapse before updating channel hashrate with the pool
-channel_diff_update_interval = 60
-# estimated accumulated hashrate of all downstream miners (e.g.: 10 Th/s = 10_000_000_000_000.0)
-channel_nominal_hashrate = 10_000_000_000_000.0
+[[upstreams]]
+# SRI Pool Primary Pool
+address = "75.119.150.111"
+port = 34254
+authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+
+# Braiins Pool Backup Pool
+[[upstreams]]
+address = "107.170.42.64" 
+port = 3333
+authority_pubkey = "9awtMD5KQgvRUh2yFbjVeT7b6hjipWcAsQHd6wEhgtDT9soosna"

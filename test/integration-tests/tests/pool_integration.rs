@@ -89,7 +89,7 @@ async fn success_pool_template_provider_connection() {
 async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     start_tracing();
     let sv2_interval = Some(5);
-    let (_tp, tp_addr) = start_template_provider(sv2_interval, DifficultyLevel::Low);
+    let (_tp, tp_addr) = start_template_provider(sv2_interval, DifficultyLevel::High);
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer";
     let (tp_pool_sniffer, tp_pool_sniffer_addr) =
@@ -101,10 +101,19 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         pool_translator_sniffer_identifier,
         pool_addr,
         false,
-        vec![],
+        vec![
+            // Block SubmitSharesSuccess messages to prevent them from interfering
+            // with the test's expectation to receive NewExtendedMiningJob messages
+            integration_tests_sv2::interceptor::IgnoreMessage::new(
+                integration_tests_sv2::interceptor::MessageDirection::ToDownstream,
+                MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+            )
+            .into(),
+        ],
         None,
     );
-    let _tproxy_addr = start_sv2_translator(pool_translator_sniffer_addr);
+    let (_tproxy, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr);
+    start_mining_device_sv1(tproxy_addr, true, None);
 
     tp_pool_sniffer
         .wait_for_message_type(

@@ -31,6 +31,8 @@ pub enum Error<'a> {
     /// Errors if server does not recognize the client's `id`.
     UnknownID(u64),
     InvalidVersionMask(HexU32Be),
+    /// Errors when an unexpected or unsupported message/method is called.
+    UnexpectedMessage(String),
 }
 
 impl std::fmt::Display for Error<'_> {
@@ -70,6 +72,7 @@ impl std::fmt::Display for Error<'_> {
             ),
             Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{e}`."),
             Error::InvalidVersionMask(e) => write!(f, "First 3 bits of version rolling mask must be 0 and last 13 bits of version rolling mask must be 0. Version rolling mask is: `{:b}`.", e.0),
+            Error::UnexpectedMessage(method) => write!(f, "Unexpected or unsupported message/method called: `{method}`."),
         }
     }
 }

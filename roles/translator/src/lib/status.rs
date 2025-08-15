@@ -1,226 +1,117 @@
-//! ## Status Reporting System for Translator
+//! ## Status Reporting System
 //!
-//! This module defines how internal components of the Translator report
-//! health, errors, and shutdown conditions back to the main runtime loop in `lib/mod.rs`.
+//! This module provides a centralized way for components of the Translator to report
+//! health updates, shutdown reasons, or fatal errors to the main runtime loop.
 //!
-//! At the core, tasks send a [`Status`] (wrapping a [`State`]) through a channel,
-//! which is tagged with a [`Sender`] enum to indicate the origin of the message.
-//!
-//! This allows for centralized, consistent error handling across the application.
+//! Each task wraps its report in a [`Status`] and sends it over an async channel,
+//! tagged with a [`Sender`] variant that identifies the source subsystem.
 
-use stratum_common::roles_logic_sv2;
+use tracing::{debug, error, warn};
 
-use crate::error::{self, Error};
+use crate::error::TproxyError;
 
 /// Identifies the component that originated a [`Status`] update.
 ///
-/// Each sender is associated with a dedicated side of the status channel.
-/// This lets the central loop distinguish between errors from different parts of the system.
-#[derive(Debug)]
-pub enum Sender {
-    /// Sender for downstream connections.
-    Downstream(async_channel::Sender<Status<'static>>),
-    /// Sender for downstream listener.
-    DownstreamListener(async_channel::Sender<Status<'static>>),
-    /// Sender for bridge connections.
-    Bridge(async_channel::Sender<Status<'static>>),
-    /// Sender for upstream connections.
-    Upstream(async_channel::Sender<Status<'static>>),
-    /// Sender for template receiver.
-    TemplateReceiver(async_channel::Sender<Status<'static>>),
+/// Each variant contains a channel to the main coordinator, and optionally a component ID
+/// (e.g. a downstream connection ID).
+#[derive(Debug, Clone)]
+pub enum StatusSender {
+    /// A specific downstream connection.
+    Downstream {
+        downstream_id: u32,
+        tx: async_channel::Sender<Status>,
+    },
+    /// The SV1 server listener.
+    Sv1Server(async_channel::Sender<Status>),
+    /// The SV2 <-> SV1 bridge manager.
+    ChannelManager(async_channel::Sender<Status>),
+    /// The upstream SV2 connection handler.
+    Upstream(async_channel::Sender<Status>),
 }
 
-impl Sender {
-    /// Converts a `DownstreamListener` sender to a `Downstream` sender.
-    /// FIXME: Use `From` trait and remove this
-    pub fn listener_to_connection(&self) -> Self {
+impl StatusSender {
+    /// Sends a [`Status`] update.
+    pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {
         match self {
-            Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
-            _ => unreachable!(),
-        }
-    }
-
-    /// Sends a status update.
-    pub async fn send(
-        &self,
-        status: Status<'static>,
-    ) -> Result<(), async_channel::SendError<Status<'_>>> {
-        match self {
-            Self::Downstream(inner) => inner.send(status).await,
-            Self::DownstreamListener(inner) => inner.send(status).await,
-            Self::Bridge(inner) => inner.send(status).await,
-            Self::Upstream(inner) => inner.send(status).await,
-            Self::TemplateReceiver(inner) => inner.send(status).await,
-        }
-    }
-}
-
-impl Clone for Sender {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Downstream(inner) => Self::Downstream(inner.clone()),
-            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Bridge(inner) => Self::Bridge(inner.clone()),
-            Self::Upstream(inner) => Self::Upstream(inner.clone()),
-            Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
-        }
-    }
-}
-
-/// The kind of event or status being reported by a task.
-#[derive(Debug)]
-pub enum State<'a> {
-    /// Downstream connection shutdown.
-    DownstreamShutdown(Error<'a>),
-    /// Bridge connection shutdown.
-    BridgeShutdown(Error<'a>),
-    /// Upstream connection shutdown.
-    UpstreamShutdown(Error<'a>),
-    /// Upstream connection trying to reconnect.
-    UpstreamTryReconnect(Error<'a>),
-    /// Component is healthy.
-    Healthy(String),
-}
-
-/// Wraps a status update, to be passed through a status channel.
-#[derive(Debug)]
-pub struct Status<'a> {
-    pub state: State<'a>,
-}
-
-/// Sends a [`Status`] message tagged with its [`Sender`] to the central loop.
-///
-/// This is the core logic used to determine which status variant should be sent
-/// based on the error type and sender context.
-async fn send_status(
-    sender: &Sender,
-    e: error::Error<'static>,
-    outcome: error_handling::ErrorBranch,
-) -> error_handling::ErrorBranch {
-    match sender {
-        Sender::Downstream(tx) => {
-            tx.send(Status {
-                state: State::Healthy(e.to_string()),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::DownstreamListener(tx) => {
-            tx.send(Status {
-                state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Bridge(tx) => {
-            tx.send(Status {
-                state: State::BridgeShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Upstream(tx) => match e {
-            Error::ChannelErrorReceiver(_) => {
-                tx.send(Status {
-                    state: State::UpstreamTryReconnect(e),
-                })
-                .await
-                .unwrap_or(());
+            Self::Downstream { downstream_id, tx } => {
+                debug!(
+                    "Sending status from Downstream [{}]: {:?}",
+                    downstream_id, status.state
+                );
+                tx.send(status).await
             }
-            _ => {
-                tx.send(Status {
-                    state: State::UpstreamShutdown(e),
-                })
-                .await
-                .unwrap_or(());
+            Self::Sv1Server(tx) => {
+                debug!("Sending status from Sv1Server: {:?}", status.state);
+                tx.send(status).await
             }
-        },
-        Sender::TemplateReceiver(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
+            Self::ChannelManager(tx) => {
+                debug!("Sending status from ChannelManager: {:?}", status.state);
+                tx.send(status).await
+            }
+            Self::Upstream(tx) => {
+                debug!("Sending status from Upstream: {:?}", status.state);
+                tx.send(status).await
+            }
         }
     }
-    outcome
+}
+
+/// The type of event or error being reported by a component.
+#[derive(Debug)]
+pub enum State {
+    /// Downstream task exited or encountered an unrecoverable error.
+    DownstreamShutdown {
+        downstream_id: u32,
+        reason: TproxyError,
+    },
+    /// SV1 server listener exited unexpectedly.
+    Sv1ServerShutdown(TproxyError),
+    /// Channel manager shut down (SV2 bridge manager).
+    ChannelManagerShutdown(TproxyError),
+    /// Upstream SV2 connection closed or failed.
+    UpstreamShutdown(TproxyError),
+}
+
+/// A message reporting the current [`State`] of a component.
+#[derive(Debug)]
+pub struct Status {
+    pub state: State,
+}
+
+/// Constructs and sends a [`Status`] update based on the [`Sender`] and error context.
+async fn send_status(sender: &StatusSender, error: TproxyError) {
+    let state = match sender {
+        StatusSender::Downstream { downstream_id, .. } => {
+            warn!("Downstream [{downstream_id}] shutting down due to error: {error:?}");
+            State::DownstreamShutdown {
+                downstream_id: *downstream_id,
+                reason: error,
+            }
+        }
+        StatusSender::Sv1Server(_) => {
+            warn!("Sv1Server shutting down due to error: {error:?}");
+            State::Sv1ServerShutdown(error)
+        }
+        StatusSender::ChannelManager(_) => {
+            warn!("ChannelManager shutting down due to error: {error:?}");
+            State::ChannelManagerShutdown(error)
+        }
+        StatusSender::Upstream(_) => {
+            warn!("Upstream shutting down due to error: {error:?}");
+            State::UpstreamShutdown(error)
+        }
+    };
+
+    if let Err(e) = sender.send(Status { state }).await {
+        error!("Failed to send status update from {sender:?}: {e:?}");
+    }
 }
 
 /// Centralized error dispatcher for the Translator.
 ///
 /// Used by the `handle_result!` macro across the codebase.
 /// Decides whether the task should `Continue` or `Break` based on the error type and source.
-pub async fn handle_error(
-    sender: &Sender,
-    e: error::Error<'static>,
-) -> error_handling::ErrorBranch {
-    tracing::error!("Error: {:?}", &e);
-    match e {
-        Error::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad CLI argument input.
-        Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `serde_json` serialize/deserialize.
-        Error::BadSerdeJson(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `config` TOML deserialize.
-        Error::BadConfigDeserialize(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Errors from `binary_sv2` crate.
-        Error::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad noise handshake.
-        Error::CodecNoise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors from `framing_sv2` crate.
-        Error::FramingSv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        //If the pool sends the tproxy an invalid extranonce
-        Error::InvalidExtranonce(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Errors on bad `TcpStream` connection.
-        Error::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `String` to `int` conversion.
-        Error::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors from `roles_logic_sv2` crate.
-        Error::RolesSv2Logic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::UpstreamIncoming(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // SV1 protocol library error
-        Error::V1Protocol(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::SubprotocolMining(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Locking Errors
-        Error::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Channel Receiver Error
-        Error::ChannelErrorReceiver(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::TokioChannelErrorRecv(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Channel Sender Errors
-        Error::ChannelErrorSender(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::SetDifficultyToMessage(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::Sv2ProtocolError(ref inner) => {
-            match inner {
-                // dont notify main thread just continue
-                roles_logic_sv2::parsers_sv2::Mining::SubmitSharesError(_) => {
-                    error_handling::ErrorBranch::Continue
-                }
-                _ => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-            }
-        }
-        Error::TargetError(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Continue).await
-        }
-        Error::Sv1MessageTooLong => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::Parser(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-    }
+pub async fn handle_error(sender: &StatusSender, e: TproxyError) {
+    error!("Error in {:?}: {:?}", sender, e);
+    send_status(sender, e).await;
 }

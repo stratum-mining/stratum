@@ -3001,7 +3001,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "sv1_api"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",
@@ -3334,27 +3334,22 @@ dependencies = [
 
 [[package]]
 name = "translator_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-channel 1.9.0",
- "async-recursion 0.3.2",
  "buffer_sv2",
  "clap",
  "config",
  "config_helpers_sv2",
- "error_handling",
- "futures",
  "key-utils",
- "once_cell",
- "primitive-types",
- "rand 0.8.5",
+ "network_helpers_sv2",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "stratum-common",
+ "stratum_translation",
  "sv1_api",
  "tokio",
- "tokio-util",
  "tracing",
 ]
 

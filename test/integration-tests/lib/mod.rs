@@ -250,40 +250,29 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
     let min_individual_miner_hashrate = measure_hashrate(1) as f32;
-    let channel_diff_update_interval = 60;
-    let channel_nominal_hashrate = min_individual_miner_hashrate;
+
     let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
         min_individual_miner_hashrate,
         SHARES_PER_MINUTE,
-        0,
-        0,
+        true,
     );
-    let upstream_difficulty_config = translator_sv2::config::UpstreamDifficultyConfig::new(
-        channel_diff_update_interval,
-        channel_nominal_hashrate,
-        0,
-        false,
-    );
-    let upstream_conf = translator_sv2::config::UpstreamConfig::new(
+    let upstream_conf = translator_sv2::config::Upstream::new(
         upstream_address,
         upstream_port,
         upstream_authority_pubkey,
-        upstream_difficulty_config,
     );
-    let downstream_conf = translator_sv2::config::DownstreamConfig::new(
-        listening_address.ip().to_string(),
-        listening_port,
-        downstream_difficulty_config,
-    );
-
     let min_extranonce2_size = 4;
 
     let config = translator_sv2::config::TranslatorConfig::new(
-        upstream_conf,
-        downstream_conf,
+        vec![upstream_conf],
+        listening_address.ip().to_string(),
+        listening_port,
+        downstream_difficulty_config,
         2,
         2,
         min_extranonce2_size,
+        "user_identity".to_string(),
+        false,
     );
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
     let clone_translator_v2 = translator_v2.clone();
