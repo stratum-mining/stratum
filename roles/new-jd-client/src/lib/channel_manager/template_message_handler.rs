@@ -140,7 +140,6 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         self.channel_manager_data.super_safe_lock(|data| {
             data.last_new_prev_hash = Some(msg.clone().into_static());
             data.last_declare_job_store.iter_mut().for_each(|(k, v)| {
-                tracing::error!("values {v:?}");
                 if v.template.future_template && v.template.template_id == msg.template_id {
                     v.prev_hash = Some(msg.clone().into_static());
                     v.template.future_template = false;

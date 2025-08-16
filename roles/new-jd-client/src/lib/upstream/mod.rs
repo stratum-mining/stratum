@@ -145,68 +145,69 @@ impl Upstream {
         self.setup_connection(min_version, max_version).await;
 
         task_manager.spawn(async move {
-            loop {
-                let mut self_clone_1 = self.clone();
-                let mut self_clone_2 = self.clone();
-                tokio::select! {
-                    message = shutdown_rx.recv() => {
-                        if let Ok(ShutdownMessage::ShutdownAll) = message {
-                            info!("Upstream: received shutdown signal.");
-                            break;
-                        }
+            let mut self_clone_1 = self.clone();
+            let mut self_clone_2 = self.clone();
+            tokio::select! {
+                message = shutdown_rx.recv() => {
+                    if let Ok(ShutdownMessage::ShutdownAll) = message {
+                        info!("Upstream: received shutdown signal.");
                     }
-                    res = self_clone_1.handle_pool_message() => {
-                        if let Err(e) = res {
-                            handle_error(&status_sender, e).await;
-                            break;
-                        }
-                    }
-                    res = self_clone_2.handle_channel_manager_message() => {
-                        if let Err(e) = res {
-                            handle_error(&status_sender, e).await;
-                            break;
-                        }
-                    }
-
                 }
+                res = self_clone_1.handle_pool_message() => {
+                    if let Err(e) = res {
+                        handle_error(&status_sender, e).await;
+                    }
+                }
+                res = self_clone_2.handle_channel_manager_message() => {
+                    if let Err(e) = res {
+                        handle_error(&status_sender, e).await;
+                    }
+                }
+
             }
+
             warn!("Upstream: unified message loop exited.");
         });
     }
 
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
-        let read_frame = self.upstream_channel.inbound_rx.recv().await?;
-        match read_frame {
-            EitherFrame::Sv2(sv2_frame) => {
-                let std_frame: StdFrame = sv2_frame;
-                let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                    std_frame.clone().into();
-                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
-
-                match parsed_message {
-                    AnyMessage::Common(_) => {
-                        self.handle_common_message_from_server(message_type, &mut payload)
-                            .await?;
-                    }
-                    AnyMessage::Mining(_) => {
-                        let frame_to_forward = EitherFrame::Sv2(std_frame);
-                        self.upstream_channel
-                            .channel_manager_sender
-                            .send(frame_to_forward)
-                            .await
-                            .map_err(|e| {
-                                error!("Failed to send mining message to channel manager: {:?}", e);
-                                JDCError::ChannelErrorSender
-                            })?;
-                    }
-                    _ => {
-                        error!("Received unsupported message type from upstream.");
-                        return Err(JDCError::UnexpectedMessage);
+        loop {
+            let read_frame = self.upstream_channel.inbound_rx.recv().await?;
+            match read_frame {
+                EitherFrame::Sv2(sv2_frame) => {
+                    let std_frame: StdFrame = sv2_frame;
+                    let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
+                        std_frame.clone().into();
+                    let (message_type, mut payload, parsed_message) =
+                        message_from_frame(&mut frame)?;
+                    match parsed_message {
+                        AnyMessage::Common(_) => {
+                            self.handle_common_message_from_server(message_type, &mut payload)
+                                .await?;
+                        }
+                        AnyMessage::Mining(_) => {
+                            let frame_to_forward = EitherFrame::Sv2(std_frame);
+                            self.upstream_channel
+                                .channel_manager_sender
+                                .send(frame_to_forward)
+                                .await
+                                .map_err(|e| {
+                                    error!(
+                                        "Failed to send mining message to channel manager: {:?}",
+                                        e
+                                    );
+                                    JDCError::ChannelErrorSender
+                                })?;
+                        }
+                        _ => {
+                            error!("Received unsupported message type from upstream.");
+                            return Err(JDCError::UnexpectedMessage);
+                        }
                     }
                 }
-            }
-            EitherFrame::HandShake(handshake_frame) => {
-                debug!("Received handshake frame: {:?}", handshake_frame);
+                EitherFrame::HandShake(handshake_frame) => {
+                    debug!("Received handshake frame: {:?}", handshake_frame);
+                }
             }
         }
         Ok(())

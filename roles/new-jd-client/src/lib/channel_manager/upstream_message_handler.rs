@@ -13,7 +13,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         SupportedChannelTypes::Extended
     }
     fn is_work_selection_enabled_for_server(&self) -> bool {
-        false
+        true
     }
     async fn handle_open_standard_mining_channel_success(
         &mut self,
@@ -116,6 +116,11 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: SetCustomMiningJobSuccess,
     ) -> Result<(), Error> {
         info!("Received handle_set_custom_mining_job_success from Pool");
+        self.channel_manager_data.super_safe_lock(|data| {
+            let value = data.last_declare_job_store.get(&msg.request_id).cloned();
+            let last_declare_job = value.unwrap();
+            data.job_id_to_template.insert(msg.job_id, last_declare_job);
+        });
         Ok(())
     }
 
