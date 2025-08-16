@@ -110,6 +110,11 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/sv2-ffi
 
+      # stratum_translation (depends on binary_sv2, mining_sv2, channels_sv2, v1)
+      - name: Publish crate stratum_translation
+        run: |
+          ./scripts/release-libs.sh roles/roles-utils/stratum-translation
+
       # Roles logic (depends on codec_sv2 and subprotocols)
       - name: Publish crate roles_logic_sv2
         run: |

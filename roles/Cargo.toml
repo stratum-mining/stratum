@@ -8,7 +8,8 @@ members = [
     "translator",
     "jd-client",
     "jd-server",
-    "roles-utils/network-helpers"
+    "roles-utils/network-helpers",
+    "roles-utils/stratum-translation"
 ]
 
 [profile.dev]
