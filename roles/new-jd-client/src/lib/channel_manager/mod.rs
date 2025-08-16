@@ -61,6 +61,8 @@ pub struct ChannelManagerData {
     downstream: HashMap<u32, Downstream>,
     extranonce_prefix_factory_extended: ExtendedExtranonce,
     channel_id_factory: IdFactory,
+    request_id_factory: IdFactory,
+    downstream_id_factory: IdFactory,
     last_future_template: Option<NewTemplate<'static>>,
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
     extended_channels: HashMap<u32, ExtendedChannel<'static>>,
@@ -131,13 +133,14 @@ impl ChannelManager {
         let extranonce_prefix_factory_extended =
             ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
                 .expect("Failed to create ExtendedExtranonce with valid ranges");
-        let channel_id_factory = IdFactory::new();
 
         // make share batch size and share per minute configurable by config
         let channel_manager_data = Arc::new(Mutex::new(ChannelManagerData {
             downstream: HashMap::new(),
             extranonce_prefix_factory_extended,
-            channel_id_factory,
+            channel_id_factory: IdFactory::new(),
+            downstream_id_factory: IdFactory::new(),
+            request_id_factory: IdFactory::new(),
             last_future_template: None,
             last_new_prev_hash: None,
             extended_channels: HashMap::new(),
@@ -202,7 +205,11 @@ impl ChannelManager {
                 )
                 .await
                 .unwrap();
+                let downstream_id = self
+                    .channel_manager_data
+                    .super_safe_lock(|data| data.downstream_id_factory.next());
                 let downstream = Downstream::new(
+                    downstream_id,
                     channel_manager_sender.clone(),
                     channel_manager_receiver.clone(),
                     noise_stream,

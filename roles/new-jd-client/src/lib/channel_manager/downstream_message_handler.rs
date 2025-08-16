@@ -33,6 +33,27 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         msg: OpenStandardMiningChannel<'_>,
     ) -> Result<(), Error> {
         info!("Received handle_open_standard_mining_channel from Downstream");
+        let request_id = msg.get_request_id_as_u32();
+        let user_identity = std::str::from_utf8(msg.user_identity.as_ref())
+            .map(|s| s.to_string())
+            .map_err(|e| Error::External(JDCError::InvalidUserIdentity(e.to_string()).into()))?;
+        info!("Received OpenStandardMiningChannel, {msg}");
+        let (last_future_template, last_new_prev_hash) =
+            self.channel_manager_data.super_safe_lock(|data| {
+                (
+                    data.last_future_template.clone(),
+                    data.last_new_prev_hash.clone(),
+                )
+            });
+
+        let last_future_template = last_future_template.unwrap();
+        let last_new_prev_hash = last_new_prev_hash.unwrap();
+
+        let pool_coinbase_output = TxOut {
+            value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+            script_pubkey: self.coinbase_reward_script.script_pubkey(),
+        };
+
         Ok(())
     }
 

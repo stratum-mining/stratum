@@ -38,10 +38,12 @@ pub struct DownstreamChannel {
 pub struct Downstream {
     downstream_data: Arc<Mutex<DownstreamData>>,
     downstream_channel: DownstreamChannel,
+    downstream_id: u32,
 }
 
 impl Downstream {
     pub fn new(
+        downstream_id: u32,
         channel_manager_sender: Sender<EitherFrame>,
         channel_manager_receiver: broadcast::Sender<Message>,
         noise_stream: NoiseTcpStream<Message>,
@@ -74,6 +76,7 @@ impl Downstream {
         Downstream {
             downstream_channel,
             downstream_data,
+            downstream_id,
         }
     }
 

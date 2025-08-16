@@ -85,10 +85,9 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
             .unwrap()
             .as_secs() as u32;
 
-        // Now I should send the CustomJob to upstream
         let to_send = SetCustomMiningJob {
             channel_id: 1,
-            request_id: 1,
+            request_id: msg.request_id,
             token: last_declare_job.declare_job.mining_job_token,
             version: last_declare_job.declare_job.version,
             prev_hash: new_prev_hash.prev_hash,

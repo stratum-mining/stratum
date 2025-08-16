@@ -60,12 +60,14 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         let transactions_data = msg.transaction_list;
         let excess_data = msg.excess_data;
 
-        let (token, template_message) = self.channel_manager_data.super_safe_lock(|data| {
-            (
-                data.allocate_tokens.take(),
-                data.template_store.get(&msg.template_id).cloned(),
-            )
-        });
+        let (token, template_message, request_id) =
+            self.channel_manager_data.super_safe_lock(|data| {
+                (
+                    data.allocate_tokens.take(),
+                    data.template_store.get(&msg.template_id).cloned(),
+                    data.request_id_factory.next(),
+                )
+            });
 
         self.allocate_tokens(1).await;
 
@@ -96,7 +98,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         }
         let tx_ids = Seq064K::new(txids_as_u256).expect("Failed to create Seq064K");
         let declare_job = DeclareMiningJob {
-            request_id: 1,
+            request_id,
             mining_job_token: mining_token.try_into().unwrap(),
             version: template_message.version,
             // fix these
@@ -125,7 +127,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                 .unwrap();
 
         self.channel_manager_data.super_safe_lock(|data| {
-            data.last_declare_job_store.insert(1, last_declare);
+            data.last_declare_job_store.insert(request_id, last_declare);
         });
         self.channel_manager_channel
             .jd_sender

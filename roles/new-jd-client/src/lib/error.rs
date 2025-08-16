@@ -66,6 +66,8 @@ pub enum JDCError {
     InvalidUserIdentity(String),
 }
 
+impl std::error::Error for JDCError {}
+
 impl fmt::Display for JDCError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use JDCError::*;
