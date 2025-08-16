@@ -376,6 +376,210 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         msg: SubmitSharesStandard,
     ) -> Result<(), Error> {
         info!("Received handle_submit_shares_standard from Downstream");
+        let channel_id = msg.channel_id;
+        let (downstream, is_standard_channel, prev_hash) =
+            self.channel_manager_data.super_safe_lock(|data| {
+                (
+                    data.downstream.get(&msg.channel_id).cloned(),
+                    data.standard_channels.get(&msg.channel_id).is_none(),
+                    data.last_new_prev_hash.clone(),
+                )
+            });
+        if downstream.is_none() {
+            return Ok(());
+        }
+        let prev_hash = prev_hash.unwrap();
+        let downstream = downstream.unwrap();
+
+        if self
+            .channel_manager_data
+            .super_safe_lock(|data| data.standard_channels.get(&msg.channel_id).is_none())
+        {
+            let error = SubmitSharesError {
+                channel_id,
+                sequence_number: msg.sequence_number,
+                error_code: "invalid-channel-id"
+                    .to_string()
+                    .try_into()
+                    .expect("Error code must be a valid string"),
+            };
+            error!("SubmitSharesError: channel_id: {channel_id}, sequence_number: {}, error_code: invalid-channel-id", msg.sequence_number);
+            self.channel_manager_channel.downstream_sender.send((
+                downstream.downstream_id,
+                AnyMessage::Mining(Mining::SubmitSharesError(error)),
+            ));
+        }
+
+        let (res, extranonce) = self.channel_manager_data.super_safe_lock(|data| {
+            let mut standard_channel = data.standard_channels.get_mut(&msg.channel_id).unwrap();
+            let extranonce = standard_channel.get_extranonce_prefix().clone();
+            let mut vardiff = data.vardiff.get_mut(&msg.channel_id).unwrap();
+            vardiff.increment_shares_since_last_update();
+            (standard_channel.validate_share(msg.clone()), extranonce)
+        });
+
+        match res {
+            Ok(ShareValidationResult::Valid) => {
+                info!(
+                    "SubmitSharesStandard: valid share | channel_id: {}, sequence_number: {} ☑️",
+                    channel_id, msg.sequence_number
+                );
+            }
+            Ok(ShareValidationResult::ValidWithAcknowledgement(
+                last_sequence_number,
+                new_submits_accepted_count,
+                new_shares_sum,
+            )) => {
+                let success = SubmitSharesSuccess {
+                    channel_id,
+                    last_sequence_number,
+                    new_submits_accepted_count,
+                    new_shares_sum,
+                };
+                info!("SubmitSharesStandard: {} ✅", success);
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesSuccess(success)),
+                ));
+            }
+            Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
+                info!("SubmitSharesStandard: 💰 Block Found!!! 💰");
+                // if we have a template id (i.e.: this was not a custom job)
+                // we can propagate the solution to the TP
+                if let Some(template_id) = template_id {
+                    info!("SubmitSharesStandard: Propagating solution to the Template Provider.");
+                    let solution = SubmitSolution {
+                        template_id,
+                        version: msg.version,
+                        header_timestamp: msg.ntime,
+                        header_nonce: msg.nonce,
+                        coinbase_tx: coinbase.try_into().unwrap(),
+                    };
+
+                    // speak with gitgab on this
+                    let push_solution = PushSolution {
+                        extranonce: extranonce.try_into().unwrap(),
+                        ntime: msg.ntime,
+                        nonce: msg.nonce,
+                        version: msg.version,
+                        nbits: prev_hash.n_bits,
+                        prev_hash: prev_hash.prev_hash,
+                    };
+
+                    let any_message = AnyMessage::TemplateDistribution(
+                        TemplateDistribution::SubmitSolution(solution.clone()),
+                    );
+                    let frame: StdFrame = any_message.try_into().unwrap();
+                    self.channel_manager_channel
+                        .tp_sender
+                        .send(frame.into())
+                        .await;
+                    let any_message =
+                        AnyMessage::JobDeclaration(JobDeclaration::PushSolution(push_solution))
+                            .into_static();
+                    let frame: StdFrame = any_message.try_into().unwrap();
+                    self.channel_manager_channel
+                        .jd_sender
+                        .send(frame.into())
+                        .await;
+                }
+                let share_accounting = self.channel_manager_data.super_safe_lock(|data| {
+                    let extended_channel = data.extended_channels.get_mut(&msg.channel_id).unwrap();
+                    extended_channel.get_share_accounting().clone()
+                });
+                let success = SubmitSharesSuccess {
+                    channel_id,
+                    last_sequence_number: share_accounting.get_last_share_sequence_number(),
+                    new_submits_accepted_count: share_accounting.get_shares_accepted(),
+                    new_shares_sum: share_accounting.get_share_work_sum(),
+                };
+
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesSuccess(success)),
+                ));
+            }
+            Err(ShareValidationError::Invalid) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, msg.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: msg.channel_id,
+                    sequence_number: msg.sequence_number,
+                    error_code: "invalid-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesError(error)),
+                ));
+            }
+            Err(ShareValidationError::Stale) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, msg.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: msg.channel_id,
+                    sequence_number: msg.sequence_number,
+                    error_code: "stale-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesError(error)),
+                ));
+            }
+            Err(ShareValidationError::InvalidJobId) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, msg.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: msg.channel_id,
+                    sequence_number: msg.sequence_number,
+                    error_code: "invalid-job-id"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesError(error)),
+                ));
+            }
+            Err(ShareValidationError::DoesNotMeetTarget) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, msg.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: msg.channel_id,
+                    sequence_number: msg.sequence_number,
+                    error_code: "difficulty-too-low"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesError(error)),
+                ));
+            }
+            Err(ShareValidationError::DuplicateShare) => {
+                error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, msg.sequence_number);
+                let error = SubmitSharesError {
+                    channel_id: msg.channel_id,
+                    sequence_number: msg.sequence_number,
+                    error_code: "duplicate-share"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesError(error)),
+                ));
+            }
+            _ => {
+                // any other error variations should never happen
+                unreachable!()
+            }
+        }
+
         Ok(())
     }
 
@@ -559,6 +763,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         .try_into()
                         .expect("error code must be valid string"),
                 };
+                self.channel_manager_channel.downstream_sender.send((
+                    downstream.downstream_id,
+                    AnyMessage::Mining(Mining::SubmitSharesError(error)),
+                ));
             }
             Err(ShareValidationError::DuplicateShare) => {
                 error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, msg.sequence_number);
