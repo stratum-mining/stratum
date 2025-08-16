@@ -32,8 +32,6 @@ pub use setup_connection::{
     SetupConnectionError, SetupConnectionSuccess,
 };
 
-pub use setup_connection::{CSetupConnection, CSetupConnectionError};
-
 // Discriminants for Stratum V2 (sub)protocols
 //
 // Discriminants are unique identifiers used to distinguish between different
@@ -60,14 +58,6 @@ pub const CHANNEL_BIT_SETUP_CONNECTION: bool = false;
 pub const CHANNEL_BIT_SETUP_CONNECTION_SUCCESS: bool = false;
 pub const CHANNEL_BIT_SETUP_CONNECTION_ERROR: bool = false;
 pub const CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED: bool = true;
-
-#[no_mangle]
-/// A C-compatible function that exports the [`ChannelEndpointChanged`] struct.
-pub extern "C" fn _c_export_channel_endpoint_changed(_a: ChannelEndpointChanged) {}
-
-#[no_mangle]
-/// A C-compatible function that exports the `SetupConnection` struct.
-pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}
 
 #[cfg(feature = "prop_test")]
 impl ChannelEndpointChanged {

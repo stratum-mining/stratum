@@ -46,7 +46,7 @@ mod decoder;
 mod encoder;
 pub mod error;
 
-pub use error::{CError, Error, Result};
+pub use error::{Error, Result};
 
 pub use decoder::{StandardEitherFrame, StandardSv2Frame};
 

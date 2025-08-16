@@ -61,7 +61,7 @@ use std::io::{Error as E, Read, Write};
 //  - `HEADERSIZE`: The size of the header, which is used for types that require a prefix to
 //    describe the content's length.
 //  - `MAXSIZE`: The maximum allowable size for the data.
-#[repr(C)]
+
 #[derive(Debug)]
 pub enum Inner<
     'a,

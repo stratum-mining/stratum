@@ -165,7 +165,7 @@ impl_sv2_for_unsigned!(f32);
 /// Represents a 24-bit unsigned integer (`U24`), supporting SV2 serialization and deserialization.
 /// Only first 3 bytes of a u32 is considered to get the SV2 value, and rest are ignored (in little
 /// endian).
-#[repr(C)]
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct U24(pub(crate) u32);
 

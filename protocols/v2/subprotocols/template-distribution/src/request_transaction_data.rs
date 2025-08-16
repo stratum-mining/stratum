@@ -1,8 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{
-    binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2},
-    Deserialize, Error, Seq064K, Serialize, Str0255, B016M, B064K,
-};
+use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize, Str0255, B016M, B064K};
 use core::convert::TryInto;
 
 /// Message used by a downstream to request data about all transactions in a block template.
@@ -11,7 +8,7 @@ use core::convert::TryInto;
 ///
 /// Note that the coinbase transaction is excluded from this data.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
-#[repr(C)]
+
 pub struct RequestTransactionData {
     /// Identifier of the template that the downstream node is requesting transaction data for.
     ///
@@ -82,56 +79,6 @@ impl fmt::Display for RequestTransactionDataSuccess<'_> {
     }
 }
 
-/// C representation of [`RequestTransactionDataSuccess`].
-#[repr(C)]
-pub struct CRequestTransactionDataSuccess {
-    template_id: u64,
-    excess_data: CVec,
-    transaction_list: CVec2,
-}
-
-impl<'a> CRequestTransactionDataSuccess {
-    /// Converts C struct to Rust struct.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataSuccess<'a>, Error> {
-        let excess_data: B064K = self.excess_data.as_mut_slice().try_into()?;
-        let transaction_list_ = self.transaction_list.as_mut_slice();
-        let mut transaction_list: Vec<B016M> = Vec::new();
-        for cvec in transaction_list_ {
-            transaction_list.push(cvec.as_mut_slice().try_into()?);
-        }
-        let transaction_list = Seq064K::new(transaction_list)?;
-        Ok(RequestTransactionDataSuccess {
-            template_id: self.template_id,
-            excess_data,
-            transaction_list,
-        })
-    }
-}
-
-/// Drops the CRequestTransactionDataSuccess object.
-#[no_mangle]
-pub extern "C" fn free_request_tx_data_success(s: CRequestTransactionDataSuccess) {
-    drop(s)
-}
-
-impl Drop for CRequestTransactionDataSuccess {
-    fn drop(&mut self) {
-        free_vec(&mut self.excess_data);
-        free_vec_2(&mut self.transaction_list);
-    }
-}
-
-impl<'a> From<RequestTransactionDataSuccess<'a>> for CRequestTransactionDataSuccess {
-    fn from(v: RequestTransactionDataSuccess<'a>) -> Self {
-        Self {
-            template_id: v.template_id,
-            excess_data: v.excess_data.into(),
-            transaction_list: v.transaction_list.into(),
-        }
-    }
-}
-
 /// Message used by an upstream(Template Provider) to respond with an error to a
 /// [`RequestTransactionData`] message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -153,45 +100,5 @@ impl fmt::Display for RequestTransactionDataError<'_> {
             self.template_id,
             self.error_code.as_utf8_or_hex()
         )
-    }
-}
-
-/// C representation of [`RequestTransactionDataError`].
-#[repr(C)]
-pub struct CRequestTransactionDataError {
-    template_id: u64,
-    error_code: CVec,
-}
-
-impl<'a> CRequestTransactionDataError {
-    /// Converts C struct to Rust struct.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataError<'a>, Error> {
-        let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
-        Ok(RequestTransactionDataError {
-            template_id: self.template_id,
-            error_code,
-        })
-    }
-}
-
-/// Drops the CRequestTransactionDataError object.
-#[no_mangle]
-pub extern "C" fn free_request_tx_data_error(s: CRequestTransactionDataError) {
-    drop(s)
-}
-
-impl Drop for CRequestTransactionDataError {
-    fn drop(&mut self) {
-        free_vec(&mut self.error_code);
-    }
-}
-
-impl<'a> From<RequestTransactionDataError<'a>> for CRequestTransactionDataError {
-    fn from(v: RequestTransactionDataError<'a>) -> Self {
-        Self {
-            template_id: v.template_id,
-            error_code: v.error_code.into(),
-        }
     }
 }
