@@ -94,11 +94,6 @@ jobs:
           cd protocols/v2/subprotocols/template-distribution
           cargo doc
 
-      - name: Rust Docs crate sv2_ffi
-        run: |
-          cd protocols/v2/sv2-ffi
-          cargo doc
-
       - name: Rust Docs crate roles_logic_sv2
 
         run: |

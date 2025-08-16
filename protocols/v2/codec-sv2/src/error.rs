@@ -1,8 +1,8 @@
 //! # Error Handling and Result Types
 //!
 //! This module defines error types and utilities for handling errors in the `codec_sv2` module.
-//! It includes the [`Error`] enum for representing various errors, a C-compatible [`CError`] enum
-//! for FFI, and a `Result` type alias for convenience.
+//! It includes the [`Error`] enum for representing various errors and a `Result` type alias for
+//! convenience.
 
 use core::fmt;
 use framing_sv2::Error as FramingError;
@@ -114,92 +114,5 @@ impl From<framing_sv2::Error> for Error {
 impl From<NoiseError> for Error {
     fn from(e: NoiseError) -> Self {
         Error::NoiseSv2Error(e)
-    }
-}
-
-/// C-compatible enumeration of possible errors in the `codec_sv2` module.
-///
-/// This enum mirrors the [`Error`] enum but is designed to be used in C code through FFI. It
-/// represents the same set of errors as [`Error`], making them accessible to C programs.
-#[repr(C)]
-#[derive(Debug)]
-pub enum CError {
-    /// AEAD (`snow`) error in the Noise protocol.
-    AeadError,
-
-    /// Binary Sv2 data format error.
-    BinarySv2Error,
-
-    /// Framing Sv2 error.
-    FramingError,
-
-    /// Framing Sv2 error.
-    FramingSv2Error,
-
-    /// Invalid step for initiator in the Noise protocol.
-    InvalidStepForInitiator,
-
-    /// Invalid step for responder in the Noise protocol.
-    InvalidStepForResponder,
-
-    /// Missing bytes in the Noise protocol.
-    MissingBytes(usize),
-
-    /// Sv2 Noise protocol error.
-    NoiseSv2Error,
-
-    /// Noise protocol is not in the expected handshake state.
-    NotInHandShakeState,
-
-    /// Unexpected state in the Noise protocol.
-    UnexpectedNoiseState,
-}
-
-/// Force `cbindgen` to create a header for [`CError`].
-///
-/// It ensures that [`CError`] is included in the generated C header file. This function is not
-/// meant to be called and will panic if called. Its only purpose is to make [`CError`] visible to
-/// `cbindgen`.
-#[no_mangle]
-pub extern "C" fn export_cerror() -> CError {
-    unimplemented!()
-}
-
-impl From<Error> for CError {
-    fn from(e: Error) -> CError {
-        match e {
-            #[cfg(feature = "noise_sv2")]
-            Error::AeadError(_) => CError::AeadError,
-            Error::BinarySv2Error(_) => CError::BinarySv2Error,
-            Error::FramingSv2Error(_) => CError::FramingSv2Error,
-            Error::FramingError(_) => CError::FramingError,
-            #[cfg(feature = "noise_sv2")]
-            Error::InvalidStepForInitiator => CError::InvalidStepForInitiator,
-            #[cfg(feature = "noise_sv2")]
-            Error::InvalidStepForResponder => CError::InvalidStepForResponder,
-            Error::MissingBytes(u) => CError::MissingBytes(u),
-            #[cfg(feature = "noise_sv2")]
-            Error::NoiseSv2Error(_) => CError::NoiseSv2Error,
-            #[cfg(feature = "noise_sv2")]
-            Error::NotInHandShakeState => CError::NotInHandShakeState,
-            Error::UnexpectedNoiseState => CError::UnexpectedNoiseState,
-        }
-    }
-}
-
-impl Drop for CError {
-    fn drop(&mut self) {
-        match self {
-            CError::AeadError => (),
-            CError::BinarySv2Error => (),
-            CError::FramingError => (),
-            CError::FramingSv2Error => (),
-            CError::InvalidStepForInitiator => (),
-            CError::InvalidStepForResponder => (),
-            CError::MissingBytes(_) => (),
-            CError::NoiseSv2Error => (),
-            CError::NotInHandShakeState => (),
-            CError::UnexpectedNoiseState => (),
-        };
     }
 }

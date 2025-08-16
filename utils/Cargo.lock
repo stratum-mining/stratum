@@ -93,7 +93,7 @@ checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "buffer_sv2",
 ]
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "2.1.0"
+version = "3.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -337,7 +337,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "5.0.0"
+version = "6.0.0"
 dependencies = [
  "binary_sv2",
 ]
@@ -1227,7 +1227,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "template_distribution_sv2"
-version = "3.1.0"
+version = "4.0.0"
 dependencies = [
  "binary_sv2",
 ]

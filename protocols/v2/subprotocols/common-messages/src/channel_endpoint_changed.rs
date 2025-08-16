@@ -10,7 +10,7 @@ use core::convert::TryInto;
 ///
 /// When a downstream receives such a message, any extension state (including version and extension
 /// support) must be reset and renegotiated.
-#[repr(C)]
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ChannelEndpointChanged {
     /// Unique identifier of the channel that has changed its endpoint.

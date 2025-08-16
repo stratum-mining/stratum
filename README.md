@@ -61,7 +61,6 @@ The library is modular to address different use-cases and desired functionality.
 
 - Pools supporting SV2 can deploy the open source binary crate (`roles/pool`) to offer their clients (miners participating in said pool) an SV2-compatible pool.
 - The Rust helper library provides a suite of tools for mining pools to build custom SV2 compatible pool implementations.
-- The C library provides a set of FFI bindings to the Rust helper library for miners to integrate SV2 into their existing firmware stack.
 
 ## 🛣 Roadmap 
 
@@ -84,10 +83,9 @@ The goals of this project are to provide:
    - Pools supporting SV2
    - Mining-device/hashrate producers integrating SV2 into their firmware
    - Bitcoin nodes implementing Template Provider to build the `blocktemplate`
-2. The above Rust primitives as a C library available for use in other languages via FFI.
-3. A set of helpers built on top of the above primitives and the external Bitcoin-related Rust crates for anyone to implement the SV2 roles.
-4. An open-source implementation of a SV2 proxy for miners.
-5. An open-source implementation of a SV2 pool for mining pool operators.
+2. A set of helpers built on top of the above primitives and the external Bitcoin-related Rust crates for anyone to implement the SV2 roles.
+3. An open-source implementation of a SV2 proxy for miners.
+4. An open-source implementation of a SV2 pool for mining pool operators.
 
 ## 💻 Contribute 
 

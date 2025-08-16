@@ -113,7 +113,7 @@ use std::io::Read;
 
 /// [`Seq0255`] represents a sequence with a maximum length of 255 elements.
 /// This structure uses a generic type `T` and a lifetime parameter `'a`.
-#[repr(C)]
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Seq0255<'a, T>(pub Vec<T>, PhantomData<&'a T>);
 
@@ -447,7 +447,7 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 }
 
 /// The lifetime 'a is defined.
-#[repr(C)]
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
 

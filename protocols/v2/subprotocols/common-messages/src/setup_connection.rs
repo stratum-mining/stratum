@@ -5,9 +5,8 @@ use crate::{
 use alloc::{fmt, vec::Vec};
 use binary_sv2::{
     binary_codec_sv2,
-    binary_codec_sv2::CVec,
     decodable::{DecodableField, FieldMarker},
-    free_vec, Deserialize, Error, GetSize, Serialize, Str0255,
+    Deserialize, GetSize, Serialize, Str0255,
 };
 use core::convert::{TryFrom, TryInto};
 
@@ -198,100 +197,11 @@ pub fn has_work_selection(flags: u32) -> bool {
     flag != 0
 }
 
-/// C representation of [`SetupConnection`]
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct CSetupConnection {
-    /// Protocol to be used for the connection.
-    pub protocol: Protocol,
-    /// The minimum protocol version supported.
-    ///
-    /// Currently must be set to 2.
-    pub min_version: u16,
-    /// The maximum protocol version supported.
-    ///
-    /// Currently must be set to 2.
-    pub max_version: u16,
-    /// Flags indicating optional protocol features supported by the downstream.
-    ///
-    /// Each [`SetupConnection::protocol`] value has it's own flags.
-    pub flags: u32,
-    /// ASCII representation of the connection hostname or IP address.
-    pub endpoint_host: CVec,
-    /// Connection port value.
-    pub endpoint_port: u16,
-    /// Device vendor name.
-    pub vendor: CVec,
-    /// Device hardware version.
-    pub hardware_version: CVec,
-    /// Device firmware version.
-    pub firmware: CVec,
-    /// Device identifier.
-    pub device_id: CVec,
-}
-
-impl<'a> CSetupConnection {
-    #[allow(clippy::wrong_self_convention)]
-    /// Convert C representation to Rust representation
-    pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
-        let endpoint_host: Str0255 = self.endpoint_host.as_mut_slice().try_into()?;
-        let vendor: Str0255 = self.vendor.as_mut_slice().try_into()?;
-        let hardware_version: Str0255 = self.hardware_version.as_mut_slice().try_into()?;
-        let firmware: Str0255 = self.firmware.as_mut_slice().try_into()?;
-        let device_id: Str0255 = self.device_id.as_mut_slice().try_into()?;
-
-        Ok(SetupConnection {
-            protocol: self.protocol,
-            min_version: self.min_version,
-            max_version: self.max_version,
-            flags: self.flags,
-            endpoint_host,
-            endpoint_port: self.endpoint_port,
-            vendor,
-            hardware_version,
-            firmware,
-            device_id,
-        })
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn free_setup_connection(s: CSetupConnection) {
-    drop(s)
-}
-
-impl Drop for CSetupConnection {
-    fn drop(&mut self) {
-        free_vec(&mut self.endpoint_host);
-        free_vec(&mut self.vendor);
-        free_vec(&mut self.hardware_version);
-        free_vec(&mut self.firmware);
-        free_vec(&mut self.device_id);
-    }
-}
-
-impl From<SetupConnection<'_>> for CSetupConnection {
-    fn from(v: SetupConnection) -> Self {
-        Self {
-            protocol: v.protocol,
-            min_version: v.min_version,
-            max_version: v.max_version,
-            flags: v.flags,
-            endpoint_host: v.endpoint_host.into(),
-            endpoint_port: v.endpoint_port,
-            vendor: v.vendor.into(),
-            hardware_version: v.hardware_version.into(),
-            firmware: v.firmware.into(),
-            device_id: v.device_id.into(),
-        }
-    }
-}
-
 /// Message used by an upstream role to accept a connection setup request from a downstream role.
 ///
 /// This message is sent in response to a [`SetupConnection`] message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
-#[repr(C)]
+
 pub struct SetupConnectionSuccess {
     /// Selected version based on the [`SetupConnection::min_version`] and
     /// [`SetupConnection::max_version`] sent by the downstream role.
@@ -353,47 +263,6 @@ impl fmt::Display for SetupConnectionError<'_> {
             self.flags,
             self.error_code.as_utf8_or_hex()
         )
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone)]
-/// C representation of [`SetupConnectionError`]
-pub struct CSetupConnectionError {
-    flags: u32,
-    error_code: CVec,
-}
-
-impl<'a> CSetupConnectionError {
-    #[allow(clippy::wrong_self_convention)]
-    /// Convert C representation to Rust representation
-    pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
-        let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
-
-        Ok(SetupConnectionError {
-            flags: self.flags,
-            error_code,
-        })
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn free_setup_connection_error(s: CSetupConnectionError) {
-    drop(s)
-}
-
-impl Drop for CSetupConnectionError {
-    fn drop(&mut self) {
-        free_vec(&mut self.error_code);
-    }
-}
-
-impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
-    fn from(v: SetupConnectionError<'a>) -> Self {
-        Self {
-            flags: v.flags,
-            error_code: v.error_code.into(),
-        }
     }
 }
 

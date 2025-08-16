@@ -31,13 +31,12 @@ mod set_new_prev_hash;
 mod submit_solution;
 
 pub use coinbase_output_constraints::CoinbaseOutputConstraints;
-pub use new_template::{CNewTemplate, NewTemplate};
+pub use new_template::NewTemplate;
 pub use request_transaction_data::{
-    CRequestTransactionDataError, CRequestTransactionDataSuccess, RequestTransactionData,
-    RequestTransactionDataError, RequestTransactionDataSuccess,
+    RequestTransactionData, RequestTransactionDataError, RequestTransactionDataSuccess,
 };
-pub use set_new_prev_hash::{CSetNewPrevHash, SetNewPrevHash};
-pub use submit_solution::{CSubmitSolution, SubmitSolution};
+pub use set_new_prev_hash::SetNewPrevHash;
+pub use submit_solution::SubmitSolution;
 
 // Template Distribution Protocol message types.
 pub const MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS: u8 = 0x70;
@@ -56,14 +55,6 @@ pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA: bool = false;
 pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS: bool = false;
 pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR: bool = false;
 pub const CHANNEL_BIT_SUBMIT_SOLUTION: bool = false;
-
-/// Exports the [`CoinbaseOutputConstraints`] struct to C.
-#[no_mangle]
-pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputConstraints) {}
-
-/// Exports the [`RequestTransactionData`] struct to C.
-#[no_mangle]
-pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 
 #[cfg(feature = "prop_test")]
 impl NewTemplate<'static> {
