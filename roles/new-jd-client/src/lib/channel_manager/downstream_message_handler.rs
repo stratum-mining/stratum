@@ -61,7 +61,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Error> {
-        info!("Received handle_open_extended_mining_channel from Downstream");
+        tracing::error!("msg: {:?}", msg.user_identity.as_utf8_or_hex());
+        let user_string = msg.user_identity.as_utf8_or_hex();
+        let mut split = user_string.split("#").collect::<Vec<&str>>();
+        let downstream_id = split.pop().unwrap().parse::<u32>().unwrap();
+        info!("Received handle_open_extended_mining_channel from Downstream {downstream_id}");
         let request_id = msg.get_request_id_as_u32();
         let user_identity = std::str::from_utf8(msg.user_identity.as_ref())
             .map(|s| s.to_string())
@@ -145,9 +149,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let future_extended_job_message = Mining::NewExtendedMiningJob(
             future_extended_job.get_job_message().clone().into_static(),
         );
-        self.channel_manager_channel
-            .downstream_sender
-            .send(AnyMessage::Mining(future_extended_job_message));
+        self.channel_manager_channel.downstream_sender.send((
+            downstream_id,
+            AnyMessage::Mining(future_extended_job_message),
+        ));
 
         let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
         let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
@@ -159,17 +164,20 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
             min_ntime: header_timestamp,
             nbits: n_bits,
         });
+
         extended_channel
             .on_set_new_prev_hash(last_set_new_prev_hash_tdp)
             .unwrap();
         self.channel_manager_channel
             .downstream_sender
-            .send(AnyMessage::Mining(set_new_prev_hash_mining));
+            .send((downstream_id, AnyMessage::Mining(set_new_prev_hash_mining)));
 
         let vardiff = Box::new(VardiffState::new().unwrap());
 
         self.channel_manager_data.super_safe_lock(|data| {
             data.extended_channels.insert(channel_id, extended_channel);
+            data.channel_id_to_downstream_id
+                .insert(channel_id, downstream_id);
             data.vardiff.insert(channel_id, vardiff);
         });
 

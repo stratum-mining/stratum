@@ -3,7 +3,8 @@ use std::convert::TryInto;
 use stratum_common::roles_logic_sv2::{
     codec_sv2::{self, Frame},
     common_messages_sv2::{
-        has_work_selection, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+        has_requires_std_job, has_work_selection, SetupConnection, SetupConnectionError,
+        SetupConnectionSuccess,
     },
     handlers_sv2::{HandleCommonMessagesFromClientAsync, HandlerError as Error},
     parsers_sv2::{AnyMessage, MiningDeviceMessages},
@@ -31,6 +32,12 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
             self.downstream_channel.outbound_tx.send(frame.into()).await;
 
             return Ok(());
+        }
+
+        if has_requires_std_job(msg.flags) {
+            self.downstream_data.super_safe_lock(|data| {
+                data.require_std_job = true;
+            });
         }
         let response = SetupConnectionSuccess {
             used_version: 2,

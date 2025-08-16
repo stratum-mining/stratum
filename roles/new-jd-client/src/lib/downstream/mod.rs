@@ -7,7 +7,7 @@ use stratum_common::{
         codec_sv2::{self, Frame, Sv2Frame},
         common_messages_sv2::SetupConnectionSuccess,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
-        parsers_sv2::{AnyMessage, IsSv2Message},
+        parsers_sv2::{AnyMessage, IsSv2Message, Mining},
         utils::Mutex,
     },
 };
@@ -24,12 +24,14 @@ use crate::{
 
 mod message_handler;
 
-pub struct DownstreamData;
+pub struct DownstreamData {
+    require_std_job: bool,
+}
 
 #[derive(Clone)]
 pub struct DownstreamChannel {
-    channel_manager_sender: Sender<EitherFrame>,
-    channel_manager_receiver: broadcast::Sender<Message>,
+    channel_manager_sender: Sender<(u32, EitherFrame)>,
+    channel_manager_receiver: broadcast::Sender<(u32, Message)>,
     outbound_tx: Sender<EitherFrame>,
     inbound_rx: Receiver<EitherFrame>,
 }
@@ -44,8 +46,8 @@ pub struct Downstream {
 impl Downstream {
     pub fn new(
         downstream_id: u32,
-        channel_manager_sender: Sender<EitherFrame>,
-        channel_manager_receiver: broadcast::Sender<Message>,
+        channel_manager_sender: Sender<(u32, EitherFrame)>,
+        channel_manager_receiver: broadcast::Sender<(u32, Message)>,
         noise_stream: NoiseTcpStream<Message>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: mpsc::Sender<()>,
@@ -72,7 +74,9 @@ impl Downstream {
             outbound_tx,
             inbound_rx,
         };
-        let downstream_data = Arc::new(Mutex::new(DownstreamData));
+        let downstream_data = Arc::new(Mutex::new(DownstreamData {
+            require_std_job: false,
+        }));
         Downstream {
             downstream_channel,
             downstream_data,
@@ -88,7 +92,7 @@ impl Downstream {
         task_manager: Arc<TaskManager>,
     ) {
         let status_sender = StatusSender::Downstream {
-            downstream_id: 1,
+            downstream_id: self.downstream_id,
             tx: status_sender,
         };
 
@@ -141,19 +145,21 @@ impl Downstream {
 
     async fn handle_channel_manager_message(mut self) -> Result<(), JDCError> {
         let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
-        while let Ok(frame) = receiver.recv().await {
-            let message_type = frame.message_type();
-            let std_frame = StdFrame::from_message(frame, message_type, 0, true).unwrap();
-            self.downstream_channel
-                .outbound_tx
-                .send(std_frame.into())
-                .await
-                .map_err(|e| {
-                    error!("Upstream connection closed: {:?}", e);
-                    JDCError::CodecNoise(
-                        codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
-                    )
-                })?;
+        while let Ok((downstream_id, frame)) = receiver.recv().await {
+            if downstream_id == self.downstream_id {
+                let message_type = frame.message_type();
+                let std_frame = StdFrame::from_message(frame, message_type, 0, true).unwrap();
+                self.downstream_channel
+                    .outbound_tx
+                    .send(std_frame.into())
+                    .await
+                    .map_err(|e| {
+                        error!("Upstream connection closed: {:?}", e);
+                        JDCError::CodecNoise(
+                            codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                        )
+                    })?;
+            }
         }
         Ok(())
     }
@@ -166,7 +172,8 @@ impl Downstream {
                 let std_frame: StdFrame = sv2_frame;
                 let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
                     std_frame.clone().into();
-                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
+                let (message_type, mut payload, mut parsed_message) =
+                    message_from_frame(&mut frame)?;
 
                 match parsed_message {
                     AnyMessage::Common(_) => {
@@ -177,19 +184,12 @@ impl Downstream {
                         let frame_to_forward = EitherFrame::Sv2(std_frame);
                         self.downstream_channel
                             .channel_manager_sender
-                            .send(frame_to_forward)
+                            .send((self.downstream_id, frame_to_forward))
                             .await
-                            .map_err(
-                                |e: async_channel::SendError<
-                                    Frame<AnyMessage<'static>, buffer_sv2::Slice>,
-                                >| {
-                                    error!(
-                                        "Failed to send mining message to channel manager: {:?}",
-                                        e
-                                    );
-                                    JDCError::ChannelErrorSender
-                                },
-                            )?;
+                            .map_err(|e| {
+                                error!("Failed to send mining message to channel manager: {:?}", e);
+                                JDCError::ChannelErrorSender
+                            })?;
                     }
                     _ => {
                         error!("Received unsupported message type from upstream.");

@@ -10,7 +10,7 @@ use stratum_common::{
         codec_sv2::{
             self,
             binary_sv2::{Seq064K, B016M},
-            Responder,
+            Responder, Sv2Frame,
         },
         handlers_sv2::{
             HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
@@ -20,7 +20,7 @@ use stratum_common::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         },
         mining_sv2::{ExtendedExtranonce, FULL_EXTRANONCE_LEN},
-        parsers_sv2::{AnyMessage, JobDeclaration, TemplateDistribution},
+        parsers_sv2::{AnyMessage, IsSv2Message, JobDeclaration, Mining, TemplateDistribution},
         template_distribution_sv2::{
             CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash as SetNewPrevHashTdp,
             SubmitSolution,
@@ -72,6 +72,7 @@ pub struct ChannelManagerData {
     last_declare_job_store: HashMap<u32, LastDeclareJob>,
     job_id_to_template: HashMap<u32, LastDeclareJob>,
     coinbase_outputs: Vec<u8>,
+    channel_id_to_downstream_id: HashMap<u32, u32>,
     upstream_channel_id: u32,
 }
 
@@ -83,8 +84,8 @@ pub struct ChannelManagerChannel {
     jd_receiver: Receiver<EitherFrame>,
     tp_sender: Sender<EitherFrame>,
     tp_receiver: Receiver<EitherFrame>,
-    downstream_sender: broadcast::Sender<Message>,
-    downstream_receiver: Receiver<EitherFrame>,
+    downstream_sender: broadcast::Sender<(u32, Message)>,
+    downstream_receiver: Receiver<(u32, EitherFrame)>,
 }
 
 #[derive(Clone)]
@@ -108,8 +109,8 @@ impl ChannelManager {
         jd_receiver: Receiver<EitherFrame>,
         tp_sender: Sender<EitherFrame>,
         tp_receiver: Receiver<EitherFrame>,
-        downstream_sender: broadcast::Sender<Message>,
-        downstream_receiver: Receiver<EitherFrame>,
+        downstream_sender: broadcast::Sender<(u32, Message)>,
+        downstream_receiver: Receiver<(u32, EitherFrame)>,
         status_sender: Sender<Status>,
     ) -> Result<Self, JDCError> {
         let range_1_start = 0;
@@ -150,6 +151,7 @@ impl ChannelManager {
             last_declare_job_store: HashMap::new(),
             job_id_to_template: HashMap::new(),
             coinbase_outputs: vec![],
+            channel_id_to_downstream_id: HashMap::new(),
             upstream_channel_id: 0,
         }));
         let channel_manager_channel = ChannelManagerChannel {
@@ -185,8 +187,8 @@ impl ChannelManager {
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         shutdown_complete_tx: mpsc::Sender<()>,
         status_sender: Sender<Status>,
-        channel_manager_sender: Sender<EitherFrame>,
-        channel_manager_receiver: broadcast::Sender<Message>,
+        channel_manager_sender: Sender<(u32, EitherFrame)>,
+        channel_manager_receiver: broadcast::Sender<(u32, Message)>,
     ) -> Result<(), JDCError> {
         let server = TcpListener::bind(listening_address).await?;
         let task_manager_clone = task_manager.clone();
@@ -379,8 +381,9 @@ impl ChannelManager {
         Ok(())
     }
 
+    // we will make this lean
     async fn handle_downstreams_message(&mut self) -> Result<(), JDCError> {
-        while let Ok(read_frame) = self
+        while let Ok((downstream_id, read_frame)) = self
             .channel_manager_channel
             .downstream_receiver
             .recv()
@@ -391,14 +394,70 @@ impl ChannelManager {
                     let std_frame: StdFrame = sv2_frame;
                     let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
                         std_frame.clone().into();
+
                     let (message_type, mut payload, parsed_message) =
                         message_from_frame(&mut frame)?;
 
                     match parsed_message {
-                        AnyMessage::Mining(_) => {
-                            self.handle_mining_message_from_client(message_type, &mut payload)
-                                .await;
-                        }
+                        AnyMessage::Mining(m) => match m {
+                            Mining::OpenExtendedMiningChannel(mut x) => {
+                                let user_identity = format!(
+                                    "{}#{}",
+                                    x.user_identity.as_utf8_or_hex(),
+                                    downstream_id
+                                );
+                                x.user_identity = user_identity.try_into().unwrap();
+                                let mining_message = Mining::OpenExtendedMiningChannel(x);
+                                error!("Mining message: {mining_message:?}");
+                                let mut any_message = mining_message.into_static();
+                                let sv2_frame: Sv2Frame<Mining<'static>, Vec<u8>> =
+                                    Sv2Frame::from_message(any_message, message_type, 0, false)
+                                        .unwrap();
+
+                                let mut serialized_frame = vec![0u8; sv2_frame.encoded_length()];
+                                sv2_frame
+                                    .serialize(&mut serialized_frame)
+                                    .expect("Failed to serialize the frame");
+                                let mut deserialized_frame =
+                                    Sv2Frame::<Mining<'static>, Vec<u8>>::from_bytes(
+                                        serialized_frame,
+                                    )
+                                    .expect("Failed to deserialize frame");
+
+                                let mut payload = deserialized_frame.payload();
+
+                                self.handle_mining_message_from_client(message_type, &mut payload)
+                                    .await;
+                            }
+                            Mining::OpenStandardMiningChannel(mut x) => {
+                                let user_identity =
+                                    format!("{}#{}", x.user_identity, downstream_id);
+                                x.user_identity = user_identity.try_into().unwrap();
+                                let mining_message = Mining::OpenStandardMiningChannel(x);
+                                let mut any_message = mining_message.into_static();
+                                let sv2_frame: Sv2Frame<Mining<'static>, Vec<u8>> =
+                                    Sv2Frame::from_message(any_message, message_type, 0, false)
+                                        .unwrap();
+
+                                let mut serialized_frame = vec![0u8; sv2_frame.encoded_length()];
+                                sv2_frame
+                                    .serialize(&mut serialized_frame)
+                                    .expect("Failed to serialize the frame");
+                                let mut deserialized_frame =
+                                    Sv2Frame::<Mining<'static>, Vec<u8>>::from_bytes(
+                                        serialized_frame,
+                                    )
+                                    .expect("Failed to deserialize frame");
+
+                                let mut payload = deserialized_frame.payload();
+                                self.handle_mining_message_from_client(message_type, &mut payload)
+                                    .await;
+                            }
+                            _ => {
+                                self.handle_mining_message_from_client(message_type, &mut payload)
+                                    .await;
+                            }
+                        },
                         _ => {
                             error!("Received unsupported message type from upstream.");
                             return Err(JDCError::UnexpectedMessage);

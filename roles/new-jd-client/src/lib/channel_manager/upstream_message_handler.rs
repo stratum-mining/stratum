@@ -41,7 +41,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
         self.channel_manager_data.super_safe_lock(|data| {
-            data.extranonce_prefix_factory_extended = extranonces;
+            // data.extranonce_prefix_factory_extended = extranonces;
             data.upstream_channel_id = msg.channel_id;
         });
 
