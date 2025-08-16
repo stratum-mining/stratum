@@ -1,5 +1,11 @@
 use stratum_common::roles_logic_sv2::{
-    bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut}, codec_sv2::binary_sv2::{Seq064K, U256}, handlers_sv2::{HandleTemplateDistributionMessagesFromServerAsync, HandlerError as Error}, job_declaration_sv2::DeclareMiningJob, mining_sv2::{NewExtendedMiningJob, NewMiningJob}, parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution}, template_distribution_sv2::*
+    bitcoin::{consensus, hashes::Hash, p2p::message, Amount, Transaction, TxOut},
+    codec_sv2::binary_sv2::{Seq064K, U256},
+    handlers_sv2::{HandleTemplateDistributionMessagesFromServerAsync, HandlerError as Error},
+    job_declaration_sv2::DeclareMiningJob,
+    mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp},
+    parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
+    template_distribution_sv2::*,
 };
 use tracing::info;
 
@@ -33,83 +39,165 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             .send(frame.into())
             .await;
 
-
         // Rethink handling of standard and group channels, something doesn't feel right
         let messages = self.channel_manager_data.super_safe_lock(|data| {
             let mut messages: Vec<(u32, AnyMessage)> = Vec::new();
             let pool_coinbase_output = TxOut {
                 value: Amount::from_sat(msg.coinbase_tx_value_remaining),
-                script_pubkey: self.coinbase_reward_script.script_pubkey()
+                script_pubkey: self.coinbase_reward_script.script_pubkey(),
             };
             match msg.future_template {
                 true => {
                     for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
-
                         if data.group_channel.is_none() {
-                            standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]).unwrap();
-                            let standard_job_id = standard_channel.get_future_template_to_job_id().get(&msg.template_id).expect("Job_id must exist");
-                            let standard_job = standard_channel.get_future_jobs().get(standard_job_id).expect("standard job must exist");
+                            standard_channel
+                                .on_new_template(
+                                    msg.clone().into_static(),
+                                    vec![pool_coinbase_output.clone()],
+                                )
+                                .unwrap();
+                            let standard_job_id = standard_channel
+                                .get_future_template_to_job_id()
+                                .get(&msg.template_id)
+                                .expect("Job_id must exist");
+                            let standard_job = standard_channel
+                                .get_future_jobs()
+                                .get(standard_job_id)
+                                .expect("standard job must exist");
                             let standard_job_message = standard_job.get_job_message();
-                            let downstream_id = data.channel_id_to_downstream_id.get(channel_id).unwrap();
-                            messages.push((*downstream_id,AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
-
+                            let downstream_id =
+                                data.channel_id_to_downstream_id.get(channel_id).unwrap();
+                            messages.push((
+                                *downstream_id,
+                                AnyMessage::Mining(Mining::NewMiningJob(
+                                    standard_job_message.clone().into_static(),
+                                )),
+                            ));
                         }
                     }
 
                     if let Some(ref mut group_channel) = data.group_channel {
-                        group_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]).unwrap();
-                        let future_job_id = group_channel.get_future_template_to_job_id().get(&msg.template_id).expect("job_id must exist");
-                        let future_job = group_channel.get_future_jobs().get(future_job_id).expect("future job must exist");
+                        group_channel
+                            .on_new_template(
+                                msg.clone().into_static(),
+                                vec![pool_coinbase_output.clone()],
+                            )
+                            .unwrap();
+                        let future_job_id = group_channel
+                            .get_future_template_to_job_id()
+                            .get(&msg.template_id)
+                            .expect("job_id must exist");
+                        let future_job = group_channel
+                            .get_future_jobs()
+                            .get(future_job_id)
+                            .expect("future job must exist");
 
                         for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
-                            standard_channel.on_group_channel_job(future_job.clone()).unwrap();
+                            standard_channel
+                                .on_group_channel_job(future_job.clone())
+                                .unwrap();
                         }
 
                         let future_job_message = future_job.get_job_message().clone();
-                        messages.push((0, AnyMessage::Mining(Mining::NewExtendedMiningJob(future_job_message))));
-                        
+                        messages.push((
+                            0,
+                            AnyMessage::Mining(Mining::NewExtendedMiningJob(future_job_message)),
+                        ));
                     }
 
                     for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                        extended_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]).unwrap();
-                        let future_job_id = extended_channel.get_future_template_to_job_id().get(&msg.template_id).expect("job_id must exist");
-                        let future_job = extended_channel.get_future_jobs().get(future_job_id).expect("future job must exist");
+                        extended_channel
+                            .on_new_template(
+                                msg.clone().into_static(),
+                                vec![pool_coinbase_output.clone()],
+                            )
+                            .unwrap();
+                        let future_job_id = extended_channel
+                            .get_future_template_to_job_id()
+                            .get(&msg.template_id)
+                            .expect("job_id must exist");
+                        let future_job = extended_channel
+                            .get_future_jobs()
+                            .get(future_job_id)
+                            .expect("future job must exist");
                         let future_job_message = future_job.get_job_message().clone();
-                        let downstream_id = data.channel_id_to_downstream_id.get(channel_id).unwrap();
-                        messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(future_job_message))));
+                        let downstream_id =
+                            data.channel_id_to_downstream_id.get(channel_id).unwrap();
+                        messages.push((
+                            *downstream_id,
+                            AnyMessage::Mining(Mining::NewExtendedMiningJob(future_job_message)),
+                        ));
                     }
                 }
                 false => {
                     for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
                         if data.group_channel.is_none() {
-                            standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]).unwrap();
-                            let standard_job_id = standard_channel.get_future_template_to_job_id().get(&msg.template_id).expect("Job_id must exist");
-                            let standard_job = standard_channel.get_future_jobs().get(standard_job_id).expect("standard job must exist");
+                            standard_channel
+                                .on_new_template(
+                                    msg.clone().into_static(),
+                                    vec![pool_coinbase_output.clone()],
+                                )
+                                .unwrap();
+                            let standard_job_id = standard_channel
+                                .get_future_template_to_job_id()
+                                .get(&msg.template_id)
+                                .expect("Job_id must exist");
+                            let standard_job = standard_channel
+                                .get_future_jobs()
+                                .get(standard_job_id)
+                                .expect("standard job must exist");
                             let standard_job_message = standard_job.get_job_message();
-                            let downstream_id = data.channel_id_to_downstream_id.get(channel_id).unwrap();
-                            messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
-
+                            let downstream_id =
+                                data.channel_id_to_downstream_id.get(channel_id).unwrap();
+                            messages.push((
+                                *downstream_id,
+                                AnyMessage::Mining(Mining::NewMiningJob(
+                                    standard_job_message.clone().into_static(),
+                                )),
+                            ));
                         }
                     }
 
                     if let Some(ref mut group_channel) = data.group_channel {
-                        group_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]).unwrap();
-                        let active_job = group_channel.get_active_job().expect("active job must exist");
+                        group_channel
+                            .on_new_template(
+                                msg.clone().into_static(),
+                                vec![pool_coinbase_output.clone()],
+                            )
+                            .unwrap();
+                        let active_job = group_channel
+                            .get_active_job()
+                            .expect("active job must exist");
                         for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
-                            standard_channel.on_group_channel_job(active_job.clone()).unwrap();
+                            standard_channel
+                                .on_group_channel_job(active_job.clone())
+                                .unwrap();
                         }
 
                         let active_job_message = active_job.get_job_message().clone();
-                        messages.push((0, AnyMessage::Mining(Mining::NewExtendedMiningJob(active_job_message))));
-                        
+                        messages.push((
+                            0,
+                            AnyMessage::Mining(Mining::NewExtendedMiningJob(active_job_message)),
+                        ));
                     }
 
                     for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                        extended_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]).unwrap();
-                        let active_job = extended_channel.get_active_job().expect("future job must exist");
+                        extended_channel
+                            .on_new_template(
+                                msg.clone().into_static(),
+                                vec![pool_coinbase_output.clone()],
+                            )
+                            .unwrap();
+                        let active_job = extended_channel
+                            .get_active_job()
+                            .expect("future job must exist");
                         let active_job_message = active_job.get_job_message().clone();
-                        let downstream_id = data.channel_id_to_downstream_id.get(channel_id).unwrap();
-                        messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(active_job_message))));
+                        let downstream_id =
+                            data.channel_id_to_downstream_id.get(channel_id).unwrap();
+                        messages.push((
+                            *downstream_id,
+                            AnyMessage::Mining(Mining::NewExtendedMiningJob(active_job_message)),
+                        ));
                     }
                 }
             }
@@ -117,7 +205,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         });
 
         for (downstream_id, message) in messages {
-            self.channel_manager_channel.downstream_sender.send((downstream_id, message));
+            self.channel_manager_channel
+                .downstream_sender
+                .send((downstream_id, message));
         }
 
         Ok(())
@@ -219,7 +309,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
         info!("Received handle_set_new_prev_hash from Template provider");
-        self.channel_manager_data.super_safe_lock(|data| {
+        let messages = self.channel_manager_data.super_safe_lock(|data| {
             data.last_new_prev_hash = Some(msg.clone().into_static());
             data.last_declare_job_store.iter_mut().for_each(|(k, v)| {
                 if v.template.future_template && v.template.template_id == msg.template_id {
@@ -227,9 +317,90 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                     v.template.future_template = false;
                 }
             });
+
+            let mut messages: Vec<(u32, AnyMessage)> = vec![];
+
+            for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
+                extended_channel.on_set_new_prev_hash(msg.clone().into_static());
+                let activated_extended_job_id = extended_channel
+                    .get_active_job()
+                    .expect("active job must exist")
+                    .get_job_id();
+                let downstream_id = data.channel_id_to_downstream_id.get(channel_id).unwrap();
+                let set_new_prev_hash_message = SetNewPrevHashMp {
+                    channel_id: *channel_id,
+                    job_id: activated_extended_job_id,
+                    prev_hash: msg.prev_hash.clone(),
+                    min_ntime: msg.header_timestamp,
+                    nbits: msg.n_bits,
+                }
+                .into_static();
+                messages.push((
+                    *downstream_id,
+                    AnyMessage::Mining(Mining::SetNewPrevHash(set_new_prev_hash_message)),
+                ));
+            }
+
+            if let Some(ref mut group_channel) = data.group_channel {
+                group_channel
+                    .on_set_new_prev_hash(msg.clone().into_static())
+                    .unwrap();
+
+                let group_channel_id = group_channel.get_group_channel_id();
+                let activated_group_job_id = group_channel
+                    .get_active_job()
+                    .expect("active job must exist")
+                    .get_job_id();
+
+                let set_new_prev_hash_message = SetNewPrevHashMp {
+                    channel_id: group_channel_id,
+                    job_id: activated_group_job_id,
+                    prev_hash: msg.prev_hash.clone(),
+                    min_ntime: msg.header_timestamp,
+                    nbits: msg.n_bits,
+                }
+                .into_static();
+                messages.push((
+                    0,
+                    AnyMessage::Mining(Mining::SetNewPrevHash(set_new_prev_hash_message)),
+                ));
+            }
+
+            for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
+                standard_channel
+                    .on_set_new_prev_hash(msg.clone().into_static())
+                    .unwrap();
+
+                if data.group_channel.is_none() {
+                    let activated_standard_job_id = standard_channel
+                        .get_active_job()
+                        .expect("active job must exist")
+                        .get_job_id();
+                    let downstream_id = data.channel_id_to_downstream_id.get(channel_id).unwrap();
+                    let set_new_prev_hash_message = SetNewPrevHashMp {
+                        channel_id: *channel_id,
+                        job_id: activated_standard_job_id,
+                        prev_hash: msg.prev_hash.clone(),
+                        min_ntime: msg.header_timestamp,
+                        nbits: msg.n_bits,
+                    }
+                    .into_static();
+                    messages.push((
+                        *downstream_id,
+                        AnyMessage::Mining(Mining::SetNewPrevHash(set_new_prev_hash_message)),
+                    ));
+                }
+            }
+
+            messages
         });
-        // active the already present future job, and then send the jobs downstream and custom job
-        // to upstream.
+
+        for (downstream_id, message) in messages {
+            self.channel_manager_channel
+                .downstream_sender
+                .send((downstream_id, message));
+        }
+
         Ok(())
     }
 }
