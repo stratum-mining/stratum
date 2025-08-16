@@ -25,7 +25,7 @@ use crate::{
 mod message_handler;
 
 pub struct DownstreamData {
-    require_std_job: bool,
+    pub require_std_job: bool,
 }
 
 #[derive(Clone)]
@@ -38,9 +38,9 @@ pub struct DownstreamChannel {
 
 #[derive(Clone)]
 pub struct Downstream {
-    downstream_data: Arc<Mutex<DownstreamData>>,
+    pub downstream_data: Arc<Mutex<DownstreamData>>,
     downstream_channel: DownstreamChannel,
-    downstream_id: u32,
+    pub downstream_id: u32,
 }
 
 impl Downstream {

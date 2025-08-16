@@ -1,4 +1,8 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+};
 
 use async_channel::{unbounded, Receiver, Sender};
 use config_helpers_sv2::CoinbaseRewardScript;
@@ -6,7 +10,9 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        channels_sv2::server::extended::ExtendedChannel,
+        channels_sv2::server::{
+            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+        },
         codec_sv2::{
             self,
             binary_sv2::{Seq064K, B016M},
@@ -60,12 +66,15 @@ pub struct LastDeclareJob {
 pub struct ChannelManagerData {
     downstream: HashMap<u32, Downstream>,
     extranonce_prefix_factory_extended: ExtendedExtranonce,
+    extranonce_prefix_factory_standard: ExtendedExtranonce,
     channel_id_factory: IdFactory,
     request_id_factory: IdFactory,
     downstream_id_factory: IdFactory,
     last_future_template: Option<NewTemplate<'static>>,
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
+    group_channel: Option<GroupChannel<'static>>,
     extended_channels: HashMap<u32, ExtendedChannel<'static>>,
+    standard_channels: HashMap<u32, StandardChannel<'static>>,
     vardiff: HashMap<u32, Box<dyn Vardiff>>,
     allocate_tokens: Option<AllocateMiningJobTokenSuccess<'static>>,
     template_store: HashMap<u64, NewTemplate<'static>>,
@@ -134,17 +143,23 @@ impl ChannelManager {
         let extranonce_prefix_factory_extended =
             ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
                 .expect("Failed to create ExtendedExtranonce with valid ranges");
+        let extranonce_prefix_factory_standard =
+            ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
+                .expect("Failed to create ExtendedExtranonce with valid ranges");
 
         // make share batch size and share per minute configurable by config
         let channel_manager_data = Arc::new(Mutex::new(ChannelManagerData {
             downstream: HashMap::new(),
             extranonce_prefix_factory_extended,
+            extranonce_prefix_factory_standard,
             channel_id_factory: IdFactory::new(),
             downstream_id_factory: IdFactory::new(),
             request_id_factory: IdFactory::new(),
             last_future_template: None,
             last_new_prev_hash: None,
             extended_channels: HashMap::new(),
+            standard_channels: HashMap::new(),
+            group_channel: None,
             vardiff: HashMap::new(),
             allocate_tokens: None,
             template_store: HashMap::new(),
