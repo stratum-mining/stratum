@@ -1,14 +1,18 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
     roles_logic_sv2::{
+        channels_sv2::server::{
+            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+        },
         codec_sv2::{self, Frame, Sv2Frame},
         common_messages_sv2::SetupConnectionSuccess,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
         parsers_sv2::{AnyMessage, IsSv2Message, Mining},
-        utils::Mutex,
+        utils::{Id as IdFactory, Mutex},
+        Vardiff,
     },
 };
 
@@ -26,7 +30,11 @@ mod message_handler;
 
 pub struct DownstreamData {
     pub require_std_job: bool,
-    pub channels: Vec<u32>,
+    pub channel_id_factory: IdFactory,
+    pub group_channels: Option<GroupChannel<'static>>,
+    pub extended_channels: HashMap<u32, ExtendedChannel<'static>>,
+    pub standard_channels: HashMap<u32, StandardChannel<'static>>,
+    pub vardiff: HashMap<u32, Box<dyn Vardiff>>,
 }
 
 #[derive(Clone)]
@@ -77,7 +85,11 @@ impl Downstream {
         };
         let downstream_data = Arc::new(Mutex::new(DownstreamData {
             require_std_job: false,
-            channels: vec![],
+            channel_id_factory: IdFactory::new(),
+            extended_channels: HashMap::new(),
+            standard_channels: HashMap::new(),
+            group_channels: None,
+            vardiff: HashMap::new(),
         }));
         Downstream {
             downstream_channel,

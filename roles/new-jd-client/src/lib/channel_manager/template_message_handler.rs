@@ -47,72 +47,70 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                 script_pubkey: self.coinbase_reward_script.script_pubkey(),
             };
             for (downstream_id, downstream) in data.downstream.iter_mut() {
-                let channels = downstream.downstream_data.super_safe_lock(|data| data.channels.clone());
-                let group_channel_exist = data.group_channel.contains_key(downstream_id);
 
-                let group_channel_job = if group_channel_exist {
-                    let group_channel = data.group_channel.get_mut(downstream_id).expect("We already know that group channel exist");
-                    if let Ok(_) = group_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
-                        match msg.future_template {
-                            true => {
-                                let future_job_id = group_channel
-                                        .get_future_template_to_job_id()
-                                        .get(&msg.template_id)
-                                        .expect("job_id must exist");
-                                Some(group_channel
-                                    .get_future_jobs()
-                                    .get(future_job_id)
-                                    .expect("future job must exist"))
-                            },
-                            false => {
-                                Some(group_channel
-                                    .get_active_job()
-                                    .expect("active job must exist"))
+                let downstream_messages = downstream.downstream_data.super_safe_lock(|data| {
+
+                    let mut messages: Vec<(u32, AnyMessage)> = vec![];
+
+                    let group_channel_job = if let Some(ref mut group_channel) = data.group_channels {
+                        if let Ok(_) = group_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                            match msg.future_template {
+                                true => {
+                                    let future_job_id = group_channel
+                                            .get_future_template_to_job_id()
+                                            .get(&msg.template_id)
+                                            .expect("job_id must exist");
+                                    Some(group_channel
+                                        .get_future_jobs()
+                                        .get(future_job_id)
+                                        .expect("future job must exist")).cloned()
+                                },
+                                false => {
+                                    Some(group_channel
+                                        .get_active_job()
+                                        .expect("active job must exist")).cloned()
+                                }
                             }
+                        } else {
+                            tracing::error!("Some issue with downstream: {downstream_id}, group channel");
+                            // return a none in job
+                            None
                         }
                     } else {
-                        tracing::error!("Some issue with downstream: {downstream_id}, group channel");
-                        // return a none in job
                         None
-                    }
-                } else {
-                    None
-                };
+                    };
 
-                if let Some(group_channel_job) = group_channel_job {
-                    let job_message = group_channel_job.get_job_message();
-                    messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(job_message.clone().into_static()))));
-                }
-
-                for channel_id in channels {
-                    let standard_channel = data.standard_channels.contains_key(&channel_id);
-                    let extended_channel = data.extended_channels.contains_key(&channel_id);
 
                     match msg.future_template {
                         true => {
-
-                            if standard_channel {
-                                let standard_channel = data.standard_channels.get_mut(&channel_id).expect("We already did check on standard channel");
+                            for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
+                                if data.group_channels.is_none() {
                                     if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
                                         // do something here, I guess just ignore??
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                         continue;
                                     }
-                                if !group_channel_exist {
                                     let standard_job_id = standard_channel.get_future_template_to_job_id().get(&msg.template_id).expect("job_id must exist");
                                     let standard_job = standard_channel.get_future_jobs().get(standard_job_id).expect("standard job must exist");
                                     let standard_job_message = standard_job.get_job_message();
                                     messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
                                 }
-
-                                if let Some(job) = group_channel_job {
+                                if let Some(ref group_channel_job) = group_channel_job {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                        // do something here, I guess just ignore??
+                                        tracing::error!("Error while adding template to standard channel: {channel_id:?}");
+                                        continue;
+                                    }
                                     standard_channel
-                                    .on_group_channel_job(job.clone());
+                                    .on_group_channel_job(group_channel_job.clone());
                                 }
                             }
+                            if let Some(group_channel_job) = group_channel_job {
+                                let job_message = group_channel_job.get_job_message();
+                                messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(job_message.clone().into_static()))));
+                            }
 
-                            if extended_channel {
-                                let extended_channel = data.extended_channels.get_mut(&channel_id).expect("We already did check on extended channel");
+                            for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
                                 if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
                                     // do something here, I guess just ignore??
                                     tracing::error!("Error while adding template to standard channel: {channel_id:?}");
@@ -133,27 +131,33 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             }
                         }
                         false => {
-                            if standard_channel {
-                                let standard_channel = data.standard_channels.get_mut(&channel_id).expect("We already did check on standard channel");
-                                if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
-                                    // do something here, I guess just ignore??
-                                    tracing::error!("Error while adding template to standard channel: {channel_id:?}");
-                                    continue;
-                                }
-                                if !group_channel_exist {
+                            for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
+                                if data.group_channels.is_none() {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                        // do something here, I guess just ignore??
+                                        tracing::error!("Error while adding template to standard channel: {channel_id:?}");
+                                        continue;
+                                    }
                                     let standard_job = standard_channel.get_active_job().expect("standard job must exist");
                                     let standard_job_message = standard_job.get_job_message();
                                     messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
                                 }
-
-                                if let Some(job) = group_channel_job {
+                                if let Some(ref group_channel_job) = group_channel_job {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                        // do something here, I guess just ignore??
+                                        tracing::error!("Error while adding template to standard channel: {channel_id:?}");
+                                        continue;
+                                    }
                                     standard_channel
-                                    .on_group_channel_job(job.clone());
+                                    .on_group_channel_job(group_channel_job.clone());
                                 }
                             }
+                            if let Some(group_channel_job) = group_channel_job {
+                                let job_message = group_channel_job.get_job_message();
+                                messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(job_message.clone().into_static()))));
+                            }
 
-                            if extended_channel {
-                                let extended_channel = data.extended_channels.get_mut(&channel_id).expect("We already did check on extended channel");
+                            for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
                                 if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
                                     // do something here, I guess just ignore??
                                     tracing::error!("Error while adding template to standard channel: {channel_id:?}");
@@ -168,7 +172,11 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             }
                         }
                     }
-                }
+
+                    messages
+
+                });
+                messages.extend(downstream_messages);
             }
             messages
         });
@@ -290,47 +298,32 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             let mut messages: Vec<(u32, AnyMessage)> = vec![];
 
             for (downstream_id, downstream) in data.downstream.iter_mut() {
-                let channels = downstream
-                    .downstream_data
-                    .super_safe_lock(|data| data.channels.clone());
-                let group_channel_exist = data.group_channel.contains_key(downstream_id);
+                let downstrea_messages = downstream.downstream_data.super_safe_lock(|data| {
+                    let mut messages: Vec<(u32, AnyMessage)> = vec![];
+                    if let Some(ref mut group_channel) = data.group_channels {
+                        group_channel.on_set_new_prev_hash(msg.clone().into_static());
+                        let group_channel_id = group_channel.get_group_channel_id();
+                        let activated_group_job_id = group_channel
+                            .get_active_job()
+                            .expect("active job must exist")
+                            .get_job_id();
 
-                if group_channel_exist {
-                    let group_channel = data
-                        .group_channel
-                        .get_mut(downstream_id)
-                        .expect("We already checked");
-                    group_channel.on_set_new_prev_hash(msg.clone().into_static());
-                    let group_channel_id = group_channel.get_group_channel_id();
-                    let activated_group_job_id = group_channel
-                        .get_active_job()
-                        .expect("active job must exist")
-                        .get_job_id();
+                        let set_new_prev_hash_message = SetNewPrevHashMp {
+                            channel_id: group_channel_id,
+                            job_id: activated_group_job_id,
+                            prev_hash: msg.prev_hash.clone(),
+                            min_ntime: msg.header_timestamp,
+                            nbits: msg.n_bits,
+                        };
+                        messages.push((
+                            *downstream_id,
+                            AnyMessage::Mining(Mining::SetNewPrevHash(
+                                set_new_prev_hash_message.into_static(),
+                            )),
+                        ));
+                    }
 
-                    let set_new_prev_hash_message = SetNewPrevHashMp {
-                        channel_id: group_channel_id,
-                        job_id: activated_group_job_id,
-                        prev_hash: msg.prev_hash.clone(),
-                        min_ntime: msg.header_timestamp,
-                        nbits: msg.n_bits,
-                    };
-                    messages.push((
-                        *downstream_id,
-                        AnyMessage::Mining(Mining::SetNewPrevHash(
-                            set_new_prev_hash_message.into_static(),
-                        )),
-                    ));
-                }
-
-                for channel_id in channels {
-                    let standard_channel = data.standard_channels.contains_key(&channel_id);
-                    let extended_channel = data.extended_channels.contains_key(&channel_id);
-
-                    if standard_channel {
-                        let standard_channel = data
-                            .standard_channels
-                            .get_mut(&channel_id)
-                            .expect("Already checked");
+                    for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
                         if let Err(e) =
                             standard_channel.on_set_new_prev_hash(msg.clone().into_static())
                         {
@@ -340,13 +333,13 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         // did SetupConnection have the REQUIRES_STANDARD_JOBS flag set?
                         // if yes, there's no group channel, so we need to send the SetNewPrevHashMp
                         // to each standard channel
-                        if !group_channel_exist {
+                        if data.group_channels.is_none() {
                             let activated_standard_job_id = standard_channel
                                 .get_active_job()
                                 .expect("active job must exist")
                                 .get_job_id();
                             let set_new_prev_hash_message = SetNewPrevHashMp {
-                                channel_id,
+                                channel_id: *channel_id,
                                 job_id: activated_standard_job_id,
                                 prev_hash: msg.prev_hash.clone(),
                                 min_ntime: msg.header_timestamp,
@@ -359,11 +352,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                 )),
                             ));
                         }
-                    } else {
-                        let extended_channel = data
-                            .extended_channels
-                            .get_mut(&channel_id)
-                            .expect("Already checked");
+                    }
+
+                    for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
                         if let Err(e) =
                             extended_channel.on_set_new_prev_hash(msg.clone().into_static())
                         {
@@ -375,7 +366,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             .expect("active job must exist")
                             .get_job_id();
                         let set_new_prev_hash_message = SetNewPrevHashMp {
-                            channel_id,
+                            channel_id: *channel_id,
                             job_id: activated_extended_job_id,
                             prev_hash: msg.prev_hash.clone(),
                             min_ntime: msg.header_timestamp,
@@ -388,7 +379,11 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             )),
                         ));
                     }
-                }
+
+                    messages
+                });
+
+                messages.extend(downstrea_messages);
             }
 
             messages

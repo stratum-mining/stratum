@@ -67,16 +67,10 @@ pub struct ChannelManagerData {
     downstream: HashMap<u32, Downstream>,
     extranonce_prefix_factory_extended: ExtendedExtranonce,
     extranonce_prefix_factory_standard: ExtendedExtranonce,
-    channel_id_factory: IdFactory,
     request_id_factory: IdFactory,
     downstream_id_factory: IdFactory,
     last_future_template: Option<NewTemplate<'static>>,
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
-    // downstream_id, to group channel id
-    group_channel: HashMap<u32, GroupChannel<'static>>,
-    extended_channels: HashMap<u32, ExtendedChannel<'static>>,
-    standard_channels: HashMap<u32, StandardChannel<'static>>,
-    vardiff: HashMap<u32, Box<dyn Vardiff>>,
     allocate_tokens: Option<AllocateMiningJobTokenSuccess<'static>>,
     template_store: HashMap<u64, NewTemplate<'static>>,
     last_declare_job_store: HashMap<u32, LastDeclareJob>,
@@ -153,15 +147,10 @@ impl ChannelManager {
             downstream: HashMap::new(),
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
-            channel_id_factory: IdFactory::new(),
             downstream_id_factory: IdFactory::new(),
             request_id_factory: IdFactory::new(),
             last_future_template: None,
             last_new_prev_hash: None,
-            extended_channels: HashMap::new(),
-            standard_channels: HashMap::new(),
-            group_channel: HashMap::new(),
-            vardiff: HashMap::new(),
             allocate_tokens: None,
             template_store: HashMap::new(),
             last_declare_job_store: HashMap::new(),
@@ -494,10 +483,13 @@ impl ChannelManager {
 
     async fn allocate_tokens(&self, token_to_allocate: u32) -> Result<(), JDCError> {
         for i in 0..token_to_allocate {
+            let request_id = self
+                .channel_manager_data
+                .super_safe_lock(|data| data.request_id_factory.next());
             /// Ask gitgab about this
             let message = JobDeclaration::AllocateMiningJobToken(AllocateMiningJobToken {
                 user_identifier: "jdc".to_string().try_into().unwrap(),
-                request_id: 1,
+                request_id,
             });
             let frame: StdFrame = AnyMessage::JobDeclaration(message).try_into()?;
             self.channel_manager_channel
