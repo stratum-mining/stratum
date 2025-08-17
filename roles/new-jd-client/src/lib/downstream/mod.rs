@@ -10,6 +10,7 @@ use stratum_common::{
         codec_sv2::{self, Frame, Sv2Frame},
         common_messages_sv2::SetupConnectionSuccess,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
+        mining_sv2::{SetTarget, Target},
         parsers_sv2::{AnyMessage, IsSv2Message, Mining},
         utils::{Id as IdFactory, Mutex},
         Vardiff,
@@ -111,7 +112,29 @@ impl Downstream {
         };
 
         let mut shutdown_rx = notify_shutdown.subscribe();
+        let self_clone = self.clone();
+        let status_sender_clone = status_sender.clone();
         self.setup_connection().await;
+        task_manager.spawn(async move {
+            let mut shutdown_rx = notify_shutdown.subscribe();
+            let downstream_id = self_clone.downstream_id;
+            loop {
+                tokio::select! {
+                    message = shutdown_rx.recv() => {
+                        if let Ok(ShutdownMessage::ShutdownAll) = message {
+                            info!("Vardiff, for downstream:{downstream_id}, received shutdown", );
+                        }
+                    }
+                    res = self_clone.spawn_vardiff() => {
+                        if let Err(e) = res {
+                            handle_error(&status_sender_clone, e).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
         task_manager.spawn(async move {
             loop {
                 let mut self_clone_1 = self.clone();
@@ -215,6 +238,128 @@ impl Downstream {
                 debug!("Received handshake frame: {:?}", handshake_frame);
             }
         }
+        Ok(())
+    }
+
+    fn run_vardiff_on_extended_channel(
+        channel_id: u32,
+        channel_state: &mut ExtendedChannel<'static>,
+        vardiff_state: &mut Box<dyn Vardiff>,
+        updates: &mut Vec<(u32, AnyMessage)>,
+    ) {
+        let hashrate = channel_state.get_nominal_hashrate();
+        let target = channel_state.get_target();
+        let shares_per_minute = channel_state.get_shares_per_minute();
+
+        let Ok(new_hashrate_opt) = vardiff_state.try_vardiff(hashrate, target, shares_per_minute)
+        else {
+            debug!("Vardiff computation failed for extended channel {channel_id}");
+            return;
+        };
+
+        if let Some(new_hashrate) = new_hashrate_opt {
+            if let Ok(()) = channel_state.update_channel(new_hashrate, None) {
+                let updated_target = channel_state.get_target();
+                let target_message = AnyMessage::Mining(Mining::SetTarget(SetTarget {
+                    channel_id,
+                    maximum_target: updated_target.clone().into(),
+                }));
+                updates.push((channel_id, target_message));
+
+                debug!(
+                    "Updated target for extended channel_id={channel_id} to {:?}",
+                    updated_target
+                );
+            } else {
+                warn!("Failed to update extended channel {channel_id}");
+            }
+        }
+    }
+
+    fn run_vardiff_on_standard_channel(
+        channel_id: u32,
+        channel: &mut StandardChannel<'static>,
+        vardiff_state: &mut Box<dyn Vardiff>,
+        updates: &mut Vec<(u32, AnyMessage)>,
+    ) {
+        let hashrate = channel.get_nominal_hashrate();
+        let target = channel.get_target();
+        let shares_per_minute = channel.get_shares_per_minute();
+
+        let Ok(new_hashrate_opt) = vardiff_state.try_vardiff(hashrate, target, shares_per_minute)
+        else {
+            debug!("Vardiff computation failed for standard channel {channel_id}");
+            return;
+        };
+
+        if let Some(new_hashrate) = new_hashrate_opt {
+            if let Ok(()) = channel.update_channel(new_hashrate, None) {
+                let updated_target = channel.get_target();
+
+                let target_message = AnyMessage::Mining(Mining::SetTarget(SetTarget {
+                    channel_id,
+                    maximum_target: updated_target.clone().into(),
+                }));
+
+                updates.push((channel_id, target_message));
+
+                debug!(
+                    "Updated target for standard channel_id={channel_id} to {:?}",
+                    updated_target
+                );
+            } else {
+                warn!("Failed to update standard channel {channel_id}");
+            }
+        }
+    }
+
+    async fn spawn_vardiff(&self) -> Result<(), JDCError> {
+        let downstream_id = self.downstream_id;
+        info!("Spawning vardiff adjustment loop for downstream: {downstream_id}");
+
+        if self.downstream_channel.outbound_tx.is_closed() {
+            debug!("Downstream {downstream_id} closed, stopping vardiff loop");
+            return Err(JDCError::ChannelErrorSender);
+        }
+
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+
+        debug!("Starting vardiff updates for downstream: {downstream_id}");
+
+        let messages = self.downstream_data.super_safe_lock(|data| {
+            let mut messages: Vec<(u32, AnyMessage)> = vec![];
+            for (channel_id, vardiff_state) in data.vardiff.iter_mut() {
+                if let Some(channel) = data.extended_channels.get_mut(channel_id) {
+                    Self::run_vardiff_on_extended_channel(
+                        *channel_id,
+                        channel,
+                        vardiff_state,
+                        &mut messages,
+                    );
+                }
+                if let Some(channel) = data.standard_channels.get_mut(channel_id) {
+                    Self::run_vardiff_on_standard_channel(
+                        *channel_id,
+                        channel,
+                        vardiff_state,
+                        &mut messages,
+                    );
+                }
+            }
+            messages
+        });
+
+        for (channel_id, target) in messages {
+            let frame: StdFrame = target.try_into().unwrap();
+            if let Err(e) = self.downstream_channel.outbound_tx.send(frame.into()).await {
+                error!(
+                    "Failed to send SetTarget message downstream for channel {channel_id}: {:?}",
+                    e
+                );
+                return Err(JDCError::ChannelErrorSender);
+            }
+        }
+
         Ok(())
     }
 }

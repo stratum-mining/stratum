@@ -157,7 +157,7 @@ impl ChannelManager {
             job_id_to_template: HashMap::new(),
             coinbase_outputs: vec![],
             channel_id_to_downstream_id: HashMap::new(),
-            upstream_channel_id: 0,
+            upstream_channel_id: 1,
         }));
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,
@@ -172,7 +172,7 @@ impl ChannelManager {
         let channel_manager = ChannelManager {
             channel_manager_data,
             channel_manager_channel,
-            share_batch_size: 0,
+            share_batch_size: 1,
             shares_per_minute: 10.0,
             pool_tag_string: Some("pool".to_string()),
             miner_tag_string: "miner".to_string(),
@@ -417,7 +417,7 @@ impl ChannelManager {
                                 );
                                 x.user_identity = user_identity.try_into().unwrap();
                                 let mining_message = Mining::OpenExtendedMiningChannel(x);
-                                error!("Mining message: {mining_message:?}");
+
                                 let mut any_message = mining_message.into_static();
                                 let sv2_frame: Sv2Frame<Mining<'static>, Vec<u8>> =
                                     Sv2Frame::from_message(any_message, message_type, 0, false)
