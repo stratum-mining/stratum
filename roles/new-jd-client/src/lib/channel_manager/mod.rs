@@ -72,7 +72,8 @@ pub struct ChannelManagerData {
     downstream_id_factory: IdFactory,
     last_future_template: Option<NewTemplate<'static>>,
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
-    group_channel: Option<GroupChannel<'static>>,
+    // downstream_id, to group channel id
+    group_channel: HashMap<u32, GroupChannel<'static>>,
     extended_channels: HashMap<u32, ExtendedChannel<'static>>,
     standard_channels: HashMap<u32, StandardChannel<'static>>,
     vardiff: HashMap<u32, Box<dyn Vardiff>>,
@@ -159,7 +160,7 @@ impl ChannelManager {
             last_new_prev_hash: None,
             extended_channels: HashMap::new(),
             standard_channels: HashMap::new(),
-            group_channel: None,
+            group_channel: HashMap::new(),
             vardiff: HashMap::new(),
             allocate_tokens: None,
             template_store: HashMap::new(),
@@ -235,6 +236,10 @@ impl ChannelManager {
                     task_manager_clone.clone(),
                     status_sender.clone(),
                 );
+
+                self.channel_manager_data.super_safe_lock(|data| {
+                    data.downstream.insert(downstream_id, downstream.clone());
+                });
 
                 downstream
                     .start(

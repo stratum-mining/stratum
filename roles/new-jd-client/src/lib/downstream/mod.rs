@@ -26,6 +26,7 @@ mod message_handler;
 
 pub struct DownstreamData {
     pub require_std_job: bool,
+    pub channels: Vec<u32>,
 }
 
 #[derive(Clone)]
@@ -76,6 +77,7 @@ impl Downstream {
         };
         let downstream_data = Arc::new(Mutex::new(DownstreamData {
             require_std_job: false,
+            channels: vec![],
         }));
         Downstream {
             downstream_channel,

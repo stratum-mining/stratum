@@ -51,169 +51,281 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let user_identity = std::str::from_utf8(msg.user_identity.as_ref())
             .map(|s| s.to_string())
             .map_err(|e| Error::External(JDCError::InvalidUserIdentity(e.to_string()).into()))?;
-        info!("Received OpenStandardMiningChannel, {msg}");
-        let (last_future_template, last_new_prev_hash, is_group_channel, downstream) =
-            self.channel_manager_data.super_safe_lock(|data| {
-                (
-                    data.last_future_template.clone(),
-                    data.last_new_prev_hash.clone(),
-                    data.group_channel.is_none(),
-                    data.downstream.get(&downstream_id).cloned(),
-                )
-            });
-        if downstream.is_none() {
-            warn!("Downstream should already be connected");
-            return Ok(());
-        }
 
-        let downstream = downstream.unwrap();
-        let last_future_template = last_future_template.unwrap();
-        let last_new_prev_hash = last_new_prev_hash.unwrap();
+        let messages = self.channel_manager_data.super_safe_lock(|data| {
+            let mut messages: Vec<(u32, AnyMessage)> = Vec::new();
+            let Some(ref last_future_template) = data.last_future_template else {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "unknown-user"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
 
-        let pool_coinbase_output = TxOut {
-            value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
-            script_pubkey: self.coinbase_reward_script.script_pubkey(),
-        };
+            let Some(ref last_new_prev_hash) = data.last_new_prev_hash else {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "unknown-user"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
 
-        if downstream
-            .downstream_data
-            .super_safe_lock(|data| data.require_std_job)
-            && is_group_channel
-        {
-            let group_channel_id = self
-                .channel_manager_data
-                .super_safe_lock(|data| data.channel_id_factory.next());
+            // it should exist
+            let downstream = data.downstream.get(&downstream_id).unwrap();
+
+            let pool_coinbase_output = TxOut {
+                value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+                script_pubkey: self.coinbase_reward_script.script_pubkey(),
+            };
+
+            if !downstream
+                .downstream_data
+                .super_safe_lock(|data| data.require_std_job)
+                && !data.group_channel.contains_key(&downstream_id)
+            {
+                let group_channel_id = data.channel_id_factory.next();
+                let job_store = Box::new(DefaultJobStore::new());
+
+                let mut group_channel = GroupChannel::new_for_job_declaration_client(
+                    group_channel_id,
+                    job_store,
+                    self.pool_tag_string.clone(),
+                    self.miner_tag_string.clone(),
+                );
+
+                if let Err(e) = group_channel.on_new_template(
+                    last_future_template.clone(),
+                    vec![pool_coinbase_output.clone()],
+                ) {
+                    let error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "unknown-user"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return vec![(
+                        downstream_id,
+                        AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                    )];
+                }
+
+                if let Err(e) = group_channel.on_set_new_prev_hash(last_new_prev_hash.clone()) {
+                    let error = OpenMiningChannelError {
+                        request_id,
+                        error_code: "unknown-user"
+                            .to_string()
+                            .try_into()
+                            .expect("error code must be valid string"),
+                    };
+                    return vec![(
+                        downstream_id,
+                        AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                    )];
+                };
+
+                data.group_channel.insert(downstream_id, group_channel);
+            }
+
+            let nominal_hash_rate = msg.nominal_hash_rate;
+            let requested_max_target = msg.max_target.into_static();
+
+            let group_channel_id = match data.group_channel.get_mut(&downstream_id) {
+                Some(group_channel) => group_channel.get_group_channel_id(),
+                None => 0,
+            };
+            let channel_id = data.channel_id_factory.next();
+            let Ok(extranonce_prefix) = data
+                .extranonce_prefix_factory_standard
+                .next_prefix_standard()
+            else {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "unknown-user"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
+
             let job_store = Box::new(DefaultJobStore::new());
-            let mut group_channel_ = GroupChannel::new_for_job_declaration_client(
-                group_channel_id,
+
+            let mut standard_channel = match StandardChannel::new_for_job_declaration_client(
+                channel_id,
+                user_identity,
+                extranonce_prefix.to_vec(),
+                requested_max_target.into(),
+                nominal_hash_rate,
+                self.share_batch_size,
+                self.shares_per_minute,
                 job_store,
                 self.pool_tag_string.clone(),
                 self.miner_tag_string.clone(),
-            );
+            ) {
+                Ok(channel) => channel,
+                Err(e) => match e {
+                    StandardChannelError::InvalidNominalHashrate => {
+                        error!("OpenMiningChannelError: invalid-nominal-hashrate");
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "invalid-nominal-hashrate"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                    StandardChannelError::RequestedMaxTargetOutOfRange => {
+                        error!("OpenMiningChannelError: max-target-out-of-range");
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "max-target-out-of-range"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                    _ => {
+                        error!("error in handle_open_standard_mining_channel: {e:?}");
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "something-went-wrong"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                },
+            };
 
-            group_channel_
-                .on_new_template(
-                    last_future_template.clone(),
-                    vec![pool_coinbase_output.clone()],
-                )
-                .unwrap();
+            let open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
+                request_id: msg.request_id.clone(),
+                channel_id,
+                target: standard_channel.get_target().clone().into(),
+                extranonce_prefix: standard_channel
+                    .get_extranonce_prefix()
+                    .clone()
+                    .try_into()
+                    .expect("extranonce_prefix must be valid"),
+                group_channel_id,
+            }
+            .into_static();
 
-            group_channel_
-                .on_set_new_prev_hash(last_new_prev_hash.clone())
-                .unwrap();
+            messages.push((
+                downstream_id,
+                AnyMessage::Mining(Mining::OpenStandardMiningChannelSuccess(
+                    open_standard_mining_channel_success,
+                )),
+            ));
 
-            let group_channel_ = Some(group_channel_);
+            if let Err(e) = standard_channel.on_new_template(
+                last_future_template.clone(),
+                vec![pool_coinbase_output.clone()],
+            ) {
+                let error = OpenMiningChannelError {
+                    request_id: msg.request_id.as_u32(),
+                    error_code: "unknown-user"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            }
 
-            self.channel_manager_data.super_safe_lock(|data| {
-                data.group_channel = group_channel_;
-            });
-        }
+            let future_standard_job_id = standard_channel
+                .get_future_template_to_job_id()
+                .get(&last_future_template.template_id)
+                .expect("future job id must exist");
+            let future_standard_job = standard_channel
+                .get_future_jobs()
+                .get(future_standard_job_id)
+                .expect("future job must exist");
+            let future_standard_job_message =
+                future_standard_job.get_job_message().clone().into_static();
 
-        let nominal_hash_rate = msg.nominal_hash_rate;
-        let requested_max_target = msg.max_target.into_static();
+            messages.push((
+                downstream_id,
+                AnyMessage::Mining(Mining::NewMiningJob(future_standard_job_message)),
+            ));
 
-        let (extranonce_prefix, channel_id, group_channel_id) =
-            self.channel_manager_data.super_safe_lock(|data| {
-                let mut group_id = 0;
-                if let Some(ref group_channel) = data.group_channel {
-                    group_id = group_channel.get_group_channel_id();
-                }
-                (
-                    data.extranonce_prefix_factory_standard
-                        .next_prefix_standard(),
-                    data.channel_id_factory.next(),
-                    group_id,
-                )
-            });
-        let extranonce_prefix = extranonce_prefix.unwrap();
-        let job_store = Box::new(DefaultJobStore::new());
+            let prev_hash = last_new_prev_hash.prev_hash.clone();
+            let header_timestamp = last_new_prev_hash.header_timestamp;
+            let n_bits = last_new_prev_hash.n_bits;
+            let set_new_prev_hash_mining = SetNewPrevHash {
+                channel_id,
+                job_id: *future_standard_job_id,
+                prev_hash,
+                min_ntime: header_timestamp,
+                nbits: n_bits,
+            };
 
-        let mut standard_channel = StandardChannel::new_for_job_declaration_client(
-            channel_id,
-            user_identity,
-            extranonce_prefix.to_vec(),
-            requested_max_target.into(),
-            nominal_hash_rate,
-            self.share_batch_size,
-            self.shares_per_minute,
-            job_store,
-            self.pool_tag_string.clone(),
-            self.miner_tag_string.clone(),
-        )
-        .unwrap();
+            if let Err(e) = standard_channel.on_set_new_prev_hash(last_new_prev_hash.clone()) {
+                let error = OpenMiningChannelError {
+                    request_id: msg.request_id.clone().as_u32(),
+                    error_code: "unknown-user"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            }
 
-        let open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
-            request_id: msg.request_id,
-            channel_id,
-            target: standard_channel.get_target().clone().into(),
-            extranonce_prefix: standard_channel
-                .get_extranonce_prefix()
-                .clone()
-                .try_into()
-                .expect("extranonce_prefix must be valid"),
-            group_channel_id,
-        }
-        .into_static();
+            let vardiff = VardiffState::new().unwrap();
 
-        self.channel_manager_channel.downstream_sender.send((
-            downstream_id,
-            AnyMessage::Mining(Mining::OpenStandardMiningChannelSuccess(
-                open_standard_mining_channel_success,
-            )),
-        ));
-
-        standard_channel.on_new_template(
-            last_future_template.clone(),
-            vec![pool_coinbase_output.clone()],
-        );
-
-        let future_standard_job_id = standard_channel
-            .get_future_template_to_job_id()
-            .get(&last_future_template.template_id)
-            .expect("future job id must exist");
-        let future_standard_job = standard_channel
-            .get_future_jobs()
-            .get(future_standard_job_id)
-            .expect("future job must exist");
-        let future_standard_job_message =
-            future_standard_job.get_job_message().clone().into_static();
-
-        self.channel_manager_channel.downstream_sender.send((
-            downstream_id,
-            AnyMessage::Mining(Mining::NewMiningJob(future_standard_job_message)),
-        ));
-
-        let prev_hash = last_new_prev_hash.prev_hash.clone();
-        let header_timestamp = last_new_prev_hash.header_timestamp;
-        let n_bits = last_new_prev_hash.n_bits;
-        let set_new_prev_hash_mining = SetNewPrevHash {
-            channel_id,
-            job_id: *future_standard_job_id,
-            prev_hash,
-            min_ntime: header_timestamp,
-            nbits: n_bits,
-        };
-
-        standard_channel
-            .on_set_new_prev_hash(last_new_prev_hash.clone())
-            .unwrap();
-
-        self.channel_manager_channel.downstream_sender.send((
-            downstream_id,
-            AnyMessage::Mining(Mining::SetNewPrevHash(set_new_prev_hash_mining)),
-        ));
-
-        let vardiff = VardiffState::new().unwrap();
-
-        self.channel_manager_data.super_safe_lock(|data| {
             data.vardiff.insert(channel_id, Box::new(vardiff));
             data.standard_channels.insert(channel_id, standard_channel);
+            data.downstream
+                .get(&downstream_id)
+                .unwrap()
+                .downstream_data
+                .super_safe_lock(|data| data.channels.push(channel_id));
             data.channel_id_to_downstream_id
                 .insert(channel_id, downstream_id);
-            if let Some(ref mut group_id) = data.group_channel {
-                group_id.add_standard_channel_id(channel_id);
+            if let Some(group_channel) = data.group_channel.get_mut(&downstream_id) {
+                group_channel.add_standard_channel_id(channel_id);
             }
+
+            messages
         });
+
+        for (downstream_id, message) in messages {
+            self.channel_manager_channel
+                .downstream_sender
+                .send((downstream_id, message));
+        }
 
         Ok(())
     }
@@ -235,134 +347,239 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let requested_max_target = msg.max_target.into_static();
         let requested_min_rollable_extranonce_size = msg.min_extranonce_size;
 
-        let (extranonce_prefix, channel_id, last_future_template, last_new_prev_hash, downstream) =
-            self.channel_manager_data.super_safe_lock(|data| {
-                let channel_id = data.channel_id_factory.next();
-                let extranonce_prefix = data
-                    .extranonce_prefix_factory_extended
-                    .next_prefix_extended(requested_min_rollable_extranonce_size.into());
-                let future_job = data.last_future_template.clone();
-                let prevhash = data.last_new_prev_hash.clone();
-                let downstream = data.downstream.get(&downstream_id).cloned();
-                (
-                    extranonce_prefix,
-                    channel_id,
-                    future_job,
-                    prevhash,
-                    downstream,
-                )
-            });
+        let messages = self.channel_manager_data.super_safe_lock(|data| {
+            let mut messages: Vec<(u32, AnyMessage)> = vec![];
+            let channel_id = data.channel_id_factory.next();
+            let Ok(extranonce_prefix) = data
+                .extranonce_prefix_factory_extended
+                .next_prefix_extended(requested_min_rollable_extranonce_size.into())
+            else {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "max-target-out-of-range"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
+            let Some(last_new_prev_hash) = data.last_new_prev_hash.clone() else {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "max-target-out-of-range"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
 
-        if downstream.is_none() {
-            warn!("Downstream should already be connected");
-            return Ok(());
-        }
+            let Some(last_future_template) = data.last_future_template.clone() else {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "max-target-out-of-range"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
 
-        if last_future_template.is_none() || last_new_prev_hash.is_none() {
-            warn!("We are still initializing kindly wait");
-            return Ok(());
-        }
+            let job_store = Box::new(DefaultJobStore::new());
 
-        let downstream = downstream.unwrap();
-        let extranonce_prefix = extranonce_prefix.unwrap();
-        let job_store = Box::new(DefaultJobStore::new());
+            let mut extended_channel = match ExtendedChannel::new_for_job_declaration_client(
+                channel_id,
+                user_identity,
+                extranonce_prefix.into(),
+                requested_max_target.into(),
+                nominal_hash_rate,
+                true, // version rolling always allowed
+                requested_min_rollable_extranonce_size,
+                self.share_batch_size,
+                self.shares_per_minute,
+                job_store,
+                self.pool_tag_string.clone(),
+                self.miner_tag_string.clone(),
+            ) {
+                Ok(channel) => channel,
+                Err(e) => match e {
+                    ExtendedChannelError::InvalidNominalHashrate => {
+                        error!("OpenMiningChannelError: invalid-nominal-hashrate");
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "invalid-nominal-hashrate"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                    ExtendedChannelError::RequestedMaxTargetOutOfRange => {
+                        error!("OpenMiningChannelError: max-target-out-of-range");
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "max-target-out-of-range"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                    ExtendedChannelError::RequestedMinExtranonceSizeTooLarge => {
+                        error!("OpenMiningChannelError: min-extranonce-size-too-large");
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "min-extranonce-size-too-large"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                    _ => {
+                        error!("error in handle_open_extended_mining_channel: {:?}", e);
+                        let error = OpenMiningChannelError {
+                            request_id,
+                            error_code: "max-target-out-of-range"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        return vec![(
+                            downstream_id,
+                            AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                        )];
+                    }
+                },
+            };
 
-        if downstream
-            .downstream_data
-            .super_safe_lock(|data| data.require_std_job)
-        {
-            warn!(
-                "You asked for standard jobs, and not for extended, kindly open standard channel"
-            );
-            return Ok(());
-        }
+            let open_extended_mining_channel_success = OpenExtendedMiningChannelSuccess {
+                request_id,
+                channel_id,
+                target: extended_channel.get_target().clone().into(),
+                extranonce_prefix: extended_channel
+                    .get_extranonce_prefix()
+                    .clone()
+                    .try_into()
+                    .unwrap(),
+                extranonce_size: extended_channel.get_rollable_extranonce_size(),
+            }
+            .into_static();
 
-        let mut extended_channel = ExtendedChannel::new_for_job_declaration_client(
-            channel_id,
-            user_identity,
-            extranonce_prefix.into(),
-            requested_max_target.into(),
-            nominal_hash_rate,
-            true,
-            requested_min_rollable_extranonce_size,
-            self.share_batch_size,
-            self.shares_per_minute,
-            job_store,
-            self.pool_tag_string.clone(),
-            self.miner_tag_string.clone(),
-        )
-        .unwrap();
+            messages.push((
+                downstream_id,
+                AnyMessage::Mining(Mining::OpenExtendedMiningChannelSuccess(
+                    open_extended_mining_channel_success,
+                )),
+            ));
 
-        let open_extended_mining_channel_success = OpenExtendedMiningChannelSuccess {
-            request_id,
-            channel_id,
-            target: extended_channel.get_target().clone().into(),
-            extranonce_prefix: extended_channel
-                .get_extranonce_prefix()
-                .clone()
-                .try_into()
-                .unwrap(),
-            extranonce_size: extended_channel.get_rollable_extranonce_size(),
-        }
-        .into_static();
+            let pool_coinbase_output = TxOut {
+                value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+                script_pubkey: self.coinbase_reward_script.script_pubkey(),
+            };
 
-        let last_future_template = last_future_template.unwrap();
-        let last_set_new_prev_hash_tdp = last_new_prev_hash.unwrap();
+            // create a future extended job based on the last future template
+            if let Err(e) = extended_channel
+                .on_new_template(last_future_template.clone(), vec![pool_coinbase_output])
+            {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "max-target-out-of-range"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            }
 
-        // get the script pubkey from pool, otherwise in case of solo mining use the config one
-        let pool_coinbase_output = TxOut {
-            value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
-            script_pubkey: self.coinbase_reward_script.script_pubkey(),
-        };
+            let future_extended_job_id = extended_channel
+                .get_future_template_to_job_id()
+                .get(&last_future_template.template_id)
+                .expect("future job id must exist");
+            let future_extended_job = extended_channel
+                .get_future_jobs()
+                .get(future_extended_job_id)
+                .expect("future job must exist");
 
-        // create a future extended job based on the last future template
-        extended_channel
-            .on_new_template(last_future_template.clone(), vec![pool_coinbase_output])
-            .unwrap();
+            let future_extended_job_message =
+                future_extended_job.get_job_message().clone().into_static();
 
-        let future_extended_job_id = extended_channel
-            .get_future_template_to_job_id()
-            .get(&last_future_template.template_id)
-            .expect("future job id must exist");
-        let future_extended_job = extended_channel
-            .get_future_jobs()
-            .get(future_extended_job_id)
-            .expect("future job must exist");
+            // send this future job as new job message
+            // to be immediately activated with the subsequent SetNewPrevHash message
+            messages.push((
+                downstream_id,
+                AnyMessage::Mining(Mining::NewExtendedMiningJob(future_extended_job_message)),
+            ));
 
-        let future_extended_job_message = Mining::NewExtendedMiningJob(
-            future_extended_job.get_job_message().clone().into_static(),
-        );
-        self.channel_manager_channel.downstream_sender.send((
-            downstream_id,
-            AnyMessage::Mining(future_extended_job_message),
-        ));
+            // SetNewPrevHash message activates the future job
+            let prev_hash = last_new_prev_hash.prev_hash.clone();
+            let header_timestamp = last_new_prev_hash.header_timestamp;
+            let n_bits = last_new_prev_hash.n_bits;
+            let set_new_prev_hash_mining = SetNewPrevHash {
+                channel_id,
+                job_id: *future_extended_job_id,
+                prev_hash,
+                min_ntime: header_timestamp,
+                nbits: n_bits,
+            };
+            if let Err(e) = extended_channel.on_set_new_prev_hash(last_new_prev_hash) {
+                let error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "max-target-out-of-range"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return vec![(
+                    downstream_id,
+                    AnyMessage::Mining(Mining::OpenMiningChannelError(error)),
+                )];
+            };
+            messages.push((
+                downstream_id,
+                AnyMessage::Mining(Mining::SetNewPrevHash(set_new_prev_hash_mining)),
+            ));
 
-        let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
-        let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
-        let n_bits = last_set_new_prev_hash_tdp.n_bits;
-        let set_new_prev_hash_mining = Mining::SetNewPrevHash(SetNewPrevHash {
-            channel_id,
-            job_id: *future_extended_job_id,
-            prev_hash,
-            min_ntime: header_timestamp,
-            nbits: n_bits,
-        });
-
-        extended_channel
-            .on_set_new_prev_hash(last_set_new_prev_hash_tdp)
-            .unwrap();
-        self.channel_manager_channel
-            .downstream_sender
-            .send((downstream_id, AnyMessage::Mining(set_new_prev_hash_mining)));
-
-        let vardiff = Box::new(VardiffState::new().unwrap());
-
-        self.channel_manager_data.super_safe_lock(|data| {
+            let vardiff = Box::new(VardiffState::new().unwrap());
             data.extended_channels.insert(channel_id, extended_channel);
+            data.downstream
+                .get(&downstream_id)
+                .unwrap()
+                .downstream_data
+                .super_safe_lock(|data| data.channels.push(channel_id));
             data.channel_id_to_downstream_id
                 .insert(channel_id, downstream_id);
             data.vardiff.insert(channel_id, vardiff);
+
+            messages
         });
+
+        for (downstream_id, message) in messages {
+            self.channel_manager_channel
+                .downstream_sender
+                .send((downstream_id, message));
+        }
 
         Ok(())
     }
