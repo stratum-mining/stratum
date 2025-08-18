@@ -89,6 +89,10 @@ impl<'a> StandardChannel<'a> {
         self.chain_tip.as_ref()
     }
 
+    pub fn set_chain_tip(&mut self, chain_tip: ChainTip) {
+        self.chain_tip = Some(chain_tip);
+    }
+
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
