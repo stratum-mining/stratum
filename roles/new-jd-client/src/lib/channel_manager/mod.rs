@@ -10,8 +10,9 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        channels_sv2::server::{
-            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+        channels_sv2::{
+            client::extended::ExtendedChannel,
+            server::{group::GroupChannel, standard::StandardChannel},
         },
         codec_sv2::{
             self,
@@ -25,7 +26,7 @@ use stratum_common::{
         job_declaration_sv2::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         },
-        mining_sv2::{ExtendedExtranonce, FULL_EXTRANONCE_LEN},
+        mining_sv2::{ExtendedExtranonce, OpenExtendedMiningChannel, FULL_EXTRANONCE_LEN},
         parsers_sv2::{AnyMessage, IsSv2Message, JobDeclaration, Mining, TemplateDistribution},
         template_distribution_sv2::{
             CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash as SetNewPrevHashTdp,
@@ -80,6 +81,8 @@ pub struct ChannelManagerData {
     coinbase_outputs: Vec<u8>,
     channel_id_to_downstream_id: HashMap<u32, u32>,
     upstream_channel_id: u32,
+    upstream_channel: Option<ExtendedChannel<'static>>,
+    pending_channel: HashMap<u32, (String, f32, usize)>,
 }
 
 #[derive(Clone)]
@@ -161,6 +164,8 @@ impl ChannelManager {
             coinbase_outputs: vec![],
             channel_id_to_downstream_id: HashMap::new(),
             upstream_channel_id: 1,
+            upstream_channel: None,
+            pending_channel: HashMap::new(),
         }));
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,
@@ -215,6 +220,7 @@ impl ChannelManager {
                 )
                 .await
                 .unwrap();
+
                 let downstream_id = self
                     .channel_manager_data
                     .super_safe_lock(|data| data.downstream_id_factory.next());
@@ -426,6 +432,9 @@ impl ChannelManager {
 
                     let (message_type, mut payload, parsed_message) =
                         message_from_frame(&mut frame)?;
+                    let is_upstream_available = self
+                        .channel_manager_data
+                        .super_safe_lock(|data| data.upstream_channel.is_some());
 
                     match parsed_message {
                         AnyMessage::Mining(m) => match m {
@@ -436,6 +445,33 @@ impl ChannelManager {
                                     downstream_id
                                 );
                                 x.user_identity = user_identity.try_into().unwrap();
+
+                                if !is_upstream_available {
+                                    let mut y = x.clone();
+                                    y.user_identity = "JDC".to_string().try_into().unwrap();
+                                    y.request_id = 1;
+                                    self.channel_manager_data.super_safe_lock(|data| {
+                                        data.pending_channel.insert(
+                                            0,
+                                            (
+                                                "JDC".to_string(),
+                                                y.nominal_hash_rate,
+                                                y.min_extranonce_size.into(),
+                                            ),
+                                        )
+                                    });
+                                    let mining_message =
+                                        AnyMessage::Mining(Mining::OpenExtendedMiningChannel(y));
+                                    let frame: StdFrame = mining_message.try_into().unwrap();
+                                    self.channel_manager_channel
+                                        .upstream_sender
+                                        .send(frame.into())
+                                        .await;
+                                    // something smart and state machiny kinda stuff can be done,
+                                    // this won't even
+                                    // work for multiple downstream connecting simultaneously.
+                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                }
                                 let mining_message = Mining::OpenExtendedMiningChannel(x);
 
                                 let mut any_message = mining_message.into_static();
@@ -459,6 +495,39 @@ impl ChannelManager {
                                     .await;
                             }
                             Mining::OpenStandardMiningChannel(mut x) => {
+                                if !is_upstream_available {
+                                    let mut y = OpenExtendedMiningChannel {
+                                        user_identity: "JDC".to_string().try_into().unwrap(),
+                                        request_id: 1,
+                                        nominal_hash_rate: x.nominal_hash_rate,
+                                        max_target: x.max_target.clone(),
+                                        min_extranonce_size: 8,
+                                    };
+                                    y.user_identity = "JDC".to_string().try_into().unwrap();
+                                    y.request_id = 1;
+                                    self.channel_manager_data.super_safe_lock(|data| {
+                                        data.pending_channel.insert(
+                                            0,
+                                            (
+                                                "JDC".to_string(),
+                                                y.nominal_hash_rate,
+                                                /// Speak with gitgab about this
+                                                8,
+                                            ),
+                                        )
+                                    });
+                                    let mining_message =
+                                        AnyMessage::Mining(Mining::OpenExtendedMiningChannel(y));
+                                    let frame: StdFrame = mining_message.try_into().unwrap();
+                                    self.channel_manager_channel
+                                        .upstream_sender
+                                        .send(frame.into())
+                                        .await;
+                                    // something smart and state machiny kinda stuff can be done,
+                                    // this won't even
+                                    // work for multiple downstream connecting simultaneously.
+                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                }
                                 let user_identity =
                                     format!("{}#{}", x.user_identity, downstream_id);
                                 x.user_identity = user_identity.try_into().unwrap();

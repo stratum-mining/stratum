@@ -1068,17 +1068,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Error> {
         info!("Received handle_submit_shares_extended from Downstream");
         let channel_id = msg.channel_id;
-        let channel_id = msg.channel_id;
         let any_message =
             AnyMessage::Mining(Mining::SubmitSharesExtended(msg.clone().into_static()));
         let frame: StdFrame = any_message.try_into().unwrap();
-        error!("-----------------------------------------------------------------------");
-        error!("Share extended message: {msg:?}");
+
         self.channel_manager_channel
             .upstream_sender
             .send(frame.into())
             .await;
-        error!("-----------------------------------------------------------------------");
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let Some(downstream_id) = channel_manager_data.channel_id_to_downstream_id.get(&channel_id) else {

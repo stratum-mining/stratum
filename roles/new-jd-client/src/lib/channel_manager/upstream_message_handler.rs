@@ -1,4 +1,5 @@
 use stratum_common::roles_logic_sv2::{
+    channels_sv2::client::extended::ExtendedChannel,
     handlers_sv2::{
         HandleMiningMessagesFromServerAsync, HandlerError as Error, SupportedChannelTypes,
     },
@@ -33,25 +34,44 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
             msg.request_id, msg.channel_id
         );
+        let (ident, hashrate, min_extranonce_size) =
+            self.channel_manager_data.super_safe_lock(|data| {
+                data.pending_channel
+                    .remove(&0)
+                    .unwrap_or_else(|| ("unknown".to_string(), 100000.0, 8_usize))
+            });
 
-        let prefix_len = msg.extranonce_prefix.to_vec().len();
+        let prefix_len = msg.extranonce_prefix.clone().to_vec().len();
+        let jdc_extranonce_len =
+            (msg.extranonce_size as usize).saturating_sub((min_extranonce_size));
         let self_len = 0;
         let total_len = prefix_len + msg.extranonce_size as usize;
         let range_0 = 0..prefix_len;
-        let range_1 = prefix_len..prefix_len + 6;
-        let range_2 = prefix_len + 6..total_len;
+        let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
+        let range_2 = prefix_len + jdc_extranonce_len..total_len;
 
         let extranonces = ExtendedExtranonce::from_upstream_extranonce(
-            msg.extranonce_prefix.into(),
+            msg.extranonce_prefix.clone().into(),
             range_0,
             range_1,
             range_2,
         )
         .unwrap();
+        // Come up with something better
+        let extended_channel = ExtendedChannel::new(
+            msg.channel_id,
+            ident,
+            msg.extranonce_prefix.to_vec(),
+            msg.target.into(),
+            hashrate,
+            true,
+            min_extranonce_size as u16,
+        );
         self.channel_manager_data.super_safe_lock(|data| {
             data.extranonce_prefix_factory_extended = extranonces.clone();
             data.extranonce_prefix_factory_standard = extranonces;
             data.upstream_channel_id = msg.channel_id;
+            data.upstream_channel = Some(extended_channel)
         });
 
         Ok(())
@@ -79,6 +99,9 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
         // Fallback
         info!("Received handle_close_channel from Pool");
+        self.channel_manager_data.super_safe_lock(|data| {
+            data.upstream_channel = None;
+        });
         Ok(())
     }
 
@@ -152,6 +175,22 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_set_target(&mut self, msg: SetTarget<'_>) -> Result<(), Error> {
         // Update the target and store in JDC
         info!("Received handle_set_target from Pool");
+        self.channel_manager_data.super_safe_lock(|data| {
+            if let Some(ref mut upstream) = data.upstream_channel {
+                upstream.set_target(msg.maximum_target.clone().into());
+                for (downstream_id, downstream) in data.downstream.iter_mut() {
+                    downstream.downstream_data.super_safe_lock(|data| {
+                        for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
+                            standard_channel.set_target(msg.maximum_target.clone().into());
+                        }
+
+                        for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
+                            extended_channel.set_target(msg.maximum_target.clone().into());
+                        }
+                    });
+                }
+            }
+        });
         Ok(())
     }
 
