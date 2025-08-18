@@ -114,6 +114,10 @@ impl<'a> ExtendedChannel<'a> {
         self.chain_tip.as_ref()
     }
 
+    pub fn set_chain_tip(&mut self, chain_tip: ChainTip) {
+        self.chain_tip = Some(chain_tip);
+    }
+
     /// Sets the extranonce prefix.
     ///
     /// Note: after this, all new jobs will be associated with the new extranonce prefix.
