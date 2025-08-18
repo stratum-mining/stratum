@@ -106,6 +106,7 @@ pub struct ChannelManager {
     share_batch_size: usize,
     shares_per_minute: f32,
     coinbase_reward_script: CoinbaseRewardScript,
+    user_identity: String
 }
 
 impl ChannelManager {
@@ -121,6 +122,7 @@ impl ChannelManager {
         downstream_sender: broadcast::Sender<(u32, Message)>,
         downstream_receiver: Receiver<(u32, EitherFrame)>,
         status_sender: Sender<Status>,
+        coinbase_outputs: Vec<u8>,
     ) -> Result<Self, JDCError> {
         let range_1_start = 0;
         let range_1_end = 8;
@@ -161,7 +163,7 @@ impl ChannelManager {
             template_store: HashMap::new(),
             last_declare_job_store: HashMap::new(),
             job_id_to_template: HashMap::new(),
-            coinbase_outputs: vec![],
+            coinbase_outputs,
             channel_id_to_downstream_id: HashMap::new(),
             upstream_channel_id: 1,
             upstream_channel: None,
@@ -180,11 +182,12 @@ impl ChannelManager {
         let channel_manager = ChannelManager {
             channel_manager_data,
             channel_manager_channel,
-            share_batch_size: 1,
-            shares_per_minute: 10.0,
+            share_batch_size: config.share_batch_size() as usize,
+            shares_per_minute: config.shares_per_minute() as f32,
             pool_tag_string: Some("pool".to_string()),
             miner_tag_string: "miner".to_string(),
-            coinbase_reward_script: config.coinbase_reward_script,
+            coinbase_reward_script: config.coinbase_reward_script.clone(),
+            user_identity: config.user_identity().to_string(),
         };
 
         Ok(channel_manager)
@@ -261,8 +264,6 @@ impl ChannelManager {
     ) {
         let status_sender = StatusSender::ChannelManager(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
-        // ask gitgab on default tokens to generate.
-        self.allocate_tokens(1).await;
 
         task_manager.spawn(async move {
             loop {
@@ -448,13 +449,13 @@ impl ChannelManager {
 
                                 if !is_upstream_available {
                                     let mut y = x.clone();
-                                    y.user_identity = "JDC".to_string().try_into().unwrap();
+                                    y.user_identity = self.user_identity.clone().try_into().unwrap();
                                     y.request_id = 1;
                                     self.channel_manager_data.super_safe_lock(|data| {
                                         data.pending_channel.insert(
                                             0,
                                             (
-                                                "JDC".to_string(),
+                                                self.user_identity.clone(),
                                                 y.nominal_hash_rate,
                                                 y.min_extranonce_size.into(),
                                             ),
@@ -497,19 +498,19 @@ impl ChannelManager {
                             Mining::OpenStandardMiningChannel(mut x) => {
                                 if !is_upstream_available {
                                     let mut y = OpenExtendedMiningChannel {
-                                        user_identity: "JDC".to_string().try_into().unwrap(),
+                                        user_identity: self.user_identity.clone().try_into().unwrap(),
                                         request_id: 1,
                                         nominal_hash_rate: x.nominal_hash_rate,
                                         max_target: x.max_target.clone(),
                                         min_extranonce_size: 8,
                                     };
-                                    y.user_identity = "JDC".to_string().try_into().unwrap();
+                                    y.user_identity = self.user_identity.clone().try_into().unwrap();
                                     y.request_id = 1;
                                     self.channel_manager_data.super_safe_lock(|data| {
                                         data.pending_channel.insert(
                                             0,
                                             (
-                                                "JDC".to_string(),
+                                                self.user_identity.clone(),
                                                 y.nominal_hash_rate,
                                                 /// Speak with gitgab about this
                                                 8,
@@ -570,7 +571,7 @@ impl ChannelManager {
         Ok(())
     }
 
-    async fn allocate_tokens(&self, token_to_allocate: u32) -> Result<(), JDCError> {
+    pub async fn allocate_tokens(&self, token_to_allocate: u32) -> Result<(), JDCError> {
         for i in 0..token_to_allocate {
             let request_id = self
                 .channel_manager_data

@@ -17,8 +17,6 @@ pub struct JobDeclaratorClientConfig {
     max_supported_version: u16,
     // The minimum supported SV2 protocol version.
     min_supported_version: u16,
-    // Needs more discussion..
-    withhold: bool,
     // The public key used by this JDC for noise encryption.
     authority_public_key: Secp256k1PublicKey,
     /// The secret key used by this JDC for noise encryption.
@@ -41,6 +39,12 @@ pub struct JobDeclaratorClientConfig {
     jdc_signature: String,
     /// The path to the log file where JDC will write logs.
     log_file: Option<PathBuf>,
+    /// User Identity
+    user_identity: String,
+    /// Shares per minute
+    shares_per_minute: f64,
+    /// share batch size
+    share_batch_size: u64
 }
 
 impl JobDeclaratorClientConfig {
@@ -48,7 +52,9 @@ impl JobDeclaratorClientConfig {
     pub fn new(
         listening_address: SocketAddr,
         protocol_config: ProtocolConfig,
-        withhold: bool,
+        user_identity: String,
+        shares_per_minute: f64,
+        share_batch_size: u64,
         pool_config: PoolConfig,
         tp_config: TPConfig,
         upstreams: Vec<Upstream>,
@@ -59,7 +65,6 @@ impl JobDeclaratorClientConfig {
             listening_address,
             max_supported_version: protocol_config.max_supported_version,
             min_supported_version: protocol_config.min_supported_version,
-            withhold,
             authority_public_key: pool_config.authority_public_key,
             authority_secret_key: pool_config.authority_secret_key,
             cert_validity_sec: tp_config.cert_validity_sec,
@@ -70,6 +75,9 @@ impl JobDeclaratorClientConfig {
             coinbase_reward_script: protocol_config.coinbase_reward_script,
             jdc_signature,
             log_file: None,
+            user_identity,
+            shares_per_minute,
+            share_batch_size
         }
     }
 
@@ -88,11 +96,6 @@ impl JobDeclaratorClientConfig {
     /// Returns the timeout duration.
     pub fn timeout(&self) -> Duration {
         self.timeout
-    }
-
-    /// Returns the withhold flag.
-    pub fn withhold(&self) -> bool {
-        self.withhold
     }
 
     /// Returns the authority public key.
@@ -149,6 +152,17 @@ impl JobDeclaratorClientConfig {
         if let Some(log_file) = log_file {
             self.log_file = Some(log_file);
         }
+    }
+    pub fn user_identity(&self) -> &str {
+        &self.user_identity
+    }
+
+    pub fn shares_per_minute(&self) -> f64 {
+        self.shares_per_minute
+    }
+
+    pub fn share_batch_size(&self) -> u64 {
+        self.share_batch_size
     }
 }
 

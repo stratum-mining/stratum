@@ -9,6 +9,10 @@ use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
     roles_logic_sv2::{
+        bitcoin::{
+            self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
+            Transaction, TxIn, TxOut, Witness,
+        },
         codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
         handlers_sv2::HandleCommonMessagesFromServerAsync,
         parsers_sv2::{AnyMessage, TemplateDistribution},
@@ -131,12 +135,15 @@ impl TemplateReceiver {
         shutdown_complete_tx: mpsc::Sender<()>,
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
+        coinbase_outputs: Vec<u8>,
     ) {
         let status_sender = StatusSender::TemplateReceiver(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
 
         info!("Initialized state for starting template receiver");
         self.setup_connection(socket_address).await;
+
+        self.coinbase_constraints(coinbase_outputs).await;
 
         info!("Setup Connection done. connection with template receiver is now done");
         task_manager.spawn(async move {
@@ -223,6 +230,53 @@ impl TemplateReceiver {
                     JDCError::ChannelErrorSender
                 })?;
         }
+        Ok(())
+    }
+
+    pub async fn coinbase_constraints(
+        &mut self,
+        coinbase_outputs: Vec<u8>,
+    ) -> Result<(), JDCError> {
+        // all this part can be simplified.
+        let deserialized_jds_coinbase_outputs: Vec<TxOut> =
+            bitcoin::consensus::deserialize(&coinbase_outputs).expect("Invalid coinbase output");
+
+        let coinbase_output_max_additional_size: usize = deserialized_jds_coinbase_outputs
+            .iter()
+            .map(|o| o.size())
+            .sum();
+
+        // create a dummy coinbase transaction with the empty output
+        // this is used to calculate the sigops of the coinbase output
+        let dummy_coinbase = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::from(vec![vec![0; 32]]),
+            }],
+            output: deserialized_jds_coinbase_outputs,
+        };
+
+        let coinbase_output_max_additional_sigops =
+            dummy_coinbase.total_sigop_cost(|_| None) as u16;
+
+        let coinbase_output_data_size = AnyMessage::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
+                coinbase_output_max_additional_size: coinbase_output_max_additional_size as u32,
+                coinbase_output_max_additional_sigops,
+            }),
+        );
+
+        let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
+
+        self.template_receiver_channel
+            .outbound_tx
+            .send(frame.into())
+            .await;
+
         Ok(())
     }
 

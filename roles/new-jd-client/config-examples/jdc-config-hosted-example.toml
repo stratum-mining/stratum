@@ -5,13 +5,19 @@ listening_address = "127.0.0.1:34265"
 max_supported_version = 2
 min_supported_version = 2
 
-# Withhold
-withhold = false
-
 # Auth keys for open encrypted connection downstream
 authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
 cert_validity_sec = 3600
+
+
+# User identity/username for pool connection
+# This will be appended with a counter for each mining client (e.g., username.miner1, username.miner2)
+user_identity = "your_username_here"
+
+# target number of shares per minute the miner should be sending
+shares_per_minute = 6.0
+
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)

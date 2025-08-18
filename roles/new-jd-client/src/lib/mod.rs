@@ -3,6 +3,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
+use stratum_common::roles_logic_sv2::bitcoin::consensus::Encodable;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, info, warn};
 
@@ -39,7 +40,14 @@ impl JobDeclaratorClient {
     }
 
     pub async fn start(&self) {
-        info!("Job declarator client starting... setting up subsystems");
+        info!("Job declarator client starting... setting up subsystems, User Identity: {}", self.config.user_identity());
+
+        let miner_coinbase_outputs = vec![self.config.get_txout()];
+        let mut encoded_outputs = vec![];
+
+        miner_coinbase_outputs
+            .consensus_encode(&mut encoded_outputs)
+            .expect("Invalid coinbase output in config");
 
         let (notify_shutdown, _) = tokio::sync::broadcast::channel::<ShutdownMessage>(1);
         let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel::<()>(1);
@@ -83,6 +91,7 @@ impl JobDeclaratorClient {
             channel_manager_to_downstream_sender.clone(),
             downstream_to_channel_manager_receiver,
             status_sender.clone(),
+            encoded_outputs.clone(),
         )
         .await
         .unwrap();
@@ -120,6 +129,7 @@ impl JobDeclaratorClient {
                 shutdown_complete_tx_cl,
                 status_sender_cl,
                 task_manager_cl,
+                encoded_outputs.clone(),
             )
             .await;
 
@@ -189,6 +199,8 @@ impl JobDeclaratorClient {
                 task_manager.clone(),
             )
             .await;
+
+        channel_manager_clone.allocate_tokens(1).await;
 
         channel_manager_clone
             .start_downstream_server(

@@ -42,17 +42,15 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             });
 
         let prefix_len = msg.extranonce_prefix.clone().to_vec().len();
-        let jdc_extranonce_len = std::cmp::min((msg.extranonce_size as usize).saturating_sub((min_extranonce_size)) - 2, 8);
+        let jdc_extranonce_len = std::cmp::min(
+            (msg.extranonce_size as usize).saturating_sub((min_extranonce_size)) - 2,
+            8,
+        );
         let self_len = 0;
         let total_len = prefix_len + msg.extranonce_size as usize;
         let range_0 = 0..prefix_len;
         let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
         let range_2 = prefix_len + jdc_extranonce_len..total_len;
-        tracing::error!("---------------------------------------------------");
-        tracing::error!("{range_0:?}");
-        tracing::error!("{range_1:?}");
-        tracing::error!("{range_2:?}");
-        tracing::error!("------------------------------------------------------");
 
         let extranonces = ExtendedExtranonce::from_upstream_extranonce(
             msg.extranonce_prefix.clone().into(),
