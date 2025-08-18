@@ -38,8 +38,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         let self_len = 0;
         let total_len = prefix_len + msg.extranonce_size as usize;
         let range_0 = 0..prefix_len;
-        let range_1 = prefix_len..prefix_len + self_len;
-        let range_2 = prefix_len + self_len..total_len;
+        let range_1 = prefix_len..prefix_len + 6;
+        let range_2 = prefix_len + 6..total_len;
 
         let extranonces = ExtendedExtranonce::from_upstream_extranonce(
             msg.extranonce_prefix.into(),

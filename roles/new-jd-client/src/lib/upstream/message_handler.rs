@@ -31,7 +31,7 @@ impl HandleCommonMessagesFromServerAsync for Upstream {
                 user_identity,
                 nominal_hash_rate: 10_000_000_000_000.0,
                 max_target: u256_from_int(u64::MAX),
-                min_extranonce_size: 16,
+                min_extranonce_size: 24,
             },
         ));
 

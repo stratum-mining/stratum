@@ -96,7 +96,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     downstream.downstream_data.super_safe_lock(|data| {
                         let mut messages: Vec<(u32, AnyMessage)> = vec![];
                         if !data.require_std_job && data.group_channels.is_none() {
-                            let group_channel_id = data.channel_id_factory.next();
+                            let group_channel_id = channel_manager_data.channel_id_factory.next();
                             let job_store = Box::new(DefaultJobStore::new());
 
                             let mut group_channel = GroupChannel::new_for_job_declaration_client(
@@ -149,7 +149,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             Some(group_channel) => group_channel.get_group_channel_id(),
                             None => 0,
                         };
-                        let channel_id = data.channel_id_factory.next();
+                        let channel_id = channel_manager_data.channel_id_factory.next();
                         let Ok(extranonce_prefix) = channel_manager_data
                             .extranonce_prefix_factory_standard
                             .next_prefix_standard()
@@ -377,8 +377,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                     messages = downstream.downstream_data.super_safe_lock(|data| {
                         let mut messages: Vec<(u32, AnyMessage)> = vec![];
-                        let channel_id = data.channel_id_factory.next();
-
+                        let channel_id = channel_manager_data.channel_id_factory.next();
                         let Ok(extranonce_prefix) = channel_manager_data
                             .extranonce_prefix_factory_extended
                             .next_prefix_extended(requested_min_rollable_extranonce_size.into())
@@ -401,7 +400,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         else {
                             let error = OpenMiningChannelError {
                                 request_id,
-                                error_code: "max-target-out-of-range"
+                                error_code: "no-template-to-share"
                                     .to_string()
                                     .try_into()
                                     .expect("error code must be valid string"),
@@ -417,7 +416,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         else {
                             let error = OpenMiningChannelError {
                                 request_id,
-                                error_code: "max-target-out-of-range"
+                                error_code: "no-prev-hash-in-the-system"
                                     .to_string()
                                     .try_into()
                                     .expect("error code must be valid string"),
@@ -437,7 +436,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 extranonce_prefix.into(),
                                 requested_max_target.into(),
                                 nominal_hash_rate,
-                                true, // version rolling always allowed
+                                true,
                                 requested_min_rollable_extranonce_size,
                                 self.share_batch_size,
                                 self.shares_per_minute,

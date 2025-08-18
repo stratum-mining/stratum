@@ -31,7 +31,6 @@ mod message_handler;
 
 pub struct DownstreamData {
     pub require_std_job: bool,
-    pub channel_id_factory: IdFactory,
     pub group_channels: Option<GroupChannel<'static>>,
     pub extended_channels: HashMap<u32, ExtendedChannel<'static>>,
     pub standard_channels: HashMap<u32, StandardChannel<'static>>,
@@ -89,7 +88,6 @@ impl Downstream {
         };
         let downstream_data = Arc::new(Mutex::new(DownstreamData {
             require_std_job: false,
-            channel_id_factory: IdFactory::new(),
             extended_channels: HashMap::new(),
             standard_channels: HashMap::new(),
             group_channels: None,

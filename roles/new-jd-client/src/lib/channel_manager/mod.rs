@@ -70,6 +70,7 @@ pub struct ChannelManagerData {
     extranonce_prefix_factory_standard: ExtendedExtranonce,
     request_id_factory: IdFactory,
     downstream_id_factory: IdFactory,
+    channel_id_factory: IdFactory,
     last_future_template: Option<NewTemplate<'static>>,
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
     allocate_tokens: Option<AllocateMiningJobTokenSuccess<'static>>,
@@ -123,7 +124,7 @@ impl ChannelManager {
 
         // range_0 is not used here
         let range_0 = std::ops::Range {
-            start: range_1_start,
+            start: 0,
             end: range_1_start,
         };
         let range_1 = std::ops::Range {
@@ -150,6 +151,7 @@ impl ChannelManager {
             extranonce_prefix_factory_standard,
             downstream_id_factory: IdFactory::new(),
             request_id_factory: IdFactory::new(),
+            channel_id_factory: IdFactory::new(),
             last_future_template: None,
             last_new_prev_hash: None,
             allocate_tokens: None,
