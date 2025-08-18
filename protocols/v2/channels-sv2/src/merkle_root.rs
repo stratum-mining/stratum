@@ -1,3 +1,6 @@
+extern crate alloc;
+
+use alloc::vec::Vec;
 use bitcoin::{
     consensus,
     hashes::{sha256d::Hash as DHash, Hash},
@@ -33,7 +36,6 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
         Ok(trans) => trans,
         Err(e) => {
             error!("ERROR: {}", e);
-            dbg!(e);
             return None;
         }
     };

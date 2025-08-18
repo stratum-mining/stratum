@@ -4,9 +4,10 @@
 //! abstraction over the state of a Sv2 group channel. It tracks group-level job state
 //! and associated standard channels, but delegates share validation and job lifecycle
 //! to standard channels.
+
+use super::{HashMap, HashSet};
 use crate::client::error::GroupChannelError;
 use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
-use std::collections::{HashMap, HashSet};
 
 /// Mining Client abstraction over the state of an Sv2 Group Channel.
 ///
