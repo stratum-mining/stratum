@@ -65,7 +65,10 @@ impl Downstream {
         status_sender: Sender<Status>,
     ) -> Self {
         let (noise_stream_reader, noise_stream_writer) = noise_stream.into_split();
-        let status_sender = StatusSender::JobDeclarator(status_sender);
+        let status_sender = StatusSender::Downstream {
+            downstream_id,
+            tx: status_sender,
+        };
         let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
         let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
         spawn_io_tasks(
@@ -121,8 +124,16 @@ impl Downstream {
             loop {
                 tokio::select! {
                     message = shutdown_rx.recv() => {
-                        if let Ok(ShutdownMessage::ShutdownAll) = message {
-                            info!("Vardiff, for downstream:{downstream_id}, received shutdown", );
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                info!("Vardiff for downstream {downstream_id}: received global shutdown");
+                                break;
+                            }
+                            Ok(ShutdownMessage::DownstreamShutdown(id)) if id == downstream_id => {
+                                info!("Vardiff for downstream {downstream_id}: received shutdown order");
+                                break;
+                            }
+                            _ => {}
                         }
                     }
                     res = self_clone.spawn_vardiff() => {

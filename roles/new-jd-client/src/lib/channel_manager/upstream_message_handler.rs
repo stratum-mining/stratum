@@ -19,6 +19,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: OpenStandardMiningChannelSuccess<'_>,
     ) -> Result<(), Error> {
+        // Can't have standard channel with the pool under JD. fallback, if you
+        // ever receive this from pool.
         info!("Received handle_open_standard_mining_channel_success from Pool");
         Ok(())
     }
@@ -39,9 +41,16 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         let range_1 = prefix_len..prefix_len + self_len;
         let range_2 = prefix_len + self_len..total_len;
 
-        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2, None).unwrap();
+        let extranonces = ExtendedExtranonce::from_upstream_extranonce(
+            msg.extranonce_prefix.into(),
+            range_0,
+            range_1,
+            range_2,
+        )
+        .unwrap();
         self.channel_manager_data.super_safe_lock(|data| {
-            // data.extranonce_prefix_factory_extended = extranonces;
+            data.extranonce_prefix_factory_extended = extranonces.clone();
+            data.extranonce_prefix_factory_standard = extranonces;
             data.upstream_channel_id = msg.channel_id;
         });
 
@@ -52,6 +61,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: OpenMiningChannelError<'_>,
     ) -> Result<(), Error> {
+        // In case of an error, just fallback
         info!("Received handle_open_mining_channel_error from Pool");
         Ok(())
     }
@@ -60,11 +70,14 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: UpdateChannelError<'_>,
     ) -> Result<(), Error> {
+        //Don't fallback, even in an update error. Send update messages, on new downstream
+        // connection or disconnection.
         info!("Received handle_update_channel_error from Pool");
         Ok(())
     }
 
     async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
+        // Fallback
         info!("Received handle_close_channel from Pool");
         Ok(())
     }
@@ -73,6 +86,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: SetExtranoncePrefix<'_>,
     ) -> Result<(), Error> {
+        // Update the extranonce factory
         info!("Received handle_set_extranonce_prefix from Pool");
         Ok(())
     }
@@ -81,6 +95,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: SubmitSharesSuccess,
     ) -> Result<(), Error> {
+        // Send shares to pool
         info!("Received handle_submit_shares_success from Pool");
         Ok(())
     }
@@ -89,6 +104,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: SubmitSharesError<'_>,
     ) -> Result<(), Error> {
+        // log as an error, and don't fallback
         info!("Received handle_submit_shares_error from Pool");
         Ok(())
     }
@@ -128,16 +144,19 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: SetCustomMiningJobError<'_>,
     ) -> Result<(), Error> {
+        // Fallback
         info!("Received handle_set_custom_mining_job_error from Pool");
         Ok(())
     }
 
     async fn handle_set_target(&mut self, msg: SetTarget<'_>) -> Result<(), Error> {
+        // Update the target and store in JDC
         info!("Received handle_set_target from Pool");
         Ok(())
     }
 
     async fn handle_set_group_channel(&mut self, msg: SetGroupChannel<'_>) -> Result<(), Error> {
+        // fallback
         info!("Received handle_set_group_channel from Pool");
         Ok(())
     }

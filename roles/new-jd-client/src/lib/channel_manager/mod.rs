@@ -64,6 +64,7 @@ pub struct LastDeclareJob {
 }
 
 pub struct ChannelManagerData {
+    // downstream_id, downstream object
     downstream: HashMap<u32, Downstream>,
     extranonce_prefix_factory_extended: ExtendedExtranonce,
     extranonce_prefix_factory_standard: ExtendedExtranonce,
@@ -261,11 +262,28 @@ impl ChannelManager {
                 let mut self_clone_2 = self.clone();
                 let mut self_clone_3 = self.clone();
                 let mut self_clone_4 = self.clone();
+                let mut self_clone_5 = self.clone();
                 tokio::select! {
                     message = shutdown_rx.recv() => {
-                        if let Ok(ShutdownMessage::ShutdownAll) = message {
-                            info!("Template Receiver: received shutdown signal");
-                            break;
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                info!("Channel Manager: received shutdown signal");
+                                break;
+                            }
+                            Ok(ShutdownMessage::DownstreamShutdown(downstream_id)) => {
+                                info!("Channel Manager: received downstream {downstream_id} shutdown signal");
+
+                                self_clone_5.channel_manager_data.super_safe_lock(|cm_data| {
+                                    if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
+                                        downstream.downstream_data.super_safe_lock(|ds_data| {
+                                            for k in ds_data.standard_channels.keys().chain(ds_data.extended_channels.keys()) {
+                                                cm_data.channel_id_to_downstream_id.remove(k);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            _ => {}
                         }
                     }
                     res = self_clone_1.handle_jds_message() => {

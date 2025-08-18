@@ -244,6 +244,8 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             tx_list.push(tx);
         }
         let tx_ids = Seq064K::new(txids_as_u256).expect("Failed to create Seq064K");
+        // check flag, send SetCustomMining directly if the flag is unset
+        // https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/#641-setupconnection-flags-for-job-declaration-protocol
         let declare_job = DeclareMiningJob {
             request_id,
             mining_job_token: mining_token.try_into().unwrap(),

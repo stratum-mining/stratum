@@ -223,25 +223,25 @@ impl JobDeclaratorClient {
                         match status.state {
                             State::DownstreamShutdown{downstream_id,..} => {
                                 warn!("Downstream {downstream_id:?} disconnected — Channel manager.");
-                                // notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdown(downstream_id)).unwrap();
+                                notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdown(downstream_id)).unwrap();
                             }
                             State::TemplateReceiverShutdown(_) => {
                                 warn!("Template Receiver shutdown requested — initiating full shutdown.");
-                                // notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
-                                // break;
+                                notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
+                                break;
                             }
                             State::ChannelManagerShutdown(_) => {
                                 warn!("Channel Manager shutdown requested — initiating full shutdown.");
-                                // notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
-                                // break;
+                                notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
+                                break;
                             }
                             State::UpstreamShutdown(msg) => {
                                 warn!("Upstream connection dropped: {msg:?} — attempting reconnection...");
+                                // In these cases we gonna fallback
                             }
                             State::JobDeclaratorShutdown(_) => {
                                 warn!("Template Receiver shutdown requested — initiating full shutdown.");
-                                // notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
-                                // break;
+                                // In these cases we gonna fallback
                             }
                         }
                     }

@@ -235,9 +235,18 @@ pub fn spawn_io_tasks(
         task_manager.spawn(async move {
             loop {
                 tokio::select! {
-                    _ = shutdown_rx.recv() => {
-                        info!("Reader: shutdown signal received");
-                        break;
+                    message = shutdown_rx.recv() => {
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                info!("Reader Task: Received global shutdown");
+                                break;
+                            }
+                            // Ok(ShutdownMessage::DownstreamShutdown(id)) if id == downstream_id => {
+                            //     info!("Vardiff for downstream {downstream_id}: received shutdown order");
+                            //     break;
+                            // }
+                            _ => {} // ignore unrelated messages
+                        }
                     }
                     res = reader.read_frame() => {
                         match res {
@@ -267,9 +276,18 @@ pub fn spawn_io_tasks(
         task_manager.spawn(async move {
             loop {
                 tokio::select! {
-                    _ = shutdown_rx.recv() => {
-                        info!("Writer: shutdown signal received");
-                        break;
+                    message = shutdown_rx.recv() => {
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                info!("Writer Task: Received global shutdown");
+                                break;
+                            }
+                            // Ok(ShutdownMessage::DownstreamShutdown(id)) if id == downstream_id => {
+                            //     info!("Vardiff for downstream {downstream_id}: received shutdown order");
+                            //     break;
+                            // }
+                            _ => {} // ignore unrelated messages
+                        }
                     }
                     res = outbound_rx.recv() => {
                         match res {

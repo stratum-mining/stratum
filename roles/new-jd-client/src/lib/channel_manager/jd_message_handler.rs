@@ -1,7 +1,10 @@
 use std::time::Duration;
 
 use stratum_common::roles_logic_sv2::{
-    bitcoin::{self, TxOut},
+    bitcoin::{
+        self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence, Transaction,
+        TxIn, TxOut, Witness,
+    },
     codec_sv2::binary_sv2::{self, Sv2DataType, B016M},
     handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error},
     job_declaration_sv2::{
@@ -33,13 +36,27 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
                 bitcoin::consensus::deserialize(&msg.coinbase_outputs.to_vec())
                     .expect("Invalid coinbase output");
 
-            let mut coinbase_output_max_additional_size = 0;
-            let mut coinbase_output_max_additional_sigops = 0;
+            let coinbase_output_max_additional_size: usize = deserialized_jds_coinbase_outputs
+                .iter()
+                .map(|o| o.size())
+                .sum();
 
-            for output in deserialized_jds_coinbase_outputs {
-                coinbase_output_max_additional_size += output.size();
-                coinbase_output_max_additional_sigops += output.script_pubkey.count_sigops() as u16;
-            }
+            // create a dummy coinbase transaction with the empty output
+            // this is used to calculate the sigops of the coinbase output
+            let dummy_coinbase = Transaction {
+                version: Version::TWO,
+                lock_time: LockTime::ZERO,
+                input: vec![TxIn {
+                    previous_output: OutPoint::null(),
+                    script_sig: ScriptBuf::new(),
+                    sequence: Sequence::MAX,
+                    witness: Witness::from(vec![vec![0; 32]]),
+                }],
+                output: deserialized_jds_coinbase_outputs,
+            };
+
+            let coinbase_output_max_additional_sigops =
+                dummy_coinbase.total_sigop_cost(|_| None) as u16;
 
             let coinbase_output_data_size = AnyMessage::TemplateDistribution(
                 TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
@@ -62,6 +79,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: DeclareMiningJobError<'_>,
     ) -> Result<(), Error> {
+        // fallback
         info!("Received handle_declare_mining_job_error from JDS");
         Ok(())
     }
@@ -70,6 +88,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         msg: DeclareMiningJobSuccess<'_>,
     ) -> Result<(), Error> {
+        // https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/#641-setupconnection-flags-for-job-declaration-protocol
         info!("Received handle_declare_mining_job_success from JDS");
         let (last_declare_job, prev_hash) = self.channel_manager_data.super_safe_lock(|data| {
             (
@@ -80,18 +99,15 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
 
         let last_declare_job = last_declare_job.unwrap();
         let new_prev_hash = prev_hash.unwrap();
-        let updated_timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
 
+        // https://github.com/stratum-mining/stratum/pull/1325
         let to_send = SetCustomMiningJob {
             channel_id: 1,
             request_id: msg.request_id,
             token: last_declare_job.declare_job.mining_job_token,
             version: last_declare_job.declare_job.version,
             prev_hash: new_prev_hash.prev_hash,
-            min_ntime: updated_timestamp,
+            min_ntime: new_prev_hash.header_timestamp,
             nbits: new_prev_hash.n_bits,
             coinbase_tx_version: last_declare_job.template.coinbase_tx_version,
             coinbase_prefix: last_declare_job.template.coinbase_prefix,
