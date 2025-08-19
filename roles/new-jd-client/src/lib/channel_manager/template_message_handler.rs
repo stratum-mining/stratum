@@ -53,8 +53,12 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         data.coinbase_outputs.clone(),
                     )
                 });
-            let new_prev_hash = prevhash.unwrap();
-            let mining_job_token = token.unwrap();
+            let Some(new_prev_hash) = prevhash else {
+                return Ok(());
+            };
+            let Some(mining_job_token) = token else {
+                return Ok(());
+            };
 
             let last_declare = LastDeclareJob {
                 channel_id,

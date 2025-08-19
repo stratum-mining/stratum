@@ -111,9 +111,20 @@ impl JobDeclarator {
                 let self_clone_2 = self.clone();
                 tokio::select! {
                     message = shutdown_rx.recv() => {
-                        if let Ok(ShutdownMessage::ShutdownAll) = message {
-                            info!("Template Receiver: received shutdown signal");
-                            break;
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                info!("Job Declarator: received shutdown signal.");
+                                break;
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown) => {
+                                info!("Job Declarator: Received Job declarator shutdown.");
+                                break;
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown) => {
+                                info!("Job Declarator: Received Upstream shutdown.");
+                                break;
+                            }
+                            _ => {}
                         }
                     }
                     res = self_clone_1.handle_job_declarator_message() => {
@@ -130,7 +141,7 @@ impl JobDeclarator {
                     },
                 }
             }
-            warn!("TemplateReceiver: unified message loop exited.");
+            warn!("JobDeclarator: unified message loop exited.");
         });
     }
 

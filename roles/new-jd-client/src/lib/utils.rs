@@ -26,11 +26,11 @@ use stratum_common::{
     },
 };
 use tokio::sync::broadcast;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     error::JDCError,
-    status::{handle_error, StatusSender},
+    status::{handle_error, StatusSender, StatusType},
     task_manager::TaskManager,
 };
 
@@ -46,6 +46,10 @@ pub enum ShutdownMessage {
     DownstreamShutdownAll,
     /// Shutdown a specific downstream connection by ID
     DownstreamShutdown(u32),
+    /// Shutdown JD part of JDC
+    JobDeclaratorShutdown,
+    /// Shutdown Upstream
+    UpstreamShutdown,
 }
 
 pub fn get_setup_connection_message(
@@ -238,20 +242,38 @@ pub fn spawn_io_tasks(
         let inbound_tx = inbound_tx.clone();
         let status_sender = status_sender.clone();
 
+        let status_type: StatusType = StatusType::from(&status_sender);
+
         task_manager.spawn(async move {
             loop {
                 tokio::select! {
                     message = shutdown_rx.recv() => {
                         match message {
                             Ok(ShutdownMessage::ShutdownAll) => {
-                                info!("Reader Task: Received global shutdown");
-                                break;
+                                debug!("Reader Task: Received global shutdown :{status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
                             }
-                            // Ok(ShutdownMessage::DownstreamShutdown(id)) if id == downstream_id => {
-                            //     info!("Vardiff for downstream {downstream_id}: received shutdown order");
-                            //     break;
-                            // }
-                            _ => {} // ignore unrelated messages
+                            Ok(ShutdownMessage::DownstreamShutdown(down_id))  if matches!(status_type, StatusType::Downstream(id) if id == down_id) => {
+                                debug!("Writer Task: Received downstream {down_id} shutdown: {status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Reader Task: Received job declaratorShutdown shutdown: {status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Reader Task: Received job Upstream shutdown: {status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     res = reader.read_frame() => {
@@ -278,6 +300,7 @@ pub fn spawn_io_tasks(
 
     {
         let mut shutdown_rx = notify_shutdown.subscribe();
+        let status_type: StatusType = StatusType::from(&status_sender);
 
         task_manager.spawn(async move {
             loop {
@@ -285,14 +308,30 @@ pub fn spawn_io_tasks(
                     message = shutdown_rx.recv() => {
                         match message {
                             Ok(ShutdownMessage::ShutdownAll) => {
-                                info!("Writer Task: Received global shutdown");
-                                break;
+                                debug!("Writer Task: Received global shutdown :{status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
                             }
-                            // Ok(ShutdownMessage::DownstreamShutdown(id)) if id == downstream_id => {
-                            //     info!("Vardiff for downstream {downstream_id}: received shutdown order");
-                            //     break;
-                            // }
-                            _ => {} // ignore unrelated messages
+                            Ok(ShutdownMessage::DownstreamShutdown(down_id))  if matches!(status_type, StatusType::Downstream(id) if id == down_id) => {
+                                debug!("Writer Task: Received downstream {down_id} shutdown: {status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Writer Task: Received job declaratorShutdown shutdown: {status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Writer Task: Received job Upstream shutdown: {status_type:?}");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     res = outbound_rx.recv() => {

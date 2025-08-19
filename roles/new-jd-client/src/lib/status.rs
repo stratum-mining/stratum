@@ -14,6 +14,29 @@ pub enum StatusSender {
     JobDeclarator(async_channel::Sender<Status>),
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum StatusType {
+    Downstream(u32),
+    TemplateReceiver,
+    ChannelManager,
+    Upstream,
+    JobDeclarator,
+}
+
+impl From<&StatusSender> for StatusType {
+    fn from(value: &StatusSender) -> Self {
+        match value {
+            StatusSender::ChannelManager(_) => StatusType::ChannelManager,
+            StatusSender::Downstream { downstream_id, tx } => {
+                StatusType::Downstream(*downstream_id)
+            }
+            StatusSender::JobDeclarator(_) => StatusType::JobDeclarator,
+            StatusSender::Upstream(_) => StatusType::Upstream,
+            StatusSender::TemplateReceiver(_) => StatusType::TemplateReceiver,
+        }
+    }
+}
+
 impl StatusSender {
     /// Sends a [`Status`] update.
     pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {

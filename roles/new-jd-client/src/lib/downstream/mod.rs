@@ -132,6 +132,14 @@ impl Downstream {
                                 info!("Vardiff for downstream {downstream_id}: received shutdown order");
                                 break;
                             }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown)  => {
+                                debug!("Downstream {downstream_id}: Received job declaratorShutdown shutdown");
+                                break;
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown)  => {
+                                debug!("Downstream {downstream_id}: Received job Upstream shutdown");
+                                break;
+                            }
                             _ => {}
                         }
                     }
@@ -148,12 +156,28 @@ impl Downstream {
         task_manager.spawn(async move {
             loop {
                 let mut self_clone_1 = self.clone();
+                let downstream_id = self_clone_1.downstream_id;
                 let mut self_clone_2 = self.clone();
                 tokio::select! {
                     message = shutdown_rx.recv() => {
-                        if let Ok(ShutdownMessage::ShutdownAll) = message {
-                            info!("Upstream: received shutdown signal.");
-                            break;
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                debug!("Downstream {downstream_id}: Received global shutdown");
+                                break;
+                            }
+                            Ok(ShutdownMessage::DownstreamShutdown(id)) if downstream_id == id => {
+                                debug!("Downstream {downstream_id}: Received downstream {id} shutdown");
+                                break;
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown)  => {
+                                debug!("Downstream {downstream_id}: Received job declaratorShutdown shutdown");
+                                break;
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown)  => {
+                                debug!("Downstream {downstream_id}: Received job Upstream shutdown");
+                                break;
+                            }
+                            _ => {}
                         }
                     }
                     res = self_clone_1.handle_downstream_message() => {
@@ -192,7 +216,7 @@ impl Downstream {
 
     async fn handle_channel_manager_message(mut self) -> Result<(), JDCError> {
         let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
-        while let Ok((downstream_id, frame)) = receiver.recv().await {
+        if let Ok((downstream_id, frame)) = receiver.recv().await {
             if downstream_id == self.downstream_id {
                 let message_type = frame.message_type();
                 let std_frame = StdFrame::from_message(frame, message_type, 0, true).unwrap();

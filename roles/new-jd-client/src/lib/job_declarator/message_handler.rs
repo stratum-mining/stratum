@@ -17,8 +17,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
             "Received `SetupConnectionSuccess` from JDS: version={}, flags={:b}",
             msg.used_version, msg.flags
         );
-        // set_jd_mode(msg.flags.into());
-        set_jd_mode(0u8.into());
+        set_jd_mode(msg.flags.into());
 
         Ok(())
     }

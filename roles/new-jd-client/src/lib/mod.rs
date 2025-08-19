@@ -14,6 +14,7 @@ use crate::{
     channel_manager::ChannelManager,
     config::JobDeclaratorClientConfig,
     error::JDCError,
+    jd_mode::set_jd_mode,
     job_declarator::JobDeclarator,
     status::{State, Status},
     task_manager::TaskManager,
@@ -155,9 +156,18 @@ impl JobDeclaratorClient {
             })
             .collect();
 
+        channel_manager
+            .start(
+                notify_shutdown.clone(),
+                shutdown_complete_tx.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
+
         info!("Attempting to initialize upstream...");
 
-        let (upstream, job_declarator) = match self
+        match self
             .initialize_jd(
                 &upstream_addresses,
                 channel_manager_to_upstream_receiver,
@@ -171,43 +181,37 @@ impl JobDeclaratorClient {
             )
             .await
         {
-            Ok(pair) => pair,
+            Ok((upstream, job_declarator)) => {
+                upstream
+                    .start(
+                        self.config.min_supported_version(),
+                        self.config.max_supported_version(),
+                        notify_shutdown.clone(),
+                        shutdown_complete_tx.clone(),
+                        status_sender.clone(),
+                        task_manager.clone(),
+                    )
+                    .await;
+
+                job_declarator
+                    .start(
+                        notify_shutdown.clone(),
+                        shutdown_complete_tx.clone(),
+                        status_sender.clone(),
+                        task_manager.clone(),
+                    )
+                    .await;
+
+                channel_manager_clone.allocate_tokens(1).await;
+            }
             Err(e) => {
                 tracing::error!("Failed to initialize upstream: {:?}", e);
-                return;
+                set_jd_mode(jd_mode::JdMode::NoJd);
+                notify_shutdown
+                    .send(ShutdownMessage::JobDeclaratorShutdown)
+                    .unwrap();
             }
         };
-
-        channel_manager
-            .start(
-                notify_shutdown.clone(),
-                shutdown_complete_tx.clone(),
-                status_sender.clone(),
-                task_manager.clone(),
-            )
-            .await;
-
-        upstream
-            .start(
-                self.config.min_supported_version(),
-                self.config.max_supported_version(),
-                notify_shutdown.clone(),
-                shutdown_complete_tx.clone(),
-                status_sender.clone(),
-                task_manager.clone(),
-            )
-            .await;
-
-        job_declarator
-            .start(
-                notify_shutdown.clone(),
-                shutdown_complete_tx.clone(),
-                status_sender.clone(),
-                task_manager.clone(),
-            )
-            .await;
-
-        channel_manager_clone.allocate_tokens(1).await;
 
         channel_manager_clone
             .start_downstream_server(
@@ -247,6 +251,7 @@ impl JobDeclaratorClient {
                             State::TemplateReceiverShutdown(_) => {
                                 warn!("Template Receiver shutdown requested — initiating full shutdown.");
                                 notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
+
                                 break;
                             }
                             State::ChannelManagerShutdown(_) => {
@@ -254,12 +259,14 @@ impl JobDeclaratorClient {
                                 notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                                 break;
                             }
-                            State::UpstreamShutdown(msg) => {
-                                warn!("Upstream connection dropped: {msg:?} — attempting reconnection...");
+                            State::UpstreamShutdown(_) => {
+                                warn!("Upstream connection dropped — attempting reconnection...");
+                                notify_shutdown_clone.send(ShutdownMessage::UpstreamShutdown).unwrap();
                                 // In these cases we gonna fallback
                             }
                             State::JobDeclaratorShutdown(_) => {
-                                warn!("Template Receiver shutdown requested — initiating full shutdown.");
+                                warn!("JDS connection dropped — attempting reconnection..");
+                                notify_shutdown_clone.send(ShutdownMessage::JobDeclaratorShutdown).unwrap();
                                 // In these cases we gonna fallback
                             }
                         }
