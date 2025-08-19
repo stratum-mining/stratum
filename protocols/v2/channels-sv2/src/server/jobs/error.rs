@@ -1,3 +1,5 @@
+//! # Job Error Types
+
 #[derive(Debug)]
 pub enum ExtendedJobError {
     FailedToDeserializeCoinbase,

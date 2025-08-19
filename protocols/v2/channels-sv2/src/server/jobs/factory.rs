@@ -1,4 +1,25 @@
 //! Abstraction of a factory for creating Sv2 Extended or Standard Jobs.
+//!
+//! This module provides the [`JobFactory`] struct, which enables the creation
+//! of uniquely identified Extended and Standard mining jobs as required by
+//! Stratum V2 (SV2) mining servers. It manages job ID assignment, construction
+//! of coinbase transactions, and correct association of template and custom job
+//! parameters.
+//!
+//! ## Responsibilities
+//!
+//! - **Job ID Generation**: Ensures all jobs have unique IDs per factory instance.
+//! - **Job Construction**: Builds Extended and Standard jobs from SV2 templates and custom job
+//!   messages, assembling all required coinbase transaction data and metadata.
+//! - **Coinbase Output Validation**: Verifies that coinbase outputs match SV2 template constraints
+//!   and protocol rules.
+//! - **Version Rolling**: Tracks version rolling allowance for created jobs.
+//!
+//! ## Usage
+//!
+//! Designed for mining server implementations. Use `JobFactory` to generate jobs in response to
+//! incoming SV2 messages (`NewTemplate`, `SetCustomMiningJob`), ensuring protocol correctness and
+//! uniqueness of job IDs.
 use crate::{
     bip141::try_strip_bip141,
     chain_tip::ChainTip,

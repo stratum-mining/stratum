@@ -1,3 +1,5 @@
+//! Helper functions related to [`Target`]
+
 use binary_sv2::U256;
 use bitcoin::{hash_types::BlockHash, hashes::Hash};
 use mining_sv2::Target;
@@ -43,8 +45,8 @@ pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     BlockHash::from_raw_hash(hash)
 }
 
-// Helper function to format bytes as hex string
-// useful for visualizing targets
+/// Helper function to format bytes as hex string
+/// useful for visualizing targets
 pub fn bytes_to_hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for &b in bytes {

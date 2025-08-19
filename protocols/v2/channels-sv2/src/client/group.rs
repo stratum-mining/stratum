@@ -1,34 +1,39 @@
-//! Abstraction over the state of a Sv2 Group Channel, as seen by a Mining Client
-
+//! Sv2 Group Channel - Mining Client Abstraction.
+//!
+//! This module provides the [`GroupChannel`] struct, which acts as a mining client's
+//! abstraction over the state of a Sv2 group channel. It tracks group-level job state
+//! and associated standard channels, but delegates share validation and job lifecycle
+//! to standard channels.
 use crate::client::error::GroupChannelError;
-
+use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
 use std::collections::{HashMap, HashSet};
 
-use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
-
-/// Mining Client abstraction over the state of a Sv2 Group Channel.
+/// Mining Client abstraction over the state of an Sv2 Group Channel.
 ///
-/// It keeps track of:
+/// Tracks:
 /// - the group channel's unique `group_channel_id`
-/// - the group channel's `standard_channel_ids` (indexed by `channel_id`)
-/// - the group channel's future jobs (indexed by `job_id`, to be activated upon receipt of a
-///   `SetNewPrevHash` message)
-/// - the group channel's active job
+/// - associated `standard_channel_ids` (indexed by `channel_id`)
+/// - future jobs (indexed by `job_id`, to be activated upon receipt of a
+///   [`SetNewPrevHash`](SetNewPrevHashMp) message)
+/// - active job
 ///
-/// Since share validation happens at the Standard Channel level, we don't really keep track of:
-/// - the group channel's past jobs
-/// - the group channel's stale jobs
-/// - the group channel's share validation state
+/// Does **not** track:
+/// - past or stale jobs
+/// - share validation state (handled per-standard channel)
 #[derive(Debug, Clone)]
 pub struct GroupChannel<'a> {
+    /// Unique identifier for the group channel
     group_channel_id: u32,
+    /// Set of channel IDs associated with this group channel
     standard_channel_ids: HashSet<u32>,
-    // future jobs are indexed with job_id (u32)
+    /// Future jobs, indexed by job_id, waiting to be activated
     future_jobs: HashMap<u32, NewExtendedMiningJob<'a>>,
+    /// Currently active mining job for the group channel
     active_job: Option<NewExtendedMiningJob<'a>>,
 }
 
 impl<'a> GroupChannel<'a> {
+    /// Creates a new [`GroupChannel`] with the given group_channel_id.
     pub fn new(group_channel_id: u32) -> Self {
         Self {
             group_channel_id,
@@ -38,34 +43,42 @@ impl<'a> GroupChannel<'a> {
         }
     }
 
+    /// Adds a [`StandardChannel`](crate::client::standard::StandardChannel) to the group channel
+    /// by referencing its `channel_id`.
     pub fn add_standard_channel_id(&mut self, standard_channel_id: u32) {
         self.standard_channel_ids.insert(standard_channel_id);
     }
 
+    /// Removes a [`StandardChannel`](crate::client::standard::StandardChannel) from the group
+    /// channel by its `channel_id`.
     pub fn remove_standard_channel_id(&mut self, standard_channel_id: u32) {
         self.standard_channel_ids.remove(&standard_channel_id);
     }
 
+    /// Returns the group channel ID.
     pub fn get_group_channel_id(&self) -> u32 {
         self.group_channel_id
     }
 
+    /// Returns a reference to all standard channel IDs associated with this group channel.
     pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
         &self.standard_channel_ids
     }
 
+    /// Returns a reference to the current active job, if any.
     pub fn get_active_job(&self) -> Option<&NewExtendedMiningJob<'a>> {
         self.active_job.as_ref()
     }
 
+    /// Returns a reference to all future jobs indexed by job_id.
     pub fn get_future_jobs(&self) -> &HashMap<u32, NewExtendedMiningJob<'a>> {
         &self.future_jobs
     }
 
-    /// Called when a `NewExtendedMiningJob` message is received from upstream.
+    /// Handles a newly received [`NewExtendedMiningJob`] message from upstream.
     ///
-    /// If the job is a future job, it is added to the `future_jobs` map.
-    /// If the job is an active job, it is set as the active job.
+    /// - If `min_ntime` is present, sets this job as active.
+    /// - If `min_ntime` is empty, stores it as a future job.
     pub fn on_new_extended_mining_job(
         &mut self,
         new_extended_mining_job: NewExtendedMiningJob<'a>,
@@ -81,15 +94,12 @@ impl<'a> GroupChannel<'a> {
         }
     }
 
-    /// Called when a `SetNewPrevHash` message is received from upstream.
+    /// Handles an upstream [`SetNewPrevHash`](SetNewPrevHashMp) message.
     ///
-    /// If there is some future job matching the `job_id` that `SetNewPrevHash` points to,
-    /// this future job is "activated" and set as the active job.
+    /// Activates the future job matching `job_id` from the message, making it the active job.
+    /// Clears all other future jobs.
     ///
-    /// If there is not future job matching the `job_id` that `SetNewPrevHash` points to,
-    /// returns an error.
-    ///
-    /// All other future jobs are cleared.
+    /// Returns `Err(GroupChannelError::JobIdNotFound)` if no matching job found.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashMp<'a>,

@@ -1,4 +1,7 @@
-//! Mining Client abstraction over the state of a Sv2 Extended Channel
+//! # Sv2 Extended Channel - Mining Client Abstraction
+//!
+//! This module provides an abstraction over the state of an [Sv2](https://stratumprotocol.org/specification)
+//! **Extended Channel** within a mining client.
 
 use crate::{
     bip141::try_strip_bip141,
@@ -23,30 +26,32 @@ use mining_sv2::{
 use std::{collections::HashMap, convert::TryInto};
 use tracing::debug;
 
-// ExtendedJob is a tuple of:
-// - the NewExtendedMiningJob message
-// - the extranonce_prefix associated with the channel at the time of job creation
+/// A type alias representing an extended mining job tied to a specific `extranonce_prefix`.
+///
+/// Extended jobs allow Merkle root rolling, providing broader control over the search space.
+/// Each job includes:
+/// - A [`NewExtendedMiningJob`] message
+/// - The `extranonce_prefix` in use when the job was created
 pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
 
-/// Mining Client abstraction over the state of a Sv2 Extended Channel.
+/// Mining Client abstraction for the state management of an Sv2 Extended Channel.
 ///
-/// It keeps track of:
-/// - the channel's unique `channel_id`
-/// - the channel's `user_identity`
-/// - the channel's unique `extranonce_prefix`
-/// - the channel's rollable extranonce size
-/// - the channel's target
-/// - the channel's nominal hashrate
-/// - the channel's version rolling
-/// - the channel's future jobs (indexed by `job_id`, to be activated upon receipt of a
-///   `SetNewPrevHash` message)
-/// - the channel's active job
-/// - the channel's past jobs (which were active jobs under the current chain tip, indexed by
-///   `job_id`)
-/// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
-///   indexed by `job_id`)
-/// - the channel's share accounting (as seen by the client)
-/// - the channel's chain tip
+/// This struct encapsulates all channel-specific state for a mining client, including:
+/// - The channel's unique `channel_id`.
+/// - The channel's `user_identity` as seen by upstream.
+/// - The channel's unique `extranonce_prefix`.
+/// - The size of the rollable portion of the extranonce.
+/// - The channel's current target.
+/// - The channel's nominal hashrate.
+/// - Whether version rolling is supported (see [BIP 320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki)).
+/// - Future jobs (indexed by `job_id`) to be activated by a [`SetNewPrevHash`](SetNewPrevHashMp)
+///   message.
+/// - The currently active job.
+/// - Past jobs (previously active under the current chain tip, indexed by `job_id`).
+/// - Stale jobs (previously active and past jobs under the previous chain tip, indexed by
+///   `job_id`).
+/// - Share accounting for the channel (as tracked by the client).
+/// - The channel's current chain tip.
 #[derive(Clone, Debug)]
 pub struct ExtendedChannel<'a> {
     channel_id: u32,
@@ -68,6 +73,7 @@ pub struct ExtendedChannel<'a> {
 }
 
 impl<'a> ExtendedChannel<'a> {
+    /// Constructs a new [`ExtendedChannel`].
     pub fn new(
         channel_id: u32,
         user_identity: String,
@@ -94,35 +100,44 @@ impl<'a> ExtendedChannel<'a> {
         }
     }
 
+    /// Returns the unique `channel_id` of this channel.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
     }
 
+    /// Returns the `user_identity` used by the upstream node to identify this client.
     pub fn get_user_identity(&self) -> &String {
         &self.user_identity
     }
 
+    /// Returns the bytes representing the first part of the `extranonce`.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
     }
 
+    /// Returns `true` if the channel supports version rolling as per [BIP 320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki).
     pub fn is_version_rolling(&self) -> bool {
         self.version_rolling
     }
 
+    /// Returns a reference to the current [`ChainTip`], if any.
     pub fn get_chain_tip(&self) -> Option<&ChainTip> {
         self.chain_tip.as_ref()
     }
 
+    /// Sets the [`ChainTip`].
     pub fn set_chain_tip(&mut self, chain_tip: ChainTip) {
         self.chain_tip = Some(chain_tip);
     }
 
-    /// Sets the extranonce prefix.
+    /// Sets a new extranonce prefix for the channel.
     ///
-    /// Note: after this, all new jobs will be associated with the new extranonce prefix.
-    /// Jobs created before this call will remain associated with the previous extranonce prefix,
-    /// and share validation will be done accordingly.
+    /// After this change, all new jobs will use the new extranonce prefix.
+    /// Jobs created before this call retain the previous extranonce prefix,
+    /// and share validation is performed accordingly.
+    ///
+    /// Returns an error if the new prefix violates the minimum rollable extranonce size established
+    /// at channel creation.
     pub fn set_extranonce_prefix(
         &mut self,
         new_extranonce_prefix: Vec<u8>,
@@ -143,43 +158,56 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
+    /// Returns the available size, in bytes, of the rollable portion of the extranonce.
     pub fn get_rollable_extranonce_size(&self) -> u16 {
         self.rollable_extranonce_size
     }
 
+    /// Returns a reference to the current [`Target`] for this channel.
     pub fn get_target(&self) -> &Target {
         &self.target
     }
 
+    /// Sets a new [`Target`] for the channel.
     pub fn set_target(&mut self, new_target: Target) {
         self.target = new_target;
     }
 
+    /// Returns the cumulative nominal hashrate for the channel, in h/s.
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
     }
 
+    /// Returns a reference to the currently active job, if any.
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
         self.active_job.as_ref()
     }
 
+    /// Returns a reference to all future jobs for this channel.
     pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
         &self.future_jobs
     }
 
+    /// Returns a reference to all past jobs for this channel.
     pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
         &self.past_jobs
     }
 
+    /// Returns a reference to all stale jobs for this channel.
     pub fn get_stale_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
         &self.stale_jobs
     }
 
+    /// Returns a reference to the [`ShareAccounting`] for this channel.
     pub fn get_share_accounting(&self) -> &ShareAccounting {
         &self.share_accounting
     }
 
-    /// Called when a `NewExtendedMiningJob` message is received from upstream.
+    /// Handles a [`NewExtendedMiningJob`] message received from upstream.
+    ///
+    /// - If [`NewExtendedMiningJob::min_ntime`] is empty, the job is considered a future job and
+    ///   added to the future jobs list (see [`get_future_jobs`](ExtendedChannel::get_future_jobs)).
+    /// - Otherwise, the job is activated and previous active job moves to the past jobs list.
     pub fn on_new_extended_mining_job(
         &mut self,
         mut new_extended_mining_job: NewExtendedMiningJob<'a>,
@@ -222,17 +250,13 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
-    /// Called when a `SetNewPrevHash` message is received from upstream.
+    /// Handles a [`SetNewPrevHash`](SetNewPrevHashMp) message from upstream.
     ///
-    /// If the job_id addressed in the `SetNewPrevHash` is not a future job,
-    /// returns an error.
-    ///
-    /// If the job_id addressed in the `SetNewPrevHash` is a future job,
-    /// it is "activated" and set as the active job.
-    ///
-    /// All past jobs are marked as stale, so that shares are not propagated.
-    ///
-    /// The chain tip information is not kept in the channel state.
+    /// - If the referenced `job_id` is not a future job, returns an error.
+    /// - If it is a future job, activates it as the current job.
+    /// - Marks all past jobs as stale and clears them.
+    /// - Clears all seen shares as shares for the previous chain tip will be rejected as stale.
+    /// - Updates the chain tip for the channel.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashMp<'a>,
@@ -270,14 +294,12 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
-    /// Validates a share, to be used before submission upstream.
+    /// Validates a share prior to submission upstream.
     ///
-    /// Updates the channel state with the result of the share validation.
-    ///
-    /// - Allows the mining client to avoid propagating stale, duplicate or low-diff shares.
-    /// - Allows the mining client to know whether a block was found on some share.
-    /// - Allows the mining client to keep a local version of the share accounting for comparison
-    ///   with the acknowledgements coming from the upstream server.
+    /// Updates channel state with the share validation result:
+    /// - Prevents propagation of stale, duplicate, or low-difficulty shares.
+    /// - Indicates whether a block was found from the share.
+    /// - Maintains local share accounting for later reconciliation with upstream acknowledgements.
     pub fn validate_share(
         &mut self,
         share: SubmitSharesExtended,
