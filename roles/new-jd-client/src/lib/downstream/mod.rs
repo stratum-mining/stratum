@@ -119,6 +119,7 @@ impl Downstream {
         task_manager.spawn(async move {
             let mut shutdown_rx = notify_shutdown.subscribe();
             let downstream_id = self_clone.downstream_id;
+            info!("Spawning vardiff adjustment loop for downstream: {downstream_id}");
             loop {
                 tokio::select! {
                     message = shutdown_rx.recv() => {
@@ -324,7 +325,6 @@ impl Downstream {
 
     async fn spawn_vardiff(&self) -> Result<(), JDCError> {
         let downstream_id = self.downstream_id;
-        info!("Spawning vardiff adjustment loop for downstream: {downstream_id}");
 
         if self.downstream_channel.outbound_tx.is_closed() {
             debug!("Downstream {downstream_id} closed, stopping vardiff loop");

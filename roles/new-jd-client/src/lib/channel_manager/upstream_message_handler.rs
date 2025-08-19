@@ -4,6 +4,7 @@ use stratum_common::roles_logic_sv2::{
         HandleMiningMessagesFromServerAsync, HandlerError as Error, SupportedChannelTypes,
     },
     mining_sv2::*,
+    parsers_sv2::{AnyMessage, Mining},
 };
 use tracing::{error, info, warn};
 
@@ -131,7 +132,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     ) -> Result<(), Error> {
         // log as an error, and don't fallback
         error!("Received handle_submit_shares_error from Pool: {msg:?}");
-        
+
         Ok(())
     }
 
@@ -180,22 +181,41 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_set_target(&mut self, msg: SetTarget<'_>) -> Result<(), Error> {
         // Update the target and store in JDC
         info!("Received handle_set_target from Pool");
+        let mut messages: Vec<(u32, AnyMessage)> = vec![];
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(ref mut upstream) = data.upstream_channel {
                 upstream.set_target(msg.maximum_target.clone().into());
                 for (downstream_id, downstream) in data.downstream.iter_mut() {
                     downstream.downstream_data.super_safe_lock(|data| {
                         for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
+                            let mut target_msg = msg.clone();
+                            target_msg.channel_id = *channel_id;
+                            messages.push((
+                                *downstream_id,
+                                AnyMessage::Mining(Mining::SetTarget(target_msg.into_static())),
+                            ));
                             standard_channel.set_target(msg.maximum_target.clone().into());
                         }
 
                         for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
+                            let mut target_msg = msg.clone();
+                            target_msg.channel_id = *channel_id;
+                            messages.push((
+                                *downstream_id,
+                                AnyMessage::Mining(Mining::SetTarget(target_msg.into_static())),
+                            ));
                             extended_channel.set_target(msg.maximum_target.clone().into());
                         }
                     });
                 }
             }
         });
+
+        for (downstream_id, target) in messages {
+            self.channel_manager_channel
+                .downstream_sender
+                .send((downstream_id, target));
+        }
         Ok(())
     }
 
