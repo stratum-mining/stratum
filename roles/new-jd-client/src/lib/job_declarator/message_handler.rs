@@ -6,7 +6,7 @@ use stratum_common::roles_logic_sv2::{
 };
 use tracing::info;
 
-use crate::job_declarator::JobDeclarator;
+use crate::{jd_mode::set_jd_mode, job_declarator::JobDeclarator};
 
 impl HandleCommonMessagesFromServerAsync for JobDeclarator {
     async fn handle_setup_connection_success(
@@ -17,6 +17,9 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
             "Received `SetupConnectionSuccess` from JDS: version={}, flags={:b}",
             msg.used_version, msg.flags
         );
+        // set_jd_mode(msg.flags.into());
+        set_jd_mode(0u8.into());
+
         Ok(())
     }
 

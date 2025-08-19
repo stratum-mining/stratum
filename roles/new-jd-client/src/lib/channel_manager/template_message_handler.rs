@@ -3,7 +3,9 @@ use stratum_common::roles_logic_sv2::{
     codec_sv2::binary_sv2::{Seq064K, U256},
     handlers_sv2::{HandleTemplateDistributionMessagesFromServerAsync, HandlerError as Error},
     job_declaration_sv2::DeclareMiningJob,
-    mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp},
+    mining_sv2::{
+        NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, SetNewPrevHash as SetNewPrevHashMp,
+    },
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
     template_distribution_sv2::*,
 };
@@ -11,6 +13,7 @@ use tracing::info;
 
 use crate::{
     channel_manager::{ChannelManager, LastDeclareJob},
+    jd_mode::{get_jd_mode, JdMode},
     utils::StdFrame,
 };
 
@@ -21,32 +24,87 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         self.channel_manager_data.super_safe_lock(|data| {
             data.template_store
                 .insert(msg.template_id, msg.clone().into_static());
-        });
-        if msg.future_template {
-            self.channel_manager_data.super_safe_lock(|data| {
+            if msg.future_template {
                 data.last_future_template = Some(msg.clone().into_static());
+            }
+        });
+
+        if get_jd_mode() == JdMode::TemplateOnly && !msg.future_template {
+            let tx_data_request = AnyMessage::TemplateDistribution(
+                TemplateDistribution::RequestTransactionData(RequestTransactionData {
+                    template_id: msg.template_id,
+                }),
+            );
+            let frame: StdFrame = tx_data_request.try_into().unwrap();
+            self.channel_manager_channel
+                .tp_sender
+                .send(frame.into())
+                .await;
+        }
+
+        if get_jd_mode() == JdMode::CoinbaseOnly && !msg.future_template {
+            let (channel_id, prevhash, token, request_id, coinbase_tx_outputs) =
+                self.channel_manager_data.super_safe_lock(|data| {
+                    (
+                        data.upstream_channel_id,
+                        data.last_new_prev_hash.clone(),
+                        data.allocate_tokens.take(),
+                        data.request_id_factory.next(),
+                        data.coinbase_outputs.clone(),
+                    )
+                });
+            let new_prev_hash = prevhash.unwrap();
+            let mining_job_token = token.unwrap();
+
+            let last_declare = LastDeclareJob {
+                channel_id,
+                mining_job_token: mining_job_token.clone(),
+                declare_job: None,
+                template: msg.clone().into_static(),
+                prev_hash: Some(new_prev_hash.clone()),
+                coinbase_pool_output: coinbase_tx_outputs.clone(),
+                tx_list: vec![],
+            };
+
+            let to_send = SetCustomMiningJob {
+                channel_id,
+                request_id,
+                token: mining_job_token.mining_job_token.into(),
+                version: msg.version,
+                prev_hash: new_prev_hash.prev_hash,
+                min_ntime: new_prev_hash.header_timestamp,
+                nbits: new_prev_hash.n_bits,
+                coinbase_tx_version: msg.coinbase_tx_version,
+                coinbase_prefix: msg.clone().coinbase_prefix,
+                coinbase_tx_input_n_sequence: msg.coinbase_tx_input_sequence,
+                coinbase_tx_outputs: coinbase_tx_outputs.try_into().unwrap(),
+                coinbase_tx_locktime: msg.coinbase_tx_locktime,
+                merkle_path: msg.merkle_path.clone(),
+            };
+
+            self.allocate_tokens(1).await;
+
+            let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send.into_static()));
+            let frame: StdFrame = message.try_into().unwrap();
+
+            self.channel_manager_channel
+                .upstream_sender
+                .send(frame.into())
+                .await;
+
+            self.channel_manager_data.super_safe_lock(|data| {
+                data.last_declare_job_store.insert(request_id, last_declare);
             });
         }
 
-        let tx_data_request = AnyMessage::TemplateDistribution(
-            TemplateDistribution::RequestTransactionData(RequestTransactionData {
-                template_id: msg.template_id,
-            }),
-        );
-        let frame: StdFrame = tx_data_request.try_into().unwrap();
-        self.channel_manager_channel
-            .tp_sender
-            .send(frame.into())
-            .await;
-
         // Rethink handling of standard and group channels, something doesn't feel right
-        let messages = self.channel_manager_data.super_safe_lock(|data| {
+        let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let mut messages: Vec<(u32, AnyMessage)> = Vec::new();
             let pool_coinbase_output = TxOut {
                 value: Amount::from_sat(msg.coinbase_tx_value_remaining),
                 script_pubkey: self.coinbase_reward_script.script_pubkey(),
             };
-            for (downstream_id, downstream) in data.downstream.iter_mut() {
+            for (downstream_id, downstream) in channel_manager_data.downstream.iter_mut() {
 
                 let downstream_messages = downstream.downstream_data.super_safe_lock(|data| {
 
@@ -92,6 +150,8 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     }
                                     let standard_job_id = standard_channel.get_future_template_to_job_id().get(&msg.template_id).expect("job_id must exist");
                                     let standard_job = standard_channel.get_future_jobs().get(standard_job_id).expect("standard job must exist");
+                                    channel_manager_data.downstream_channel_id_and_job_id_to_template_id.insert((*channel_id, *standard_job_id), msg.template_id);
+                                    channel_manager_data.template_id_to_downstream_channel_id_and_job_id.insert(msg.template_id, (*channel_id, *standard_job_id));
                                     let standard_job_message = standard_job.get_job_message();
                                     messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
                                 }
@@ -125,6 +185,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     .get_future_jobs()
                                     .get(extended_job_id)
                                     .expect("extended job must exist");
+
+                                channel_manager_data.downstream_channel_id_and_job_id_to_template_id.insert((*channel_id, *extended_job_id), msg.template_id);
+                                channel_manager_data.template_id_to_downstream_channel_id_and_job_id.insert(msg.template_id, (*channel_id, *extended_job_id));
                                 let extended_job_message = extended_job.get_job_message();
 
                                 messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(extended_job_message.clone().into_static()))));
@@ -139,6 +202,8 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                         continue;
                                     }
                                     let standard_job = standard_channel.get_active_job().expect("standard job must exist");
+                                    channel_manager_data.downstream_channel_id_and_job_id_to_template_id.insert((*channel_id, standard_job.get_job_id()), msg.template_id);
+                                    channel_manager_data.template_id_to_downstream_channel_id_and_job_id.insert(msg.template_id, (*channel_id, standard_job.get_job_id()));
                                     let standard_job_message = standard_job.get_job_message();
                                     messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
                                 }
@@ -166,6 +231,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                 let extended_job = extended_channel
                                     .get_active_job()
                                     .expect("extended job must exist");
+
+                                channel_manager_data.downstream_channel_id_and_job_id_to_template_id.insert((*channel_id, extended_job.get_job_id()), msg.template_id);
+                                channel_manager_data.template_id_to_downstream_channel_id_and_job_id.insert(msg.template_id, (*channel_id, extended_job.get_job_id()));
                                 let extended_job_message = extended_job.get_job_message();
 
                                 messages.push((*downstream_id, AnyMessage::Mining(Mining::NewExtendedMiningJob(extended_job_message.clone().into_static()))));
@@ -207,12 +275,13 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         let transactions_data = msg.transaction_list;
         let excess_data = msg.excess_data;
 
-        let (token, template_message, request_id) =
+        let (token, template_message, request_id, upstream_channel_id) =
             self.channel_manager_data.super_safe_lock(|data| {
                 (
                     data.allocate_tokens.take(),
                     data.template_store.get(&msg.template_id).cloned(),
                     data.request_id_factory.next(),
+                    data.upstream_channel_id,
                 )
             });
 
@@ -263,7 +332,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             .filter(|_| !template_message.future_template);
 
         let last_declare = LastDeclareJob {
-            declare_job: declare_job.clone(),
+            channel_id: upstream_channel_id,
+            mining_job_token: token,
+            declare_job: Some(declare_job.clone()),
             template: template_message,
             prev_hash,
             coinbase_pool_output: reserialized_outputs,
@@ -288,6 +359,82 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
         info!("Received handle_set_new_prev_hash from Template provider");
+
+        let future_template = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.last_future_template.clone());
+
+        if get_jd_mode() == JdMode::TemplateOnly {
+            if let Some(ref future_template) = future_template {
+                let tx_data_request = AnyMessage::TemplateDistribution(
+                    TemplateDistribution::RequestTransactionData(RequestTransactionData {
+                        template_id: future_template.template_id,
+                    }),
+                );
+                let frame: StdFrame = tx_data_request.try_into().unwrap();
+                self.channel_manager_channel
+                    .tp_sender
+                    .send(frame.into())
+                    .await;
+            }
+        }
+
+        if get_jd_mode() == JdMode::CoinbaseOnly {
+            if let Some(future_template) = future_template {
+                let (channel_id, token, request_id, coinbase_tx_outputs) =
+                    self.channel_manager_data.super_safe_lock(|data| {
+                        (
+                            data.upstream_channel_id,
+                            data.allocate_tokens.take(),
+                            data.request_id_factory.next(),
+                            data.coinbase_outputs.clone(),
+                        )
+                    });
+                let new_prev_hash = msg.clone().into_static();
+                let mining_job_token = token.unwrap();
+
+                let last_declare = LastDeclareJob {
+                    channel_id,
+                    mining_job_token: mining_job_token.clone(),
+                    declare_job: None,
+                    template: future_template.clone().into_static(),
+                    prev_hash: Some(new_prev_hash.clone()),
+                    coinbase_pool_output: coinbase_tx_outputs.clone(),
+                    tx_list: vec![],
+                };
+
+                let to_send = SetCustomMiningJob {
+                    channel_id,
+                    request_id,
+                    token: mining_job_token.mining_job_token.into(),
+                    version: future_template.version,
+                    prev_hash: new_prev_hash.prev_hash,
+                    min_ntime: new_prev_hash.header_timestamp,
+                    nbits: new_prev_hash.n_bits,
+                    coinbase_tx_version: future_template.coinbase_tx_version,
+                    coinbase_prefix: future_template.clone().coinbase_prefix,
+                    coinbase_tx_input_n_sequence: future_template.coinbase_tx_input_sequence,
+                    coinbase_tx_outputs: coinbase_tx_outputs.try_into().unwrap(),
+                    coinbase_tx_locktime: future_template.coinbase_tx_locktime,
+                    merkle_path: future_template.merkle_path.clone(),
+                };
+
+                self.allocate_tokens(1).await;
+
+                let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send.into_static()));
+                let frame: StdFrame = message.try_into().unwrap();
+
+                self.channel_manager_channel
+                    .upstream_sender
+                    .send(frame.into())
+                    .await;
+
+                self.channel_manager_data.super_safe_lock(|data| {
+                    data.last_declare_job_store.insert(request_id, last_declare);
+                });
+            }
+        }
+
         let messages = self.channel_manager_data.super_safe_lock(|data| {
             data.last_new_prev_hash = Some(msg.clone().into_static());
             data.last_declare_job_store.iter_mut().for_each(|(k, v)| {

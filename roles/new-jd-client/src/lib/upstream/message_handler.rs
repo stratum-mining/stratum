@@ -11,7 +11,7 @@ use stratum_common::roles_logic_sv2::{
 };
 use tracing::info;
 
-use crate::{error::JDCError, upstream::Upstream, utils::StdFrame};
+use crate::{error::JDCError, jd_mode::set_jd_mode, upstream::Upstream, utils::StdFrame};
 
 impl HandleCommonMessagesFromServerAsync for Upstream {
     async fn handle_setup_connection_success(

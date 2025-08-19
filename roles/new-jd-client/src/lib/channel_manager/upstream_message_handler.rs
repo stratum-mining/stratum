@@ -5,7 +5,7 @@ use stratum_common::roles_logic_sv2::{
     },
     mining_sv2::*,
 };
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::channel_manager::ChannelManager;
 
@@ -43,7 +43,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
         let prefix_len = msg.extranonce_prefix.clone().to_vec().len();
         let jdc_extranonce_len = std::cmp::min(
-            (msg.extranonce_size as usize).saturating_sub((min_extranonce_size)) - 2,
+            (msg.extranonce_size as usize).saturating_sub((min_extranonce_size)),
             8,
         );
         let self_len = 0;
@@ -121,7 +121,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: SubmitSharesSuccess,
     ) -> Result<(), Error> {
         // Send shares to pool
-        info!("Received handle_submit_shares_success from Pool");
+        info!("Received submit_shares_success from Pool: {msg:?}");
         Ok(())
     }
 
@@ -130,7 +130,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: SubmitSharesError<'_>,
     ) -> Result<(), Error> {
         // log as an error, and don't fallback
-        info!("Received handle_submit_shares_error from Pool");
+        error!("Received handle_submit_shares_error from Pool: {msg:?}");
+        
         Ok(())
     }
 
@@ -160,6 +161,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         self.channel_manager_data.super_safe_lock(|data| {
             let value = data.last_declare_job_store.get(&msg.request_id).cloned();
             let last_declare_job = value.unwrap();
+            data.template_id_to_upstream_job_id
+                .insert(last_declare_job.template.template_id, msg.job_id as u64);
             data.job_id_to_template.insert(msg.job_id, last_declare_job);
         });
         Ok(())

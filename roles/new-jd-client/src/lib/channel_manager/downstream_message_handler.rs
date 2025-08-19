@@ -22,7 +22,12 @@ use stratum_common::roles_logic_sv2::{
 };
 use tracing::{error, info, warn};
 
-use crate::{channel_manager::ChannelManager, error::JDCError, utils::StdFrame};
+use crate::{
+    channel_manager::ChannelManager,
+    error::JDCError,
+    jd_mode::{get_jd_mode, JdMode},
+    utils::StdFrame,
+};
 
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
     fn get_channel_type_for_client(&self) -> SupportedChannelTypes {
@@ -349,9 +354,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Error> {
-        error!("------------------------------------------------");
-        error!("OEMC: {msg:?}");
-        error!("------------------------------------------------");
         let user_string = msg.user_identity.as_utf8_or_hex();
         let mut split = user_string.split("#").collect::<Vec<&str>>();
         let downstream_id = split.pop().unwrap().parse::<u32>().unwrap();
@@ -848,6 +850,98 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         msg: SubmitSharesStandard,
     ) -> Result<(), Error> {
         info!("Received handle_submit_shares_standard from Downstream");
+
+        let (upstream_message, channel_extranonce) =
+            self.channel_manager_data
+                .super_safe_lock(|channel_manager_data| {
+                    let downstream_id = channel_manager_data
+                        .channel_id_to_downstream_id
+                        .get(&msg.channel_id);
+                    let mut channel_extranonce = None;
+                    let mut extranonce_range_1_and_range_2 = vec![];
+                    if let Some(downstream_id) = downstream_id {
+                        let downstream = channel_manager_data.downstream.get(downstream_id);
+                        if let Some(downstream) = downstream {
+                            downstream.downstream_data.super_safe_lock(|data| {
+                                if let Some(standard_channel) =
+                                    data.standard_channels.get(&msg.channel_id)
+                                {
+                                    channel_extranonce =
+                                        Some(standard_channel.get_extranonce_prefix().clone());
+                                    error!(
+                                        "downstream channel extranonce: {:?}",
+                                        standard_channel.get_extranonce_prefix().len()
+                                    );
+                                    error!(
+                                        "downstream channel extranonce prefix: {:?}",
+                                        standard_channel.get_extranonce_prefix()
+                                    );
+                                    if let Some(ref upstream_channel) =
+                                        channel_manager_data.upstream_channel
+                                    {
+                                        let extranonce_prefix =
+                                            upstream_channel.get_extranonce_prefix();
+                                        error!(
+                                            "Upstream extranonce prefix len: {:?}",
+                                            extranonce_prefix.len()
+                                        );
+                                        error!(
+                                            "Upstream extranonce prefix: {:?}",
+                                            extranonce_prefix
+                                        );
+                                        extranonce_range_1_and_range_2.extend_from_slice(
+                                            &standard_channel.get_extranonce_prefix()
+                                                [extranonce_prefix.len()..],
+                                        );
+                                    }
+                                }
+                            })
+                        }
+                    }
+
+                    let mut messages = None;
+                    let template_id = channel_manager_data
+                        .downstream_channel_id_and_job_id_to_template_id
+                        .get(&(msg.channel_id, msg.job_id));
+                    if let Some(template_id) = template_id {
+                        error!("Template id: {:?}", template_id);
+                        let upstream_job_id = channel_manager_data
+                            .template_id_to_upstream_job_id
+                            .get(template_id);
+                        if let Some(upstream_job_id) = upstream_job_id {
+                            error!("Upstream_job_id: {:?}", upstream_job_id);
+
+                            error!(
+                            "extranonce_range_1_and_range_2: {extranonce_range_1_and_range_2:?}"
+                        );
+                            let share_extended = SubmitSharesExtended {
+                                channel_id: channel_manager_data.upstream_channel_id,
+                                job_id: *upstream_job_id as u32,
+                                extranonce: extranonce_range_1_and_range_2.try_into().unwrap(),
+                                nonce: msg.nonce,
+                                ntime: msg.ntime,
+                                sequence_number: msg.sequence_number,
+                                version: msg.version,
+                            };
+
+                            messages = Some(share_extended);
+                        }
+                    }
+                    (messages, channel_extranonce)
+                });
+
+        if let Some(upstream_message) = upstream_message {
+            let any_message = AnyMessage::Mining(Mining::SubmitSharesExtended(
+                upstream_message.clone().into_static(),
+            ));
+            let frame: StdFrame = any_message.try_into().unwrap();
+
+            self.channel_manager_channel
+                .upstream_sender
+                .send(frame.into())
+                .await;
+        }
+
         let channel_id = msg.channel_id;
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let Some(downstream_id) = channel_manager_data.channel_id_to_downstream_id.get(&channel_id) else {
@@ -1067,15 +1161,105 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Error> {
         info!("Received handle_submit_shares_extended from Downstream");
-        let channel_id = msg.channel_id;
-        let any_message =
-            AnyMessage::Mining(Mining::SubmitSharesExtended(msg.clone().into_static()));
-        let frame: StdFrame = any_message.try_into().unwrap();
 
-        self.channel_manager_channel
-            .upstream_sender
-            .send(frame.into())
-            .await;
+        error!("---------------------------------------------------------------------------------");
+        error!(
+            "Submit share extranonce length; {:?}",
+            msg.extranonce.to_vec().len()
+        );
+        error!("Submit share: {msg:?}");
+        error!("---------------------------------------------------------------------------------");
+
+        let (upstream_message, channel_extranonce) =
+            self.channel_manager_data
+                .super_safe_lock(|channel_manager_data| {
+                    let downstream_id = channel_manager_data
+                        .channel_id_to_downstream_id
+                        .get(&msg.channel_id);
+                    let mut channel_extranonce = None;
+                    let mut extranonce_range_1_and_range_2 = vec![];
+                    if let Some(downstream_id) = downstream_id {
+                        let downstream = channel_manager_data.downstream.get(downstream_id);
+                        if let Some(downstream) = downstream {
+                            downstream.downstream_data.super_safe_lock(|data| {
+                                if let Some(extended_channel) =
+                                    data.extended_channels.get(&msg.channel_id)
+                                {
+                                    channel_extranonce =
+                                        Some(extended_channel.get_extranonce_prefix().clone());
+                                    error!(
+                                        "downstream channel extranonce: {:?}",
+                                        extended_channel.get_extranonce_prefix().len()
+                                    );
+                                    error!(
+                                        "downstream channel extranonce prefix: {:?}",
+                                        extended_channel.get_extranonce_prefix()
+                                    );
+                                    if let Some(ref upstream_channel) =
+                                        channel_manager_data.upstream_channel
+                                    {
+                                        let extranonce_prefix =
+                                            upstream_channel.get_extranonce_prefix();
+                                        error!(
+                                            "Upstream extranonce prefix len: {:?}",
+                                            extranonce_prefix.len()
+                                        );
+                                        error!(
+                                            "Upstream extranonce prefix: {:?}",
+                                            extranonce_prefix
+                                        );
+                                        extranonce_range_1_and_range_2.extend_from_slice(
+                                            &extended_channel.get_extranonce_prefix()
+                                                [extranonce_prefix.len()..],
+                                        );
+                                    }
+                                }
+                            })
+                        }
+                    }
+
+                    let mut messages = None;
+                    let template_id = channel_manager_data
+                        .downstream_channel_id_and_job_id_to_template_id
+                        .get(&(msg.channel_id, msg.job_id));
+                    if let Some(template_id) = template_id {
+                        error!("Template id: {:?}", template_id);
+                        let upstream_job_id = channel_manager_data
+                            .template_id_to_upstream_job_id
+                            .get(template_id);
+                        if let Some(upstream_job_id) = upstream_job_id {
+                            error!("Upstream_job_id: {:?}", upstream_job_id);
+
+                            let mut message = msg.clone();
+                            message.channel_id = channel_manager_data.upstream_channel_id;
+                            message.job_id = *upstream_job_id as u32;
+
+                            extranonce_range_1_and_range_2
+                                .extend_from_slice(&msg.extranonce.to_vec());
+                            error!(
+                            "extranonce_range_1_and_range_2: {extranonce_range_1_and_range_2:?}"
+                        );
+                            message.extranonce = extranonce_range_1_and_range_2.try_into().unwrap();
+
+                            messages = Some(message);
+                        }
+                    }
+                    (messages, channel_extranonce)
+                });
+
+        if let Some(upstream_message) = upstream_message {
+            let any_message = AnyMessage::Mining(Mining::SubmitSharesExtended(
+                upstream_message.clone().into_static(),
+            ));
+            let frame: StdFrame = any_message.try_into().unwrap();
+
+            self.channel_manager_channel
+                .upstream_sender
+                .send(frame.into())
+                .await;
+        }
+
+        let channel_id = msg.channel_id;
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let Some(downstream_id) = channel_manager_data.channel_id_to_downstream_id.get(&channel_id) else {
@@ -1145,23 +1329,25 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 coinbase_tx: coinbase.try_into().unwrap(),
                             };
 
-                            let push_solution = PushSolution {
-                                extranonce: msg.extranonce,
-                                ntime: msg.ntime,
-                                nonce: msg.nonce,
-                                version: msg.version,
-                                nbits: prev_hash.n_bits,
-                                prev_hash: prev_hash.prev_hash.clone(),
-                            };
-
-                            let any_message = AnyMessage::TemplateDistribution(
-                                TemplateDistribution::SubmitSolution(solution.clone()),
-                            );
-                            messages.push((0, any_message));
-                            let any_message =
-                                AnyMessage::JobDeclaration(JobDeclaration::PushSolution(push_solution))
-                                    .into_static();
-                            messages.push((0, any_message));
+                            if let Some(mut channel_extranonce) = channel_extranonce {
+                                channel_extranonce.extend_from_slice(&msg.extranonce.to_vec());
+                                let push_solution = PushSolution {
+                                    extranonce: channel_extranonce.try_into().unwrap(),
+                                    ntime: msg.ntime,
+                                    nonce: msg.nonce,
+                                    version: msg.version,
+                                    nbits: prev_hash.n_bits,
+                                    prev_hash: prev_hash.prev_hash.clone(),
+                                };
+                                let any_message = AnyMessage::TemplateDistribution(
+                                    TemplateDistribution::SubmitSolution(solution.clone()),
+                                );
+                                messages.push((0, any_message));
+                                let any_message =
+                                    AnyMessage::JobDeclaration(JobDeclaration::PushSolution(push_solution))
+                                        .into_static();
+                                messages.push((0, any_message));
+                            }
                         }
                         let share_accounting = extended_channel.get_share_accounting().clone();
                         let success = SubmitSharesSuccess {
@@ -1263,12 +1449,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
             if downstream_id == 0 {
                 match message {
                     AnyMessage::JobDeclaration(m) => {
-                        let any_message = AnyMessage::JobDeclaration(m);
-                        let frame: StdFrame = any_message.try_into().unwrap();
-                        self.channel_manager_channel
-                            .jd_sender
-                            .send(frame.into())
-                            .await;
+                        if get_jd_mode() != JdMode::NoJd {
+                            let any_message = AnyMessage::JobDeclaration(m);
+                            let frame: StdFrame = any_message.try_into().unwrap();
+                            self.channel_manager_channel
+                                .jd_sender
+                                .send(frame.into())
+                                .await;
+                        }
                     }
                     AnyMessage::TemplateDistribution(m) => {
                         let any_message = AnyMessage::TemplateDistribution(m);
@@ -1281,9 +1469,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     _ => {}
                 }
             } else {
-                self.channel_manager_channel
-                    .downstream_sender
-                    .send((downstream_id, message));
+                if get_jd_mode() == JdMode::NoJd {
+                    self.channel_manager_channel
+                        .downstream_sender
+                        .send((downstream_id, message));
+                }
             }
         }
 

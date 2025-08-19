@@ -21,7 +21,6 @@ shares_per_minute = 6.0
 # Share batch size
 share_batch_size = 1
 
-
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 tp_address = "127.0.0.1:8442"

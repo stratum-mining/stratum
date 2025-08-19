@@ -57,7 +57,9 @@ mod upstream_message_handler;
 
 #[derive(Clone, Debug)]
 pub struct LastDeclareJob {
-    declare_job: DeclareMiningJob<'static>,
+    channel_id: u32,
+    mining_job_token: AllocateMiningJobTokenSuccess<'static>,
+    declare_job: Option<DeclareMiningJob<'static>>,
     template: NewTemplate<'static>,
     prev_hash: Option<SetNewPrevHashTdp<'static>>,
     coinbase_pool_output: Vec<u8>,
@@ -78,6 +80,9 @@ pub struct ChannelManagerData {
     template_store: HashMap<u64, NewTemplate<'static>>,
     last_declare_job_store: HashMap<u32, LastDeclareJob>,
     job_id_to_template: HashMap<u32, LastDeclareJob>,
+    template_id_to_upstream_job_id: HashMap<u64, u64>,
+    template_id_to_downstream_channel_id_and_job_id: HashMap<u64, (u32, u32)>,
+    downstream_channel_id_and_job_id_to_template_id: HashMap<(u32, u32), u64>,
     coinbase_outputs: Vec<u8>,
     channel_id_to_downstream_id: HashMap<u32, u32>,
     upstream_channel_id: u32,
@@ -106,7 +111,7 @@ pub struct ChannelManager {
     share_batch_size: usize,
     shares_per_minute: f32,
     coinbase_reward_script: CoinbaseRewardScript,
-    user_identity: String
+    user_identity: String,
 }
 
 impl ChannelManager {
@@ -163,6 +168,9 @@ impl ChannelManager {
             template_store: HashMap::new(),
             last_declare_job_store: HashMap::new(),
             job_id_to_template: HashMap::new(),
+            template_id_to_upstream_job_id: HashMap::new(),
+            template_id_to_downstream_channel_id_and_job_id: HashMap::new(),
+            downstream_channel_id_and_job_id_to_template_id: HashMap::new(),
             coinbase_outputs,
             channel_id_to_downstream_id: HashMap::new(),
             upstream_channel_id: 1,
@@ -185,7 +193,7 @@ impl ChannelManager {
             share_batch_size: config.share_batch_size() as usize,
             shares_per_minute: config.shares_per_minute() as f32,
             pool_tag_string: Some("pool".to_string()),
-            miner_tag_string: "miner".to_string(),
+            miner_tag_string: config.jdc_signature().to_string(),
             coinbase_reward_script: config.coinbase_reward_script.clone(),
             user_identity: config.user_identity().to_string(),
         };
@@ -449,7 +457,8 @@ impl ChannelManager {
 
                                 if !is_upstream_available {
                                     let mut y = x.clone();
-                                    y.user_identity = self.user_identity.clone().try_into().unwrap();
+                                    y.user_identity =
+                                        self.user_identity.clone().try_into().unwrap();
                                     y.request_id = 1;
                                     self.channel_manager_data.super_safe_lock(|data| {
                                         data.pending_channel.insert(
@@ -498,13 +507,18 @@ impl ChannelManager {
                             Mining::OpenStandardMiningChannel(mut x) => {
                                 if !is_upstream_available {
                                     let mut y = OpenExtendedMiningChannel {
-                                        user_identity: self.user_identity.clone().try_into().unwrap(),
+                                        user_identity: self
+                                            .user_identity
+                                            .clone()
+                                            .try_into()
+                                            .unwrap(),
                                         request_id: 1,
                                         nominal_hash_rate: x.nominal_hash_rate,
                                         max_target: x.max_target.clone(),
                                         min_extranonce_size: 8,
                                     };
-                                    y.user_identity = self.user_identity.clone().try_into().unwrap();
+                                    y.user_identity =
+                                        self.user_identity.clone().try_into().unwrap();
                                     y.request_id = 1;
                                     self.channel_manager_data.super_safe_lock(|data| {
                                         data.pending_channel.insert(

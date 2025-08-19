@@ -1,5 +1,8 @@
 #![allow(warnings)]
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::SocketAddr,
+    sync::{atomic::AtomicU8, Arc},
+};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
@@ -23,6 +26,7 @@ mod channel_manager;
 pub mod config;
 mod downstream;
 pub mod error;
+pub mod jd_mode;
 mod job_declarator;
 mod status;
 mod task_manager;
@@ -40,7 +44,10 @@ impl JobDeclaratorClient {
     }
 
     pub async fn start(&self) {
-        info!("Job declarator client starting... setting up subsystems, User Identity: {}", self.config.user_identity());
+        info!(
+            "Job declarator client starting... setting up subsystems, User Identity: {}",
+            self.config.user_identity()
+        );
 
         let miner_coinbase_outputs = vec![self.config.get_txout()];
         let mut encoded_outputs = vec![];

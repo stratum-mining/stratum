@@ -90,22 +90,28 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     ) -> Result<(), Error> {
         // https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/#641-setupconnection-flags-for-job-declaration-protocol
         info!("Received handle_declare_mining_job_success from JDS");
-        let (last_declare_job, prev_hash) = self.channel_manager_data.super_safe_lock(|data| {
-            (
-                data.last_declare_job_store.get(&msg.request_id).cloned(),
-                data.last_new_prev_hash.clone(),
-            )
-        });
+        let (last_declare_job, prev_hash, upstream_channel_id) =
+            self.channel_manager_data.super_safe_lock(|data| {
+                (
+                    data.last_declare_job_store.get(&msg.request_id).cloned(),
+                    data.last_new_prev_hash.clone(),
+                    data.upstream_channel_id,
+                )
+            });
 
         let last_declare_job = last_declare_job.unwrap();
         let new_prev_hash = prev_hash.unwrap();
 
         // https://github.com/stratum-mining/stratum/pull/1325
         let to_send = SetCustomMiningJob {
-            channel_id: 1,
+            channel_id: upstream_channel_id,
             request_id: msg.request_id,
-            token: last_declare_job.declare_job.mining_job_token,
-            version: last_declare_job.declare_job.version,
+            token: last_declare_job
+                .declare_job
+                .clone()
+                .unwrap()
+                .mining_job_token,
+            version: last_declare_job.declare_job.unwrap().version,
             prev_hash: new_prev_hash.prev_hash,
             min_ntime: new_prev_hash.header_timestamp,
             nbits: new_prev_hash.n_bits,

@@ -44,7 +44,7 @@ pub struct JobDeclaratorClientConfig {
     /// Shares per minute
     shares_per_minute: f64,
     /// share batch size
-    share_batch_size: u64
+    share_batch_size: u64,
 }
 
 impl JobDeclaratorClientConfig {
@@ -77,7 +77,7 @@ impl JobDeclaratorClientConfig {
             log_file: None,
             user_identity,
             shares_per_minute,
-            share_batch_size
+            share_batch_size,
         }
     }
 
