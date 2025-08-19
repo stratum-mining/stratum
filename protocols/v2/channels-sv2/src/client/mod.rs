@@ -1,4 +1,9 @@
 //! Sv2 channels - Mining Clients Abstractions.
+//!
+//! The `client` module is compatible with `no_std` environments. To enable this mode, build the
+//! crate with the `no_std` feature. In this configuration, standard library collections are
+//! replaced with the `hashbrown` crate, together with `core` and `alloc`, allowing the module to be
+//! used in embedded or constrained contexts.
 
 pub mod error;
 pub mod extended;
