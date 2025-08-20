@@ -868,27 +868,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 {
                                     channel_extranonce =
                                         Some(standard_channel.get_extranonce_prefix().clone());
-                                    error!(
-                                        "downstream channel extranonce: {:?}",
-                                        standard_channel.get_extranonce_prefix().len()
-                                    );
-                                    error!(
-                                        "downstream channel extranonce prefix: {:?}",
-                                        standard_channel.get_extranonce_prefix()
-                                    );
                                     if let Some(ref upstream_channel) =
                                         channel_manager_data.upstream_channel
                                     {
                                         let extranonce_prefix =
                                             upstream_channel.get_extranonce_prefix();
-                                        error!(
-                                            "Upstream extranonce prefix len: {:?}",
-                                            extranonce_prefix.len()
-                                        );
-                                        error!(
-                                            "Upstream extranonce prefix: {:?}",
-                                            extranonce_prefix
-                                        );
                                         extranonce_range_1_and_range_2.extend_from_slice(
                                             &standard_channel.get_extranonce_prefix()
                                                 [extranonce_prefix.len()..],
@@ -904,16 +888,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         .downstream_channel_id_and_job_id_to_template_id
                         .get(&(msg.channel_id, msg.job_id));
                     if let Some(template_id) = template_id {
-                        error!("Template id: {:?}", template_id);
                         let upstream_job_id = channel_manager_data
                             .template_id_to_upstream_job_id
                             .get(template_id);
                         if let Some(upstream_job_id) = upstream_job_id {
-                            error!("Upstream_job_id: {:?}", upstream_job_id);
-
-                            error!(
-                            "extranonce_range_1_and_range_2: {extranonce_range_1_and_range_2:?}"
-                        );
                             let share_extended = SubmitSharesExtended {
                                 channel_id: channel_manager_data.upstream_channel_id,
                                 job_id: *upstream_job_id as u32,
@@ -1162,14 +1140,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Error> {
         info!("Received handle_submit_shares_extended from Downstream");
 
-        error!("---------------------------------------------------------------------------------");
-        error!(
-            "Submit share extranonce length; {:?}",
-            msg.extranonce.to_vec().len()
-        );
-        error!("Submit share: {msg:?}");
-        error!("---------------------------------------------------------------------------------");
-
         let (upstream_message, channel_extranonce) =
             self.channel_manager_data
                 .super_safe_lock(|channel_manager_data| {
@@ -1187,27 +1157,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 {
                                     channel_extranonce =
                                         Some(extended_channel.get_extranonce_prefix().clone());
-                                    error!(
-                                        "downstream channel extranonce: {:?}",
-                                        extended_channel.get_extranonce_prefix().len()
-                                    );
-                                    error!(
-                                        "downstream channel extranonce prefix: {:?}",
-                                        extended_channel.get_extranonce_prefix()
-                                    );
                                     if let Some(ref upstream_channel) =
                                         channel_manager_data.upstream_channel
                                     {
                                         let extranonce_prefix =
                                             upstream_channel.get_extranonce_prefix();
-                                        error!(
-                                            "Upstream extranonce prefix len: {:?}",
-                                            extranonce_prefix.len()
-                                        );
-                                        error!(
-                                            "Upstream extranonce prefix: {:?}",
-                                            extranonce_prefix
-                                        );
                                         extranonce_range_1_and_range_2.extend_from_slice(
                                             &extended_channel.get_extranonce_prefix()
                                                 [extranonce_prefix.len()..],
@@ -1223,22 +1177,16 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         .downstream_channel_id_and_job_id_to_template_id
                         .get(&(msg.channel_id, msg.job_id));
                     if let Some(template_id) = template_id {
-                        error!("Template id: {:?}", template_id);
                         let upstream_job_id = channel_manager_data
                             .template_id_to_upstream_job_id
                             .get(template_id);
                         if let Some(upstream_job_id) = upstream_job_id {
-                            error!("Upstream_job_id: {:?}", upstream_job_id);
-
                             let mut message = msg.clone();
                             message.channel_id = channel_manager_data.upstream_channel_id;
                             message.job_id = *upstream_job_id as u32;
 
                             extranonce_range_1_and_range_2
                                 .extend_from_slice(&msg.extranonce.to_vec());
-                            error!(
-                            "extranonce_range_1_and_range_2: {extranonce_range_1_and_range_2:?}"
-                        );
                             message.extranonce = extranonce_range_1_and_range_2.try_into().unwrap();
 
                             messages = Some(message);

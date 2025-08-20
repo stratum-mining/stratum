@@ -153,6 +153,7 @@ impl Downstream {
             }
         });
 
+        let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
         task_manager.spawn(async move {
             loop {
                 let mut self_clone_1 = self.clone();
@@ -186,7 +187,7 @@ impl Downstream {
                             break;
                         }
                     }
-                    res = self_clone_2.handle_channel_manager_message() => {
+                    res = self_clone_2.handle_channel_manager_message(&mut receiver) => {
                         if let Err(e) = res {
                             handle_error(&status_sender, e).await;
                             break;
@@ -214,8 +215,10 @@ impl Downstream {
         Ok(())
     }
 
-    async fn handle_channel_manager_message(mut self) -> Result<(), JDCError> {
-        let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
+    async fn handle_channel_manager_message(
+        mut self,
+        receiver: &mut broadcast::Receiver<(u32, AnyMessage<'static>)>,
+    ) -> Result<(), JDCError> {
         if let Ok((downstream_id, frame)) = receiver.recv().await {
             if downstream_id == self.downstream_id {
                 let message_type = frame.message_type();
