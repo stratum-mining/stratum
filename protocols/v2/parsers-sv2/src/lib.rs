@@ -1,3 +1,5 @@
+#![no_std]
+
 //! # Parsing, Serializing, and Message Type Identification
 //!
 //! Provides logic to convert raw Stratum V2 (Sv2) message data into Rust types, as well as logic
@@ -21,7 +23,8 @@
 //!   submission).
 
 pub mod error;
-
+extern crate alloc;
+use alloc::vec::Vec;
 use binary_sv2::{
     self,
     decodable::{DecodableField, FieldMarker},
@@ -706,64 +709,64 @@ impl GetSize for Mining<'_> {
 }
 
 impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
-    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
         _v: Vec<DecodableField<'decoder>>,
-    ) -> std::result::Result<Self, binary_sv2::Error> {
+    ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
-    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
         _v: Vec<DecodableField<'decoder>>,
-    ) -> std::result::Result<Self, binary_sv2::Error> {
+    ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
-    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
         _v: Vec<DecodableField<'decoder>>,
-    ) -> std::result::Result<Self, binary_sv2::Error> {
+    ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
-    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
         _v: Vec<DecodableField<'decoder>>,
-    ) -> std::result::Result<Self, binary_sv2::Error> {
+    ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 
 impl<'decoder> Deserialize<'decoder> for AnyMessage<'decoder> {
-    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
         _v: Vec<DecodableField<'decoder>>,
-    ) -> std::result::Result<Self, binary_sv2::Error> {
+    ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 
 impl<'decoder> Deserialize<'decoder> for MiningDeviceMessages<'decoder> {
-    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
         _v: Vec<DecodableField<'decoder>>,
-    ) -> std::result::Result<Self, binary_sv2::Error> {
+    ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
@@ -1403,10 +1406,11 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 #[cfg(test)]
 mod test {
     use crate::{AnyMessage, Mining};
+    use alloc::vec::Vec;
     use binary_sv2::{Sv2Option, U256};
     use codec_sv2::StandardSv2Frame;
+    use core::convert::{TryFrom, TryInto};
     use mining_sv2::NewMiningJob;
-    use std::convert::{TryFrom, TryInto};
 
     pub type Message = AnyMessage<'static>;
     pub type StdFrame = StandardSv2Frame<Message>;
