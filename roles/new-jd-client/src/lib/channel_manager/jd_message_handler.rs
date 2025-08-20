@@ -118,7 +118,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
             coinbase_tx_version: last_declare_job.template.coinbase_tx_version,
             coinbase_prefix: last_declare_job.template.coinbase_prefix,
             coinbase_tx_input_n_sequence: last_declare_job.template.coinbase_tx_input_sequence,
-            coinbase_tx_outputs: last_declare_job.coinbase_pool_output.try_into().unwrap(),
+            coinbase_tx_outputs: last_declare_job.coinbase_output.try_into().unwrap(),
             coinbase_tx_locktime: last_declare_job.template.coinbase_tx_locktime,
             merkle_path: last_declare_job.template.merkle_path.clone(),
         };

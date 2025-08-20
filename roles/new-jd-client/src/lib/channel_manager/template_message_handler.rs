@@ -14,7 +14,7 @@ use tracing::info;
 use crate::{
     channel_manager::{ChannelManager, LastDeclareJob},
     jd_mode::{get_jd_mode, JdMode},
-    utils::StdFrame,
+    utils::{deserialize_coinbase_output, StdFrame},
 };
 
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
@@ -53,9 +53,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         data.coinbase_outputs.clone(),
                     )
                 });
-            let Some(new_prev_hash) = prevhash else {
-                return Ok(());
-            };
+
             let Some(mining_job_token) = token else {
                 return Ok(());
             };
@@ -65,36 +63,41 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                 mining_job_token: mining_job_token.clone(),
                 declare_job: None,
                 template: msg.clone().into_static(),
-                prev_hash: Some(new_prev_hash.clone()),
-                coinbase_pool_output: coinbase_tx_outputs.clone(),
+                prev_hash: prevhash.clone(),
+                coinbase_output: coinbase_tx_outputs.clone(),
                 tx_list: vec![],
             };
 
-            let to_send = SetCustomMiningJob {
-                channel_id,
-                request_id,
-                token: mining_job_token.mining_job_token.into(),
-                version: msg.version,
-                prev_hash: new_prev_hash.prev_hash,
-                min_ntime: new_prev_hash.header_timestamp,
-                nbits: new_prev_hash.n_bits,
-                coinbase_tx_version: msg.coinbase_tx_version,
-                coinbase_prefix: msg.clone().coinbase_prefix,
-                coinbase_tx_input_n_sequence: msg.coinbase_tx_input_sequence,
-                coinbase_tx_outputs: coinbase_tx_outputs.try_into().unwrap(),
-                coinbase_tx_locktime: msg.coinbase_tx_locktime,
-                merkle_path: msg.merkle_path.clone(),
-            };
+            if let Some(new_prev_hash) = prevhash {
+
+                let to_send = SetCustomMiningJob {
+                    channel_id,
+                    request_id,
+                    token: mining_job_token.mining_job_token.into(),
+                    version: msg.version,
+                    prev_hash: new_prev_hash.prev_hash,
+                    min_ntime: new_prev_hash.header_timestamp,
+                    nbits: new_prev_hash.n_bits,
+                    coinbase_tx_version: msg.coinbase_tx_version,
+                    coinbase_prefix: msg.clone().coinbase_prefix,
+                    coinbase_tx_input_n_sequence: msg.coinbase_tx_input_sequence,
+                    coinbase_tx_outputs: coinbase_tx_outputs.try_into().unwrap(),
+                    coinbase_tx_locktime: msg.coinbase_tx_locktime,
+                    merkle_path: msg.merkle_path.clone(),
+                };
+
+                let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send.into_static()));
+                let frame: StdFrame = message.try_into().unwrap();
+
+                self.channel_manager_channel
+                    .upstream_sender
+                    .send(frame.into())
+                    .await;
+
+            }
 
             self.allocate_tokens(1).await;
 
-            let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send.into_static()));
-            let frame: StdFrame = message.try_into().unwrap();
-
-            self.channel_manager_channel
-                .upstream_sender
-                .send(frame.into())
-                .await;
 
             self.channel_manager_data.super_safe_lock(|data| {
                 data.last_declare_job_store.insert(request_id, last_declare);
@@ -104,10 +107,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         // Rethink handling of standard and group channels, something doesn't feel right
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let mut messages: Vec<(u32, AnyMessage)> = Vec::new();
-            let pool_coinbase_output = TxOut {
-                value: Amount::from_sat(msg.coinbase_tx_value_remaining),
-                script_pubkey: self.coinbase_reward_script.script_pubkey(),
-            };
+            let mut coinbase_output = deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
+            coinbase_output[0].value = Amount::from_sat(msg.coinbase_tx_value_remaining);
+
             for (downstream_id, downstream) in channel_manager_data.downstream.iter_mut() {
 
                 let downstream_messages = downstream.downstream_data.super_safe_lock(|data| {
@@ -115,7 +117,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                     let mut messages: Vec<(u32, AnyMessage)> = vec![];
 
                     let group_channel_job = if let Some(ref mut group_channel) = data.group_channels {
-                        if let Ok(_) = group_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                        if let Ok(_) = group_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                             match msg.future_template {
                                 true => {
                                     let future_job_id = group_channel
@@ -147,7 +149,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         true => {
                             for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
                                 if data.group_channels.is_none() {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                                         // do something here, I guess just ignore??
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                         continue;
@@ -160,7 +162,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
                                 }
                                 if let Some(ref group_channel_job) = group_channel_job {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                                         // do something here, I guess just ignore??
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                         continue;
@@ -175,7 +177,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             }
 
                             for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                                     // do something here, I guess just ignore??
                                     tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                     continue;
@@ -200,7 +202,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         false => {
                             for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
                                 if data.group_channels.is_none() {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                                         // do something here, I guess just ignore??
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                         continue;
@@ -212,7 +214,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     messages.push((*downstream_id, AnyMessage::Mining(Mining::NewMiningJob(standard_job_message.clone().into_static()))));
                                 }
                                 if let Some(ref group_channel_job) = group_channel_job {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                                         // do something here, I guess just ignore??
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                         continue;
@@ -227,7 +229,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             }
 
                             for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), vec![pool_coinbase_output.clone()]) {
+                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
                                     // do something here, I guess just ignore??
                                     tracing::error!("Error while adding template to standard channel: {channel_id:?}");
                                     continue;
@@ -295,10 +297,10 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         let template_message = template_message.unwrap();
 
         let mining_token = token.mining_job_token.to_vec();
-        let pool_coinbase_outputs = token.coinbase_outputs.to_vec();
+        let coinbase_outputs = token.coinbase_outputs.to_vec();
 
         let mut deserialized_outputs: Vec<TxOut> =
-            consensus::deserialize(&pool_coinbase_outputs).unwrap();
+            consensus::deserialize(&coinbase_outputs).unwrap();
 
         deserialized_outputs[0].value =
             Amount::from_sat(template_message.coinbase_tx_value_remaining);
@@ -341,7 +343,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             declare_job: Some(declare_job.clone()),
             template: template_message,
             prev_hash,
-            coinbase_pool_output: reserialized_outputs,
+            coinbase_output: reserialized_outputs,
             tx_list: transactions_data.to_vec(),
         };
 
@@ -403,7 +405,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                     declare_job: None,
                     template: future_template.clone().into_static(),
                     prev_hash: Some(new_prev_hash.clone()),
-                    coinbase_pool_output: coinbase_tx_outputs.clone(),
+                    coinbase_output: coinbase_tx_outputs.clone(),
                     tx_list: vec![],
                 };
 

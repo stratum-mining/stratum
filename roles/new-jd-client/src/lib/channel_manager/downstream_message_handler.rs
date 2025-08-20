@@ -26,7 +26,7 @@ use crate::{
     channel_manager::ChannelManager,
     error::JDCError,
     jd_mode::{get_jd_mode, JdMode},
-    utils::StdFrame,
+    utils::{deserialize_coinbase_output, StdFrame},
 };
 
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
@@ -92,10 +92,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                 // it should exist
                 let downstream = channel_manager_data.downstream.get(&downstream_id).unwrap();
-                let pool_coinbase_output = TxOut {
-                    value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
-                    script_pubkey: self.coinbase_reward_script.script_pubkey(),
-                };
+                let mut coinbase_output = deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
+                coinbase_output[0].value = Amount::from_sat(channel_manager_data.last_future_template.as_ref().unwrap().coinbase_tx_value_remaining);
 
                 let downstream_messages =
                     downstream.downstream_data.super_safe_lock(|data| {
@@ -113,7 +111,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                             if let Err(e) = group_channel.on_new_template(
                                 last_future_template.clone(),
-                                vec![pool_coinbase_output.clone()],
+                                coinbase_output.clone(),
                             ) {
                                 let error = OpenMiningChannelError {
                                     request_id,
@@ -265,7 +263,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                         if let Err(e) = standard_channel.on_new_template(
                             last_future_template.clone(),
-                            vec![pool_coinbase_output.clone()],
+                            coinbase_output.clone(),
                         ) {
                             let error = OpenMiningChannelError {
                                 request_id: msg.request_id.as_u32(),
@@ -541,18 +539,15 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             )),
                         ));
 
-                        let pool_coinbase_output = TxOut {
-                            value: Amount::from_sat(
-                                last_future_template.coinbase_tx_value_remaining,
-                            ),
-                            script_pubkey: self.coinbase_reward_script.script_pubkey(),
-                        };
-
+                        let mut coinbase_output = deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
+                        coinbase_output[0].value = Amount::from_sat(channel_manager_data.last_future_template.as_ref().unwrap().coinbase_tx_value_remaining);
+  
                         // create a future extended job based on the last future template
                         if let Err(e) = extended_channel.on_new_template(
                             last_future_template.clone(),
-                            vec![pool_coinbase_output],
+                            coinbase_output,
                         ) {
+                            error!("Issue here 4");
                             let error = OpenMiningChannelError {
                                 request_id,
                                 error_code: "max-target-out-of-range"
@@ -599,6 +594,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             nbits: n_bits,
                         };
                         if let Err(e) = extended_channel.on_set_new_prev_hash(last_new_prev_hash) {
+                            error!("Issue here 5");
                             let error = OpenMiningChannelError {
                                 request_id,
                                 error_code: "max-target-out-of-range"

@@ -11,18 +11,15 @@ use buffer_sv2::Slice;
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
-        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame},
-        common_messages_sv2::{Protocol, SetupConnection},
-        parsers_sv2::{
+        bitcoin::{self, TxOut}, codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame}, common_messages_sv2::{Protocol, SetupConnection}, parsers_sv2::{
             message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
             JobDeclaration::{
                 AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
                 DeclareMiningJobError, DeclareMiningJobSuccess, ProvideMissingTransactions,
                 ProvideMissingTransactionsSuccess, PushSolution,
             },
-            TemplateDistribution,
-            TemplateDistribution::CoinbaseOutputConstraints,
-        },
+            TemplateDistribution::{self, CoinbaseOutputConstraints},
+        }
     },
 };
 use tokio::sync::broadcast;
@@ -354,4 +351,11 @@ pub fn spawn_io_tasks(
             warn!("Writer task exited.");
         });
     }
+}
+
+
+pub fn deserialize_coinbase_output(coinbase_output: &[u8]) -> Vec<TxOut> {
+   
+    bitcoin::consensus::deserialize(coinbase_output)
+                    .expect("Invalid coinbase output")
 }
