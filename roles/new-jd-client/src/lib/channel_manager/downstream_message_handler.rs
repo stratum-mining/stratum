@@ -92,8 +92,15 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                 // it should exist
                 let downstream = channel_manager_data.downstream.get(&downstream_id).unwrap();
-                let mut coinbase_output = deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
-                coinbase_output[0].value = Amount::from_sat(channel_manager_data.last_future_template.as_ref().unwrap().coinbase_tx_value_remaining);
+                let mut coinbase_output =
+                    deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
+                coinbase_output[0].value = Amount::from_sat(
+                    channel_manager_data
+                        .last_future_template
+                        .as_ref()
+                        .unwrap()
+                        .coinbase_tx_value_remaining,
+                );
 
                 let downstream_messages =
                     downstream.downstream_data.super_safe_lock(|data| {
@@ -261,10 +268,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             )),
                         ));
 
-                        if let Err(e) = standard_channel.on_new_template(
-                            last_future_template.clone(),
-                            coinbase_output.clone(),
-                        ) {
+                        if let Err(e) = standard_channel
+                            .on_new_template(last_future_template.clone(), coinbase_output.clone())
+                        {
                             let error = OpenMiningChannelError {
                                 request_id: msg.request_id.as_u32(),
                                 error_code: "unknown-user"
@@ -539,14 +545,20 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             )),
                         ));
 
-                        let mut coinbase_output = deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
-                        coinbase_output[0].value = Amount::from_sat(channel_manager_data.last_future_template.as_ref().unwrap().coinbase_tx_value_remaining);
-  
+                        let mut coinbase_output =
+                            deserialize_coinbase_output(&channel_manager_data.coinbase_outputs);
+                        coinbase_output[0].value = Amount::from_sat(
+                            channel_manager_data
+                                .last_future_template
+                                .as_ref()
+                                .unwrap()
+                                .coinbase_tx_value_remaining,
+                        );
+
                         // create a future extended job based on the last future template
-                        if let Err(e) = extended_channel.on_new_template(
-                            last_future_template.clone(),
-                            coinbase_output,
-                        ) {
+                        if let Err(e) = extended_channel
+                            .on_new_template(last_future_template.clone(), coinbase_output)
+                        {
                             error!("Issue here 4");
                             let error = OpenMiningChannelError {
                                 request_id,

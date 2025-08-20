@@ -1,5 +1,5 @@
 use stratum_common::roles_logic_sv2::{
-    channels_sv2::client::extended::ExtendedChannel,
+    channels_sv2::server::{extended::ExtendedChannel, jobs::job_store::DefaultJobStore},
     handlers_sv2::{
         HandleMiningMessagesFromServerAsync, HandlerError as Error, SupportedChannelTypes,
     },
@@ -8,7 +8,7 @@ use stratum_common::roles_logic_sv2::{
 };
 use tracing::{error, info, warn};
 
-use crate::channel_manager::ChannelManager;
+use crate::{channel_manager::ChannelManager, utils::deserialize_coinbase_output};
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
     fn get_channel_type_for_server(&self) -> SupportedChannelTypes {
@@ -35,46 +35,62 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
             msg.request_id, msg.channel_id
         );
-        let (ident, hashrate, min_extranonce_size) =
-            self.channel_manager_data.super_safe_lock(|data| {
-                data.pending_channel
-                    .remove(&0)
-                    .unwrap_or_else(|| ("unknown".to_string(), 100000.0, 8_usize))
-            });
 
-        let prefix_len = msg.extranonce_prefix.clone().to_vec().len();
-        let jdc_extranonce_len = std::cmp::min(
-            (msg.extranonce_size as usize).saturating_sub((min_extranonce_size)),
-            8,
-        );
-        let self_len = 0;
-        let total_len = prefix_len + msg.extranonce_size as usize;
-        let range_0 = 0..prefix_len;
-        let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
-        let range_2 = prefix_len + jdc_extranonce_len..total_len;
-
-        let extranonces = ExtendedExtranonce::from_upstream_extranonce(
-            msg.extranonce_prefix.clone().into(),
-            range_0,
-            range_1,
-            range_2,
-        )
-        .unwrap();
-        // Come up with something better
-        let extended_channel = ExtendedChannel::new(
-            msg.channel_id,
-            ident,
-            msg.extranonce_prefix.to_vec(),
-            msg.target.into(),
-            hashrate,
-            true,
-            min_extranonce_size as u16,
-        );
         self.channel_manager_data.super_safe_lock(|data| {
+            let (ident, hashrate, min_extranonce_size) = data
+                .pending_channel
+                .remove(&0)
+                .unwrap_or_else(|| ("unknown".to_string(), 100000.0, 8_usize));
+
+            let prefix_len = msg.extranonce_prefix.len();
+            let jdc_extranonce_len = std::cmp::min(
+                (msg.extranonce_size as usize).saturating_sub(min_extranonce_size),
+                8,
+            );
+            let total_len = prefix_len + msg.extranonce_size as usize;
+            let range_0 = 0..prefix_len;
+            let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
+            let range_2 = prefix_len + jdc_extranonce_len..total_len;
+
+            let extranonces = ExtendedExtranonce::from_upstream_extranonce(
+                msg.extranonce_prefix.clone().into(),
+                range_0,
+                range_1,
+                range_2,
+            )
+            .expect("failed to build extranonce factory");
+
+            let job_store = Box::new(DefaultJobStore::new());
+            let mut extended_channel = ExtendedChannel::new_for_job_declaration_client(
+                msg.channel_id,
+                ident,
+                msg.extranonce_prefix.to_vec(),
+                msg.target.into(),
+                hashrate,
+                true,
+                min_extranonce_size as u16,
+                self.share_batch_size,
+                self.shares_per_minute,
+                job_store,
+                self.pool_tag_string.clone(),
+                self.miner_tag_string.clone(),
+            )
+            .expect("failed to create extended channel");
+
+            if let Some(ref mut last_template) = data.last_future_template {
+                extended_channel.on_new_template(
+                    last_template.clone(),
+                    deserialize_coinbase_output(&data.coinbase_outputs),
+                );
+            }
+            if let Some(ref mut prevhash) = data.last_new_prev_hash {
+                extended_channel.on_set_new_prev_hash(prevhash.clone());
+            }
+
             data.extranonce_prefix_factory_extended = extranonces.clone();
             data.extranonce_prefix_factory_standard = extranonces;
             data.upstream_channel_id = msg.channel_id;
-            data.upstream_channel = Some(extended_channel)
+            data.upstream_channel = Some(extended_channel);
         });
 
         Ok(())

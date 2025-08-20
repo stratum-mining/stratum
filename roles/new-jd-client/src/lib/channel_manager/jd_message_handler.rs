@@ -5,6 +5,7 @@ use stratum_common::roles_logic_sv2::{
         self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence, Transaction,
         TxIn, TxOut, Witness,
     },
+    channels_sv2::chain_tip::ChainTip,
     codec_sv2::binary_sv2::{self, Sv2DataType, B016M},
     handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error},
     job_declaration_sv2::{
@@ -90,45 +91,21 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     ) -> Result<(), Error> {
         // https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/#641-setupconnection-flags-for-job-declaration-protocol
         info!("Received handle_declare_mining_job_success from JDS");
-        let (last_declare_job, prev_hash, upstream_channel_id) =
-            self.channel_manager_data.super_safe_lock(|data| {
-                (
-                    data.last_declare_job_store.get(&msg.request_id).cloned(),
-                    data.last_new_prev_hash.clone(),
-                    data.upstream_channel_id,
-                )
-            });
+        let last_declare_job = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.last_declare_job_store.get(&msg.request_id).cloned());
+        if let Some(last_declare_job) = last_declare_job {
+            let custom_job = last_declare_job.custom_job;
+            if let Some(custom_job) = custom_job {
+                let message = AnyMessage::Mining(Mining::SetCustomMiningJob(custom_job));
+                let frame: StdFrame = message.try_into().unwrap();
 
-        let last_declare_job = last_declare_job.unwrap();
-        let new_prev_hash = prev_hash.unwrap();
-
-        // https://github.com/stratum-mining/stratum/pull/1325
-        let to_send = SetCustomMiningJob {
-            channel_id: upstream_channel_id,
-            request_id: msg.request_id,
-            token: last_declare_job
-                .declare_job
-                .clone()
-                .unwrap()
-                .mining_job_token,
-            version: last_declare_job.declare_job.unwrap().version,
-            prev_hash: new_prev_hash.prev_hash,
-            min_ntime: new_prev_hash.header_timestamp,
-            nbits: new_prev_hash.n_bits,
-            coinbase_tx_version: last_declare_job.template.coinbase_tx_version,
-            coinbase_prefix: last_declare_job.template.coinbase_prefix,
-            coinbase_tx_input_n_sequence: last_declare_job.template.coinbase_tx_input_sequence,
-            coinbase_tx_outputs: last_declare_job.coinbase_output.try_into().unwrap(),
-            coinbase_tx_locktime: last_declare_job.template.coinbase_tx_locktime,
-            merkle_path: last_declare_job.template.merkle_path.clone(),
-        };
-        let message = AnyMessage::Mining(Mining::SetCustomMiningJob(to_send));
-        let frame: StdFrame = message.try_into().unwrap();
-
-        self.channel_manager_channel
-            .upstream_sender
-            .send(frame.into())
-            .await;
+                self.channel_manager_channel
+                    .upstream_sender
+                    .send(frame.into())
+                    .await;
+            }
+        }
 
         Ok(())
     }

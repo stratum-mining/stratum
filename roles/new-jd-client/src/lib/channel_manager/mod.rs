@@ -10,22 +10,32 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        bitcoin::TxOut, channels_sv2::{
-            client::extended::ExtendedChannel,
-            server::{group::GroupChannel, standard::StandardChannel},
-        }, codec_sv2::{
+        bitcoin::TxOut,
+        channels_sv2::server::{
+            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+        },
+        codec_sv2::{
             self,
             binary_sv2::{Seq064K, B016M},
             Responder, Sv2Frame,
-        }, handlers_sv2::{
+        },
+        handlers_sv2::{
             HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
             HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
-        }, job_declaration_sv2::{
+        },
+        job_declaration_sv2::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-        }, mining_sv2::{ExtendedExtranonce, OpenExtendedMiningChannel, FULL_EXTRANONCE_LEN}, parsers_sv2::{AnyMessage, IsSv2Message, JobDeclaration, Mining, TemplateDistribution}, template_distribution_sv2::{
+        },
+        mining_sv2::{
+            ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, FULL_EXTRANONCE_LEN,
+        },
+        parsers_sv2::{AnyMessage, IsSv2Message, JobDeclaration, Mining, TemplateDistribution},
+        template_distribution_sv2::{
             CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash as SetNewPrevHashTdp,
             SubmitSolution,
-        }, utils::{Id as IdFactory, Mutex}, Vardiff
+        },
+        utils::{Id as IdFactory, Mutex},
+        Vardiff,
     },
 };
 use tokio::{
@@ -49,11 +59,11 @@ mod upstream_message_handler;
 
 #[derive(Clone, Debug)]
 pub struct LastDeclareJob {
-    channel_id: u32,
     mining_job_token: AllocateMiningJobTokenSuccess<'static>,
     declare_job: Option<DeclareMiningJob<'static>>,
     template: NewTemplate<'static>,
     prev_hash: Option<SetNewPrevHashTdp<'static>>,
+    custom_job: Option<SetCustomMiningJob<'static>>,
     coinbase_output: Vec<u8>,
     tx_list: Vec<Vec<u8>>,
 }
