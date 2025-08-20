@@ -3,6 +3,8 @@
 //! This module provides an abstraction over the state of an [Sv2](https://stratumprotocol.org/specification)
 //! **Extended Channel** within a mining client.
 
+extern crate alloc;
+use super::HashMap;
 use crate::{
     bip141::try_strip_bip141,
     chain_tip::ChainTip,
@@ -13,6 +15,7 @@ use crate::{
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
+use alloc::{format, string::String, vec, vec::Vec};
 use binary_sv2::{self, Sv2Option};
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -23,7 +26,6 @@ use mining_sv2::{
     NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target,
     FULL_EXTRANONCE_LEN,
 };
-use std::{collections::HashMap, convert::TryInto};
 use tracing::debug;
 
 /// A type alias representing an extended mining job tied to a specific `extranonce_prefix`.

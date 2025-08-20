@@ -1,11 +1,12 @@
 //! Helper functions related to [`Target`]
 
+extern crate alloc;
+use alloc::string::String;
 use binary_sv2::U256;
 use bitcoin::{hash_types::BlockHash, hashes::Hash};
+use core::{cmp::max, fmt::Write, ops::Div};
 use mining_sv2::Target;
 use primitive_types::U256 as U256Primitive;
-use std::{cmp::max, convert::TryInto, fmt::Write, ops::Div};
-
 /// Converts a `Target` to a `f64` difficulty.
 pub fn target_to_difficulty(target: Target) -> f64 {
     // Genesis block target: 0x00000000ffff0000000000000000000000000000000000000000000000000000

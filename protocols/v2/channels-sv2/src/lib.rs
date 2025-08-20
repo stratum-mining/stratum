@@ -12,11 +12,17 @@
 //! - Standard, extended, and group channel support
 //! - Share accounting
 //! - Job store abstractions
+//! - [`client`] module is `no_std` compatible. To enable it build the crate with `no_std` feature.
+#![cfg_attr(feature = "no_std", no_std)]
+
+#[cfg(not(feature = "no_std"))]
+pub mod server;
+
+#[cfg(not(feature = "no_std"))]
+pub mod template;
 
 pub mod bip141;
 pub mod chain_tip;
 pub mod client;
 mod merkle_root;
-pub mod server;
 pub mod target;
-pub mod template;

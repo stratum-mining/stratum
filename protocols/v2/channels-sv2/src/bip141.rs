@@ -1,9 +1,12 @@
 //! Provides functionality to strip coinbase_tx_prefix and coinbase_tx_suffix from bip141 marker,
 //! flag and witness data.
+extern crate alloc;
+
+use alloc::vec::Vec;
 use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
 use mining_sv2::FULL_EXTRANONCE_LEN;
 
-use std::io::Cursor;
+use bitcoin::io::Cursor;
 
 const MARKER_FLAG_OFFSET: usize = 4;
 const MARKER_FLAG_LEN: usize = 2;

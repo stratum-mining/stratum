@@ -9,3 +9,9 @@
 `channels_sv2` provides primitives and abstractions for Stratum V2 (Sv2) Channels.
 
 This crate implements the core channel management functionality for both mining clients and servers, including standard, extended and group channels, and share accounting mechanisms.
+
+The `client` module is compatible with `no_std` environments. To enable this mode, build the crate with the `no_std` feature. In this configuration, standard library collections are replaced with the `hashbrown` crate, together with `core` and `alloc`, allowing the module to be used in embedded or constrained contexts.
+
+```bash
+cargo build --features no_std
+```

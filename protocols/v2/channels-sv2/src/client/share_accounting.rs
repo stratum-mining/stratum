@@ -3,8 +3,9 @@
 //! This module provides types and logic for validating mining shares, tracking share
 //! statistics, and reporting share validation results and errors. These abstractions
 //! are intended for use in Mining Clients.
+
+use super::HashSet;
 use bitcoin::hashes::sha256d::Hash;
-use std::collections::HashSet;
 
 /// The outcome of share validation, as seen by a Mining Client.
 ///

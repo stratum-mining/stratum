@@ -4,6 +4,8 @@
 //! client's Sv2 Standard Channel. It tracks channel-level job management, share accounting,
 //! and chain tip state, enabling share validation and mining job lifecycle management.
 
+extern crate alloc;
+use super::HashMap;
 use crate::{
     chain_tip::ChainTip,
     client::{
@@ -13,6 +15,7 @@ use crate::{
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
+use alloc::{format, string::String, vec::Vec};
 use binary_sv2::{self, Sv2Option};
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -23,7 +26,6 @@ use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
     Target, FULL_EXTRANONCE_LEN,
 };
-use std::{collections::HashMap, convert::TryInto};
 use tracing::debug;
 
 /// Mining Client abstraction over the state of a Sv2 Standard Channel.
@@ -197,7 +199,6 @@ impl<'a> StandardChannel<'a> {
     pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJob<'a>) {
         match new_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
-                println!();
                 if let Some(active_job) = self.active_job.as_ref() {
                     self.past_jobs.insert(active_job.job_id, active_job.clone());
                 }
