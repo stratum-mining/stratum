@@ -237,17 +237,10 @@ impl TemplateReceiver {
         &mut self,
         coinbase_outputs: Vec<u8>,
     ) -> Result<(), JDCError> {
-        // all this part can be simplified.
-        let deserialized_jds_coinbase_outputs: Vec<TxOut> =
-            bitcoin::consensus::deserialize(&coinbase_outputs).expect("Invalid coinbase output");
+        let outputs: Vec<TxOut> = bitcoin::consensus::deserialize(&coinbase_outputs)?;
 
-        let coinbase_output_max_additional_size: usize = deserialized_jds_coinbase_outputs
-            .iter()
-            .map(|o| o.size())
-            .sum();
+        let max_size: u32 = outputs.iter().map(|o| o.size() as u32).sum();
 
-        // create a dummy coinbase transaction with the empty output
-        // this is used to calculate the sigops of the coinbase output
         let dummy_coinbase = Transaction {
             version: Version::TWO,
             lock_time: LockTime::ZERO,
@@ -257,25 +250,26 @@ impl TemplateReceiver {
                 sequence: Sequence::MAX,
                 witness: Witness::from(vec![vec![0; 32]]),
             }],
-            output: deserialized_jds_coinbase_outputs,
+            output: outputs,
         };
 
-        let coinbase_output_max_additional_sigops =
-            dummy_coinbase.total_sigop_cost(|_| None) as u16;
+        let max_sigops = dummy_coinbase.total_sigop_cost(|_| None) as u16;
 
-        let coinbase_output_data_size = AnyMessage::TemplateDistribution(
-            TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
-                coinbase_output_max_additional_size: coinbase_output_max_additional_size as u32,
-                coinbase_output_max_additional_sigops,
-            }),
+        let constraints = CoinbaseOutputConstraints {
+            coinbase_output_max_additional_size: max_size,
+            coinbase_output_max_additional_sigops: max_sigops,
+        };
+
+        let msg = AnyMessage::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputConstraints(constraints),
         );
 
-        let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
-
+        let frame: StdFrame = msg.try_into()?;
         self.template_receiver_channel
             .outbound_tx
             .send(frame.into())
-            .await;
+            .await
+            .map_err(|_| JDCError::ChannelErrorSender)?;
 
         Ok(())
     }

@@ -16,7 +16,7 @@ use std::fmt;
 use stratum_common::{
     network_helpers_sv2,
     roles_logic_sv2::{
-        self,
+        self, bitcoin,
         codec_sv2::{self, binary_sv2, framing_sv2},
         handlers_sv2::HandlerError,
         mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
@@ -64,6 +64,7 @@ pub enum JDCError {
     HandlerError(HandlerError),
     UnexpectedMessage,
     InvalidUserIdentity(String),
+    BitcoinEncodeError(bitcoin::consensus::encode::Error),
 }
 
 impl std::error::Error for JDCError {}
@@ -97,6 +98,7 @@ impl fmt::Display for JDCError {
             HandlerError(ref e) => write!(f, "Error generated from handler: {e:?}"),
             UnexpectedMessage => write!(f, "Unexpected Message"),
             InvalidUserIdentity(ref s) => write!(f, "User ID is invalid"),
+            BitcoinEncodeError(ref e) => write!(f, "Error generated during encoding"),
         }
     }
 }
@@ -170,5 +172,11 @@ impl From<tokio::sync::broadcast::error::RecvError> for JDCError {
 impl From<network_helpers_sv2::Error> for JDCError {
     fn from(value: network_helpers_sv2::Error) -> Self {
         JDCError::NetworkHelpersError(value)
+    }
+}
+
+impl From<stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error> for JDCError {
+    fn from(value: stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error) -> Self {
+        JDCError::BitcoinEncodeError(value)
     }
 }
