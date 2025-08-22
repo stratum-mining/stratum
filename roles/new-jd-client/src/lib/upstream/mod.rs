@@ -27,7 +27,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message, message_from_frame, spawn_io_tasks, spawn_io_tasks_tracing,
+        get_setup_connection_message, message_from_frame, spawn_io_tasks,
         EitherFrame, Message, ShutdownMessage, StdFrame,
     },
 };
@@ -76,7 +76,7 @@ impl Upstream {
         let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
         let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
 
-        spawn_io_tasks_tracing(
+        spawn_io_tasks(
             task_manager,
             noise_stream_reader,
             noise_stream_writer,

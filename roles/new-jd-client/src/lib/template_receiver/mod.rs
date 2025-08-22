@@ -31,8 +31,8 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::{self, TaskManager},
     utils::{
-        get_setup_connection_message_tp, message_from_frame, spawn_io_tasks,
-        spawn_io_tasks_tracing, EitherFrame, Message, ShutdownMessage, StdFrame,
+        get_setup_connection_message_tp, message_from_frame,
+        spawn_io_tasks, EitherFrame, Message, ShutdownMessage, StdFrame,
     },
 };
 
@@ -111,7 +111,7 @@ impl TemplateReceiver {
 
                             info!(attempt, "Spawning IO tasks for template receiver");
                             let span = tracing::Span::current();
-                            spawn_io_tasks_tracing(
+                            spawn_io_tasks(
                                 task_manager.clone(),
                                 noise_stream_reader,
                                 noise_stream_writer,
