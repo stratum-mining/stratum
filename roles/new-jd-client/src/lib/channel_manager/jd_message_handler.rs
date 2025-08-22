@@ -16,34 +16,34 @@ use stratum_common::roles_logic_sv2::{
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
     template_distribution_sv2::CoinbaseOutputConstraints,
 };
-use tracing::info;
+use tracing::{debug, info, instrument, warn};
 
-use crate::{channel_manager::ChannelManager, utils::StdFrame};
+use crate::{channel_manager::ChannelManager, error::JDCError, utils::StdFrame};
 
 impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
+    #[instrument(skip_all, fields(request_id = msg.request_id))]
     async fn handle_allocate_mining_job_token_success(
         &mut self,
         msg: AllocateMiningJobTokenSuccess<'_>,
     ) -> Result<(), Error> {
-        info!("Received allocate Mining token success from JDS");
-        let coinbase_output = self.channel_manager_data.super_safe_lock(|data| {
-            let value = data.coinbase_outputs == msg.coinbase_outputs.to_vec();
+        info!("Handling AllocateMiningJobTokenSuccess from JDS");
+
+        let coinbase_changed = self.channel_manager_data.super_safe_lock(|data| {
+            let changed = data.coinbase_outputs != msg.coinbase_outputs.to_vec();
             data.coinbase_outputs = msg.coinbase_outputs.to_vec();
             data.allocate_tokens = Some(msg.clone().into_static());
-            value
+            changed
         });
-        if !coinbase_output {
-            let deserialized_jds_coinbase_outputs: Vec<TxOut> =
+
+        if coinbase_changed {
+            debug!("Coinbase outputs changed, recalculating constraints");
+
+            let deserialized: Vec<TxOut> =
                 bitcoin::consensus::deserialize(&msg.coinbase_outputs.to_vec())
-                    .expect("Invalid coinbase output");
+                    .map_err(|e| Error::External(Box::new(JDCError::BitcoinEncodeError(e))))?;
 
-            let coinbase_output_max_additional_size: usize = deserialized_jds_coinbase_outputs
-                .iter()
-                .map(|o| o.size())
-                .sum();
+            let max_additional_size: usize = deserialized.iter().map(|o| o.size()).sum();
 
-            // create a dummy coinbase transaction with the empty output
-            // this is used to calculate the sigops of the coinbase output
             let dummy_coinbase = Transaction {
                 version: Version::TWO,
                 lock_time: LockTime::ZERO,
@@ -53,105 +53,156 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
                     sequence: Sequence::MAX,
                     witness: Witness::from(vec![vec![0; 32]]),
                 }],
-                output: deserialized_jds_coinbase_outputs,
+                output: deserialized,
             };
 
-            let coinbase_output_max_additional_sigops =
-                dummy_coinbase.total_sigop_cost(|_| None) as u16;
+            let max_additional_sigops = dummy_coinbase.total_sigop_cost(|_| None) as u16;
 
-            let coinbase_output_data_size = AnyMessage::TemplateDistribution(
+            debug!(
+                max_additional_size,
+                max_additional_sigops, "Computed coinbase output constraints"
+            );
+
+            let response = AnyMessage::TemplateDistribution(
                 TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
-                    coinbase_output_max_additional_size: coinbase_output_max_additional_size as u32,
-                    coinbase_output_max_additional_sigops,
+                    coinbase_output_max_additional_size: max_additional_size as u32,
+                    coinbase_output_max_additional_sigops: max_additional_sigops,
                 }),
             );
 
-            let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
+            let frame: StdFrame = response
+                .try_into()
+                .map_err(|e| Error::External(Box::new(JDCError::Parser(e))))?;
+
             self.channel_manager_channel
                 .tp_sender
                 .send(frame.into())
-                .await;
+                .await
+                .map_err(|e| Error::External(Box::new(JDCError::ChannelErrorSender)))?;
+
+            info!("Sent updated CoinbaseOutputConstraints to TP channel");
+        } else {
+            debug!("Coinbase outputs unchanged, skipping constraints update");
         }
 
         Ok(())
     }
 
+    #[instrument(skip_all, fields(request_id = msg.request_id))]
     async fn handle_declare_mining_job_error(
         &mut self,
         msg: DeclareMiningJobError<'_>,
     ) -> Result<(), Error> {
-        // fallback
-        info!("Received handle_declare_mining_job_error from JDS");
+        warn!(
+            error_code = ?msg.error_code,
+            "Received DeclareMiningJobError from JDS"
+        );
+
+        debug!("Fallback path triggered for request_id={}", msg.request_id);
+
         Ok(())
     }
 
+    #[instrument(skip_all, fields(request_id = msg.request_id))]
     async fn handle_declare_mining_job_success(
         &mut self,
         msg: DeclareMiningJobSuccess<'_>,
     ) -> Result<(), Error> {
-        // https://stratumprotocol.org/specification/06-Job-Declaration-Protocol/#641-setupconnection-flags-for-job-declaration-protocol
-        info!("Received handle_declare_mining_job_success from JDS");
-        let last_declare_job = self
+        info!("Handling DeclareMiningJobSuccess from JDS");
+
+        let Some(last_declare_job) = self
             .channel_manager_data
-            .super_safe_lock(|data| data.last_declare_job_store.get(&msg.request_id).cloned());
-        if let Some(last_declare_job) = last_declare_job {
-            let custom_job = last_declare_job.custom_job;
-            if let Some(custom_job) = custom_job {
-                let message = AnyMessage::Mining(Mining::SetCustomMiningJob(custom_job));
-                let frame: StdFrame = message.try_into().unwrap();
+            .super_safe_lock(|data| data.last_declare_job_store.get(&msg.request_id).cloned())
+        else {
+            warn!(
+                "No last_declare_job found for request_id={}",
+                msg.request_id
+            );
+            return Ok(());
+        };
 
-                self.channel_manager_channel
-                    .upstream_sender
-                    .send(frame.into())
-                    .await;
-            }
-        }
+        let Some(custom_job) = last_declare_job.custom_job else {
+            debug!("No custom_job present for request_id={}", msg.request_id);
+            return Ok(());
+        };
 
+        debug!("Forwarding SetCustomMiningJob upstream");
+        let message = AnyMessage::Mining(Mining::SetCustomMiningJob(custom_job));
+        let frame: StdFrame = message
+            .try_into()
+            .map_err(|e| Error::External(Box::new(JDCError::Parser(e))))?;
+
+        self.channel_manager_channel
+            .upstream_sender
+            .send(frame.into())
+            .await
+            .map_err(|e| Error::External(Box::new(JDCError::ChannelErrorSender)))?;
+
+        info!("Successfully sent SetCustomMiningJob upstream");
         Ok(())
     }
 
+    #[instrument(name = "provide_missing_transaction", skip_all, fields(request_id = msg.request_id))]
     async fn handle_provide_missing_transactions(
         &mut self,
         msg: ProvideMissingTransactions<'_>,
     ) -> Result<(), Error> {
-        info!("Received handle_provide_missing_transactions from JDS");
+        info!("Handling ProvideMissingTransactions from JDS");
 
-        let tx_list = self
+        let tx_store_entry = self
             .channel_manager_data
             .super_safe_lock(|data| data.last_declare_job_store.get(&msg.request_id).cloned());
 
-        if tx_list.is_none() {
-            // we should return error in this case. Story for another time,
+        let Some(entry) = tx_store_entry else {
+            warn!(
+                "No transaction list found for request_id={}",
+                msg.request_id
+            );
             return Ok(());
-        }
+        };
 
-        let tx_list: Vec<binary_sv2::B016M> = tx_list
-            .unwrap()
+        let full_tx_list: Vec<B016M> = entry
             .tx_list
             .iter()
-            .map(|data| B016M::from_vec_unchecked(data.clone()))
+            .map(|raw| B016M::from_vec_unchecked(raw.clone()))
             .collect();
 
-        let unknown_tx_position_list: Vec<u16> = msg.unknown_tx_position_list.into_inner();
+        let unknown_tx_position_list: Vec<u16> = msg.unknown_tx_position_list.clone().into_inner();
 
-        let missing_transactions: Vec<binary_sv2::B016M> = unknown_tx_position_list
-            .iter()
-            .filter_map(|&pos| tx_list.get(pos as usize).cloned())
-            .collect();
-        let request_id = msg.request_id;
-        let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
-            request_id,
-            transaction_list: binary_sv2::Seq064K::new(missing_transactions).unwrap(),
-        };
-        let message_enum = AnyMessage::JobDeclaration(
-            JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions),
+        let unknown_positions: Vec<u16> = msg.unknown_tx_position_list.into_inner();
+        debug!(
+            total_known = full_tx_list.len(),
+            unknown_positions = unknown_positions.len(),
+            "Resolving missing transactions"
         );
 
-        let frame: StdFrame = message_enum.try_into().unwrap();
+        let missing_txns: Vec<B016M> = unknown_positions
+            .iter()
+            .filter_map(|&pos| full_tx_list.get(pos as usize).cloned())
+            .collect();
+
+        if missing_txns.is_empty() {
+            warn!(
+                "No matching transactions found for request_id={}",
+                msg.request_id
+            );
+        }
+
+        let response = ProvideMissingTransactionsSuccess {
+            request_id: msg.request_id,
+            transaction_list: binary_sv2::Seq064K::new(missing_txns)
+                .map_err(|e| Error::External(Box::new(JDCError::BinarySv2(e))))?,
+        };
+        let frame: StdFrame =
+            AnyMessage::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(response))
+                .try_into()
+                .map_err(|e| Error::External(Box::new(JDCError::Parser(e))))?;
+
         self.channel_manager_channel
             .jd_sender
             .send(frame.into())
-            .await;
+            .await
+            .map_err(|e| Error::External(Box::new(JDCError::ChannelErrorSender)))?;
         Ok(())
     }
 }

@@ -24,10 +24,7 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{
-        message_from_frame, spawn_io_tasks, EitherFrame, Message,
-        ShutdownMessage, StdFrame,
-    },
+    utils::{message_from_frame, spawn_io_tasks, EitherFrame, Message, ShutdownMessage, StdFrame},
 };
 
 mod message_handler;

@@ -31,8 +31,8 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::{self, TaskManager},
     utils::{
-        get_setup_connection_message_tp, message_from_frame,
-        spawn_io_tasks, EitherFrame, Message, ShutdownMessage, StdFrame,
+        get_setup_connection_message_tp, message_from_frame, spawn_io_tasks, EitherFrame, Message,
+        ShutdownMessage, StdFrame,
     },
 };
 
