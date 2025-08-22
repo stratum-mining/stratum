@@ -6,7 +6,7 @@ use stratum_common::roles_logic_sv2::{
     mining_sv2::*,
     parsers_sv2::{AnyMessage, Mining},
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::{channel_manager::ChannelManager, utils::deserialize_coinbase_output};
 
@@ -27,20 +27,22 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         Ok(())
     }
 
+    #[instrument(skip_all, fields(request_id = msg.request_id, channel_id = msg.channel_id))]
     async fn handle_open_extended_mining_channel_success(
         &mut self,
         msg: OpenExtendedMiningChannelSuccess<'_>,
     ) -> Result<(), Error> {
-        info!(
-            "Received OpenExtendedMiningChannelSuccess with request id: {} and channel id: {}",
-            msg.request_id, msg.channel_id
-        );
+        info!("Handling OpenExtendedMiningChannelSuccess");
 
         self.channel_manager_data.super_safe_lock(|data| {
-            let (ident, hashrate, min_extranonce_size) = data
-                .pending_channel
-                .remove(&0)
-                .unwrap_or_else(|| ("unknown".to_string(), 100000.0, 8_usize));
+            let (ident, hashrate, min_extranonce_size) =
+                data.pending_channel.remove(&0).unwrap_or_else(|| {
+                    warn!(
+                        "No pending channel found for request_id={}; using fallback values",
+                        msg.request_id
+                    );
+                    ("unknown".to_string(), 100_000.0, 8_usize)
+                });
 
             let prefix_len = msg.extranonce_prefix.len();
             let jdc_extranonce_len = std::cmp::min(
@@ -52,16 +54,29 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
             let range_2 = prefix_len + jdc_extranonce_len..total_len;
 
-            let extranonces = ExtendedExtranonce::from_upstream_extranonce(
+            debug!(
+                prefix_len,
+                extranonce_size = msg.extranonce_size,
+                jdc_extranonce_len,
+                total_len,
+                "Calculated extranonce ranges"
+            );
+
+            let extranonces = match ExtendedExtranonce::from_upstream_extranonce(
                 msg.extranonce_prefix.clone().into(),
                 range_0,
                 range_1,
                 range_2,
-            )
-            .expect("failed to build extranonce factory");
+            ) {
+                Ok(e) => e,
+                Err(e) => {
+                    warn!("Failed to build extranonce factory: {e:?}");
+                    return;
+                }
+            };
 
             let job_store = Box::new(DefaultJobStore::new());
-            let mut extended_channel = ExtendedChannel::new_for_job_declaration_client(
+            let mut extended_channel = match ExtendedChannel::new_for_job_declaration_client(
                 msg.channel_id,
                 ident,
                 msg.extranonce_prefix.to_vec(),
@@ -74,129 +89,158 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                 job_store,
                 data.pool_tag_string.clone(),
                 self.miner_tag_string.clone(),
-            )
-            .expect("failed to create extended channel");
+            ) {
+                Ok(ch) => ch,
+                Err(e) => {
+                    warn!("Failed to create ExtendedChannel: {e:?}");
+                    return;
+                }
+            };
 
             if let Some(ref mut last_template) = data.last_future_template {
                 extended_channel.on_new_template(
                     last_template.clone(),
                     deserialize_coinbase_output(&data.coinbase_outputs),
                 );
+                debug!("Applied last_future_template to new extended channel");
             }
+
             if let Some(ref mut prevhash) = data.last_new_prev_hash {
                 extended_channel.on_set_new_prev_hash(prevhash.clone());
+                debug!("Applied last_new_prev_hash to new extended channel");
             }
 
             data.extranonce_prefix_factory_extended = extranonces.clone();
             data.extranonce_prefix_factory_standard = extranonces;
             data.upstream_channel_id = msg.channel_id;
             data.upstream_channel = Some(extended_channel);
+
+            info!("Extended mining channel successfully initialized");
         });
 
         Ok(())
     }
 
+    #[instrument(skip_all, fields(request_id = msg.request_id))]
     async fn handle_open_mining_channel_error(
         &mut self,
         msg: OpenMiningChannelError<'_>,
     ) -> Result<(), Error> {
-        // In case of an error, just fallback
-        info!("Received handle_open_mining_channel_error from Pool");
+        warn!(?msg, "Received OpenMiningChannelError from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_update_channel_error(
         &mut self,
         msg: UpdateChannelError<'_>,
     ) -> Result<(), Error> {
-        //Don't fallback, even in an update error. Send update messages, on new downstream
-        // connection or disconnection.
-        info!("Received handle_update_channel_error from Pool");
+        warn!(?msg, "Received UpdateChannelError from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
-        // Fallback
-        info!("Received handle_close_channel from Pool");
+        warn!(
+            ?msg,
+            "Received CloseChannel from Pool — closing upstream channel"
+        );
         self.channel_manager_data.super_safe_lock(|data| {
             data.upstream_channel = None;
         });
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_set_extranonce_prefix(
         &mut self,
         msg: SetExtranoncePrefix<'_>,
     ) -> Result<(), Error> {
-        // Update the extranonce factory
-        info!("Received handle_set_extranonce_prefix from Pool");
+        info!(?msg, "Received SetExtranoncePrefix from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_submit_shares_success(
         &mut self,
         msg: SubmitSharesSuccess,
     ) -> Result<(), Error> {
-        // Send shares to pool
-        info!("Received submit_shares_success from Pool: {msg:?}");
+        info!(?msg, "Received SubmitSharesSuccess from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_submit_shares_error(
         &mut self,
         msg: SubmitSharesError<'_>,
     ) -> Result<(), Error> {
-        // log as an error, and don't fallback
-        error!("Received handle_submit_shares_error from Pool: {msg:?}");
-
+        error!(?msg, "Received SubmitSharesError from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id, job_id = msg.job_id))]
     async fn handle_new_mining_job(&mut self, msg: NewMiningJob<'_>) -> Result<(), Error> {
-        warn!("Extended job received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
+        warn!(
+            ?msg,
+            "Ignoring NewMiningJob from upstream — proxy relies on JDC jobs"
+        );
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id, job_id = msg.job_id))]
     async fn handle_new_extended_mining_job(
         &mut self,
         msg: NewExtendedMiningJob<'_>,
     ) -> Result<(), Error> {
-        info!("Received handle_new_extended_mining_job from Pool");
+        info!(?msg, "Received NewExtendedMiningJob from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id, job_id = msg.job_id))]
     async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
-        warn!("SNPH received from upstream, proxy ignored it, and used the one declared by JDC");
+        debug!(
+            ?msg,
+            "Ignoring SetNewPrevHash from upstream — proxy relies on JDC"
+        );
         Ok(())
     }
 
+    #[instrument(skip_all, fields(request_id = msg.request_id, job_id = msg.job_id))]
     async fn handle_set_custom_mining_job_success(
         &mut self,
         msg: SetCustomMiningJobSuccess,
     ) -> Result<(), Error> {
-        info!("Received handle_set_custom_mining_job_success from Pool");
+        info!("Received SetCustomMiningJobSuccess from Pool");
         self.channel_manager_data.super_safe_lock(|data| {
-            let value = data.last_declare_job_store.get(&msg.request_id).cloned();
-            let last_declare_job = value.unwrap();
-            data.template_id_to_upstream_job_id
-                .insert(last_declare_job.template.template_id, msg.job_id as u64);
-            data.job_id_to_template.insert(msg.job_id, last_declare_job);
+            if let Some(last_declare_job) =
+                data.last_declare_job_store.get(&msg.request_id).cloned()
+            {
+                data.template_id_to_upstream_job_id
+                    .insert(last_declare_job.template.template_id, msg.job_id as u64);
+                data.job_id_to_template.insert(msg.job_id, last_declare_job);
+                debug!(job_id = msg.job_id, "Mapped custom job into template store");
+            } else {
+                warn!(
+                    request_id = msg.request_id,
+                    "No matching declare job found for custom job success"
+                );
+            }
         });
         Ok(())
     }
 
+    #[instrument(skip_all, fields(request_id = msg.request_id))]
     async fn handle_set_custom_mining_job_error(
         &mut self,
         msg: SetCustomMiningJobError<'_>,
     ) -> Result<(), Error> {
-        // Fallback
-        info!("Received handle_set_custom_mining_job_error from Pool");
+        warn!(?msg, "Received SetCustomMiningJobError from Pool");
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_set_target(&mut self, msg: SetTarget<'_>) -> Result<(), Error> {
-        // Update the target and store in JDC
-        info!("Received handle_set_target from Pool");
+        info!(?msg, "Received SetTarget from Pool");
         let mut messages: Vec<(u32, AnyMessage)> = vec![];
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(ref mut upstream) = data.upstream_channel {
@@ -239,9 +283,9 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     async fn handle_set_group_channel(&mut self, msg: SetGroupChannel<'_>) -> Result<(), Error> {
-        // fallback
-        info!("Received handle_set_group_channel from Pool");
+        warn!(?msg, "Received SetGroupChannel from Pool (unsupported)");
         Ok(())
     }
 }
