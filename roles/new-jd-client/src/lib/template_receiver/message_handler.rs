@@ -4,22 +4,25 @@ use stratum_common::roles_logic_sv2::{
     },
     handlers_sv2::{HandleCommonMessagesFromServerAsync, HandlerError as Error},
 };
-use tracing::info;
+use tracing::{error, info, instrument, warn};
 
 use crate::template_receiver::TemplateReceiver;
 
 impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
+    #[instrument(name = "setup_connection_success", skip_all)]
     async fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Error> {
         info!(
-            "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
-            msg.used_version, msg.flags
+            version = msg.used_version,
+            flags = format_args!("{:b}", msg.flags),
+            "✅ Setup connection to Template Provider succeeded"
         );
         Ok(())
     }
 
+    #[instrument(name="channel_endpoint_changed", skip_all)]
     async fn handle_channel_endpoint_changed(
         &mut self,
         msg: ChannelEndpointChanged,
@@ -28,16 +31,25 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         Ok(())
     }
 
+    #[instrument(name="reconnect", skip_all)]
     async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        warn!(
+            address = %msg.new_host,
+            port = msg.new_port,
+            "Received reconnect request from Template Provider"
+        );
         Ok(())
     }
 
+    #[instrument(name="setup_connection_error", skip_all)]
     async fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        error!(
+            flags = msg.flags,
+            "❌ Setup connection failed with Template Provider"
+        );
         Ok(())
     }
 }

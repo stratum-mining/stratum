@@ -26,7 +26,7 @@ use stratum_common::{
     },
 };
 use tokio::sync::broadcast;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, Instrument, Span};
 
 use crate::{
     error::JDCError,
@@ -353,6 +353,150 @@ pub fn spawn_io_tasks(
             }
             warn!("Writer task exited.");
         });
+    }
+}
+
+pub fn spawn_io_tasks_tracing(
+    task_manager: Arc<TaskManager>,
+    mut reader: NoiseTcpReadHalf<Message>,
+    mut writer: NoiseTcpWriteHalf<Message>,
+    outbound_rx: Receiver<EitherFrame>,
+    inbound_tx: Sender<EitherFrame>,
+    notify_shutdown: broadcast::Sender<ShutdownMessage>,
+    status_sender: StatusSender,
+    parent_span: Span,
+) {
+    {
+        let mut shutdown_rx = notify_shutdown.subscribe();
+        let inbound_tx = inbound_tx.clone();
+        let status_sender = status_sender.clone();
+        let status_type: StatusType = StatusType::from(&status_sender);
+
+        let reader_span = tracing::info_span!(
+            parent: &parent_span,
+            "io_task.reader",
+            status_type = ?status_type
+        );
+
+        task_manager.spawn(async move {
+            debug!("Reader task started");
+            loop {
+                tokio::select! {
+                    message = shutdown_rx.recv() => {
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                debug!("Received global shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::DownstreamShutdown(down_id))  if matches!(status_type, StatusType::Downstream(id) if id == down_id) => {
+                                debug!(down_id, "Received downstream shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Received job declarator shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Received upstream shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    res = reader.read_frame() => {
+                        match res {
+                            Ok(frame) => {
+                                debug!("Received inbound frame");
+                                if let Err(e) = inbound_tx.send(frame).await {
+                                    error!(error=?e, "Failed to forward inbound frame");
+                                    handle_error(&status_sender, JDCError::ChannelErrorSender).await;
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                error!(error=?e, "Reader error");
+                                handle_error(&status_sender, e.into()).await;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            warn!("Reader task exited.");
+        }.instrument(reader_span));
+    }
+
+    {
+        let mut shutdown_rx = notify_shutdown.subscribe();
+        let status_type: StatusType = StatusType::from(&status_sender);
+
+        let writer_span = tracing::info_span!(
+            parent: &parent_span,
+            "io_task.writer",
+            status_type = ?status_type
+        );
+
+        task_manager.spawn(async move {
+            debug!("Writer task started");
+            loop {
+                tokio::select! {
+                    message = shutdown_rx.recv() => {
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                debug!("Received global shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::DownstreamShutdown(down_id))  if matches!(status_type, StatusType::Downstream(id) if id == down_id) => {
+                                debug!(down_id, "Received downstream shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Received job declarator shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                                debug!("Received upstream shutdown");
+                                if status_type != StatusType::TemplateReceiver {
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    res = outbound_rx.recv() => {
+                        match res {
+                            Ok(frame) => {
+                                debug!("Sending outbound frame");
+                                if let Err(e) = writer.write_frame(frame).await {
+                                    error!(error=?e, "Writer error");
+                                    handle_error(&status_sender, e.into()).await;
+                                    break;
+                                }
+                            }
+                            Err(_) => {
+                                warn!("Outbound channel closed");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            warn!("Writer task exited.");
+        }.instrument(writer_span));
     }
 }
 
