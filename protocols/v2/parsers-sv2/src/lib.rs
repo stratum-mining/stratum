@@ -3,7 +3,7 @@
 //! # Parsing, Serializing, and Message Type Identification
 //!
 //! Provides logic to convert raw Stratum V2 (Sv2) message data into Rust types, as well as logic
-//! to handle conversions among Sv2 rust types.
+//! to handle conversions among Sv2 rust types. The crate is `no_std` compatible by default.
 //!
 //! Most of the logic on this module is tightly coupled with the [`binary_sv2`] crate.
 //!
