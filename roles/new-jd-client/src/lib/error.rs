@@ -65,6 +65,7 @@ pub enum JDCError {
     UnexpectedMessage,
     InvalidUserIdentity(String),
     BitcoinEncodeError(bitcoin::consensus::encode::Error),
+    InvalidSocketAddress(String),
 }
 
 impl std::error::Error for JDCError {}
@@ -99,6 +100,7 @@ impl fmt::Display for JDCError {
             UnexpectedMessage => write!(f, "Unexpected Message"),
             InvalidUserIdentity(ref s) => write!(f, "User ID is invalid"),
             BitcoinEncodeError(ref e) => write!(f, "Error generated during encoding"),
+            InvalidSocketAddress(ref s) => write!(f, "Invalid socket address: {s}"),
         }
     }
 }

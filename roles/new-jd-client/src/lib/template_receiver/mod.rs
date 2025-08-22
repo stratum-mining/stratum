@@ -274,20 +274,21 @@ impl TemplateReceiver {
         Ok(())
     }
 
-    pub async fn setup_connection(&mut self, socket_address: String) -> Result<(), JDCError> {
-        let socket_iter = socket_address.split_once(":").unwrap();
-        let socket_address = SocketAddr::new(
-            std::net::IpAddr::V4(Ipv4Addr::from_str(socket_iter.0).unwrap()),
-            socket_iter.1.parse::<u16>().unwrap(),
-        );
-        let setup_connection = get_setup_connection_message_tp(socket_address);
-        let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
+    pub async fn setup_connection(&mut self, addr: String) -> Result<(), JDCError> {
+        let socket: SocketAddr = addr
+            .parse()
+            .map_err(|_| JDCError::InvalidSocketAddress(addr.clone()))?;
+
+        let setup_msg = get_setup_connection_message_tp(socket);
+        let frame: StdFrame = Message::Common(setup_msg.into()).try_into()?;
+
         self.template_receiver_channel
             .outbound_tx
-            .send(sv2_frame.into())
-            .await;
+            .send(frame.into())
+            .await
+            .map_err(|_| JDCError::ChannelErrorSender)?;
 
-        let incoming_frame = self
+        let mut incoming: StdFrame = self
             .template_receiver_channel
             .inbound_rx
             .recv()
@@ -295,17 +296,17 @@ impl TemplateReceiver {
             .map_err(|e| {
                 error!("Upstream connection closed: {:?}", e);
                 JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
-            })?;
+            })?
+            .try_into()?;
 
-        let mut incoming: StdFrame = incoming_frame.try_into()?;
-
-        let message_type = incoming
+        let msg_type = incoming
             .get_header()
             .ok_or(framing_sv2::Error::ExpectedHandshakeFrame)?
             .msg_type();
 
-        self.handle_common_message_from_server(message_type, incoming.payload())
+        self.handle_common_message_from_server(msg_type, incoming.payload())
             .await?;
+
         Ok(())
     }
 }
