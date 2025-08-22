@@ -114,7 +114,7 @@ pub struct ChannelManager {
     shares_per_minute: f32,
     coinbase_reward_script: CoinbaseRewardScript,
     user_identity: String,
-    min_extranonce_size: u16
+    min_extranonce_size: u16,
 }
 
 impl ChannelManager {
@@ -199,7 +199,7 @@ impl ChannelManager {
             miner_tag_string: config.jdc_signature().to_string(),
             coinbase_reward_script: config.coinbase_reward_script.clone(),
             user_identity: config.user_identity().to_string(),
-            min_extranonce_size: config.min_extranonce_size()
+            min_extranonce_size: config.min_extranonce_size(),
         };
 
         Ok(channel_manager)

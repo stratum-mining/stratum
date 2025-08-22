@@ -81,7 +81,7 @@ impl JobDeclaratorClientConfig {
             user_identity,
             shares_per_minute,
             share_batch_size,
-            min_extranonce_size
+            min_extranonce_size,
         }
     }
 
