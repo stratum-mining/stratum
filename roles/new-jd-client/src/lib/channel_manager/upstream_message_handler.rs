@@ -201,29 +201,32 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(ref mut upstream) = data.upstream_channel {
                 upstream.set_target(msg.maximum_target.clone().into());
-                for (downstream_id, downstream) in data.downstream.iter_mut() {
-                    downstream.downstream_data.super_safe_lock(|data| {
-                        for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
-                            let mut target_msg = msg.clone();
-                            target_msg.channel_id = *channel_id;
-                            messages.push((
-                                *downstream_id,
-                                AnyMessage::Mining(Mining::SetTarget(target_msg.into_static())),
-                            ));
-                            standard_channel.set_target(msg.maximum_target.clone().into());
-                        }
+                // We need to update downstream channel with corrected downstream vardiff found targets
+                // only when we send update channel message to upstream and get the corresponding
+                // SetTarget message and update it accordingly.
+                // for (downstream_id, downstream) in data.downstream.iter_mut() {
+                //     downstream.downstream_data.super_safe_lock(|data| {
+                //         for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
+                //             let mut target_msg = msg.clone();
+                //             target_msg.channel_id = *channel_id;
+                //             messages.push((
+                //                 *downstream_id,
+                //                 AnyMessage::Mining(Mining::SetTarget(target_msg.into_static())),
+                //             ));
+                //             standard_channel.set_target(msg.maximum_target.clone().into());
+                //         }
 
-                        for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                            let mut target_msg = msg.clone();
-                            target_msg.channel_id = *channel_id;
-                            messages.push((
-                                *downstream_id,
-                                AnyMessage::Mining(Mining::SetTarget(target_msg.into_static())),
-                            ));
-                            extended_channel.set_target(msg.maximum_target.clone().into());
-                        }
-                    });
-                }
+                //         for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
+                //             let mut target_msg = msg.clone();
+                //             target_msg.channel_id = *channel_id;
+                //             messages.push((
+                //                 *downstream_id,
+                //                 AnyMessage::Mining(Mining::SetTarget(target_msg.into_static())),
+                //             ));
+                //             extended_channel.set_target(msg.maximum_target.clone().into());
+                //         }
+                //     });
+                // }
             }
         });
 
