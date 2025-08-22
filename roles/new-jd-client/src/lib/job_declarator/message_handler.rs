@@ -4,42 +4,47 @@ use stratum_common::roles_logic_sv2::{
     },
     handlers_sv2::{HandleCommonMessagesFromServerAsync, HandlerError as Error},
 };
-use tracing::info;
+use tracing::{debug, info, instrument, warn};
 
 use crate::{jd_mode::set_jd_mode, job_declarator::JobDeclarator};
 
 impl HandleCommonMessagesFromServerAsync for JobDeclarator {
+    #[instrument(name = "setup_connection_success", skip_all)]
     async fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Error> {
         info!(
-            "Received `SetupConnectionSuccess` from JDS: version={}, flags={:b}",
-            msg.used_version, msg.flags
+            version = msg.used_version,
+            flags = msg.flags,
+            "JobDeclarator: Setup connection succeeded"
         );
         set_jd_mode(msg.flags.into());
 
         Ok(())
     }
 
+    #[instrument(name = "channel_endpoint_changed", skip_all)]
     async fn handle_channel_endpoint_changed(
         &mut self,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        debug!(?msg, "channel endpoint changed");
         Ok(())
     }
 
+    #[instrument(name = "reconnect", skip_all)]
     async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        warn!(?msg, "reconnect requested");
         Ok(())
     }
 
+    #[instrument(name = "setup_connection_error", skip_all)]
     async fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        warn!(?msg, "setup connection error received");
         Ok(())
     }
 }

@@ -27,8 +27,8 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message, message_from_frame, spawn_io_tasks, EitherFrame, Message,
-        ShutdownMessage, StdFrame,
+        get_setup_connection_message, message_from_frame, spawn_io_tasks, spawn_io_tasks_tracing,
+        EitherFrame, Message, ShutdownMessage, StdFrame,
     },
 };
 
@@ -52,6 +52,7 @@ pub struct Upstream {
 }
 
 impl Upstream {
+    #[instrument(skip_all, fields(upstream_addr = %upstreams.0))]
     pub async fn new(
         upstreams: &(SocketAddr, SocketAddr, Secp256k1PublicKey),
         channel_manager_sender: Sender<EitherFrame>,
@@ -75,7 +76,7 @@ impl Upstream {
         let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
         let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
 
-        spawn_io_tasks(
+        spawn_io_tasks_tracing(
             task_manager,
             noise_stream_reader,
             noise_stream_writer,
@@ -83,6 +84,7 @@ impl Upstream {
             inbound_tx,
             notify_shutdown,
             status_sender,
+            Span::current(),
         );
 
         info!("Noise setup done  in upstream connection");

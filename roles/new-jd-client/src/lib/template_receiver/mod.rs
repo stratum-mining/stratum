@@ -157,7 +157,7 @@ impl TemplateReceiver {
         Err(JDCError::Shutdown)
     }
 
-    #[instrument(skip_all, fields(peer_addr = %socket_address))]
+    #[instrument(skip_all, fields(tp_addr = %socket_address))]
     pub async fn start(
         mut self,
         socket_address: String,

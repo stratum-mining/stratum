@@ -380,7 +380,7 @@ async fn try_initialize_single(
 
     info!("Upstream connection done at initialize single");
 
-    let job_declarator = JobDeclarator::init(
+    let job_declarator = JobDeclarator::new(
         upstream_addr,
         jd_to_channel_manager_sender,
         channel_manager_to_jd_receiver,
