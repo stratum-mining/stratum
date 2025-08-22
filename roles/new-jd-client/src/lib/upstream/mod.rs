@@ -20,7 +20,7 @@ use tokio::{
     net::TcpStream,
     sync::{broadcast, mpsc},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn, Instrument, Span};
 
 use crate::{
     error::JDCError,
@@ -48,10 +48,11 @@ pub struct UpstreamChannel {
 pub struct Upstream {
     upstream_data: Arc<Mutex<UpstreamData>>,
     upstream_channel: UpstreamChannel,
+    upstream_addr: SocketAddr,
 }
 
 impl Upstream {
-    pub async fn init(
+    pub async fn new(
         upstreams: &(SocketAddr, SocketAddr, Secp256k1PublicKey),
         channel_manager_sender: Sender<EitherFrame>,
         channel_manager_receiver: Receiver<EitherFrame>,
@@ -96,9 +97,18 @@ impl Upstream {
         return Ok(Upstream {
             upstream_data,
             upstream_channel,
+            upstream_addr: addr.clone(),
         });
     }
 
+    #[instrument(
+        name = "setup_connection",
+        skip_all,
+        fields(
+            min_version = min_version,
+            max_version = max_version,
+        )
+    )]
     pub async fn setup_connection(
         &mut self,
         min_version: u16,
@@ -106,30 +116,54 @@ impl Upstream {
     ) -> Result<(), JDCError> {
         info!("Upstream: initiating SV2 handshake...");
         let setup_connection = get_setup_connection_message(min_version, max_version, true)?;
+        debug!(?setup_connection, "Prepared `SetupConnection` message");
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
-        self.upstream_channel
+        debug!(?sv2_frame, "Encoded `SetupConnection` frame");
+
+        // Send SetupConnection
+        if let Err(e) = self
+            .upstream_channel
             .outbound_tx
             .send(sv2_frame.into())
-            .await;
+            .await
+        {
+            error!(?e, "Failed to send `SetupConnection` frame to upstream");
+            return Err(JDCError::CodecNoise(
+                codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+            ));
+        }
+        info!("Sent `SetupConnection` to upstream, awaiting response...");
 
-        let incoming_frame = self.upstream_channel.inbound_rx.recv().await.map_err(|e| {
-            error!("Upstream connection closed: {:?}", e);
-            JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
-        })?;
+        let incoming_frame = match self.upstream_channel.inbound_rx.recv().await {
+            Ok(frame) => {
+                debug!(?frame, "Received raw inbound frame during handshake");
+                frame
+            }
+            Err(e) => {
+                error!(?e, "Upstream closed connection during handshake");
+                return Err(JDCError::CodecNoise(
+                    codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                ));
+            }
+        };
 
         let mut incoming: StdFrame = incoming_frame.try_into()?;
+        debug!(?incoming, "Decoded inbound handshake frame");
 
         let message_type = incoming
             .get_header()
             .ok_or(framing_sv2::Error::ExpectedHandshakeFrame)?
             .msg_type();
 
+        info!(?message_type, "Dispatching inbound handshake message");
         self.handle_common_message_from_server(message_type, incoming.payload())
             .await?;
-
         Ok(())
     }
 
+    #[instrument(skip_all, fields(
+        upstream_addr = ?self.upstream_addr,
+    ))]
     pub async fn start(
         mut self,
         min_version: u16,
@@ -142,7 +176,10 @@ impl Upstream {
         let status_sender = StatusSender::Upstream(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
 
-        self.setup_connection(min_version, max_version).await;
+        if let Err(e) = self.setup_connection(min_version, max_version).await {
+            error!(error = ?e, "Upstream: connection setup failed.");
+            return;
+        }
 
         task_manager.spawn(async move {
             let mut self_clone_1 = self.clone();
@@ -159,17 +196,23 @@ impl Upstream {
                                 info!("Upstream: Received Job declarator shutdown.");
                                 break;
                             }
+                            Err(_) => {
+                                warn!("Upstream: shutdown channel closed unexpectedly.");
+                                break;
+                            }
                             _ => {}
                         }
                     }
                     res = self_clone_1.handle_pool_message() => {
                         if let Err(e) = res {
+                            error!(error = ?e, "Upstream: error handling pool message.");
                             handle_error(&status_sender, e).await;
                             break;
                         }
                     }
                     res = self_clone_2.handle_channel_manager_message() => {
                         if let Err(e) = res {
+                            error!(error = ?e, "Upstream: error handling channel manager message.");
                             handle_error(&status_sender, e).await;
                             break;
                         }
@@ -178,59 +221,81 @@ impl Upstream {
                 }
             }
             warn!("Upstream: unified message loop exited.");
-        });
+        }.instrument(Span::current()));
     }
 
+    #[instrument(name = "pool_message", skip_all)]
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
         let read_frame = self.upstream_channel.inbound_rx.recv().await?;
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
+                debug!("Received SV2 frame from upstream.");
+
                 let std_frame: StdFrame = sv2_frame;
                 let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
                     std_frame.clone().into();
-                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
+                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to parse SV2 frame.");
+                        e
+                    })?;
                 match parsed_message {
                     AnyMessage::Common(_) => {
+                        info!(?message_type, "Handling common message from Upstream.");
                         self.handle_common_message_from_server(message_type, &mut payload)
                             .await?;
                     }
                     AnyMessage::Mining(_) => {
+                        debug!(
+                            ?message_type,
+                            "Forwarding mining message to channel manager."
+                        );
                         let frame_to_forward = EitherFrame::Sv2(std_frame);
                         self.upstream_channel
                             .channel_manager_sender
                             .send(frame_to_forward)
                             .await
                             .map_err(|e| {
-                                error!("Failed to send mining message to channel manager: {:?}", e);
+                                error!(error=?e, "Failed to send mining message to channel manager.");
                                 JDCError::ChannelErrorSender
                             })?;
                     }
                     _ => {
-                        error!("Received unsupported message type from upstream.");
+                        warn!(
+                            ?message_type,
+                            "Received unsupported message type from upstream."
+                        );
                         return Err(JDCError::UnexpectedMessage);
                     }
                 }
             }
             EitherFrame::HandShake(handshake_frame) => {
-                debug!("Received handshake frame: {:?}", handshake_frame);
+                debug!(?handshake_frame, "Received handshake frame.");
             }
         }
 
         Ok(())
     }
 
+    #[instrument(name = "channel_manager_message", skip_all)]
     async fn handle_channel_manager_message(&mut self) -> Result<(), JDCError> {
-        if let Ok(msg) = self.upstream_channel.channel_manager_receiver.recv().await {
-            self.upstream_channel
-                .outbound_tx
-                .send(msg)
-                .await
-                .map_err(|e| {
-                    error!("Upstream connection closed: {:?}", e);
-                    JDCError::CodecNoise(
-                        codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
-                    )
-                })?;
+        match self.upstream_channel.channel_manager_receiver.recv().await {
+            Ok(msg) => {
+                debug!("Received message from channel manager, forwarding upstream.");
+                self.upstream_channel
+                    .outbound_tx
+                    .send(msg)
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send outbound message to upstream.");
+                        JDCError::CodecNoise(
+                            codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                        )
+                    })?;
+            }
+            Err(e) => {
+                warn!(error=?e, "Channel manager receiver closed or errored.");
+            }
         }
         Ok(())
     }

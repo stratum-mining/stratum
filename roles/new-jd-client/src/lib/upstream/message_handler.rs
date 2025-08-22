@@ -9,41 +9,45 @@ use stratum_common::roles_logic_sv2::{
     mining_sv2::OpenExtendedMiningChannel,
     parsers_sv2::{AnyMessage, Mining},
 };
-use tracing::info;
+use tracing::{debug, error, info, instrument};
 
 use crate::{error::JDCError, jd_mode::set_jd_mode, upstream::Upstream, utils::StdFrame};
 
 impl HandleCommonMessagesFromServerAsync for Upstream {
+    #[instrument(name = "setup_connection_success", skip_all)]
     async fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Error> {
         info!(
-            "Received `SetupConnectionSuccess` from Pool: version={}, flags={:b}",
+            "SetupConnectionSuccess received from Pool (version={}, flags={:b})",
             msg.used_version, msg.flags
         );
 
         Ok(())
     }
 
+    #[instrument(name = "channel_endpoint_changed", skip_all)]
     async fn handle_channel_endpoint_changed(
         &mut self,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        debug!(?msg, "Channel endpoint updated by upstream.");
         Ok(())
     }
 
+    #[instrument(name = "reconnect", skip_all)]
     async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        info!(?msg, "Reconnect request received from upstream.");
         Ok(())
     }
 
+    #[instrument(name = "setup_connection_error", skip_all)]
     async fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Error> {
-        info!("Received {msg:#?}");
+        error!(?msg, "Setup connection failed.");
         Ok(())
     }
 }

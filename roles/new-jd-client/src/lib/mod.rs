@@ -367,7 +367,7 @@ async fn try_initialize_single(
     task_manager: Arc<TaskManager>,
 ) -> Result<(Upstream, JobDeclarator), JDCError> {
     info!("Upstream connection in-progress at initialize single");
-    let upstream = Upstream::init(
+    let upstream = Upstream::new(
         upstream_addr,
         upstream_to_channel_manager_sender,
         channel_manager_to_upstream_receiver,
