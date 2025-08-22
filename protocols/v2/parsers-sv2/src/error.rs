@@ -12,8 +12,8 @@ impl From<binary_sv2::Error> for ParserError {
     }
 }
 
-impl std::fmt::Display for ParserError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ParserError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ParserError::UnexpectedMessage(msg_type) => {
                 write!(f, "Unexpected message type: {msg_type}")
@@ -24,5 +24,3 @@ impl std::fmt::Display for ParserError {
         }
     }
 }
-
-impl std::error::Error for ParserError {}
