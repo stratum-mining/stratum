@@ -72,7 +72,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                 self.share_batch_size,
                 self.shares_per_minute,
                 job_store,
-                self.pool_tag_string.clone(),
+                data.pool_tag_string.clone(),
                 self.miner_tag_string.clone(),
             )
             .expect("failed to create extended channel");

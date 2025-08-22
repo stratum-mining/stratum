@@ -42,7 +42,7 @@ use tokio::{
     net::TcpListener,
     sync::{broadcast, mpsc},
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, instrument};
 
 use crate::{
     config::JobDeclaratorClientConfig,
@@ -90,6 +90,7 @@ pub struct ChannelManagerData {
     upstream_channel_id: u32,
     upstream_channel: Option<ExtendedChannel<'static>>,
     pending_channel: HashMap<u32, (String, f32, usize)>,
+    pool_tag_string: Option<String>,
 }
 
 #[derive(Clone)]
@@ -108,7 +109,6 @@ pub struct ChannelManagerChannel {
 pub struct ChannelManager {
     channel_manager_data: Arc<Mutex<ChannelManagerData>>,
     channel_manager_channel: ChannelManagerChannel,
-    pool_tag_string: Option<String>,
     miner_tag_string: String,
     share_batch_size: usize,
     shares_per_minute: f32,
@@ -118,6 +118,7 @@ pub struct ChannelManager {
 }
 
 impl ChannelManager {
+    #[instrument(skip_all)]
     pub async fn new(
         config: JobDeclaratorClientConfig,
         task_manager: Arc<TaskManager>,
@@ -132,32 +133,23 @@ impl ChannelManager {
         status_sender: Sender<Status>,
         coinbase_outputs: Vec<u8>,
     ) -> Result<Self, JDCError> {
-        let range_1_start = 0;
-        let range_1_end = 8;
-
-        // range_0 is not used here
-        let range_0 = std::ops::Range {
-            start: 0,
-            end: range_1_start,
-        };
-        let range_1 = std::ops::Range {
-            start: range_1_start,
-            end: range_1_end,
-        };
-        let range_2 = std::ops::Range {
-            start: range_1_end,
-            end: FULL_EXTRANONCE_LEN,
+        let (range_0, range_1, range_2) = {
+            let range_1 = 0..8;
+            (
+                0..range_1.start,
+                range_1.clone(),
+                range_1.end..FULL_EXTRANONCE_LEN,
+            )
         };
 
-        // static prefix we can tackle later
-        let extranonce_prefix_factory_extended =
+        let make_extranonce_factory = || {
             ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
-                .expect("Failed to create ExtendedExtranonce with valid ranges");
-        let extranonce_prefix_factory_standard =
-            ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
-                .expect("Failed to create ExtendedExtranonce with valid ranges");
+                .expect("Failed to create ExtendedExtranonce with valid ranges")
+        };
 
-        // make share batch size and share per minute configurable by config
+        let extranonce_prefix_factory_extended = make_extranonce_factory();
+        let extranonce_prefix_factory_standard = make_extranonce_factory();
+
         let channel_manager_data = Arc::new(Mutex::new(ChannelManagerData {
             downstream: HashMap::new(),
             extranonce_prefix_factory_extended,
@@ -179,23 +171,25 @@ impl ChannelManager {
             upstream_channel_id: 1,
             upstream_channel: None,
             pending_channel: HashMap::new(),
+            pool_tag_string: None,
         }));
+
         let channel_manager_channel = ChannelManagerChannel {
             upstream_sender,
             upstream_receiver,
-            jd_receiver,
             jd_sender,
-            tp_receiver,
+            jd_receiver,
             tp_sender,
-            downstream_receiver,
+            tp_receiver,
             downstream_sender,
+            downstream_receiver,
         };
+
         let channel_manager = ChannelManager {
             channel_manager_data,
             channel_manager_channel,
             share_batch_size: config.share_batch_size() as usize,
             shares_per_minute: config.shares_per_minute() as f32,
-            pool_tag_string: Some("pool".to_string()),
             miner_tag_string: config.jdc_signature().to_string(),
             coinbase_reward_script: config.coinbase_reward_script.clone(),
             user_identity: config.user_identity().to_string(),
@@ -205,6 +199,7 @@ impl ChannelManager {
         Ok(channel_manager)
     }
 
+    #[instrument(skip_all, fields(listening_address = %listening_address))]
     pub async fn start_downstream_server(
         self,
         authority_public_key: Secp256k1PublicKey,
@@ -218,27 +213,42 @@ impl ChannelManager {
         channel_manager_sender: Sender<(u32, EitherFrame)>,
         channel_manager_receiver: broadcast::Sender<(u32, Message)>,
     ) -> Result<(), JDCError> {
-        let server = TcpListener::bind(listening_address).await?;
+        let server = TcpListener::bind(listening_address).await.map_err(|e| {
+            error!(error = ?e, "Failed to bind to {}", listening_address);
+            e
+        })?;
         let task_manager_clone = task_manager.clone();
         task_manager.spawn(async move {
             while let Ok((stream, socket_address)) = server.accept().await {
-                info!("Received connection request from socket address: {socket_address:?}");
-                let responder = Responder::from_authority_kp(
+                info!(%socket_address, "New downstream connection");
+                let responder = match Responder::from_authority_kp(
                     &authority_public_key.into_bytes(),
                     &authority_secret_key.into_bytes(),
                     std::time::Duration::from_secs(cert_validity_sec),
-                )
-                .unwrap();
-                let noise_stream = NoiseTcpStream::<Message>::new(
+                ) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        error!(error = ?e, "Failed to create responder");
+                        continue;
+                    }
+                };
+                let noise_stream = match NoiseTcpStream::<Message>::new(
                     stream,
                     stratum_common::roles_logic_sv2::codec_sv2::HandshakeRole::Responder(responder),
                 )
                 .await
-                .unwrap();
+                {
+                    Ok(ns) => ns,
+                    Err(e) => {
+                        error!(error = ?e, "Noise handshake failed");
+                        continue;
+                    }
+                };
 
                 let downstream_id = self
                     .channel_manager_data
                     .super_safe_lock(|data| data.downstream_id_factory.next());
+
                 let downstream = Downstream::new(
                     downstream_id,
                     channel_manager_sender.clone(),
@@ -267,6 +277,7 @@ impl ChannelManager {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     pub async fn start(
         mut self,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
@@ -277,13 +288,15 @@ impl ChannelManager {
         let status_sender = StatusSender::ChannelManager(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
 
+        let cm = self.clone();
+
         task_manager.spawn(async move {
+            let cm = self.clone();
             loop {
-                let mut self_clone_1 = self.clone();
-                let mut self_clone_2 = self.clone();
-                let mut self_clone_3 = self.clone();
-                let mut self_clone_4 = self.clone();
-                let mut self_clone_5 = self.clone();
+                let mut cm_jds = cm.clone();
+                let mut cm_pool = cm.clone();
+                let mut cm_template = cm.clone();
+                let mut cm_downstreams = cm.clone();
                 tokio::select! {
                     message = shutdown_rx.recv() => {
                         match message {
@@ -292,43 +305,40 @@ impl ChannelManager {
                                 break;
                             }
                             Ok(ShutdownMessage::DownstreamShutdown(downstream_id)) => {
-                                info!("Channel Manager: received downstream {downstream_id} shutdown signal");
-
-                                self_clone_5.channel_manager_data.super_safe_lock(|cm_data| {
-                                    if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
-                                        downstream.downstream_data.super_safe_lock(|ds_data| {
-                                            for k in ds_data.standard_channels.keys().chain(ds_data.extended_channels.keys()) {
-                                                cm_data.channel_id_to_downstream_id.remove(k);
-                                            }
-                                        });
-                                    }
-                                });
+                                info!(%downstream_id, "Channel Manager: removing downstream after shutdown");
+                                if let Err(e) = self.remove_downstream(downstream_id) {
+                                    tracing::error!(%downstream_id, error = ?e, "Failed to remove downstream");
+                                }
                             }
                             _ => {}
                         }
                     }
-                    res = self_clone_1.handle_jds_message() => {
+                    res = cm_jds.handle_jds_message() => {
                         if let Err(e) = res {
+                            error!(error = ?e, "Error handling JDS message");
                             handle_error(&status_sender, e).await;
-                            break;
+                            return;
                         }
                     }
-                    res = self_clone_2.handle_pool_message() => {
+                    res = cm_pool.handle_pool_message() => {
                         if let Err(e) = res {
+                            error!(error = ?e, "Error handling Pool message");
                             handle_error(&status_sender, e).await;
-                            break;
+                            return;
                         }
                     }
-                    res = self_clone_3.handle_template_receiver_message() => {
+                    res = cm_template.handle_template_receiver_message() => {
                         if let Err(e) = res {
+                            error!(error = ?e, "Error handling Template Receiver message");
                             handle_error(&status_sender, e).await;
-                            break;
+                            return;
                         }
                     }
-                    res = self_clone_4.handle_downstreams_message() => {
+                    res = cm_downstreams.handle_downstreams_message() => {
                         if let Err(e) = res {
+                            error!(error = ?e, "Error handling Downstreams message");
                             handle_error(&status_sender, e).await;
-                            break;
+                            return;
                         }
                     }
                 }
@@ -336,13 +346,30 @@ impl ChannelManager {
         });
     }
 
+    fn remove_downstream(&mut self, downstream_id: u32) -> Result<(), JDCError> {
+        self.channel_manager_data.super_safe_lock(|cm_data| {
+            if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
+                downstream.downstream_data.super_safe_lock(|ds_data| {
+                    for k in ds_data
+                        .standard_channels
+                        .keys()
+                        .chain(ds_data.extended_channels.keys())
+                    {
+                        cm_data.channel_id_to_downstream_id.remove(k);
+                    }
+                });
+            }
+        });
+        Ok(())
+    }
+
+    #[instrument(name = "jds_message", skip_all)]
     async fn handle_jds_message(&mut self) -> Result<(), JDCError> {
-        while let Ok(read_frame) = self.channel_manager_channel.jd_receiver.recv().await {
+        if let Ok(read_frame) = self.channel_manager_channel.jd_receiver.recv().await {
             match read_frame {
                 EitherFrame::Sv2(sv2_frame) => {
-                    let std_frame: StdFrame = sv2_frame;
                     let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        std_frame.clone().into();
+                        sv2_frame.clone().into();
                     let (message_type, mut payload, parsed_message) =
                         message_from_frame(&mut frame)?;
 
@@ -368,13 +395,13 @@ impl ChannelManager {
         Ok(())
     }
 
+    #[instrument(name = "pool_message", skip_all)]
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
-        while let Ok(read_frame) = self.channel_manager_channel.upstream_receiver.recv().await {
+        if let Ok(read_frame) = self.channel_manager_channel.upstream_receiver.recv().await {
             match read_frame {
                 EitherFrame::Sv2(sv2_frame) => {
-                    let std_frame: StdFrame = sv2_frame;
                     let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        std_frame.clone().into();
+                        sv2_frame.clone().into();
                     let (message_type, mut payload, parsed_message) =
                         message_from_frame(&mut frame)?;
 
@@ -397,13 +424,13 @@ impl ChannelManager {
         Ok(())
     }
 
+    #[instrument(name = "template_receiver_message", skip_all)]
     async fn handle_template_receiver_message(&mut self) -> Result<(), JDCError> {
-        while let Ok(read_frame) = self.channel_manager_channel.tp_receiver.recv().await {
+        if let Ok(read_frame) = self.channel_manager_channel.tp_receiver.recv().await {
             match read_frame {
                 EitherFrame::Sv2(sv2_frame) => {
-                    let std_frame: StdFrame = sv2_frame;
                     let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        std_frame.clone().into();
+                        sv2_frame.clone().into();
                     let (message_type, mut payload, parsed_message) =
                         message_from_frame(&mut frame)?;
 
@@ -413,7 +440,7 @@ impl ChannelManager {
                                 message_type,
                                 &mut payload,
                             )
-                            .await;
+                            .await?;
                         }
                         _ => {
                             error!("Received unsupported message type from upstream.");
@@ -431,7 +458,7 @@ impl ChannelManager {
 
     // we will make this lean
     async fn handle_downstreams_message(&mut self) -> Result<(), JDCError> {
-        while let Ok((downstream_id, read_frame)) = self
+        if let Ok((downstream_id, read_frame)) = self
             .channel_manager_channel
             .downstream_receiver
             .recv()
@@ -589,24 +616,49 @@ impl ChannelManager {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     pub async fn allocate_tokens(&self, token_to_allocate: u32) -> Result<(), JDCError> {
+        debug!("Allocating {} job tokens", token_to_allocate);
+
         for i in 0..token_to_allocate {
             let request_id = self
                 .channel_manager_data
                 .super_safe_lock(|data| data.request_id_factory.next());
-            /// Ask gitgab about this
+
+            debug!(
+                request_id,
+                "Allocating token {}/{}",
+                i + 1,
+                token_to_allocate
+            );
+
             let message = JobDeclaration::AllocateMiningJobToken(AllocateMiningJobToken {
-                user_identifier: "jdc".to_string().try_into().unwrap(),
+                user_identifier: self
+                    .user_identity
+                    .to_string()
+                    .try_into()
+                    .expect("Static string should always convert"),
                 request_id,
             });
-            let frame: StdFrame = AnyMessage::JobDeclaration(message).try_into()?;
+
+            let frame: StdFrame = AnyMessage::JobDeclaration(message)
+                .try_into()
+                .map_err(|e| {
+                    info!(error = ?e, "Failed to convert AllocateMiningJobToken to frame");
+                    e
+                })?;
+
             self.channel_manager_channel
                 .jd_sender
                 .send(frame.into())
                 .await
-                .unwrap();
+                .map_err(|e| {
+                    info!(error = ?e, "Failed to send AllocateMiningJobToken frame");
+                    JDCError::ChannelErrorSender
+                })?;
         }
 
+        info!("Successfully allocated {token_to_allocate} job tokens");
         Ok(())
     }
 }

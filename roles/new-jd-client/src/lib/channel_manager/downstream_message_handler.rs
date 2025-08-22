@@ -112,7 +112,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             let mut group_channel = GroupChannel::new_for_job_declaration_client(
                                 group_channel_id,
                                 job_store,
-                                self.pool_tag_string.clone(),
+                                channel_manager_data.pool_tag_string.clone(),
                                 self.miner_tag_string.clone(),
                             );
 
@@ -189,7 +189,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 self.share_batch_size,
                                 self.shares_per_minute,
                                 job_store,
-                                self.pool_tag_string.clone(),
+                                channel_manager_data.pool_tag_string.clone(),
                                 self.miner_tag_string.clone(),
                             ) {
                                 Ok(channel) => channel,
@@ -447,7 +447,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 self.share_batch_size,
                                 self.shares_per_minute,
                                 job_store,
-                                self.pool_tag_string.clone(),
+                                channel_manager_data.pool_tag_string.clone(),
                                 self.miner_tag_string.clone(),
                             ) {
                                 Ok(channel) => channel,
