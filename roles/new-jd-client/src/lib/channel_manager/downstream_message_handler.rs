@@ -1405,7 +1405,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
             if downstream_id == 0 {
                 match message {
                     AnyMessage::JobDeclaration(m) => {
-                        if get_jd_mode() != JdMode::NoJd {
+                        if get_jd_mode() != JdMode::SoloMining {
                             let any_message = AnyMessage::JobDeclaration(m);
                             let frame: StdFrame = any_message.try_into().unwrap();
                             self.channel_manager_channel
@@ -1425,7 +1425,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     _ => {}
                 }
             } else {
-                if get_jd_mode() == JdMode::NoJd {
+                if get_jd_mode() == JdMode::SoloMining {
                     self.channel_manager_channel
                         .downstream_sender
                         .send((downstream_id, message));

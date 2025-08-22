@@ -206,7 +206,7 @@ impl JobDeclaratorClient {
             }
             Err(e) => {
                 tracing::error!("Failed to initialize upstream: {:?}", e);
-                set_jd_mode(jd_mode::JdMode::NoJd);
+                set_jd_mode(jd_mode::JdMode::SoloMining);
                 notify_shutdown
                     .send(ShutdownMessage::JobDeclaratorShutdown)
                     .unwrap();
@@ -251,7 +251,6 @@ impl JobDeclaratorClient {
                             State::TemplateReceiverShutdown(_) => {
                                 warn!("Template Receiver shutdown requested — initiating full shutdown.");
                                 notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
-
                                 break;
                             }
                             State::ChannelManagerShutdown(_) => {

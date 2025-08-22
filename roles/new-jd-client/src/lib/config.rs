@@ -45,6 +45,8 @@ pub struct JobDeclaratorClientConfig {
     shares_per_minute: f64,
     /// share batch size
     share_batch_size: u64,
+    /// Min extranonce size
+    min_extranonce_size: u16,
 }
 
 impl JobDeclaratorClientConfig {
@@ -60,6 +62,7 @@ impl JobDeclaratorClientConfig {
         upstreams: Vec<Upstream>,
         timeout: Duration,
         jdc_signature: String,
+        min_extranonce_size: u16,
     ) -> Self {
         Self {
             listening_address,
@@ -78,6 +81,7 @@ impl JobDeclaratorClientConfig {
             user_identity,
             shares_per_minute,
             share_batch_size,
+            min_extranonce_size
         }
     }
 
@@ -163,6 +167,10 @@ impl JobDeclaratorClientConfig {
 
     pub fn share_batch_size(&self) -> u64 {
         self.share_batch_size
+    }
+
+    pub fn min_extranonce_size(&self) -> u16 {
+        self.min_extranonce_size
     }
 }
 

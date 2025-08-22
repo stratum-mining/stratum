@@ -45,7 +45,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             let prefix_len = msg.extranonce_prefix.len();
             let jdc_extranonce_len = std::cmp::min(
                 (msg.extranonce_size as usize).saturating_sub(min_extranonce_size),
-                8,
+                self.min_extranonce_size as usize,
             );
             let total_len = prefix_len + msg.extranonce_size as usize;
             let range_0 = 0..prefix_len;

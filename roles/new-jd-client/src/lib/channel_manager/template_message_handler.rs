@@ -321,8 +321,8 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             let active_job = upstream.get_active_job().cloned()?;
             let prevhash = data.last_new_prev_hash.clone()?;
 
-            let coinbase_prefix = active_job.get_coinbase_tx_prefix_without_bip141();
-            let coinbase_suffix = active_job.get_coinbase_tx_suffix_without_bip141();
+            let coinbase_prefix = active_job.get_coinbase_tx_prefix_with_bip141();
+            let coinbase_suffix = active_job.get_coinbase_tx_suffix_with_bip141();
             let coinbase_outputs = active_job.get_coinbase_outputs().clone();
             let version = active_job.get_version();
 

@@ -18,6 +18,8 @@ user_identity = "your_username_here"
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
 
+# min extranonce size
+min_extranonce_size = 4
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
