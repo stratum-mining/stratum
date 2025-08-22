@@ -23,7 +23,7 @@ pub struct Args {
 }
 
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> Result<JobDeclaratorClientConfig, JDCError> {
+pub fn process_cli_args() -> Result<JobDeclaratorClientConfig, JDCError> {
     let args = Args::parse();
 
     let config_path = args.config_path.to_str().ok_or_else(|| {

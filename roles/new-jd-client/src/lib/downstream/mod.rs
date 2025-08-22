@@ -18,13 +18,16 @@ use stratum_common::{
 };
 
 use tokio::sync::{broadcast, mpsc};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn, Instrument, Span};
 
 use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{message_from_frame, spawn_io_tasks, EitherFrame, Message, ShutdownMessage, StdFrame},
+    utils::{
+        message_from_frame, spawn_io_tasks, spawn_io_tasks_tracing, EitherFrame, Message,
+        ShutdownMessage, StdFrame,
+    },
 };
 
 mod message_handler;
@@ -53,6 +56,11 @@ pub struct Downstream {
 }
 
 impl Downstream {
+    #[instrument(
+        skip_all,
+        fields(downstream_id = downstream_id),
+        parent = Span::current()
+    )]
     pub fn new(
         downstream_id: u32,
         channel_manager_sender: Sender<(u32, EitherFrame)>,
@@ -70,7 +78,7 @@ impl Downstream {
         };
         let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
         let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
-        spawn_io_tasks(
+        spawn_io_tasks_tracing(
             task_manager,
             noise_stream_reader,
             noise_stream_writer,
@@ -78,6 +86,7 @@ impl Downstream {
             inbound_tx,
             notify_shutdown,
             status_sender,
+            Span::current(),
         );
 
         let downstream_channel = DownstreamChannel {
@@ -100,6 +109,7 @@ impl Downstream {
         }
     }
 
+    #[tracing::instrument(skip_all, fields(downstream_id = self.downstream_id))]
     pub async fn start(
         mut self,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
@@ -115,7 +125,14 @@ impl Downstream {
         let mut shutdown_rx = notify_shutdown.subscribe();
         let self_clone = self.clone();
         let status_sender_clone = status_sender.clone();
-        self.setup_connection().await;
+
+        // Setup initial connection
+        if let Err(e) = self.setup_connection().await {
+            error!(?e, "Failed to set up downstream connection");
+            handle_error(&status_sender, e).await;
+            return;
+        }
+
         task_manager.spawn(async move {
             let mut shutdown_rx = notify_shutdown.subscribe();
             let downstream_id = self_clone.downstream_id;
@@ -145,13 +162,15 @@ impl Downstream {
                     }
                     res = self_clone.spawn_vardiff() => {
                         if let Err(e) = res {
+                            error!(?e, "Vardiff loop failed for downstream {downstream_id}");
                             handle_error(&status_sender_clone, e).await;
                             break;
                         }
                     }
                 }
             }
-        });
+            debug!("Vardiff loop exited for downstream {downstream_id}");
+        }.instrument(Span::current()));
 
         let mut receiver = self.downstream_channel.channel_manager_receiver.subscribe();
         task_manager.spawn(async move {
@@ -183,12 +202,14 @@ impl Downstream {
                     }
                     res = self_clone_1.handle_downstream_message() => {
                         if let Err(e) = res {
+                            error!(?e, "Error handling downstream message for {downstream_id}");
                             handle_error(&status_sender, e).await;
                             break;
                         }
                     }
                     res = self_clone_2.handle_channel_manager_message(&mut receiver) => {
                         if let Err(e) = res {
+                            error!(?e, "Error handling channel manager message for {downstream_id}");
                             handle_error(&status_sender, e).await;
                             break;
                         }
@@ -197,47 +218,69 @@ impl Downstream {
                 }
             }
             warn!("Downstream: unified message loop exited.");
-        });
+        }.instrument(Span::current()));
     }
 
+    #[instrument(skip_all)]
     async fn setup_connection(&mut self) -> Result<(), JDCError> {
         let mut frame = self.downstream_channel.inbound_rx.recv().await?;
-        let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame).unwrap();
-        match parsed_message {
-            AnyMessage::Common(_) => {
-                self.handle_common_message_from_client(message_type, &mut payload)
-                    .await?;
-            }
-            _ => {
-                return Err(JDCError::UnexpectedMessage);
-            }
+        let (msg_type, mut payload, parsed) = message_from_frame(&mut frame).map_err(|e| {
+            error!(?e, "Failed to parse incoming frame");
+            e
+        })?;
+
+        if let AnyMessage::Common(_) = parsed {
+            self.handle_common_message_from_client(msg_type, &mut payload)
+                .await?;
+            return Ok(());
         }
-        Ok(())
+
+        Err(JDCError::UnexpectedMessage)
     }
 
+    #[instrument(name = "channel_manager_message", skip_all)]
     async fn handle_channel_manager_message(
         mut self,
         receiver: &mut broadcast::Receiver<(u32, AnyMessage<'static>)>,
     ) -> Result<(), JDCError> {
-        if let Ok((downstream_id, frame)) = receiver.recv().await {
-            if downstream_id == self.downstream_id {
-                let message_type = frame.message_type();
-                let std_frame = StdFrame::from_message(frame, message_type, 0, true).unwrap();
-                self.downstream_channel
-                    .outbound_tx
-                    .send(std_frame.into())
-                    .await
-                    .map_err(|e| {
-                        error!("Upstream connection closed: {:?}", e);
-                        JDCError::CodecNoise(
-                            codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
-                        )
-                    })?;
+        let (downstream_id, frame) = match receiver.recv().await {
+            Ok(msg) => msg,
+            Err(e) => {
+                warn!(?e, "Broadcast receive failed");
+                return Ok(());
             }
+        };
+
+        if downstream_id != self.downstream_id {
+            debug!(
+                ?downstream_id,
+                "Message ignored for non-matching downstream"
+            );
+            return Ok(());
         }
+
+        let message_type = frame.message_type();
+        let std_frame = match StdFrame::from_message(frame, message_type, 0, true) {
+            Some(f) => f,
+            None => {
+                debug!("Invalid frame conversion; skipping message");
+                return Ok(());
+            }
+        };
+
+        self.downstream_channel
+            .outbound_tx
+            .send(std_frame.into())
+            .await
+            .map_err(|e| {
+                error!(?e, "Downstream send failed");
+                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+            })?;
+
         Ok(())
     }
 
+    #[instrument(name = "downstream_message", skip_all)]
     async fn handle_downstream_message(mut self) -> Result<(), JDCError> {
         let read_frame = self.downstream_channel.inbound_rx.recv().await?;
 
@@ -246,8 +289,7 @@ impl Downstream {
                 let std_frame: StdFrame = sv2_frame;
                 let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
                     std_frame.clone().into();
-                let (message_type, mut payload, mut parsed_message) =
-                    message_from_frame(&mut frame)?;
+                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
 
                 match parsed_message {
                     AnyMessage::Common(_) => {
@@ -255,38 +297,44 @@ impl Downstream {
                             .await?;
                     }
                     AnyMessage::Mining(_) => {
-                        let frame_to_forward = EitherFrame::Sv2(std_frame);
                         self.downstream_channel
                             .channel_manager_sender
-                            .send((self.downstream_id, frame_to_forward))
+                            .send((self.downstream_id, EitherFrame::Sv2(std_frame)))
                             .await
                             .map_err(|e| {
-                                error!("Failed to send mining message to channel manager: {:?}", e);
+                                error!(?e, "Failed to send mining message to channel manager");
                                 JDCError::ChannelErrorSender
                             })?;
                     }
                     _ => {
-                        error!("Received unsupported message type from upstream.");
+                        error!("Unsupported message type from upstream");
                         return Err(JDCError::UnexpectedMessage);
                     }
                 }
             }
             EitherFrame::HandShake(handshake_frame) => {
-                debug!("Received handshake frame: {:?}", handshake_frame);
+                debug!(?handshake_frame, "Received handshake frame");
             }
         }
         Ok(())
     }
 
+    #[instrument(
+        name = "vardiff_on_extended_channel",
+        skip_all,
+        fields(channel_id = channel_id, hashrate = %channel_state.get_nominal_hashrate(), target = ?channel_state.get_target()),
+    )]
     fn run_vardiff_on_extended_channel(
         channel_id: u32,
         channel_state: &mut ExtendedChannel<'static>,
         vardiff_state: &mut Box<dyn Vardiff>,
         updates: &mut Vec<(u32, AnyMessage)>,
     ) {
-        let hashrate = channel_state.get_nominal_hashrate();
-        let target = channel_state.get_target();
-        let shares_per_minute = channel_state.get_shares_per_minute();
+        let (hashrate, target, shares_per_minute) = (
+            channel_state.get_nominal_hashrate(),
+            channel_state.get_target(),
+            channel_state.get_shares_per_minute(),
+        );
 
         let Ok(new_hashrate_opt) = vardiff_state.try_vardiff(hashrate, target, shares_per_minute)
         else {
@@ -294,25 +342,35 @@ impl Downstream {
             return;
         };
 
-        if let Some(new_hashrate) = new_hashrate_opt {
-            if let Ok(()) = channel_state.update_channel(new_hashrate, None) {
-                let updated_target = channel_state.get_target();
-                let target_message = AnyMessage::Mining(Mining::SetTarget(SetTarget {
-                    channel_id,
-                    maximum_target: updated_target.clone().into(),
-                }));
-                updates.push((channel_id, target_message));
+        let Some(new_hashrate) = new_hashrate_opt else {
+            return;
+        };
 
-                debug!(
-                    "Updated target for extended channel_id={channel_id} to {:?}",
-                    updated_target
-                );
-            } else {
-                warn!("Failed to update extended channel {channel_id}");
+        match channel_state.update_channel(new_hashrate, None) {
+            Ok(()) => {
+                let updated_target = channel_state.get_target();
+                updates.push((
+                    channel_id,
+                    AnyMessage::Mining(Mining::SetTarget(SetTarget {
+                        channel_id,
+                        maximum_target: updated_target.clone().into(),
+                    })),
+                ));
+                debug!("Updated target for extended channel_id={channel_id} to {updated_target:?}",);
             }
+            Err(_) => warn!("Failed to update extended channel {channel_id}"),
         }
     }
 
+    #[instrument(
+        name = "vardiff_on_standard_channel",
+        skip_all,
+        fields(
+            channel_id = channel_id,
+            hashrate = %channel.get_nominal_hashrate(),
+            target = ?channel.get_target(),
+        )
+    )]
     fn run_vardiff_on_standard_channel(
         channel_id: u32,
         channel: &mut StandardChannel<'static>,
@@ -330,26 +388,24 @@ impl Downstream {
         };
 
         if let Some(new_hashrate) = new_hashrate_opt {
-            if let Ok(()) = channel.update_channel(new_hashrate, None) {
-                let updated_target = channel.get_target();
-
-                let target_message = AnyMessage::Mining(Mining::SetTarget(SetTarget {
-                    channel_id,
-                    maximum_target: updated_target.clone().into(),
-                }));
-
-                updates.push((channel_id, target_message));
-
-                debug!(
-                    "Updated target for standard channel_id={channel_id} to {:?}",
-                    updated_target
-                );
-            } else {
-                warn!("Failed to update standard channel {channel_id}");
+            match channel.update_channel(new_hashrate, None) {
+                Ok(()) => {
+                    let updated_target = channel.get_target();
+                    updates.push((
+                        channel_id,
+                        AnyMessage::Mining(Mining::SetTarget(SetTarget {
+                            channel_id,
+                            maximum_target: updated_target.clone().into(),
+                        })),
+                    ));
+                    debug!(?updated_target, "Updated target for standard channel");
+                }
+                Err(_) => warn!("Failed to update standard channel {channel_id}"),
             }
         }
     }
 
+    #[instrument(skip_all)]
     async fn spawn_vardiff(&self) -> Result<(), JDCError> {
         let downstream_id = self.downstream_id;
 
@@ -363,7 +419,7 @@ impl Downstream {
         debug!("Starting vardiff updates for downstream: {downstream_id}");
 
         let messages = self.downstream_data.super_safe_lock(|data| {
-            let mut messages: Vec<(u32, AnyMessage)> = vec![];
+            let mut messages = vec![];
             for (channel_id, vardiff_state) in data.vardiff.iter_mut() {
                 if let Some(channel) = data.extended_channels.get_mut(channel_id) {
                     Self::run_vardiff_on_extended_channel(
@@ -386,16 +442,26 @@ impl Downstream {
         });
 
         for (channel_id, target) in messages {
-            let frame: StdFrame = target.try_into().unwrap();
+            let frame: StdFrame = target.try_into()?;
             if let Err(e) = self.downstream_channel.outbound_tx.send(frame.into()).await {
                 error!(
-                    "Failed to send SetTarget message downstream for channel {channel_id}: {:?}",
-                    e
+                    downstream_id = downstream_id,
+                    channel_id = channel_id,
+                    error = ?e,
+                    "Failed to send SetTarget message downstream"
                 );
                 return Err(JDCError::ChannelErrorSender);
             }
+            debug!(
+                downstream_id = downstream_id,
+                channel_id = channel_id,
+                "SetTarget message successfully sent"
+            );
         }
-
+        info!(
+            downstream_id = downstream_id,
+            "Vardiff update cycle complete"
+        );
         Ok(())
     }
 }
