@@ -278,7 +278,10 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                     data.allocate_tokens.take(),
                     data.template_store.get(&msg.template_id).cloned(),
                     data.request_id_factory.next(),
-                    data.upstream_channel_id,
+                    data.upstream_channel
+                        .as_ref()
+                        .map(|uc| uc.get_channel_id())
+                        .unwrap_or_default(),
                 )
             });
 
@@ -404,7 +407,10 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                 let (channel_id, token, request_id, coinbase_tx_outputs) =
                     self.channel_manager_data.super_safe_lock(|data| {
                         (
-                            data.upstream_channel_id,
+                            data.upstream_channel
+                                .as_ref()
+                                .map(|uc| uc.get_channel_id())
+                                .unwrap_or_default(),
                             data.allocate_tokens.take(),
                             data.request_id_factory.next(),
                             data.coinbase_outputs.clone(),

@@ -112,7 +112,6 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
             data.extranonce_prefix_factory_extended = extranonces.clone();
             data.extranonce_prefix_factory_standard = extranonces;
-            data.upstream_channel_id = msg.channel_id;
             data.upstream_channel = Some(extended_channel);
 
             info!("Extended mining channel successfully initialized");

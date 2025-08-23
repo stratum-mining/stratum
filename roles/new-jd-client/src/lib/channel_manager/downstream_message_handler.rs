@@ -859,75 +859,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Error> {
         info!("Received handle_submit_shares_standard from Downstream");
 
-        let (upstream_message, channel_extranonce) =
-            self.channel_manager_data
-                .super_safe_lock(|channel_manager_data| {
-                    let downstream_id = channel_manager_data
-                        .channel_id_to_downstream_id
-                        .get(&msg.channel_id);
-                    let mut channel_extranonce = None;
-                    let mut extranonce_range_1_and_range_2 = vec![];
-                    if let Some(downstream_id) = downstream_id {
-                        let downstream = channel_manager_data.downstream.get(downstream_id);
-                        if let Some(downstream) = downstream {
-                            downstream.downstream_data.super_safe_lock(|data| {
-                                if let Some(standard_channel) =
-                                    data.standard_channels.get(&msg.channel_id)
-                                {
-                                    channel_extranonce =
-                                        Some(standard_channel.get_extranonce_prefix().clone());
-                                    if let Some(ref upstream_channel) =
-                                        channel_manager_data.upstream_channel
-                                    {
-                                        let extranonce_prefix =
-                                            upstream_channel.get_extranonce_prefix();
-                                        extranonce_range_1_and_range_2.extend_from_slice(
-                                            &standard_channel.get_extranonce_prefix()
-                                                [extranonce_prefix.len()..],
-                                        );
-                                    }
-                                }
-                            })
-                        }
-                    }
-
-                    let mut messages = None;
-                    let template_id = channel_manager_data
-                        .downstream_channel_id_and_job_id_to_template_id
-                        .get(&(msg.channel_id, msg.job_id));
-                    if let Some(template_id) = template_id {
-                        let upstream_job_id = channel_manager_data
-                            .template_id_to_upstream_job_id
-                            .get(template_id);
-                        if let Some(upstream_job_id) = upstream_job_id {
-                            let share_extended = SubmitSharesExtended {
-                                channel_id: channel_manager_data.upstream_channel_id,
-                                job_id: *upstream_job_id as u32,
-                                extranonce: extranonce_range_1_and_range_2.try_into().unwrap(),
-                                nonce: msg.nonce,
-                                ntime: msg.ntime,
-                                sequence_number: msg.sequence_number,
-                                version: msg.version,
-                            };
-
-                            messages = Some(share_extended);
-                        }
-                    }
-                    (messages, channel_extranonce)
-                });
-
-        if let Some(upstream_message) = upstream_message {
-            let any_message = AnyMessage::Mining(Mining::SubmitSharesExtended(
-                upstream_message.clone().into_static(),
-            ));
-            let frame: StdFrame = any_message.try_into().unwrap();
-
-            self.channel_manager_channel
-                .upstream_sender
-                .send(frame.into())
-                .await;
-        }
-
         let channel_id = msg.channel_id;
         let job_id = msg.job_id;
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
@@ -976,7 +907,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     .and_then(|tid| channel_manager_data.template_id_to_upstream_job_id.get(tid))
                     .map(|&upstream_job_id| {
                         let new_msg = SubmitSharesExtended {
-                            channel_id: channel_manager_data.upstream_channel_id,
+                            channel_id: upstream_channel.get_channel_id(),
                             job_id: upstream_job_id as u32,
                             extranonce: extranonce_parts.try_into().unwrap(),
                             nonce: msg.nonce,
@@ -1382,7 +1313,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     .and_then(|tid| channel_manager_data.template_id_to_upstream_job_id.get(tid))
                     .map(|&upstream_job_id| {
                         let mut new_msg = msg.clone();
-                        new_msg.channel_id = channel_manager_data.upstream_channel_id;
+                        new_msg.channel_id = upstream_channel.get_channel_id();
                         new_msg.job_id = upstream_job_id as u32;
 
                         extranonce_parts.extend_from_slice(&msg.extranonce.to_vec());
