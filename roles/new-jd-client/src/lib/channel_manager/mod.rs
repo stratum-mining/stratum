@@ -42,7 +42,7 @@ use tokio::{
     net::TcpListener,
     sync::{broadcast, mpsc},
 };
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     config::JobDeclaratorClientConfig,
@@ -50,7 +50,10 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{message_from_frame, EitherFrame, Message, ShutdownMessage, StdFrame},
+    utils::{
+        message_from_frame, AtomicUpstreamState, EitherFrame, Message, ShutdownMessage, StdFrame,
+        UpstreamState,
+    },
 };
 mod downstream_message_handler;
 mod jd_message_handler;
@@ -88,8 +91,8 @@ pub struct ChannelManagerData {
     coinbase_outputs: Vec<u8>,
     channel_id_to_downstream_id: HashMap<u32, u32>,
     upstream_channel: Option<ExtendedChannel<'static>>,
-    pending_channel: HashMap<u32, (String, f32, usize)>,
     pool_tag_string: Option<String>,
+    pending_downstream_requests: Vec<Mining<'static>>,
 }
 
 #[derive(Clone)]
@@ -114,6 +117,7 @@ pub struct ChannelManager {
     coinbase_reward_script: CoinbaseRewardScript,
     user_identity: String,
     min_extranonce_size: u16,
+    upstream_state: AtomicUpstreamState,
 }
 
 impl ChannelManager {
@@ -168,8 +172,8 @@ impl ChannelManager {
             coinbase_outputs,
             channel_id_to_downstream_id: HashMap::new(),
             upstream_channel: None,
-            pending_channel: HashMap::new(),
             pool_tag_string: None,
+            pending_downstream_requests: Vec::new(),
         }));
 
         let channel_manager_channel = ChannelManagerChannel {
@@ -192,6 +196,7 @@ impl ChannelManager {
             coinbase_reward_script: config.coinbase_reward_script.clone(),
             user_identity: config.user_identity().to_string(),
             min_extranonce_size: config.min_extranonce_size(),
+            upstream_state: AtomicUpstreamState::new(UpstreamState::NotConnected),
         };
 
         Ok(channel_manager)
@@ -470,9 +475,6 @@ impl ChannelManager {
 
                     let (message_type, mut payload, parsed_message) =
                         message_from_frame(&mut frame)?;
-                    let is_upstream_available = self
-                        .channel_manager_data
-                        .super_safe_lock(|data| data.upstream_channel.is_some());
 
                     match parsed_message {
                         AnyMessage::Mining(m) => match m {
@@ -484,116 +486,123 @@ impl ChannelManager {
                                 );
                                 x.user_identity = user_identity.try_into().unwrap();
 
-                                if !is_upstream_available {
-                                    let mut y = x.clone();
-                                    y.user_identity =
-                                        self.user_identity.clone().try_into().unwrap();
-                                    y.request_id = 1;
-                                    self.channel_manager_data.super_safe_lock(|data| {
-                                        data.pending_channel.insert(
-                                            0,
-                                            (
-                                                self.user_identity.clone(),
-                                                y.nominal_hash_rate,
-                                                y.min_extranonce_size.into(),
-                                            ),
+                                let downstream_msg = Mining::OpenExtendedMiningChannel(x.clone());
+
+                                match self.upstream_state.get() {
+                                    UpstreamState::NotConnected => {
+                                        self.channel_manager_data.super_safe_lock(|data| {
+                                            data.pending_downstream_requests.push(downstream_msg);
+                                        });
+
+                                        if self
+                                            .upstream_state
+                                            .compare_and_set(
+                                                UpstreamState::NotConnected,
+                                                UpstreamState::Pending,
+                                            )
+                                            .is_ok()
+                                        {
+                                            let mut upstream_message = x;
+                                            upstream_message.user_identity =
+                                                self.user_identity.clone().try_into().unwrap();
+                                            upstream_message.request_id = 1;
+                                            let upstream_message = AnyMessage::Mining(
+                                                Mining::OpenExtendedMiningChannel(upstream_message),
+                                            );
+                                            let frame: StdFrame = upstream_message.try_into()?;
+
+                                            self.channel_manager_channel
+                                                .upstream_sender
+                                                .send(frame.into())
+                                                .await
+                                                .map_err(|_| JDCError::ChannelErrorSender)?;
+                                        }
+                                    }
+                                    UpstreamState::Pending => {
+                                        self.channel_manager_data.super_safe_lock(|data| {
+                                            data.pending_downstream_requests.push(downstream_msg);
+                                        });
+                                    }
+                                    UpstreamState::Connected => {
+                                        self.forward_downstream_channel_open_request(
+                                            downstream_msg,
+                                            message_type,
                                         )
-                                    });
-                                    let mining_message =
-                                        AnyMessage::Mining(Mining::OpenExtendedMiningChannel(y));
-                                    let frame: StdFrame = mining_message.try_into().unwrap();
-                                    self.channel_manager_channel
-                                        .upstream_sender
-                                        .send(frame.into())
-                                        .await;
-                                    // something smart and state machiny kinda stuff can be done,
-                                    // this won't even
-                                    // work for multiple downstream connecting simultaneously.
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                        .await?;
+                                    }
+                                    UpstreamState::SoloMining => {
+                                        self.forward_downstream_channel_open_request(
+                                            downstream_msg,
+                                            message_type,
+                                        )
+                                        .await?;
+                                    }
                                 }
-                                let mining_message = Mining::OpenExtendedMiningChannel(x);
-
-                                let mut any_message = mining_message.into_static();
-                                let sv2_frame: Sv2Frame<Mining<'static>, Vec<u8>> =
-                                    Sv2Frame::from_message(any_message, message_type, 0, false)
-                                        .unwrap();
-
-                                let mut serialized_frame = vec![0u8; sv2_frame.encoded_length()];
-                                sv2_frame
-                                    .serialize(&mut serialized_frame)
-                                    .expect("Failed to serialize the frame");
-                                let mut deserialized_frame =
-                                    Sv2Frame::<Mining<'static>, Vec<u8>>::from_bytes(
-                                        serialized_frame,
-                                    )
-                                    .expect("Failed to deserialize frame");
-
-                                let mut payload = deserialized_frame.payload();
-
-                                self.handle_mining_message_from_client(message_type, &mut payload)
-                                    .await;
                             }
                             Mining::OpenStandardMiningChannel(mut x) => {
-                                if !is_upstream_available {
-                                    let mut y = OpenExtendedMiningChannel {
-                                        user_identity: self
-                                            .user_identity
-                                            .clone()
-                                            .try_into()
-                                            .unwrap(),
-                                        request_id: 1,
-                                        nominal_hash_rate: x.nominal_hash_rate,
-                                        max_target: x.max_target.clone(),
-                                        min_extranonce_size: self.min_extranonce_size,
-                                    };
-                                    y.user_identity =
-                                        self.user_identity.clone().try_into().unwrap();
-                                    y.request_id = 1;
-                                    self.channel_manager_data.super_safe_lock(|data| {
-                                        data.pending_channel.insert(
-                                            0,
-                                            (
-                                                self.user_identity.clone(),
-                                                y.nominal_hash_rate,
-                                                /// Speak with gitgab about this
-                                                8,
-                                            ),
-                                        )
-                                    });
-                                    let mining_message =
-                                        AnyMessage::Mining(Mining::OpenExtendedMiningChannel(y));
-                                    let frame: StdFrame = mining_message.try_into().unwrap();
-                                    self.channel_manager_channel
-                                        .upstream_sender
-                                        .send(frame.into())
-                                        .await;
-                                    // something smart and state machiny kinda stuff can be done,
-                                    // this won't even
-                                    // work for multiple downstream connecting simultaneously.
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                }
                                 let user_identity =
                                     format!("{}#{}", x.user_identity, downstream_id);
                                 x.user_identity = user_identity.try_into().unwrap();
-                                let mining_message = Mining::OpenStandardMiningChannel(x);
-                                let mut any_message = mining_message.into_static();
-                                let sv2_frame: Sv2Frame<Mining<'static>, Vec<u8>> =
-                                    Sv2Frame::from_message(any_message, message_type, 0, false)
-                                        .unwrap();
 
-                                let mut serialized_frame = vec![0u8; sv2_frame.encoded_length()];
-                                sv2_frame
-                                    .serialize(&mut serialized_frame)
-                                    .expect("Failed to serialize the frame");
-                                let mut deserialized_frame =
-                                    Sv2Frame::<Mining<'static>, Vec<u8>>::from_bytes(
-                                        serialized_frame,
-                                    )
-                                    .expect("Failed to deserialize frame");
+                                let downstream_msg = Mining::OpenStandardMiningChannel(x.clone());
 
-                                let mut payload = deserialized_frame.payload();
-                                self.handle_mining_message_from_client(message_type, &mut payload)
-                                    .await;
+                                match self.upstream_state.get() {
+                                    UpstreamState::NotConnected => {
+                                        self.channel_manager_data.super_safe_lock(|data| {
+                                            data.pending_downstream_requests.push(downstream_msg)
+                                        });
+
+                                        if self
+                                            .upstream_state
+                                            .compare_and_set(
+                                                UpstreamState::NotConnected,
+                                                UpstreamState::Pending,
+                                            )
+                                            .is_ok()
+                                        {
+                                            let mut upstream_open = OpenExtendedMiningChannel {
+                                                user_identity: self
+                                                    .user_identity
+                                                    .clone()
+                                                    .try_into()
+                                                    .unwrap(),
+                                                request_id: 1,
+                                                nominal_hash_rate: x.nominal_hash_rate,
+                                                max_target: x.max_target,
+                                                min_extranonce_size: self.min_extranonce_size,
+                                            };
+
+                                            let frame: StdFrame = AnyMessage::Mining(
+                                                Mining::OpenExtendedMiningChannel(upstream_open),
+                                            )
+                                            .try_into()?;
+                                            self.channel_manager_channel
+                                                .upstream_sender
+                                                .send(frame.into())
+                                                .await
+                                                .map_err(|_| JDCError::ChannelErrorSender)?;
+                                        }
+                                    }
+                                    UpstreamState::Pending => {
+                                        self.channel_manager_data.super_safe_lock(|data| {
+                                            data.pending_downstream_requests.push(downstream_msg)
+                                        });
+                                    }
+                                    UpstreamState::Connected => {
+                                        self.forward_downstream_channel_open_request(
+                                            downstream_msg,
+                                            message_type,
+                                        )
+                                        .await?;
+                                    }
+                                    UpstreamState::SoloMining => {
+                                        self.forward_downstream_channel_open_request(
+                                            downstream_msg,
+                                            message_type,
+                                        )
+                                        .await?;
+                                    }
+                                }
                             }
                             _ => {
                                 self.handle_mining_message_from_client(message_type, &mut payload)
@@ -611,6 +620,46 @@ impl ChannelManager {
                 }
             }
         }
+        Ok(())
+    }
+
+    #[instrument(skip_all, fields(message_type = message_type))]
+    async fn forward_downstream_channel_open_request(
+        &mut self,
+        mining_msg: Mining<'static>,
+        message_type: u8,
+    ) -> Result<(), JDCError> {
+        let sv2_frame: Sv2Frame<Mining<'static>, Vec<u8>> = match Sv2Frame::from_message(
+            mining_msg,
+            message_type,
+            0,
+            false,
+        ) {
+            Some(f) => f,
+            None => {
+                warn!(%message_type, "Failed to build Sv2Frame from mining message; dropping request");
+                return Ok(());
+            }
+        };
+
+        let mut serialized = vec![0u8; sv2_frame.encoded_length()];
+        if let Err(e) = sv2_frame.serialize(&mut serialized) {
+            warn!(?e, %message_type, len = serialized.len(), "Failed to serialize Sv2Frame; dropping request");
+            return Ok(());
+        }
+
+        let mut deserialized_frame =
+            match Sv2Frame::<Mining<'static>, Vec<u8>>::from_bytes(serialized) {
+                Ok(f) => f,
+                Err(e) => {
+                    warn!(?e, %message_type, "Failed to deserialize Sv2Frame; dropping request");
+                    return Ok(());
+                }
+            };
+
+        let mut payload = deserialized_frame.payload();
+        self.handle_mining_message_from_client(message_type, &mut payload)
+            .await?;
         Ok(())
     }
 

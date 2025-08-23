@@ -375,3 +375,55 @@ pub fn spawn_io_tasks(
 pub fn deserialize_coinbase_output(coinbase_output: &[u8]) -> Vec<TxOut> {
     bitcoin::consensus::deserialize(coinbase_output).expect("Invalid coinbase output")
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpstreamState {
+    NotConnected = 0,
+    Pending = 1,
+    Connected = 2,
+    SoloMining = 3,
+}
+
+#[derive(Clone)]
+pub struct AtomicUpstreamState {
+    inner: Arc<AtomicU8>,
+}
+
+impl AtomicUpstreamState {
+    pub fn new(state: UpstreamState) -> Self {
+        Self {
+            inner: Arc::new(AtomicU8::new(state as u8)),
+        }
+    }
+
+    pub fn get(&self) -> UpstreamState {
+        match self.inner.load(Ordering::SeqCst) {
+            0 => UpstreamState::NotConnected,
+            1 => UpstreamState::Pending,
+            2 => UpstreamState::Connected,
+            3 => UpstreamState::SoloMining,
+            _ => unreachable!("invalid upstream state"),
+        }
+    }
+
+    pub fn set(&self, state: UpstreamState) {
+        self.inner.store(state as u8, Ordering::SeqCst);
+    }
+
+    pub fn compare_and_set(
+        &self,
+        current: UpstreamState,
+        new: UpstreamState,
+    ) -> Result<(), UpstreamState> {
+        self.inner
+            .compare_exchange(current as u8, new as u8, Ordering::SeqCst, Ordering::SeqCst)
+            .map(|_| ())
+            .map_err(|v| match v {
+                0 => UpstreamState::NotConnected,
+                1 => UpstreamState::Pending,
+                2 => UpstreamState::Connected,
+                3 => UpstreamState::SoloMining,
+                _ => unreachable!("invalid upstream state"),
+            })
+    }
+}

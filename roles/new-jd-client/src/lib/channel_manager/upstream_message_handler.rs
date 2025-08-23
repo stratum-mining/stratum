@@ -4,11 +4,14 @@ use stratum_common::roles_logic_sv2::{
         HandleMiningMessagesFromServerAsync, HandlerError as Error, SupportedChannelTypes,
     },
     mining_sv2::*,
-    parsers_sv2::{AnyMessage, Mining},
+    parsers_sv2::{AnyMessage, IsSv2Message, Mining},
 };
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{channel_manager::ChannelManager, utils::deserialize_coinbase_output};
+use crate::{
+    channel_manager::ChannelManager,
+    utils::{deserialize_coinbase_output, UpstreamState},
+};
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
     fn get_channel_type_for_server(&self) -> SupportedChannelTypes {
@@ -35,18 +38,25 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         info!("Handling OpenExtendedMiningChannelSuccess");
 
         self.channel_manager_data.super_safe_lock(|data| {
-            let (ident, hashrate, min_extranonce_size) =
-                data.pending_channel.remove(&0).unwrap_or_else(|| {
-                    warn!(
-                        "No pending channel found for request_id={}; using fallback values",
-                        msg.request_id
-                    );
-                    ("unknown".to_string(), 100_000.0, 8_usize)
-                });
+            let downstream_instance = data.pending_downstream_requests[0].clone();
+
+            let (hashrate, min_extranonce_size) = data
+                .pending_downstream_requests
+                .get(0)
+                .map(|req| match req {
+                    Mining::OpenExtendedMiningChannel(m) => {
+                        (m.nominal_hash_rate, m.min_extranonce_size)
+                    }
+                    Mining::OpenStandardMiningChannel(m) => {
+                        (m.nominal_hash_rate, self.min_extranonce_size)
+                    }
+                    _ => (100_000.0, self.min_extranonce_size),
+                })
+                .unwrap_or((100_000.0, self.min_extranonce_size));
 
             let prefix_len = msg.extranonce_prefix.len();
             let jdc_extranonce_len = std::cmp::min(
-                (msg.extranonce_size as usize).saturating_sub(min_extranonce_size),
+                (msg.extranonce_size as usize).saturating_sub(min_extranonce_size as usize),
                 self.min_extranonce_size as usize,
             );
             let total_len = prefix_len + msg.extranonce_size as usize;
@@ -78,7 +88,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             let job_store = Box::new(DefaultJobStore::new());
             let mut extended_channel = match ExtendedChannel::new_for_job_declaration_client(
                 msg.channel_id,
-                ident,
+                self.user_identity.clone(),
                 msg.extranonce_prefix.to_vec(),
                 msg.target.into(),
                 hashrate,
@@ -113,9 +123,21 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             data.extranonce_prefix_factory_extended = extranonces.clone();
             data.extranonce_prefix_factory_standard = extranonces;
             data.upstream_channel = Some(extended_channel);
+            self.upstream_state.set(UpstreamState::Connected);
 
             info!("Extended mining channel successfully initialized");
         });
+
+        let pending_downstreams = self
+            .channel_manager_data
+            .super_safe_lock(|data| std::mem::take(&mut data.pending_downstream_requests));
+
+        for pending_downstream in pending_downstreams {
+            let message_type = pending_downstream.message_type();
+            self.forward_downstream_channel_open_request(pending_downstream, message_type)
+                .await
+                .map_err(|e| Error::External(Box::new(e)))?;
+        }
 
         Ok(())
     }
