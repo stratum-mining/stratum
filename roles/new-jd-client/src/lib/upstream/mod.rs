@@ -194,8 +194,20 @@ impl Upstream {
                                 info!("Upstream: received shutdown signal.");
                                 break;
                             }
-                            Ok(ShutdownMessage::JobDeclaratorShutdown) => {
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_)) => {
                                 info!("Upstream: Received Job declarator shutdown.");
+                                break;
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(_)) => {
+                                info!("Upstream: Received Upstream shutdown.");
+                                break;
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdown) => {
+                                info!("Upstream shutdown requested");
+                                break;
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdown) => {
+                                info!("Upstream shutdown requested");
                                 break;
                             }
                             Err(_) => {
@@ -222,6 +234,7 @@ impl Upstream {
 
                 }
             }
+            drop(shutdown_complete_tx);
             warn!("Upstream: unified message loop exited.");
         }.instrument(Span::current()));
     }

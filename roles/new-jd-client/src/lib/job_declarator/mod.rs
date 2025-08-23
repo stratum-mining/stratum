@@ -126,12 +126,24 @@ impl JobDeclarator {
                                     info!("Job Declarator: received shutdown signal.");
                                     break;
                                 }
-                                Ok(ShutdownMessage::JobDeclaratorShutdown) => {
+                                Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_)) => {
                                     info!("Job Declarator: Received Job declarator shutdown.");
                                     break;
                                 }
-                                Ok(ShutdownMessage::UpstreamShutdown) => {
+                                Ok(ShutdownMessage::UpstreamShutdownFallback(_)) => {
                                     info!("Job Declarator: Received Upstream shutdown.");
+                                    break;
+                                }
+                                Ok(ShutdownMessage::UpstreamShutdown) => {
+                                    info!("Job declarator shutdown requested");
+                                    break;
+                                }
+                                Ok(ShutdownMessage::JobDeclaratorShutdown) => {
+                                    info!("Job declarator shutdown requested");
+                                    break;
+                                }
+                                Err(e) => {
+                                    warn!(error = ?e, "Job Declarator: shutdown channel closed unexpectedly");
                                     break;
                                 }
                                 _ => {}

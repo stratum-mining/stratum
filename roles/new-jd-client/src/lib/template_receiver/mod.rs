@@ -183,9 +183,24 @@ impl TemplateReceiver {
                     let self_clone_2 = self.clone();
                     tokio::select! {
                         message = shutdown_rx.recv() => {
-                            if let Ok(ShutdownMessage::ShutdownAll) = message {
-                                info!("Template Receiver: received shutdown signal");
-                                break;
+                            match message {
+                                Ok(ShutdownMessage::ShutdownAll) => {
+                                    info!("Template Receiver: received shutdown signal");
+                                    break;
+                                },
+                                Ok(ShutdownMessage::UpstreamShutdownFallback(coinbase_outputs)) => {
+                                    info!("Template provider: Received Upstream shutdown.");
+                                    self.coinbase_constraints(coinbase_outputs).await;
+                                }
+                                Ok(ShutdownMessage::JobDeclaratorShutdownFallback(coinbase_outputs)) => {
+                                    info!("Template provider: Received Job declarator shutdown.");
+                                    self.coinbase_constraints(coinbase_outputs).await;
+                                }
+                                Err(e) => {
+                                    warn!(error = ?e, "Template Receiver: shutdown channel closed unexpectedly");
+                                    break;
+                                }
+                                _ => {}
                             }
                         }
                         res = self_clone_1.handle_template_provider_message() => {
@@ -204,6 +219,7 @@ impl TemplateReceiver {
                         },
                     }
                 }
+                drop(shutdown_complete_tx);
                 warn!("TemplateReceiver: unified message loop exited.");
             }
             .instrument(tracing::Span::current()),

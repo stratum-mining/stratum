@@ -9,8 +9,7 @@ use stratum_common::roles_logic_sv2::{
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
-    channel_manager::ChannelManager,
-    utils::{deserialize_coinbase_output, UpstreamState},
+    channel_manager::ChannelManager, error::JDCError, utils::{deserialize_coinbase_output, UpstreamState}
 };
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
@@ -148,6 +147,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: OpenMiningChannelError<'_>,
     ) -> Result<(), Error> {
         warn!(?msg, "Received OpenMiningChannelError from Pool");
+        Error::External(JDCError::Shutdown.into());
         Ok(())
     }
 
@@ -256,6 +256,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: SetCustomMiningJobError<'_>,
     ) -> Result<(), Error> {
         warn!(?msg, "Received SetCustomMiningJobError from Pool");
+        Error::External(JDCError::Shutdown.into());
         Ok(())
     }
 

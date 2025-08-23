@@ -36,7 +36,7 @@ impl From<JdMode> for u8 {
     }
 }
 
-pub static JD_MODE: AtomicU8 = AtomicU8::new(JdMode::TemplateOnly as u8);
+pub static JD_MODE: AtomicU8 = AtomicU8::new(JdMode::SoloMining as u8);
 
 pub fn set_jd_mode(mode: JdMode) {
     JD_MODE.store(mode as u8, Ordering::SeqCst);

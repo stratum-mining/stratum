@@ -588,13 +588,12 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             return vec![(*downstream_id, build_error(err_code))];
                         }
 
-                        let set_target = SetTarget {
-                            channel_id,
-                            maximum_target: new_target.clone().into(),
-                        };
                         messages.push((
-                            downstream.downstream_id,
-                            AnyMessage::Mining(Mining::SetTarget(set_target)),
+                            *downstream_id,
+                            AnyMessage::Mining(Mining::SetTarget(SetTarget {
+                                channel_id,
+                                maximum_target: new_target.into(),
+                            })),
                         ));
                     } else {
                         error!("UpdateChannelError: invalid-channel-id");

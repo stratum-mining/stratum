@@ -146,12 +146,16 @@ impl Downstream {
                                 info!("Vardiff for downstream {downstream_id}: received shutdown order");
                                 break;
                             }
-                            Ok(ShutdownMessage::JobDeclaratorShutdown)  => {
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_))  => {
                                 debug!("Downstream {downstream_id}: Received job declaratorShutdown shutdown");
                                 break;
                             }
-                            Ok(ShutdownMessage::UpstreamShutdown)  => {
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(_))  => {
                                 debug!("Downstream {downstream_id}: Received job Upstream shutdown");
+                                break;
+                            }
+                            Err(e) => {
+                                warn!(error = ?e, "Downstream: shutdown channel closed unexpectedly");
                                 break;
                             }
                             _ => {}
@@ -186,11 +190,11 @@ impl Downstream {
                                 debug!("Downstream {downstream_id}: Received downstream {id} shutdown");
                                 break;
                             }
-                            Ok(ShutdownMessage::JobDeclaratorShutdown)  => {
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_))  => {
                                 debug!("Downstream {downstream_id}: Received job declaratorShutdown shutdown");
                                 break;
                             }
-                            Ok(ShutdownMessage::UpstreamShutdown)  => {
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(_))  => {
                                 debug!("Downstream {downstream_id}: Received job Upstream shutdown");
                                 break;
                             }
@@ -214,6 +218,7 @@ impl Downstream {
 
                 }
             }
+            drop(shutdown_complete_tx);
             warn!("Downstream: unified message loop exited.");
         }.instrument(Span::current()));
     }

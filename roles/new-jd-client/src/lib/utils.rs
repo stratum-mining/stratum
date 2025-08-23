@@ -46,9 +46,13 @@ pub enum ShutdownMessage {
     DownstreamShutdownAll,
     /// Shutdown a specific downstream connection by ID
     DownstreamShutdown(u32),
-    /// Shutdown JD part of JDC
+    /// Shutdown JD part of JDC during fallback
+    JobDeclaratorShutdownFallback(Vec<u8>),
+    /// Shutdown Upstream during fallback
+    UpstreamShutdownFallback(Vec<u8>),
+    /// during initialization
     JobDeclaratorShutdown,
-    /// Shutdown Upstream
+    /// during initialization
     UpstreamShutdown,
 }
 
@@ -258,25 +262,27 @@ pub fn spawn_io_tasks(
                         match message {
                             Ok(ShutdownMessage::ShutdownAll) => {
                                 debug!("Received global shutdown");
-                                if status_type != StatusType::TemplateReceiver {
-                                    break;
-                                }
+                                inbound_tx.close();
+                                break;
                             }
                             Ok(ShutdownMessage::DownstreamShutdown(down_id))  if matches!(status_type, StatusType::Downstream(id) if id == down_id) => {
                                 debug!(down_id, "Received downstream shutdown");
                                 if status_type != StatusType::TemplateReceiver {
+                                    inbound_tx.close();
                                     break;
                                 }
                             }
-                            Ok(ShutdownMessage::JobDeclaratorShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_)) if !matches!(StatusType::TemplateReceiver, status_type) => {
                                 debug!("Received job declarator shutdown");
                                 if status_type != StatusType::TemplateReceiver {
+                                    inbound_tx.close();
                                     break;
                                 }
                             }
-                            Ok(ShutdownMessage::UpstreamShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(_)) if !matches!(StatusType::TemplateReceiver, status_type) => {
                                 debug!("Received upstream shutdown");
                                 if status_type != StatusType::TemplateReceiver {
+                                    inbound_tx.close();
                                     break;
                                 }
                             }
@@ -288,6 +294,7 @@ pub fn spawn_io_tasks(
                             Ok(frame) => {
                                 debug!("Received inbound frame");
                                 if let Err(e) = inbound_tx.send(frame).await {
+                                    inbound_tx.close();
                                     error!(error=?e, "Failed to forward inbound frame");
                                     handle_error(&status_sender, JDCError::ChannelErrorSender).await;
                                     break;
@@ -295,6 +302,7 @@ pub fn spawn_io_tasks(
                             }
                             Err(e) => {
                                 error!(error=?e, "Reader error");
+                                inbound_tx.close();
                                 handle_error(&status_sender, e.into()).await;
                                 break;
                             }
@@ -324,25 +332,27 @@ pub fn spawn_io_tasks(
                         match message {
                             Ok(ShutdownMessage::ShutdownAll) => {
                                 debug!("Received global shutdown");
-                                if status_type != StatusType::TemplateReceiver {
-                                    break;
-                                }
+                                outbound_rx.close();
+                                break;
                             }
                             Ok(ShutdownMessage::DownstreamShutdown(down_id))  if matches!(status_type, StatusType::Downstream(id) if id == down_id) => {
                                 debug!(down_id, "Received downstream shutdown");
                                 if status_type != StatusType::TemplateReceiver {
+                                    outbound_rx.close();
                                     break;
                                 }
                             }
-                            Ok(ShutdownMessage::JobDeclaratorShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_)) if !matches!(StatusType::TemplateReceiver, status_type) => {
                                 debug!("Received job declarator shutdown");
                                 if status_type != StatusType::TemplateReceiver {
+                                    outbound_rx.close();
                                     break;
                                 }
                             }
-                            Ok(ShutdownMessage::UpstreamShutdown) if !matches!(StatusType::TemplateReceiver, status_type) => {
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(_)) if !matches!(StatusType::TemplateReceiver, status_type) => {
                                 debug!("Received upstream shutdown");
                                 if status_type != StatusType::TemplateReceiver {
+                                    outbound_rx.close();
                                     break;
                                 }
                             }
@@ -355,11 +365,13 @@ pub fn spawn_io_tasks(
                                 debug!("Sending outbound frame");
                                 if let Err(e) = writer.write_frame(frame).await {
                                     error!(error=?e, "Writer error");
+                                    outbound_rx.close();
                                     handle_error(&status_sender, e.into()).await;
                                     break;
                                 }
                             }
                             Err(_) => {
+                                outbound_rx.close();
                                 warn!("Outbound channel closed");
                                 break;
                             }
@@ -367,6 +379,7 @@ pub fn spawn_io_tasks(
                     }
                 }
             }
+            outbound_rx.close();
             warn!("Writer task exited.");
         }.instrument(writer_span));
     }

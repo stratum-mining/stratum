@@ -99,6 +99,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         );
 
         debug!("Fallback path triggered for request_id={}", msg.request_id);
+        Error::External(JDCError::Shutdown.into());
 
         Ok(())
     }

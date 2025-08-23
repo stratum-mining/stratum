@@ -18,6 +18,9 @@ user_identity = "your_username_here"
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
 
+# Share batch size
+share_batch_size = 1
+
 # min extranonce size
 min_extranonce_size = 4
 

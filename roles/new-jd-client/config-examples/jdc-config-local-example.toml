@@ -61,6 +61,7 @@ pool_address = "127.0.0.1"
 pool_port = 34254
 jd_address = "127.0.0.1"
 jd_port = 34264
+
  
 # [[upstreams]]
 # authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"

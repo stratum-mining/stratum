@@ -40,9 +40,10 @@ use stratum_common::{
 };
 use tokio::{
     net::TcpListener,
+    select,
     sync::{broadcast, mpsc},
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn, Instrument, Span};
 
 use crate::{
     config::JobDeclaratorClientConfig,
@@ -93,6 +94,47 @@ pub struct ChannelManagerData {
     upstream_channel: Option<ExtendedChannel<'static>>,
     pool_tag_string: Option<String>,
     pending_downstream_requests: Vec<Mining<'static>>,
+}
+
+impl ChannelManagerData {
+    #[instrument(skip_all)]
+    pub fn reset(&mut self, coinbase_outputs: Vec<u8>) {
+        self.downstream.clear();
+        self.template_store.clear();
+        self.last_declare_job_store.clear();
+        self.job_id_to_template.clear();
+        self.template_id_to_upstream_job_id.clear();
+        self.template_id_to_downstream_channel_id_and_job_id.clear();
+        self.downstream_channel_id_and_job_id_to_template_id.clear();
+        self.channel_id_to_downstream_id.clear();
+        self.pending_downstream_requests.clear();
+
+        self.downstream_id_factory = IdFactory::new();
+        self.request_id_factory = IdFactory::new();
+        self.channel_id_factory = IdFactory::new();
+
+        let (range_0, range_1, range_2) = {
+            let range_1 = 0..8;
+            (
+                0..range_1.start,
+                range_1.clone(),
+                range_1.end..FULL_EXTRANONCE_LEN,
+            )
+        };
+        self.extranonce_prefix_factory_extended =
+            ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
+                .expect("valid ranges");
+        self.extranonce_prefix_factory_standard =
+            ExtendedExtranonce::new(range_0, range_1, range_2, None).expect("valid ranges");
+
+        self.last_future_template = None;
+        self.last_new_prev_hash = None;
+        self.allocate_tokens = None;
+        self.upstream_channel = None;
+        self.pool_tag_string = None;
+
+        self.coinbase_outputs = coinbase_outputs;
+    }
 }
 
 #[derive(Clone)]
@@ -217,66 +259,106 @@ impl ChannelManager {
         channel_manager_receiver: broadcast::Sender<(u32, Message)>,
     ) -> Result<(), JDCError> {
         let server = TcpListener::bind(listening_address).await.map_err(|e| {
-            error!(error = ?e, "Failed to bind to {}", listening_address);
+            error!(error = ?e, "Failed to bind downstream server at {listening_address}");
             e
         })?;
+
+        let mut shutdown_rx = notify_shutdown.subscribe();
+
         let task_manager_clone = task_manager.clone();
         task_manager.spawn(async move {
-            while let Ok((stream, socket_address)) = server.accept().await {
-                info!(%socket_address, "New downstream connection");
-                let responder = match Responder::from_authority_kp(
-                    &authority_public_key.into_bytes(),
-                    &authority_secret_key.into_bytes(),
-                    std::time::Duration::from_secs(cert_validity_sec),
-                ) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        error!(error = ?e, "Failed to create responder");
-                        continue;
+
+            loop {
+                select! {
+                    message = shutdown_rx.recv() => {
+                        match message {
+                            Ok(ShutdownMessage::ShutdownAll) => {
+                                info!("Channel Manager: received shutdown signal");
+                                break;
+                            }
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(_)) => {
+                                info!("Downstream Server: received job declarator shutdown signal");
+                                break;
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(_)) => {
+                                info!("Downstream Server: received upstream shutdown signal");
+                                break;
+                            }
+                            Err(e) => {
+                                warn!(error = ?e, "shutdown channel closed unexpectedly");
+                                break;
+                            }
+                            _ => {}
+                        }
                     }
-                };
-                let noise_stream = match NoiseTcpStream::<Message>::new(
-                    stream,
-                    stratum_common::roles_logic_sv2::codec_sv2::HandshakeRole::Responder(responder),
-                )
-                .await
-                {
-                    Ok(ns) => ns,
-                    Err(e) => {
-                        error!(error = ?e, "Noise handshake failed");
-                        continue;
+                    res = server.accept() => {
+                        match res {
+                            Ok((stream, socket_address)) => {
+                                info!(%socket_address, "New downstream connection");
+                                let responder = match Responder::from_authority_kp(
+                                    &authority_public_key.into_bytes(),
+                                    &authority_secret_key.into_bytes(),
+                                    std::time::Duration::from_secs(cert_validity_sec),
+                                ) {
+                                    Ok(r) => r,
+                                    Err(e) => {
+                                        error!(error = ?e, "Failed to create responder");
+                                        continue;
+                                    }
+                                };
+                                let noise_stream = match NoiseTcpStream::<Message>::new(
+                                    stream,
+                                    stratum_common::roles_logic_sv2::codec_sv2::HandshakeRole::Responder(responder),
+                                )
+                                .await
+                                {
+                                    Ok(ns) => ns,
+                                    Err(e) => {
+                                        error!(error = ?e, "Noise handshake failed");
+                                        continue;
+                                    }
+                                };
+
+                                let downstream_id = self
+                                    .channel_manager_data
+                                    .super_safe_lock(|data| data.downstream_id_factory.next());
+
+                                let downstream = Downstream::new(
+                                    downstream_id,
+                                    channel_manager_sender.clone(),
+                                    channel_manager_receiver.clone(),
+                                    noise_stream,
+                                    notify_shutdown.clone(),
+                                    shutdown_complete_tx.clone(),
+                                    task_manager_clone.clone(),
+                                    status_sender.clone(),
+                                );
+
+                                self.channel_manager_data.super_safe_lock(|data| {
+                                    data.downstream.insert(downstream_id, downstream.clone());
+                                });
+
+                                downstream
+                                    .start(
+                                        notify_shutdown.clone(),
+                                        shutdown_complete_tx.clone(),
+                                        status_sender.clone(),
+                                        task_manager_clone.clone(),
+                                    )
+                                    .await;
+                                }
+
+                                Err(e) => {
+                                    error!(error = ?e, "Failed to accept new downstream connection");
+                                }
+                            }
                     }
-                };
+                }
 
-                let downstream_id = self
-                    .channel_manager_data
-                    .super_safe_lock(|data| data.downstream_id_factory.next());
-
-                let downstream = Downstream::new(
-                    downstream_id,
-                    channel_manager_sender.clone(),
-                    channel_manager_receiver.clone(),
-                    noise_stream,
-                    notify_shutdown.clone(),
-                    shutdown_complete_tx.clone(),
-                    task_manager_clone.clone(),
-                    status_sender.clone(),
-                );
-
-                self.channel_manager_data.super_safe_lock(|data| {
-                    data.downstream.insert(downstream_id, downstream.clone());
-                });
-
-                downstream
-                    .start(
-                        notify_shutdown.clone(),
-                        shutdown_complete_tx.clone(),
-                        status_sender.clone(),
-                        task_manager_clone.clone(),
-                    )
-                    .await;
+                info!("Downstream server: Unified loop break");
             }
-        });
+            drop(shutdown_complete_tx);
+        }.instrument(Span::current()));
         Ok(())
     }
 
@@ -313,6 +395,18 @@ impl ChannelManager {
                                     tracing::error!(%downstream_id, error = ?e, "Failed to remove downstream");
                                 }
                             }
+                            Ok(ShutdownMessage::JobDeclaratorShutdownFallback(coinbase_outputs)) => {
+                                info!("Channel Manager: Job declarator shutdown signal");
+                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
+                            }
+                            Ok(ShutdownMessage::UpstreamShutdownFallback(coinbase_outputs)) => {
+                                info!("Channel Manager: Upstream shutdown signal");
+                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
+                            }
+                            Err(e) => {
+                                warn!(error = ?e, "shutdown channel closed unexpectedly");
+                                break;
+                            }
                             _ => {}
                         }
                     }
@@ -346,7 +440,7 @@ impl ChannelManager {
                     }
                 }
             }
-        });
+        }.instrument(Span::current()));
     }
 
     fn remove_downstream(&mut self, downstream_id: u32) -> Result<(), JDCError> {

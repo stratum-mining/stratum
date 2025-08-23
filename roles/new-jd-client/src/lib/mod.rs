@@ -14,7 +14,7 @@ use crate::{
     channel_manager::ChannelManager,
     config::JobDeclaratorClientConfig,
     error::JDCError,
-    jd_mode::set_jd_mode,
+    jd_mode::{set_jd_mode, JdMode},
     job_declarator::JobDeclarator,
     status::{State, Status},
     task_manager::TaskManager,
@@ -170,10 +170,10 @@ impl JobDeclaratorClient {
         match self
             .initialize_jd(
                 &upstream_addresses,
-                channel_manager_to_upstream_receiver,
-                upstream_to_channel_manager_sender,
-                channel_manager_to_jd_receiver,
-                jd_to_channel_manager_sender,
+                channel_manager_to_upstream_receiver.clone(),
+                upstream_to_channel_manager_sender.clone(),
+                channel_manager_to_jd_receiver.clone(),
+                jd_to_channel_manager_sender.clone(),
                 notify_shutdown.clone(),
                 shutdown_complete_tx.clone(),
                 status_sender.clone(),
@@ -214,6 +214,7 @@ impl JobDeclaratorClient {
         };
 
         channel_manager_clone
+            .clone()
             .start_downstream_server(
                 *self.config.authority_public_key(),
                 *self.config.authority_secret_key(),
@@ -258,16 +259,77 @@ impl JobDeclaratorClient {
                                 notify_shutdown_clone.send(ShutdownMessage::ShutdownAll).unwrap();
                                 break;
                             }
-                            State::UpstreamShutdown(_) => {
-                                warn!("Upstream connection dropped — attempting reconnection...");
-                                notify_shutdown_clone.send(ShutdownMessage::UpstreamShutdown).unwrap();
-                                // In these cases we gonna fallback
-                            }
-                            State::JobDeclaratorShutdown(_) => {
-                                warn!("JDS connection dropped — attempting reconnection..");
-                                notify_shutdown_clone.send(ShutdownMessage::JobDeclaratorShutdown).unwrap();
-                                // In these cases we gonna fallback
-                            }
+                            State::UpstreamShutdownFallback(_) | State::JobDeclaratorShutdownFallback(_) => {
+                                warn!("Upstream/Job Declarator connection dropped — attempting reconnection...");
+                                notify_shutdown_clone.send(ShutdownMessage::UpstreamShutdownFallback(encoded_outputs.clone())).unwrap();
+                                set_jd_mode(JdMode::SoloMining);
+
+
+                                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+                                info!("Attempting to initialize Jd and upstream...");
+
+                                match self
+                                    .initialize_jd(
+                                        &upstream_addresses,
+                                        channel_manager_to_upstream_receiver.clone(),
+                                        upstream_to_channel_manager_sender.clone(),
+                                        channel_manager_to_jd_receiver.clone(),
+                                        jd_to_channel_manager_sender.clone(),
+                                        notify_shutdown.clone(),
+                                        shutdown_complete_tx.clone(),
+                                        status_sender.clone(),
+                                        task_manager.clone(),
+                                    )
+                                    .await
+                                {
+                                    Ok((upstream, job_declarator)) => {
+                                        upstream
+                                            .start(
+                                                self.config.min_supported_version(),
+                                                self.config.max_supported_version(),
+                                                notify_shutdown.clone(),
+                                                shutdown_complete_tx.clone(),
+                                                status_sender.clone(),
+                                                task_manager.clone(),
+                                            )
+                                            .await;
+
+                                        job_declarator
+                                            .start(
+                                                notify_shutdown.clone(),
+                                                shutdown_complete_tx.clone(),
+                                                status_sender.clone(),
+                                                task_manager.clone(),
+                                            )
+                                            .await;
+
+                                        channel_manager_clone.allocate_tokens(1).await;
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to initialize upstream: {:?}", e);
+                                        set_jd_mode(jd_mode::JdMode::SoloMining);
+                                        notify_shutdown
+                                            .send(ShutdownMessage::JobDeclaratorShutdown)
+                                            .unwrap();
+                                    }
+                                };
+
+                                channel_manager_clone.clone()
+                                    .start_downstream_server(
+                                        *self.config.authority_public_key(),
+                                        *self.config.authority_secret_key(),
+                                        self.config.cert_validity_sec(),
+                                        *self.config.listening_address(),
+                                        task_manager.clone(),
+                                        notify_shutdown.clone(),
+                                        shutdown_complete_tx.clone(),
+                                        status_sender.clone(),
+                                        downstream_to_channel_manager_sender.clone(),
+                                        channel_manager_to_downstream_sender.clone(),
+                                    )
+                                    .await;
+                                }
                         }
                     }
                 }

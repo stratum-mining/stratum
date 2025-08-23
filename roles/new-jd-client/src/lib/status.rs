@@ -75,9 +75,9 @@ pub enum State {
         reason: JDCError,
     },
     TemplateReceiverShutdown(JDCError),
-    JobDeclaratorShutdown(JDCError),
+    JobDeclaratorShutdownFallback(JDCError),
     ChannelManagerShutdown(JDCError),
-    UpstreamShutdown(JDCError),
+    UpstreamShutdownFallback(JDCError),
 }
 
 #[derive(Debug)]
@@ -104,11 +104,11 @@ async fn send_status(sender: &StatusSender, error: JDCError) {
         }
         StatusSender::Upstream(_) => {
             warn!("Upstream shutting down due to error: {error:?}");
-            State::UpstreamShutdown(error)
+            State::UpstreamShutdownFallback(error)
         }
         StatusSender::JobDeclarator(_) => {
             warn!("Job declarator shutting down due to error: {error:?}");
-            State::JobDeclaratorShutdown(error)
+            State::JobDeclaratorShutdownFallback(error)
         }
     };
 
