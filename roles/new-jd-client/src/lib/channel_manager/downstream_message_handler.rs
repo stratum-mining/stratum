@@ -488,8 +488,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         Ok(())
     }
 
+    #[instrument(skip_all, fields(channel_id = msg.channel_id))]
     async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Error> {
-        info!("Received handle_update_channel from Downstream");
+        info!("Received UpdateChannel from downstream");
 
         let channel_id = msg.channel_id;
         let new_nominal_hash_rate = msg.nominal_hash_rate;
@@ -498,19 +499,43 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let messages = self
             .channel_manager_data
             .super_safe_lock(|channel_manager_data| {
-                let downstream_id = channel_manager_data
+                let Some(downstream_id) = channel_manager_data
                     .channel_id_to_downstream_id
-                    .get(&channel_id);
-                let Some(downstream_id) = downstream_id else {
-                    return vec![];
-                };
-                let Some(downstream) = channel_manager_data.downstream.get_mut(downstream_id)
+                    .get(&channel_id)
                 else {
+                    error!(
+                        channel_id,
+                        "UpdateChannelError: invalid-channel-id (no downstream_id mapping)"
+                    );
                     return vec![];
                 };
 
-                let messages = downstream.downstream_data.super_safe_lock(|data| {
+                let Some(downstream) = channel_manager_data.downstream.get_mut(downstream_id)
+                else {
+                    error!(
+                        channel_id,
+                        "UpdateChannelError: invalid-channel-id (downstream not found)"
+                    );
+                    let err = UpdateChannelError {
+                        channel_id,
+                        error_code: "invalid-channel-id".to_string().try_into().unwrap(),
+                    };
+                    return vec![(
+                        *downstream_id,
+                        AnyMessage::Mining(Mining::UpdateChannelError(err)),
+                    )];
+                };
+
+                downstream.downstream_data.super_safe_lock(|data| {
                     let mut messages: Vec<(u32, AnyMessage)> = vec![];
+
+                    let build_error = |code: &str| {
+                        error!(channel_id, error_code = code, "UpdateChannelError");
+                        AnyMessage::Mining(Mining::UpdateChannelError(UpdateChannelError {
+                            channel_id,
+                            error_code: code.to_string().try_into().expect("valid error code"),
+                        }))
+                    };
 
                     if let Some(standard_channel) = data.standard_channels.get_mut(&channel_id) {
                         let update_channel = standard_channel.update_channel(
@@ -519,74 +544,27 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         );
                         let new_target = standard_channel.get_target().clone();
 
-                        match update_channel {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("UpdateChannelError: {:?}", e);
-                                match e {
-                                    StandardChannelError::InvalidNominalHashrate => {
-                                        error!("UpdateChannelError: invalid-nominal-hashrate");
-                                        let update_channel_error = UpdateChannelError {
-                                            channel_id,
-                                            error_code: "invalid-nominal-hashrate"
-                                                .to_string()
-                                                .try_into()
-                                                .expect("error code must be valid string"),
-                                        };
-                                        messages.push((
-                                            downstream.downstream_id,
-                                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                                update_channel_error.into(),
-                                            )),
-                                        ));
-                                    }
-                                    StandardChannelError::RequestedMaxTargetOutOfRange => {
-                                        error!(
-                                            "UpdateChannelError: requested-max-target-out-of-range"
-                                        );
-                                        let update_channel_error = UpdateChannelError {
-                                            channel_id,
-                                            error_code: "requested-max-target-out-of-range"
-                                                .to_string()
-                                                .try_into()
-                                                .expect("error code must be valid string"),
-                                        };
-                                        messages.push((
-                                            downstream.downstream_id,
-                                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                                update_channel_error.into(),
-                                            )),
-                                        ));
-                                    }
-                                    _ => {
-                                        error!(
-                                            "UpdateChannelError: requested-max-target-out-of-range"
-                                        );
-                                        let update_channel_error = UpdateChannelError {
-                                            channel_id,
-                                            error_code: "requested-max-target-out-of-range"
-                                                .to_string()
-                                                .try_into()
-                                                .expect("error code must be valid string"),
-                                        };
-                                        messages.push((
-                                            downstream.downstream_id,
-                                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                                update_channel_error.into(),
-                                            )),
-                                        ));
-                                    }
+                        if let Err(e) = update_channel {
+                            error!(channel_id, ?e, "StandardChannel update failed");
+                            let err_code = match e {
+                                StandardChannelError::InvalidNominalHashrate => {
+                                    "invalid-nominal-hashrate"
                                 }
-                                let set_target = SetTarget {
-                                    channel_id,
-                                    maximum_target: new_target.clone().into(),
-                                };
-                                messages.push((
-                                    downstream.downstream_id,
-                                    AnyMessage::Mining(Mining::SetTarget(set_target)),
-                                ));
-                            }
+                                StandardChannelError::RequestedMaxTargetOutOfRange => {
+                                    "requested-max-target-out-of-range"
+                                }
+                                _ => "requested-max-target-out-of-range",
+                            };
+                            return vec![(*downstream_id, build_error(err_code))];
                         }
+
+                        messages.push((
+                            *downstream_id,
+                            AnyMessage::Mining(Mining::SetTarget(SetTarget {
+                                channel_id,
+                                maximum_target: new_target.into(),
+                            })),
+                        ));
                     } else if let Some(extended_channel) =
                         data.extended_channels.get_mut(&channel_id)
                     {
@@ -596,95 +574,35 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         );
                         let new_target = extended_channel.get_target().clone();
 
-                        match update_channel {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("UpdateChannelError: {:?}", e);
-                                match e {
-                                    ExtendedChannelError::InvalidNominalHashrate => {
-                                        error!("UpdateChannelError: invalid-nominal-hashrate");
-                                        let update_channel_error = UpdateChannelError {
-                                            channel_id,
-                                            error_code: "invalid-nominal-hashrate"
-                                                .to_string()
-                                                .try_into()
-                                                .expect("error code must be valid string"),
-                                        };
-                                        messages.push((
-                                            downstream.downstream_id,
-                                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                                update_channel_error.into(),
-                                            )),
-                                        ));
-                                    }
-                                    ExtendedChannelError::RequestedMaxTargetOutOfRange => {
-                                        error!(
-                                            "UpdateChannelError: requested-max-target-out-of-range"
-                                        );
-                                        let update_channel_error = UpdateChannelError {
-                                            channel_id,
-                                            error_code: "requested-max-target-out-of-range"
-                                                .to_string()
-                                                .try_into()
-                                                .expect("error code must be valid string"),
-                                        };
-                                        messages.push((
-                                            downstream.downstream_id,
-                                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                                update_channel_error.into(),
-                                            )),
-                                        ));
-                                    }
-                                    _ => {
-                                        error!(
-                                            "UpdateChannelError: requested-max-target-out-of-range"
-                                        );
-                                        let update_channel_error = UpdateChannelError {
-                                            channel_id,
-                                            error_code: "requested-max-target-out-of-range"
-                                                .to_string()
-                                                .try_into()
-                                                .expect("error code must be valid string"),
-                                        };
-                                        messages.push((
-                                            downstream.downstream_id,
-                                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                                update_channel_error.into(),
-                                            )),
-                                        ));
-                                    }
+                        if let Err(e) = update_channel {
+                            error!(channel_id, ?e, "StandardChannel update failed");
+                            let err_code = match e {
+                                ExtendedChannelError::InvalidNominalHashrate => {
+                                    "invalid-nominal-hashrate"
                                 }
-                                let set_target = SetTarget {
-                                    channel_id,
-                                    maximum_target: new_target.clone().into(),
-                                };
-                                messages.push((
-                                    downstream.downstream_id,
-                                    AnyMessage::Mining(Mining::SetTarget(set_target)),
-                                ));
-                            }
+                                ExtendedChannelError::RequestedMaxTargetOutOfRange => {
+                                    "requested-max-target-out-of-range"
+                                }
+                                _ => "requested-max-target-out-of-range",
+                            };
+                            return vec![(*downstream_id, build_error(err_code))];
                         }
+
+                        let set_target = SetTarget {
+                            channel_id,
+                            maximum_target: new_target.clone().into(),
+                        };
+                        messages.push((
+                            downstream.downstream_id,
+                            AnyMessage::Mining(Mining::SetTarget(set_target)),
+                        ));
                     } else {
                         error!("UpdateChannelError: invalid-channel-id");
-                        let update_channel_error = UpdateChannelError {
-                            channel_id,
-                            error_code: "invalid-channel-id"
-                                .to_string()
-                                .try_into()
-                                .expect("error code must be valid string"),
-                        };
-                        return vec![(
-                            *downstream_id,
-                            AnyMessage::Mining(Mining::UpdateChannelError(
-                                update_channel_error.into(),
-                            )),
-                        )];
+                        return vec![(*downstream_id, build_error("invalid-channel-id"))];
                     }
 
                     messages
-                });
-
-                messages
+                })
             });
 
         for (downstream_id, message) in messages {
