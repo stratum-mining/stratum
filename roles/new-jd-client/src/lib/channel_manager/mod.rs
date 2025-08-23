@@ -49,6 +49,7 @@ use crate::{
     config::JobDeclaratorClientConfig,
     downstream::Downstream,
     error::JDCError,
+    jd_mode::{get_jd_mode, JdMode},
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
@@ -85,9 +86,7 @@ pub struct ChannelManagerData {
     allocate_tokens: Option<AllocateMiningJobTokenSuccess<'static>>,
     template_store: HashMap<u64, NewTemplate<'static>>,
     last_declare_job_store: HashMap<u32, LastDeclareJob>,
-    job_id_to_template: HashMap<u32, LastDeclareJob>,
     template_id_to_upstream_job_id: HashMap<u64, u64>,
-    template_id_to_downstream_channel_id_and_job_id: HashMap<u64, (u32, u32)>,
     downstream_channel_id_and_job_id_to_template_id: HashMap<(u32, u32), u64>,
     coinbase_outputs: Vec<u8>,
     channel_id_to_downstream_id: HashMap<u32, u32>,
@@ -102,9 +101,7 @@ impl ChannelManagerData {
         self.downstream.clear();
         self.template_store.clear();
         self.last_declare_job_store.clear();
-        self.job_id_to_template.clear();
         self.template_id_to_upstream_job_id.clear();
-        self.template_id_to_downstream_channel_id_and_job_id.clear();
         self.downstream_channel_id_and_job_id_to_template_id.clear();
         self.channel_id_to_downstream_id.clear();
         self.pending_downstream_requests.clear();
@@ -207,9 +204,7 @@ impl ChannelManager {
             allocate_tokens: None,
             template_store: HashMap::new(),
             last_declare_job_store: HashMap::new(),
-            job_id_to_template: HashMap::new(),
             template_id_to_upstream_job_id: HashMap::new(),
-            template_id_to_downstream_channel_id_and_job_id: HashMap::new(),
             downstream_channel_id_and_job_id_to_template_id: HashMap::new(),
             coinbase_outputs,
             channel_id_to_downstream_id: HashMap::new(),
@@ -354,9 +349,8 @@ impl ChannelManager {
                             }
                     }
                 }
-
-                info!("Downstream server: Unified loop break");
             }
+            info!("Downstream server: Unified loop break");
             drop(shutdown_complete_tx);
         }.instrument(Span::current()));
         Ok(())
@@ -397,10 +391,12 @@ impl ChannelManager {
                             }
                             Ok(ShutdownMessage::JobDeclaratorShutdownFallback(coinbase_outputs)) => {
                                 info!("Channel Manager: Job declarator shutdown signal");
+                                self.upstream_state.set(UpstreamState::SoloMining);
                                 self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
                             }
                             Ok(ShutdownMessage::UpstreamShutdownFallback(coinbase_outputs)) => {
                                 info!("Channel Manager: Upstream shutdown signal");
+                                self.upstream_state.set(UpstreamState::SoloMining);
                                 self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
                             }
                             Err(e) => {
@@ -555,6 +551,11 @@ impl ChannelManager {
 
     // we will make this lean
     async fn handle_downstreams_message(&mut self) -> Result<(), JDCError> {
+        if get_jd_mode() != JdMode::SoloMining
+            && self.upstream_state.get() == UpstreamState::SoloMining
+        {
+            self.upstream_state.set(UpstreamState::NotConnected);
+        }
         if let Ok((downstream_id, read_frame)) = self
             .channel_manager_channel
             .downstream_receiver

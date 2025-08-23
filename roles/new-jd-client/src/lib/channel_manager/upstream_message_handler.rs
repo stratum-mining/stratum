@@ -9,7 +9,9 @@ use stratum_common::roles_logic_sv2::{
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
-    channel_manager::ChannelManager, error::JDCError, utils::{deserialize_coinbase_output, UpstreamState}
+    channel_manager::ChannelManager,
+    error::JDCError,
+    utils::{deserialize_coinbase_output, UpstreamState},
 };
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
@@ -233,12 +235,9 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     ) -> Result<(), Error> {
         info!("Received SetCustomMiningJobSuccess from Pool");
         self.channel_manager_data.super_safe_lock(|data| {
-            if let Some(last_declare_job) =
-                data.last_declare_job_store.get(&msg.request_id).cloned()
-            {
+            if let Some(last_declare_job) = data.last_declare_job_store.remove(&msg.request_id) {
                 data.template_id_to_upstream_job_id
                     .insert(last_declare_job.template.template_id, msg.job_id as u64);
-                data.job_id_to_template.insert(msg.job_id, last_declare_job);
                 debug!(job_id = msg.job_id, "Mapped custom job into template store");
             } else {
                 warn!(
