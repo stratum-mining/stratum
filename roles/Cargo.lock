@@ -1722,6 +1722,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "new-jd-client"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-recursion 0.3.2",
+ "buffer_sv2",
+ "clap",
+ "config",
+ "config_helpers_sv2",
+ "error_handling",
+ "futures",
+ "key-utils",
+ "nohash-hasher",
+ "primitive-types",
+ "secp256k1 0.28.2",
+ "serde",
+ "stratum-common",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

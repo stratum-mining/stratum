@@ -9,6 +9,7 @@ members = [
     "jd-client",
     "jd-server",
     "roles-utils/network-helpers",
+    "new-jd-client",
     "roles-utils/stratum-translation"
 ]
 
