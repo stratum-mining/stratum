@@ -20,7 +20,7 @@ use stratum_common::roles_logic_sv2::{
     template_distribution_sv2::SubmitSolution,
     VardiffState,
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     channel_manager::ChannelManager,
@@ -499,15 +499,76 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let messages = self
             .channel_manager_data
             .super_safe_lock(|channel_manager_data| {
-                let Some(downstream_id) = channel_manager_data
+                let mut messages = vec![];
+
+                let mut downstream_hashrate = 0.0;
+                let mut min_target: Target = [0xff; 32].into();
+
+                for (_, downstream) in channel_manager_data.downstream.iter() {
+                    downstream.downstream_data.super_safe_lock(|data| {
+                        let mut update_from_channel = |hashrate: f32, target: &Target| {
+                            downstream_hashrate += hashrate;
+                            min_target = std::cmp::min(target.clone(), min_target.clone());
+                        };
+
+                        for (_, channel) in data.standard_channels.iter() {
+                            update_from_channel(
+                                channel.get_nominal_hashrate(),
+                                &channel.get_requested_max_target(),
+                            );
+                        }
+
+                        for (_, channel) in data.extended_channels.iter() {
+                            update_from_channel(
+                                channel.get_nominal_hashrate(),
+                                &channel.get_requested_max_target(),
+                            );
+                        }
+                    });
+                }
+
+                if let Some(ref upstream_channel) = channel_manager_data.upstream_channel {
+                    debug!(
+                        "Checking upstream channel {} with hashrate {} and target {:?}",
+                        upstream_channel.get_channel_id(),
+                        upstream_channel.get_nominal_hashrate(),
+                        upstream_channel.get_requested_max_target()
+                    );
+                    min_target = std::cmp::min(
+                        upstream_channel.get_requested_max_target().clone(),
+                        min_target.clone(),
+                    );
+                    if downstream_hashrate > upstream_channel.get_nominal_hashrate() {
+                        info!(
+                            "Downstream hashrate {} exceeds upstream {} — pushing UpdateChannel",
+                            downstream_hashrate,
+                            upstream_channel.get_nominal_hashrate()
+                        );
+
+                        messages.push((
+                            0,
+                            AnyMessage::Mining(Mining::UpdateChannel(UpdateChannel {
+                                channel_id: upstream_channel.get_channel_id(),
+                                nominal_hash_rate: downstream_hashrate,
+                                maximum_target: min_target.into(),
+                            })),
+                        ))
+                    }
+                }
+
+                let downstream_id = match channel_manager_data
                     .channel_id_to_downstream_id
                     .get(&channel_id)
-                else {
-                    error!(
-                        channel_id,
-                        "UpdateChannelError: invalid-channel-id (no downstream_id mapping)"
-                    );
-                    return vec![];
+                {
+                    Some(id) => id,
+                    None if channel_id != 0 => {
+                        error!(
+                            channel_id,
+                            "UpdateChannelError: invalid-channel-id (no downstream_id mapping)"
+                        );
+                        return messages;
+                    }
+                    None => return messages,
                 };
 
                 let Some(downstream) = channel_manager_data.downstream.get_mut(downstream_id)
@@ -520,13 +581,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         channel_id,
                         error_code: "invalid-channel-id".to_string().try_into().unwrap(),
                     };
-                    return vec![(
+                    messages.push((
                         *downstream_id,
                         AnyMessage::Mining(Mining::UpdateChannelError(err)),
-                    )];
+                    ));
+                    return messages;
                 };
 
-                downstream.downstream_data.super_safe_lock(|data| {
+                messages.extend_from_slice(&downstream.downstream_data.super_safe_lock(|data| {
                     let mut messages: Vec<(u32, AnyMessage)> = vec![];
 
                     let build_error = |code: &str| {
@@ -601,13 +663,28 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     }
 
                     messages
-                })
+                }));
+
+                messages
             });
 
         for (downstream_id, message) in messages {
-            self.channel_manager_channel
-                .downstream_sender
-                .send((downstream_id, message));
+            if downstream_id == 0 {
+                let frame: StdFrame = message.try_into()?;
+                debug!("Sending UpdateChannel upstream: {:?}", frame);
+                self.channel_manager_channel
+                    .upstream_sender
+                    .send(frame.into())
+                    .await;
+            } else {
+                debug!(
+                    "Sending message downstream (id {}): {:?}",
+                    downstream_id, message
+                );
+                self.channel_manager_channel
+                    .downstream_sender
+                    .send((downstream_id, message));
+            }
         }
         Ok(())
     }

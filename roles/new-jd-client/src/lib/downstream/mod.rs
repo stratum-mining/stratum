@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
+use buffer_sv2::Slice;
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
     roles_logic_sv2::{
@@ -10,7 +11,7 @@ use stratum_common::{
         codec_sv2::{self, Frame, Sv2Frame},
         common_messages_sv2::SetupConnectionSuccess,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
-        mining_sv2::{SetTarget, Target},
+        mining_sv2::{SetTarget, Target, UpdateChannel},
         parsers_sv2::{AnyMessage, IsSv2Message, Mining},
         utils::{Id as IdFactory, Mutex},
         Vardiff,
@@ -443,6 +444,25 @@ impl Downstream {
             messages
         });
 
+        if messages.len() != 0 {
+            // this is done for letting channel manager know, that
+            // something in downstream changed and it has to update the
+            // upstream.
+            let dummy_max_target: Target = [0xffu8; 32].into();
+
+            let update_upstream_channel_message = UpdateChannel {
+                channel_id: 0,
+                nominal_hash_rate: 0.0,
+                maximum_target: dummy_max_target.into(),
+            };
+
+            let any_message =
+                AnyMessage::Mining(Mining::UpdateChannel(update_upstream_channel_message));
+            let msg_type = any_message.message_type();
+            self.forward_update_upstream(any_message, msg_type).await;
+            debug!("Dummy UpdateChannel sent upstream to trigger re-evaluation");
+        }
+
         for (channel_id, target) in messages {
             let frame: StdFrame = target.try_into()?;
             if let Err(e) = self.downstream_channel.outbound_tx.send(frame.into()).await {
@@ -460,10 +480,54 @@ impl Downstream {
                 "SetTarget message successfully sent"
             );
         }
+
         info!(
             downstream_id = downstream_id,
             "Vardiff update cycle complete"
         );
+        Ok(())
+    }
+
+    #[instrument(skip_all, fields(message_type = message_type))]
+    async fn forward_update_upstream(
+        &self,
+        mining_msg: AnyMessage<'static>,
+        message_type: u8,
+    ) -> Result<(), JDCError> {
+        let sv2_frame: Sv2Frame<AnyMessage<'static>, Slice> = match Sv2Frame::from_message(
+            mining_msg,
+            message_type,
+            0,
+            false,
+        ) {
+            Some(f) => f,
+            None => {
+                warn!(%message_type, "Failed to build Sv2Frame from mining message; dropping request");
+                return Ok(());
+            }
+        };
+
+        let mut serialized = vec![0u8; sv2_frame.encoded_length()];
+        if let Err(e) = sv2_frame.serialize(&mut serialized) {
+            warn!(?e, %message_type, len = serialized.len(), "Failed to serialize Sv2Frame; dropping request");
+            return Ok(());
+        }
+
+        let serialized_slice: Slice = serialized.into();
+        let mut deserialized_frame =
+            match Sv2Frame::<AnyMessage<'static>, Slice>::from_bytes(serialized_slice) {
+                Ok(f) => f,
+                Err(e) => {
+                    warn!(?e, %message_type, "Failed to deserialize Sv2Frame; dropping request");
+                    return Ok(());
+                }
+            };
+
+        let frame = Frame::Sv2(deserialized_frame);
+        self.downstream_channel
+            .channel_manager_sender
+            .send((0, frame))
+            .await;
         Ok(())
     }
 }
