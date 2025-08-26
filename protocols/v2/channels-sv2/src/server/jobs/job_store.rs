@@ -36,6 +36,10 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns `true` if successful, `false` if not found.
     fn activate_future_job(&mut self, template_id: u64, prev_hash_header_timestamp: u32) -> bool;
 
+    /// Marks all past jobs as stale, so that shares can be rejected with the appropriate error
+    /// code
+    fn mark_past_jobs_as_stale(&mut self);
+
     /// Returns the mapping from future template IDs to job IDs.
     fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32>;
 
@@ -127,13 +131,19 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.active_job = Some(future_job);
         self.future_jobs.clear();
         self.future_template_to_job_id.clear();
+
+        self.mark_past_jobs_as_stale();
+
+        true
+    }
+
+    fn mark_past_jobs_as_stale(&mut self) {
         // Mark all past jobs as stale, so that shares can be rejected with the appropriate error
         // code
         self.stale_jobs = self.past_jobs.clone();
 
         // Clear past jobs, as we're no longer going to validate shares for them
         self.past_jobs.clear();
-        true
     }
 
     fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
