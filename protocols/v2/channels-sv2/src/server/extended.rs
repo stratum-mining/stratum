@@ -471,13 +471,18 @@ impl<'a> ExtendedChannel<'a> {
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
         // extended channels dedicated to custom work don't need to keep track of future jobs
-        if !self.job_store.get_future_jobs().is_empty() {
-            // the SetNewPrevHash message was addressed to a specific future template
-            if !self.job_store.activate_future_job(
-                set_new_prev_hash.template_id,
-                set_new_prev_hash.header_timestamp,
-            ) {
-                return Err(ExtendedChannelError::TemplateIdNotFound);
+        match self.job_store.get_future_jobs().is_empty() {
+            true => {
+                self.job_store.mark_past_jobs_as_stale();
+            }
+            false => {
+                // the SetNewPrevHash message was addressed to a specific future template
+                if !self.job_store.activate_future_job(
+                    set_new_prev_hash.template_id,
+                    set_new_prev_hash.header_timestamp,
+                ) {
+                    return Err(ExtendedChannelError::TemplateIdNotFound);
+                }
             }
         }
 
@@ -501,6 +506,9 @@ impl<'a> ExtendedChannel<'a> {
     /// If there is an active job, it is moved to the past jobs.
     /// The new custom mining job is then set as the active job.
     ///
+    /// Assumes SetCustomMiningJob.{prev_hash, nbits, min_ntime} have already been validated.
+    /// Updates the channel's `ChainTip``.
+    ///
     /// Returns the job id of the new custom mining job.
     ///
     /// To be used by a Sv2 Pool Server upon receiving a `SetCustomMiningJob` message.
@@ -510,12 +518,23 @@ impl<'a> ExtendedChannel<'a> {
     ) -> Result<u32, ExtendedChannelError> {
         let new_job = self
             .job_factory
-            .new_custom_job(set_custom_mining_job, self.extranonce_prefix.clone())
+            .new_custom_job(
+                set_custom_mining_job.clone(),
+                self.extranonce_prefix.clone(),
+            )
             .map_err(ExtendedChannelError::JobFactoryError)?;
 
         let job_id = new_job.get_job_id();
 
         self.job_store.add_active_job(new_job);
+
+        // update the chain tip
+        let set_custom_mining_job_static = set_custom_mining_job.into_static();
+        let prev_hash = set_custom_mining_job_static.prev_hash;
+        let nbits = set_custom_mining_job_static.nbits;
+        let min_ntime = set_custom_mining_job_static.min_ntime;
+        let new_chain_tip = ChainTip::new(prev_hash, nbits, min_ntime);
+        self.chain_tip = Some(new_chain_tip);
 
         Ok(job_id)
     }

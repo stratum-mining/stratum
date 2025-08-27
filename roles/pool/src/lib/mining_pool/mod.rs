@@ -623,6 +623,13 @@ impl Pool {
                         extended_channel
                             .on_set_new_prev_hash(new_prev_hash.clone())
                             .map_err(Error::FailedToProcessSetNewPrevHashExtendedChannel)?;
+
+                        // don't send any SetNewPrevHash messages to Extended Channels
+                        // if the downstream requires custom work
+                        if d.requires_custom_work {
+                            continue;
+                        }
+
                         let activated_extended_job_id = extended_channel
                             .get_active_job()
                             .expect("active job must exist")
