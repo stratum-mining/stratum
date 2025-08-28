@@ -381,13 +381,7 @@ impl<'a> ExtendedChannel<'a> {
         // clear seen shares, as shares for past chain tip will be rejected as stale
         self.share_accounting.flush_seen_shares();
 
-        let set_new_prev_hash_static = set_new_prev_hash.into_static();
-        let new_chain_tip = ChainTip::new(
-            set_new_prev_hash_static.prev_hash,
-            set_new_prev_hash_static.nbits,
-            set_new_prev_hash_static.min_ntime,
-        );
-        self.chain_tip = Some(new_chain_tip);
+        self.chain_tip = Some(set_new_prev_hash.into());
 
         Ok(())
     }
