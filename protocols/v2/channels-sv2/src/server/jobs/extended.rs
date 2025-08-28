@@ -1,16 +1,12 @@
 use super::Job;
 use crate::{
-    chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
     server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
     template::deserialize_template_outputs,
 };
-use binary_sv2::{Seq0255, Sv2Option, B0255, B064K, U256};
-use bitcoin::{
-    consensus::{deserialize, serialize},
-    transaction::{Transaction, TxOut},
-};
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, FULL_EXTRANONCE_LEN};
+use binary_sv2::{Seq0255, Sv2Option, U256};
+use bitcoin::transaction::TxOut;
+use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
@@ -98,88 +94,6 @@ impl<'a> ExtendedJob<'a> {
             coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
         }
-    }
-
-    /// Converts the `ExtendedJob` into a `SetCustomMiningJob` message.
-    ///
-    /// To be used by a Sv2 Job Declaration Client after:
-    /// - a non-future `ExtendedJob` was created from a non-future `NewTemplate`
-    /// - a future `ExtendedJob` was activated into a non-future `ExtendedJob`
-    ///
-    /// In other words, a future `ExtendedJob` cannot be converted into a `SetCustomMiningJob`.
-    pub fn into_custom_job(
-        self,
-        request_id: u32,
-        token: B0255<'a>,
-        chain_tip: ChainTip,
-    ) -> Result<SetCustomMiningJob<'a>, ExtendedJobError> {
-        let coinbase_tx_prefix = self.get_coinbase_tx_prefix_with_bip141();
-        let coinbase_tx_suffix = self.get_coinbase_tx_suffix_with_bip141();
-
-        let mut serialized_coinbase: Vec<u8> = vec![];
-        serialized_coinbase.extend(coinbase_tx_prefix.clone());
-        serialized_coinbase.extend(vec![0; FULL_EXTRANONCE_LEN]);
-        serialized_coinbase.extend(coinbase_tx_suffix.clone());
-
-        let deserialized_coinbase: Transaction = deserialize(&serialized_coinbase)
-            .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbase)?;
-
-        if deserialized_coinbase.input.len() != 1 {
-            return Err(ExtendedJobError::CoinbaseInputCountMismatch);
-        }
-
-        let min_ntime = if let Some(job_min_ntime) = self.job_message.min_ntime.clone().into_inner()
-        {
-            // job min_ntime must be coherent with the provided chain tip
-            // because chain_tip is where prev_hash and nbits are coming from
-            if job_min_ntime < chain_tip.min_ntime() {
-                return Err(ExtendedJobError::InvalidMinNTime);
-            } else {
-                job_min_ntime
-            }
-        } else {
-            // future jobs are not allowed to be converted into `SetCustomMiningJob` messages
-            return Err(ExtendedJobError::FutureJobNotAllowed);
-        };
-
-        let prev_hash = chain_tip.prev_hash();
-        let nbits = chain_tip.nbits();
-
-        let coinbase_prefix_start_index = 4 // tx version
-            + 2 // segwit bytes
-            + 1 // number of inputs
-            + 32 // prev OutPoint
-            + 4 // index
-            + 1; // bytes in script
-        let coinbase_prefix: B0255<'a> = coinbase_tx_prefix[coinbase_prefix_start_index..]
-            .to_vec()
-            .try_into()
-            .map_err(|_| ExtendedJobError::FailedToSerializeCoinbasePrefix)?;
-        let coinbase_tx_version = deserialized_coinbase.version.0 as u32;
-        let coinbase_tx_locktime = deserialized_coinbase.lock_time.to_consensus_u32();
-        let coinbase_tx_input_n_sequence = deserialized_coinbase.input[0].sequence.0 as u32;
-
-        let serialized_outputs = serialize(&deserialized_coinbase.output);
-
-        let coinbase_tx_outputs: B064K<'a> = serialized_outputs
-            .try_into()
-            .map_err(|_| ExtendedJobError::FailedToSerializeCoinbaseOutputs)?;
-
-        Ok(SetCustomMiningJob {
-            channel_id: self.job_message.channel_id,
-            request_id,
-            token,
-            version: self.get_version(),
-            prev_hash,
-            min_ntime,
-            nbits,
-            coinbase_tx_version,
-            coinbase_prefix,
-            coinbase_tx_input_n_sequence,
-            coinbase_tx_outputs,
-            coinbase_tx_locktime,
-            merkle_path: self.get_merkle_path().clone(),
-        })
     }
 
     /// Converts the `ExtendedJob` into a `StandardJob`.

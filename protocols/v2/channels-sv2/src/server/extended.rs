@@ -490,13 +490,7 @@ impl<'a> ExtendedChannel<'a> {
         self.share_accounting.flush_seen_shares();
 
         // update the chain tip
-        let set_new_prev_hash_static = set_new_prev_hash.into_static();
-        let new_chain_tip = ChainTip::new(
-            set_new_prev_hash_static.prev_hash,
-            set_new_prev_hash_static.n_bits,
-            set_new_prev_hash_static.header_timestamp,
-        );
-        self.chain_tip = Some(new_chain_tip);
+        self.chain_tip = Some(set_new_prev_hash.into());
 
         Ok(())
     }
@@ -518,7 +512,7 @@ impl<'a> ExtendedChannel<'a> {
     ) -> Result<u32, ExtendedChannelError> {
         let new_job = self
             .job_factory
-            .new_custom_job(
+            .new_extended_job_from_custom_job(
                 set_custom_mining_job.clone(),
                 self.extranonce_prefix.clone(),
             )
@@ -726,7 +720,7 @@ mod tests {
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::{job_store::DefaultJobStore, JobOrigin},
+            jobs::job_store::DefaultJobStore,
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
@@ -1006,172 +1000,6 @@ mod tests {
         };
 
         assert_eq!(active_job.get_job_message(), &expected_job);
-    }
-
-    #[test]
-    fn test_custom_job_creation_flow() {
-        // this extended channel lives on JDC
-        let jdc_channel_id = 1;
-        let user_identity = "user_identity".to_string();
-        let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
-        ]
-        .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
-
-        // this extended channel lives on JDC
-        let mut jdc_extended_channel = ExtendedChannel::new(
-            jdc_channel_id,
-            user_identity,
-            extranonce_prefix,
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-            None,
-            None,
-        )
-        .unwrap();
-
-        let template = NewTemplate {
-            template_id: 1,
-            future_template: true,
-            version: 536870912,
-            coinbase_tx_version: 2,
-            coinbase_prefix: vec![82, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
-            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
-            coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
-                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
-                139, 235, 216, 54, 151, 78, 140, 249,
-            ]
-            .try_into()
-            .unwrap(),
-            coinbase_tx_locktime: 0,
-            merkle_path: vec![].try_into().unwrap(),
-        };
-
-        // match the original script format used to generate the coinbase_reward_outputs for the
-        // expected job
-        let pubkey_hash = [
-            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
-            8, 252,
-        ];
-        let mut script_bytes = vec![0]; // SegWit version 0
-        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
-        script_bytes.extend_from_slice(&pubkey_hash);
-        let script = ScriptBuf::from(script_bytes);
-        let coinbase_reward_outputs = vec![TxOut {
-            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
-            script_pubkey: script,
-        }];
-
-        jdc_extended_channel
-            .on_new_template(template.clone(), coinbase_reward_outputs.clone())
-            .unwrap();
-
-        let ntime = 1746839905;
-        let prev_hash = [
-            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
-            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-        ]
-        .into();
-        let n_bits = 503543726;
-        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
-        let set_new_prev_hash = SetNewPrevHash {
-            template_id: 1,
-            prev_hash: [
-                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
-                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
-            ]
-            .into(),
-            header_timestamp: ntime,
-            n_bits: 503543726,
-            target: [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                174, 119, 3, 0, 0,
-            ]
-            .into(),
-        };
-
-        jdc_extended_channel
-            .on_set_new_prev_hash(set_new_prev_hash)
-            .unwrap();
-
-        let jdc_active_job = jdc_extended_channel.get_active_job().unwrap().clone();
-
-        let mining_job_token = vec![0].try_into().unwrap();
-        let set_custom_mining_job = jdc_active_job
-            .clone()
-            .into_custom_job(0, mining_job_token, chain_tip)
-            .unwrap();
-
-        // this extended channel lives on Pool Mining Server
-        let pool_channel_id = 1;
-        let user_identity = "user_identity".to_string();
-        let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
-        ]
-        .to_vec();
-        let max_target = [0xff; 32].into();
-        let expected_share_per_minute = 1.0;
-        let nominal_hashrate = 1.0;
-        let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
-
-        // this extended channel lives on Pool Mining Server
-        let mut pool_extended_channel = ExtendedChannel::new(
-            pool_channel_id,
-            user_identity,
-            extranonce_prefix.clone(),
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-            None,
-            None,
-        )
-        .unwrap();
-
-        pool_extended_channel
-            .on_set_custom_mining_job(set_custom_mining_job.clone())
-            .unwrap();
-
-        let pool_active_job = pool_extended_channel.get_active_job().unwrap().clone();
-        assert_eq!(
-            pool_active_job.get_origin(),
-            &JobOrigin::SetCustomMiningJob(set_custom_mining_job)
-        );
-
-        assert_eq!(
-            pool_active_job.get_job_message(),
-            jdc_active_job.get_job_message()
-        );
-
-        assert_eq!(pool_active_job.get_extranonce_prefix(), &extranonce_prefix);
-
-        assert_eq!(
-            pool_active_job.get_coinbase_outputs(),
-            jdc_active_job.get_coinbase_outputs()
-        );
     }
 
     #[test]

@@ -27,7 +27,7 @@ use crate::{
     server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
     template::deserialize_template_outputs,
 };
-use binary_sv2::Sv2Option;
+use binary_sv2::{Sv2Option, B0255};
 use bitcoin::{
     absolute::LockTime,
     blockdata::witness::Witness,
@@ -299,10 +299,87 @@ impl JobFactory {
         Ok(job)
     }
 
-    /// Creates a new job from a SetCustomMiningJob message.
+    /// Creates a new coinbase_tx_prefix and coinbase_tx_suffix from a template.
+    ///
+    /// To be used by a Sv2 Job Declarator Client to create a `DeclareMiningJob` message.
+    pub fn new_coinbase_tx_prefix_and_suffix(
+        &self,
+        template: NewTemplate<'_>,
+        additional_coinbase_outputs: Vec<TxOut>,
+    ) -> Result<(Vec<u8>, Vec<u8>), JobFactoryError> {
+        let coinbase_tx_prefix =
+            self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
+        let coinbase_tx_suffix =
+            self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
+        Ok((coinbase_tx_prefix, coinbase_tx_suffix))
+    }
+
+    /// Creates a new `SetCustomMiningJob` message from a template.
+    ///
+    /// To be used by a Sv2 Job Declarator Client.
+    pub fn new_custom_job<'a>(
+        &self,
+        channel_id: u32,
+        request_id: u32,
+        token: B0255<'a>,
+        chain_tip: ChainTip,
+        template: NewTemplate<'a>,
+        additional_coinbase_outputs: Vec<TxOut>,
+    ) -> Result<SetCustomMiningJob<'a>, JobFactoryError> {
+        let coinbase_outputs_sum = additional_coinbase_outputs
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>();
+        if coinbase_outputs_sum != template.coinbase_tx_value_remaining {
+            return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
+        }
+
+        let template_outputs = deserialize_template_outputs(
+            template.coinbase_tx_outputs.to_vec(),
+            template.coinbase_tx_outputs_count,
+        )
+        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
+
+        let mut coinbase_tx_outputs = vec![];
+        coinbase_tx_outputs.extend_from_slice(additional_coinbase_outputs.as_slice());
+        coinbase_tx_outputs.extend_from_slice(template_outputs.as_slice());
+
+        let serialized_outputs = serialize(&coinbase_tx_outputs);
+
+        let mut coinbase_prefix = vec![];
+        coinbase_prefix.extend_from_slice(&template.coinbase_prefix.to_vec());
+        coinbase_prefix.extend_from_slice(&self.op_pushbytes_pool_miner_tag()?);
+        coinbase_prefix.push(FULL_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+
+        let set_custom_mining_job = SetCustomMiningJob {
+            channel_id,
+            request_id,
+            token,
+            version: template.version,
+            prev_hash: chain_tip.prev_hash(),
+            min_ntime: chain_tip.min_ntime(),
+            nbits: chain_tip.nbits(),
+            coinbase_tx_version: template.coinbase_tx_version,
+            coinbase_prefix: coinbase_prefix
+                .try_into()
+                .map_err(|_| JobFactoryError::FailedToSerializeCoinbasePrefix)?,
+            coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
+            coinbase_tx_outputs: serialized_outputs
+                .try_into()
+                .map_err(|_| JobFactoryError::FailedToSerializeCoinbaseOutputs)?,
+            coinbase_tx_locktime: template.coinbase_tx_locktime,
+            merkle_path: template.merkle_path.clone(),
+        };
+
+        Ok(set_custom_mining_job)
+    }
+
+    /// Creates a new Extended Job from a SetCustomMiningJob message.
     ///
     /// Assumes that the SetCustomMiningJob message has already been validated.
-    pub fn new_custom_job<'a>(
+    ///
+    /// To be used by Extended Channels on a Sv2 Pool Server.
+    pub fn new_extended_job_from_custom_job<'a>(
         &mut self,
         set_custom_mining_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
@@ -654,8 +731,8 @@ mod tests {
     }
 
     #[test]
-    fn test_new_custom_job() {
-        let mut jdc_job_factory = JobFactory::new(
+    fn test_new_extended_job_from_custom_job() {
+        let jdc_job_factory = JobFactory::new(
             true,
             Some("Stratum V2 SRI Pool".to_string()),
             Some("Stratum V2 SRI Miner".to_string()),
@@ -712,25 +789,22 @@ mod tests {
             1746839905,
         );
 
-        let jdc_job = jdc_job_factory
-            .new_extended_job(
+        let set_custom_mining_job = jdc_job_factory
+            .new_custom_job(
                 1,
-                Some(chain_tip.clone()),
-                extranonce_prefix.clone(),
+                1,
+                vec![0].try_into().unwrap(),
+                chain_tip,
                 template,
                 coinbase_reward_outputs,
             )
-            .unwrap();
-
-        let set_custom_mining_job = jdc_job
-            .into_custom_job(0, vec![0].try_into().unwrap(), chain_tip)
             .unwrap();
 
         let mut pool_job_factory =
             JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
 
         let custom_job = pool_job_factory
-            .new_custom_job(set_custom_mining_job, extranonce_prefix)
+            .new_extended_job_from_custom_job(set_custom_mining_job, extranonce_prefix)
             .unwrap();
 
         let expected_job = NewExtendedMiningJob {
