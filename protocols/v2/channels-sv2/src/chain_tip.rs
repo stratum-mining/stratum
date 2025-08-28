@@ -1,7 +1,7 @@
 //! # Chain Tip
 use binary_sv2::U256;
-use template_distribution_sv2::SetNewPrevHash as SetNewPrevHashTdp;
 use mining_sv2::SetNewPrevHash as SetNewPrevHashMp;
+use template_distribution_sv2::SetNewPrevHash as SetNewPrevHashTdp;
 
 /// An abstraction over the chain tip, carrying information from `SetNewPrevHash` messages.
 ///
@@ -41,7 +41,7 @@ impl ChainTip {
     }
 }
 
-impl<'a> From<SetNewPrevHashTdp<'a>> for ChainTip {
+impl From<SetNewPrevHashTdp<'_>> for ChainTip {
     fn from(set_new_prev_hash: SetNewPrevHashTdp) -> Self {
         let set_new_prev_hash_static = set_new_prev_hash.into_static();
         let prev_hash = set_new_prev_hash_static.prev_hash;
@@ -51,7 +51,7 @@ impl<'a> From<SetNewPrevHashTdp<'a>> for ChainTip {
     }
 }
 
-impl<'a> From<SetNewPrevHashMp<'a>> for ChainTip {
+impl From<SetNewPrevHashMp<'_>> for ChainTip {
     fn from(set_new_prev_hash: SetNewPrevHashMp) -> Self {
         let set_new_prev_hash_static = set_new_prev_hash.into_static();
         let prev_hash = set_new_prev_hash_static.prev_hash;

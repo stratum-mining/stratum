@@ -23,6 +23,8 @@ pub enum ExtendedChannelError {
     FailedToDeserializeCoinbaseOutputs,
     ChannelIdMismatch,
     RequestIdMismatch,
+    NoChainTip,
+    ChainTipMismatch,
 }
 
 /// Errors that can occur within a **standard channel** context.

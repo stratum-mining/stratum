@@ -274,6 +274,17 @@ impl<'a> ExtendedChannel<'a> {
             return Err(ExtendedChannelError::RequestIdMismatch);
         }
 
+        let Some(chain_tip) = self.chain_tip.clone() else {
+            return Err(ExtendedChannelError::NoChainTip);
+        };
+
+        if set_custom_mining_job.min_ntime != chain_tip.min_ntime()
+            || set_custom_mining_job.prev_hash != chain_tip.prev_hash()
+            || set_custom_mining_job.nbits != chain_tip.nbits()
+        {
+            return Err(ExtendedChannelError::ChainTipMismatch);
+        }
+
         let deserialized_outputs = Vec::<TxOut>::consensus_decode(
             &mut set_custom_mining_job
                 .coinbase_tx_outputs
@@ -344,6 +355,32 @@ impl<'a> ExtendedChannel<'a> {
             self.past_jobs.insert(active_job.0.job_id, active_job);
         }
         self.active_job = Some((new_extended_mining_job, self.extranonce_prefix.clone()));
+
+        Ok(())
+    }
+
+    /// Handles a [`ChainTip`] update.
+    ///
+    /// To be used by a Sv2 Job Declarator Client, which should never receive a
+    /// [`SetNewPrevHash`](SetNewPrevHashMp) (Mining Protocol) message, or will most likely
+    /// ignore it if it does.
+    ///
+    /// So a [`SetNewPrevHash`](template_distribution_sv2::SetNewPrevHash) (Template Distribution
+    /// Protocol) message should be converted into a [`ChainTip`] and passed to this function.
+    pub fn on_chain_tip_update(&mut self, chain_tip: ChainTip) -> Result<(), ExtendedChannelError> {
+        self.chain_tip = Some(chain_tip);
+
+        // all other future jobs are now useless
+        self.future_jobs.clear();
+
+        // mark all past jobs as stale, so that shares are not propagated
+        self.stale_jobs = self.past_jobs.clone();
+
+        // clear past jobs, as we're no longer going to propagate shares for them
+        self.past_jobs.clear();
+
+        // clear seen shares, as shares for past chain tip will be rejected as stale
+        self.share_accounting.flush_seen_shares();
 
         Ok(())
     }
