@@ -518,7 +518,7 @@ impl<'a> ExtendedChannel<'a> {
     ) -> Result<u32, ExtendedChannelError> {
         let new_job = self
             .job_factory
-            .new_custom_job(
+            .new_extended_job_from_custom_job(
                 set_custom_mining_job.clone(),
                 self.extranonce_prefix.clone(),
             )

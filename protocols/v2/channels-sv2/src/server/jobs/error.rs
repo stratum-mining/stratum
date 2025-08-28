@@ -20,6 +20,8 @@ pub enum StandardJobError {
 #[derive(Debug)]
 pub enum JobFactoryError {
     FailedToStripBip141,
+    FailedToSerializeCoinbaseOutputs,
+    FailedToSerializeCoinbasePrefix,
     InvalidTemplate(String),
     DeserializeCoinbaseOutputsError,
     CoinbaseTxPrefixError,
