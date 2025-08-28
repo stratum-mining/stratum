@@ -299,6 +299,21 @@ impl JobFactory {
         Ok(job)
     }
 
+    /// Creates a new coinbase_tx_prefix and coinbase_tx_suffix from a template.
+    ///
+    /// To be used by a Sv2 Job Declarator Client to create a `DeclareMiningJob` message.
+    pub fn new_coinbase_tx_prefix_and_suffix(
+        &self,
+        template: NewTemplate<'_>,
+        additional_coinbase_outputs: Vec<TxOut>,
+    ) -> Result<(Vec<u8>, Vec<u8>), JobFactoryError> {
+        let coinbase_tx_prefix =
+            self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
+        let coinbase_tx_suffix =
+            self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
+        Ok((coinbase_tx_prefix, coinbase_tx_suffix))
+    }
+
     /// Creates a new `SetCustomMiningJob` message from a template.
     ///
     /// To be used by a Sv2 Job Declarator Client.
