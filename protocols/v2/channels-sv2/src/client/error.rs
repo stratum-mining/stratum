@@ -18,7 +18,11 @@ pub enum ExtendedChannelError {
     /// The specified job ID was not found in the extended channel.
     JobIdNotFound,
     FailedToTryToStripBip141(StripBip141Error),
+    FailedToStripBip141,
     FailedToSerializeToB064K,
+    FailedToDeserializeCoinbaseOutputs,
+    ChannelIdMismatch,
+    RequestIdMismatch,
 }
 
 /// Errors that can occur within a **standard channel** context.

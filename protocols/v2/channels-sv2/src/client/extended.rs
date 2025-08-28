@@ -18,13 +18,16 @@ use crate::{
 use alloc::{format, string::String, vec, vec::Vec};
 use binary_sv2::{self, Sv2Option};
 use bitcoin::{
-    blockdata::block::{Header, Version},
+    absolute::LockTime,
+    blockdata::block::{Header, Version as BlockVersion},
+    consensus::{serialize, Decodable},
     hashes::sha256d::Hash,
-    CompactTarget, Target as BitcoinTarget,
+    transaction::Version,
+    CompactTarget, OutPoint, Sequence, Target as BitcoinTarget, Transaction, TxIn, TxOut, Witness,
 };
 use mining_sv2::{
-    NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target,
-    FULL_EXTRANONCE_LEN,
+    NewExtendedMiningJob, SetCustomMiningJob, SetCustomMiningJobSuccess,
+    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target, FULL_EXTRANONCE_LEN,
 };
 use tracing::debug;
 
@@ -252,6 +255,99 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
+    /// Handles a `SetCustomMiningJobSuccess` message from upstream.
+    /// Requires the corresponding `SetCustomMiningJob`.
+    ///
+    /// To be used by a Sv2 Job Declarator Client
+    pub fn on_set_custom_mining_job_success(
+        &mut self,
+        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job_success: SetCustomMiningJobSuccess,
+    ) -> Result<(), ExtendedChannelError> {
+        if set_custom_mining_job.channel_id != set_custom_mining_job_success.channel_id
+            || set_custom_mining_job.channel_id != self.channel_id
+        {
+            return Err(ExtendedChannelError::ChannelIdMismatch);
+        }
+
+        if set_custom_mining_job.request_id != set_custom_mining_job_success.request_id {
+            return Err(ExtendedChannelError::RequestIdMismatch);
+        }
+
+        let deserialized_outputs = Vec::<TxOut>::consensus_decode(
+            &mut set_custom_mining_job
+                .coinbase_tx_outputs
+                .inner_as_ref()
+                .to_vec()
+                .as_slice(),
+        )
+        .map_err(|_| ExtendedChannelError::FailedToDeserializeCoinbaseOutputs)?;
+
+        let mut script_sig = vec![];
+        script_sig.extend_from_slice(set_custom_mining_job.coinbase_prefix.inner_as_ref());
+        script_sig.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
+
+        let tx_in = TxIn {
+            previous_output: OutPoint::null(),
+            script_sig: script_sig.into(),
+            sequence: Sequence(set_custom_mining_job.coinbase_tx_input_n_sequence),
+            witness: Witness::from(vec![vec![0; 32]]), /* note: 32 bytes of zeros is only safe to
+                                                        * assume now, this could change in future
+                                                        * soft forks */
+        };
+
+        let coinbase = Transaction {
+            version: Version::non_standard(set_custom_mining_job.coinbase_tx_version as i32),
+            lock_time: LockTime::from_consensus(set_custom_mining_job.coinbase_tx_locktime),
+            input: vec![tx_in],
+            output: deserialized_outputs,
+        };
+
+        let serialized_coinbase = serialize(&coinbase);
+
+        let prefix_index = 4 // tx version
+            + 2 // segwit
+            + 1 // number of inputs
+            + 32 // prev OutPoint
+            + 4 // index
+            + 1 // bytes in script
+            + set_custom_mining_job.coinbase_prefix.inner_as_ref().len();
+
+        let coinbase_tx_prefix = serialized_coinbase[0..prefix_index].to_vec();
+
+        let suffix_index = prefix_index + FULL_EXTRANONCE_LEN;
+
+        let coinbase_tx_suffix = serialized_coinbase[suffix_index..].to_vec();
+
+        // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
+        let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
+            try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
+                .map_err(ExtendedChannelError::FailedToTryToStripBip141)?
+                .ok_or(ExtendedChannelError::FailedToStripBip141)?;
+
+        let new_extended_mining_job = NewExtendedMiningJob {
+            channel_id: set_custom_mining_job.channel_id,
+            job_id: set_custom_mining_job_success.job_id,
+            min_ntime: Sv2Option::new(Some(set_custom_mining_job.min_ntime)),
+            version: set_custom_mining_job.version,
+            version_rolling_allowed: self.version_rolling,
+            coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
+                .try_into()
+                .map_err(|_| ExtendedChannelError::FailedToSerializeToB064K)?,
+            coinbase_tx_suffix: coinbase_tx_suffix_stripped_bip141
+                .try_into()
+                .map_err(|_| ExtendedChannelError::FailedToSerializeToB064K)?,
+            merkle_path: set_custom_mining_job.merkle_path,
+        };
+
+        if let Some(active_job) = self.active_job.clone() {
+            self.past_jobs.insert(active_job.0.job_id, active_job);
+        }
+        self.active_job = Some((new_extended_mining_job, self.extranonce_prefix.clone()));
+
+        Ok(())
+    }
+
     /// Handles a [`SetNewPrevHash`](SetNewPrevHashMp) message from upstream.
     ///
     /// - If the referenced `job_id` is not a future job, returns an error.
@@ -371,7 +467,7 @@ impl<'a> ExtendedChannel<'a> {
 
         // create the header for validation
         let header = Header {
-            version: Version::from_consensus(share.version as i32),
+            version: BlockVersion::from_consensus(share.version as i32),
             prev_blockhash: u256_to_block_hash(prev_hash.clone()),
             merkle_root: (*Hash::from_bytes_ref(&merkle_root)).into(),
             time: share.ntime,
