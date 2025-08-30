@@ -1,4 +1,4 @@
-use crate::{sniffer::*, template_provider::*};
+use crate::{sniffer::*, sv1_minerd::MinerdProcess, template_provider::*};
 use config_helpers_sv2::CoinbaseRewardScript;
 use corepc_node::{ConnectParams, CookieValues};
 use interceptor::InterceptAction;
@@ -22,6 +22,7 @@ pub mod message_aggregator;
 pub mod mock_roles;
 pub mod sniffer;
 pub mod sniffer_error;
+pub mod sv1_minerd;
 #[cfg(feature = "sv1")]
 pub mod sv1_sniffer;
 pub mod template_provider;
@@ -314,6 +315,19 @@ pub fn measure_hashrate(duration_secs: u64) -> f64 {
     let elapsed_secs = start_time.elapsed().as_secs_f64();
 
     hashes as f64 / elapsed_secs
+}
+
+pub async fn start_minerd(
+    upstream_addr: SocketAddr,
+    username: Option<String>,
+    password: Option<String>,
+    single_submit: bool,
+) -> (sv1_minerd::MinerdProcess, SocketAddr) {
+    let (process, local_addr) =
+        sv1_minerd::start_minerd(upstream_addr, username, password, single_submit)
+            .await
+            .expect("Failed to start minerd process");
+    (process, local_addr)
 }
 
 pub fn start_mining_device_sv1(

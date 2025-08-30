@@ -1722,6 +1722,7 @@ dependencies = [
  "stratum-common",
  "tar",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "translator_sv2",

@@ -20,6 +20,7 @@ cobertura.xml
 /examples/*/Cargo.lock
 /scripts/sv2.h
 /test/integration-tests/template-provider
+/test/integration-tests/minerd
 **/template-provider
 stratum-message-generator
 *.log

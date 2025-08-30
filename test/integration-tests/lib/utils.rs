@@ -402,7 +402,7 @@ pub mod tarball {
         let mut archive = Archive::new(decoder);
         for mut entry in archive.entries().unwrap().flatten() {
             if let Ok(file) = entry.path() {
-                if file.ends_with("bitcoind") {
+                if file.ends_with("bitcoind") || file.ends_with("minerd") {
                     entry.unpack_in(destination).unwrap();
                 }
             }
