@@ -11,7 +11,7 @@ async fn jds_ask_for_missing_transactions() {
     let (sniffer, sniffer_addr) = start_sniffer("A", jds_addr, false, vec![], None);
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr_2);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
-    start_mining_device_sv1(tproxy_addr, false, None);
+    let (_minerd_process, _minerd_addr) = start_minerd(tproxy_addr, None, None, false).await;
     assert!(tp_2.fund_wallet().is_ok());
     assert!(tp_2.create_mempool_transaction().is_ok());
     sniffer

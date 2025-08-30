@@ -11,7 +11,7 @@ async fn jd_tproxy_integration() {
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (_jdc, jdc_addr) = start_jdc(&[(jdc_pool_sniffer_addr, jds_addr)], tp_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
-    start_mining_device_sv1(tproxy_addr, false, None);
+    let (_minerd_process, _minerd_addr) = start_minerd(tproxy_addr, None, None, false).await;
     jdc_pool_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
