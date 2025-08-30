@@ -7,10 +7,9 @@ use jd_server::JobDeclaratorServer;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use once_cell::sync::OnceCell;
 use pool_sv2::PoolSv2;
-use rand::{rng, Rng};
 use std::{
-    convert::{TryFrom, TryInto},
-    net::SocketAddr,
+    convert::TryFrom,
+    net::{Ipv4Addr, SocketAddr},
 };
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -239,7 +238,7 @@ pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, Soc
     }
 }
 
-pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
+pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
     let upstream_address = upstream.ip().to_string();
     let upstream_port = upstream.port();
     let upstream_authority_pubkey = Secp256k1PublicKey::try_from(
@@ -248,7 +247,11 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     .expect("failed");
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
-    let min_individual_miner_hashrate = measure_hashrate(1) as f32;
+
+    let minerd_process = MinerdProcess::new(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), false)
+        .await
+        .unwrap();
+    let min_individual_miner_hashrate = minerd_process.measure_hashrate().await.unwrap() as f32;
 
     let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
         min_individual_miner_hashrate,
@@ -279,42 +282,6 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
         clone_translator_v2.start().await;
     });
     (translator_v2, listening_address)
-}
-
-pub fn measure_hashrate(duration_secs: u64) -> f64 {
-    use stratum_common::roles_logic_sv2::bitcoin::hashes::{sha256d, Hash, HashEngine};
-
-    let mut share = {
-        let mut rng = rng();
-        let mut arr = [0u8; 80];
-        rng.fill(&mut arr[..]);
-        arr
-    };
-    let start_time = std::time::Instant::now();
-    let mut hashes: u64 = 0;
-    let duration = std::time::Duration::from_secs(duration_secs);
-
-    let hash = |share: &mut [u8; 80]| {
-        let nonce: [u8; 8] = share[0..8].try_into().unwrap();
-        let mut nonce = u64::from_le_bytes(nonce);
-        nonce += 1;
-        share[0..8].copy_from_slice(&nonce.to_le_bytes());
-        let mut engine = sha256d::Hash::engine();
-        engine.input(share);
-        sha256d::Hash::from_engine(engine);
-    };
-
-    loop {
-        if start_time.elapsed() >= duration {
-            break;
-        }
-        hash(&mut share);
-        hashes += 1;
-    }
-
-    let elapsed_secs = start_time.elapsed().as_secs_f64();
-
-    hashes as f64 / elapsed_secs
 }
 
 pub async fn start_minerd(
