@@ -297,17 +297,6 @@ pub async fn start_minerd(
     (process, local_addr)
 }
 
-pub fn start_mining_device_sv1(
-    upstream_addr: SocketAddr,
-    single_submit: bool,
-    custom_target: Option<[u8; 32]>,
-) {
-    tokio::spawn(async move {
-        mining_device_sv1::client::Client::connect(80, upstream_addr, single_submit, custom_target)
-            .await;
-    });
-}
-
 pub fn start_mining_device_sv2(
     upstream: SocketAddr,
     pub_key: Option<Secp256k1PublicKey>,

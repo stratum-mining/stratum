@@ -10,7 +10,7 @@ async fn jdc_submit_shares_success() {
     let (_jds, jds_addr) = start_jds(tp.rpc_info());
     let (_jdc, jdc_addr) = start_jdc(&[(sniffer_addr, jds_addr)], tp_addr);
     let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
-    start_mining_device_sv1(tproxy_addr, false, None);
+    let (_minerd_process, _minerd_addr) = start_minerd(tproxy_addr, None, None, false).await;
 
     // make sure sure JDC gets a share acknowledgement
     sniffer
