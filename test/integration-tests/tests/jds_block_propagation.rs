@@ -24,7 +24,7 @@ async fn propagated_from_jds_to_tp() {
         None,
     );
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jdc_jds_sniffer_addr)], jdc_tp_sniffer_addr);
-    let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr);
+    let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
     start_mining_device_sv1(tproxy_addr, false, None);
     jdc_jds_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_PUSH_SOLUTION)
