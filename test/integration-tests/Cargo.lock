@@ -1292,6 +1292,7 @@ dependencies = [
  "sv1_api",
  "tar",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "translator_sv2",

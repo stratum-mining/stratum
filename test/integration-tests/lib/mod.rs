@@ -19,6 +19,7 @@ use utils::get_available_address;
 
 pub mod interceptor;
 pub mod message_aggregator;
+pub mod minerd;
 pub mod mock_roles;
 pub mod sniffer;
 pub mod sniffer_error;
@@ -314,6 +315,19 @@ pub fn measure_hashrate(duration_secs: u64) -> f64 {
     let elapsed_secs = start_time.elapsed().as_secs_f64();
 
     hashes as f64 / elapsed_secs
+}
+
+pub async fn start_minerd(
+    upstream_addr: SocketAddr,
+    username: Option<String>,
+    password: Option<String>,
+    single_submit: bool,
+) -> (minerd::MinerdProcess, SocketAddr) {
+    let (process, local_addr) =
+        minerd::start_minerd(upstream_addr, username, password, single_submit)
+            .await
+            .expect("Failed to start minerd process");
+    (process, local_addr)
 }
 
 pub fn start_mining_device_sv1(
