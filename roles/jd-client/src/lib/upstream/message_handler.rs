@@ -6,14 +6,14 @@ use stratum_common::roles_logic_sv2::{
 };
 use tracing::{debug, error, info, warn};
 
-use crate::{error::JDCError, template_receiver::TemplateReceiver};
+use crate::{error::JDCError, upstream::Upstream};
 
-impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
+impl HandleCommonMessagesFromServerAsync for Upstream {
     async fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Error> {
-        info!("Received SetupConnectionSuccess from TP");
+        info!("Received SetupConnectionSuccess from Upstream");
         debug!("SetupConnectionSuccess: {msg:?}");
 
         Ok(())
@@ -23,13 +23,13 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Error> {
-        info!("Received ChannelEndpointChanged from TP");
+        info!("Received ChannelEndpointChanged from Upstream");
         debug!("ChannelEndpointChanged: {msg:?}");
         Ok(())
     }
 
     async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Error> {
-        info!("Received Reconnect from TP");
+        info!("Received Reconnect from Upstream");
         debug!("Reconnect: {msg:?}");
         Ok(())
     }
@@ -38,7 +38,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Error> {
-        warn!("Received SetupConnectionError from TP");
+        warn!("Received SetupConnectionError from Upstream");
         error!("SetupConnectionError: {msg:?}");
         Err(JDCError::Shutdown.into())
     }

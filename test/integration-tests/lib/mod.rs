@@ -131,7 +131,6 @@ pub fn start_jdc(
     let jdc_address = get_available_address();
     let max_supported_version = 2;
     let min_supported_version = 2;
-    let withhold = false;
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
@@ -153,8 +152,10 @@ pub fn start_jdc(
         .map(|(pool_addr, jds_addr)| {
             Upstream::new(
                 authority_pubkey,
-                pool_addr.to_string(),
-                jds_addr.to_string(),
+                pool_addr.ip().to_string(),
+                pool_addr.port(),
+                jds_addr.ip().to_string(),
+                jds_addr.port(),
             )
         })
         .collect();
@@ -165,16 +166,23 @@ pub fn start_jdc(
         min_supported_version,
         coinbase_reward_script,
     );
+    let shares_per_minute = 10.0;
+    let shares_batch_size = 1;
+    let min_extranonce_size = 4;
+    let user_identity = "IT-test".to_string();
     let jdc_signature = "JDC".to_string();
     let jd_client_proxy = JobDeclaratorClientConfig::new(
         jdc_address,
         protocol_config,
-        withhold,
+        user_identity,
+        shares_per_minute,
+        shares_batch_size,
         pool_config,
         tp_config,
         upstreams,
-        std::time::Duration::from_secs(1),
         jdc_signature,
+        min_extranonce_size,
+        None,
     );
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
     let ret_clone = ret.clone();
