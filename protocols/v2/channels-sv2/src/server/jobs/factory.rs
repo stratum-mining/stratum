@@ -136,8 +136,11 @@ impl JobFactory {
     ///
     /// The optional `ChainTip` defines whether the job will be future or not.
     ///
-    /// Note: version rolling is always allowed for standard jobs, so the `version_rolling_allowed`
+    /// Version rolling is always allowed for standard jobs, so the `version_rolling_allowed`
     /// parameter is ignored.
+    ///
+    /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs` is equal to
+    /// available template revenue. Returns an error otherwise.
     pub fn new_standard_job<'a>(
         &mut self,
         channel_id: u32,
@@ -216,6 +219,9 @@ impl JobFactory {
     /// - The extranonce prefix of the channel at the time of job creation
     ///
     /// The optional `ChainTip` defines whether the job will be future or not.
+    ///
+    /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs` is equal to
+    /// available template revenue. Returns an error otherwise.
     pub fn new_extended_job<'a>(
         &mut self,
         channel_id: u32,
@@ -302,11 +308,22 @@ impl JobFactory {
     /// Creates a new coinbase_tx_prefix and coinbase_tx_suffix from a template.
     ///
     /// To be used by a Sv2 Job Declarator Client to create a `DeclareMiningJob` message.
+    ///
+    /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs`
+    /// is equal to available template revenue. Returns an error otherwise.
     pub fn new_coinbase_tx_prefix_and_suffix(
         &self,
         template: NewTemplate<'_>,
         additional_coinbase_outputs: Vec<TxOut>,
     ) -> Result<(Vec<u8>, Vec<u8>), JobFactoryError> {
+        let coinbase_outputs_sum = additional_coinbase_outputs
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>();
+        if coinbase_outputs_sum != template.coinbase_tx_value_remaining {
+            return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
+        }
+
         let coinbase_tx_prefix =
             self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
         let coinbase_tx_suffix =
@@ -317,6 +334,9 @@ impl JobFactory {
     /// Creates a new `SetCustomMiningJob` message from a template.
     ///
     /// To be used by a Sv2 Job Declarator Client.
+    ///
+    /// It's up to the caller to ensure that the sum of the additional coinbase outputs is equal to
+    /// available template revenue.
     pub fn new_custom_job<'a>(
         &self,
         channel_id: u32,
