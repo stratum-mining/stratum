@@ -25,7 +25,7 @@ use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
         bitcoin::{self, TxOut},
-        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame},
+        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
         common_messages_sv2::{Protocol, SetupConnection},
         parsers_sv2::AnyMessage,
     },
@@ -43,7 +43,7 @@ use crate::{
 pub type Message = AnyMessage<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
-
+pub type SV2Frame = Sv2Frame<Message, buffer_sv2::Slice>;
 /// Represents a message that can trigger shutdown of various system components.
 #[derive(Debug, Clone)]
 pub enum ShutdownMessage {

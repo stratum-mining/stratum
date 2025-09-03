@@ -91,7 +91,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
 
             self.channel_manager_channel
                 .tp_sender
-                .send(frame.into())
+                .send(frame)
                 .await
                 .map_err(|_e| JDCError::ChannelErrorSender)?;
 
@@ -214,7 +214,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
 
         self.channel_manager_channel
             .upstream_sender
-            .send(frame.into())
+            .send(frame)
             .await
             .map_err(|_e| JDCError::ChannelErrorSender)?;
 
@@ -284,7 +284,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
 
         self.channel_manager_channel
             .jd_sender
-            .send(frame.into())
+            .send(frame)
             .await
             .map_err(|_e| JDCError::ChannelErrorSender)?;
 

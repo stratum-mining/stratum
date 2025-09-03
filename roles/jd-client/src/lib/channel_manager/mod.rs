@@ -39,7 +39,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        message_from_frame, AtomicUpstreamState, EitherFrame, Message, ShutdownMessage, StdFrame,
+        message_from_frame, AtomicUpstreamState, Message, SV2Frame, ShutdownMessage, StdFrame,
         UpstreamState,
     },
 };
@@ -202,14 +202,14 @@ impl ChannelManagerData {
 
 #[derive(Clone)]
 pub struct ChannelManagerChannel {
-    upstream_sender: Sender<EitherFrame>,
-    upstream_receiver: Receiver<EitherFrame>,
-    jd_sender: Sender<EitherFrame>,
-    jd_receiver: Receiver<EitherFrame>,
-    tp_sender: Sender<EitherFrame>,
-    tp_receiver: Receiver<EitherFrame>,
+    upstream_sender: Sender<SV2Frame>,
+    upstream_receiver: Receiver<SV2Frame>,
+    jd_sender: Sender<SV2Frame>,
+    jd_receiver: Receiver<SV2Frame>,
+    tp_sender: Sender<SV2Frame>,
+    tp_receiver: Receiver<SV2Frame>,
     downstream_sender: broadcast::Sender<(u32, Message)>,
-    downstream_receiver: Receiver<(u32, EitherFrame)>,
+    downstream_receiver: Receiver<(u32, SV2Frame)>,
     status_sender: Sender<Status>,
 }
 
@@ -238,14 +238,14 @@ impl ChannelManager {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         config: JobDeclaratorClientConfig,
-        upstream_sender: Sender<EitherFrame>,
-        upstream_receiver: Receiver<EitherFrame>,
-        jd_sender: Sender<EitherFrame>,
-        jd_receiver: Receiver<EitherFrame>,
-        tp_sender: Sender<EitherFrame>,
-        tp_receiver: Receiver<EitherFrame>,
+        upstream_sender: Sender<SV2Frame>,
+        upstream_receiver: Receiver<SV2Frame>,
+        jd_sender: Sender<SV2Frame>,
+        jd_receiver: Receiver<SV2Frame>,
+        tp_sender: Sender<SV2Frame>,
+        tp_receiver: Receiver<SV2Frame>,
         downstream_sender: broadcast::Sender<(u32, Message)>,
-        downstream_receiver: Receiver<(u32, EitherFrame)>,
+        downstream_receiver: Receiver<(u32, SV2Frame)>,
         status_sender: Sender<Status>,
         coinbase_outputs: Vec<u8>,
     ) -> Result<Self, JDCError> {
@@ -327,7 +327,7 @@ impl ChannelManager {
         task_manager: Arc<TaskManager>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         status_sender: Sender<Status>,
-        channel_manager_sender: Sender<(u32, EitherFrame)>,
+        channel_manager_sender: Sender<(u32, SV2Frame)>,
         channel_manager_receiver: broadcast::Sender<(u32, Message)>,
     ) -> Result<(), JDCError> {
         info!("Starting downstream server");
@@ -553,32 +553,15 @@ impl ChannelManager {
     ///   message handler.
     /// - If the frame contains any unsupported message type, an error is returned.
     async fn handle_jds_message(&mut self) -> Result<(), JDCError> {
-        if let Ok(read_frame) = self.channel_manager_channel.jd_receiver.recv().await {
-            match read_frame {
-                EitherFrame::Sv2(sv2_frame) => {
-                    let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        sv2_frame.clone().into();
-                    let (message_type, mut payload, parsed_message) =
-                        message_from_frame(&mut frame)?;
+        if let Ok(mut sv2_frame) = self.channel_manager_channel.jd_receiver.recv().await {
+            let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+                return Ok(());
+            };
 
-                    match parsed_message {
-                        AnyMessage::JobDeclaration(_) => {
-                            self.handle_job_declaration_message_from_server(
-                                message_type,
-                                &mut payload,
-                            )
-                            .await?;
-                        }
-                        _ => {
-                            error!("Received unsupported message type from upstream.");
-                            return Err(JDCError::UnexpectedMessage);
-                        }
-                    }
-                }
-                EitherFrame::HandShake(handshake_frame) => {
-                    debug!("Received handshake frame: {:?}", handshake_frame);
-                }
-            }
+            let payload = sv2_frame.payload();
+
+            self.handle_job_declaration_message_from_server(message_type, payload)
+                .await?;
         }
         Ok(())
     }
@@ -590,29 +573,15 @@ impl ChannelManager {
     ///   handler.
     /// - If the frame contains any unsupported message type, an error is returned.
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
-        if let Ok(read_frame) = self.channel_manager_channel.upstream_receiver.recv().await {
-            match read_frame {
-                EitherFrame::Sv2(sv2_frame) => {
-                    let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        sv2_frame.clone().into();
-                    let (message_type, mut payload, parsed_message) =
-                        message_from_frame(&mut frame)?;
+        if let Ok(mut sv2_frame) = self.channel_manager_channel.upstream_receiver.recv().await {
+            let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+                return Ok(());
+            };
 
-                    match parsed_message {
-                        AnyMessage::Mining(_) => {
-                            self.handle_mining_message_from_server(message_type, &mut payload)
-                                .await?;
-                        }
-                        _ => {
-                            error!("Received unsupported message type from upstream.");
-                            return Err(JDCError::UnexpectedMessage);
-                        }
-                    }
-                }
-                EitherFrame::HandShake(handshake_frame) => {
-                    debug!("Received handshake frame: {:?}", handshake_frame);
-                }
-            }
+            let payload = sv2_frame.payload();
+
+            self.handle_mining_message_from_server(message_type, payload)
+                .await?;
         }
         Ok(())
     }
@@ -624,32 +593,15 @@ impl ChannelManager {
     //   distribution message handler.
     // - If the frame contains any unsupported message type, an error is returned.
     async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
-        if let Ok(read_frame) = self.channel_manager_channel.tp_receiver.recv().await {
-            match read_frame {
-                EitherFrame::Sv2(sv2_frame) => {
-                    let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        sv2_frame.clone().into();
-                    let (message_type, mut payload, parsed_message) =
-                        message_from_frame(&mut frame)?;
+        if let Ok(mut sv2_frame) = self.channel_manager_channel.tp_receiver.recv().await {
+            let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+                return Ok(());
+            };
 
-                    match parsed_message {
-                        AnyMessage::TemplateDistribution(_) => {
-                            self.handle_template_distribution_message_from_server(
-                                message_type,
-                                &mut payload,
-                            )
-                            .await?;
-                        }
-                        _ => {
-                            error!("Received unsupported message type from upstream.");
-                            return Err(JDCError::UnexpectedMessage);
-                        }
-                    }
-                }
-                EitherFrame::HandShake(handshake_frame) => {
-                    debug!("Received handshake frame: {:?}", handshake_frame);
-                }
-            }
+            let payload = sv2_frame.payload();
+
+            self.handle_template_distribution_message_from_server(message_type, payload)
+                .await?;
         }
         Ok(())
     }
@@ -690,165 +642,154 @@ impl ChannelManager {
     // - After the upstream channel is established, all new downstream requests bypass the pending
     //   mechanism and are sent directly to the mining handler.
     async fn handle_downstream_message(&mut self) -> Result<(), JDCError> {
-        if let Ok((downstream_id, read_frame)) = self
+        if let Ok((downstream_id, sv2_frame)) = self
             .channel_manager_channel
             .downstream_receiver
             .recv()
             .await
         {
-            match read_frame {
-                EitherFrame::Sv2(sv2_frame) => {
-                    let std_frame: StdFrame = sv2_frame;
-                    let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                        std_frame.clone().into();
+            let std_frame: StdFrame = sv2_frame;
+            let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
+                std_frame.clone().into();
 
-                    let (message_type, mut payload, parsed_message) =
-                        message_from_frame(&mut frame)?;
+            let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
 
-                    match parsed_message {
-                        AnyMessage::Mining(m) => match m {
-                            Mining::OpenExtendedMiningChannel(mut x) => {
-                                let user_identity = format!(
-                                    "{}#{}",
-                                    x.user_identity.as_utf8_or_hex(),
-                                    downstream_id
-                                );
-                                x.user_identity = user_identity.try_into()?;
+            match parsed_message {
+                AnyMessage::Mining(m) => match m {
+                    Mining::OpenExtendedMiningChannel(mut x) => {
+                        let user_identity =
+                            format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
+                        x.user_identity = user_identity.try_into()?;
 
-                                let downstream_msg = Mining::OpenExtendedMiningChannel(x.clone());
+                        let downstream_msg = Mining::OpenExtendedMiningChannel(x.clone());
 
-                                match self.upstream_state.get() {
-                                    UpstreamState::NoChannel => {
-                                        self.channel_manager_data.super_safe_lock(|data| {
-                                            data.pending_downstream_requests.push(downstream_msg);
-                                        });
+                        match self.upstream_state.get() {
+                            UpstreamState::NoChannel => {
+                                self.channel_manager_data.super_safe_lock(|data| {
+                                    data.pending_downstream_requests.push(downstream_msg);
+                                });
 
-                                        if self
-                                            .upstream_state
-                                            .compare_and_set(
-                                                UpstreamState::NoChannel,
-                                                UpstreamState::Pending,
-                                            )
-                                            .is_ok()
-                                        {
-                                            let mut upstream_message = x;
-                                            upstream_message.user_identity =
-                                                self.user_identity.clone().try_into()?;
-                                            upstream_message.request_id = 1;
-                                            let upstream_message = AnyMessage::Mining(
-                                                Mining::OpenExtendedMiningChannel(upstream_message),
-                                            );
-                                            let frame: StdFrame = upstream_message.try_into()?;
+                                if self
+                                    .upstream_state
+                                    .compare_and_set(
+                                        UpstreamState::NoChannel,
+                                        UpstreamState::Pending,
+                                    )
+                                    .is_ok()
+                                {
+                                    let mut upstream_message = x;
+                                    upstream_message.user_identity =
+                                        self.user_identity.clone().try_into()?;
+                                    upstream_message.request_id = 1;
+                                    let upstream_message = AnyMessage::Mining(
+                                        Mining::OpenExtendedMiningChannel(upstream_message),
+                                    );
+                                    let frame: StdFrame = upstream_message.try_into()?;
 
-                                            self.channel_manager_channel
-                                                .upstream_sender
-                                                .send(frame.into())
-                                                .await
-                                                .map_err(|_| JDCError::ChannelErrorSender)?;
-                                        }
-                                    }
-                                    UpstreamState::Pending => {
-                                        self.channel_manager_data.super_safe_lock(|data| {
-                                            data.pending_downstream_requests.push(downstream_msg);
-                                        });
-                                    }
-                                    UpstreamState::Connected => {
-                                        self.send_open_channel_request_to_mining_handler(
-                                            downstream_msg,
-                                            message_type,
-                                        )
-                                        .await?;
-                                    }
-                                    UpstreamState::SoloMining => {
-                                        self.send_open_channel_request_to_mining_handler(
-                                            downstream_msg,
-                                            message_type,
-                                        )
-                                        .await?;
-                                    }
+                                    self.channel_manager_channel
+                                        .upstream_sender
+                                        .send(frame)
+                                        .await
+                                        .map_err(|_| JDCError::ChannelErrorSender)?;
                                 }
                             }
-                            Mining::OpenStandardMiningChannel(mut x) => {
-                                let user_identity =
-                                    format!("{}#{}", x.user_identity, downstream_id);
-                                x.user_identity = user_identity.try_into()?;
-
-                                let downstream_msg = Mining::OpenStandardMiningChannel(x.clone());
-
-                                match self.upstream_state.get() {
-                                    UpstreamState::NoChannel => {
-                                        self.channel_manager_data.super_safe_lock(|data| {
-                                            data.pending_downstream_requests.push(downstream_msg)
-                                        });
-
-                                        if self
-                                            .upstream_state
-                                            .compare_and_set(
-                                                UpstreamState::NoChannel,
-                                                UpstreamState::Pending,
-                                            )
-                                            .is_ok()
-                                        {
-                                            let upstream_open = OpenExtendedMiningChannel {
-                                                user_identity: self
-                                                    .user_identity
-                                                    .clone()
-                                                    .try_into()
-                                                    .unwrap(),
-                                                request_id: 1,
-                                                nominal_hash_rate: x.nominal_hash_rate,
-                                                max_target: x.max_target,
-                                                min_extranonce_size: self.min_extranonce_size,
-                                            };
-
-                                            let frame: StdFrame = AnyMessage::Mining(
-                                                Mining::OpenExtendedMiningChannel(upstream_open),
-                                            )
-                                            .try_into()?;
-                                            self.channel_manager_channel
-                                                .upstream_sender
-                                                .send(frame.into())
-                                                .await
-                                                .map_err(|_| JDCError::ChannelErrorSender)?;
-                                        }
-                                    }
-                                    UpstreamState::Pending => {
-                                        self.channel_manager_data.super_safe_lock(|data| {
-                                            data.pending_downstream_requests.push(downstream_msg)
-                                        });
-                                    }
-                                    UpstreamState::Connected => {
-                                        self.send_open_channel_request_to_mining_handler(
-                                            downstream_msg,
-                                            message_type,
-                                        )
-                                        .await?;
-                                    }
-                                    UpstreamState::SoloMining => {
-                                        self.send_open_channel_request_to_mining_handler(
-                                            downstream_msg,
-                                            message_type,
-                                        )
-                                        .await?;
-                                    }
-                                }
+                            UpstreamState::Pending => {
+                                self.channel_manager_data.super_safe_lock(|data| {
+                                    data.pending_downstream_requests.push(downstream_msg);
+                                });
                             }
-                            _ => {
-                                self.handle_mining_message_from_client(message_type, &mut payload)
-                                    .await?;
+                            UpstreamState::Connected => {
+                                self.send_open_channel_request_to_mining_handler(
+                                    downstream_msg,
+                                    message_type,
+                                )
+                                .await?;
                             }
-                        },
-                        _ => {
-                            error!("Received unsupported message type from upstream.");
-                            return Err(JDCError::UnexpectedMessage);
+                            UpstreamState::SoloMining => {
+                                self.send_open_channel_request_to_mining_handler(
+                                    downstream_msg,
+                                    message_type,
+                                )
+                                .await?;
+                            }
                         }
                     }
-                }
-                EitherFrame::HandShake(handshake_frame) => {
-                    debug!("Received handshake frame: {:?}", handshake_frame);
+                    Mining::OpenStandardMiningChannel(mut x) => {
+                        let user_identity = format!("{}#{}", x.user_identity, downstream_id);
+                        x.user_identity = user_identity.try_into()?;
+
+                        let downstream_msg = Mining::OpenStandardMiningChannel(x.clone());
+
+                        match self.upstream_state.get() {
+                            UpstreamState::NoChannel => {
+                                self.channel_manager_data.super_safe_lock(|data| {
+                                    data.pending_downstream_requests.push(downstream_msg)
+                                });
+
+                                if self
+                                    .upstream_state
+                                    .compare_and_set(
+                                        UpstreamState::NoChannel,
+                                        UpstreamState::Pending,
+                                    )
+                                    .is_ok()
+                                {
+                                    let upstream_open = OpenExtendedMiningChannel {
+                                        user_identity: self
+                                            .user_identity
+                                            .clone()
+                                            .try_into()
+                                            .unwrap(),
+                                        request_id: 1,
+                                        nominal_hash_rate: x.nominal_hash_rate,
+                                        max_target: x.max_target,
+                                        min_extranonce_size: self.min_extranonce_size,
+                                    };
+
+                                    let frame: StdFrame = AnyMessage::Mining(
+                                        Mining::OpenExtendedMiningChannel(upstream_open),
+                                    )
+                                    .try_into()?;
+                                    self.channel_manager_channel
+                                        .upstream_sender
+                                        .send(frame)
+                                        .await
+                                        .map_err(|_| JDCError::ChannelErrorSender)?;
+                                }
+                            }
+                            UpstreamState::Pending => {
+                                self.channel_manager_data.super_safe_lock(|data| {
+                                    data.pending_downstream_requests.push(downstream_msg)
+                                });
+                            }
+                            UpstreamState::Connected => {
+                                self.send_open_channel_request_to_mining_handler(
+                                    downstream_msg,
+                                    message_type,
+                                )
+                                .await?;
+                            }
+                            UpstreamState::SoloMining => {
+                                self.send_open_channel_request_to_mining_handler(
+                                    downstream_msg,
+                                    message_type,
+                                )
+                                .await?;
+                            }
+                        }
+                    }
+                    _ => {
+                        self.handle_mining_message_from_client(message_type, &mut payload)
+                            .await?;
+                    }
+                },
+                _ => {
+                    error!("Received unsupported message type from upstream.");
+                    return Err(JDCError::UnexpectedMessage);
                 }
             }
         }
+
         Ok(())
     }
 
@@ -926,7 +867,7 @@ impl ChannelManager {
 
             self.channel_manager_channel
                 .jd_sender
-                .send(frame.into())
+                .send(frame)
                 .await
                 .map_err(|e| {
                     info!(error = ?e, "Failed to send AllocateMiningJobToken frame");

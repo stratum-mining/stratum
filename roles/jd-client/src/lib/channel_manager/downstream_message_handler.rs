@@ -105,21 +105,18 @@ impl<'a> RouteMessageTo<'a> {
                 if get_jd_mode() != JdMode::SoloMining {
                     let message = AnyMessage::Mining(message).into_static();
                     let frame: StdFrame = message.try_into().unwrap();
-                    _ = channel_manager_channel
-                        .upstream_sender
-                        .send(frame.into())
-                        .await;
+                    _ = channel_manager_channel.upstream_sender.send(frame).await;
                 }
             }
             RouteMessageTo::JobDeclarator(message) => {
                 let message = AnyMessage::JobDeclaration(message).into_static();
                 let frame: StdFrame = message.try_into().unwrap();
-                _ = channel_manager_channel.jd_sender.send(frame.into()).await;
+                _ = channel_manager_channel.jd_sender.send(frame).await;
             }
             RouteMessageTo::TemplateProvider(message) => {
                 let message = AnyMessage::TemplateDistribution(message).into_static();
                 let frame: StdFrame = message.try_into().unwrap();
-                _ = channel_manager_channel.tp_sender.send(frame.into()).await;
+                _ = channel_manager_channel.tp_sender.send(frame).await;
             }
         }
     }

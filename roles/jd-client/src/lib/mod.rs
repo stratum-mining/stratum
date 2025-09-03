@@ -16,7 +16,7 @@ use crate::{
     task_manager::TaskManager,
     template_receiver::TemplateReceiver,
     upstream::Upstream,
-    utils::{EitherFrame, ShutdownMessage, UpstreamState},
+    utils::{SV2Frame, ShutdownMessage, UpstreamState},
 };
 
 mod channel_manager;
@@ -69,14 +69,14 @@ impl JobDeclaratorClient {
         let (status_sender, status_receiver) = async_channel::unbounded::<Status>();
 
         let (channel_manager_to_upstream_sender, channel_manager_to_upstream_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded::<SV2Frame>();
         let (upstream_to_channel_manager_sender, upstream_to_channel_manager_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded::<SV2Frame>();
 
         let (channel_manager_to_jd_sender, channel_manager_to_jd_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded::<SV2Frame>();
         let (jd_to_channel_manager_sender, jd_to_channel_manager_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded::<SV2Frame>();
 
         let (channel_manager_to_downstream_sender, _channel_manager_to_downstream_receiver) =
             broadcast::channel(10);
@@ -84,9 +84,9 @@ impl JobDeclaratorClient {
             unbounded();
 
         let (channel_manager_to_tp_sender, channel_manager_to_tp_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded::<SV2Frame>();
         let (tp_to_channel_manager_sender, tp_to_channel_manager_receiver) =
-            unbounded::<EitherFrame>();
+            unbounded::<SV2Frame>();
 
         debug!("Channels initialized.");
 
@@ -348,10 +348,10 @@ impl JobDeclaratorClient {
     pub async fn initialize_jd(
         &self,
         upstreams: &mut [(SocketAddr, SocketAddr, Secp256k1PublicKey, bool)],
-        channel_manager_to_upstream_receiver: Receiver<EitherFrame>,
-        upstream_to_channel_manager_sender: Sender<EitherFrame>,
-        channel_manager_to_jd_receiver: Receiver<EitherFrame>,
-        jd_to_channel_manager_sender: Sender<EitherFrame>,
+        channel_manager_to_upstream_receiver: Receiver<SV2Frame>,
+        upstream_to_channel_manager_sender: Sender<SV2Frame>,
+        channel_manager_to_jd_receiver: Receiver<SV2Frame>,
+        jd_to_channel_manager_sender: Sender<SV2Frame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         status_sender: Sender<Status>,
         mode: ConfigJDCMode,
@@ -426,10 +426,10 @@ impl JobDeclaratorClient {
 #[allow(clippy::too_many_arguments)]
 async fn try_initialize_single(
     upstream_addr: &(SocketAddr, SocketAddr, Secp256k1PublicKey, bool),
-    upstream_to_channel_manager_sender: Sender<EitherFrame>,
-    channel_manager_to_upstream_receiver: Receiver<EitherFrame>,
-    jd_to_channel_manager_sender: Sender<EitherFrame>,
-    channel_manager_to_jd_receiver: Receiver<EitherFrame>,
+    upstream_to_channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_to_upstream_receiver: Receiver<SV2Frame>,
+    jd_to_channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_to_jd_receiver: Receiver<SV2Frame>,
     notify_shutdown: broadcast::Sender<ShutdownMessage>,
     status_sender: Sender<Status>,
     mode: ConfigJDCMode,

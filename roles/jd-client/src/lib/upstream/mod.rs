@@ -18,7 +18,6 @@ use stratum_common::{
     roles_logic_sv2::{
         codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
         handlers_sv2::HandleCommonMessagesFromServerAsync,
-        parsers_sv2::AnyMessage,
         utils::Mutex,
     },
 };
@@ -33,7 +32,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message, message_from_frame, spawn_io_tasks, EitherFrame, Message,
+        get_setup_connection_message, spawn_io_tasks, EitherFrame, Message, SV2Frame,
         ShutdownMessage, StdFrame,
     },
 };
@@ -51,8 +50,8 @@ pub struct UpstreamData;
 /// - `inbound_rx` → receives frames inbound from upstream
 #[derive(Clone)]
 pub struct UpstreamChannel {
-    channel_manager_sender: Sender<EitherFrame>,
-    channel_manager_receiver: Receiver<EitherFrame>,
+    channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_receiver: Receiver<SV2Frame>,
     upstream_sender: Sender<EitherFrame>,
     upstream_receiver: Receiver<EitherFrame>,
 }
@@ -74,8 +73,8 @@ impl Upstream {
     /// - Spawns IO tasks to handle inbound/outbound traffic
     pub async fn new(
         upstreams: &(SocketAddr, SocketAddr, Secp256k1PublicKey, bool),
-        channel_manager_sender: Sender<EitherFrame>,
-        channel_manager_receiver: Receiver<EitherFrame>,
+        channel_manager_sender: Sender<SV2Frame>,
+        channel_manager_receiver: Receiver<SV2Frame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         task_manager: Arc<TaskManager>,
         status_sender: Sender<Status>,
@@ -269,32 +268,22 @@ impl Upstream {
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
         let read_frame = self.upstream_channel.upstream_receiver.recv().await?;
         match read_frame {
-            EitherFrame::Sv2(sv2_frame) => {
+            EitherFrame::Sv2(mut sv2_frame) => {
                 debug!("Received SV2 frame from upstream.");
+                let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+                    return Ok(());
+                };
 
-                let std_frame: StdFrame = sv2_frame;
-                let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                    std_frame.clone().into();
-                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)
-                    .map_err(|e| {
-                        error!(error=?e, "Failed to parse SV2 frame.");
-                        e
-                    })?;
-                match parsed_message {
-                    AnyMessage::Common(_) => {
+                match message_type {
+                    0..=4 => {
                         info!(?message_type, "Handling common message from Upstream.");
-                        self.handle_common_message_from_server(message_type, &mut payload)
+                        self.handle_common_message_from_server(message_type, sv2_frame.payload())
                             .await?;
                     }
-                    AnyMessage::Mining(_) => {
-                        debug!(
-                            ?message_type,
-                            "Forwarding mining message to channel manager."
-                        );
-                        let frame_to_forward = EitherFrame::Sv2(std_frame);
+                    16..=37 => {
                         self.upstream_channel
                             .channel_manager_sender
-                            .send(frame_to_forward)
+                            .send(sv2_frame)
                             .await
                             .map_err(|e| {
                                 error!(error=?e, "Failed to send mining message to channel manager.");
@@ -302,11 +291,7 @@ impl Upstream {
                             })?;
                     }
                     _ => {
-                        warn!(
-                            ?message_type,
-                            "Received unsupported message type from upstream."
-                        );
-                        return Err(JDCError::UnexpectedMessage);
+                        warn!("Received unsupported message type from upstream: {message_type}");
                     }
                 }
             }
@@ -327,7 +312,7 @@ impl Upstream {
                 debug!("Received message from channel manager, forwarding upstream.");
                 self.upstream_channel
                     .upstream_sender
-                    .send(msg)
+                    .send(msg.into())
                     .await
                     .map_err(|e| {
                         error!(error=?e, "Failed to send outbound message to upstream.");

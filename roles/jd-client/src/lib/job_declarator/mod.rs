@@ -7,7 +7,6 @@ use stratum_common::{
     roles_logic_sv2::{
         codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
         handlers_sv2::HandleCommonMessagesFromServerAsync,
-        parsers_sv2::AnyMessage,
         utils::Mutex,
     },
 };
@@ -23,7 +22,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message_jds, message_from_frame, spawn_io_tasks, EitherFrame, Message,
+        get_setup_connection_message_jds, spawn_io_tasks, EitherFrame, Message, SV2Frame,
         ShutdownMessage, StdFrame,
     },
 };
@@ -36,8 +35,8 @@ pub struct JobDeclaratorData;
 /// Holds all channels required for Job Declarator communication.
 #[derive(Clone)]
 pub struct JobDeclaratorChannel {
-    channel_manager_sender: Sender<EitherFrame>,
-    channel_manager_receiver: Receiver<EitherFrame>,
+    channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_receiver: Receiver<SV2Frame>,
     jds_sender: Sender<EitherFrame>,
     jds_receiver: Receiver<EitherFrame>,
 }
@@ -64,8 +63,8 @@ impl JobDeclarator {
     /// - Spawns background IO tasks for reading/writing frames.
     pub async fn new(
         upstreams: &(SocketAddr, SocketAddr, Secp256k1PublicKey, bool),
-        channel_manager_sender: Sender<EitherFrame>,
-        channel_manager_receiver: Receiver<EitherFrame>,
+        channel_manager_sender: Sender<SV2Frame>,
+        channel_manager_receiver: Receiver<SV2Frame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         mode: ConfigJDCMode,
         task_manager: Arc<TaskManager>,
@@ -264,7 +263,7 @@ impl JobDeclarator {
                 debug!("Forwarding message from channel manager to JDS.");
                 self.job_declarator_channel
                     .jds_sender
-                    .send(msg)
+                    .send(msg.into())
                     .await
                     .map_err(|e| {
                         error!("Failed to send message to outbound channel: {:?}", e);
@@ -286,48 +285,32 @@ impl JobDeclarator {
     async fn handle_job_declarator_message(&mut self) -> Result<(), JDCError> {
         let read_frame = self.job_declarator_channel.jds_receiver.recv().await?;
         match read_frame {
-            EitherFrame::Sv2(sv2_frame) => {
+            EitherFrame::Sv2(mut sv2_frame) => {
                 debug!("Received SV2 frame from JDS.");
+                let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+                    return Ok(());
+                };
 
-                let std_frame: StdFrame = sv2_frame;
-                let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                    std_frame.clone().into();
-                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)
-                    .map_err(|e| {
-                        error!(error=?e, "Failed to parse SV2 frame.");
-                        e
-                    })?;
-
-                match parsed_message {
-                    AnyMessage::Common(_) => {
-                        info!(
-                            ?message_type,
-                            "Handling common message from job declarator."
-                        );
-                        self.handle_common_message_from_server(message_type, &mut payload)
+                match message_type {
+                    0..=4 => {
+                        info!(?message_type, "Handling common message from Upstream.");
+                        self.handle_common_message_from_server(message_type, sv2_frame.payload())
                             .await?;
                     }
-                    AnyMessage::JobDeclaration(_) => {
-                        debug!(
-                            ?message_type,
-                            "Forwarding JobDeclaration message to channel manager."
-                        );
-                        let frame_to_forward = EitherFrame::Sv2(std_frame);
+                    80..=96 => {
                         self.job_declarator_channel
                             .channel_manager_sender
-                            .send(frame_to_forward)
+                            .send(sv2_frame)
                             .await
                             .map_err(|e| {
-                                error!(error=?e, "Failed to send JobDeclaration message to channel manager.");
+                                error!(error=?e, "Failed to send Job declaration message to channel manager.");
                                 JDCError::ChannelErrorSender
                             })?;
                     }
                     _ => {
                         warn!(
-                            ?message_type,
-                            "Received unsupported message type from job declarator."
+                            "Received unsupported message type from Job declarator: {message_type}"
                         );
-                        return Err(JDCError::UnexpectedMessage);
                     }
                 }
             }

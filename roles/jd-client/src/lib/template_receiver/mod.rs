@@ -36,7 +36,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message_tp, message_from_frame, spawn_io_tasks, EitherFrame, Message,
+        get_setup_connection_message_tp, spawn_io_tasks, EitherFrame, Message, SV2Frame,
         ShutdownMessage, StdFrame,
     },
 };
@@ -55,8 +55,8 @@ pub struct TemplateReceiverData;
 /// - `inbound_rx` → receives frames from the template provider
 #[derive(Clone)]
 pub struct TemplateReceiverChannel {
-    channel_manager_sender: Sender<EitherFrame>,
-    channel_manager_receiver: Receiver<EitherFrame>,
+    channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_receiver: Receiver<SV2Frame>,
     tp_sender: Sender<EitherFrame>,
     tp_receiver: Receiver<EitherFrame>,
 }
@@ -91,8 +91,8 @@ impl TemplateReceiver {
     pub async fn new(
         tp_address: String,
         public_key: Option<Secp256k1PublicKey>,
-        channel_manager_receiver: Receiver<EitherFrame>,
-        channel_manager_sender: Sender<EitherFrame>,
+        channel_manager_receiver: Receiver<SV2Frame>,
+        channel_manager_sender: Sender<SV2Frame>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         task_manager: Arc<TaskManager>,
         status_sender: Sender<Status>,
@@ -271,40 +271,33 @@ impl TemplateReceiver {
         debug!("Received frame from template provider");
 
         match read_frame {
-            EitherFrame::Sv2(sv2_frame) => {
-                let std_frame: StdFrame = sv2_frame;
-                let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                    std_frame.clone().into();
+            EitherFrame::Sv2(mut sv2_frame) => {
+                debug!("Received SV2 frame from Template provider.");
+                let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+                    return Ok(());
+                };
 
-                let (message_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
-
-                match parsed_message {
-                    AnyMessage::Common(_) => {
-                        debug!(?message_type, "Handling common message from server");
-                        self.handle_common_message_from_server(message_type, &mut payload)
+                match message_type {
+                    0..=4 => {
+                        info!(
+                            ?message_type,
+                            "Handling common message from Template provider."
+                        );
+                        self.handle_common_message_from_server(message_type, sv2_frame.payload())
                             .await?;
                     }
-                    AnyMessage::TemplateDistribution(_) => {
-                        debug!(
-                            ?message_type,
-                            "Forwarding TemplateDistribution message to channel manager"
-                        );
+                    112..=118 => {
                         self.template_receiver_channel
                             .channel_manager_sender
-                            .send(EitherFrame::Sv2(std_frame))
+                            .send(sv2_frame)
                             .await
                             .map_err(|e| {
-                                error!(
-                                    "Failed to forward mining message to channel manager: {e:?}"
-                                );
+                                error!(error=?e, "Failed to send template distribution message to channel manager.");
                                 JDCError::ChannelErrorSender
                             })?;
                     }
                     _ => {
-                        warn!(
-                            ?message_type,
-                            "Unsupported message type from Template Provider"
-                        );
+                        warn!("Received unsupported message type from template provider: {message_type}");
                     }
                 }
             }
@@ -328,7 +321,7 @@ impl TemplateReceiver {
         debug!("Forwarding message from channel manager to outbound_tx");
         self.template_receiver_channel
             .tp_sender
-            .send(msg)
+            .send(msg.into())
             .await
             .map_err(|_| JDCError::ChannelErrorSender)?;
 

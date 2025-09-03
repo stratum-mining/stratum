@@ -1,3 +1,5 @@
+use std::process;
+
 use config_helpers_sv2::logging::init_logging;
 use jd_client::JobDeclaratorClient;
 
@@ -14,4 +16,6 @@ async fn main() {
 
     init_logging(jdc_config.log_file());
     JobDeclaratorClient::new(jdc_config).start().await;
+
+    process::exit(1);
 }

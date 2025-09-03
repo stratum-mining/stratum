@@ -21,7 +21,10 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{message_from_frame, spawn_io_tasks, EitherFrame, Message, ShutdownMessage, StdFrame},
+    utils::{
+        message_from_frame, spawn_io_tasks, EitherFrame, Message, SV2Frame, ShutdownMessage,
+        StdFrame,
+    },
 };
 
 mod message_handler;
@@ -50,7 +53,7 @@ pub struct DownstreamData {
 /// - `downstream_receiver`: receives frames from the downstream.
 #[derive(Clone)]
 pub struct DownstreamChannel {
-    channel_manager_sender: Sender<(u32, EitherFrame)>,
+    channel_manager_sender: Sender<(u32, SV2Frame)>,
     channel_manager_receiver: broadcast::Sender<(u32, Message)>,
     downstream_sender: Sender<EitherFrame>,
     downstream_receiver: Receiver<EitherFrame>,
@@ -68,7 +71,7 @@ impl Downstream {
     /// Creates a new [`Downstream`] instance and spawns the necessary I/O tasks.
     pub fn new(
         downstream_id: u32,
-        channel_manager_sender: Sender<(u32, EitherFrame)>,
+        channel_manager_sender: Sender<(u32, SV2Frame)>,
         channel_manager_receiver: broadcast::Sender<(u32, Message)>,
         noise_stream: NoiseTcpStream<Message>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
@@ -251,27 +254,15 @@ impl Downstream {
 
         match read_frame {
             EitherFrame::Sv2(sv2_frame) => {
-                let std_frame: StdFrame = sv2_frame;
-                let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                    std_frame.clone().into();
-                let (_, _, parsed_message) = message_from_frame(&mut frame)?;
-
-                match parsed_message {
-                    AnyMessage::Mining(_) => {
-                        self.downstream_channel
-                            .channel_manager_sender
-                            .send((self.downstream_id, EitherFrame::Sv2(std_frame)))
-                            .await
-                            .map_err(|e| {
-                                error!(?e, "Failed to send mining message to channel manager");
-                                JDCError::ChannelErrorSender
-                            })?;
-                    }
-                    _ => {
-                        error!("Unsupported message type from upstream");
-                        return Err(JDCError::UnexpectedMessage);
-                    }
-                }
+                debug!("Received SV2 frame from downstream.");
+                self.downstream_channel
+                    .channel_manager_sender
+                    .send((self.downstream_id, sv2_frame))
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send mining message to channel manager.");
+                        JDCError::ChannelErrorSender
+                    })?;
             }
             EitherFrame::HandShake(handshake_frame) => {
                 debug!(?handshake_frame, "Received handshake frame");

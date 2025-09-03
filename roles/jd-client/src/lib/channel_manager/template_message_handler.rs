@@ -54,7 +54,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             let frame: StdFrame = tx_data_request.try_into()?;
             self.channel_manager_channel
                 .tp_sender
-                .send(frame.into())
+                .send(frame)
                 .await
                 .map_err(|_e| JDCError::ChannelErrorSender)?;
         }
@@ -363,11 +363,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                 AnyMessage::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
                     .try_into()?;
 
-            _ = self
-                .channel_manager_channel
-                .jd_sender
-                .send(frame.into())
-                .await;
+            _ = self.channel_manager_channel.jd_sender.send(frame).await;
         }
 
         Ok(())
@@ -415,7 +411,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
                 self.channel_manager_channel
                     .jd_sender
-                    .send(frame.into())
+                    .send(frame)
                     .await
                     .map_err(|_e| JDCError::ChannelErrorSender)?;
             }
