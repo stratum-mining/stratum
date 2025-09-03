@@ -257,7 +257,7 @@ impl Downstream {
                 debug!("Received SV2 frame from downstream.");
                 self.downstream_channel
                     .channel_manager_sender
-                    .send((self.downstream_id, sv2_frame))
+                    .send((self.downstream_id, sv2_frame.clone()))
                     .await
                     .map_err(|e| {
                         error!(error=?e, "Failed to send mining message to channel manager.");

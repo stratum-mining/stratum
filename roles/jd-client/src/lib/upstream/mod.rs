@@ -283,7 +283,7 @@ impl Upstream {
                     16..=37 => {
                         self.upstream_channel
                             .channel_manager_sender
-                            .send(sv2_frame)
+                            .send(sv2_frame.clone())
                             .await
                             .map_err(|e| {
                                 error!(error=?e, "Failed to send mining message to channel manager.");

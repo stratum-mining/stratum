@@ -289,7 +289,7 @@ impl TemplateReceiver {
                     112..=118 => {
                         self.template_receiver_channel
                             .channel_manager_sender
-                            .send(sv2_frame)
+                            .send(sv2_frame.clone())
                             .await
                             .map_err(|e| {
                                 error!(error=?e, "Failed to send template distribution message to channel manager.");

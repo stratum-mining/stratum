@@ -300,7 +300,7 @@ impl JobDeclarator {
                     80..=96 => {
                         self.job_declarator_channel
                             .channel_manager_sender
-                            .send(sv2_frame)
+                            .send(sv2_frame.clone())
                             .await
                             .map_err(|e| {
                                 error!(error=?e, "Failed to send Job declaration message to channel manager.");
