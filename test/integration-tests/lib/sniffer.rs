@@ -148,8 +148,9 @@ impl<'a> Sniffer<'a> {
             // configurable timeout, 1 minute default
             if now.elapsed().as_secs() > self.timeout.unwrap_or(DEFAULT_TIMEOUT) {
                 panic!(
-                    "Timeout waiting for message type: {}",
-                    message_type_to_name(message_type)
+                    "timeout while waiting for message {} to go {}",
+                    message_type_to_name(message_type),
+                    message_direction
                 );
             }
 
@@ -203,8 +204,9 @@ impl<'a> Sniffer<'a> {
             // configurable timeout, 1 minute default
             if now.elapsed().as_secs() > self.timeout.unwrap_or(DEFAULT_TIMEOUT) {
                 panic!(
-                    "Timeout waiting for message type: {}",
-                    message_type_to_name(message_type)
+                    "timeout while waiting for message {} to go {}",
+                    message_type_to_name(message_type),
+                    message_direction
                 );
             }
 
