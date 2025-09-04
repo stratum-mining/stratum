@@ -6,11 +6,7 @@ use stratum_common::{
     roles_logic_sv2::{
         channels_sv2::server::{
             extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
-        },
-        codec_sv2,
-        handlers_sv2::HandleCommonMessagesFromClientAsync,
-        parsers_sv2::{AnyMessage, CommonMessages, IsSv2Message},
-        utils::Mutex,
+        }, codec_sv2, common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION, handlers_sv2::HandleCommonMessagesFromClientAsync, parsers_sv2::{AnyMessage, IsSv2Message}, utils::Mutex
     },
 };
 
@@ -22,7 +18,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        message_from_frame, spawn_io_tasks, EitherFrame, Message, SV2Frame, ShutdownMessage,
+        spawn_io_tasks, Message, SV2Frame, ShutdownMessage,
         StdFrame,
     },
 };
@@ -55,8 +51,8 @@ pub struct DownstreamData {
 pub struct DownstreamChannel {
     channel_manager_sender: Sender<(u32, SV2Frame)>,
     channel_manager_receiver: broadcast::Sender<(u32, Message)>,
-    downstream_sender: Sender<EitherFrame>,
-    downstream_receiver: Receiver<EitherFrame>,
+    downstream_sender: Sender<SV2Frame>,
+    downstream_receiver: Receiver<SV2Frame>,
 }
 
 /// Represents a downstream client connected to this node.
@@ -83,8 +79,8 @@ impl Downstream {
             downstream_id,
             tx: status_sender,
         };
-        let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
-        let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+        let (inbound_tx, inbound_rx) = unbounded::<SV2Frame>();
+        let (outbound_tx, outbound_rx) = unbounded::<SV2Frame>();
         spawn_io_tasks(
             task_manager,
             noise_stream_reader,
@@ -191,18 +187,17 @@ impl Downstream {
 
     // Performs the initial handshake with a downstream peer.
     async fn setup_connection_with_downstream(&mut self) -> Result<(), JDCError> {
-        let mut frame = self.downstream_channel.downstream_receiver.recv().await?;
-        let (msg_type, mut payload, parsed) = message_from_frame(&mut frame).map_err(|e| {
-            error!(?e, "Failed to parse incoming frame");
-            e
-        })?;
-
-        if let AnyMessage::Common(CommonMessages::SetupConnection(_)) = parsed {
-            self.handle_common_message_from_client(msg_type, &mut payload)
-                .await?;
-            return Ok(());
+        let read_frame = self.downstream_channel.downstream_receiver.recv().await?;
+        let mut frame = read_frame.clone();
+        drop(read_frame);
+        let Some(message_type) = frame.get_header().map(|m| m.msg_type()) else {
+            return Err(JDCError::UnexpectedMessage);
+        };
+        let payload = frame.payload();
+        if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
+            self.handle_common_message_from_client(message_type, payload).await?;
+            return Ok(())
         }
-
         Err(JDCError::UnexpectedMessage)
     }
 
@@ -238,7 +233,7 @@ impl Downstream {
 
         self.downstream_channel
             .downstream_sender
-            .send(std_frame.into())
+            .send(std_frame)
             .await
             .map_err(|e| {
                 error!(?e, "Downstream send failed");
@@ -251,23 +246,18 @@ impl Downstream {
     // Handles incoming messages from the downstream peer.
     async fn handle_downstream_message(self) -> Result<(), JDCError> {
         let read_frame = self.downstream_channel.downstream_receiver.recv().await?;
-
-        match read_frame {
-            EitherFrame::Sv2(sv2_frame) => {
-                debug!("Received SV2 frame from downstream.");
-                self.downstream_channel
-                    .channel_manager_sender
-                    .send((self.downstream_id, sv2_frame.clone()))
-                    .await
-                    .map_err(|e| {
-                        error!(error=?e, "Failed to send mining message to channel manager.");
-                        JDCError::ChannelErrorSender
-                    })?;
-            }
-            EitherFrame::HandShake(handshake_frame) => {
-                debug!(?handshake_frame, "Received handshake frame");
-            }
-        }
+        let sv2_frame = read_frame.clone();
+        drop(read_frame);
+        debug!("Received SV2 frame from downstream.");
+        self.downstream_channel
+            .channel_manager_sender
+            .send((self.downstream_id, sv2_frame))
+            .await
+            .map_err(|e| {
+                error!(error=?e, "Failed to send mining message to channel manager.");
+                JDCError::ChannelErrorSender
+            })?;
+            
         Ok(())
     }
 }

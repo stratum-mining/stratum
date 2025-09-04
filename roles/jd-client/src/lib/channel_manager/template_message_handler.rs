@@ -248,6 +248,11 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             msg.template_id
         );
         debug!("RequestTransactionDataError: {msg:?}");
+        let error_code = msg.error_code.as_utf8_or_hex();
+
+        if matches!(error_code.as_str(), "template-id-not-found" | "stale-template-id") {
+            return Ok(());
+        } 
         Err(JDCError::TxDataError.into())
     }
 

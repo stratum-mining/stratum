@@ -5,9 +5,7 @@ use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
-        handlers_sv2::HandleCommonMessagesFromServerAsync,
-        utils::Mutex,
+        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator}, common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION}, handlers_sv2::HandleCommonMessagesFromServerAsync, job_declaration_sv2::{MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_PUSH_SOLUTION}, utils::Mutex
     },
 };
 use tokio::{
@@ -22,7 +20,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message_jds, spawn_io_tasks, EitherFrame, Message, SV2Frame,
+        get_setup_connection_message_jds, spawn_io_tasks, Message, SV2Frame,
         ShutdownMessage, StdFrame,
     },
 };
@@ -37,8 +35,8 @@ pub struct JobDeclaratorData;
 pub struct JobDeclaratorChannel {
     channel_manager_sender: Sender<SV2Frame>,
     channel_manager_receiver: Receiver<SV2Frame>,
-    jds_sender: Sender<EitherFrame>,
-    jds_receiver: Receiver<EitherFrame>,
+    jds_sender: Sender<SV2Frame>,
+    jds_receiver: Receiver<SV2Frame>,
 }
 
 /// Manages the lifecycle and communication with a Job Declarator (JDS)
@@ -85,8 +83,8 @@ impl JobDeclarator {
                 .into_split();
 
         let status_sender = StatusSender::JobDeclarator(status_sender);
-        let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
-        let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+        let (inbound_tx, inbound_rx) = unbounded::<SV2Frame>();
+        let (outbound_tx, outbound_rx) = unbounded::<SV2Frame>();
 
         spawn_io_tasks(
             task_manager,
@@ -284,43 +282,38 @@ impl JobDeclarator {
     // - Rejects unsupported message types.
     async fn handle_job_declarator_message(&mut self) -> Result<(), JDCError> {
         let read_frame = self.job_declarator_channel.jds_receiver.recv().await?;
-        match read_frame {
-            EitherFrame::Sv2(mut sv2_frame) => {
-                debug!("Received SV2 frame from JDS.");
-                let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
-                    return Ok(());
-                };
 
-                match message_type {
-                    0..=4 => {
-                        info!(?message_type, "Handling common message from Upstream.");
-                        self.handle_common_message_from_server(message_type, sv2_frame.payload())
-                            .await?;
-                    }
-                    80..=96 => {
-                        self.job_declarator_channel
-                            .channel_manager_sender
-                            .send(sv2_frame.clone())
-                            .await
-                            .map_err(|e| {
-                                error!(error=?e, "Failed to send Job declaration message to channel manager.");
-                                JDCError::ChannelErrorSender
-                            })?;
-                    }
-                    _ => {
-                        warn!(
-                            "Received unsupported message type from Job declarator: {message_type}"
-                        );
-                    }
-                }
+        let mut sv2_frame = read_frame.clone();
+        drop(read_frame);
+
+        debug!("Received SV2 frame from JDS.");
+        let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+            return Ok(());
+        };
+
+        match message_type {
+            MESSAGE_TYPE_SETUP_CONNECTION..=MESSAGE_TYPE_RECONNECT => {
+                info!(?message_type, "Handling common message from Upstream.");
+                self.handle_common_message_from_server(message_type, sv2_frame.payload())
+                    .await?;
             }
-            EitherFrame::HandShake(handshake_frame) => {
-                debug!(
-                    ?handshake_frame,
-                    "Received handshake frame from job declarator."
+            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN..=MESSAGE_TYPE_PUSH_SOLUTION => {
+                self.job_declarator_channel
+                    .channel_manager_sender
+                    .send(sv2_frame)
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send Job declaration message to channel manager.");
+                        JDCError::ChannelErrorSender
+                    })?;
+            }
+            _ => {
+                warn!(
+                    "Received unsupported message type from Job declarator: {message_type}"
                 );
             }
         }
+
         Ok(())
     }
 }

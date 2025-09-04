@@ -16,9 +16,7 @@ use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
-        handlers_sv2::HandleCommonMessagesFromServerAsync,
-        utils::Mutex,
+        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator}, common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION}, handlers_sv2::HandleCommonMessagesFromServerAsync, mining_sv2::{MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_SET_GROUP_CHANNEL}, utils::Mutex
     },
 };
 use tokio::{
@@ -32,7 +30,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message, spawn_io_tasks, EitherFrame, Message, SV2Frame,
+        get_setup_connection_message, spawn_io_tasks, Message, SV2Frame,
         ShutdownMessage, StdFrame,
     },
 };
@@ -52,8 +50,8 @@ pub struct UpstreamData;
 pub struct UpstreamChannel {
     channel_manager_sender: Sender<SV2Frame>,
     channel_manager_receiver: Receiver<SV2Frame>,
-    upstream_sender: Sender<EitherFrame>,
-    upstream_receiver: Receiver<EitherFrame>,
+    upstream_sender: Sender<SV2Frame>,
+    upstream_receiver: Receiver<SV2Frame>,
 }
 
 /// Represents an upstream connection (e.g., a pool).
@@ -94,8 +92,8 @@ impl Upstream {
                 .into_split();
 
         let status_sender = StatusSender::Upstream(status_sender);
-        let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
-        let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+        let (inbound_tx, inbound_rx) = unbounded::<SV2Frame>();
+        let (outbound_tx, outbound_rx) = unbounded::<SV2Frame>();
 
         spawn_io_tasks(
             task_manager,
@@ -162,7 +160,7 @@ impl Upstream {
             }
         };
 
-        let mut incoming: StdFrame = incoming_frame.try_into()?;
+        let mut incoming: StdFrame = incoming_frame;
         debug!(?incoming, "Decoded inbound handshake frame");
 
         let message_type = incoming
@@ -267,39 +265,36 @@ impl Upstream {
     // - Unsupported → error
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
         let read_frame = self.upstream_channel.upstream_receiver.recv().await?;
-        match read_frame {
-            EitherFrame::Sv2(mut sv2_frame) => {
-                debug!("Received SV2 frame from upstream.");
-                let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
-                    return Ok(());
-                };
 
-                match message_type {
-                    0..=4 => {
-                        info!(?message_type, "Handling common message from Upstream.");
-                        self.handle_common_message_from_server(message_type, sv2_frame.payload())
-                            .await?;
-                    }
-                    16..=37 => {
-                        self.upstream_channel
-                            .channel_manager_sender
-                            .send(sv2_frame.clone())
-                            .await
-                            .map_err(|e| {
-                                error!(error=?e, "Failed to send mining message to channel manager.");
-                                JDCError::ChannelErrorSender
-                            })?;
-                    }
-                    _ => {
-                        warn!("Received unsupported message type from upstream: {message_type}");
-                    }
-                }
+        let mut sv2_frame = read_frame.clone();
+        drop(read_frame);
+
+        debug!("Received SV2 frame from upstream.");
+        let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+            return Ok(());
+        };
+
+        match message_type {
+            MESSAGE_TYPE_SETUP_CONNECTION..=MESSAGE_TYPE_RECONNECT => {
+                info!(?message_type, "Handling common message from Upstream.");
+                self.handle_common_message_from_server(message_type, sv2_frame.payload())
+                    .await?;
             }
-            EitherFrame::HandShake(handshake_frame) => {
-                debug!(?handshake_frame, "Received handshake frame.");
+            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL..=MESSAGE_TYPE_SET_GROUP_CHANNEL => {
+                self.upstream_channel
+                    .channel_manager_sender
+                    .send(sv2_frame)
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send mining message to channel manager.");
+                        JDCError::ChannelErrorSender
+                    })?;
+            }
+            _ => {
+                warn!("Received unsupported message type from upstream: {message_type}");
             }
         }
-
+    
         Ok(())
     }
 

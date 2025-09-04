@@ -20,12 +20,7 @@ use stratum_common::{
         bitcoin::{
             self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
             Transaction, TxIn, TxOut, Witness,
-        },
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
-        handlers_sv2::HandleCommonMessagesFromServerAsync,
-        parsers_sv2::{AnyMessage, TemplateDistribution},
-        template_distribution_sv2::CoinbaseOutputConstraints,
-        utils::Mutex,
+        }, codec_sv2::{self, framing_sv2, HandshakeRole, Initiator}, common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION}, handlers_sv2::HandleCommonMessagesFromServerAsync, parsers_sv2::{AnyMessage, TemplateDistribution}, template_distribution_sv2::{CoinbaseOutputConstraints, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_SUBMIT_SOLUTION}, utils::Mutex
     },
 };
 use tokio::{net::TcpStream, sync::broadcast};
@@ -36,7 +31,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message_tp, spawn_io_tasks, EitherFrame, Message, SV2Frame,
+        get_setup_connection_message_tp, spawn_io_tasks, Message, SV2Frame,
         ShutdownMessage, StdFrame,
     },
 };
@@ -57,8 +52,8 @@ pub struct TemplateReceiverData;
 pub struct TemplateReceiverChannel {
     channel_manager_sender: Sender<SV2Frame>,
     channel_manager_receiver: Receiver<SV2Frame>,
-    tp_sender: Sender<EitherFrame>,
-    tp_receiver: Receiver<EitherFrame>,
+    tp_sender: Sender<SV2Frame>,
+    tp_receiver: Receiver<SV2Frame>,
 }
 
 /// Manages communication with a Stratum V2 Template Provider.
@@ -133,8 +128,8 @@ impl TemplateReceiver {
                                 noise_stream.into_split();
 
                             let status_sender = StatusSender::TemplateReceiver(status_sender);
-                            let (inbound_tx, inbound_rx) = unbounded::<EitherFrame>();
-                            let (outbound_tx, outbound_rx) = unbounded::<EitherFrame>();
+                            let (inbound_tx, inbound_rx) = unbounded::<SV2Frame>();
+                            let (outbound_tx, outbound_rx) = unbounded::<SV2Frame>();
 
                             info!(attempt, "Spawning IO tasks for template receiver");
                             spawn_io_tasks(
@@ -268,44 +263,36 @@ impl TemplateReceiver {
     pub async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
         let read_frame = self.template_receiver_channel.tp_receiver.recv().await?;
 
-        debug!("Received frame from template provider");
+        let mut sv2_frame = read_frame.clone();
+        drop(read_frame);
 
-        match read_frame {
-            EitherFrame::Sv2(mut sv2_frame) => {
-                debug!("Received SV2 frame from Template provider.");
-                let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
-                    return Ok(());
-                };
-
-                match message_type {
-                    0..=4 => {
-                        info!(
-                            ?message_type,
-                            "Handling common message from Template provider."
-                        );
-                        self.handle_common_message_from_server(message_type, sv2_frame.payload())
-                            .await?;
-                    }
-                    112..=118 => {
-                        self.template_receiver_channel
-                            .channel_manager_sender
-                            .send(sv2_frame.clone())
-                            .await
-                            .map_err(|e| {
-                                error!(error=?e, "Failed to send template distribution message to channel manager.");
-                                JDCError::ChannelErrorSender
-                            })?;
-                    }
-                    _ => {
-                        warn!("Received unsupported message type from template provider: {message_type}");
-                    }
-                }
+        debug!("Received SV2 frame from Template provider.");
+        let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+            return Ok(());
+        };
+        match message_type {
+            MESSAGE_TYPE_SETUP_CONNECTION..=MESSAGE_TYPE_RECONNECT => {
+                info!(
+                    ?message_type,
+                    "Handling common message from Template provider."
+                );
+                self.handle_common_message_from_server(message_type, sv2_frame.payload())
+                    .await?;
             }
-            EitherFrame::HandShake(handshake_frame) => {
-                debug!(?handshake_frame, "Received handshake frame");
+            MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS..=MESSAGE_TYPE_SUBMIT_SOLUTION => {
+                self.template_receiver_channel
+                    .channel_manager_sender
+                    .send(sv2_frame)
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send template distribution message to channel manager.");
+                        JDCError::ChannelErrorSender
+                    })?;
+            }
+            _ => {
+                warn!("Received unsupported message type from template provider: {message_type}");
             }
         }
-
         Ok(())
     }
 
@@ -414,8 +401,7 @@ impl TemplateReceiver {
             .map_err(|e| {
                 error!(?e, "Upstream connection closed during handshake");
                 JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
-            })?
-            .try_into()?;
+            })?;
 
         let msg_type = incoming
             .get_header()

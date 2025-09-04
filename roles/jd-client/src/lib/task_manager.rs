@@ -33,14 +33,19 @@ impl TaskManager {
     ///
     /// # Arguments
     /// * `fut` - The future to spawn as a task
+    #[track_caller]
     pub fn spawn<F>(&self, fut: F)
     where
         F: std::future::Future<Output = ()> + Send + 'static,
     {
-        let handle = tokio::spawn(async move {
-            fut.await;
-        });
+        use tracing::Instrument;
+        let location = std::panic::Location::caller();
+        let span = tracing::trace_span!(
+            "task",
+            file = location.file(),
+        );
 
+        let handle = tokio::spawn(fut.instrument(span));
         self.tasks.lock().unwrap().push(handle);
     }
 

@@ -20,7 +20,6 @@ use std::{
 };
 
 use async_channel::{Receiver, Sender};
-use buffer_sv2::Slice;
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
@@ -31,7 +30,7 @@ use stratum_common::{
     },
 };
 use tokio::sync::broadcast;
-use tracing::{error, trace, warn};
+use tracing::{error, trace, warn, Instrument};
 
 use crate::{
     config::ConfigJDCMode,
@@ -144,57 +143,19 @@ pub fn get_setup_connection_message_tp(address: SocketAddr) -> SetupConnection<'
     }
 }
 
-/// Extracts the message type, payload, and parsed message from a frame
-pub fn message_from_frame(
-    frame: &mut Frame<AnyMessage<'static>, Slice>,
-) -> Result<(u8, Vec<u8>, AnyMessage<'static>), JDCError> {
-    match frame {
-        Frame::Sv2(frame) => {
-            let header = frame.get_header().ok_or(JDCError::UnexpectedMessage)?;
-            let message_type = header.msg_type();
-            let mut payload = frame.payload().to_vec();
-            let message: Result<AnyMessage<'_>, _> =
-                (message_type, payload.as_mut_slice()).try_into();
-
-            match message {
-                Ok(message) => {
-                    let message = into_static(message);
-                    Ok((message_type, payload.to_vec(), message))
-                }
-                Err(_) => {
-                    error!("Received frame with invalid payload or message type: {frame:?}");
-                    Err(JDCError::UnexpectedMessage)
-                }
-            }
-        }
-        Frame::HandShake(f) => {
-            error!("Received unexpected handshake frame: {f:?}");
-            Err(JDCError::UnexpectedMessage)
-        }
-    }
-}
-
-/// Converts a message into a `'static` lifetime.
-pub fn into_static(m: AnyMessage<'_>) -> AnyMessage<'static> {
-    match m {
-        AnyMessage::Mining(m) => AnyMessage::Mining(m.into_static()),
-        AnyMessage::Common(m) => AnyMessage::Common(m.into_static()),
-        AnyMessage::JobDeclaration(m) => AnyMessage::JobDeclaration(m.into_static()),
-        AnyMessage::TemplateDistribution(m) => AnyMessage::TemplateDistribution(m.into_static()),
-    }
-}
-
 /// Spawns async reader and writer tasks for handling framed I/O with shutdown support.
+#[track_caller]
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_io_tasks(
     task_manager: Arc<TaskManager>,
     mut reader: NoiseTcpReadHalf<Message>,
     mut writer: NoiseTcpWriteHalf<Message>,
-    outbound_rx: Receiver<EitherFrame>,
-    inbound_tx: Sender<EitherFrame>,
+    outbound_rx: Receiver<SV2Frame>,
+    inbound_tx: Sender<SV2Frame>,
     notify_shutdown: broadcast::Sender<ShutdownMessage>,
     status_sender: StatusSender,
 ) {
+    let caller = std::panic::Location::caller();
     {
         let mut shutdown_rx = notify_shutdown.subscribe();
         let inbound_tx = inbound_tx.clone();
@@ -256,11 +217,20 @@ pub fn spawn_io_tasks(
                     res = reader.read_frame() => {
                         match res {
                             Ok(frame) => {
-                                trace!("Received inbound frame");
-                                if let Err(e) = inbound_tx.send(frame).await {
-                                    inbound_tx.close();
-                                    error!(error=?e, "Failed to forward inbound frame");
-                                    break;
+                                match frame {
+                                    Frame::HandShake(frame) => {
+                                        error!(?frame, "Received handshake frame");
+                                        drop(frame);
+                                        break;
+                                    },
+                                    Frame::Sv2(sv2_frame) => {
+                                        trace!("Received inbound frame");
+                                        if let Err(e) = inbound_tx.send(sv2_frame).await {
+                                            inbound_tx.close();
+                                            error!(error=?e, "Failed to forward inbound frame");
+                                            break;
+                                        }
+                                    },
                                 }
                             }
                             Err(e) => {
@@ -272,8 +242,12 @@ pub fn spawn_io_tasks(
                     }
                 }
             }
+            inbound_tx.close();
             warn!("Reader task exited.");
-        });
+        }.instrument(tracing::info_span!(
+            "reader_task",
+            spawned_at = %format!("{}:{}", caller.file(), caller.line())
+        )));
     }
 
     {
@@ -335,7 +309,7 @@ pub fn spawn_io_tasks(
                         match res {
                             Ok(frame) => {
                                 trace!("Sending outbound frame");
-                                if let Err(e) = writer.write_frame(frame).await {
+                                if let Err(e) = writer.write_frame(frame.into()).await {
                                     error!(error=?e, "Writer error");
                                     outbound_rx.close();
                                     break;
@@ -352,7 +326,10 @@ pub fn spawn_io_tasks(
             }
             outbound_rx.close();
             warn!("Writer task exited.");
-        });
+        }.instrument(tracing::info_span!(
+            "writer_task",
+            spawned_at = %format!("{}:{}", caller.file(), caller.line())
+        )));
     }
 }
 
