@@ -711,7 +711,7 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "job_declaration_sv2"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
 ]
