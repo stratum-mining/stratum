@@ -155,14 +155,15 @@ pub async fn recv_from_down_send_to_up(
                 }
             }
         } else {
-            downstream_messages.add_message(msg_type, msg);
+            downstream_messages.add_message(msg_type, msg.clone());
             send.send(frame)
                 .await
                 .map_err(|_| SnifferError::UpstreamClosed)?;
             tracing::info!(
-                "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬆",
+                "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬆ | Data: {}",
                 identifier,
-                message_type_to_name(msg_type)
+                message_type_to_name(msg_type),
+                msg
             );
         }
     }
@@ -220,14 +221,15 @@ pub async fn recv_from_up_send_to_down(
                 }
             }
         } else {
-            upstream_messages.add_message(msg_type, msg);
+            upstream_messages.add_message(msg_type, msg.clone());
             send.send(frame)
                 .await
                 .map_err(|_| SnifferError::DownstreamClosed)?;
             tracing::info!(
-                "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬇",
+                "🔍 Sv2 Sniffer {} | Forwarded: {} | Direction: ⬇ | Data: {}",
                 identifier,
-                message_type_to_name(msg_type)
+                message_type_to_name(msg_type),
+                msg
             );
         }
     }

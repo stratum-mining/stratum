@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::types::MsgType;
 use stratum_common::roles_logic_sv2::parsers_sv2::AnyMessage;
 
@@ -5,6 +7,15 @@ use stratum_common::roles_logic_sv2::parsers_sv2::AnyMessage;
 pub enum MessageDirection {
     ToDownstream,
     ToUpstream,
+}
+
+impl fmt::Display for MessageDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MessageDirection::ToDownstream => write!(f, "downstream"),
+            MessageDirection::ToUpstream => write!(f, "upstream"),
+        }
+    }
 }
 
 /// Represents an action that [`Sniffer`] can take on intercepted messages.
