@@ -281,10 +281,7 @@ impl JobDeclarator {
     // - Processes `Common` messages via handler.
     // - Rejects unsupported message types.
     async fn handle_job_declarator_message(&mut self) -> Result<(), JDCError> {
-        let read_frame = self.job_declarator_channel.jds_receiver.recv().await?;
-
-        let mut sv2_frame = read_frame.clone();
-        drop(read_frame);
+        let mut sv2_frame = self.job_declarator_channel.jds_receiver.recv().await?;
 
         debug!("Received SV2 frame from JDS.");
         let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {

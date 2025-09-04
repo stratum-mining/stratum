@@ -156,9 +156,10 @@ pub fn spawn_io_tasks(
     status_sender: StatusSender,
 ) {
     let caller = std::panic::Location::caller();
+    let inbound_tx_clone = inbound_tx.clone();
+    let outbound_rx_clone = outbound_rx.clone();
     {
         let mut shutdown_rx = notify_shutdown.subscribe();
-        let inbound_tx = inbound_tx.clone();
         let status_sender = status_sender.clone();
         let status_type: StatusType = StatusType::from(&status_sender);
 
@@ -243,6 +244,9 @@ pub fn spawn_io_tasks(
                 }
             }
             inbound_tx.close();
+            outbound_rx_clone.close();
+            drop(inbound_tx);
+            drop(outbound_rx_clone);
             warn!("Reader task exited.");
         }.instrument(tracing::info_span!(
             "reader_task",
@@ -325,6 +329,9 @@ pub fn spawn_io_tasks(
                 }
             }
             outbound_rx.close();
+            inbound_tx_clone.close();
+            drop(outbound_rx);
+            drop(inbound_tx_clone);
             warn!("Writer task exited.");
         }.instrument(tracing::info_span!(
             "writer_task",

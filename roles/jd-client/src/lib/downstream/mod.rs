@@ -187,15 +187,13 @@ impl Downstream {
 
     // Performs the initial handshake with a downstream peer.
     async fn setup_connection_with_downstream(&mut self) -> Result<(), JDCError> {
-        let read_frame = self.downstream_channel.downstream_receiver.recv().await?;
-        let mut frame = read_frame.clone();
-        drop(read_frame);
+        let mut frame = self.downstream_channel.downstream_receiver.recv().await?;
+
         let Some(message_type) = frame.get_header().map(|m| m.msg_type()) else {
             return Err(JDCError::UnexpectedMessage);
         };
-        let payload = frame.payload();
         if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
-            self.handle_common_message_from_client(message_type, payload).await?;
+            self.handle_common_message_from_client(message_type, frame.payload()).await?;
             return Ok(())
         }
         Err(JDCError::UnexpectedMessage)
@@ -245,9 +243,7 @@ impl Downstream {
 
     // Handles incoming messages from the downstream peer.
     async fn handle_downstream_message(self) -> Result<(), JDCError> {
-        let read_frame = self.downstream_channel.downstream_receiver.recv().await?;
-        let sv2_frame = read_frame.clone();
-        drop(read_frame);
+        let sv2_frame = self.downstream_channel.downstream_receiver.recv().await?;
         debug!("Received SV2 frame from downstream.");
         self.downstream_channel
             .channel_manager_sender
@@ -257,7 +253,7 @@ impl Downstream {
                 error!(error=?e, "Failed to send mining message to channel manager.");
                 JDCError::ChannelErrorSender
             })?;
-            
+        
         Ok(())
     }
 }

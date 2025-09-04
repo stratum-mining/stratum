@@ -264,10 +264,7 @@ impl Upstream {
     // - `Mining` messages → forwarded to channel manager
     // - Unsupported → error
     async fn handle_pool_message(&mut self) -> Result<(), JDCError> {
-        let read_frame = self.upstream_channel.upstream_receiver.recv().await?;
-
-        let mut sv2_frame = read_frame.clone();
-        drop(read_frame);
+        let mut sv2_frame = self.upstream_channel.upstream_receiver.recv().await?;
 
         debug!("Received SV2 frame from upstream.");
         let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
@@ -294,7 +291,6 @@ impl Upstream {
                 warn!("Received unsupported message type from upstream: {message_type}");
             }
         }
-    
         Ok(())
     }
 

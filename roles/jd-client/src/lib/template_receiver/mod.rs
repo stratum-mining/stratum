@@ -261,10 +261,7 @@ impl TemplateReceiver {
     /// - `TemplateDistribution` messages → forwarded to channel manager
     /// - Unsupported messages → logged and ignored
     pub async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
-        let read_frame = self.template_receiver_channel.tp_receiver.recv().await?;
-
-        let mut sv2_frame = read_frame.clone();
-        drop(read_frame);
+        let mut sv2_frame = self.template_receiver_channel.tp_receiver.recv().await?;
 
         debug!("Received SV2 frame from Template provider.");
         let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {

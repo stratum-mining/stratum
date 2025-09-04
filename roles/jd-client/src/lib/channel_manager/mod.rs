@@ -557,9 +557,7 @@ impl ChannelManager {
                 return Ok(());
             };
 
-            let payload = sv2_frame.payload();
-
-            self.handle_job_declaration_message_from_server(message_type, payload)
+            self.handle_job_declaration_message_from_server(message_type, sv2_frame.payload())
                 .await?;
         }
         Ok(())
@@ -577,9 +575,7 @@ impl ChannelManager {
                 return Ok(());
             };
 
-            let payload = sv2_frame.payload();
-
-            self.handle_mining_message_from_server(message_type, payload)
+            self.handle_mining_message_from_server(message_type, sv2_frame.payload())
                 .await?;
         }
         Ok(())
@@ -596,10 +592,7 @@ impl ChannelManager {
             let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
                 return Ok(());
             };
-
-            let payload = sv2_frame.payload();
-
-            self.handle_template_distribution_message_from_server(message_type, payload)
+            self.handle_template_distribution_message_from_server(message_type, sv2_frame.payload())
                 .await?;
         }
         Ok(())

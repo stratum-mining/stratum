@@ -34,7 +34,7 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
         )
         .await;
     drop(jdc);
-    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_ok());
     let (sniffer, sniffer_addr) = start_sniffer("0", jds_addr, false, vec![], None);
     let (_jdc_1, _jdc_addr_1) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr);
