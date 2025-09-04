@@ -1,168 +1,154 @@
-//! ## Status Reporting System for JDC
+//! Status reporting and error propagation Utility.
 //!
-//! This module defines how internal components of the Job Declarator Client (JDC) report
-//! health, errors, and shutdown conditions back to the main runtime loop in `lib/mod.rs`.
-//!
-//! At the core, tasks send a [`Status`] (wrapping a [`State`]) through a channel,
-//! which is tagged with a [`Sender`] enum to indicate the origin of the message.
-//!
-//! This allows for centralized, consistent error handling across the application.
+//! This module provides mechanisms for communicating shutdown events and
+//! component state changes across the system. Each component (downstream,
+//! upstream, job declarator, template receiver, channel manager) can send
+//! and receive status updates via typed channels. Errors are automatically
+//! converted into shutdown signals, allowing coordinated teardown of tasks.
 
-use super::error::{self, Error};
+use tracing::{debug, error, warn};
 
-/// Identifies the component that originated a [`Status`] update.
-///
-/// Each sender is associated with a dedicated side of the status channel.
-/// This lets the central loop distinguish between errors from different parts of the system.
-#[derive(Debug)]
-pub enum Sender {
-    /// Downstream task (e.g. per-client connection handler)
-    Downstream(async_channel::Sender<Status<'static>>),
-    /// Listener for incoming downstream connections
-    DownstreamListener(async_channel::Sender<Status<'static>>),
-    /// Upstream task (e.g, connection to pool)
-    Upstream(async_channel::Sender<Status<'static>>),
-    /// Template Provider
-    TemplateReceiver(async_channel::Sender<Status<'static>>),
+use crate::error::JDCError;
+
+/// Sender type for propagating status updates from different system components.
+#[derive(Debug, Clone)]
+pub enum StatusSender {
+    /// Status updates from a specific downstream connection.
+    Downstream {
+        downstream_id: u32,
+        tx: async_channel::Sender<Status>,
+    },
+    /// Status updates from the template receiver.
+    TemplateReceiver(async_channel::Sender<Status>),
+    /// Status updates from the channel manager.
+    ChannelManager(async_channel::Sender<Status>),
+    /// Status updates from the upstream.
+    Upstream(async_channel::Sender<Status>),
+    /// Status updates from the job declarator.
+    JobDeclarator(async_channel::Sender<Status>),
 }
 
-impl Sender {
-    /// The send method is used to send status of component to central status receiver.
-    pub async fn send(
-        &self,
-        status: Status<'static>,
-    ) -> Result<(), async_channel::SendError<Status<'_>>> {
+/// High-level identifier of a component type that can send status updates.
+#[derive(Debug, PartialEq, Eq)]
+pub enum StatusType {
+    /// A downstream connection identified by its ID.
+    Downstream(u32),
+    /// The template receiver component.
+    TemplateReceiver,
+    /// The channel manager component.
+    ChannelManager,
+    /// The upstream component.
+    Upstream,
+    /// The job declarator component.
+    JobDeclarator,
+}
+
+impl From<&StatusSender> for StatusType {
+    fn from(value: &StatusSender) -> Self {
+        match value {
+            StatusSender::ChannelManager(_) => StatusType::ChannelManager,
+            StatusSender::Downstream {
+                downstream_id,
+                tx: _,
+            } => StatusType::Downstream(*downstream_id),
+            StatusSender::JobDeclarator(_) => StatusType::JobDeclarator,
+            StatusSender::Upstream(_) => StatusType::Upstream,
+            StatusSender::TemplateReceiver(_) => StatusType::TemplateReceiver,
+        }
+    }
+}
+
+impl StatusSender {
+    /// Sends a status update for the associated component.
+    pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {
         match self {
-            Self::Downstream(inner) => inner.send(status).await,
-            Self::DownstreamListener(inner) => inner.send(status).await,
-            Self::Upstream(inner) => inner.send(status).await,
-            Self::TemplateReceiver(inner) => inner.send(status).await,
+            Self::Downstream { downstream_id, tx } => {
+                debug!(
+                    "Sending status from Downstream [{}]: {:?}",
+                    downstream_id, status.state
+                );
+                tx.send(status).await
+            }
+            Self::TemplateReceiver(tx) => {
+                debug!("Sending status from TemplateReceiver: {:?}", status.state);
+                tx.send(status).await
+            }
+            Self::ChannelManager(tx) => {
+                debug!("Sending status from ChannelManager: {:?}", status.state);
+                tx.send(status).await
+            }
+            Self::Upstream(tx) => {
+                debug!("Sending status from Upstream: {:?}", status.state);
+                tx.send(status).await
+            }
+            Self::JobDeclarator(tx) => {
+                debug!("Sending status from JobDeclarator: {:?}", status.state);
+                tx.send(status).await
+            }
         }
     }
 }
 
-impl Clone for Sender {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Downstream(inner) => Self::Downstream(inner.clone()),
-            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Upstream(inner) => Self::Upstream(inner.clone()),
-            Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
-        }
-    }
-}
-
-/// The kind of event or status being reported by a task.
+/// Represents the state of a component, typically triggered by an error or shutdown event.
 #[derive(Debug)]
-pub enum State<'a> {
-    /// A downstream component (e.g. client) failed and should be shut down.
-    DownstreamShutdown(Error<'a>),
-    /// A upstream component failed and should be shut down.
-    UpstreamShutdown(Error<'a>),
-    /// A upstream component gone rogue.
-    UpstreamRogue,
-    /// A generic message to indicate health or non-critical errors.
-    Healthy(String),
+pub enum State {
+    /// A downstream connection has shut down with a reason.
+    DownstreamShutdown {
+        downstream_id: u32,
+        reason: JDCError,
+    },
+    /// Template receiver has shut down with a reason.
+    TemplateReceiverShutdown(JDCError),
+    /// Job declarator has shut down during fallback with a reason.
+    JobDeclaratorShutdownFallback(JDCError),
+    /// Channel manager has shut down with a reason.
+    ChannelManagerShutdown(JDCError),
+    /// Upstream has shut down during fallback with a reason.
+    UpstreamShutdownFallback(JDCError),
 }
 
-/// Wraps a status update, to be passed through a status channel.
+/// Wrapper around a component’s state, sent as status updates across the system.
 #[derive(Debug)]
-pub struct Status<'a> {
-    /// State represent current state of the component.
-    pub state: State<'a>,
+pub struct Status {
+    /// The current state being reported.
+    pub state: State,
 }
 
-/// Sends a [`Status`] message tagged with its [`Sender`] to the central loop.
-///
-/// This is the core logic used to determine which status variant should be sent
-/// based on the error type and sender context.
-async fn send_status(
-    sender: &Sender,
-    e: error::Error<'static>,
-    outcome: error_handling::ErrorBranch,
-) -> error_handling::ErrorBranch {
-    match sender {
-        Sender::Downstream(tx) => {
-            tx.send(Status {
-                state: State::Healthy(e.to_string()),
-            })
-            .await
-            .unwrap_or(());
+/// Sends a shutdown status for the given component, logging the error cause.
+async fn send_status(sender: &StatusSender, error: JDCError) {
+    let state = match sender {
+        StatusSender::Downstream { downstream_id, .. } => {
+            warn!("Downstream [{downstream_id}] shutting down due to error: {error:?}");
+            State::DownstreamShutdown {
+                downstream_id: *downstream_id,
+                reason: error,
+            }
         }
-        Sender::DownstreamListener(tx) => {
-            tx.send(Status {
-                state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
+        StatusSender::TemplateReceiver(_) => {
+            warn!("Template Receiver shutting down due to error: {error:?}");
+            State::TemplateReceiverShutdown(error)
         }
-        Sender::Upstream(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
+        StatusSender::ChannelManager(_) => {
+            warn!("ChannelManager shutting down due to error: {error:?}");
+            State::ChannelManagerShutdown(error)
         }
-        Sender::TemplateReceiver(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
+        StatusSender::Upstream(_) => {
+            warn!("Upstream shutting down due to error: {error:?}");
+            State::UpstreamShutdownFallback(error)
         }
+        StatusSender::JobDeclarator(_) => {
+            warn!("Job declarator shutting down due to error: {error:?}");
+            State::JobDeclaratorShutdownFallback(error)
+        }
+    };
+
+    if let Err(e) = sender.send(Status { state }).await {
+        tracing::error!("Failed to send status update from {sender:?}: {e:?}");
     }
-    outcome
 }
 
-/// Centralized error dispatcher for the JDC.
-///
-/// Used by the `handle_result!` macro across the codebase.
-/// Decides whether the task should `Continue` or `Break` based on the error type and source.
-pub async fn handle_error(
-    sender: &Sender,
-    e: error::Error<'static>,
-) -> error_handling::ErrorBranch {
-    tracing::error!("Error: {:?}", &e);
-    match e {
-        Error::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad CLI argument input.
-        Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `config` TOML deserialize.
-        Error::BadConfigDeserialize(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Errors from `binary_sv2` crate.
-        Error::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad noise handshake.
-        Error::CodecNoise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors from `framing_sv2` crate.
-        Error::FramingSv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `TcpStream` connection.
-        Error::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `String` to `int` conversion.
-        Error::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors from `roles_logic_sv2` crate.
-        Error::RolesSv2Logic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::UpstreamIncoming(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::SubprotocolMining(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Locking Errors
-        Error::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Channel Receiver Error
-        Error::ChannelErrorReceiver(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::TokioChannelErrorRecv(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Channel Sender Errors
-        Error::ChannelErrorSender(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::Parser(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
-    }
+/// Logs an error and propagates a corresponding shutdown status for the component.
+pub async fn handle_error(sender: &StatusSender, e: JDCError) {
+    error!("Error in {:?}: {:?}", sender, e);
+    send_status(sender, e).await;
 }

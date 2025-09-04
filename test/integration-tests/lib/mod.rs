@@ -131,7 +131,6 @@ pub fn start_jdc(
     let jdc_address = get_available_address();
     let max_supported_version = 2;
     let min_supported_version = 2;
-    let withhold = false;
     let authority_public_key = Secp256k1PublicKey::try_from(
         "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72".to_string(),
     )
@@ -153,8 +152,10 @@ pub fn start_jdc(
         .map(|(pool_addr, jds_addr)| {
             Upstream::new(
                 authority_pubkey,
-                pool_addr.to_string(),
-                jds_addr.to_string(),
+                pool_addr.ip().to_string(),
+                pool_addr.port(),
+                jds_addr.ip().to_string(),
+                jds_addr.port(),
             )
         })
         .collect();
@@ -165,16 +166,23 @@ pub fn start_jdc(
         min_supported_version,
         coinbase_reward_script,
     );
+    let shares_per_minute = 10.0;
+    let shares_batch_size = 1;
+    let min_extranonce_size = 4;
+    let user_identity = "IT-test".to_string();
     let jdc_signature = "JDC".to_string();
     let jd_client_proxy = JobDeclaratorClientConfig::new(
         jdc_address,
         protocol_config,
-        withhold,
+        user_identity,
+        shares_per_minute,
+        shares_batch_size,
         pool_config,
         tp_config,
         upstreams,
-        std::time::Duration::from_secs(1),
         jdc_signature,
+        min_extranonce_size,
+        None,
     );
     let ret = jd_client::JobDeclaratorClient::new(jd_client_proxy);
     let ret_clone = ret.clone();
@@ -242,25 +250,18 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let listening_address = get_available_address();
     let listening_port = listening_address.port();
     let min_individual_miner_hashrate = measure_hashrate(1) as f32;
-    let channel_diff_update_interval = 60;
-    let channel_nominal_hashrate = min_individual_miner_hashrate;
+
     let downstream_difficulty_config = translator_sv2::config::DownstreamDifficultyConfig::new(
         min_individual_miner_hashrate,
         SHARES_PER_MINUTE,
+        true,
         0,
         0,
     );
-    let upstream_difficulty_config = translator_sv2::config::UpstreamDifficultyConfig::new(
-        channel_diff_update_interval,
-        channel_nominal_hashrate,
-        0,
-        false,
-    );
-    let upstream_conf = translator_sv2::config::UpstreamConfig::new(
+    let upstream_conf = translator_sv2::config::Upstream::new(
         upstream_address,
         upstream_port,
         upstream_authority_pubkey,
-        upstream_difficulty_config,
     );
     let downstream_conf = translator_sv2::config::DownstreamConfig::new(
         listening_address.ip().to_string(),
@@ -271,11 +272,13 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
     let min_extranonce2_size = 4;
 
     let config = translator_sv2::config::TranslatorConfig::new(
-        upstream_conf,
+        vec![upstream_conf],
         downstream_conf,
         2,
         2,
         min_extranonce2_size,
+        "user_identity".to_string(),
+        false,
     );
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
     let clone_translator_v2 = translator_v2.clone();
