@@ -16,7 +16,11 @@ use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator}, common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION}, handlers_sv2::HandleCommonMessagesFromServerAsync, mining_sv2::{MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_SET_GROUP_CHANNEL}, utils::Mutex
+        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
+        common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION},
+        handlers_sv2::HandleCommonMessagesFromServerAsync,
+        mining_sv2::{MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL, MESSAGE_TYPE_SET_GROUP_CHANNEL},
+        utils::Mutex,
     },
 };
 use tokio::{
@@ -30,8 +34,7 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message, spawn_io_tasks, Message, SV2Frame,
-        ShutdownMessage, StdFrame,
+        get_setup_connection_message, spawn_io_tasks, Message, SV2Frame, ShutdownMessage, StdFrame,
     },
 };
 
@@ -134,12 +137,7 @@ impl Upstream {
         debug!(?sv2_frame, "Encoded `SetupConnection` frame");
 
         // Send SetupConnection
-        if let Err(e) = self
-            .upstream_channel
-            .upstream_sender
-            .send(sv2_frame.into())
-            .await
-        {
+        if let Err(e) = self.upstream_channel.upstream_sender.send(sv2_frame).await {
             error!(?e, "Failed to send `SetupConnection` frame to upstream");
             return Err(JDCError::CodecNoise(
                 codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
@@ -303,7 +301,7 @@ impl Upstream {
                 debug!("Received message from channel manager, forwarding upstream.");
                 self.upstream_channel
                     .upstream_sender
-                    .send(msg.into())
+                    .send(msg)
                     .await
                     .map_err(|e| {
                         error!(error=?e, "Failed to send outbound message to upstream.");

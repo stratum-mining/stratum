@@ -46,11 +46,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
                     .expect("error code must be valid string"),
             };
             let frame: StdFrame = AnyMessage::Common(response.into_static().into()).try_into()?;
-            _ = self
-                .downstream_channel
-                .downstream_sender
-                .send(frame.into())
-                .await;
+            _ = self.downstream_channel.downstream_sender.send(frame).await;
 
             return Err(JDCError::Shutdown.into());
         }
@@ -67,11 +63,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
             let frame: StdFrame = AnyMessage::Common(response.into_static().into())
                 .try_into()
                 .unwrap();
-            _ = self
-                .downstream_channel
-                .downstream_sender
-                .send(frame.into())
-                .await;
+            _ = self.downstream_channel.downstream_sender.send(frame).await;
 
             return Err(JDCError::Shutdown.into());
         }
@@ -88,11 +80,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
             .try_into()
             .map_err(|e| Error::External(Box::new(JDCError::Parser(e))))?;
 
-        _ = self
-            .downstream_channel
-            .downstream_sender
-            .send(frame.into())
-            .await;
+        _ = self.downstream_channel.downstream_sender.send(frame).await;
 
         Ok(())
     }

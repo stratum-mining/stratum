@@ -6,7 +6,12 @@ use stratum_common::{
     roles_logic_sv2::{
         channels_sv2::server::{
             extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
-        }, codec_sv2, common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION, handlers_sv2::HandleCommonMessagesFromClientAsync, parsers_sv2::{AnyMessage, IsSv2Message}, utils::Mutex
+        },
+        codec_sv2,
+        common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
+        handlers_sv2::HandleCommonMessagesFromClientAsync,
+        parsers_sv2::{AnyMessage, IsSv2Message},
+        utils::Mutex,
     },
 };
 
@@ -17,10 +22,7 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{
-        spawn_io_tasks, Message, SV2Frame, ShutdownMessage,
-        StdFrame,
-    },
+    utils::{spawn_io_tasks, Message, SV2Frame, ShutdownMessage, StdFrame},
 };
 
 mod message_handler;
@@ -193,8 +195,9 @@ impl Downstream {
             return Err(JDCError::UnexpectedMessage);
         };
         if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
-            self.handle_common_message_from_client(message_type, frame.payload()).await?;
-            return Ok(())
+            self.handle_common_message_from_client(message_type, frame.payload())
+                .await?;
+            return Ok(());
         }
         Err(JDCError::UnexpectedMessage)
     }
@@ -253,7 +256,7 @@ impl Downstream {
                 error!(error=?e, "Failed to send mining message to channel manager.");
                 JDCError::ChannelErrorSender
             })?;
-        
+
         Ok(())
     }
 }

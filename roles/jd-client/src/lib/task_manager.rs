@@ -40,10 +40,7 @@ impl TaskManager {
     {
         use tracing::Instrument;
         let location = std::panic::Location::caller();
-        let span = tracing::trace_span!(
-            "task",
-            file = location.file(),
-        );
+        let span = tracing::trace_span!("task", file = location.file(),);
 
         let handle = tokio::spawn(fut.instrument(span));
         self.tasks.lock().unwrap().push(handle);

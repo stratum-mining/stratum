@@ -5,7 +5,11 @@ use key_utils::Secp256k1PublicKey;
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator}, common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION}, handlers_sv2::HandleCommonMessagesFromServerAsync, job_declaration_sv2::{MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_PUSH_SOLUTION}, utils::Mutex
+        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
+        common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION},
+        handlers_sv2::HandleCommonMessagesFromServerAsync,
+        job_declaration_sv2::{MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_PUSH_SOLUTION},
+        utils::Mutex,
     },
 };
 use tokio::{
@@ -20,8 +24,8 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message_jds, spawn_io_tasks, Message, SV2Frame,
-        ShutdownMessage, StdFrame,
+        get_setup_connection_message_jds, spawn_io_tasks, Message, SV2Frame, ShutdownMessage,
+        StdFrame,
     },
 };
 
@@ -206,18 +210,13 @@ impl JobDeclarator {
                 JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
             })?;
 
-        if let Err(e) = self
-            .job_declarator_channel
-            .jds_sender
-            .send(sv2_frame.into())
-            .await
-        {
+        if let Err(e) = self.job_declarator_channel.jds_sender.send(sv2_frame).await {
             error!(error=?e, "Failed to send SetupConnection frame.");
             return Err(JDCError::ChannelErrorSender);
         }
         debug!("SetupConnection frame sent successfully.");
 
-        let incoming_frame = self
+        let mut incoming = self
             .job_declarator_channel
             .jds_receiver
             .recv()
@@ -226,11 +225,6 @@ impl JobDeclarator {
                 error!(error=?e, "No handshake response received from Job declarator.");
                 JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
             })?;
-
-        let mut incoming: StdFrame = incoming_frame.try_into().map_err(|e| {
-            error!(error=?e, "Failed to decode incoming handshake frame.");
-            JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
-        })?;
 
         let message_type = incoming
             .get_header()
@@ -261,7 +255,7 @@ impl JobDeclarator {
                 debug!("Forwarding message from channel manager to JDS.");
                 self.job_declarator_channel
                     .jds_sender
-                    .send(msg.into())
+                    .send(msg)
                     .await
                     .map_err(|e| {
                         error!("Failed to send message to outbound channel: {:?}", e);
@@ -305,9 +299,7 @@ impl JobDeclarator {
                     })?;
             }
             _ => {
-                warn!(
-                    "Received unsupported message type from Job declarator: {message_type}"
-                );
+                warn!("Received unsupported message type from Job declarator: {message_type}");
             }
         }
 

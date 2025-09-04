@@ -14,5 +14,4 @@ async fn main() {
 
     init_logging(jdc_config.log_file());
     JobDeclaratorClient::new(jdc_config).start().await;
-
 }

@@ -20,7 +20,16 @@ use stratum_common::{
         bitcoin::{
             self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
             Transaction, TxIn, TxOut, Witness,
-        }, codec_sv2::{self, framing_sv2, HandshakeRole, Initiator}, common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION}, handlers_sv2::HandleCommonMessagesFromServerAsync, parsers_sv2::{AnyMessage, TemplateDistribution}, template_distribution_sv2::{CoinbaseOutputConstraints, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_SUBMIT_SOLUTION}, utils::Mutex
+        },
+        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
+        common_messages_sv2::{MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION},
+        handlers_sv2::HandleCommonMessagesFromServerAsync,
+        parsers_sv2::{AnyMessage, TemplateDistribution},
+        template_distribution_sv2::{
+            CoinbaseOutputConstraints, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
+            MESSAGE_TYPE_SUBMIT_SOLUTION,
+        },
+        utils::Mutex,
     },
 };
 use tokio::{net::TcpStream, sync::broadcast};
@@ -31,8 +40,8 @@ use crate::{
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        get_setup_connection_message_tp, spawn_io_tasks, Message, SV2Frame,
-        ShutdownMessage, StdFrame,
+        get_setup_connection_message_tp, spawn_io_tasks, Message, SV2Frame, ShutdownMessage,
+        StdFrame,
     },
 };
 
@@ -305,7 +314,7 @@ impl TemplateReceiver {
         debug!("Forwarding message from channel manager to outbound_tx");
         self.template_receiver_channel
             .tp_sender
-            .send(msg.into())
+            .send(msg)
             .await
             .map_err(|_| JDCError::ChannelErrorSender)?;
 
@@ -358,7 +367,7 @@ impl TemplateReceiver {
         info!("Sending CoinbaseOutputConstraints message upstream");
         self.template_receiver_channel
             .tp_sender
-            .send(frame.into())
+            .send(frame)
             .await
             .map_err(|_| {
                 error!("Failed to send CoinbaseOutputConstraints message upstream");
@@ -382,7 +391,7 @@ impl TemplateReceiver {
         info!("Sending setup connection message to upstream");
         self.template_receiver_channel
             .tp_sender
-            .send(frame.into())
+            .send(frame)
             .await
             .map_err(|_| {
                 error!("Failed to send setup connection message upstream");

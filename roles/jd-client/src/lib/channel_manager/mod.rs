@@ -19,7 +19,9 @@ use stratum_common::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         },
         mining_sv2::{
-            ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, SetTarget, Target, UpdateChannel, FULL_EXTRANONCE_LEN, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL
+            ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, SetTarget, Target,
+            UpdateChannel, FULL_EXTRANONCE_LEN, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
         },
         parsers_sv2::{AnyMessage, JobDeclaration, Mining},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
@@ -37,10 +39,7 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{
-        AtomicUpstreamState, Message, SV2Frame, ShutdownMessage, StdFrame,
-        UpstreamState,
-    },
+    utils::{AtomicUpstreamState, Message, SV2Frame, ShutdownMessage, StdFrame, UpstreamState},
 };
 mod downstream_message_handler;
 mod jd_message_handler;
@@ -592,8 +591,11 @@ impl ChannelManager {
             let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
                 return Ok(());
             };
-            self.handle_template_distribution_message_from_server(message_type, sv2_frame.payload())
-                .await?;
+            self.handle_template_distribution_message_from_server(
+                message_type,
+                sv2_frame.payload(),
+            )
+            .await?;
         }
         Ok(())
     }
@@ -651,7 +653,7 @@ impl ChannelManager {
                         return Err(JDCError::UnexpectedMessage);
                     };
                     let user_identity =
-                            format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
+                        format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
                     x.user_identity = user_identity.try_into()?;
 
                     let downstream_msg = Mining::OpenExtendedMiningChannel(x.clone()).into_static();
@@ -664,10 +666,7 @@ impl ChannelManager {
 
                             if self
                                 .upstream_state
-                                .compare_and_set(
-                                    UpstreamState::NoChannel,
-                                    UpstreamState::Pending,
-                                )
+                                .compare_and_set(UpstreamState::NoChannel, UpstreamState::Pending)
                                 .is_ok()
                             {
                                 let mut upstream_message = x;
@@ -675,7 +674,8 @@ impl ChannelManager {
                                     self.user_identity.clone().try_into()?;
                                 upstream_message.request_id = 1;
                                 let upstream_message = AnyMessage::Mining(
-                                    Mining::OpenExtendedMiningChannel(upstream_message).into_static(),
+                                    Mining::OpenExtendedMiningChannel(upstream_message)
+                                        .into_static(),
                                 );
                                 let frame: StdFrame = upstream_message.try_into()?;
 
@@ -726,18 +726,11 @@ impl ChannelManager {
 
                             if self
                                 .upstream_state
-                                .compare_and_set(
-                                    UpstreamState::NoChannel,
-                                    UpstreamState::Pending,
-                                )
+                                .compare_and_set(UpstreamState::NoChannel, UpstreamState::Pending)
                                 .is_ok()
                             {
                                 let upstream_open = OpenExtendedMiningChannel {
-                                    user_identity: self
-                                        .user_identity
-                                        .clone()
-                                        .try_into()
-                                        .unwrap(),
+                                    user_identity: self.user_identity.clone().try_into().unwrap(),
                                     request_id: 1,
                                     nominal_hash_rate: x.nominal_hash_rate,
                                     max_target: x.max_target,
@@ -778,7 +771,7 @@ impl ChannelManager {
                 }
                 _ => {
                     self.handle_mining_message_from_client(message_type, sv2_frame.payload())
-                            .await?;
+                        .await?;
                 }
             }
         }
