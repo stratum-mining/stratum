@@ -5,13 +5,28 @@ listening_address = "127.0.0.1:34265"
 max_supported_version = 2
 min_supported_version = 2
 
-# Withhold
-withhold = false
-
 # Auth keys for open encrypted connection downstream
 authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
 cert_validity_sec = 3600
+
+
+# User identity/username for pool connection
+user_identity = "your_username_here"
+
+# target number of shares per minute applied to every downstream channel
+shares_per_minute = 6.0
+
+# Share batch size
+share_batch_size = 10
+
+# min extranonce size
+min_extranonce_size = 4
+
+# JDC supports two modes:
+# "FULLTEMPLATE"  - full template mining
+# "COINBASEONLY" - coinbase-only mining
+mode = "COINBASEONLY"
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
@@ -20,10 +35,8 @@ cert_validity_sec = 3600
 tp_address = "75.119.150.111:8442"
 tp_authority_public_key = "9bwHCYnjhbHm4AS3pWg9MtAH83mzWohoJJJDELYBqZhDNqszDLc"
 
-# string to be added into `extranonce_prefix`
-# note: these bytes are fixed and they effectively reduce the search space available for the extranonce
-# the bigger this field, the smaller the search space available for downstream
-jdc_signature = "JDC"
+# string to be added into the Coinbase scriptSig
+jdc_signature = "Sv2MinerSignature"
 
 # Solo Mining config
 # Coinbase output used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
@@ -39,18 +52,18 @@ coinbase_reward_script = "addr(tb1qa0sm0hxzj0x25rh8gw5xlzwlsfvvyz8u96w3p8)"
 # The CLI option --log-file (or -f) will override this setting if provided.
 # log_file = "./jd-client.log"
 
-[timeout]
-unit = "secs"
-value = 1
-
 # List of upstreams (JDS) used as backup endpoints
 # In case of shares refused by the JDS, the fallback system will propose the same job to the next upstream in this list
 [[upstreams]]
 authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
-pool_address = "75.119.150.111:34254"
-jd_address = "75.119.150.111:34264"
+pool_address = "75.119.150.111"
+pool_port = "34254"
+jds_address = "75.119.150.111"
+jds_port = "34264"
  
 # [[upstreams]]
 # authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 # pool_address = "127.0.0.1:34254"
-# jd_address = "127.0.0.1:34264"
+# pool_port = "34254"
+# jds_address = "127.0.0.1:34264"
+# jds_port = "34264"
