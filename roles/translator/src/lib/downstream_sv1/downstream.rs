@@ -430,7 +430,16 @@ impl Downstream {
                         .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
                         .unwrap();
 
-                    let host = stream.peer_addr().unwrap().to_string();
+                    let host = stream
+                        .peer_addr()
+                        .map(|addr| addr.to_string())
+                        .unwrap_or_else(|e| {
+                            tracing::warn!(
+                                "Failed to get peer address for new connection: {:?}",
+                                e
+                            );
+                            "unknown_peer".to_string()
+                        });
 
                     match open_sv1_downstream {
                         Ok(opened) => {
