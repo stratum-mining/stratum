@@ -1,31 +1,12 @@
-//! ## JDC Configuration Module
-//!
-//! The main configuration struct is [`JobDeclaratorClientConfig`], which is typically
-//! loaded from a configuration file (e.g., TOML). Helper structs like [`PoolConfig`],
-//! [`TPConfig`], [`ProtocolConfig`], and [`Upstream`] are used during the construction
-//! of the main configuration.
-
-#![allow(dead_code)]
 use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
-    time::Duration,
+    str::FromStr,
 };
 use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
-
-/// Represents the configuration of a Job Declarator Client (JDC).
-///
-/// This struct holds all the necessary configuration parameters for a JDC instance.
-/// JDC can operate in two modes:
-///
-/// 1. Downstream: Connects to a mining pool (specifically Pool and JDS) and a Template Provider
-///    (TP) to receive job templates. The pool and jds connection details are specified in the
-///    `upstreams` field, and the TP connection details are in `tp_address`.
-/// 2. Upstream: Listens for incoming connections from other downstreams on the address specified in
-///    `listening_address`.
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct JobDeclaratorClientConfig {
@@ -36,8 +17,6 @@ pub struct JobDeclaratorClientConfig {
     max_supported_version: u16,
     // The minimum supported SV2 protocol version.
     min_supported_version: u16,
-    // Needs more discussion..
-    withhold: bool,
     // The public key used by this JDC for noise encryption.
     authority_public_key: Secp256k1PublicKey,
     /// The secret key used by this JDC for noise encryption.
@@ -51,49 +30,60 @@ pub struct JobDeclaratorClientConfig {
     /// A list of upstream Job Declarator Servers (JDS) that this JDC can connect to.
     /// JDC can fallover between these upstreams.
     upstreams: Vec<Upstream>,
-    /// The timeout duration for network operations.
-    #[serde(deserialize_with = "config_helpers_sv2::duration_from_toml")]
-    timeout: Duration,
     /// This is only used during solo-mining.
-    coinbase_reward_script: CoinbaseRewardScript,
+    pub coinbase_reward_script: CoinbaseRewardScript,
     /// A signature string identifying this JDC instance.
     jdc_signature: String,
     /// The path to the log file where JDC will write logs.
     log_file: Option<PathBuf>,
+    /// User Identity
+    user_identity: String,
+    /// Shares per minute
+    shares_per_minute: f64,
+    /// share batch size
+    share_batch_size: u64,
+    /// Min extranonce size
+    min_extranonce_size: u16,
+    /// JDC mode: FullTemplate or CoinbaseOnly
+    #[serde(deserialize_with = "deserialize_jdc_mode", default)]
+    pub mode: ConfigJDCMode,
 }
 
 impl JobDeclaratorClientConfig {
-    /// Creates a new instance of [`JobDeclaratorClientConfig`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if `protocol_config.coinbase_reward_script` is empty.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         listening_address: SocketAddr,
         protocol_config: ProtocolConfig,
-        withhold: bool,
+        user_identity: String,
+        shares_per_minute: f64,
+        share_batch_size: u64,
         pool_config: PoolConfig,
         tp_config: TPConfig,
         upstreams: Vec<Upstream>,
-        timeout: Duration,
         jdc_signature: String,
+        min_extranonce_size: u16,
+        jdc_mode: Option<String>,
     ) -> Self {
         Self {
             listening_address,
             max_supported_version: protocol_config.max_supported_version,
             min_supported_version: protocol_config.min_supported_version,
-            withhold,
             authority_public_key: pool_config.authority_public_key,
             authority_secret_key: pool_config.authority_secret_key,
             cert_validity_sec: tp_config.cert_validity_sec,
             tp_address: tp_config.tp_address,
             tp_authority_public_key: tp_config.tp_authority_public_key,
             upstreams,
-            timeout,
             coinbase_reward_script: protocol_config.coinbase_reward_script,
             jdc_signature,
             log_file: None,
+            user_identity,
+            shares_per_minute,
+            share_batch_size,
+            min_extranonce_size,
+            mode: jdc_mode
+                .map(|s| s.parse::<ConfigJDCMode>().unwrap_or_default())
+                .unwrap_or_default(),
         }
     }
 
@@ -107,16 +97,6 @@ impl JobDeclaratorClientConfig {
     /// JDC will try to fallback to the next upstream in case of failure of the current one.
     pub fn upstreams(&self) -> &Vec<Upstream> {
         &self.upstreams
-    }
-
-    /// Returns the timeout duration.
-    pub fn timeout(&self) -> Duration {
-        self.timeout
-    }
-
-    /// Returns the withhold flag.
-    pub fn withhold(&self) -> bool {
-        self.withhold
     }
 
     /// Returns the authority public key.
@@ -174,6 +154,48 @@ impl JobDeclaratorClientConfig {
             self.log_file = Some(log_file);
         }
     }
+    pub fn user_identity(&self) -> &str {
+        &self.user_identity
+    }
+
+    pub fn shares_per_minute(&self) -> f64 {
+        self.shares_per_minute
+    }
+
+    pub fn share_batch_size(&self) -> u64 {
+        self.share_batch_size
+    }
+
+    pub fn min_extranonce_size(&self) -> u16 {
+        self.min_extranonce_size
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum ConfigJDCMode {
+    #[default]
+    FullTemplate,
+    CoinbaseOnly,
+}
+
+impl std::str::FromStr for ConfigJDCMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "COINBASEONLY" => Ok(ConfigJDCMode::CoinbaseOnly),
+            _ => Ok(ConfigJDCMode::FullTemplate),
+        }
+    }
+}
+
+fn deserialize_jdc_mode<'de, D>(deserializer: D) -> Result<ConfigJDCMode, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: String = String::deserialize(deserializer)?;
+    Ok(ConfigJDCMode::from_str(&s).unwrap_or_default())
 }
 
 /// Represents pool specific encryption keys.
@@ -252,8 +274,10 @@ pub struct Upstream {
     pub authority_pubkey: Secp256k1PublicKey,
     // The address of the upstream pool's main server.
     pub pool_address: String,
+    pub pool_port: u16,
     // The network address of the JDS.
-    pub jd_address: String,
+    pub jds_address: String,
+    pub jds_port: u16,
 }
 
 impl Upstream {
@@ -261,12 +285,16 @@ impl Upstream {
     pub fn new(
         authority_pubkey: Secp256k1PublicKey,
         pool_address: String,
-        jd_address: String,
+        pool_port: u16,
+        jds_address: String,
+        jds_port: u16,
     ) -> Self {
         Self {
             authority_pubkey,
             pool_address,
-            jd_address,
+            pool_port,
+            jds_address,
+            jds_port,
         }
     }
 }

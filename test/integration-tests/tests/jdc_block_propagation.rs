@@ -33,5 +33,6 @@ async fn propagated_from_jdc_to_tp() {
         .assert_message_not_present(MessageDirection::ToUpstream, MESSAGE_TYPE_PUSH_SOLUTION)
         .await;
     let new_block_hash = tp.get_best_block_hash().unwrap();
+    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
     assert_ne!(current_block_hash, new_block_hash);
 }

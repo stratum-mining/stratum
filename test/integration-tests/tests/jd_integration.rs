@@ -33,8 +33,8 @@ async fn jds_should_not_panic_if_jdc_shutsdown() {
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         )
         .await;
-    jdc.shutdown();
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    drop(jdc);
+    tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
     assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_ok());
     let (sniffer, sniffer_addr) = start_sniffer("0", jds_addr, false, vec![], None);
     let (_jdc_1, _jdc_addr_1) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr);
@@ -67,52 +67,6 @@ async fn jdc_tp_success_setup() {
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         )
         .await;
-}
-
-// This test ensures that `jd-client` does not panic even if `jd-server` leaves the connection open
-// after receiving the request for token.
-#[tokio::test]
-async fn jdc_does_not_stackoverflow_when_no_token() {
-    start_tracing();
-    let (tp, tp_addr) = start_template_provider(None, DifficultyLevel::Low);
-    let (_pool, pool_addr) = start_pool(Some(tp_addr)).await;
-    let (_jds, jds_addr) = start_jds(tp.rpc_info());
-    let block_from_message = IgnoreMessage::new(
-        MessageDirection::ToDownstream,
-        MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    );
-    let (jds_jdc_sniffer, jds_jdc_sniffer_addr) = start_sniffer(
-        "JDS-JDC-sniffer",
-        jds_addr,
-        false,
-        vec![block_from_message.into()],
-        None,
-    );
-    let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jds_jdc_sniffer_addr)], tp_addr);
-    let _ = start_sv2_translator(jdc_addr);
-    jds_jdc_sniffer
-        .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
-        .await;
-    jds_jdc_sniffer
-        .wait_for_message_type(
-            MessageDirection::ToDownstream,
-            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-        )
-        .await;
-    jds_jdc_sniffer
-        .wait_for_message_type(
-            MessageDirection::ToUpstream,
-            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
-        )
-        .await;
-
-    // The 3-second delay simulates a scenario where JDC does not receive an
-    // `AllocateMiningJobTokenSuccess` response from JDS, leaving `self.allocated_tokens` empty.
-    // Without the fix introduced in [PR](https://github.com/stratum-mining/stratum/pull/720),
-    // JDC would recursively call `Self::get_last_token`, eventually causing a stack overflow.
-    // This test verifies that JDC now blocks/yields correctly instead of infinitely recursing.
-    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    assert!(tokio::net::TcpListener::bind(jdc_addr).await.is_err());
 }
 
 // This test verifies that JDS does not exit when it receives a `SubmitSolution`

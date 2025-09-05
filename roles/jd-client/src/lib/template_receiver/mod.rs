@@ -1,457 +1,418 @@
-//! ## Template Receiver (JDC)
-//! Contains the logic required for the Job Declarator Client (JDC) to connect to and communicate
-//! with a Template Provider (TP).
+//! Template Receiver module
 //!
-//! This includes establishing a secure connection, sending and receiving SV2 Template Distribution
-//! protocol messages, handling template-related events, and coordinating with the job declarator
-//! and downstream subsystem.
-use super::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
-use async_channel::{Receiver, Sender};
-use error_handling::handle_result;
+//! This module defines the [`TemplateReceiver`] struct, which manages a connection
+//! to a Template Provider (TP).
+//!
+//! Responsibilities:
+//! - Establish TCP + Noise encrypted connection to the template provider
+//! - Perform `SetupConnection` handshake
+//! - Forward SV2 `TemplateDistribution` messages to the channel manager
+//! - Forward messages from the channel manager upstream to the template provider
+//! - Send [`CoinbaseOutputConstraints`] to the template provider
+
+use std::{net::SocketAddr, sync::Arc};
+
+use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use setup_connection::SetupConnectionHandler;
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
+    network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        self,
         bitcoin::{
-            absolute::LockTime,
-            blockdata::witness::Witness,
-            consensus::{deserialize, serialize, Encodable},
-            script::ScriptBuf,
-            transaction::{OutPoint, Transaction, Version},
-            Amount, Sequence, TxIn, TxOut,
+            self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
+            Transaction, TxIn, TxOut, Witness,
         },
-        codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame},
-        handlers::{template_distribution::ParseTemplateDistributionMessagesFromServer, SendTo_},
-        job_declaration_sv2::AllocateMiningJobTokenSuccess,
+        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
+        handlers_sv2::HandleCommonMessagesFromServerAsync,
         parsers_sv2::{AnyMessage, TemplateDistribution},
-        template_distribution_sv2::{
-            CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, SubmitSolution,
-        },
+        template_distribution_sv2::CoinbaseOutputConstraints,
         utils::Mutex,
     },
 };
-use tokio::task::AbortHandle;
-use tracing::{error, info, warn};
+use tokio::{net::TcpStream, sync::broadcast};
+use tracing::{debug, error, info, warn};
+
+use crate::{
+    error::JDCError,
+    status::{handle_error, Status, StatusSender},
+    task_manager::TaskManager,
+    utils::{
+        get_setup_connection_message_tp, protocol_message_type, spawn_io_tasks, Message,
+        MessageType, SV2Frame, ShutdownMessage, StdFrame,
+    },
+};
 
 mod message_handler;
-mod setup_connection;
 
-pub type SendTo = SendTo_<roles_logic_sv2::parsers_sv2::TemplateDistribution<'static>, ()>;
-pub type Message = AnyMessage<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+/// Placeholder for future template receiver–specific state.
+pub struct TemplateReceiverData;
 
-/// Represents a template receiver client
-pub struct TemplateRx {
-    // Receiver channel for incoming messages from the Template Provider.
-    receiver: Receiver<EitherFrame>,
-    // Sender channel for sending messages to the Template Provider.
-    sender: Sender<EitherFrame>,
-    // Sender for communicating status updates back to the main status loop
-    // for error handling and state management.
-    tx_status: status::Sender,
-    // Present when connected to a pool, absent in solo mining mode.
-    jd: Option<Arc<Mutex<super::job_declarator::JobDeclarator>>>,
-    // used for sending template and job information to the downstream.
-    down: Arc<Mutex<super::downstream::DownstreamMiningNode>>,
-    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    // Stores the last received `NewTemplate` message.
-    new_template_message: Option<NewTemplate<'static>>,
-    // Trigger mechanism to detect unresponsive upstream behavior and initiate a pool change.
-    pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
-    // The encoded miner's coinbase output(s) from the configuration.
-    miner_coinbase_output: Vec<u8>,
+/// Holds communication channels between the template receiver, channel manager,
+/// and upstream template provider.
+///
+/// - `channel_manager_sender` → sends frames to the channel manager
+/// - `channel_manager_receiver` → receives frames from the channel manager
+/// - `outbound_tx` → sends frames upstream to the template provider
+/// - `inbound_rx` → receives frames from the template provider
+#[derive(Clone)]
+pub struct TemplateReceiverChannel {
+    channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_receiver: Receiver<SV2Frame>,
+    tp_sender: Sender<SV2Frame>,
+    tp_receiver: Receiver<SV2Frame>,
 }
 
-impl TemplateRx {
-    // The connect method connects to the Template Provider over TCP, performs the SV2 setup
-    // connection handshake, and starts background tasks for handling incoming template messages
-    // and forwarding miner solutions.
-    //
-    // This is the entry point for establishing communication with the Template Provider.
-    #[allow(clippy::too_many_arguments)]
-    pub async fn connect(
-        address: SocketAddr,
-        solution_receiver: Receiver<SubmitSolution<'static>>,
-        tx_status: status::Sender,
-        jd: Option<Arc<Mutex<super::job_declarator::JobDeclarator>>>,
-        down: Arc<Mutex<super::downstream::DownstreamMiningNode>>,
-        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-        pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
-        miner_coinbase_outputs: Vec<TxOut>,
-        authority_public_key: Option<Secp256k1PublicKey>,
-    ) {
-        let mut encoded_outputs = vec![];
-        // If in solo mining mode (jd is None), encode only the first coinbase output
-        // as per JDS behavior. Otherwise, encode all provided outputs.
-        if jd.is_none() {
-            miner_coinbase_outputs[0]
-                .consensus_encode(&mut encoded_outputs)
-                .expect("Invalid coinbase output in config");
-        } else {
-            miner_coinbase_outputs
-                .consensus_encode(&mut encoded_outputs)
-                .expect("Invalid coinbase output in config");
-        }
-        // Establish a TCP connection to the Template Provider address.
-        let stream = tokio::net::TcpStream::connect(address).await.unwrap();
+/// Manages communication with a Stratum V2 Template Provider.
+///
+/// Responsibilities:
+/// - Establishes TCP + Noise connection to TP
+/// - Performs handshake (`SetupConnection`)
+/// - Sends [`CoinbaseOutputConstraints`] to TP
+/// - Routes messages between TP and channel manager
+/// - Handles shutdown/fallback notifications
+#[allow(warnings)]
+#[derive(Clone)]
+pub struct TemplateReceiver {
+    /// Internal state
+    template_receiver_data: Arc<Mutex<TemplateReceiverData>>,
+    /// Messaging channels to/from the channel manager and TP.
+    template_receiver_channel: TemplateReceiverChannel,
+    /// Address of the template provider (string form)
+    tp_address: String,
+}
 
-        let initiator = match authority_public_key {
-            Some(pub_key) => Initiator::from_raw_k(pub_key.into_bytes()),
-            None => Initiator::without_pk(),
-        }
-        .unwrap();
-        let (mut receiver, mut sender) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator))
-                .await
-                .unwrap();
-
-        info!("Template Receiver try to set up connection");
-        // Perform the SV2 setup connection handshake with the Template Provider.
-        SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
-            .await
-            .unwrap();
-        info!("Template Receiver connection set up");
-
-        let self_mutex = Arc::new(Mutex::new(Self {
-            receiver: receiver.clone(),
-            sender: sender.clone(),
-            tx_status,
-            jd,
-            down,
-            task_collector: task_collector.clone(),
-            new_template_message: None,
-            pool_chaneger_trigger,
-            miner_coinbase_output: encoded_outputs,
-        }));
-
-        // Spawn a task to handle incoming block solutions from the miner and forward them
-        // to the Template Provider
-        let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
-        task_collector
-            .safe_lock(|c| c.push(task.abort_handle()))
-            .unwrap();
-
-        // Start the main task for receiving and processing template-related messages
-        // from the Template Provider.
-        Self::start_templates(self_mutex);
-    }
-
-    /// This method is used to send message to template provider.
-    pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) {
-        let either_frame = sv2_frame.into();
-        let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
-        match sender_to_tp.send(either_frame).await {
-            Ok(_) => (),
-            Err(e) => panic!("{e:?}"),
-        }
-    }
-
-    /// Sends a `CoinbaseOutputConstraints` message to the Template Provider.
+impl TemplateReceiver {
+    /// Establish a new connection to a Template Provider.
     ///
-    /// This informs the TP about the maximum size and sigops allowed in the miner's
-    /// additional coinbase output data.
-    pub async fn send_coinbase_output_constraints(
-        self_mutex: &Arc<Mutex<Self>>,
-        size: u32,
-        sigops: u16,
-    ) {
-        let coinbase_output_data_size = AnyMessage::TemplateDistribution(
-            TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
-                coinbase_output_max_additional_size: size,
-                coinbase_output_max_additional_sigops: sigops,
-            }),
-        );
-        let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
-        Self::send(self_mutex, frame).await;
-    }
-
-    /// Sends a `RequestTransactionData` message to the Template Provider.
+    /// - Opens a TCP connection
+    /// - Performs Noise handshake
+    /// - Spawns IO tasks for inbound/outbound frames
     ///
-    /// This requests the full transaction data for a template identified by its ID.
-    pub async fn send_tx_data_request(
-        self_mutex: &Arc<Mutex<Self>>,
-        new_template: NewTemplate<'static>,
-    ) {
-        let tx_data_request = AnyMessage::TemplateDistribution(
-            TemplateDistribution::RequestTransactionData(RequestTransactionData {
-                template_id: new_template.template_id,
-            }),
-        );
-        let frame: StdFrame = tx_data_request.try_into().unwrap();
-        Self::send(self_mutex, frame).await;
-    }
+    /// Retries up to 3 times before returning [`JDCError::Shutdown`].
+    pub async fn new(
+        tp_address: String,
+        public_key: Option<Secp256k1PublicKey>,
+        channel_manager_receiver: Receiver<SV2Frame>,
+        channel_manager_sender: Sender<SV2Frame>,
+        notify_shutdown: broadcast::Sender<ShutdownMessage>,
+        task_manager: Arc<TaskManager>,
+        status_sender: Sender<Status>,
+    ) -> Result<TemplateReceiver, JDCError> {
+        const MAX_RETRIES: usize = 3;
 
-    /// Retrieves the last allocated mining job token.
-    ///
-    /// If the JDC is connected to a pool, it fetches the token from the `JobDeclarator`.
-    /// In solo mining mode, it generates a dummy token with constraints derived from
-    /// the miner's configured coinbase output.
-    async fn get_last_token(
-        jd: Option<Arc<Mutex<JobDeclarator>>>,
-        miner_coinbase_output: &[u8],
-    ) -> AllocateMiningJobTokenSuccess<'static> {
-        if let Some(jd) = jd {
-            JobDeclarator::get_last_token(&jd).await
-        } else {
-            // This is when JDC is doing solo mining
+        for attempt in 1..=MAX_RETRIES {
+            info!(attempt, MAX_RETRIES, "Connecting to template provider");
 
-            AllocateMiningJobTokenSuccess {
-                request_id: 0,
-                mining_job_token: vec![0; 32].try_into().unwrap(),
-                coinbase_outputs: miner_coinbase_output.to_vec().try_into().unwrap(),
-            }
-        }
-    }
+            let initiator = match public_key {
+                Some(pub_key) => {
+                    debug!(attempt, "Using public key for initiator handshake");
+                    Initiator::from_raw_k(pub_key.into_bytes())
+                }
+                None => {
+                    debug!(attempt, "Using anonymous initiator (no public key)");
+                    Initiator::without_pk()
+                }
+            }?;
 
-    /// Contains the core logic for the Template Receiver's main operational loop.
-    ///
-    /// This function is responsible for:
-    /// 1. Sending initial `CoinbaseOutputConstraints` to the Template Provider.
-    /// 2. Continuously receiving and processing messages from the Template Provider.
-    /// 3. Handling different Template Distribution messages (`NewTemplate`, `SetNewPrevHash`,
-    ///    `RequestTransactionDataSuccess`, `RequestTransactionDataError`).
-    /// 4. Requesting transaction data for new templates.
-    /// 5. Coordinating the delivery of template and job information to the `JobDeclarator` (when
-    ///    connected to a pool) and the `DownstreamMiningNode`.
-    /// 6. Utilizing the `IS_NEW_TEMPLATE_HANDLED` global atomic for synchronization between the
-    ///    template receiver and downstream when processing `NewTemplate` and `SetNewPrevHash`.
-    ///
-    /// FIX ME: Remove dependence from other modules in this. This gonna help in
-    /// removing sequential component spawning.
-    pub fn start_templates(self_mutex: Arc<Mutex<Self>>) {
-        let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap();
-        let down = self_mutex.safe_lock(|s| s.down.clone()).unwrap();
-        let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-        let mut coinbase_output_constraints_sent = false;
-        let mut last_token = None;
-        let miner_coinbase_output = self_mutex
-            .safe_lock(|s| s.miner_coinbase_output.clone())
-            .unwrap();
+            match TcpStream::connect(tp_address.as_str()).await {
+                Ok(stream) => {
+                    info!(
+                        attempt,
+                        "TCP connection established, starting Noise handshake"
+                    );
 
-        // Spawn the main task for handling incoming template messages.
-        let main_task = {
-            let self_mutex = self_mutex.clone();
-            tokio::task::spawn(async move {
-                // Send CoinbaseOutputConstraints to TP
-                loop {
-                    // Retrieve the last allocated mining job token if not already available.
-                    if last_token.is_none() {
-                        let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap();
-                        last_token =
-                            Some(Self::get_last_token(jd, &miner_coinbase_output[..]).await);
-                    }
-                    // Send CoinbaseOutputConstraints to the Template Provider if not already sent.
-                    if !coinbase_output_constraints_sent {
-                        coinbase_output_constraints_sent = true;
+                    match NoiseTcpStream::<Message>::new(
+                        stream,
+                        HandshakeRole::Initiator(initiator),
+                    )
+                    .await
+                    {
+                        Ok(noise_stream) => {
+                            info!(attempt, "Noise handshake completed successfully");
 
-                        let jds_coinbase_outputs =
-                            last_token.clone().unwrap().coinbase_outputs.to_vec();
-                        let deserialized_jds_coinbase_outputs: Vec<TxOut> =
-                            deserialize(&jds_coinbase_outputs).expect("Invalid coinbase output");
+                            let (noise_stream_reader, noise_stream_writer) =
+                                noise_stream.into_split();
 
-                        let coinbase_output_max_additional_size: usize =
-                            deserialized_jds_coinbase_outputs
-                                .iter()
-                                .map(|o| o.size())
-                                .sum();
+                            let status_sender = StatusSender::TemplateReceiver(status_sender);
+                            let (inbound_tx, inbound_rx) = unbounded::<SV2Frame>();
+                            let (outbound_tx, outbound_rx) = unbounded::<SV2Frame>();
 
-                        // create a dummy coinbase transaction with the empty output
-                        // this is used to calculate the sigops of the coinbase output
-                        let dummy_coinbase = Transaction {
-                            version: Version::TWO,
-                            lock_time: LockTime::ZERO,
-                            input: vec![TxIn {
-                                previous_output: OutPoint::null(),
-                                script_sig: ScriptBuf::new(),
-                                sequence: Sequence::MAX,
-                                witness: Witness::from(vec![vec![0; 32]]),
-                            }],
-                            output: deserialized_jds_coinbase_outputs,
-                        };
+                            info!(attempt, "Spawning IO tasks for template receiver");
+                            spawn_io_tasks(
+                                task_manager.clone(),
+                                noise_stream_reader,
+                                noise_stream_writer,
+                                outbound_rx,
+                                inbound_tx,
+                                notify_shutdown,
+                                status_sender,
+                            );
 
-                        let coinbase_output_max_additional_sigops =
-                            dummy_coinbase.total_sigop_cost(|_| None) as u16;
+                            let template_receiver_data = Arc::new(Mutex::new(TemplateReceiverData));
+                            let template_receiver_channel = TemplateReceiverChannel {
+                                channel_manager_receiver,
+                                channel_manager_sender,
+                                tp_receiver: inbound_rx,
+                                tp_sender: outbound_tx,
+                            };
 
-                        Self::send_coinbase_output_constraints(
-                            &self_mutex,
-                            coinbase_output_max_additional_size as u32,
-                            coinbase_output_max_additional_sigops,
-                        )
-                        .await;
-                    }
-
-                    // Receive Templates and SetPrevHash from TP to send to JD
-                    let receiver = self_mutex
-                        .clone()
-                        .safe_lock(|s| s.receiver.clone())
-                        .unwrap();
-                    let received = handle_result!(tx_status.clone(), receiver.recv().await);
-                    let mut frame: StdFrame =
-                        handle_result!(tx_status.clone(), received.try_into());
-                    let message_type = frame.get_header().unwrap().msg_type();
-                    let payload = frame.payload();
-
-                    // Process the received message using the template distribution message handler
-                    let next_message_to_send =
-                        ParseTemplateDistributionMessagesFromServer::handle_message_template_distribution(
-                            self_mutex.clone(),
-                            message_type,
-                            payload,
-                        );
-                    match next_message_to_send {
-                        Ok(SendTo::None(m)) => {
-                            match m {
-                                // Send the new template along with the token to the JD so that JD
-                                // can declare the mining job
-                                Some(TemplateDistribution::NewTemplate(m)) => {
-                                    // Set the global flag to false (Release ordering) to signal
-                                    // that a new template is being handled by the downstream.
-                                    super::IS_NEW_TEMPLATE_HANDLED
-                                        .store(false, std::sync::atomic::Ordering::Release);
-                                    // Request transaction data for the new template.
-                                    Self::send_tx_data_request(&self_mutex, m.clone()).await;
-                                    self_mutex
-                                        .safe_lock(|t| t.new_template_message = Some(m.clone()))
-                                        .unwrap();
-                                    // Get the pool's coinbase output from the last token.
-                                    let token = last_token.clone().unwrap();
-                                    let pool_outputs = token.coinbase_outputs.to_vec();
-
-                                    // Notify the downstream mining node about the new template.
-                                    super::downstream::DownstreamMiningNode::on_new_template(
-                                        &down,
-                                        m.clone(),
-                                        &pool_outputs[..],
-                                    )
-                                    .await
-                                    .unwrap();
-                                }
-                                // Handle SetNewPrevHash messages.
-                                Some(TemplateDistribution::SetNewPrevHash(m)) => {
-                                    info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                                    // Wait until the IS_NEW_TEMPLATE_HANDLED flag is true,
-                                    // indicating the downstream has finished processing the
-                                    // previous NewTemplate.
-                                    while !super::IS_NEW_TEMPLATE_HANDLED
-                                        .load(std::sync::atomic::Ordering::Acquire)
-                                    {
-                                        tokio::task::yield_now().await;
-                                    }
-                                    info!("IS_NEW_TEMPLATE_HANDLED ok");
-                                    // If connected to a pool, notify the Job Declarator about the
-                                    // new prev hash.
-                                    if let Some(jd) = jd.as_ref() {
-                                        super::job_declarator::JobDeclarator::on_set_new_prev_hash(
-                                            jd.clone(),
-                                            m.clone(),
-                                        );
-                                    }
-                                    // Notify the downstream mining node about the new prev hash.
-                                    super::downstream::DownstreamMiningNode::on_set_new_prev_hash(
-                                        &down, m,
-                                    )
-                                    .await
-                                    .unwrap();
-                                }
-                                // Handle RequestTransactionDataSuccess messages.
-                                Some(TemplateDistribution::RequestTransactionDataSuccess(m)) => {
-                                    // safe to unwrap because this message is received after the new
-                                    // template message
-                                    let transactions_data = m.transaction_list;
-                                    let excess_data = m.excess_data;
-
-                                    // Retrieve the stored NewTemplate message (safe to unwrap as
-                                    // this message follows a NewTemplate).
-                                    let m = self_mutex
-                                        .safe_lock(|t| t.new_template_message.clone())
-                                        .unwrap()
-                                        .unwrap();
-
-                                    // Retrieve the last token and reset the stored token.
-                                    let token = last_token.unwrap();
-                                    last_token = None;
-
-                                    // Extract mining token and pool coinbase output from the token.
-                                    let mining_token = token.mining_job_token.to_vec();
-                                    let pool_coinbase_outputs = token.coinbase_outputs.to_vec();
-
-                                    let mut deserialized_outputs: Vec<TxOut> =
-                                        deserialize(&pool_coinbase_outputs).unwrap();
-
-                                    // we know the first output is where the template revenue must
-                                    // be allocated
-                                    deserialized_outputs[0].value =
-                                        Amount::from_sat(m.coinbase_tx_value_remaining);
-
-                                    let reserialized_outputs = serialize(&deserialized_outputs);
-
-                                    // If connected to a pool, notify the Job Declarator with the
-                                    // complete template information (including transactions).
-                                    if let Some(jd) = jd.as_ref() {
-                                        super::job_declarator::JobDeclarator::on_new_template(
-                                            jd,
-                                            m.clone(),
-                                            mining_token,
-                                            transactions_data,
-                                            excess_data,
-                                            reserialized_outputs,
-                                        )
-                                        .await;
-                                    }
-                                }
-                                Some(TemplateDistribution::RequestTransactionDataError(_)) => {
-                                    warn!("The prev_hash of the template requested to Template Provider no longer points to the latest tip. Continuing work on the updated template.")
-                                }
-                                _ => {
-                                    error!("{:?}", frame);
-                                    error!("{:?}", frame.payload());
-                                    error!("{:?}", frame.get_header());
-                                    std::process::exit(1);
-                                }
-                            }
-                        }
-                        Ok(m) => {
-                            error!("{:?}", m);
-                            error!("{:?}", frame);
-                            error!("{:?}", frame.payload());
-                            error!("{:?}", frame.get_header());
-                            std::process::exit(1);
+                            info!(attempt, "TemplateReceiver initialized successfully");
+                            return Ok(TemplateReceiver {
+                                template_receiver_channel,
+                                template_receiver_data,
+                                tp_address,
+                            });
                         }
                         Err(e) => {
-                            error!("{:?}", e);
-                            error!("{:?}", frame);
-                            error!("{:?}", frame.payload());
-                            error!("{:?}", frame.get_header());
-                            std::process::exit(1);
+                            error!(attempt, error = ?e, "Noise handshake failed");
                         }
                     }
                 }
-            })
-        };
-        self_mutex
-            .safe_lock(|s| {
-                s.task_collector
-                    .safe_lock(|c| c.push(main_task.abort_handle()))
-                    .unwrap()
-            })
-            .unwrap();
+                Err(e) => {
+                    warn!(attempt, MAX_RETRIES, error = ?e, "Failed to connect to template provider");
+                }
+            }
+
+            if attempt < MAX_RETRIES {
+                debug!(attempt, "Retrying connection after backoff");
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+
+        error!("Exhausted all connection attempts, shutting down TemplateReceiver");
+        Err(JDCError::Shutdown)
     }
 
-    /// Handles incoming `SubmitSolution` messages from the miner.
+    /// Start unified message loop for template receiver.
     ///
-    /// This method continuously receives solutions from the provided receiver channel
-    /// and forwards them as `SubmitSolution` messages to the Template Provider.
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-        while let Ok(solution) = rx.recv().await {
-            let sv2_frame: StdFrame =
-                AnyMessage::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
-                    .try_into()
-                    .expect("Failed to convert solution to sv2 frame!");
-            Self::send(&self_, sv2_frame).await
+    /// Responsibilities:
+    /// - Run handshake (`setup_connection`)
+    /// - Send [`CoinbaseOutputConstraints`]
+    /// - Handle:
+    ///   - Messages from template provider
+    ///   - Messages from channel manager
+    ///   - Shutdown signals (upstream/job-declarator fallback)
+    pub async fn start(
+        mut self,
+        socket_address: String,
+        notify_shutdown: broadcast::Sender<ShutdownMessage>,
+        status_sender: Sender<Status>,
+        task_manager: Arc<TaskManager>,
+        coinbase_outputs: Vec<u8>,
+    ) {
+        let status_sender = StatusSender::TemplateReceiver(status_sender);
+        let mut shutdown_rx = notify_shutdown.subscribe();
+
+        info!("Initialized state for starting template receiver");
+        _ = self.setup_connection(socket_address).await;
+
+        _ = self.coinbase_constraints(coinbase_outputs).await;
+
+        info!("Setup Connection done. connection with template receiver is now done");
+        task_manager.spawn(
+            async move {
+                loop {
+                    let mut self_clone_1 = self.clone();
+                    let self_clone_2 = self.clone();
+                    tokio::select! {
+                        message = shutdown_rx.recv() => {
+                            match message {
+                                Ok(ShutdownMessage::ShutdownAll) => {
+                                    info!("Template Receiver: received shutdown signal");
+                                    break;
+                                },
+                                Ok(ShutdownMessage::UpstreamShutdownFallback((coinbase_outputs,tx))) => {
+                                    info!("Template provider: Received Upstream shutdown.");
+                                    _ = self.coinbase_constraints(coinbase_outputs).await;
+                                    drop(tx);
+                                }
+                                Ok(ShutdownMessage::JobDeclaratorShutdownFallback((coinbase_outputs, tx))) => {
+                                    info!("Template provider: Received Job declarator shutdown.");
+                                    _ = self.coinbase_constraints(coinbase_outputs).await;
+                                    drop(tx);
+                                }
+                                Err(e) => {
+                                    warn!(error = ?e, "Template Receiver: shutdown channel closed unexpectedly");
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                        res = self_clone_1.handle_template_provider_message() => {
+                            if let Err(e) = res {
+                                error!("TemplateReceiver template provider handler failed: {e:?}");
+                                handle_error(&status_sender, e).await;
+                                break;
+                            }
+                        }
+                        res = self_clone_2.handle_channel_manager_message() => {
+                            if let Err(e) = res {
+                                error!("TemplateReceiver channel manager handler failed: {e:?}");
+                                handle_error(&status_sender, e).await;
+                                break;
+                            }
+                        },
+                    }
+                }
+                warn!("TemplateReceiver: unified message loop exited.");
+            },
+        );
+    }
+
+    /// Handle inbound messages from the template provider.
+    ///
+    /// Routes:
+    /// - `Common` messages → handled locally
+    /// - `TemplateDistribution` messages → forwarded to channel manager
+    /// - Unsupported messages → logged and ignored
+    pub async fn handle_template_provider_message(&mut self) -> Result<(), JDCError> {
+        let mut sv2_frame = self.template_receiver_channel.tp_receiver.recv().await?;
+
+        debug!("Received SV2 frame from Template provider.");
+        let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+            return Ok(());
+        };
+        match protocol_message_type(message_type) {
+            MessageType::Common => {
+                info!(
+                    ?message_type,
+                    "Handling common message from Template provider."
+                );
+                self.handle_common_message_from_server(message_type, sv2_frame.payload())
+                    .await?;
+            }
+            MessageType::TemplateDistribution => {
+                self.template_receiver_channel
+                    .channel_manager_sender
+                    .send(sv2_frame)
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send template distribution message to channel manager.");
+                        JDCError::ChannelErrorSender
+                    })?;
+            }
+            _ => {
+                warn!("Received unsupported message type from template provider: {message_type}");
+            }
         }
+        Ok(())
+    }
+
+    /// Handle messages from channel manager → template provider.
+    ///
+    /// Forwards outbound frames upstream
+    pub async fn handle_channel_manager_message(&self) -> Result<(), JDCError> {
+        let msg = self
+            .template_receiver_channel
+            .channel_manager_receiver
+            .recv()
+            .await?;
+        debug!("Forwarding message from channel manager to outbound_tx");
+        self.template_receiver_channel
+            .tp_sender
+            .send(msg)
+            .await
+            .map_err(|_| JDCError::ChannelErrorSender)?;
+
+        Ok(())
+    }
+
+    /// Build and send [`CoinbaseOutputConstraints`] upstream TP.
+    pub async fn coinbase_constraints(
+        &mut self,
+        coinbase_outputs: Vec<u8>,
+    ) -> Result<(), JDCError> {
+        debug!(
+            "Deserializing coinbase outputs ({} bytes)",
+            coinbase_outputs.len()
+        );
+        let outputs: Vec<TxOut> = bitcoin::consensus::deserialize(&coinbase_outputs)?;
+
+        let max_size: u32 = outputs.iter().map(|o| o.size() as u32).sum();
+        debug!(
+            max_size,
+            outputs_count = outputs.len(),
+            "Calculated max coinbase output size"
+        );
+
+        let dummy_coinbase = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::from(vec![vec![0; 32]]),
+            }],
+            output: outputs,
+        };
+
+        let max_sigops = dummy_coinbase.total_sigop_cost(|_| None) as u16;
+        debug!(max_sigops, "Calculated max sigops for coinbase");
+
+        let constraints = CoinbaseOutputConstraints {
+            coinbase_output_max_additional_size: max_size,
+            coinbase_output_max_additional_sigops: max_sigops,
+        };
+
+        let msg = AnyMessage::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputConstraints(constraints),
+        );
+
+        let frame: StdFrame = msg.try_into()?;
+        info!("Sending CoinbaseOutputConstraints message upstream");
+        self.template_receiver_channel
+            .tp_sender
+            .send(frame)
+            .await
+            .map_err(|_| {
+                error!("Failed to send CoinbaseOutputConstraints message upstream");
+                JDCError::ChannelErrorSender
+            })?;
+
+        Ok(())
+    }
+
+    // Performs the initial handshake with template provider.
+    pub async fn setup_connection(&mut self, addr: String) -> Result<(), JDCError> {
+        let socket: SocketAddr = addr.parse().map_err(|_| {
+            error!(%addr, "Invalid socket address");
+            JDCError::InvalidSocketAddress(addr.clone())
+        })?;
+
+        info!(%socket, "Building setup connection message for upstream");
+        let setup_msg = get_setup_connection_message_tp(socket);
+        let frame: StdFrame = Message::Common(setup_msg.into()).try_into()?;
+
+        info!("Sending setup connection message to upstream");
+        self.template_receiver_channel
+            .tp_sender
+            .send(frame)
+            .await
+            .map_err(|_| {
+                error!("Failed to send setup connection message upstream");
+                JDCError::ChannelErrorSender
+            })?;
+
+        info!("Waiting for upstream handshake response");
+        let mut incoming: StdFrame = self
+            .template_receiver_channel
+            .tp_receiver
+            .recv()
+            .await
+            .map_err(|e| {
+                error!(?e, "Upstream connection closed during handshake");
+                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+            })?;
+
+        let msg_type = incoming
+            .get_header()
+            .ok_or(framing_sv2::Error::ExpectedHandshakeFrame)?
+            .msg_type();
+        debug!(?msg_type, "Received upstream handshake response");
+
+        self.handle_common_message_from_server(msg_type, incoming.payload())
+            .await?;
+        info!("Handshake with upstream completed successfully");
+        Ok(())
     }
 }
