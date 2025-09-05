@@ -19,11 +19,11 @@ pub struct DeclareMiningJob<'decoder> {
     pub mining_job_token: B0255<'decoder>,
     /// Header version field.
     pub version: u32,
-    /// The coinbase transaction nVersion field
-    pub coinbase_prefix: B064K<'decoder>,
-    /// Up to 8 bytes (not including the length byte) which are to be placed at the beginning of
-    /// the coinbase field in the coinbase transaction.
-    pub coinbase_suffix: B064K<'decoder>,
+    /// Serialized bytes representing the initial part of the coinbase transaction (not including
+    /// extranonce)
+    pub coinbase_tx_prefix: B064K<'decoder>,
+    /// Serialized bytes representing the final part of the coinbase transaction (after extranonce)
+    pub coinbase_tx_suffix: B064K<'decoder>,
     /// List of the transaction ids contained in the template. JDS checks the list against its
     /// mempool and requests missing txs via [`crate::ProvideMissingTransactions`].
     ///
@@ -38,12 +38,12 @@ impl fmt::Display for DeclareMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: {}, coinbase_prefix: {}, coinbase_suffix: {}, tx_ids_list: {}, excess_data: {})",
+            "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}, tx_ids_list: {}, excess_data: {})",
             self.request_id,
             self.mining_job_token,
             self.version,
-            self.coinbase_prefix,
-            self.coinbase_suffix,
+            self.coinbase_tx_prefix,
+            self.coinbase_tx_suffix,
             self.tx_ids_list,
             self.excess_data
         )

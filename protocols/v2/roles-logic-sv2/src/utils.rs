@@ -834,9 +834,9 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
         let mut tx_list = block_creator.tx_list;
         let message = block_creator.message;
 
-        let coinbase_pre = last_declare.coinbase_prefix.to_vec();
+        let coinbase_pre = last_declare.coinbase_tx_prefix.to_vec();
         let extranonce = message.extranonce.to_vec();
-        let coinbase_suf = last_declare.coinbase_suffix.to_vec();
+        let coinbase_suf = last_declare.coinbase_tx_suffix.to_vec();
         let mut path: Vec<Vec<u8>> = vec![];
         for tx in &tx_list {
             let id = tx.compute_txid();

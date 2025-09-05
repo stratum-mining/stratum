@@ -1491,7 +1491,7 @@ dependencies = [
 
 [[package]]
 name = "job_declaration_sv2"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
 ]

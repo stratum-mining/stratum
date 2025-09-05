@@ -326,10 +326,10 @@ impl JobDeclarator {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
             version: template.version,
-            coinbase_prefix: self_mutex
+            coinbase_tx_prefix: self_mutex
                 .safe_lock(|s| s.coinbase_tx_prefix.clone())
                 .unwrap(),
-            coinbase_suffix: self_mutex
+            coinbase_tx_suffix: self_mutex
                 .safe_lock(|s| s.coinbase_tx_suffix.clone())
                 .unwrap(),
             tx_ids_list: tx_ids,
