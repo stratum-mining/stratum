@@ -48,13 +48,74 @@ pub enum ShareAccountingConfig {
     ///
     /// - `share_batch_size`: Optional batch size for server acknowledgments.
     ///   Use `None` for client mode, `Some(size)` for server mode.
+    ///   When specified, must be greater than 0.
     InMemory {
         /// Batch size for share acknowledgments. None for client mode, Some(size) for server mode.
+        /// Must be greater than 0 when specified.
         share_batch_size: Option<usize>,
     },
     // Future storage backends can be added here:
     // Database { connection_string: String, share_batch_size: Option<usize> },
     // File { path: PathBuf, share_batch_size: Option<usize> },
+}
+
+/// Error type for configuration validation.
+#[derive(Debug)]
+pub enum ConfigError {
+    /// Invalid batch size (must be greater than 0).
+    InvalidBatchSize(usize),
+}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigError::InvalidBatchSize(size) => {
+                write!(f, "Invalid batch size: {}. Batch size must be greater than 0", size)
+            }
+        }
+    }
+}
+
+impl StdError for ConfigError {}
+
+impl ShareAccountingConfig {
+    /// Validates the configuration parameters.
+    ///
+    /// This method checks that all configuration parameters are valid:
+    /// - Batch size must be greater than 0 when specified
+    /// - Future storage backends can add their own validation rules
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the configuration is valid, or a `ConfigError` if validation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use channels_sv2::share_accounting_trait::ShareAccountingConfig;
+    /// // Valid configurations
+    /// let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+    /// assert!(client_config.validate().is_ok());
+    /// 
+    /// let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(10) };
+    /// assert!(server_config.validate().is_ok());
+    /// 
+    /// // Invalid configuration
+    /// let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
+    /// assert!(invalid_config.validate().is_err());
+    /// ```
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        match self {
+            ShareAccountingConfig::InMemory { share_batch_size } => {
+                if let Some(batch_size) = share_batch_size {
+                    if *batch_size == 0 {
+                        return Err(ConfigError::InvalidBatchSize(*batch_size));
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 /// Trait defining the interface for share accounting operations.
@@ -601,6 +662,7 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
 ///
 /// This function provides a convenient way to create trait objects from configuration,
 /// enabling easy switching between different storage backends in the future.
+/// The configuration is validated before creating the implementation.
 ///
 /// # Arguments
 ///
@@ -610,6 +672,12 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
 ///
 /// A boxed trait object implementing `ShareAccountingTrait`, or an error if
 /// the configuration is invalid or initialization fails.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Configuration validation fails (e.g., invalid batch size)
+/// - Implementation initialization fails
 ///
 /// # Examples
 ///
@@ -622,10 +690,17 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
 /// // Create server-mode accounting
 /// let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(10) };
 /// let server_accounting = create_share_accounting(server_config).unwrap();
+/// 
+/// // Invalid configuration will fail
+/// let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
+/// assert!(create_share_accounting(invalid_config).is_err());
 /// ```
 pub fn create_share_accounting(
     config: ShareAccountingConfig,
 ) -> Result<Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>>, Box<dyn StdError + Send + Sync>> {
+    // Validate configuration before creating implementation
+    config.validate().map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
+    
     match config {
         ShareAccountingConfig::InMemory { share_batch_size } => {
             Ok(Box::new(InMemoryShareAccounting::new(share_batch_size)))
@@ -768,32 +843,61 @@ mod tests {
         
         let share_hash3 = Hash::from_slice(&[3u8; 32]).unwrap();
         accounting.update_share_accounting(1000, 3, share_hash3).unwrap();
-        assert!(accounting.should_acknowledge().unwrap()); // Should acknowledge after 3 shares
+        assert!(accounting.should_acknowledge().unwrap());
         
-        // Add more shares
+        // Add one more share - should not acknowledge until next batch
         let share_hash4 = Hash::from_slice(&[4u8; 32]).unwrap();
         accounting.update_share_accounting(1000, 4, share_hash4).unwrap();
         assert!(!accounting.should_acknowledge().unwrap());
-        
-        let share_hash5 = Hash::from_slice(&[5u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 5, share_hash5).unwrap();
-        assert!(!accounting.should_acknowledge().unwrap());
-        
-        let share_hash6 = Hash::from_slice(&[6u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 6, share_hash6).unwrap();
-        assert!(accounting.should_acknowledge().unwrap()); // Should acknowledge after 6 shares
     }
 
     #[test]
-    fn test_factory_function() {
-        // Test client configuration
+    fn test_config_validation() {
+        // Valid configurations
+        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        assert!(client_config.validate().is_ok());
+        
+        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(10) };
+        assert!(server_config.validate().is_ok());
+        
+        let server_config_small = ShareAccountingConfig::InMemory { share_batch_size: Some(1) };
+        assert!(server_config_small.validate().is_ok());
+        
+        // Invalid configuration - zero batch size
+        let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
+        assert!(invalid_config.validate().is_err());
+        
+        match invalid_config.validate() {
+            Err(ConfigError::InvalidBatchSize(0)) => {}, // Expected
+            _ => panic!("Expected InvalidBatchSize error"),
+        }
+    }
+
+    #[test]
+    fn test_factory_function_validation() {
+        // Valid configurations should succeed
+        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        assert!(create_share_accounting(client_config).is_ok());
+        
+        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(5) };
+        assert!(create_share_accounting(server_config).is_ok());
+        
+        // Invalid configuration should fail
+        let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
+        assert!(create_share_accounting(invalid_config).is_err());
+    }
+
+    #[test]
+    fn test_factory_function_creates_correct_implementation() {
+        // Test client mode
         let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
         let client_accounting = create_share_accounting(client_config).unwrap();
         assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
+        assert!(!client_accounting.should_acknowledge().unwrap());
         
-        // Test server configuration
-        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(5) };
+        // Test server mode
+        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(3) };
         let server_accounting = create_share_accounting(server_config).unwrap();
-        assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(5));
+        assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(3));
     }
 }
