@@ -1,0 +1,14 @@
+name: Integration Tests for sv2-core PR
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration-tests:
+    name: Run Integration Tests
+    uses: stratum-mining/sv2-apps/.github/workflows/integration-test-reusable.yaml@main
+    with:
+      stratum_branch: ${{ github.head_ref }}
+      stratum_repo_url: ${{ github.event.pull_request.head.repo.html_url }}
+    secrets: inherit
