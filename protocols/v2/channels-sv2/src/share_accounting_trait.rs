@@ -612,6 +612,52 @@ impl InMemoryShareAccounting {
             user_best_diffs: BTreeMap::new(),
         }
     }
+
+    /// Creates a new client-mode share accounting instance.
+    ///
+    /// This is a convenience method that creates an instance with `share_batch_size` set to `None`,
+    /// which is appropriate for mining clients that don't need batch acknowledgment functionality.
+    ///
+    /// # Returns
+    ///
+    /// A new `InMemoryShareAccounting` instance configured for client mode.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use channels_sv2::share_accounting_trait::InMemoryShareAccounting;
+    /// let client_accounting = InMemoryShareAccounting::new_client();
+    /// assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
+    /// assert!(!client_accounting.should_acknowledge().unwrap());
+    /// ```
+    pub fn new_client() -> Self {
+        Self::new(None)
+    }
+
+    /// Creates a new server-mode share accounting instance.
+    ///
+    /// This is a convenience method that creates an instance with the specified `share_batch_size`,
+    /// which is appropriate for mining servers that need batch acknowledgment functionality.
+    ///
+    /// # Arguments
+    ///
+    /// * `share_batch_size` - The number of shares that trigger a batch acknowledgment.
+    ///   Must be greater than 0.
+    ///
+    /// # Returns
+    ///
+    /// A new `InMemoryShareAccounting` instance configured for server mode.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use channels_sv2::share_accounting_trait::InMemoryShareAccounting;
+    /// let server_accounting = InMemoryShareAccounting::new_server(10);
+    /// assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(10));
+    /// ```
+    pub fn new_server(share_batch_size: usize) -> Self {
+        Self::new(Some(share_batch_size))
+    }
 }
 
 impl ShareAccountingTrait for InMemoryShareAccounting {
@@ -749,6 +795,59 @@ pub fn create_share_accounting(
     }
 }
 
+/// Convenience factory function for creating client-mode share accounting.
+///
+/// This function creates a share accounting instance configured for client mode
+/// (no batch acknowledgments). It's equivalent to calling `create_share_accounting`
+/// with `ShareAccountingConfig::InMemory { share_batch_size: None }`.
+///
+/// # Returns
+///
+/// A boxed trait object implementing `ShareAccountingTrait` configured for client mode.
+///
+/// # Examples
+///
+/// ```rust
+/// # use channels_sv2::share_accounting_trait::*;
+/// let client_accounting = create_client_share_accounting();
+/// assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
+/// assert!(!client_accounting.should_acknowledge().unwrap());
+/// ```
+pub fn create_client_share_accounting() -> Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>> {
+    Box::new(InMemoryShareAccounting::new_client())
+}
+
+/// Convenience factory function for creating server-mode share accounting.
+///
+/// This function creates a share accounting instance configured for server mode
+/// with the specified batch size for acknowledgments.
+///
+/// # Arguments
+///
+/// * `share_batch_size` - The number of shares that trigger a batch acknowledgment.
+///   Must be greater than 0.
+///
+/// # Returns
+///
+/// A boxed trait object implementing `ShareAccountingTrait` configured for server mode.
+///
+/// # Panics
+///
+/// Panics if `share_batch_size` is 0. Use `create_share_accounting` with proper
+/// error handling if you need to validate the batch size.
+///
+/// # Examples
+///
+/// ```rust
+/// # use channels_sv2::share_accounting_trait::*;
+/// let server_accounting = create_server_share_accounting(10);
+/// assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(10));
+/// ```
+pub fn create_server_share_accounting(share_batch_size: usize) -> Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>> {
+    assert!(share_batch_size > 0, "Batch size must be greater than 0");
+    Box::new(InMemoryShareAccounting::new_server(share_batch_size))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -864,6 +963,110 @@ mod tests {
     }
 
     #[test]
+    fn test_client_mode_comprehensive_functionality() {
+        let mut accounting = InMemoryShareAccounting::new(None);
+        
+        // Test initial state for client mode
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 0);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
+        assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 0);
+        assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
+        assert_eq!(accounting.get_share_batch_size().unwrap(), None);
+        assert!(!accounting.should_acknowledge().unwrap());
+        
+        // Test share processing in client mode
+        let share_hash1 = Hash::from_slice(&[1u8; 32]).unwrap();
+        let share_hash2 = Hash::from_slice(&[2u8; 32]).unwrap();
+        
+        // Process first share
+        accounting.update_share_accounting(1000, 1, share_hash1).unwrap();
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 1);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 1000);
+        assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 1);
+        assert!(accounting.is_share_seen(share_hash1).unwrap());
+        assert!(!accounting.should_acknowledge().unwrap()); // Still no acknowledgment in client mode
+        
+        // Process second share
+        accounting.update_share_accounting(2000, 2, share_hash2).unwrap();
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 2);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 3000);
+        assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 2);
+        assert!(accounting.is_share_seen(share_hash2).unwrap());
+        assert!(!accounting.should_acknowledge().unwrap()); // Still no acknowledgment in client mode
+        
+        // Test difficulty tracking in client mode
+        accounting.update_best_diff(1500.0).unwrap();
+        assert_eq!(accounting.get_best_diff().unwrap(), 1500.0);
+        
+        // Test per-user difficulty tracking in client mode
+        accounting.update_best_diff_for_user("client_user", 2500.0).unwrap();
+        assert_eq!(accounting.get_best_diff_for_user("client_user").unwrap(), Some(2500.0));
+        assert_eq!(accounting.get_best_diff().unwrap(), 2500.0); // Should be max of all users
+        
+        // Test duplicate detection in client mode
+        assert!(accounting.is_share_seen(share_hash1).unwrap());
+        assert!(accounting.is_share_seen(share_hash2).unwrap());
+        
+        let unseen_hash = Hash::from_slice(&[99u8; 32]).unwrap();
+        assert!(!accounting.is_share_seen(unseen_hash).unwrap());
+        
+        // Test flush functionality in client mode
+        accounting.flush_seen_shares().unwrap();
+        assert!(!accounting.is_share_seen(share_hash1).unwrap());
+        assert!(!accounting.is_share_seen(share_hash2).unwrap());
+        
+        // Verify other stats remain unchanged after flush
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 2);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 3000);
+        assert_eq!(accounting.get_best_diff().unwrap(), 2500.0);
+    }
+
+    #[test]
+    fn test_client_mode_vs_server_mode_differences() {
+        // Create client mode instance
+        let mut client_accounting = InMemoryShareAccounting::new(None);
+        
+        // Create server mode instance
+        let mut server_accounting = InMemoryShareAccounting::new(Some(3));
+        
+        // Test batch size differences
+        assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
+        assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(3));
+        
+        // Test acknowledgment behavior differences
+        assert!(!client_accounting.should_acknowledge().unwrap());
+        assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false for both
+        
+        // Add shares to both
+        for i in 1..=3 {
+            let share_hash = Hash::from_slice(&[i; 32]).unwrap();
+            client_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+            server_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+        }
+        
+        // Client should never acknowledge, server should acknowledge after batch size
+        assert!(!client_accounting.should_acknowledge().unwrap());
+        assert!(server_accounting.should_acknowledge().unwrap());
+        
+        // Add more shares
+        for i in 4..=6 {
+            let share_hash = Hash::from_slice(&[i; 32]).unwrap();
+            client_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+            server_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+        }
+        
+        // Client still never acknowledges, server acknowledges again
+        assert!(!client_accounting.should_acknowledge().unwrap());
+        assert!(server_accounting.should_acknowledge().unwrap());
+        
+        // Both should have same share statistics
+        assert_eq!(client_accounting.get_shares_accepted().unwrap(), 6);
+        assert_eq!(server_accounting.get_shares_accepted().unwrap(), 6);
+        assert_eq!(client_accounting.get_share_work_sum().unwrap(), 6000);
+        assert_eq!(server_accounting.get_share_work_sum().unwrap(), 6000);
+    }
+
+    #[test]
     fn test_server_mode_batch_behavior() {
         let mut accounting = InMemoryShareAccounting::new(Some(3));
         
@@ -965,5 +1168,54 @@ mod tests {
         assert_eq!(accounting.get_best_diff().unwrap(), 3000.0);
         assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(3000.0));
         assert_eq!(accounting.get_best_diff_for_user("__default__").unwrap(), Some(2000.0));
+    }
+
+    #[test]
+    fn test_convenience_constructors() {
+        // Test client convenience constructor
+        let client_accounting = InMemoryShareAccounting::new_client();
+        assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
+        assert!(!client_accounting.should_acknowledge().unwrap());
+        
+        // Test server convenience constructor
+        let server_accounting = InMemoryShareAccounting::new_server(5);
+        assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(5));
+        assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false
+        
+        // Verify they behave the same as regular constructors
+        let client_regular = InMemoryShareAccounting::new(None);
+        let server_regular = InMemoryShareAccounting::new(Some(5));
+        
+        assert_eq!(client_accounting.get_share_batch_size().unwrap(), client_regular.get_share_batch_size().unwrap());
+        assert_eq!(server_accounting.get_share_batch_size().unwrap(), server_regular.get_share_batch_size().unwrap());
+    }
+
+    #[test]
+    fn test_convenience_factory_functions() {
+        // Test client factory function
+        let client_accounting = create_client_share_accounting();
+        assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
+        assert!(!client_accounting.should_acknowledge().unwrap());
+        
+        // Test server factory function
+        let server_accounting = create_server_share_accounting(7);
+        assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(7));
+        assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false
+        
+        // Verify they behave the same as regular factory function
+        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        let client_regular = create_share_accounting(client_config).unwrap();
+        
+        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(7) };
+        let server_regular = create_share_accounting(server_config).unwrap();
+        
+        assert_eq!(client_accounting.get_share_batch_size().unwrap(), client_regular.get_share_batch_size().unwrap());
+        assert_eq!(server_accounting.get_share_batch_size().unwrap(), server_regular.get_share_batch_size().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "Batch size must be greater than 0")]
+    fn test_server_factory_function_panics_on_zero_batch_size() {
+        create_server_share_accounting(0);
     }
 }
