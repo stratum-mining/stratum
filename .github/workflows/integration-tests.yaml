@@ -1,22 +1,21 @@
+name: Integration Tests
+
 on:
   pull_request:
     branches:
       - main
 
-name: Integration Tests
-
 jobs:
-  ci:
+  integration-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+        os: [ubuntu-latest, macos-13]
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Use stable toolchain
         uses: actions/checkout@v4
         with:
@@ -24,9 +23,20 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Install cargo-nextest
-        run: cargo install cargo-nextest --locked
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      - name: Integration Tests
-        run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --features sv1 --nocapture
+      - name: Make script executable
+        run: chmod +x scripts/run-integration-tests.sh
+
+      - name: Run integration tests
+        run: ./scripts/run-integration-tests.sh
+

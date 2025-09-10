@@ -41,91 +41,90 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --version 0.37.0 --locked
 
-      - name: Run semver checks for common
-        working-directory: common
+      - name: Run semver checks for stratum
+        working-directory: stratum
         run: cargo semver-checks
 
-      - name: Run semver checks for utils/buffer
-        working-directory: utils/buffer
+      - name: Run semver checks for buffer-sv2
+        working-directory: sv2/buffer-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/binary-sv2/codec
-        working-directory: protocols/v2/binary-sv2/codec
+      - name: Run semver checks for binary-sv2/codec
+        working-directory: sv2/binary-sv2/codec
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/binary-sv2
-        working-directory: protocols/v2/binary-sv2
+      - name: Run semver checks for sv2/binary-sv2
+        working-directory: sv2/binary-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/framing-sv2
-        working-directory: protocols/v2/framing-sv2
+      - name: Run semver checks for sv2/framing-sv2
+        working-directory: sv2/framing-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/noise-sv2
-        working-directory: protocols/v2/noise-sv2
+      - name: Run semver checks for sv2/noise-sv2
+        working-directory: sv2/noise-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/codec-sv2
-        working-directory: protocols/v2/codec-sv2
+      - name: Run semver checks for sv2/codec-sv2
+        working-directory: sv2/codec-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/common-messages
-        working-directory: protocols/v2/subprotocols/common-messages
+      - name: Run semver checks for sv2/subprotocols/common-messages
+        working-directory: sv2/subprotocols/common-messages
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/job-declaration
-        working-directory: protocols/v2/subprotocols/job-declaration
+      - name: Run semver checks for sv2/subprotocols/job-declaration
+        working-directory: sv2/subprotocols/job-declaration
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/mining
-        working-directory: protocols/v2/subprotocols/mining
+      - name: Run semver checks for sv2/subprotocols/mining
+        working-directory: sv2/subprotocols/mining
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/template-distribution
-        working-directory: protocols/v2/subprotocols/template-distribution
+      - name: Run semver checks for sv2/subprotocols/template-distribution
+        working-directory: sv2/subprotocols/template-distribution
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/roles-logic-sv2
-        working-directory: protocols/v2/roles-logic-sv2
+      - name: Run semver checks for sv2/roles-logic-sv2
+        working-directory: sv2/roles-logic-sv2
         run: cargo semver-checks --default-features
 
-      - name: Run semver checks for protocols/v2/channels-sv2
-        working-directory: protocols/v2/channels-sv2
+      - name: Run semver checks for sv2/channels-sv2
+        working-directory: sv2/channels-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/parsers-sv2
-        working-directory: protocols/v2/parsers-sv2
+      - name: Run semver checks for sv2/parsers-sv2
+        working-directory: sv2/parsers-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v1
-        working-directory: protocols/v1
+      - name: Run semver checks for sv2/handlers-sv2
+        working-directory: sv2/handlers-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for utils/bip32-key-derivation
-        working-directory: utils/bip32-key-derivation
+      - name: Run semver checks for sv1
+        working-directory: sv1
         run: cargo semver-checks
 
-      - name: Run semver checks for utils/error-handling
-        working-directory: utils/error-handling
+      - name: Run semver checks for apps-utils/error-handling
+        working-directory: apps-utils/error-handling
         run: cargo semver-checks
 
-      - name: Run semver checks for utils/key-utils
-        working-directory: utils/key-utils
+      - name: Run semver checks for apps-utils/key-utils
+        working-directory: apps-utils/key-utils
         run: cargo semver-checks
 
-      # TODO: Uncomment this when the stratum-translation crate is published to crates.io
-      #- name: Run semver checks for roles/roles-utils/stratum-translation
-      #  working-directory: roles/roles-utils/stratum-translation
-      #  run: cargo semver-checks
-
-      - name: Run semver checks for roles/roles-utils/network-helpers
-        working-directory: roles/roles-utils/network-helpers
+      - name: Run semver checks for apps-utils/stratum-translation
+        working-directory: apps-utils/stratum-translation
         run: cargo semver-checks
 
-      - name: Run semver checks for roles/roles-utils/rpc
-        working-directory: roles/roles-utils/rpc
+      - name: Run semver checks for apps-utils/network-helpers
+        working-directory: apps-utils/network-helpers
         run: cargo semver-checks
 
-      - name: Run semver checks for roles/roles-utils/config-helpers
-        working-directory: roles/roles-utils/config-helpers
+      - name: Run semver checks for apps-utils/rpc
+        working-directory: apps-utils/rpc
+        run: cargo semver-checks
+
+      - name: Run semver checks for apps-utils/config-helpers
+        working-directory: apps-utils/config-helpers
         run: cargo semver-checks
