@@ -339,6 +339,42 @@ pub trait ShareAccountingTrait {
     /// ```
     fn get_best_diff(&self) -> Result<f64, Self::Error>;
 
+    /// Updates the best difficulty if the new value is higher (backward compatibility).
+    ///
+    /// This method provides backward compatibility with existing client/server implementations
+    /// that use a single best difficulty value. It updates the difficulty for a default
+    /// user identity to maintain the same behavior as the original implementations.
+    ///
+    /// # Arguments
+    ///
+    /// * `diff` - The new difficulty value to consider
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success, or an error if the storage operation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use channels_sv2::share_accounting_trait::*;
+    /// # let mut accounting = create_share_accounting(
+    /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
+    /// # ).unwrap();
+    /// assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
+    /// 
+    /// accounting.update_best_diff(1000.0).unwrap();
+    /// assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
+    /// 
+    /// // Lower difficulty should not update
+    /// accounting.update_best_diff(500.0).unwrap();
+    /// assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
+    /// 
+    /// // Higher difficulty should update
+    /// accounting.update_best_diff(2000.0).unwrap();
+    /// assert_eq!(accounting.get_best_diff().unwrap(), 2000.0);
+    /// ```
+    fn update_best_diff(&mut self, diff: f64) -> Result<(), Self::Error>;
+
     /// Returns the best difficulty for a specific user.
     ///
     /// # Arguments
@@ -632,6 +668,11 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
         Ok(())
     }
 
+    fn update_best_diff(&mut self, diff: f64) -> Result<(), Self::Error> {
+        // Use a default user identity for backward compatibility
+        self.update_best_diff_for_user("__default__", diff)
+    }
+
     fn get_top_user_difficulties(&self, limit: usize) -> Result<Vec<(String, f64)>, Self::Error> {
         let mut users: Vec<_> = self.user_best_diffs.iter()
             .map(|(user, &diff)| (user.clone(), diff))
@@ -899,5 +940,30 @@ mod tests {
         let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(3) };
         let server_accounting = create_share_accounting(server_config).unwrap();
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(3));
+    }
+
+    #[test]
+    fn test_backward_compatibility_update_best_diff() {
+        let mut accounting = InMemoryShareAccounting::new(None);
+        
+        // Test backward compatibility method
+        assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
+        
+        accounting.update_best_diff(1000.0).unwrap();
+        assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
+        
+        // Lower difficulty should not update
+        accounting.update_best_diff(500.0).unwrap();
+        assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
+        
+        // Higher difficulty should update
+        accounting.update_best_diff(2000.0).unwrap();
+        assert_eq!(accounting.get_best_diff().unwrap(), 2000.0);
+        
+        // Should work alongside per-user tracking
+        accounting.update_best_diff_for_user("user1", 3000.0).unwrap();
+        assert_eq!(accounting.get_best_diff().unwrap(), 3000.0);
+        assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(3000.0));
+        assert_eq!(accounting.get_best_diff_for_user("__default__").unwrap(), Some(2000.0));
     }
 }
