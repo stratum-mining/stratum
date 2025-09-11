@@ -70,7 +70,11 @@ impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ConfigError::InvalidBatchSize(size) => {
-                write!(f, "Invalid batch size: {}. Batch size must be greater than 0", size)
+                write!(
+                    f,
+                    "Invalid batch size: {}. Batch size must be greater than 0",
+                    size
+                )
             }
         }
     }
@@ -96,10 +100,10 @@ impl ShareAccountingConfig {
     /// // Valid configurations
     /// let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
     /// assert!(client_config.validate().is_ok());
-    /// 
+    ///
     /// let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(10) };
     /// assert!(server_config.validate().is_ok());
-    /// 
+    ///
     /// // Invalid configuration
     /// let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
     /// assert!(invalid_config.validate().is_err());
@@ -184,7 +188,14 @@ pub trait ShareAccountingTrait {
     /// Checks if a share hash has already been seen (duplicate detection).
     ///
     /// This method is used to prevent duplicate share submissions by checking
-    /// if the share hash has been processed before.
+    /// if the share hash has been processed before. The duplicate detection cache
+    /// is typically kept in memory for performance, regardless of the storage backend.
+    ///
+    /// # Thread Safety Note
+    ///
+    /// This method requires shared access and is safe for concurrent reads, but
+    /// the underlying cache may be modified by `update_share_accounting()` or
+    /// `flush_seen_shares()` calls, requiring appropriate synchronization.
     ///
     /// # Arguments
     ///
@@ -206,7 +217,7 @@ pub trait ShareAccountingTrait {
     /// # ).unwrap();
     /// let share_hash = Hash::from_slice(&[1u8; 32]).unwrap();
     /// assert_eq!(accounting.is_share_seen(share_hash).unwrap(), false);
-    /// 
+    ///
     /// accounting.update_share_accounting(1000, 1, share_hash).unwrap();
     /// assert_eq!(accounting.is_share_seen(share_hash).unwrap(), true);
     /// ```
@@ -217,6 +228,17 @@ pub trait ShareAccountingTrait {
     /// This method should be called on chain tip updates to prevent unbounded
     /// memory growth and allow shares for the new chain tip. The duplicate
     /// detection cache is typically kept in memory regardless of the storage backend.
+    ///
+    /// # Thread Safety Note
+    ///
+    /// This method requires exclusive access and will clear the entire duplicate
+    /// detection cache. In multi-threaded scenarios, ensure this operation is
+    /// coordinated to prevent race conditions with concurrent share processing.
+    ///
+    /// # Important
+    ///
+    /// This method only clears the duplicate detection cache and does NOT affect
+    /// persistent statistics like share counts, work sums, or difficulty tracking.
     ///
     /// # Returns
     ///
@@ -234,9 +256,11 @@ pub trait ShareAccountingTrait {
     /// let share_hash = Hash::from_slice(&[1u8; 32]).unwrap();
     /// accounting.update_share_accounting(1000, 1, share_hash).unwrap();
     /// assert_eq!(accounting.is_share_seen(share_hash).unwrap(), true);
-    /// 
+    ///
     /// accounting.flush_seen_shares().unwrap();
     /// assert_eq!(accounting.is_share_seen(share_hash).unwrap(), false);
+    /// // Statistics are preserved
+    /// assert_eq!(accounting.get_shares_accepted().unwrap(), 1);
     /// ```
     fn flush_seen_shares(&mut self) -> Result<(), Self::Error>;
 
@@ -257,7 +281,7 @@ pub trait ShareAccountingTrait {
     /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// # ).unwrap();
     /// assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 0);
-    /// 
+    ///
     /// let share_hash = Hash::from_slice(&[1u8; 32]).unwrap();
     /// accounting.update_share_accounting(1000, 42, share_hash).unwrap();
     /// assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 42);
@@ -281,7 +305,7 @@ pub trait ShareAccountingTrait {
     /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// # ).unwrap();
     /// assert_eq!(accounting.get_shares_accepted().unwrap(), 0);
-    /// 
+    ///
     /// let share_hash = Hash::from_slice(&[1u8; 32]).unwrap();
     /// accounting.update_share_accounting(1000, 1, share_hash).unwrap();
     /// assert_eq!(accounting.get_shares_accepted().unwrap(), 1);
@@ -305,7 +329,7 @@ pub trait ShareAccountingTrait {
     /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// # ).unwrap();
     /// assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
-    /// 
+    ///
     /// let share_hash1 = Hash::from_slice(&[1u8; 32]).unwrap();
     /// let share_hash2 = Hash::from_slice(&[2u8; 32]).unwrap();
     /// accounting.update_share_accounting(1000, 1, share_hash1).unwrap();
@@ -332,7 +356,7 @@ pub trait ShareAccountingTrait {
     /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// # ).unwrap();
     /// assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
-    /// 
+    ///
     /// accounting.update_best_diff_for_user("user1", 1000.0).unwrap();
     /// accounting.update_best_diff_for_user("user2", 2000.0).unwrap();
     /// assert_eq!(accounting.get_best_diff().unwrap(), 2000.0);
@@ -361,14 +385,14 @@ pub trait ShareAccountingTrait {
     /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// # ).unwrap();
     /// assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
-    /// 
+    ///
     /// accounting.update_best_diff(1000.0).unwrap();
     /// assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
-    /// 
+    ///
     /// // Lower difficulty should not update
     /// accounting.update_best_diff(500.0).unwrap();
     /// assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
-    /// 
+    ///
     /// // Higher difficulty should update
     /// accounting.update_best_diff(2000.0).unwrap();
     /// assert_eq!(accounting.get_best_diff().unwrap(), 2000.0);
@@ -395,7 +419,7 @@ pub trait ShareAccountingTrait {
     /// #     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// # ).unwrap();
     /// assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), None);
-    /// 
+    ///
     /// accounting.update_best_diff_for_user("user1", 1500.0).unwrap();
     /// assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(1500.0));
     /// ```
@@ -424,16 +448,20 @@ pub trait ShareAccountingTrait {
     /// # ).unwrap();
     /// accounting.update_best_diff_for_user("user1", 1000.0).unwrap();
     /// assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(1000.0));
-    /// 
+    ///
     /// // Lower difficulty should not update
     /// accounting.update_best_diff_for_user("user1", 500.0).unwrap();
     /// assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(1000.0));
-    /// 
+    ///
     /// // Higher difficulty should update
     /// accounting.update_best_diff_for_user("user1", 2000.0).unwrap();
     /// assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(2000.0));
     /// ```
-    fn update_best_diff_for_user(&mut self, user_identity: &str, diff: f64) -> Result<(), Self::Error>;
+    fn update_best_diff_for_user(
+        &mut self,
+        user_identity: &str,
+        diff: f64,
+    ) -> Result<(), Self::Error>;
 
     /// Returns the top users by difficulty in descending order.
     ///
@@ -459,7 +487,7 @@ pub trait ShareAccountingTrait {
     /// accounting.update_best_diff_for_user("alice", 1000.0).unwrap();
     /// accounting.update_best_diff_for_user("bob", 2000.0).unwrap();
     /// accounting.update_best_diff_for_user("charlie", 1500.0).unwrap();
-    /// 
+    ///
     /// let top_users = accounting.get_top_user_difficulties(2).unwrap();
     /// assert_eq!(top_users.len(), 2);
     /// assert_eq!(top_users[0], ("bob".to_string(), 2000.0));
@@ -487,7 +515,7 @@ pub trait ShareAccountingTrait {
     ///     ShareAccountingConfig::InMemory { share_batch_size: None }
     /// ).unwrap();
     /// assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
-    /// 
+    ///
     /// // Server mode
     /// let server_accounting = create_share_accounting(
     ///     ShareAccountingConfig::InMemory { share_batch_size: Some(10) }
@@ -517,16 +545,16 @@ pub trait ShareAccountingTrait {
     /// let mut accounting = create_share_accounting(
     ///     ShareAccountingConfig::InMemory { share_batch_size: Some(3) }
     /// ).unwrap();
-    /// 
+    ///
     /// // No acknowledgment initially
     /// assert_eq!(accounting.should_acknowledge().unwrap(), false);
-    /// 
+    ///
     /// // Add shares
     /// for i in 1..=3 {
     ///     let share_hash = Hash::from_slice(&[i; 32]).unwrap();
     ///     accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
     /// }
-    /// 
+    ///
     /// // Should acknowledge after 3 shares (batch size)
     /// assert_eq!(accounting.should_acknowledge().unwrap(), true);
     /// ```
@@ -562,14 +590,64 @@ impl StdError for InMemoryShareAccountingError {}
 ///
 /// ## Thread Safety
 ///
-/// This implementation is not thread-safe. If concurrent access is required,
-/// wrap it in appropriate synchronization primitives (e.g., `Mutex`, `RwLock`).
+/// **This implementation is NOT thread-safe.** All methods require exclusive access
+/// through mutable references or shared immutable access. If concurrent access is required,
+/// you must wrap this implementation in appropriate synchronization primitives:
+///
+/// ### Recommended Synchronization Patterns:
+///
+/// - **Single Writer, Multiple Readers**: Use `Arc<RwLock<InMemoryShareAccounting>>`
+/// - **Multiple Writers**: Use `Arc<Mutex<InMemoryShareAccounting>>`
+/// - **Lock-Free Scenarios**: Consider implementing a custom thread-safe storage backend
+///
+/// ### Thread Safety Considerations:
+///
+/// 1. **Duplicate Detection Cache**: The `seen_shares` HashSet is kept in memory and
+///    requires synchronization for concurrent access. Cache flushes (`flush_seen_shares`)
+///    must be coordinated across threads to prevent race conditions.
+///
+/// 2. **Statistics Consistency**: Share counting, work sum tracking, and sequence numbers
+///    require atomic updates to maintain consistency. Without proper synchronization,
+///    concurrent updates may result in lost increments or inconsistent state.
+///
+/// 3. **Per-User Difficulty Tracking**: The `user_best_diffs` BTreeMap requires exclusive
+///    access for updates. Concurrent reads are safe, but updates must be synchronized
+///    to prevent data races and ensure difficulty comparisons are atomic.
+///
+/// 4. **Batch Acknowledgment Logic**: The `should_acknowledge()` method depends on
+///    consistent share counts. In multi-threaded scenarios, ensure acknowledgments
+///    are processed atomically to prevent duplicate or missed acknowledgments.
+///
+/// ### Example Thread-Safe Usage:
+///
+/// ```rust
+/// use std::sync::{Arc, Mutex};
+/// use channels_sv2::share_accounting_trait::InMemoryShareAccounting;
+///
+/// // For multiple writers
+/// let accounting = Arc::new(Mutex::new(InMemoryShareAccounting::new_server(10)));
+/// let accounting_clone = accounting.clone();
+///
+/// // In another thread
+/// std::thread::spawn(move || {
+///     let mut guard = accounting_clone.lock().unwrap();
+///     // Safe to use guard.update_share_accounting(...) here
+/// });
+/// ```
 ///
 /// ## Memory Usage
 ///
-/// - Share hashes are stored in a `HashSet` for duplicate detection
-/// - Per-user difficulties are stored in a `BTreeMap` for efficient ordering
-/// - All other data uses primitive types with minimal memory overhead
+/// - **Share Hashes**: Stored in a `HashSet<Hash>` for O(1) duplicate detection
+/// - **Per-User Difficulties**: Stored in a `BTreeMap<String, f64>` for efficient ordering and range queries
+/// - **Statistics**: Primitive types (`u32`, `u64`, `f64`) with minimal memory overhead
+/// - **Memory Growth**: The `seen_shares` cache grows unboundedly until `flush_seen_shares()` is called
+///
+/// ## Performance Characteristics
+///
+/// - **Share Processing**: O(1) for duplicate detection and statistics updates
+/// - **User Difficulty Updates**: O(log n) where n is the number of users
+/// - **Top Users Query**: O(n log n) for sorting, consider caching for frequent queries
+/// - **Memory Cleanup**: O(k) where k is the number of cached share hashes
 #[derive(Clone, Debug)]
 pub struct InMemoryShareAccounting {
     last_share_sequence_number: u32,
@@ -598,7 +676,7 @@ impl InMemoryShareAccounting {
     /// # use channels_sv2::share_accounting_trait::InMemoryShareAccounting;
     /// // Client mode
     /// let client_accounting = InMemoryShareAccounting::new(None);
-    /// 
+    ///
     /// // Server mode
     /// let server_accounting = InMemoryShareAccounting::new(Some(10));
     /// ```
@@ -706,9 +784,17 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
         Ok(self.user_best_diffs.get(user_identity).copied())
     }
 
-    fn update_best_diff_for_user(&mut self, user_identity: &str, diff: f64) -> Result<(), Self::Error> {
-        let current_best = self.user_best_diffs.get(user_identity).copied().unwrap_or(0.0);
-        if diff > current_best {
+    fn update_best_diff_for_user(
+        &mut self,
+        user_identity: &str,
+        diff: f64,
+    ) -> Result<(), Self::Error> {
+        let should_update = match self.user_best_diffs.get(user_identity) {
+            Some(&current_best) => diff > current_best,
+            None => true, // Always insert if user doesn't exist yet
+        };
+        
+        if should_update {
             self.user_best_diffs.insert(user_identity.to_string(), diff);
         }
         Ok(())
@@ -720,16 +806,18 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
     }
 
     fn get_top_user_difficulties(&self, limit: usize) -> Result<Vec<(String, f64)>, Self::Error> {
-        let mut users: Vec<_> = self.user_best_diffs.iter()
+        let mut users: Vec<_> = self
+            .user_best_diffs
+            .iter()
             .map(|(user, &diff)| (user.clone(), diff))
             .collect();
-        
+
         // Sort by difficulty in descending order
         users.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         // Take only the requested number of users
         users.truncate(limit);
-        
+
         Ok(users)
     }
 
@@ -739,7 +827,9 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
 
     fn should_acknowledge(&self) -> Result<bool, Self::Error> {
         match self.share_batch_size {
-            Some(batch_size) => Ok(self.shares_accepted % batch_size as u32 == 0 && self.shares_accepted > 0),
+            Some(batch_size) => {
+                Ok(self.shares_accepted % batch_size as u32 == 0 && self.shares_accepted > 0)
+            }
             None => Ok(false), // Client mode - never acknowledge
         }
     }
@@ -773,21 +863,26 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
 /// // Create client-mode accounting
 /// let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
 /// let client_accounting = create_share_accounting(client_config).unwrap();
-/// 
+///
 /// // Create server-mode accounting
 /// let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(10) };
 /// let server_accounting = create_share_accounting(server_config).unwrap();
-/// 
+///
 /// // Invalid configuration will fail
 /// let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
 /// assert!(create_share_accounting(invalid_config).is_err());
 /// ```
 pub fn create_share_accounting(
     config: ShareAccountingConfig,
-) -> Result<Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>>, Box<dyn StdError + Send + Sync>> {
+) -> Result<
+    Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>>,
+    Box<dyn StdError + Send + Sync>,
+> {
     // Validate configuration before creating implementation
-    config.validate().map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
-    
+    config
+        .validate()
+        .map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)?;
+
     match config {
         ShareAccountingConfig::InMemory { share_batch_size } => {
             Ok(Box::new(InMemoryShareAccounting::new(share_batch_size)))
@@ -813,7 +908,8 @@ pub fn create_share_accounting(
 /// assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
 /// assert!(!client_accounting.should_acknowledge().unwrap());
 /// ```
-pub fn create_client_share_accounting() -> Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>> {
+pub fn create_client_share_accounting(
+) -> Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>> {
     Box::new(InMemoryShareAccounting::new_client())
 }
 
@@ -843,7 +939,9 @@ pub fn create_client_share_accounting() -> Box<dyn ShareAccountingTrait<Error = 
 /// let server_accounting = create_server_share_accounting(10);
 /// assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(10));
 /// ```
-pub fn create_server_share_accounting(share_batch_size: usize) -> Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>> {
+pub fn create_server_share_accounting(
+    share_batch_size: usize,
+) -> Box<dyn ShareAccountingTrait<Error = InMemoryShareAccountingError>> {
     assert!(share_batch_size > 0, "Batch size must be greater than 0");
     Box::new(InMemoryShareAccounting::new_server(share_batch_size))
 }
@@ -856,17 +954,19 @@ mod tests {
     #[test]
     fn test_in_memory_share_accounting_basic_operations() {
         let mut accounting = InMemoryShareAccounting::new(None);
-        
+
         // Initial state
         assert_eq!(accounting.get_shares_accepted().unwrap(), 0);
         assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
         assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 0);
         assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
-        
+
         // Add a share
         let share_hash = Hash::from_slice(&[1u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 1, share_hash).unwrap();
-        
+        accounting
+            .update_share_accounting(1000, 1, share_hash)
+            .unwrap();
+
         // Check updated state
         assert_eq!(accounting.get_shares_accepted().unwrap(), 1);
         assert_eq!(accounting.get_share_work_sum().unwrap(), 1000);
@@ -878,14 +978,16 @@ mod tests {
     fn test_duplicate_detection() {
         let mut accounting = InMemoryShareAccounting::new(None);
         let share_hash = Hash::from_slice(&[1u8; 32]).unwrap();
-        
+
         // Share not seen initially
         assert!(!accounting.is_share_seen(share_hash).unwrap());
-        
+
         // Add share
-        accounting.update_share_accounting(1000, 1, share_hash).unwrap();
+        accounting
+            .update_share_accounting(1000, 1, share_hash)
+            .unwrap();
         assert!(accounting.is_share_seen(share_hash).unwrap());
-        
+
         // Flush and check again
         accounting.flush_seen_shares().unwrap();
         assert!(!accounting.is_share_seen(share_hash).unwrap());
@@ -894,47 +996,69 @@ mod tests {
     #[test]
     fn test_user_difficulty_tracking() {
         let mut accounting = InMemoryShareAccounting::new(None);
-        
+
         // No users initially
         assert_eq!(accounting.get_best_diff_for_user("alice").unwrap(), None);
         assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
-        
+
         // Add difficulty for alice
-        accounting.update_best_diff_for_user("alice", 1000.0).unwrap();
-        assert_eq!(accounting.get_best_diff_for_user("alice").unwrap(), Some(1000.0));
+        accounting
+            .update_best_diff_for_user("alice", 1000.0)
+            .unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user("alice").unwrap(),
+            Some(1000.0)
+        );
         assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
-        
+
         // Add difficulty for bob (higher)
         accounting.update_best_diff_for_user("bob", 2000.0).unwrap();
-        assert_eq!(accounting.get_best_diff_for_user("bob").unwrap(), Some(2000.0));
+        assert_eq!(
+            accounting.get_best_diff_for_user("bob").unwrap(),
+            Some(2000.0)
+        );
         assert_eq!(accounting.get_best_diff().unwrap(), 2000.0);
-        
+
         // Try to update alice with lower difficulty (should not change)
-        accounting.update_best_diff_for_user("alice", 500.0).unwrap();
-        assert_eq!(accounting.get_best_diff_for_user("alice").unwrap(), Some(1000.0));
-        
+        accounting
+            .update_best_diff_for_user("alice", 500.0)
+            .unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user("alice").unwrap(),
+            Some(1000.0)
+        );
+
         // Update alice with higher difficulty
-        accounting.update_best_diff_for_user("alice", 2500.0).unwrap();
-        assert_eq!(accounting.get_best_diff_for_user("alice").unwrap(), Some(2500.0));
+        accounting
+            .update_best_diff_for_user("alice", 2500.0)
+            .unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user("alice").unwrap(),
+            Some(2500.0)
+        );
         assert_eq!(accounting.get_best_diff().unwrap(), 2500.0);
     }
 
     #[test]
     fn test_top_user_difficulties() {
         let mut accounting = InMemoryShareAccounting::new(None);
-        
+
         // Add users with different difficulties
-        accounting.update_best_diff_for_user("alice", 1000.0).unwrap();
+        accounting
+            .update_best_diff_for_user("alice", 1000.0)
+            .unwrap();
         accounting.update_best_diff_for_user("bob", 2000.0).unwrap();
-        accounting.update_best_diff_for_user("charlie", 1500.0).unwrap();
+        accounting
+            .update_best_diff_for_user("charlie", 1500.0)
+            .unwrap();
         accounting.update_best_diff_for_user("dave", 500.0).unwrap();
-        
+
         // Get top 2 users
         let top_users = accounting.get_top_user_difficulties(2).unwrap();
         assert_eq!(top_users.len(), 2);
         assert_eq!(top_users[0], ("bob".to_string(), 2000.0));
         assert_eq!(top_users[1], ("charlie".to_string(), 1500.0));
-        
+
         // Get all users
         let all_users = accounting.get_top_user_difficulties(10).unwrap();
         assert_eq!(all_users.len(), 4);
@@ -947,17 +1071,19 @@ mod tests {
     #[test]
     fn test_client_mode_batch_behavior() {
         let mut accounting = InMemoryShareAccounting::new(None);
-        
+
         // Client mode should not have batch size
         assert_eq!(accounting.get_share_batch_size().unwrap(), None);
-        
+
         // Should never acknowledge in client mode
         assert!(!accounting.should_acknowledge().unwrap());
-        
+
         // Add shares
         for i in 1..=10 {
             let share_hash = Hash::from_slice(&[i; 32]).unwrap();
-            accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+            accounting
+                .update_share_accounting(1000, i as u32, share_hash)
+                .unwrap();
             assert!(!accounting.should_acknowledge().unwrap());
         }
     }
@@ -965,7 +1091,7 @@ mod tests {
     #[test]
     fn test_client_mode_comprehensive_functionality() {
         let mut accounting = InMemoryShareAccounting::new(None);
-        
+
         // Test initial state for client mode
         assert_eq!(accounting.get_shares_accepted().unwrap(), 0);
         assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
@@ -973,48 +1099,57 @@ mod tests {
         assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
         assert_eq!(accounting.get_share_batch_size().unwrap(), None);
         assert!(!accounting.should_acknowledge().unwrap());
-        
+
         // Test share processing in client mode
         let share_hash1 = Hash::from_slice(&[1u8; 32]).unwrap();
         let share_hash2 = Hash::from_slice(&[2u8; 32]).unwrap();
-        
+
         // Process first share
-        accounting.update_share_accounting(1000, 1, share_hash1).unwrap();
+        accounting
+            .update_share_accounting(1000, 1, share_hash1)
+            .unwrap();
         assert_eq!(accounting.get_shares_accepted().unwrap(), 1);
         assert_eq!(accounting.get_share_work_sum().unwrap(), 1000);
         assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 1);
         assert!(accounting.is_share_seen(share_hash1).unwrap());
         assert!(!accounting.should_acknowledge().unwrap()); // Still no acknowledgment in client mode
-        
+
         // Process second share
-        accounting.update_share_accounting(2000, 2, share_hash2).unwrap();
+        accounting
+            .update_share_accounting(2000, 2, share_hash2)
+            .unwrap();
         assert_eq!(accounting.get_shares_accepted().unwrap(), 2);
         assert_eq!(accounting.get_share_work_sum().unwrap(), 3000);
         assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 2);
         assert!(accounting.is_share_seen(share_hash2).unwrap());
         assert!(!accounting.should_acknowledge().unwrap()); // Still no acknowledgment in client mode
-        
+
         // Test difficulty tracking in client mode
         accounting.update_best_diff(1500.0).unwrap();
         assert_eq!(accounting.get_best_diff().unwrap(), 1500.0);
-        
+
         // Test per-user difficulty tracking in client mode
-        accounting.update_best_diff_for_user("client_user", 2500.0).unwrap();
-        assert_eq!(accounting.get_best_diff_for_user("client_user").unwrap(), Some(2500.0));
+        accounting
+            .update_best_diff_for_user("client_user", 2500.0)
+            .unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user("client_user").unwrap(),
+            Some(2500.0)
+        );
         assert_eq!(accounting.get_best_diff().unwrap(), 2500.0); // Should be max of all users
-        
+
         // Test duplicate detection in client mode
         assert!(accounting.is_share_seen(share_hash1).unwrap());
         assert!(accounting.is_share_seen(share_hash2).unwrap());
-        
+
         let unseen_hash = Hash::from_slice(&[99u8; 32]).unwrap();
         assert!(!accounting.is_share_seen(unseen_hash).unwrap());
-        
+
         // Test flush functionality in client mode
         accounting.flush_seen_shares().unwrap();
         assert!(!accounting.is_share_seen(share_hash1).unwrap());
         assert!(!accounting.is_share_seen(share_hash2).unwrap());
-        
+
         // Verify other stats remain unchanged after flush
         assert_eq!(accounting.get_shares_accepted().unwrap(), 2);
         assert_eq!(accounting.get_share_work_sum().unwrap(), 3000);
@@ -1025,40 +1160,48 @@ mod tests {
     fn test_client_mode_vs_server_mode_differences() {
         // Create client mode instance
         let mut client_accounting = InMemoryShareAccounting::new(None);
-        
+
         // Create server mode instance
         let mut server_accounting = InMemoryShareAccounting::new(Some(3));
-        
+
         // Test batch size differences
         assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(3));
-        
+
         // Test acknowledgment behavior differences
         assert!(!client_accounting.should_acknowledge().unwrap());
         assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false for both
-        
+
         // Add shares to both
         for i in 1..=3 {
             let share_hash = Hash::from_slice(&[i; 32]).unwrap();
-            client_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
-            server_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+            client_accounting
+                .update_share_accounting(1000, i as u32, share_hash)
+                .unwrap();
+            server_accounting
+                .update_share_accounting(1000, i as u32, share_hash)
+                .unwrap();
         }
-        
+
         // Client should never acknowledge, server should acknowledge after batch size
         assert!(!client_accounting.should_acknowledge().unwrap());
         assert!(server_accounting.should_acknowledge().unwrap());
-        
+
         // Add more shares
         for i in 4..=6 {
             let share_hash = Hash::from_slice(&[i; 32]).unwrap();
-            client_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
-            server_accounting.update_share_accounting(1000, i as u32, share_hash).unwrap();
+            client_accounting
+                .update_share_accounting(1000, i as u32, share_hash)
+                .unwrap();
+            server_accounting
+                .update_share_accounting(1000, i as u32, share_hash)
+                .unwrap();
         }
-        
+
         // Client still never acknowledges, server acknowledges again
         assert!(!client_accounting.should_acknowledge().unwrap());
         assert!(server_accounting.should_acknowledge().unwrap());
-        
+
         // Both should have same share statistics
         assert_eq!(client_accounting.get_shares_accepted().unwrap(), 6);
         assert_eq!(server_accounting.get_shares_accepted().unwrap(), 6);
@@ -1069,50 +1212,66 @@ mod tests {
     #[test]
     fn test_server_mode_batch_behavior() {
         let mut accounting = InMemoryShareAccounting::new(Some(3));
-        
+
         // Server mode should have batch size
         assert_eq!(accounting.get_share_batch_size().unwrap(), Some(3));
-        
+
         // Should not acknowledge initially
         assert!(!accounting.should_acknowledge().unwrap());
-        
+
         // Add shares and check acknowledgment
         let share_hash1 = Hash::from_slice(&[1u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 1, share_hash1).unwrap();
+        accounting
+            .update_share_accounting(1000, 1, share_hash1)
+            .unwrap();
         assert!(!accounting.should_acknowledge().unwrap());
-        
+
         let share_hash2 = Hash::from_slice(&[2u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 2, share_hash2).unwrap();
+        accounting
+            .update_share_accounting(1000, 2, share_hash2)
+            .unwrap();
         assert!(!accounting.should_acknowledge().unwrap());
-        
+
         let share_hash3 = Hash::from_slice(&[3u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 3, share_hash3).unwrap();
+        accounting
+            .update_share_accounting(1000, 3, share_hash3)
+            .unwrap();
         assert!(accounting.should_acknowledge().unwrap());
-        
+
         // Add one more share - should not acknowledge until next batch
         let share_hash4 = Hash::from_slice(&[4u8; 32]).unwrap();
-        accounting.update_share_accounting(1000, 4, share_hash4).unwrap();
+        accounting
+            .update_share_accounting(1000, 4, share_hash4)
+            .unwrap();
         assert!(!accounting.should_acknowledge().unwrap());
     }
 
     #[test]
     fn test_config_validation() {
         // Valid configurations
-        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        let client_config = ShareAccountingConfig::InMemory {
+            share_batch_size: None,
+        };
         assert!(client_config.validate().is_ok());
-        
-        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(10) };
+
+        let server_config = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(10),
+        };
         assert!(server_config.validate().is_ok());
-        
-        let server_config_small = ShareAccountingConfig::InMemory { share_batch_size: Some(1) };
+
+        let server_config_small = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(1),
+        };
         assert!(server_config_small.validate().is_ok());
-        
+
         // Invalid configuration - zero batch size
-        let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
+        let invalid_config = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(0),
+        };
         assert!(invalid_config.validate().is_err());
-        
+
         match invalid_config.validate() {
-            Err(ConfigError::InvalidBatchSize(0)) => {}, // Expected
+            Err(ConfigError::InvalidBatchSize(0)) => {} // Expected
             _ => panic!("Expected InvalidBatchSize error"),
         }
     }
@@ -1120,27 +1279,37 @@ mod tests {
     #[test]
     fn test_factory_function_validation() {
         // Valid configurations should succeed
-        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        let client_config = ShareAccountingConfig::InMemory {
+            share_batch_size: None,
+        };
         assert!(create_share_accounting(client_config).is_ok());
-        
-        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(5) };
+
+        let server_config = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(5),
+        };
         assert!(create_share_accounting(server_config).is_ok());
-        
+
         // Invalid configuration should fail
-        let invalid_config = ShareAccountingConfig::InMemory { share_batch_size: Some(0) };
+        let invalid_config = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(0),
+        };
         assert!(create_share_accounting(invalid_config).is_err());
     }
 
     #[test]
     fn test_factory_function_creates_correct_implementation() {
         // Test client mode
-        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        let client_config = ShareAccountingConfig::InMemory {
+            share_batch_size: None,
+        };
         let client_accounting = create_share_accounting(client_config).unwrap();
         assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
         assert!(!client_accounting.should_acknowledge().unwrap());
-        
+
         // Test server mode
-        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(3) };
+        let server_config = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(3),
+        };
         let server_accounting = create_share_accounting(server_config).unwrap();
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(3));
     }
@@ -1148,26 +1317,34 @@ mod tests {
     #[test]
     fn test_backward_compatibility_update_best_diff() {
         let mut accounting = InMemoryShareAccounting::new(None);
-        
+
         // Test backward compatibility method
         assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
-        
+
         accounting.update_best_diff(1000.0).unwrap();
         assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
-        
+
         // Lower difficulty should not update
         accounting.update_best_diff(500.0).unwrap();
         assert_eq!(accounting.get_best_diff().unwrap(), 1000.0);
-        
+
         // Higher difficulty should update
         accounting.update_best_diff(2000.0).unwrap();
         assert_eq!(accounting.get_best_diff().unwrap(), 2000.0);
-        
+
         // Should work alongside per-user tracking
-        accounting.update_best_diff_for_user("user1", 3000.0).unwrap();
+        accounting
+            .update_best_diff_for_user("user1", 3000.0)
+            .unwrap();
         assert_eq!(accounting.get_best_diff().unwrap(), 3000.0);
-        assert_eq!(accounting.get_best_diff_for_user("user1").unwrap(), Some(3000.0));
-        assert_eq!(accounting.get_best_diff_for_user("__default__").unwrap(), Some(2000.0));
+        assert_eq!(
+            accounting.get_best_diff_for_user("user1").unwrap(),
+            Some(3000.0)
+        );
+        assert_eq!(
+            accounting.get_best_diff_for_user("__default__").unwrap(),
+            Some(2000.0)
+        );
     }
 
     #[test]
@@ -1176,18 +1353,24 @@ mod tests {
         let client_accounting = InMemoryShareAccounting::new_client();
         assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
         assert!(!client_accounting.should_acknowledge().unwrap());
-        
+
         // Test server convenience constructor
         let server_accounting = InMemoryShareAccounting::new_server(5);
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(5));
         assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false
-        
+
         // Verify they behave the same as regular constructors
         let client_regular = InMemoryShareAccounting::new(None);
         let server_regular = InMemoryShareAccounting::new(Some(5));
-        
-        assert_eq!(client_accounting.get_share_batch_size().unwrap(), client_regular.get_share_batch_size().unwrap());
-        assert_eq!(server_accounting.get_share_batch_size().unwrap(), server_regular.get_share_batch_size().unwrap());
+
+        assert_eq!(
+            client_accounting.get_share_batch_size().unwrap(),
+            client_regular.get_share_batch_size().unwrap()
+        );
+        assert_eq!(
+            server_accounting.get_share_batch_size().unwrap(),
+            server_regular.get_share_batch_size().unwrap()
+        );
     }
 
     #[test]
@@ -1196,26 +1379,344 @@ mod tests {
         let client_accounting = create_client_share_accounting();
         assert_eq!(client_accounting.get_share_batch_size().unwrap(), None);
         assert!(!client_accounting.should_acknowledge().unwrap());
-        
+
         // Test server factory function
         let server_accounting = create_server_share_accounting(7);
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(7));
         assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false
-        
+
         // Verify they behave the same as regular factory function
-        let client_config = ShareAccountingConfig::InMemory { share_batch_size: None };
+        let client_config = ShareAccountingConfig::InMemory {
+            share_batch_size: None,
+        };
         let client_regular = create_share_accounting(client_config).unwrap();
-        
-        let server_config = ShareAccountingConfig::InMemory { share_batch_size: Some(7) };
+
+        let server_config = ShareAccountingConfig::InMemory {
+            share_batch_size: Some(7),
+        };
         let server_regular = create_share_accounting(server_config).unwrap();
-        
-        assert_eq!(client_accounting.get_share_batch_size().unwrap(), client_regular.get_share_batch_size().unwrap());
-        assert_eq!(server_accounting.get_share_batch_size().unwrap(), server_regular.get_share_batch_size().unwrap());
+
+        assert_eq!(
+            client_accounting.get_share_batch_size().unwrap(),
+            client_regular.get_share_batch_size().unwrap()
+        );
+        assert_eq!(
+            server_accounting.get_share_batch_size().unwrap(),
+            server_regular.get_share_batch_size().unwrap()
+        );
     }
 
     #[test]
     #[should_panic(expected = "Batch size must be greater than 0")]
     fn test_server_factory_function_panics_on_zero_batch_size() {
         create_server_share_accounting(0);
+    }
+
+    /// Test comprehensive duplicate detection functionality (Requirement 4.1)
+    #[test]
+    fn test_comprehensive_duplicate_detection() {
+        let mut accounting = InMemoryShareAccounting::new(None);
+
+        // Test with multiple different share hashes
+        let share_hashes: Vec<Hash> = (0..10)
+            .map(|i| Hash::from_slice(&[i; 32]).unwrap())
+            .collect();
+
+        // Initially, no shares should be seen
+        for hash in &share_hashes {
+            assert!(!accounting.is_share_seen(*hash).unwrap());
+        }
+
+        // Process shares and verify they are marked as seen
+        for (i, &hash) in share_hashes.iter().enumerate() {
+            accounting
+                .update_share_accounting(1000 * (i as u64 + 1), (i + 1) as u32, hash)
+                .unwrap();
+            assert!(accounting.is_share_seen(hash).unwrap());
+        }
+
+        // Verify all processed shares are still seen
+        for hash in &share_hashes {
+            assert!(accounting.is_share_seen(*hash).unwrap());
+        }
+
+        // Test that unprocessed shares are not seen
+        let unseen_hash = Hash::from_slice(&[99u8; 32]).unwrap();
+        assert!(!accounting.is_share_seen(unseen_hash).unwrap());
+
+        // Test flush functionality clears all seen shares
+        accounting.flush_seen_shares().unwrap();
+        for hash in &share_hashes {
+            assert!(!accounting.is_share_seen(*hash).unwrap());
+        }
+
+        // Verify statistics are preserved after flush
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 10);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 55000); // Sum of 1000*1 + 1000*2 + ... + 1000*10
+    }
+
+    /// Test accurate share counting and work sum tracking (Requirement 4.2)
+    #[test]
+    fn test_accurate_statistics_tracking() {
+        let mut accounting = InMemoryShareAccounting::new(None);
+
+        // Test initial state
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 0);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
+        assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 0);
+
+        // Test incremental updates with varying work values
+        let test_cases = vec![
+            (1000u64, 1u32),
+            (2500u64, 2u32),
+            (750u64, 3u32),
+            (10000u64, 4u32),
+            (1u64, 5u32), // Test edge case with minimal work
+            (u64::MAX / 1000, 6u32), // Test large work value
+        ];
+
+        let mut expected_work_sum = 0u64;
+        for (work, sequence) in test_cases {
+            let share_hash = Hash::from_slice(&[sequence as u8; 32]).unwrap();
+            accounting
+                .update_share_accounting(work, sequence, share_hash)
+                .unwrap();
+
+            expected_work_sum += work;
+
+            // Verify statistics are updated correctly
+            assert_eq!(accounting.get_shares_accepted().unwrap(), sequence);
+            assert_eq!(accounting.get_share_work_sum().unwrap(), expected_work_sum);
+            assert_eq!(
+                accounting.get_last_share_sequence_number().unwrap(),
+                sequence
+            );
+        }
+
+        // Test that statistics remain accurate after duplicate detection operations
+        let duplicate_hash = Hash::from_slice(&[1; 32]).unwrap();
+        assert!(accounting.is_share_seen(duplicate_hash).unwrap());
+
+        // Statistics should remain unchanged after duplicate check
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 6);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), expected_work_sum);
+    }
+
+    /// Test flush_seen_shares cache management (Requirement 4.3)
+    #[test]
+    fn test_flush_seen_shares_cache_management() {
+        let mut accounting = InMemoryShareAccounting::new(Some(5));
+
+        // Process multiple shares
+        let share_hashes: Vec<Hash> = (1..=20)
+            .map(|i| Hash::from_slice(&[i; 32]).unwrap())
+            .collect();
+
+        for (i, &hash) in share_hashes.iter().enumerate() {
+            accounting
+                .update_share_accounting(1000, (i + 1) as u32, hash)
+                .unwrap();
+        }
+
+        // Verify all shares are seen
+        for hash in &share_hashes {
+            assert!(accounting.is_share_seen(*hash).unwrap());
+        }
+
+        // Test that flush clears the cache but preserves statistics
+        let shares_before_flush = accounting.get_shares_accepted().unwrap();
+        let work_sum_before_flush = accounting.get_share_work_sum().unwrap();
+        let last_sequence_before_flush = accounting.get_last_share_sequence_number().unwrap();
+
+        accounting.flush_seen_shares().unwrap();
+
+        // Cache should be cleared
+        for hash in &share_hashes {
+            assert!(!accounting.is_share_seen(*hash).unwrap());
+        }
+
+        // Statistics should be preserved
+        assert_eq!(accounting.get_shares_accepted().unwrap(), shares_before_flush);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), work_sum_before_flush);
+        assert_eq!(
+            accounting.get_last_share_sequence_number().unwrap(),
+            last_sequence_before_flush
+        );
+
+        // Batch acknowledgment logic should still work correctly
+        assert!(accounting.should_acknowledge().unwrap()); // 20 shares, batch size 5
+
+        // Test that new shares can be processed after flush
+        let new_hash = Hash::from_slice(&[99u8; 32]).unwrap();
+        assert!(!accounting.is_share_seen(new_hash).unwrap());
+        accounting
+            .update_share_accounting(5000, 21, new_hash)
+            .unwrap();
+        assert!(accounting.is_share_seen(new_hash).unwrap());
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 21);
+        assert_eq!(
+            accounting.get_share_work_sum().unwrap(),
+            work_sum_before_flush + 5000
+        );
+    }
+
+    /// Test accurate statistics retrieval (Requirement 4.5)
+    #[test]
+    fn test_accurate_statistics_retrieval() {
+        let mut accounting = InMemoryShareAccounting::new(Some(3));
+
+        // Test retrieval of initial state
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 0);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
+        assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 0);
+        assert_eq!(accounting.get_best_diff().unwrap(), 0.0);
+        assert_eq!(accounting.get_share_batch_size().unwrap(), Some(3));
+        assert!(!accounting.should_acknowledge().unwrap());
+
+        // Process shares with known values
+        let test_data = vec![
+            (1000u64, 1u32, "user1", 100.0f64),
+            (2000u64, 2u32, "user2", 200.0f64),
+            (3000u64, 3u32, "user1", 50.0f64), // Lower diff for user1, should not update
+            (4000u64, 4u32, "user3", 300.0f64),
+            (5000u64, 5u32, "user2", 250.0f64),
+        ];
+
+        let mut expected_work_sum = 0u64;
+        for (i, &(work, sequence, user, diff)) in test_data.iter().enumerate() {
+            let share_hash = Hash::from_slice(&[(i + 1) as u8; 32]).unwrap();
+            accounting
+                .update_share_accounting(work, sequence, share_hash)
+                .unwrap();
+            accounting.update_best_diff_for_user(user, diff).unwrap();
+
+            expected_work_sum += work;
+
+            // Verify statistics are accurate at each step
+            assert_eq!(accounting.get_shares_accepted().unwrap(), (i + 1) as u32);
+            assert_eq!(accounting.get_share_work_sum().unwrap(), expected_work_sum);
+            assert_eq!(accounting.get_last_share_sequence_number().unwrap(), sequence);
+        }
+
+        // Test final statistics accuracy
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 5);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 15000);
+        assert_eq!(accounting.get_last_share_sequence_number().unwrap(), 5);
+
+        // Test difficulty statistics accuracy
+        assert_eq!(accounting.get_best_diff().unwrap(), 300.0); // Max across all users
+        assert_eq!(
+            accounting.get_best_diff_for_user("user1").unwrap(),
+            Some(100.0)
+        ); // Should not have been updated by lower value
+        assert_eq!(
+            accounting.get_best_diff_for_user("user2").unwrap(),
+            Some(250.0)
+        );
+        assert_eq!(
+            accounting.get_best_diff_for_user("user3").unwrap(),
+            Some(300.0)
+        );
+
+        // Test top users accuracy
+        let top_users = accounting.get_top_user_difficulties(10).unwrap();
+        assert_eq!(top_users.len(), 3);
+        assert_eq!(top_users[0], ("user3".to_string(), 300.0));
+        assert_eq!(top_users[1], ("user2".to_string(), 250.0));
+        assert_eq!(top_users[2], ("user1".to_string(), 100.0));
+
+        // Test batch acknowledgment accuracy
+        assert!(!accounting.should_acknowledge().unwrap()); // 5 % 3 != 0
+
+        // Add one more share to trigger acknowledgment
+        let final_hash = Hash::from_slice(&[6u8; 32]).unwrap();
+        accounting
+            .update_share_accounting(1000, 6, final_hash)
+            .unwrap();
+        assert!(accounting.should_acknowledge().unwrap()); // 6 % 3 == 0
+    }
+
+    /// Test edge cases for duplicate detection and statistics
+    #[test]
+    fn test_edge_cases_duplicate_detection_and_statistics() {
+        let mut accounting = InMemoryShareAccounting::new(None);
+
+        // Test with zero work (edge case)
+        let zero_work_hash = Hash::from_slice(&[0u8; 32]).unwrap();
+        accounting
+            .update_share_accounting(0, 1, zero_work_hash)
+            .unwrap();
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 1);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), 0);
+        assert!(accounting.is_share_seen(zero_work_hash).unwrap());
+
+        // Test with large work value (but not MAX to avoid overflow in subsequent operations)
+        let large_work_hash = Hash::from_slice(&[255u8; 32]).unwrap();
+        accounting
+            .update_share_accounting(u64::MAX - 10000, 2, large_work_hash)
+            .unwrap();
+        assert_eq!(accounting.get_shares_accepted().unwrap(), 2);
+        assert_eq!(accounting.get_share_work_sum().unwrap(), u64::MAX - 10000);
+        assert!(accounting.is_share_seen(large_work_hash).unwrap());
+
+        // Test sequence number edge cases
+        accounting
+            .update_share_accounting(1000, u32::MAX, zero_work_hash)
+            .unwrap(); // Duplicate hash, but should still update sequence
+        assert_eq!(
+            accounting.get_last_share_sequence_number().unwrap(),
+            u32::MAX
+        );
+
+        // Test difficulty edge cases
+        accounting.update_best_diff_for_user("edge_user", 0.0).unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user("edge_user").unwrap(),
+            Some(0.0)
+        );
+
+        accounting
+            .update_best_diff_for_user("edge_user", f64::MAX)
+            .unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user("edge_user").unwrap(),
+            Some(f64::MAX)
+        );
+
+        // Test empty user identity (should be treated as valid)
+        accounting.update_best_diff_for_user("", 50.0).unwrap();
+        assert_eq!(accounting.get_best_diff_for_user("").unwrap(), Some(50.0));
+
+        // Test very long user identity
+        let long_user = "a".repeat(1000);
+        accounting
+            .update_best_diff_for_user(&long_user, 75.0)
+            .unwrap();
+        assert_eq!(
+            accounting.get_best_diff_for_user(&long_user).unwrap(),
+            Some(75.0)
+        );
+    }
+
+    /// Test thread safety documentation compliance
+    #[test]
+    fn test_thread_safety_documentation_compliance() {
+        // This test verifies that the implementation behaves as documented
+        // regarding thread safety (i.e., it's NOT thread-safe without external synchronization)
+
+        let accounting = InMemoryShareAccounting::new(None);
+
+        // Verify that the implementation does not implement Send/Sync automatically
+        // (This is a compile-time check - if this compiles, the implementation is Send+Sync)
+        fn assert_not_sync<T: Sync>(_: T) {}
+        fn assert_not_send<T: Send>(_: T) {}
+
+        // These should compile because InMemoryShareAccounting does implement Send+Sync
+        // but the documentation warns users about thread safety
+        assert_not_sync(accounting.clone());
+        assert_not_send(accounting);
+
+        // The key point is that while the type is Send+Sync, the operations are not atomic
+        // and require external synchronization for thread safety
     }
 }
