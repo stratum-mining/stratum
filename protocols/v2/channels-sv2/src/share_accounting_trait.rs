@@ -546,8 +546,8 @@ pub trait ShareAccountingTrait {
     ///     ShareAccountingConfig::InMemory { share_batch_size: Some(3) }
     /// ).unwrap();
     ///
-    /// // No acknowledgment initially
-    /// assert_eq!(accounting.should_acknowledge().unwrap(), false);
+    /// // Acknowledgment initially true (0 % 3 == 0)
+    /// assert_eq!(accounting.should_acknowledge().unwrap(), true);
     ///
     /// // Add shares
     /// for i in 1..=3 {
@@ -828,7 +828,7 @@ impl ShareAccountingTrait for InMemoryShareAccounting {
     fn should_acknowledge(&self) -> Result<bool, Self::Error> {
         match self.share_batch_size {
             Some(batch_size) => {
-                Ok(self.shares_accepted % batch_size as u32 == 0 && self.shares_accepted > 0)
+                Ok(self.shares_accepted % batch_size as u32 == 0)
             }
             None => Ok(false), // Client mode - never acknowledge
         }
@@ -1170,7 +1170,7 @@ mod tests {
 
         // Test acknowledgment behavior differences
         assert!(!client_accounting.should_acknowledge().unwrap());
-        assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false for both
+        assert!(server_accounting.should_acknowledge().unwrap()); // Initially true (0 % batch_size == 0)
 
         // Add shares to both
         for i in 1..=3 {
@@ -1357,7 +1357,7 @@ mod tests {
         // Test server convenience constructor
         let server_accounting = InMemoryShareAccounting::new_server(5);
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(5));
-        assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false
+        assert!(server_accounting.should_acknowledge().unwrap()); // Initially true (0 % batch_size == 0)
 
         // Verify they behave the same as regular constructors
         let client_regular = InMemoryShareAccounting::new(None);
@@ -1383,7 +1383,7 @@ mod tests {
         // Test server factory function
         let server_accounting = create_server_share_accounting(7);
         assert_eq!(server_accounting.get_share_batch_size().unwrap(), Some(7));
-        assert!(!server_accounting.should_acknowledge().unwrap()); // Initially false
+        assert!(server_accounting.should_acknowledge().unwrap()); // Initially true (0 % batch_size == 0)
 
         // Verify they behave the same as regular factory function
         let client_config = ShareAccountingConfig::InMemory {
