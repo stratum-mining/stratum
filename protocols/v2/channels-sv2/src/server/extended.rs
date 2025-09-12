@@ -56,7 +56,7 @@ use bitcoin::{
     transaction::TxOut,
     CompactTarget, Target as BitcoinTarget,
 };
-use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, FULL_EXTRANONCE_LEN};
+use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
@@ -211,7 +211,7 @@ impl<'a> ExtendedChannel<'a> {
         }
 
         let available_rollable_extranonce_size =
-            (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+            (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         if requested_min_rollable_extranonce_size > available_rollable_extranonce_size {
             return Err(ExtendedChannelError::RequestedMinExtranonceSizeTooLarge);
         }
@@ -274,7 +274,7 @@ impl<'a> ExtendedChannel<'a> {
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
         let new_rollable_extranonce_size =
-            FULL_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
+            MAX_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
 
         // we return an error if the new extranonce_prefix would violate
         // min_rollable_extranonce_size that was already established with the client when the
@@ -726,7 +726,7 @@ mod tests {
     };
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
-    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, FULL_EXTRANONCE_LEN};
+    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
@@ -748,7 +748,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -899,7 +899,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -1019,7 +1019,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -1098,7 +1098,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -1208,7 +1208,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 100.0; // bigger hashrate to get higher difficulty
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -1321,7 +1321,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0; // bigger hashrate to get higher difficulty
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -1444,7 +1444,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
@@ -1542,7 +1542,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
