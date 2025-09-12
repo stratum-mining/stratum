@@ -40,7 +40,7 @@ impl fmt::Display for DeclareMiningJob<'_> {
             f,
             "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}, tx_ids_list: {}, excess_data: {})",
             self.request_id,
-            self.mining_job_token,
+            self.mining_job_token.as_hex(),
             self.version,
             self.coinbase_tx_prefix,
             self.coinbase_tx_suffix,
@@ -75,7 +75,8 @@ impl fmt::Display for DeclareMiningJobSuccess<'_> {
         write!(
             f,
             "DeclareMiningJobSuccess(request_id: {}, new_mining_job_token: {})",
-            self.request_id, self.new_mining_job_token
+            self.request_id,
+            self.new_mining_job_token.as_hex()
         )
     }
 }

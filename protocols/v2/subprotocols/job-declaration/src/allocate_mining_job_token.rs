@@ -46,7 +46,7 @@ impl fmt::Display for AllocateMiningJobTokenSuccess<'_> {
             f,
             "AllocateMiningJobTokenSuccess(request_id: {}, mining_job_token: {}, coinbase_outputs: {})",
             self.request_id,
-            self.mining_job_token,
+            self.mining_job_token.as_hex(),
             self.coinbase_outputs
         )
     }
