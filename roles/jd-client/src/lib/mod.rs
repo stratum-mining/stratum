@@ -1,469 +1,474 @@
-//! ## Job Declarator Client
-//!
-//! The `JobDeclaratorClient` is a miner-side role responsible for:
-//! - Creating new mining jobs from templates received via a Template Provider.
-//! - Declaring custom jobs to a remote Job Declarator Server (JDS).
-//! - Handling pool fallback by switching to backup pools or entering solo mining mode if needed.
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-pub mod config;
-pub mod downstream;
-pub mod error;
-pub mod job_declarator;
-pub mod status;
-pub mod template_receiver;
-pub mod upstream_sv2;
+use async_channel::{unbounded, Receiver, Sender};
+use key_utils::Secp256k1PublicKey;
+use stratum_common::roles_logic_sv2::bitcoin::consensus::Encodable;
+use tokio::sync::{broadcast, mpsc};
+use tracing::{debug, info, warn};
 
-use std::{sync::atomic::AtomicBool, time::Duration};
-
-use async_channel::unbounded;
-use config::JobDeclaratorClientConfig;
-use futures::{select, FutureExt};
-use job_declarator::JobDeclarator;
-use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
-    sync::Arc,
+use crate::{
+    channel_manager::ChannelManager,
+    config::{ConfigJDCMode, JobDeclaratorClientConfig},
+    error::JDCError,
+    jd_mode::{set_jd_mode, JdMode},
+    job_declarator::JobDeclarator,
+    status::{State, Status},
+    task_manager::TaskManager,
+    template_receiver::TemplateReceiver,
+    upstream::Upstream,
+    utils::{SV2Frame, ShutdownMessage, UpstreamState},
 };
-use stratum_common::roles_logic_sv2::{bitcoin::TxOut, utils::Mutex};
-use tokio::{sync::Notify, task::AbortHandle};
 
-use tracing::{error, info};
+mod channel_manager;
+pub mod config;
+mod downstream;
+pub mod error;
+pub mod jd_mode;
+mod job_declarator;
+mod status;
+mod task_manager;
+mod template_receiver;
+mod upstream;
+pub mod utils;
 
-/// Is used by the template receiver and the downstream. When a NewTemplate is received the context
-/// that is running the template receiver set this value to false and then the message is sent to
-/// the context that is running the Downstream that do something and then set it back to true.
-///
-/// In the meantime if the context that is running the template receiver receives a SetNewPrevHash
-/// it wait until the value of this global is true before doing anything.
-///
-/// Acquire and Release memory ordering is used.
-///
-/// Memory Ordering Explanation:
-/// We use Acquire-Release ordering instead of SeqCst or Relaxed for the following reasons:
-/// 1. Acquire in template receiver context ensures we see all operations before the Release store
-///    the downstream.
-/// 2. Within the same execution context (template receiver), a Relaxed store followed by an Acquire
-///    load is sufficient. This is because operations within the same context execute in the order
-///    they appear in the code.
-/// 3. The combination of Release in downstream and Acquire in template receiver contexts
-///    establishes a happens-before relationship, guaranteeing that we handle the SetNewPrevHash
-///    message after that downstream have finished handling the NewTemplate.
-/// 3. SeqCst is overkill we only need to synchronize two contexts, a globally agreed-upon order
-///    between all the contexts is not necessary.
-pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
-
-/// Job Declarator Client (or JDC) is the role which is Miner-side, in charge of creating new
-/// mining jobs from the templates received by the Template Provider to which it is connected. It
-/// declares custom jobs to the JDS, in order to start working on them.
-/// JDC is also responsible for putting in action the Pool-fallback mechanism, automatically
-/// switching to backup Pools in case of declared custom jobs refused by JDS (which is Pool side).
-/// As a solution of last-resort, it is able to switch to Solo Mining until new safe Pools appear
-/// in the market.
-#[derive(Debug, Clone)]
+/// Represent Job Declarator Client
+#[derive(Clone)]
 pub struct JobDeclaratorClient {
-    // Configuration of the [`JobDeclaratorClient`].
     config: JobDeclaratorClientConfig,
-    // Used for notifying the [`JobDeclaratorClient`] to shutdown gracefully.
-    shutdown: Arc<Notify>,
+    notify_shutdown: broadcast::Sender<ShutdownMessage>,
 }
 
 impl JobDeclaratorClient {
-    /// Instantiate a new `JobDeclaratorClient` instance.
+    /// Creates a new [`JobDeclaratorClient`] instance.
     pub fn new(config: JobDeclaratorClientConfig) -> Self {
+        let (notify_shutdown, _) = tokio::sync::broadcast::channel::<ShutdownMessage>(100);
         Self {
             config,
-            shutdown: Arc::new(Notify::new()),
+            notify_shutdown,
         }
     }
 
-    /// Starts the main operational loop of the Job Declarator Client.
-    ///
-    /// This involves connecting to configured upstream pools (or entering solo mining mode),
-    /// setting up the Job Declarator Server (JDS) connection, listening for downstream connections,
-    /// and managing the template receiving process.
-    ///
-    /// The method handles automatic pool fallback in case of disconnection or detected
-    /// rogue behavior from the current upstream pool. It also manages graceful shutdown
-    /// upon receiving a termination signal (e.g., CTRL+C) or encountering internal errors.
-    ///
-    /// Subsystems are spawned sequentially with dependencies: Pool → JDS → Downstream → Template
-    /// Receiver (implicitly handled within Downstream or other components).
-    pub async fn start(self) {
-        let mut upstream_index = 0;
-
-        // Channel used to manage failed tasks
-        let (tx_status, rx_status) = unbounded();
-
-        let task_collector = Arc::new(Mutex::new(vec![]));
-
-        // Spawn a task to listen for the CTRL+C signal for graceful shutdown.
-        tokio::spawn({
-            let shutdown_signal = self.shutdown.clone();
-            async move {
-                if tokio::signal::ctrl_c().await.is_ok() {
-                    info!("Interrupt received");
-                    shutdown_signal.notify_one();
-                }
-            }
-        });
-
-        let config = self.config;
-        'outer: loop {
-            let task_collector = task_collector.clone();
-            let tx_status = tx_status.clone();
-            let config = config.clone();
-            let shutdown = self.shutdown.clone();
-            let root_handler;
-
-            // Check if there is a configured upstream pool and jds at the current index.
-            if let Some(upstream) = config.upstreams().get(upstream_index) {
-                let tx_status = tx_status.clone();
-                let task_collector = task_collector.clone();
-                let upstream = upstream.clone();
-                // Spawn the initialization process for connecting to a pool.
-                root_handler = tokio::spawn(async move {
-                    Self::initialize_jd(config, tx_status, task_collector, upstream, shutdown)
-                        .await;
-                });
-            } else {
-                // If no more upstream pools are configured, enter solo mining mode.
-                let tx_status: async_channel::Sender<status::Status<'_>> = tx_status.clone();
-                let task_collector = task_collector.clone();
-                root_handler = tokio::spawn(async move {
-                    Self::initialize_jd_as_solo_miner(
-                        config,
-                        tx_status.clone(),
-                        task_collector.clone(),
-                        shutdown,
-                    )
-                    .await;
-                });
-            }
-
-            // Inner loop to monitor the status of the root handler and spawned tasks.
-            loop {
-                select! {
-                    task_status = rx_status.recv().fuse() => {
-                        if let Ok(task_status) = task_status {
-                            match task_status.state {
-                                // Should only be sent by the downstream listener
-                                status::State::DownstreamShutdown(err) => {
-                                    error!("SHUTDOWN from: {}", err);
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    task_collector
-                                        .safe_lock(|s| {
-                                            for handle in s {
-                                                handle.abort();
-                                            }
-                                        })
-                                        .unwrap();
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    break;
-                                }
-                                status::State::UpstreamShutdown(err) => {
-                                    error!("SHUTDOWN from: {}", err);
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    task_collector
-                                        .safe_lock(|s| {
-                                            for handle in s {
-                                                handle.abort();
-                                            }
-                                        })
-                                        .unwrap();
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    break;
-                                }
-                                status::State::UpstreamRogue => {
-                                    error!("Changing Pool");
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    task_collector
-                                        .safe_lock(|s| {
-                                            for handle in s {
-                                                handle.abort();
-                                            }
-                                        })
-                                        .unwrap();
-                                    upstream_index += 1;
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    break;
-                                }
-                                status::State::Healthy(msg) => {
-                                    info!("HEALTHY message: {}", msg);
-                                }
-                            }
-                        } else {
-                            info!("Received unknown task. Shutting down.");
-                            task_collector
-                                .safe_lock(|s| {
-                                    for handle in s {
-                                        handle.abort();
-                                    }
-                                })
-                                .unwrap();
-                            root_handler.abort();
-                            break 'outer;
-                        }
-                    },
-                    _ = self.shutdown.notified().fuse() => {
-                        info!("Shutting down gracefully...");
-                        task_collector
-                            .safe_lock(|s| {
-                                for handle in s {
-                                    handle.abort();
-                                }
-                            })
-                            .unwrap();
-                        root_handler.abort();
-                        break 'outer;
-                    }
-                };
-            }
-        }
-    }
-
-    // Initializes the Job Declarator Client to operate in solo mining mode.
-    //
-    // This function is called when no upstream pools are configured or available.
-    // In solo mining mode, the JDC will generate its own mining jobs rather than
-    // receiving them from a pool. It primarily sets up the downstream listener
-    // to provide these solo mining jobs to connected miners.
-    async fn initialize_jd_as_solo_miner(
-        config: JobDeclaratorClientConfig,
-        tx_status: async_channel::Sender<status::Status<'static>>,
-        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-        shutdown: Arc<Notify>,
-    ) {
-        let miner_tx_out = config.get_txout();
-
-        // Spawn the downstream listener task. In solo mode, `upstream` and `jd` are `None`.
-        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
-            *config.listening_address(),
-            None,
-            config.withhold(),
-            *config.authority_public_key(),
-            *config.authority_secret_key(),
-            config.cert_validity_sec(),
-            task_collector.clone(),
-            tx_status.clone(),
-            miner_tx_out,
-            None,
-            config.clone(),
-            shutdown,
-            config.jdc_signature().to_string(),
-        ));
-        let _ = task_collector.safe_lock(|e| {
-            e.push(downstream_handle.abort_handle());
-        });
-    }
-
-    /// Initializes the Job Declarator Client by connecting to a configured upstream Pool
-    /// and setting up the associated downstream listener and Job Declarator.
-    ///
-    /// This function is called when there is an available upstream pool in the configuration.
-    /// It handles the connection to the SV2 upstream, sets up the Job Declarator for
-    /// communication with the pool's JDS, and starts the downstream listener to relay
-    /// jobs from the pool to the miner.
-    async fn initialize_jd(
-        config: JobDeclaratorClientConfig,
-        tx_status: async_channel::Sender<status::Status<'static>>,
-        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-        upstream_config: config::Upstream,
-        shutdown: Arc<Notify>,
-    ) {
-        let timeout = config.timeout();
-
-        // Parse and format the upstream pool connection address.
-        let mut parts = upstream_config.pool_address.split(':');
-        let address = parts
-            .next()
-            .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
-        let port = parts
-            .next()
-            .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
-        let upstream_addr = SocketAddr::new(
-            IpAddr::from_str(address).unwrap_or_else(|_| {
-                panic!("Invalid pool address {}", upstream_config.pool_address)
-            }),
-            port,
+    /// Starts the Job Declarator Client (JDC) main loop.
+    pub async fn start(&self) {
+        info!(
+            "Job declarator client starting... setting up subsystems, User Identity: {}",
+            self.config.user_identity()
         );
 
-        // Instantiate and connect to the SV2 Upstream (Pool).
-        let upstream = match upstream_sv2::Upstream::new(
-            upstream_addr,
-            upstream_config.authority_pubkey,
-            status::Sender::Upstream(tx_status.clone()),
-            task_collector.clone(),
-            Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
-            config.jdc_signature().to_string(),
+        let miner_coinbase_outputs = vec![self.config.get_txout()];
+        let mut encoded_outputs = vec![];
+
+        miner_coinbase_outputs
+            .consensus_encode(&mut encoded_outputs)
+            .expect("Invalid coinbase output in config");
+
+        let notify_shutdown = self.notify_shutdown.clone();
+        let (shutdown_complete_tx, mut shutdown_complete_rx) = mpsc::channel::<()>(1);
+        let task_manager = Arc::new(TaskManager::new());
+
+        let (status_sender, status_receiver) = async_channel::unbounded::<Status>();
+
+        let (channel_manager_to_upstream_sender, channel_manager_to_upstream_receiver) =
+            unbounded::<SV2Frame>();
+        let (upstream_to_channel_manager_sender, upstream_to_channel_manager_receiver) =
+            unbounded::<SV2Frame>();
+
+        let (channel_manager_to_jd_sender, channel_manager_to_jd_receiver) =
+            unbounded::<SV2Frame>();
+        let (jd_to_channel_manager_sender, jd_to_channel_manager_receiver) =
+            unbounded::<SV2Frame>();
+
+        let (channel_manager_to_downstream_sender, _channel_manager_to_downstream_receiver) =
+            broadcast::channel(10);
+        let (downstream_to_channel_manager_sender, downstream_to_channel_manager_receiver) =
+            unbounded();
+
+        let (channel_manager_to_tp_sender, channel_manager_to_tp_receiver) =
+            unbounded::<SV2Frame>();
+        let (tp_to_channel_manager_sender, tp_to_channel_manager_receiver) =
+            unbounded::<SV2Frame>();
+
+        debug!("Channels initialized.");
+
+        let channel_manager = ChannelManager::new(
+            self.config.clone(),
+            channel_manager_to_upstream_sender.clone(),
+            upstream_to_channel_manager_receiver.clone(),
+            channel_manager_to_jd_sender.clone(),
+            jd_to_channel_manager_receiver.clone(),
+            channel_manager_to_tp_sender.clone(),
+            tp_to_channel_manager_receiver.clone(),
+            channel_manager_to_downstream_sender.clone(),
+            downstream_to_channel_manager_receiver,
+            status_sender.clone(),
+            encoded_outputs.clone(),
         )
         .await
-        {
-            Ok(upstream) => upstream,
-            Err(e) => {
-                error!("Failed to create upstream: {}", e);
-                panic!()
-            }
-        };
+        .unwrap();
 
-        // Set up the SV2 connection with the upstream pool.
-        match upstream_sv2::Upstream::setup_connection(
-            upstream.clone(),
-            config.min_supported_version(),
-            config.max_supported_version(),
+        let channel_manager_clone = channel_manager.clone();
+
+        // Initialize the template Receiver
+        let tp_address = self.config.tp_address().to_string();
+        let tp_pubkey = self.config.tp_authority_public_key().copied();
+
+        let template_receiver = TemplateReceiver::new(
+            tp_address.clone(),
+            tp_pubkey,
+            channel_manager_to_tp_receiver,
+            tp_to_channel_manager_sender,
+            notify_shutdown.clone(),
+            task_manager.clone(),
+            status_sender.clone(),
         )
         .await
+        .unwrap();
+
+        info!("Template provider setup done");
+
+        let notify_shutdown_cl = notify_shutdown.clone();
+        let status_sender_cl = status_sender.clone();
+        let task_manager_cl = task_manager.clone();
+
+        template_receiver
+            .start(
+                tp_address,
+                notify_shutdown_cl,
+                status_sender_cl,
+                task_manager_cl,
+                encoded_outputs.clone(),
+            )
+            .await;
+
+        let mut upstream_addresses: Vec<_> = self
+            .config
+            .upstreams()
+            .iter()
+            .map(|u| {
+                let pool_addr = SocketAddr::new(
+                    u.pool_address.parse().expect("Invalid pool address"),
+                    u.pool_port,
+                );
+                let jd_addr = SocketAddr::new(
+                    u.jds_address.parse().expect("Invalid JD address"),
+                    u.jds_port,
+                );
+                (pool_addr, jd_addr, u.authority_pubkey, false)
+            })
+            .collect();
+
+        channel_manager
+            .start(
+                notify_shutdown.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
+
+        info!("Attempting to initialize upstream...");
+
+        match self
+            .initialize_jd(
+                &mut upstream_addresses,
+                channel_manager_to_upstream_receiver.clone(),
+                upstream_to_channel_manager_sender.clone(),
+                channel_manager_to_jd_receiver.clone(),
+                jd_to_channel_manager_sender.clone(),
+                notify_shutdown.clone(),
+                status_sender.clone(),
+                self.config.mode.clone(),
+                task_manager.clone(),
+            )
+            .await
         {
-            Ok(_) => info!("Connected to Upstream!"),
-            Err(e) => {
-                error!("Failed to connect to Upstream EXITING! : {}", e);
-                panic!()
-            }
-        }
-
-        // Start the task to receive and parse incoming messages from the SV2 upstream.
-        if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
-            error!("failed to create sv2 parser: {}", e);
-            panic!()
-        }
-
-        // Parse and format the Job Declarator Server (JDS) address for this pool.
-        let mut parts = upstream_config.jd_address.split(':');
-        let ip_jd = parts.next().unwrap().to_string();
-        let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
-
-        // Instantiate the Job Declarator component.
-        let jd = match JobDeclarator::new(
-            SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-            upstream_config.authority_pubkey.into_bytes(),
-            config.clone(),
-            upstream.clone(),
-            task_collector.clone(),
-        )
-        .await
-        {
-            Ok(c) => c,
-            Err(e) => {
-                let _ = tx_status
-                    .send(status::Status {
-                        state: status::State::UpstreamShutdown(e),
-                    })
+            Ok((upstream, job_declarator)) => {
+                upstream
+                    .start(
+                        self.config.min_supported_version(),
+                        self.config.max_supported_version(),
+                        notify_shutdown.clone(),
+                        shutdown_complete_tx.clone(),
+                        status_sender.clone(),
+                        task_manager.clone(),
+                    )
                     .await;
-                return;
+
+                job_declarator
+                    .start(
+                        notify_shutdown.clone(),
+                        shutdown_complete_tx,
+                        status_sender.clone(),
+                        task_manager.clone(),
+                    )
+                    .await;
+
+                channel_manager_clone
+                    .upstream_state
+                    .set(UpstreamState::NoChannel);
+                _ = channel_manager_clone.allocate_tokens(1).await;
             }
-        };
-
-        // Spawn the downstream listener task, providing the upstream and JobDeclarator instances.
-        let downstream_handle = tokio::spawn(downstream::listen_for_downstream_mining(
-            *config.listening_address(),
-            Some(upstream),
-            config.withhold(),
-            *config.authority_public_key(),
-            *config.authority_secret_key(),
-            config.cert_validity_sec(),
-            task_collector.clone(),
-            tx_status.clone(),
-            TxOut::NULL,
-            Some(jd),
-            config.clone(),
-            shutdown,
-            config.jdc_signature().to_string(),
-        ));
-        let _ = task_collector.safe_lock(|e| {
-            e.push(downstream_handle.abort_handle());
-        });
-    }
-
-    /// Closes JDC role and any open connection associated with it.
-    ///
-    /// Note that this method will result in a full exit of the  running
-    /// jd-client and any open connection most be re-initiated upon new
-    /// start.
-    #[allow(dead_code)]
-    pub fn shutdown(&self) {
-        self.shutdown.notify_one();
-    }
-}
-
-/// A trigger mechanism to detect if an upstream pool is unresponsive and initiate a pool change.
-#[derive(Debug)]
-pub struct PoolChangerTrigger {
-    // The timeout duration after which the upstream is considered rogue if no activity is
-    // detected.
-    timeout: Duration,
-    // The handle for the spawned task that monitors the timeout.
-    task: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl PoolChangerTrigger {
-    /// Creates a new `PoolChangerTrigger` instance.
-    pub fn new(timeout: Duration) -> Self {
-        Self {
-            timeout,
-            task: None,
-        }
-    }
-
-    /// Starts the pool changer trigger.
-    ///
-    /// This spawns a task that will wait for the configured timeout.
-    /// If the timeout is reached before `stop` is called, it sends an `UpstreamRogue`
-    /// status message to the provided sender, triggering a pool change in the main JDC loop.
-    pub fn start(&mut self, sender: status::Sender) {
-        let timeout = self.timeout;
-        let task = tokio::task::spawn(async move {
-            tokio::time::sleep(timeout).await;
-            let _ = sender
-                .send(status::Status {
-                    state: status::State::UpstreamRogue,
-                })
-                .await;
-        });
-        self.task = Some(task);
-    }
-
-    /// Stops the pool changer trigger.
-    pub fn stop(&mut self) {
-        if let Some(task) = self.task.take() {
-            task.abort();
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use ext_config::{Config, File, FileFormat};
-
-    use crate::*;
-
-    #[tokio::test]
-    async fn test_shutdown() {
-        let config_path = "config-examples/jdc-config-hosted-example.toml";
-        let config: JobDeclaratorClientConfig = match Config::builder()
-            .add_source(File::new(config_path, FileFormat::Toml))
-            .build()
-        {
-            Ok(settings) => match settings.try_deserialize::<JobDeclaratorClientConfig>() {
-                Ok(c) => c,
-                Err(e) => {
-                    dbg!(&e);
-                    return;
-                }
-            },
             Err(e) => {
-                dbg!(&e);
-                return;
+                tracing::error!("Failed to initialize upstream: {:?}", e);
+                set_jd_mode(jd_mode::JdMode::SoloMining);
             }
         };
-        let jdc = JobDeclaratorClient::new(config.clone());
-        let cloned = jdc.clone();
-        tokio::spawn(async move {
-            cloned.start().await;
-        });
-        jdc.shutdown();
-        let ip = config.listening_address().ip();
-        let port = config.listening_address().port();
-        let jdc_addr = format!("{ip}:{port}");
-        assert!(std::net::TcpListener::bind(jdc_addr).is_ok());
+
+        _ = channel_manager_clone
+            .clone()
+            .start_downstream_server(
+                *self.config.authority_public_key(),
+                *self.config.authority_secret_key(),
+                self.config.cert_validity_sec(),
+                *self.config.listening_address(),
+                task_manager.clone(),
+                notify_shutdown.clone(),
+                status_sender.clone(),
+                downstream_to_channel_manager_sender.clone(),
+                channel_manager_to_downstream_sender.clone(),
+            )
+            .await;
+
+        info!("Spawning status listener task...");
+        let notify_shutdown_clone = notify_shutdown.clone();
+
+        loop {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    info!("Ctrl+C received — initiating graceful shutdown...");
+                    let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                    break;
+                }
+                message = status_receiver.recv() => {
+                    if let Ok(status) = message {
+                        match status.state {
+                            State::DownstreamShutdown{downstream_id,..} => {
+                                warn!("Downstream {downstream_id:?} disconnected — Channel manager.");
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdown(downstream_id));
+                            }
+                            State::TemplateReceiverShutdown(_) => {
+                                warn!("Template Receiver shutdown requested — initiating full shutdown.");
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                                break;
+                            }
+                            State::ChannelManagerShutdown(_) => {
+                                warn!("Channel Manager shutdown requested — initiating full shutdown.");
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                                break;
+                            }
+                            State::UpstreamShutdownFallback(_) | State::JobDeclaratorShutdownFallback(_) => {
+                                warn!("Upstream/Job Declarator connection dropped — attempting reconnection...");
+                                let (tx, mut rx) = mpsc::channel::<()>(1);
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::UpstreamShutdownFallback((encoded_outputs.clone(), tx)));
+                                set_jd_mode(JdMode::SoloMining);
+                                shutdown_complete_rx.recv().await;
+                                tracing::error!("Existing Upstream or JD instance taken out");
+                                rx.recv().await;
+                                tracing::error!("All entities acknowledged Upstream fallback. Preparing fallback.");
+
+                                let (shutdown_complete_tx_fallback, shutdown_complete_rx_fallback) = mpsc::channel::<()>(1);
+
+                                shutdown_complete_rx = shutdown_complete_rx_fallback;
+
+                                info!("Attempting to initialize Jd and upstream...");
+
+                                match self
+                                    .initialize_jd(
+                                        &mut upstream_addresses,
+                                        channel_manager_to_upstream_receiver.clone(),
+                                        upstream_to_channel_manager_sender.clone(),
+                                        channel_manager_to_jd_receiver.clone(),
+                                        jd_to_channel_manager_sender.clone(),
+                                        notify_shutdown.clone(),
+                                        status_sender.clone(),
+                                        self.config.mode.clone(),
+                                        task_manager.clone(),
+                                    )
+                                    .await
+                                {
+                                    Ok((upstream, job_declarator)) => {
+                                        upstream
+                                            .start(
+                                                self.config.min_supported_version(),
+                                                self.config.max_supported_version(),
+                                                notify_shutdown.clone(),
+                                                shutdown_complete_tx_fallback.clone(),
+                                                status_sender.clone(),
+                                                task_manager.clone(),
+                                            )
+                                            .await;
+
+                                        job_declarator
+                                            .start(
+                                                notify_shutdown.clone(),
+                                                shutdown_complete_tx_fallback,
+                                                status_sender.clone(),
+                                                task_manager.clone(),
+                                            )
+                                            .await;
+
+                                        channel_manager_clone.upstream_state.set(UpstreamState::NoChannel);
+
+                                        _ = channel_manager_clone.allocate_tokens(1).await;
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Failed to initialize upstream: {:?}", e);
+                                        channel_manager_clone.upstream_state.set(UpstreamState::SoloMining);
+                                        set_jd_mode(jd_mode::JdMode::SoloMining);
+                                        info!("Fallback to solo mining mode");
+                                    }
+                                };
+
+                                _ = channel_manager_clone.clone()
+                                    .start_downstream_server(
+                                        *self.config.authority_public_key(),
+                                        *self.config.authority_secret_key(),
+                                        self.config.cert_validity_sec(),
+                                        *self.config.listening_address(),
+                                        task_manager.clone(),
+                                        notify_shutdown.clone(),
+                                        status_sender.clone(),
+                                        downstream_to_channel_manager_sender.clone(),
+                                        channel_manager_to_downstream_sender.clone(),
+                                    )
+                                    .await;
+                                }
+                        }
+                    }
+                }
+            }
+        }
+
+        warn!("Graceful shutdown");
+        task_manager.abort_all().await;
+
+        info!("Joining remaining tasks...");
+        task_manager.join_all().await;
+        info!("JD Client shutdown complete.");
+    }
+
+    /// Initializes an upstream pool + JD connection pair.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn initialize_jd(
+        &self,
+        upstreams: &mut [(SocketAddr, SocketAddr, Secp256k1PublicKey, bool)],
+        channel_manager_to_upstream_receiver: Receiver<SV2Frame>,
+        upstream_to_channel_manager_sender: Sender<SV2Frame>,
+        channel_manager_to_jd_receiver: Receiver<SV2Frame>,
+        jd_to_channel_manager_sender: Sender<SV2Frame>,
+        notify_shutdown: broadcast::Sender<ShutdownMessage>,
+        status_sender: Sender<Status>,
+        mode: ConfigJDCMode,
+        task_manager: Arc<TaskManager>,
+    ) -> Result<(Upstream, JobDeclarator), JDCError> {
+        const MAX_RETRIES: usize = 3;
+        let upstream_len = upstreams.len();
+        for (i, upstream_addr) in upstreams.iter_mut().enumerate() {
+            info!(
+                "Trying upstream {} of {}: {:?}",
+                i + 1,
+                upstream_len,
+                upstream_addr
+            );
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+
+            if upstream_addr.3 {
+                info!(
+                    "Upstream previously marked as malicious, skipping initial attempt warnings."
+                );
+                continue;
+            }
+
+            for attempt in 1..=MAX_RETRIES {
+                info!("Connection attempt {}/{}...", attempt, MAX_RETRIES);
+
+                match try_initialize_single(
+                    upstream_addr,
+                    upstream_to_channel_manager_sender.clone(),
+                    channel_manager_to_upstream_receiver.clone(),
+                    jd_to_channel_manager_sender.clone(),
+                    channel_manager_to_jd_receiver.clone(),
+                    notify_shutdown.clone(),
+                    status_sender.clone(),
+                    mode.clone(),
+                    task_manager.clone(),
+                )
+                .await
+                {
+                    Ok(pair) => {
+                        upstream_addr.3 = true;
+                        return Ok(pair);
+                    }
+                    Err(e) => {
+                        let (tx, mut rx) = mpsc::channel::<()>(1);
+                        let _ = notify_shutdown.send(ShutdownMessage::JobDeclaratorShutdown(tx));
+                        rx.recv().await;
+                        tracing::error!("All sparsed upstream and JDS connection is be terminated");
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                        warn!(
+                            "Attempt {}/{} failed for {:?}: {:?}",
+                            attempt, MAX_RETRIES, upstream_addr, e
+                        );
+                        if attempt == MAX_RETRIES {
+                            warn!(
+                                "Max retries reached for {:?}, moving to next upstream",
+                                upstream_addr
+                            );
+                        }
+                    }
+                }
+            }
+            upstream_addr.3 = true;
+        }
+
+        tracing::error!("All upstreams failed after {} retries each", MAX_RETRIES);
+        Err(JDCError::Shutdown)
+    }
+}
+
+// Attempts to initialize a single upstream (pool + JDS pair).
+#[allow(clippy::too_many_arguments)]
+async fn try_initialize_single(
+    upstream_addr: &(SocketAddr, SocketAddr, Secp256k1PublicKey, bool),
+    upstream_to_channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_to_upstream_receiver: Receiver<SV2Frame>,
+    jd_to_channel_manager_sender: Sender<SV2Frame>,
+    channel_manager_to_jd_receiver: Receiver<SV2Frame>,
+    notify_shutdown: broadcast::Sender<ShutdownMessage>,
+    status_sender: Sender<Status>,
+    mode: ConfigJDCMode,
+    task_manager: Arc<TaskManager>,
+) -> Result<(Upstream, JobDeclarator), JDCError> {
+    info!("Upstream connection in-progress at initialize single");
+    let upstream = Upstream::new(
+        upstream_addr,
+        upstream_to_channel_manager_sender,
+        channel_manager_to_upstream_receiver,
+        notify_shutdown.clone(),
+        task_manager.clone(),
+        status_sender.clone(),
+    )
+    .await?;
+
+    info!("Upstream connection done at initialize single");
+
+    let job_declarator = JobDeclarator::new(
+        upstream_addr,
+        jd_to_channel_manager_sender,
+        channel_manager_to_jd_receiver,
+        notify_shutdown,
+        mode,
+        task_manager.clone(),
+        status_sender.clone(),
+    )
+    .await?;
+
+    Ok((upstream, job_declarator))
+}
+
+impl Drop for JobDeclaratorClient {
+    fn drop(&mut self) {
+        info!("JobDeclaratorClient dropped");
+        let _ = self.notify_shutdown.send(ShutdownMessage::ShutdownAll);
     }
 }

@@ -1,14 +1,6 @@
-//! ## CLI Arguments Parsing Module
-//!
-//! This module is responsible for parsing the command-line arguments provided
-//! to the application.
-
 use clap::Parser;
 use ext_config::{Config, File, FileFormat};
-use jd_client::{
-    config::JobDeclaratorClientConfig,
-    error::{Error, ProxyResult},
-};
+use jd_client_sv2::{config::JobDeclaratorClientConfig, error::JDCError};
 
 use std::path::PathBuf;
 use tracing::error;
@@ -30,23 +22,19 @@ pub struct Args {
     pub log_file: Option<PathBuf>,
 }
 
-/// Process CLI args and load configuration.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> ProxyResult<'a, JobDeclaratorClientConfig> {
-    // Parse CLI arguments
+pub fn process_cli_args() -> Result<JobDeclaratorClientConfig, JDCError> {
     let args = Args::parse();
 
-    // Build configuration from the provided file path
     let config_path = args.config_path.to_str().ok_or_else(|| {
         error!("Invalid configuration path.");
-        Error::BadCliArgs
+        JDCError::BadCliArgs
     })?;
 
     let settings = Config::builder()
         .add_source(File::new(config_path, FileFormat::Toml))
         .build()?;
 
-    // Deserialize settings into JobDeclaratorClientConfig
     let mut config = settings.try_deserialize::<JobDeclaratorClientConfig>()?;
 
     config.set_log_file(args.log_file);
