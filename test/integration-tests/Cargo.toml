@@ -32,6 +32,7 @@ config_helpers_sv2 = { path = "../../roles/roles-utils/config-helpers" }
 stratum-common = { path = "../../common" , features = ["with_network_helpers", "sv1"]}
 translator_sv2 = { path = "../../roles/translator" }
 sv1_api = { path = "../../protocols/v1", optional = true }
+channels_sv2 = { path = "../../protocols/v2/channels-sv2" }
 
 [lib]
 path = "lib/mod.rs"

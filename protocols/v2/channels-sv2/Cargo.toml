@@ -28,3 +28,10 @@ hashbrown = { version = "0.15.5", optional = true }
 [features]
 default = []
 no_std = ["hashbrown"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "share_accounting_benchmarks"
+harness = false
