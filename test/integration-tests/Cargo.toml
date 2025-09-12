@@ -33,7 +33,6 @@ stratum-common = { path = "../../common" , features = ["with_network_helpers", "
 translator_sv2 = { path = "../../roles/translator" }
 sv1_api = { path = "../../protocols/v1", optional = true }
 channels_sv2 = { path = "../../protocols/v2/channels-sv2" }
-bitcoin = "0.32.0"
 
 [lib]
 path = "lib/mod.rs"
