@@ -107,6 +107,17 @@ impl fmt::Display for Sv2Option<'_, u32> {
     }
 }
 
+impl B0255<'_> {
+    pub fn as_hex(&self) -> String {
+        let inner = self
+            .inner_as_ref()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        format!("B0255({inner})")
+    }
+}
+
 impl Str0255<'_> {
     /// Returns the value as a UTF-8 string if possible, otherwise as a hex string prefixed with 0x.
     pub fn as_utf8_or_hex(&self) -> String {
