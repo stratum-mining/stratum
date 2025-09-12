@@ -52,7 +52,7 @@ use stratum_common::{
         handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
         mining_sv2::{
             ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
-            FULL_EXTRANONCE_LEN,
+            MAX_EXTRANONCE_LEN,
         },
         parsers_sv2::{AnyMessage, Mining},
         template_distribution_sv2::{
@@ -996,7 +996,7 @@ impl Pool {
         };
         let range_2 = std::ops::Range {
             start: range_1_end,
-            end: FULL_EXTRANONCE_LEN,
+            end: MAX_EXTRANONCE_LEN,
         };
 
         // simulating a scenario where there are multiple mining servers

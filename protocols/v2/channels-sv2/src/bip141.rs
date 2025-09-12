@@ -4,7 +4,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
-use mining_sv2::FULL_EXTRANONCE_LEN;
+use mining_sv2::MAX_EXTRANONCE_LEN;
 
 use bitcoin::io::Cursor;
 
@@ -38,10 +38,10 @@ pub fn try_strip_bip141(
     coinbase_tx_suffix: &[u8],
 ) -> Result<Option<(Vec<u8>, Vec<u8>)>, StripBip141Error> {
     let mut encoded = Vec::with_capacity(
-        coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + FULL_EXTRANONCE_LEN,
+        coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + MAX_EXTRANONCE_LEN,
     );
     encoded.extend_from_slice(coinbase_tx_prefix);
-    encoded.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
+    encoded.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
     encoded.extend_from_slice(coinbase_tx_suffix);
 
     let mut decoder = Cursor::new(encoded);

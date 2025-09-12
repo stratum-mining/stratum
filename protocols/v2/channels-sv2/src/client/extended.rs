@@ -27,7 +27,7 @@ use bitcoin::{
 };
 use mining_sv2::{
     NewExtendedMiningJob, SetCustomMiningJob, SetCustomMiningJobSuccess,
-    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target, FULL_EXTRANONCE_LEN,
+    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN,
 };
 use tracing::debug;
 
@@ -148,7 +148,7 @@ impl<'a> ExtendedChannel<'a> {
         new_extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
         let new_rollable_extranonce_size =
-            FULL_EXTRANONCE_LEN as u16 - new_extranonce_prefix.len() as u16;
+            MAX_EXTRANONCE_LEN as u16 - new_extranonce_prefix.len() as u16;
 
         // we return an error if the new extranonce_prefix would violate
         // min_rollable_extranonce_size that was already established with the client when the
@@ -296,7 +296,7 @@ impl<'a> ExtendedChannel<'a> {
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(set_custom_mining_job.coinbase_prefix.inner_as_ref());
-        script_sig.extend_from_slice(&[0; FULL_EXTRANONCE_LEN]);
+        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
 
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
@@ -326,7 +326,7 @@ impl<'a> ExtendedChannel<'a> {
 
         let coinbase_tx_prefix = serialized_coinbase[0..prefix_index].to_vec();
 
-        let suffix_index = prefix_index + FULL_EXTRANONCE_LEN;
+        let suffix_index = prefix_index + MAX_EXTRANONCE_LEN;
 
         let coinbase_tx_suffix = serialized_coinbase[suffix_index..].to_vec();
 
@@ -570,7 +570,7 @@ mod tests {
     use binary_sv2::Sv2Option;
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
-        FULL_EXTRANONCE_LEN,
+        MAX_EXTRANONCE_LEN,
     };
     use std::convert::TryInto;
 
@@ -586,7 +586,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -668,7 +668,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -742,7 +742,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -836,7 +836,7 @@ mod tests {
         .into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -933,7 +933,7 @@ mod tests {
         .into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (FULL_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,

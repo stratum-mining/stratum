@@ -56,7 +56,7 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
     CompactTarget, Sequence, Target as BitcoinTarget,
 };
-use mining_sv2::{SubmitSharesStandard, Target, FULL_EXTRANONCE_LEN};
+use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
@@ -233,7 +233,7 @@ impl<'a> StandardChannel<'a> {
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > FULL_EXTRANONCE_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
             return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
         }
 
@@ -589,7 +589,7 @@ impl<'a> StandardChannel<'a> {
 
             let mut script_sig = job.get_template().coinbase_prefix.to_vec();
             script_sig.extend(op_pushbytes_pool_miner_tag);
-            script_sig.push(FULL_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+            script_sig.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
             script_sig.extend(job.get_extranonce_prefix());
 
             let tx_in = TxIn {
