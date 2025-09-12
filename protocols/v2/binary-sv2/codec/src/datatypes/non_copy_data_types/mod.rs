@@ -85,17 +85,6 @@ impl fmt::Display for U32AsRef<'_> {
     }
 }
 
-impl fmt::Display for B0255<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let inner = self
-            .inner_as_ref()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
-        write!(f, "B0255({inner})")
-    }
-}
-
 impl fmt::Display for Sv2Option<'_, u32> {
     // internally Sv2Option is pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
