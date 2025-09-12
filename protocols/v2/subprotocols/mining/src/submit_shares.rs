@@ -139,7 +139,9 @@ impl fmt::Display for SubmitSharesError<'_> {
         write!(
             f,
             "SubmitSharesError(channel_id={}, sequence_number={}, error_code={})",
-            self.channel_id, self.sequence_number, self.error_code
+            self.channel_id,
+            self.sequence_number,
+            self.error_code.as_utf8_or_hex()
         )
     }
 }

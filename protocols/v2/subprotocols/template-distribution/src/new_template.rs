@@ -61,7 +61,7 @@ impl fmt::Display for NewTemplate<'_> {
             self.future_template,
             self.version,
             self.coinbase_tx_version,
-            self.coinbase_prefix,
+            self.coinbase_prefix.as_hex(),
             self.coinbase_tx_input_sequence,
             self.coinbase_tx_value_remaining,
             self.coinbase_tx_outputs_count,
