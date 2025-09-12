@@ -62,7 +62,8 @@ impl fmt::Display for UpdateChannelError<'_> {
         write!(
             f,
             "UpdateChannelError(channel_id={}, error_code={})",
-            self.channel_id, self.error_code
+            self.channel_id,
+            self.error_code.as_utf8_or_hex()
         )
     }
 }
