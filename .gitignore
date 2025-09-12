@@ -2,6 +2,8 @@
 */**/target
 /protocols/guix-example/guix-example.h
 /protocols/Cargo.lock
+/common/Cargo.lock
+/protocols/v2/binary-sv2/derive_codec/Cargo.lock
 /benches/Cargo.lock
 /ignore
 /vendor/ed25519-dalek/target
