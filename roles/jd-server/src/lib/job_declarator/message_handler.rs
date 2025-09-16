@@ -250,28 +250,32 @@ fn clear_declared_mining_job(
             .filter(|&id| !new_transactions.contains(id))
         {
             if let Some(tx) = mempool_txs.get(*old_txid) {
-                let txid = tx.as_ref().unwrap().0.compute_txid();
-                match mempool_.mempool.get_mut(&txid) {
-                    Some(Some((_transaction, counter))) => {
-                        if *counter > 1 {
-                            *counter -= 1;
-                            debug!(
-                                "Fat transaction {:?} counter decremented; job id {:?} dropped",
-                                txid, old_mining_job.request_id
-                            );
-                        } else {
-                            mempool_.mempool.remove(&txid);
-                            debug!(
-                                "Fat transaction {:?} with job id {:?} removed from mempool",
-                                txid, old_mining_job.request_id
-                            );
+                if let Some((transaction, _)) = tx.as_ref() {
+                    let txid = transaction.compute_txid();
+                    match mempool_.mempool.get_mut(&txid) {
+                        Some(Some((_transaction, counter))) => {
+                            if *counter > 1 {
+                                *counter -= 1;
+                                debug!(
+                                    "Fat transaction {:?} counter decremented; job id {:?} dropped",
+                                    txid, old_mining_job.request_id
+                                );
+                            } else {
+                                mempool_.mempool.remove(&txid);
+                                debug!(
+                                    "Fat transaction {:?} with job id {:?} removed from mempool",
+                                    txid, old_mining_job.request_id
+                                );
+                            }
                         }
+                        Some(None) => debug!(
+                            "Thin transaction {:?} with job id {:?} removed from mempool",
+                            txid, old_mining_job.request_id
+                        ),
+                        None => {}
                     }
-                    Some(None) => debug!(
-                        "Thin transaction {:?} with job id {:?} removed from mempool",
-                        txid, old_mining_job.request_id
-                    ),
-                    None => {}
+                } else {
+                    debug!("Transaction with id {:?} is None in mempool", old_txid);
                 }
             } else {
                 debug!(
