@@ -10,9 +10,10 @@ use crate::{
     chain_tip::ChainTip,
     client::{
         error::StandardChannelError,
-        share_accounting::{ShareAccountingClient, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
+    share_accounting::ShareAccountingClientTrait,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
 use alloc::{format, string::String, vec::Vec};
@@ -43,7 +44,10 @@ use tracing::debug;
 /// - share accounting state
 /// - chain tip state
 #[derive(Debug, Clone)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel<'a, T>
+where
+    T: ShareAccountingClientTrait,
+{
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -53,11 +57,14 @@ pub struct StandardChannel<'a> {
     active_job: Option<NewMiningJob<'a>>,
     past_jobs: HashMap<u32, NewMiningJob<'a>>,
     stale_jobs: HashMap<u32, NewMiningJob<'a>>,
-    share_accounting: ShareAccountingClient,
+    share_accounting: T,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl<'a, T> StandardChannel<'a, T>
+where
+    T: ShareAccountingClientTrait,
+{
     /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(
         channel_id: u32,
@@ -76,7 +83,7 @@ impl<'a> StandardChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccountingClient::new(),
+            share_accounting: T::new(),
             chain_tip: None,
         }
     }
@@ -161,7 +168,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccountingClient {
+    pub fn get_share_accounting(&self) -> &T {
         &self.share_accounting
     }
 
@@ -366,7 +373,9 @@ impl<'a> StandardChannel<'a> {
 #[cfg(test)]
 mod tests {
     use crate::client::{
-        share_accounting::{ShareValidationError, ShareValidationResult},
+        share_accounting::{
+            InMemoryShareAccountingClient, ShareValidationError, ShareValidationResult,
+        },
         standard::StandardChannel,
     };
     use binary_sv2::Sv2Option;
@@ -384,7 +393,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -444,7 +453,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -492,7 +501,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -566,7 +575,7 @@ mod tests {
         .into();
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -643,7 +652,7 @@ mod tests {
         .into();
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix,

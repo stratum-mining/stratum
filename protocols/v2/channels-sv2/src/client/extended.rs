@@ -10,9 +10,10 @@ use crate::{
     chain_tip::ChainTip,
     client::{
         error::ExtendedChannelError,
-        share_accounting::{ShareAccountingClient, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
+    share_accounting::ShareAccountingClientTrait,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
 use alloc::{format, string::String, vec, vec::Vec};
@@ -58,7 +59,10 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
 /// - Share accounting for the channel (as tracked by the client).
 /// - The channel's current chain tip.
 #[derive(Clone, Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel<'a, T>
+where
+    T: ShareAccountingClientTrait,
+{
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -73,11 +77,14 @@ pub struct ExtendedChannel<'a> {
     past_jobs: HashMap<u32, ExtendedJob<'a>>,
     // stale jobs are indexed with job_id (u32)
     stale_jobs: HashMap<u32, ExtendedJob<'a>>,
-    share_accounting: ShareAccountingClient,
+    share_accounting: T,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl<'a, T> ExtendedChannel<'a, T>
+where
+    T: ShareAccountingClientTrait,
+{
     /// Constructs a new [`ExtendedChannel`].
     pub fn new(
         channel_id: u32,
@@ -100,7 +107,7 @@ impl<'a> ExtendedChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccountingClient::new(),
+            share_accounting: T::new(),
             chain_tip: None,
         }
     }
@@ -204,7 +211,7 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns a reference to the [`ShareAccounting`] for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccountingClient {
+    pub fn get_share_accounting(&self) -> &T {
         &self.share_accounting
     }
 
@@ -565,7 +572,9 @@ impl<'a> ExtendedChannel<'a> {
 mod tests {
     use crate::client::{
         extended::ExtendedChannel,
-        share_accounting::{ShareValidationError, ShareValidationResult},
+        share_accounting::{
+            InMemoryShareAccountingClient, ShareValidationError, ShareValidationResult,
+        },
     };
     use binary_sv2::Sv2Option;
     use mining_sv2::{
@@ -588,7 +597,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -670,7 +679,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -744,7 +753,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -838,7 +847,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -935,7 +944,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingClient>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),

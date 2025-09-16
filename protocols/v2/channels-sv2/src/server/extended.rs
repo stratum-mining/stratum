@@ -45,8 +45,9 @@ use crate::{
     server::{
         error::ExtendedChannelError,
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
-        share_accounting::{ShareAccountingServer, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareValidationError, ShareValidationResult},
     },
+    share_accounting::ShareAccountingServerTrait,
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
 use binary_sv2::{self};
@@ -83,7 +84,10 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel<'a, T>
+where
+    T: ShareAccountingServerTrait,
+{
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -93,12 +97,15 @@ pub struct ExtendedChannel<'a> {
     nominal_hashrate: f32,
     job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
     job_factory: JobFactory,
-    share_accounting: ShareAccountingServer,
+    share_accounting: T,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl<'a, T> ExtendedChannel<'a, T>
+where
+    T: ShareAccountingServerTrait,
+{
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -226,7 +233,7 @@ impl<'a> ExtendedChannel<'a> {
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccountingServer::new(share_batch_size),
+            share_accounting: T::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
         })
@@ -402,7 +409,7 @@ impl<'a> ExtendedChannel<'a> {
         self.job_store.get_past_jobs()
     }
     /// Returns a reference to the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccountingServer {
+    pub fn get_share_accounting(&self) -> &T {
         &self.share_accounting
     }
 
@@ -721,7 +728,9 @@ mod tests {
             error::ExtendedChannelError,
             extended::ExtendedChannel,
             jobs::job_store::DefaultJobStore,
-            share_accounting::{ShareValidationError, ShareValidationResult},
+            share_accounting::{
+                InMemoryShareAccountingServer, ShareValidationError, ShareValidationResult,
+            },
         },
     };
     use binary_sv2::Sv2Option;
@@ -752,7 +761,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -903,7 +912,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1023,7 +1032,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1102,7 +1111,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1212,7 +1221,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1325,7 +1334,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1452,7 +1461,7 @@ mod tests {
         let max_target: Target = [0xff; 32].into();
 
         // Create a channel with initial hashrate
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1546,7 +1555,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::new());
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),

@@ -1,7 +1,6 @@
 use bitcoin::hashes::sha256d::Hash;
 
 pub trait ShareAccountingTrait {
-
     /// Updates the accounting state with a newly accepted share.
     fn update_share_accounting(
         &mut self,

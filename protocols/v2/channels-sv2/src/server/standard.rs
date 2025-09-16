@@ -40,8 +40,9 @@ use crate::{
         jobs::{
             extended::ExtendedJob, factory::JobFactory, job_store::JobStore, standard::StandardJob,
         },
-        share_accounting::{ShareAccountingServer, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareValidationError, ShareValidationResult},
     },
+    share_accounting::ShareAccountingServerTrait,
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
 use binary_sv2::{self};
@@ -80,21 +81,27 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel<'a, T>
+where
+    T: ShareAccountingServerTrait,
+{
     pub channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
     requested_max_target: Target,
     target: Target,
     nominal_hashrate: f32,
-    share_accounting: ShareAccountingServer,
+    share_accounting: T,
     expected_share_per_minute: f32,
     job_store: Box<dyn JobStore<StandardJob<'a>>>,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl<'a, T> StandardChannel<'a, T>
+where
+    T: ShareAccountingServerTrait,
+{
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -203,7 +210,7 @@ impl<'a> StandardChannel<'a> {
             requested_max_target,
             target,
             nominal_hashrate,
-            share_accounting: ShareAccountingServer::new(share_batch_size),
+            share_accounting: T::new(share_batch_size),
             expected_share_per_minute,
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
@@ -367,7 +374,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns a reference to the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccountingServer {
+    pub fn get_share_accounting(&self) -> &T {
         &self.share_accounting
     }
 
@@ -659,7 +666,9 @@ mod tests {
         server::{
             error::StandardChannelError,
             jobs::{job_store::DefaultJobStore, standard::StandardJob},
-            share_accounting::{ShareValidationError, ShareValidationResult},
+            share_accounting::{
+                InMemoryShareAccountingServer, ShareValidationError, ShareValidationResult,
+            },
             standard::StandardChannel,
         },
     };
@@ -691,7 +700,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -819,7 +828,7 @@ mod tests {
 
         let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -923,7 +932,7 @@ mod tests {
 
         let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -1029,7 +1038,7 @@ mod tests {
 
         let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -1138,7 +1147,7 @@ mod tests {
 
         let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -1241,7 +1250,7 @@ mod tests {
         let max_target: Target = [0xff; 32].into();
 
         // Create a channel with initial hashrate
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1331,7 +1340,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<InMemoryShareAccountingServer>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
