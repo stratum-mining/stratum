@@ -165,9 +165,7 @@ impl ShareAccountingTrait for InMemoryShareAccountingServer {
     }
 }
 
-impl ShareAccountingServerTrait<InMemoryShareAccountingServer> for InMemoryShareAccountingServer {
-    type Error = InMemoryShareAccountingError;
-
+impl ShareAccountingServerTrait for InMemoryShareAccountingServer {
     /// Constructs a new `ShareAccounting` instance for a channel.
     ///
     /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.

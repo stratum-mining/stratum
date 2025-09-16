@@ -35,13 +35,12 @@ pub trait ShareAccountingTrait {
     fn update_best_diff(&mut self, diff: f64) -> Result<(), Self::Error>;
 }
 
-pub trait ShareAccountingServerTrait<T> 
-where 
-    T: ShareAccountingTrait
-{
-    /// The error type returned by trait methods.
-    type Error: StdError + Send + Sync + 'static;
+pub trait ShareAccountingClientTrait: ShareAccountingTrait {
+    fn new() -> Self;
+}
 
+pub trait ShareAccountingServerTrait: ShareAccountingTrait {
+    /// Returns a new ShareAccountingTrait instance with batch size defined
     fn new(share_batch_size: usize) -> Self;
 
     /// Returns the configured share batch size for server acknowledgments.
