@@ -25,4 +25,5 @@ pub mod bip141;
 pub mod chain_tip;
 pub mod client;
 mod merkle_root;
+mod share_accounting;
 pub mod target;

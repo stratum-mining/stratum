@@ -7,6 +7,8 @@
 use super::HashSet;
 use bitcoin::hashes::sha256d::Hash;
 
+use crate::share_accounting::ShareAccountingTrait;
+
 /// The outcome of share validation, as seen by a Mining Client.
 ///
 /// - `Valid`: The share is valid and accepted.
@@ -47,7 +49,7 @@ pub enum ShareValidationError {
 /// - hashes of seen shares (for duplicate detection)
 /// - highest difficulty seen in accepted shares
 #[derive(Clone, Debug)]
-pub struct ShareAccountingClient {
+pub struct InMemoryShareAccountingClient {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,
@@ -55,13 +57,13 @@ pub struct ShareAccountingClient {
     best_diff: f64,
 }
 
-impl Default for ShareAccountingClient {
+impl Default for InMemoryShareAccountingClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ShareAccountingClient {
+impl InMemoryShareAccountingClient {
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
     pub fn new() -> Self {
         Self {
@@ -72,61 +74,78 @@ impl ShareAccountingClient {
             best_diff: 0.0,
         }
     }
+}
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum InMemoryShareAccountingError {}
+
+impl std::fmt::Display for InMemoryShareAccountingError {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {}
+    }
+}
+
+impl std::error::Error for InMemoryShareAccountingError {}
+
+impl ShareAccountingTrait for InMemoryShareAccountingClient {
+    type Error = InMemoryShareAccountingError;
     /// Updates the accounting state with a newly accepted share.
     ///
     /// - Increments share count and total work.
     /// - Updates last share sequence number.
     /// - Records share hash to detect duplicates.
-    pub fn update_share_accounting(
+    fn update_share_accounting(
         &mut self,
         share_work: u64,
         share_sequence_number: u32,
         share_hash: Hash,
-    ) {
+    ) -> Result<(), Self::Error> {
         self.last_share_sequence_number = share_sequence_number;
         self.shares_accepted += 1;
         self.share_work_sum += share_work;
         self.seen_shares.insert(share_hash);
+        Ok(())
     }
 
     /// Clears the set of seen share hashes.
     ///
     /// Should be called on every chain tip update
     /// to prevent unbounded memory growth.
-    pub fn flush_seen_shares(&mut self) {
+    fn flush_seen_shares(&mut self) -> Result<(), Self::Error> {
         self.seen_shares.clear();
+        Ok(())
     }
 
     /// Returns the sequence number of the last share received.
-    pub fn get_last_share_sequence_number(&self) -> u32 {
-        self.last_share_sequence_number
+    fn get_last_share_sequence_number(&self) -> Result<u32, Self::Error> {
+        Ok(self.last_share_sequence_number)
     }
 
     /// Returns the total number of shares accepted.
-    pub fn get_shares_accepted(&self) -> u32 {
-        self.shares_accepted
+    fn get_shares_accepted(&self) -> Result<u32, Self::Error> {
+        Ok(self.shares_accepted)
     }
 
     /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> u64 {
-        self.share_work_sum
+    fn get_share_work_sum(&self) -> Result<u64, Self::Error> {
+        Ok(self.share_work_sum)
     }
 
     /// Checks if the given share hash has already been seen (duplicate detection).
-    pub fn is_share_seen(&self, share_hash: Hash) -> bool {
-        self.seen_shares.contains(&share_hash)
+    fn is_share_seen(&self, share_hash: Hash) -> Result<bool, Self::Error> {
+        Ok(self.seen_shares.contains(&share_hash))
     }
 
     /// Returns the highest difficulty among all accepted shares.
-    pub fn get_best_diff(&self) -> f64 {
-        self.best_diff
+    fn get_best_diff(&self) -> Result<f64, Self::Error> {
+        Ok(self.best_diff)
     }
 
     /// Updates the best difficulty if the new difficulty is higher than the current best.
-    pub fn update_best_diff(&mut self, diff: f64) {
+    fn update_best_diff(&mut self, diff: f64) -> Result<(), Self::Error> {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
+        Ok(())
     }
 }
