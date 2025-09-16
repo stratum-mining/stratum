@@ -79,7 +79,7 @@ pub enum ShareValidationError {
 /// This struct manages per-channel share statistics, batch acknowledgment, duplicate detection,
 /// and difficulty tracking. Only meant for usage on Mining Servers.
 #[derive(Clone, Debug)]
-pub struct ShareAccounting {
+pub struct ShareAccountingServer {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,
@@ -88,7 +88,7 @@ pub struct ShareAccounting {
     best_diff: f64,
 }
 
-impl ShareAccounting {
+impl ShareAccountingServer {
     /// Constructs a new `ShareAccounting` instance for a channel.
     ///
     /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.

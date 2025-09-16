@@ -47,7 +47,7 @@ pub enum ShareValidationError {
 /// - hashes of seen shares (for duplicate detection)
 /// - highest difficulty seen in accepted shares
 #[derive(Clone, Debug)]
-pub struct ShareAccounting {
+pub struct ShareAccountingClient {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,
@@ -55,13 +55,13 @@ pub struct ShareAccounting {
     best_diff: f64,
 }
 
-impl Default for ShareAccounting {
+impl Default for ShareAccountingClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ShareAccounting {
+impl ShareAccountingClient {
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
     pub fn new() -> Self {
         Self {

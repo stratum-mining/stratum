@@ -10,7 +10,7 @@ use crate::{
     chain_tip::ChainTip,
     client::{
         error::ExtendedChannelError,
-        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareAccountingClient, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
@@ -73,7 +73,7 @@ pub struct ExtendedChannel<'a> {
     past_jobs: HashMap<u32, ExtendedJob<'a>>,
     // stale jobs are indexed with job_id (u32)
     stale_jobs: HashMap<u32, ExtendedJob<'a>>,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccountingClient,
     chain_tip: Option<ChainTip>,
 }
 
@@ -100,7 +100,7 @@ impl<'a> ExtendedChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(),
+            share_accounting: ShareAccountingClient::new(),
             chain_tip: None,
         }
     }
@@ -204,7 +204,7 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns a reference to the [`ShareAccounting`] for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccountingClient {
         &self.share_accounting
     }
 

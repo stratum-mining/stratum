@@ -45,7 +45,7 @@ use crate::{
     server::{
         error::ExtendedChannelError,
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
-        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareAccountingServer, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
@@ -93,7 +93,7 @@ pub struct ExtendedChannel<'a> {
     nominal_hashrate: f32,
     job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
     job_factory: JobFactory,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccountingServer,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
 }
@@ -226,7 +226,7 @@ impl<'a> ExtendedChannel<'a> {
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccounting::new(share_batch_size),
+            share_accounting: ShareAccountingServer::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
         })
@@ -402,7 +402,7 @@ impl<'a> ExtendedChannel<'a> {
         self.job_store.get_past_jobs()
     }
     /// Returns a reference to the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccountingServer {
         &self.share_accounting
     }
 

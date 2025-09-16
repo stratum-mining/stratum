@@ -10,7 +10,7 @@ use crate::{
     chain_tip::ChainTip,
     client::{
         error::StandardChannelError,
-        share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
+        share_accounting::{ShareAccountingClient, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
@@ -53,7 +53,7 @@ pub struct StandardChannel<'a> {
     active_job: Option<NewMiningJob<'a>>,
     past_jobs: HashMap<u32, NewMiningJob<'a>>,
     stale_jobs: HashMap<u32, NewMiningJob<'a>>,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccountingClient,
     chain_tip: Option<ChainTip>,
 }
 
@@ -76,7 +76,7 @@ impl<'a> StandardChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(),
+            share_accounting: ShareAccountingClient::new(),
             chain_tip: None,
         }
     }
@@ -161,7 +161,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccountingClient {
         &self.share_accounting
     }
 
