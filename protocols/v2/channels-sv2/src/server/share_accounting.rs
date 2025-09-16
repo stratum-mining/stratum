@@ -90,20 +90,7 @@ pub struct InMemoryShareAccountingServer {
     best_diff: f64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum InMemoryShareAccountingError {}
-
-impl std::fmt::Display for InMemoryShareAccountingError {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {}
-    }
-}
-
-impl std::error::Error for InMemoryShareAccountingError {}
-
 impl ShareAccountingTrait for InMemoryShareAccountingServer {
-    type Error = InMemoryShareAccountingError;
-
     /// Updates internal accounting for a newly accepted share.
     ///
     /// - Increments total shares accepted and work sum.
@@ -114,54 +101,51 @@ impl ShareAccountingTrait for InMemoryShareAccountingServer {
         share_work: u64,
         share_sequence_number: u32,
         share_hash: Hash,
-    ) -> Result<(), Self::Error> {
+    ) {
         self.last_share_sequence_number = share_sequence_number;
         self.shares_accepted += 1;
         self.share_work_sum += share_work;
         self.seen_shares.insert(share_hash);
-        Ok(())
     }
 
     /// Clears the set of seen share hashes.
     ///
     /// Should be called on every chain tip update to avoid unbounded growth of memory
     /// and allow new shares for the new tip.
-    fn flush_seen_shares(&mut self) -> Result<(), Self::Error> {
+    fn flush_seen_shares(&mut self) {
         self.seen_shares.clear();
-        Ok(())
     }
 
     /// Returns the sequence number of the last accepted share.
-    fn get_last_share_sequence_number(&self) -> Result<u32, Self::Error> {
-        Ok(self.last_share_sequence_number)
+    fn get_last_share_sequence_number(&self) -> u32 {
+        self.last_share_sequence_number
     }
 
     /// Returns the total number of shares accepted on this channel.
-    fn get_shares_accepted(&self) -> Result<u32, Self::Error> {
-        Ok(self.shares_accepted)
+    fn get_shares_accepted(&self) -> u32 {
+        self.shares_accepted
     }
 
     /// Returns the sum of work contributed by all accepted shares.
-    fn get_share_work_sum(&self) -> Result<u64, Self::Error> {
-        Ok(self.share_work_sum)
+    fn get_share_work_sum(&self) -> u64 {
+        self.share_work_sum
     }
 
     /// Checks if the share hash has already been accepted (duplicate detection).
-    fn is_share_seen(&self, share_hash: Hash) -> Result<bool, Self::Error> {
-        Ok(self.seen_shares.contains(&share_hash))
+    fn is_share_seen(&self, share_hash: Hash) -> bool {
+        self.seen_shares.contains(&share_hash)
     }
 
     /// Returns the highest difficulty found among accepted shares.
-    fn get_best_diff(&self) -> Result<f64, Self::Error> {
-        Ok(self.best_diff)
+    fn get_best_diff(&self) -> f64 {
+        self.best_diff
     }
 
     /// Updates the best difficulty if the new value is higher.
-    fn update_best_diff(&mut self, diff: f64) -> Result<(), Self::Error> {
+    fn update_best_diff(&mut self, diff: f64) {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
-        Ok(())
     }
 }
 
@@ -181,12 +165,12 @@ impl ShareAccountingServerTrait for InMemoryShareAccountingServer {
     }
 
     /// Returns the configured batch size for share acknowledgments.
-    fn get_share_batch_size(&self) -> Result<Option<usize>, Self::Error> {
-        Ok(Some(self.share_batch_size))
+    fn get_share_batch_size(&self) -> usize {
+        self.share_batch_size
     }
 
     /// Returns true if the current count of accepted shares triggers an acknowledgment.
-    fn should_acknowledge(&self) -> Result<bool, Self::Error> {
-        Ok(self.shares_accepted > 0 && self.shares_accepted % self.share_batch_size as u32 == 0)
+    fn should_acknowledge(&self) -> bool {
+        self.shares_accepted > 0 && self.shares_accepted % self.share_batch_size as u32 == 0
     }
 }
