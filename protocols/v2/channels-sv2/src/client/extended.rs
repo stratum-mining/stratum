@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    share_accounting::ShareAccountingClientTrait,
+    share_accounting::ShareAccountingClient,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
 use alloc::{format, string::String, vec, vec::Vec};
@@ -61,7 +61,7 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
 #[derive(Clone, Debug)]
 pub struct ExtendedChannel<'a, T>
 where
-    T: ShareAccountingClientTrait,
+    T: ShareAccountingClient,
 {
     channel_id: u32,
     user_identity: String,
@@ -83,7 +83,7 @@ where
 
 impl<'a, T> ExtendedChannel<'a, T>
 where
-    T: ShareAccountingClientTrait,
+    T: ShareAccountingClient,
 {
     /// Constructs a new [`ExtendedChannel`].
     pub fn new(

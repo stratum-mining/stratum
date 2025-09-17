@@ -47,7 +47,7 @@ use crate::{
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
         share_accounting::{ShareValidationError, ShareValidationResult},
     },
-    share_accounting::ShareAccountingServerTrait,
+    share_accounting::ShareAccountingServer,
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
 };
 use binary_sv2::{self};
@@ -86,7 +86,7 @@ use tracing::debug;
 #[derive(Debug)]
 pub struct ExtendedChannel<'a, T>
 where
-    T: ShareAccountingServerTrait,
+    T: ShareAccountingServer,
 {
     channel_id: u32,
     user_identity: String,
@@ -104,7 +104,7 @@ where
 
 impl<'a, T> ExtendedChannel<'a, T>
 where
-    T: ShareAccountingServerTrait,
+    T: ShareAccountingServer,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.

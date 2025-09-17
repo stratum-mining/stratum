@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    share_accounting::ShareAccountingClientTrait,
+    share_accounting::ShareAccountingClient,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
 };
 use alloc::{format, string::String, vec::Vec};
@@ -46,7 +46,7 @@ use tracing::debug;
 #[derive(Debug, Clone)]
 pub struct StandardChannel<'a, T>
 where
-    T: ShareAccountingClientTrait,
+    T: ShareAccountingClient,
 {
     channel_id: u32,
     user_identity: String,
@@ -63,7 +63,7 @@ where
 
 impl<'a, T> StandardChannel<'a, T>
 where
-    T: ShareAccountingClientTrait,
+    T: ShareAccountingClient,
 {
     /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(

@@ -1,6 +1,6 @@
 use bitcoin::hashes::sha256d::Hash;
 
-pub trait ShareAccountingTrait {
+pub trait ShareAccounting {
     /// Updates the accounting state with a newly accepted share.
     fn update_share_accounting(
         &mut self,
@@ -31,11 +31,11 @@ pub trait ShareAccountingTrait {
     fn update_best_diff(&mut self, diff: f64);
 }
 
-pub trait ShareAccountingClientTrait: ShareAccountingTrait {
+pub trait ShareAccountingClient: ShareAccounting {
     fn new() -> Self;
 }
 
-pub trait ShareAccountingServerTrait: ShareAccountingTrait {
+pub trait ShareAccountingServer: ShareAccounting {
     /// Returns a new ShareAccountingTrait instance with batch size defined
     fn new(share_batch_size: usize) -> Self;
 

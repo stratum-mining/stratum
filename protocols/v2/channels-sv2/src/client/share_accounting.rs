@@ -7,7 +7,7 @@
 use super::HashSet;
 use bitcoin::hashes::sha256d::Hash;
 
-use crate::share_accounting::{ShareAccountingClientTrait, ShareAccountingTrait};
+use crate::share_accounting::{ShareAccountingClient, ShareAccounting};
 
 /// The outcome of share validation, as seen by a Mining Client.
 ///
@@ -63,7 +63,7 @@ impl Default for InMemoryShareAccountingClient {
     }
 }
 
-impl ShareAccountingClientTrait for InMemoryShareAccountingClient {
+impl ShareAccountingClient for InMemoryShareAccountingClient {
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
     fn new() -> Self {
         Self {
@@ -87,7 +87,7 @@ impl std::fmt::Display for InMemoryShareAccountingError {
 
 impl std::error::Error for InMemoryShareAccountingError {}
 
-impl ShareAccountingTrait for InMemoryShareAccountingClient {
+impl ShareAccounting for InMemoryShareAccountingClient {
     /// Updates the accounting state with a newly accepted share.
     ///
     /// - Increments share count and total work.

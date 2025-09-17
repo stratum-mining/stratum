@@ -21,7 +21,7 @@
 use bitcoin::hashes::sha256d::Hash;
 use std::collections::HashSet;
 
-use crate::share_accounting::{ShareAccountingServerTrait, ShareAccountingTrait};
+use crate::share_accounting::{ShareAccountingServer, ShareAccounting};
 
 /// The outcome of share validation, from the perspective of a Mining Server.
 ///
@@ -90,7 +90,7 @@ pub struct InMemoryShareAccountingServer {
     best_diff: f64,
 }
 
-impl ShareAccountingTrait for InMemoryShareAccountingServer {
+impl ShareAccounting for InMemoryShareAccountingServer {
     /// Updates internal accounting for a newly accepted share.
     ///
     /// - Increments total shares accepted and work sum.
@@ -149,7 +149,7 @@ impl ShareAccountingTrait for InMemoryShareAccountingServer {
     }
 }
 
-impl ShareAccountingServerTrait for InMemoryShareAccountingServer {
+impl ShareAccountingServer for InMemoryShareAccountingServer {
     /// Constructs a new `ShareAccounting` instance for a channel.
     ///
     /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.
