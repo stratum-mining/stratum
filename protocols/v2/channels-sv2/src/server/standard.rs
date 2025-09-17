@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Sequence, Target as BitcoinTarget,
 };
 use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
-use std::{collections::HashMap, convert::TryInto};
+use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -80,7 +80,10 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel<'a, J>
+where
+    J: JobStore<StandardJob<'a>>,
+{
     pub channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -89,12 +92,16 @@ pub struct StandardChannel<'a> {
     nominal_hashrate: f32,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
-    job_store: Box<dyn JobStore<StandardJob<'a>>>,
+    job_store: J,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
+    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl<'a, J> StandardChannel<'a, J>
+where
+    J: JobStore<StandardJob<'a>>,
+{
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -114,7 +121,7 @@ impl<'a> StandardChannel<'a> {
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<StandardJob<'a>>>,
+        job_store: J,
         pool_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
         Self::new(
@@ -150,7 +157,7 @@ impl<'a> StandardChannel<'a> {
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<StandardJob<'a>>>,
+        job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
@@ -178,7 +185,7 @@ impl<'a> StandardChannel<'a> {
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<StandardJob<'a>>>,
+        job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: Option<String>,
     ) -> Result<Self, StandardChannelError> {
@@ -208,6 +215,7 @@ impl<'a> StandardChannel<'a> {
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
             job_store,
+            phantom: PhantomData,
         })
     }
 
@@ -689,7 +697,7 @@ mod tests {
         let nominal_hashrate = 10.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -817,7 +825,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -921,7 +929,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1027,7 +1035,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1136,7 +1144,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1236,7 +1244,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
         // this is the most permissive possible max_target
         let max_target: Target = [0xff; 32].into();
 
@@ -1329,7 +1337,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::<StandardJob>::new());
+        let job_store = DefaultJobStore::<StandardJob>::new();
 
         let mut channel = StandardChannel::new(
             channel_id,
