@@ -12,10 +12,10 @@ pub trait HandleCommonMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
-        self.dispatch_common_message_from_server(parsed)
+        self.handle_common_message_from_server(parsed)
     }
 
-    fn dispatch_common_message_from_server(
+    fn handle_common_message_from_server(
         &mut self,
         message: CommonMessages<'_>,
     ) -> Result<(), Error> {
@@ -56,11 +56,11 @@ pub trait HandleCommonMessagesFromServerAsync {
         let parsed: Result<CommonMessages<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_common_message_from_server(parsed).await
+            self.handle_common_message_from_server(parsed).await
         }
     }
 
-    async fn dispatch_common_message_from_server(
+    async fn handle_common_message_from_server(
         &mut self,
         message: CommonMessages<'_>,
     ) -> Result<(), Error> {
@@ -109,10 +109,10 @@ pub trait HandleCommonMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
-        self.dispatch_common_message_from_client(parsed)
+        self.handle_common_message_from_client(parsed)
     }
 
-    fn dispatch_common_message_from_client(
+    fn handle_common_message_from_client(
         &mut self,
         message: CommonMessages<'_>,
     ) -> Result<(), Error> {
@@ -145,11 +145,11 @@ pub trait HandleCommonMessagesFromClientAsync {
         let parsed: Result<CommonMessages<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_common_message_from_client(parsed).await
+            self.handle_common_message_from_client(parsed).await
         }
     }
 
-    async fn dispatch_common_message_from_client(
+    async fn handle_common_message_from_client(
         &mut self,
         message: CommonMessages<'_>,
     ) -> Result<(), Error> {

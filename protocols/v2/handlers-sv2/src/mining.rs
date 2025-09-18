@@ -31,10 +31,10 @@ pub trait HandleMiningMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: Mining = (message_type, payload).try_into()?;
-        self.dispatch_mining_message_from_server(parsed)
+        self.handle_mining_message_from_server(parsed)
     }
 
-    fn dispatch_mining_message_from_server(&mut self, message: Mining) -> Result<(), Error> {
+    fn handle_mining_message_from_server(&mut self, message: Mining) -> Result<(), Error> {
         let (channel_type, work_selection) = (
             self.get_channel_type_for_server(),
             self.is_work_selection_enabled_for_server(),
@@ -178,11 +178,11 @@ pub trait HandleMiningMessagesFromServerAsync {
         let parsed: Result<Mining, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_mining_message_from_server(parsed).await
+            self.handle_mining_message_from_server(parsed).await
         }
     }
 
-    async fn dispatch_mining_message_from_server(&mut self, message: Mining) -> Result<(), Error> {
+    async fn handle_mining_message_from_server(&mut self, message: Mining) -> Result<(), Error> {
         let (channel_type, work_selection) = (
             self.get_channel_type_for_server(),
             self.is_work_selection_enabled_for_server(),
@@ -332,10 +332,10 @@ pub trait HandleMiningMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: Mining = (message_type, payload).try_into()?;
-        self.dispatch_mining_message_from_client(parsed)
+        self.handle_mining_message_from_client(parsed)
     }
 
-    fn dispatch_mining_message_from_client(&mut self, message: Mining) -> Result<(), Error> {
+    fn handle_mining_message_from_client(&mut self, message: Mining) -> Result<(), Error> {
         let (channel_type, work_selection) = (
             self.get_channel_type_for_client(),
             self.is_work_selection_enabled_for_client(),
@@ -429,11 +429,11 @@ pub trait HandleMiningMessagesFromClientAsync {
         let parsed: Result<Mining, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_mining_message_from_client(parsed).await
+            self.handle_mining_message_from_client(parsed).await
         }
     }
 
-    async fn dispatch_mining_message_from_client(&mut self, message: Mining) -> Result<(), Error> {
+    async fn handle_mining_message_from_client(&mut self, message: Mining) -> Result<(), Error> {
         let (channel_type, work_selection) = (
             self.get_channel_type_for_client(),
             self.is_work_selection_enabled_for_client(),

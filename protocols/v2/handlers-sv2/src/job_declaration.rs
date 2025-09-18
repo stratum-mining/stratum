@@ -15,10 +15,10 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload).try_into()?;
-        self.dispatch_job_declaration_from_server(parsed)
+        self.handle_job_declaration_message_from_server(parsed)
     }
 
-    fn dispatch_job_declaration_from_server(
+    fn handle_job_declaration_message_from_server(
         &mut self,
         message: JobDeclaration<'_>,
     ) -> Result<(), Error> {
@@ -76,11 +76,11 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
         let parsed: Result<JobDeclaration<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_job_declaration_from_server(parsed).await
+            self.handle_job_declaration_message_from_server(parsed).await
         }
     }
 
-    async fn dispatch_job_declaration_from_server(
+    async fn handle_job_declaration_message_from_server(
         &mut self,
         message: JobDeclaration<'_>,
     ) -> Result<(), Error> {
@@ -142,10 +142,10 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload).try_into()?;
-        self.dispatch_job_declaration_from_client(parsed)
+        self.handle_job_declaration_message_from_client(parsed)
     }
 
-    fn dispatch_job_declaration_from_client(
+    fn handle_job_declaration_message_from_client(
         &mut self,
         message: JobDeclaration<'_>,
     ) -> Result<(), Error> {
@@ -199,11 +199,11 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
         let parsed: Result<JobDeclaration<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_job_declaration_from_client(parsed).await
+            self.handle_job_declaration_message_from_client(parsed).await
         }
     }
 
-    async fn dispatch_job_declaration_from_client(
+    async fn handle_job_declaration_message_from_client(
         &mut self,
         message: JobDeclaration<'_>,
     ) -> Result<(), Error> {

@@ -15,10 +15,10 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: TemplateDistribution<'_> = (message_type, payload).try_into()?;
-        self.dispatch_template_distribution_from_server(parsed)
+        self.handle_template_distribution_message_from_server(parsed)
     }
 
-    fn dispatch_template_distribution_from_server(
+    fn handle_template_distribution_message_from_server(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
@@ -68,12 +68,12 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
         let parsed: Result<TemplateDistribution<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_template_distribution_from_server(parsed)
+            self.handle_template_distribution_message_from_server(parsed)
                 .await
         }
     }
 
-    async fn dispatch_template_distribution_from_server(
+    async fn handle_template_distribution_message_from_server(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
@@ -122,10 +122,10 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
         payload: &mut [u8],
     ) -> Result<(), Error> {
         let parsed: TemplateDistribution<'_> = (message_type, payload).try_into()?;
-        self.dispatch_template_distribution_from_client(parsed)
+        self.handle_template_distribution_message_from_client(parsed)
     }
 
-    fn dispatch_template_distribution_from_client(
+    fn handle_template_distribution_message_from_client(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
@@ -170,12 +170,12 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
         let parsed: Result<TemplateDistribution<'_>, _> = (message_type, payload).try_into();
         async move {
             let parsed = parsed?;
-            self.dispatch_template_distribution_from_client(parsed)
+            self.handle_template_distribution_message_from_client(parsed)
                 .await
         }
     }
 
-    async fn dispatch_template_distribution_from_client(
+    async fn handle_template_distribution_message_from_client(
         &mut self,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Error> {
