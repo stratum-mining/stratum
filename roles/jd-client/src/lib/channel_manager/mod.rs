@@ -566,8 +566,11 @@ impl ChannelManager {
                 return Ok(());
             };
 
-            self.handle_job_declaration_message_from_server(message_type, sv2_frame.payload())
-                .await?;
+            self.handle_job_declaration_message_frame_from_server(
+                message_type,
+                sv2_frame.payload(),
+            )
+            .await?;
         }
         Ok(())
     }
@@ -584,7 +587,7 @@ impl ChannelManager {
                 return Ok(());
             };
 
-            self.handle_mining_message_from_server(message_type, sv2_frame.payload())
+            self.handle_mining_message_frame_from_server(message_type, sv2_frame.payload())
                 .await?;
         }
         Ok(())
@@ -601,7 +604,7 @@ impl ChannelManager {
             let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
                 return Ok(());
             };
-            self.handle_template_distribution_message_from_server(
+            self.handle_template_distribution_message_frame_from_server(
                 message_type,
                 sv2_frame.payload(),
             )
@@ -653,14 +656,14 @@ impl ChannelManager {
             .await
         {
             let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
-                return Err(JDCError::UnexpectedMessage);
+                return Err(JDCError::UnexpectedMessage(0));
             };
 
             match message_type {
                 MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
                     let message: Mining = (message_type, sv2_frame.payload()).try_into()?;
                     let Mining::OpenExtendedMiningChannel(mut x) = message else {
-                        return Err(JDCError::UnexpectedMessage);
+                        return Err(JDCError::UnexpectedMessage(message_type));
                     };
                     let user_identity =
                         format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
@@ -720,7 +723,7 @@ impl ChannelManager {
                 MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
                     let message: Mining = (message_type, sv2_frame.payload()).try_into()?;
                     let Mining::OpenStandardMiningChannel(mut x) = message else {
-                        return Err(JDCError::UnexpectedMessage);
+                        return Err(JDCError::UnexpectedMessage(message_type));
                     };
 
                     let user_identity = format!("{:?}#{}", x.user_identity, downstream_id);
@@ -780,7 +783,7 @@ impl ChannelManager {
                     }
                 }
                 _ => {
-                    self.handle_mining_message_from_client(message_type, sv2_frame.payload())
+                    self.handle_mining_message_frame_from_client(message_type, sv2_frame.payload())
                         .await?;
                 }
             }
@@ -824,7 +827,7 @@ impl ChannelManager {
             };
 
         let payload = deserialized_frame.payload();
-        self.handle_mining_message_from_client(message_type, payload)
+        self.handle_mining_message_frame_from_client(message_type, payload)
             .await?;
         Ok(())
     }

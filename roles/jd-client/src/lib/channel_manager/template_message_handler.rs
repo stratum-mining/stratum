@@ -2,7 +2,7 @@ use stratum_common::roles_logic_sv2::{
     bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut},
     channels_sv2::chain_tip::ChainTip,
     codec_sv2::binary_sv2::{Seq064K, U256},
-    handlers_sv2::{HandleTemplateDistributionMessagesFromServerAsync, HandlerError as Error},
+    handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
     job_declaration_sv2::DeclareMiningJob,
     mining_sv2::SetNewPrevHash as SetNewPrevHashMp,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
@@ -18,6 +18,8 @@ use crate::{
 };
 
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
+    type Error = JDCError;
+
     // Handles a `NewTemplate` message from the Template Provider.
     //
     // Behavior depends on the JD mode:
@@ -30,7 +32,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     //
     // Also updates future/active template state and triggers token
     // allocation if needed.
-    async fn handle_new_template(&mut self, msg: NewTemplate<'_>) -> Result<(), Error> {
+    async fn handle_new_template(&mut self, msg: NewTemplate<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         self.channel_manager_data.super_safe_lock(|data| {
@@ -238,7 +240,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     async fn handle_request_tx_data_error(
         &mut self,
         msg: RequestTransactionDataError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         let error_code = msg.error_code.as_utf8_or_hex();
 
@@ -248,7 +250,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         ) {
             return Ok(());
         }
-        Err(JDCError::TxDataError.into())
+        Err(JDCError::TxDataError)
     }
 
     // Handles a `RequestTransactionDataSuccess` message from the Template Provider.
@@ -262,7 +264,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     async fn handle_request_tx_data_success(
         &mut self,
         msg: RequestTransactionDataSuccess<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let transactions_data = msg.transaction_list;
@@ -281,12 +283,12 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         _ = self.allocate_tokens(1).await;
         let Some(token) = token else {
             error!("Token not found, template id: {}", msg.template_id);
-            return Err(JDCError::TokenNotFound.into());
+            return Err(JDCError::TokenNotFound);
         };
 
         let Some(template_message) = template_message else {
             error!("Template not found, template id: {}", msg.template_id);
-            return Err(JDCError::TemplateNotFound(msg.template_id).into());
+            return Err(JDCError::TemplateNotFound(msg.template_id));
         };
 
         let mining_token = token.mining_job_token.clone();
@@ -375,7 +377,10 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     // - In CoinbaseOnly mode → send a `CustomMiningJob` for the activated future template.
     // - Update the upstream channel state.
     // - Update all downstream channels and propagate the new `prevhash` via `SetNewPrevHash`.
-    async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
+    async fn handle_set_new_prev_hash(
+        &mut self,
+        msg: SetNewPrevHash<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let (future_template, declare_job) = self.channel_manager_data.super_safe_lock(|data| {

@@ -1,9 +1,7 @@
 use stratum_common::roles_logic_sv2::{
     self,
     channels_sv2::{client::extended::ExtendedChannel, server::jobs::factory::JobFactory},
-    handlers_sv2::{
-        HandleMiningMessagesFromServerAsync, HandlerError as Error, SupportedChannelTypes,
-    },
+    handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
     mining_sv2::*,
     parsers_sv2::{AnyMessage, IsSv2Message, Mining, TemplateDistribution},
     template_distribution_sv2::RequestTransactionData,
@@ -19,6 +17,8 @@ use crate::{
 };
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
+    type Error = JDCError;
+
     fn get_channel_type_for_server(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
@@ -37,7 +37,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_open_standard_mining_channel_success(
         &mut self,
         msg: OpenStandardMiningChannelSuccess<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         info!(
             "⚠️ JDC can only open extended channels with the upstream server, preparing fallback."
@@ -66,7 +66,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_open_extended_mining_channel_success(
         &mut self,
         msg: OpenExtendedMiningChannelSuccess<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let (channel_state, template, custom_job) =
@@ -243,7 +243,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_open_mining_channel_error(
         &mut self,
         msg: OpenMiningChannelError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ Cannot open extended channel with the upstream server, preparing fallback.");
 
@@ -261,7 +261,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_update_channel_error(
         &mut self,
         msg: UpdateChannelError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         Ok(())
     }
@@ -270,7 +270,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     //
     // Upon receiving this message, the upstream channel is immediately closed and
     // the system transitions into the upstream shutdown fallback state.
-    async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
+    async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         self.channel_manager_data.super_safe_lock(|data| {
@@ -295,12 +295,12 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_set_extranonce_prefix(
         &mut self,
         msg: SetExtranoncePrefix<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         let messages_results = self
             .channel_manager_data
             .super_safe_lock(|channel_manager_data| {
-                let mut messages_results: Vec<Result<RouteMessageTo, JDCError>> = vec![];
+                let mut messages_results: Vec<Result<RouteMessageTo, Self::Error>> = vec![];
                 if let Some(upstream_channel) = channel_manager_data.upstream_channel.as_mut() {
                     if let Err(_e) =
                         upstream_channel.set_extranonce_prefix(msg.extranonce_prefix.to_vec())
@@ -426,7 +426,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_submit_shares_success(
         &mut self,
         msg: SubmitSharesSuccess,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {} ✅", msg);
         Ok(())
     }
@@ -435,13 +435,13 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_submit_shares_error(
         &mut self,
         msg: SubmitSharesError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {} ❌", msg);
         Ok(())
     }
 
     // Handles `NewMiningJob` messages from upstream. JDC ignores it.
-    async fn handle_new_mining_job(&mut self, msg: NewMiningJob<'_>) -> Result<(), Error> {
+    async fn handle_new_mining_job(&mut self, msg: NewMiningJob<'_>) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect jobs from the upstream server — ignoring.");
         Ok(())
@@ -451,14 +451,17 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_new_extended_mining_job(
         &mut self,
         msg: NewExtendedMiningJob<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect jobs from the upstream server — ignoring.");
         Ok(())
     }
 
     // Handles `SetNewPrevHash` messages from upstream. JDC ignores it.
-    async fn handle_set_new_prev_hash(&mut self, msg: SetNewPrevHash<'_>) -> Result<(), Error> {
+    async fn handle_set_new_prev_hash(
+        &mut self,
+        msg: SetNewPrevHash<'_>,
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect prevhash updates from the upstream server — ignoring.");
         Ok(())
@@ -473,7 +476,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_set_custom_mining_job_success(
         &mut self,
         msg: SetCustomMiningJobSuccess,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {} ✅", msg);
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(last_declare_job) = data.last_declare_job_store.remove(&msg.request_id) {
@@ -511,7 +514,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     async fn handle_set_custom_mining_job_error(
         &mut self,
         msg: SetCustomMiningJobError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("⚠️ Received: {} ❌", msg);
         warn!("⚠️ Starting fallback mechanism.");
         _ = self
@@ -527,7 +530,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     // Handles a `SetTarget` message from upstream.
     //
     // Updates the corresponding upstream channel's target state.
-    async fn handle_set_target(&mut self, msg: SetTarget<'_>) -> Result<(), Error> {
+    async fn handle_set_target(&mut self, msg: SetTarget<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(ref mut upstream) = data.upstream_channel {
@@ -538,7 +541,10 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     }
 
     // Handles `SetGroupChannel` messages from upstream. JDC ignores it.
-    async fn handle_set_group_channel(&mut self, msg: SetGroupChannel<'_>) -> Result<(), Error> {
+    async fn handle_set_group_channel(
+        &mut self,
+        msg: SetGroupChannel<'_>,
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect group channel updates from the upstream server — ignoring.");
         Ok(())

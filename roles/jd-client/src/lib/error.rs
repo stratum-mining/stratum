@@ -18,7 +18,7 @@ use stratum_common::{
     roles_logic_sv2::{
         self, bitcoin,
         codec_sv2::{self, binary_sv2, framing_sv2},
-        handlers_sv2::HandlerError,
+        handlers_sv2::HandlerErrorType,
         parsers_sv2::ParserError,
     },
 };
@@ -60,8 +60,7 @@ pub enum JDCError {
     BroadcastChannelErrorReceiver(broadcast::error::RecvError),
     Shutdown,
     NetworkHelpersError(stratum_common::network_helpers_sv2::Error),
-    HandlerError(HandlerError),
-    UnexpectedMessage,
+    UnexpectedMessage(u8),
     InvalidUserIdentity(String),
     BitcoinEncodeError(bitcoin::consensus::encode::Error),
     InvalidSocketAddress(String),
@@ -109,8 +108,7 @@ impl fmt::Display for JDCError {
             ChannelErrorSender => write!(f, "Sender error"),
             Shutdown => write!(f, "Shutdown"),
             NetworkHelpersError(ref e) => write!(f, "Network error: {e:?}"),
-            HandlerError(ref e) => write!(f, "Error generated from handler: {e:?}"),
-            UnexpectedMessage => write!(f, "Unexpected Message"),
+            UnexpectedMessage(message_type) => write!(f, "Unexpected Message: {message_type}"),
             InvalidUserIdentity(_) => write!(f, "User ID is invalid"),
             BitcoinEncodeError(_) => write!(f, "Error generated during encoding"),
             InvalidSocketAddress(ref s) => write!(f, "Invalid socket address: {s}"),
@@ -184,21 +182,12 @@ impl JDCError {
     /// Adds basic priority to error types:
     /// todo: design a better error priority system.
     pub fn is_critical(&self) -> bool {
-        if let JDCError::HandlerError(HandlerError::External(e)) = self {
-            if let Some(inner) = e.downcast_ref::<JDCError>() {
-                if inner.is_non_critical_variant() {
-                    tracing::error!("Non-critical error: {self}");
-                    return false;
-                }
-            }
+        if self.is_non_critical_variant() {
+            tracing::error!("Non-critical error: {self}");
+            return false;
         }
-        true
-    }
-}
 
-impl From<HandlerError> for JDCError {
-    fn from(value: HandlerError) -> Self {
-        JDCError::HandlerError(value)
+        true
     }
 }
 
@@ -280,8 +269,12 @@ impl From<Elapsed> for JDCError {
     }
 }
 
-impl From<JDCError> for HandlerError {
-    fn from(value: JDCError) -> Self {
-        HandlerError::External(value.into())
+impl HandlerErrorType for JDCError {
+    fn parse_error(error: ParserError) -> Self {
+        JDCError::Parser(error)
+    }
+
+    fn unexpected_message(message_type: u8) -> Self {
+        JDCError::UnexpectedMessage(message_type)
     }
 }

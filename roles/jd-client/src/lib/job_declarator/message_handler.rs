@@ -2,7 +2,7 @@ use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{
         ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess,
     },
-    handlers_sv2::{HandleCommonMessagesFromServerAsync, HandlerError as Error},
+    handlers_sv2::HandleCommonMessagesFromServerAsync,
 };
 use tracing::{info, warn};
 
@@ -13,10 +13,12 @@ use crate::{
 };
 
 impl HandleCommonMessagesFromServerAsync for JobDeclarator {
+    type Error = JDCError;
+
     async fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let jd_mode = match msg.flags {
@@ -27,7 +29,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
         set_jd_mode(jd_mode);
 
         if jd_mode == JdMode::SoloMining {
-            return Err(JDCError::Shutdown.into());
+            return Err(JDCError::Shutdown);
         }
 
         Ok(())
@@ -36,12 +38,12 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
     async fn handle_channel_endpoint_changed(
         &mut self,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
 
-    async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Error> {
+    async fn handle_reconnect(&mut self, msg: Reconnect<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -49,8 +51,8 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
     async fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
-        Err(JDCError::Shutdown.into())
+        Err(JDCError::Shutdown)
     }
 }

@@ -4,7 +4,7 @@ use stratum_common::roles_logic_sv2::{
         TxIn, TxOut, Witness,
     },
     codec_sv2::binary_sv2::{self, Sv2DataType, B016M},
-    handlers_sv2::{HandleJobDeclarationMessagesFromServerAsync, HandlerError as Error},
+    handlers_sv2::HandleJobDeclarationMessagesFromServerAsync,
     job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
@@ -22,6 +22,8 @@ use crate::{
 };
 
 impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
+    type Error = JDCError;
+
     // Handles a successful `AllocateMiningJobToken` response from the JDS.
     //
     // When the JDS confirms job token allocation:
@@ -34,7 +36,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     async fn handle_allocate_mining_job_token_success(
         &mut self,
         msg: AllocateMiningJobTokenSuccess<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let coinbase_changed = self.channel_manager_data.super_safe_lock(|data| {
@@ -113,7 +115,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     async fn handle_declare_mining_job_error(
         &mut self,
         msg: DeclareMiningJobError<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDS refused the declared job with a DeclareMiningJobError ❌. Starting fallback mechanism.");
         self.channel_manager_channel
@@ -146,7 +148,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     async fn handle_declare_mining_job_success(
         &mut self,
         msg: DeclareMiningJobSuccess<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let Some(last_declare_job) = self
@@ -157,12 +159,12 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
                 "No last_declare_job found for request_id={}",
                 msg.request_id
             );
-            return Err(JDCError::LastDeclareJobNotFound(msg.request_id).into());
+            return Err(JDCError::LastDeclareJobNotFound(msg.request_id));
         };
 
         let Some(prevhash) = last_declare_job.prev_hash else {
             error!("Prevhash not found for request_id = {}", msg.request_id);
-            return Err(JDCError::LastNewPrevhashNotFound.into());
+            return Err(JDCError::LastNewPrevhashNotFound);
         };
 
         let Some(custom_job) = self
@@ -182,7 +184,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
                 Some(custom_job)
             })
         else {
-            return Err(JDCError::FailedToCreateCustomJob.into());
+            return Err(JDCError::FailedToCreateCustomJob);
         };
 
         let custom_job = custom_job.map_err(|_e| JDCError::FailedToCreateCustomJob)?;
@@ -220,7 +222,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     async fn handle_provide_missing_transactions(
         &mut self,
         msg: ProvideMissingTransactions<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         let request_id = msg.request_id;
 
         info!("Received: {}", msg);
@@ -234,7 +236,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
                 "No transaction list found for request_id={}",
                 msg.request_id
             );
-            return Err(JDCError::LastDeclareJobNotFound(msg.request_id).into());
+            return Err(JDCError::LastDeclareJobNotFound(msg.request_id));
         };
 
         let full_tx_list: Vec<B016M> = entry

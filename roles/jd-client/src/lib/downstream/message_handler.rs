@@ -5,12 +5,13 @@ use stratum_common::roles_logic_sv2::{
         has_requires_std_job, has_work_selection, Protocol, SetupConnection, SetupConnectionError,
         SetupConnectionSuccess,
     },
-    handlers_sv2::{HandleCommonMessagesFromClientAsync, HandlerError as Error},
+    handlers_sv2::HandleCommonMessagesFromClientAsync,
     parsers_sv2::AnyMessage,
 };
 use tracing::info;
 
 impl HandleCommonMessagesFromClientAsync for Downstream {
+    type Error = JDCError;
     // Handles the initial [`SetupConnection`] message from a downstream client.
     //
     // This method validates that the connection request is compatible with the
@@ -32,7 +33,10 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
     //
     // 4. Successful setup
     //    - If all validations pass, a [`SetupConnectionSuccess`] message is
-    async fn handle_setup_connection(&mut self, msg: SetupConnection<'_>) -> Result<(), Error> {
+    async fn handle_setup_connection(
+        &mut self,
+        msg: SetupConnection<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         if msg.protocol != Protocol::MiningProtocol {
@@ -47,7 +51,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
             let frame: StdFrame = AnyMessage::Common(response.into_static().into()).try_into()?;
             _ = self.downstream_channel.downstream_sender.send(frame).await;
 
-            return Err(JDCError::Shutdown.into());
+            return Err(JDCError::Shutdown);
         }
 
         if has_work_selection(msg.flags) {
@@ -64,7 +68,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
                 .unwrap();
             _ = self.downstream_channel.downstream_sender.send(frame).await;
 
-            return Err(JDCError::Shutdown.into());
+            return Err(JDCError::Shutdown);
         }
 
         if has_requires_std_job(msg.flags) {
@@ -75,9 +79,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
             used_version: 2,
             flags: msg.flags,
         };
-        let frame: StdFrame = AnyMessage::Common(response.into_static().into())
-            .try_into()
-            .map_err(|e| Error::External(Box::new(JDCError::Parser(e))))?;
+        let frame: StdFrame = AnyMessage::Common(response.into_static().into()).try_into()?;
 
         _ = self.downstream_channel.downstream_sender.send(frame).await;
 

@@ -195,14 +195,14 @@ impl Downstream {
         let mut frame = self.downstream_channel.downstream_receiver.recv().await?;
 
         let Some(message_type) = frame.get_header().map(|m| m.msg_type()) else {
-            return Err(JDCError::UnexpectedMessage);
+            return Err(JDCError::UnexpectedMessage(0));
         };
         if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
-            self.handle_common_message_from_client(message_type, frame.payload())
+            self.handle_common_message_frame_from_client(message_type, frame.payload())
                 .await?;
             return Ok(());
         }
-        Err(JDCError::UnexpectedMessage)
+        Err(JDCError::UnexpectedMessage(message_type))
     }
 
     // Handles messages sent from the channel manager to this downstream.

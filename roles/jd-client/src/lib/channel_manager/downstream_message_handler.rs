@@ -13,9 +13,7 @@ use stratum_common::roles_logic_sv2::{
         },
     },
     codec_sv2::binary_sv2::Str0255,
-    handlers_sv2::{
-        HandleMiningMessagesFromClientAsync, HandlerError as Error, SupportedChannelTypes,
-    },
+    handlers_sv2::{HandleMiningMessagesFromClientAsync, SupportedChannelTypes},
     job_declaration_sv2::PushSolution,
     mining_sv2::*,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
@@ -123,13 +121,15 @@ impl RouteMessageTo<'_> {
 }
 
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
+    type Error = JDCError;
+
     fn get_channel_type_for_client(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
     fn is_work_selection_enabled_for_client(&self) -> bool {
         false
     }
-    fn is_client_authorized(&self, _user_identity: &Str0255) -> Result<bool, Error> {
+    fn is_client_authorized(&self, _user_identity: &Str0255) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
@@ -137,7 +137,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     // - Look up the downstream associated with the given `channel_id`.
     // - If found, remove the channel from its `extended_channels` and `standard_channels`.
     // - If not found, return an appropriate error.
-    async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Error> {
+    async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
@@ -149,14 +149,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         "No downstream_id related to channel_id: {:?}, found",
                         msg.channel_id
                     );
-                    return Err(JDCError::DownstreamNotFoundWithChannelId(msg.channel_id).into());
+                    return Err(JDCError::DownstreamNotFoundWithChannelId(msg.channel_id));
                 };
                 let Some(downstream) = channel_manager_data.downstream.get(downstream_id) else {
                     error!(
                         "No downstream with channel_id: {:?} and downstream_id: {:?}, found",
                         msg.channel_id, downstream_id
                     );
-                    return Err(JDCError::DownstreamNotFound(*downstream_id).into());
+                    return Err(JDCError::DownstreamNotFound(*downstream_id));
                 };
                 downstream.downstream_data.super_safe_lock(|data| {
                     data.extended_channels.remove(&msg.channel_id);
@@ -187,7 +187,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     async fn handle_open_standard_mining_channel(
         &mut self,
         msg: OpenStandardMiningChannel<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         let request_id = msg.get_request_id_as_u32();
         let user_string = msg.user_identity.as_utf8_or_hex();
 
@@ -199,12 +199,12 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         ?e,
                         user_string, "Failed to parse downstream_id from user_identity"
                     );
-                    return Err(JDCError::ParseInt(e).into());
+                    return Err(JDCError::ParseInt(e));
                 }
             },
             None => {
                 warn!(user_string, "User identity missing downstream_id");
-                return Err(JDCError::DownstreamIdNotFound.into());
+                return Err(JDCError::DownstreamIdNotFound);
             }
         };
 
@@ -447,19 +447,19 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     async fn handle_open_extended_mining_channel(
         &mut self,
         msg: OpenExtendedMiningChannel<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         let user_string = msg.user_identity.as_utf8_or_hex();
         let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
             Some((user_identity, id)) => match id.parse::<u32>() {
                 Ok(v) => (user_identity, v),
                 Err(e) => {
                     warn!(?e, user_string, "Invalid downstream_id in user_identity");
-                    return Err(JDCError::ParseInt(e).into());
+                    return Err(JDCError::ParseInt(e));
                 }
             },
             None => {
                 warn!(user_string, "Missing downstream_id in user_identity");
-                return Err(JDCError::DownstreamIdNotFound.into());
+                return Err(JDCError::DownstreamIdNotFound);
             }
         };
 
@@ -656,7 +656,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     //
     // Returns an error if the downstream channel is missing or update
     // validation fails.
-    async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Error> {
+    async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         let channel_id = msg.channel_id;
         let new_nominal_hash_rate = msg.nominal_hash_rate;
@@ -853,7 +853,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     async fn handle_submit_shares_standard(
         &mut self,
         msg: SubmitSharesStandard,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesStandard");
         let channel_id = msg.channel_id;
         let job_id = msg.job_id;
@@ -1051,7 +1051,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     async fn handle_submit_shares_extended(
         &mut self,
         msg: SubmitSharesExtended<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesExtended");
         let channel_id = msg.channel_id;
         let job_id = msg.job_id;
@@ -1240,8 +1240,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     async fn handle_set_custom_mining_job(
         &mut self,
         msg: SetCustomMiningJob<'_>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
-        Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_CUSTOM_MINING_JOB))
+        Err(Self::Error::UnexpectedMessage(
+            MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+        ))
     }
 }
