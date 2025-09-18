@@ -1,17 +1,21 @@
-use crate::error::HandlerError as Error;
 use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess, *,
 };
 use core::convert::TryInto;
 use parsers_sv2::CommonMessages;
 
-pub trait HandleCommonMessagesFromServerSync {
+use crate::error::HandlerErrorType;
+
+pub trait HandleCommonMessagesFromServerSync<Error: HandlerErrorType> {
+    type Error;
     fn handle_common_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
+        let parsed: CommonMessages<'_> = (message_type, payload)
+            .try_into()
+            .map_err(Error::parse_error)?;
         self.handle_common_message_from_server(parsed)
     }
 
@@ -30,7 +34,7 @@ pub trait HandleCommonMessagesFromServerSync {
             CommonMessages::Reconnect(msg) => self.handle_reconnect(msg),
 
             CommonMessages::SetupConnection(_) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SETUP_CONNECTION))
+                Err(Error::unexpected_message(MESSAGE_TYPE_SETUP_CONNECTION))
             }
         }
     }
@@ -47,15 +51,17 @@ pub trait HandleCommonMessagesFromServerSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait HandleCommonMessagesFromServerAsync {
+pub trait HandleCommonMessagesFromServerAsync<Error: HandlerErrorType> {
+    type Error;
     async fn handle_common_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: Result<CommonMessages<'_>, _> = (message_type, payload).try_into();
         async move {
-            let parsed = parsed?;
+            let parsed: CommonMessages<'_> = (message_type, payload)
+                .try_into()
+                .map_err(Error::parse_error)?;
             self.handle_common_message_from_server(parsed).await
         }
     }
@@ -78,7 +84,7 @@ pub trait HandleCommonMessagesFromServerAsync {
                 CommonMessages::Reconnect(msg) => self.handle_reconnect(msg).await,
 
                 CommonMessages::SetupConnection(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_SETUP_CONNECTION))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_SETUP_CONNECTION))
                 }
             }
         }
@@ -102,13 +108,16 @@ pub trait HandleCommonMessagesFromServerAsync {
     async fn handle_reconnect(&mut self, msg: Reconnect) -> Result<(), Error>;
 }
 
-pub trait HandleCommonMessagesFromClientSync {
+pub trait HandleCommonMessagesFromClientSync<Error: HandlerErrorType> {
+    type Error;
     fn handle_common_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: CommonMessages<'_> = (message_type, payload).try_into()?;
+        let parsed: CommonMessages<'_> = (message_type, payload)
+            .try_into()
+            .map_err(Error::parse_error)?;
         self.handle_common_message_from_client(parsed)
     }
 
@@ -117,16 +126,16 @@ pub trait HandleCommonMessagesFromClientSync {
         message: CommonMessages<'_>,
     ) -> Result<(), Error> {
         match message {
-            CommonMessages::SetupConnectionSuccess(_) => Err(Error::UnexpectedMessage(
+            CommonMessages::SetupConnectionSuccess(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
             )),
-            CommonMessages::SetupConnectionError(_) => Err(Error::UnexpectedMessage(
+            CommonMessages::SetupConnectionError(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             )),
-            CommonMessages::ChannelEndpointChanged(_) => Err(Error::UnexpectedMessage(
+            CommonMessages::ChannelEndpointChanged(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             )),
-            CommonMessages::Reconnect(_) => Err(Error::UnexpectedMessage(MESSAGE_TYPE_RECONNECT)),
+            CommonMessages::Reconnect(_) => Err(Error::unexpected_message(MESSAGE_TYPE_RECONNECT)),
 
             CommonMessages::SetupConnection(msg) => self.handle_setup_connection(msg),
         }
@@ -136,15 +145,17 @@ pub trait HandleCommonMessagesFromClientSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait HandleCommonMessagesFromClientAsync {
+pub trait HandleCommonMessagesFromClientAsync<Error: HandlerErrorType> {
+    type Error;
     async fn handle_common_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: Result<CommonMessages<'_>, _> = (message_type, payload).try_into();
         async move {
-            let parsed = parsed?;
+            let parsed: CommonMessages<'_> = (message_type, payload)
+                .try_into()
+                .map_err(Error::parse_error)?;
             self.handle_common_message_from_client(parsed).await
         }
     }
@@ -155,17 +166,17 @@ pub trait HandleCommonMessagesFromClientAsync {
     ) -> Result<(), Error> {
         async move {
             match message {
-                CommonMessages::SetupConnectionSuccess(_) => Err(Error::UnexpectedMessage(
+                CommonMessages::SetupConnectionSuccess(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
                 )),
-                CommonMessages::SetupConnectionError(_) => Err(Error::UnexpectedMessage(
+                CommonMessages::SetupConnectionError(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
                 )),
-                CommonMessages::ChannelEndpointChanged(_) => Err(Error::UnexpectedMessage(
+                CommonMessages::ChannelEndpointChanged(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
                 )),
                 CommonMessages::Reconnect(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_RECONNECT))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_RECONNECT))
                 }
                 CommonMessages::SetupConnection(msg) => self.handle_setup_connection(msg).await,
             }

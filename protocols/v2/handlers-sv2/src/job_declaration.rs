@@ -1,4 +1,3 @@
-use crate::error::HandlerError as Error;
 use core::convert::TryInto;
 use job_declaration_sv2::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
@@ -8,13 +7,18 @@ use job_declaration_sv2::{
 };
 use parsers_sv2::JobDeclaration;
 
-pub trait HandleJobDeclarationMessagesFromServerSync {
+use crate::error::HandlerErrorType;
+
+pub trait HandleJobDeclarationMessagesFromServerSync<Error: HandlerErrorType> {
+    type Error;
     fn handle_job_declaration_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: JobDeclaration<'_> = (message_type, payload).try_into()?;
+        let parsed: JobDeclaration<'_> = (message_type, payload)
+            .try_into()
+            .map_err(Error::parse_error)?;
         self.handle_job_declaration_message_from_server(parsed)
     }
 
@@ -33,17 +37,17 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
             JobDeclaration::ProvideMissingTransactions(msg) => {
                 self.handle_provide_missing_transactions(msg)
             }
-            JobDeclaration::AllocateMiningJobToken(_) => Err(Error::UnexpectedMessage(
+            JobDeclaration::AllocateMiningJobToken(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
             )),
             JobDeclaration::DeclareMiningJob(_) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_DECLARE_MINING_JOB))
+                Err(Error::unexpected_message(MESSAGE_TYPE_DECLARE_MINING_JOB))
             }
-            JobDeclaration::ProvideMissingTransactionsSuccess(_) => Err(Error::UnexpectedMessage(
+            JobDeclaration::ProvideMissingTransactionsSuccess(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
             )),
             JobDeclaration::PushSolution(_) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_PUSH_SOLUTION))
+                Err(Error::unexpected_message(MESSAGE_TYPE_PUSH_SOLUTION))
             }
         }
     }
@@ -67,16 +71,19 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait HandleJobDeclarationMessagesFromServerAsync {
+pub trait HandleJobDeclarationMessagesFromServerAsync<Error: HandlerErrorType> {
+    type Error;
     async fn handle_job_declaration_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: Result<JobDeclaration<'_>, _> = (message_type, payload).try_into();
         async move {
-            let parsed = parsed?;
-            self.handle_job_declaration_message_from_server(parsed).await
+            let parsed: JobDeclaration<'_> = (message_type, payload)
+                .try_into()
+                .map_err(Error::parse_error)?;
+            self.handle_job_declaration_message_from_server(parsed)
+                .await
         }
     }
 
@@ -98,17 +105,17 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
                 JobDeclaration::ProvideMissingTransactions(msg) => {
                     self.handle_provide_missing_transactions(msg).await
                 }
-                JobDeclaration::AllocateMiningJobToken(_) => Err(Error::UnexpectedMessage(
+                JobDeclaration::AllocateMiningJobToken(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
                 )),
                 JobDeclaration::DeclareMiningJob(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_DECLARE_MINING_JOB))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_DECLARE_MINING_JOB))
                 }
                 JobDeclaration::ProvideMissingTransactionsSuccess(_) => Err(
-                    Error::UnexpectedMessage(MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS),
+                    Error::unexpected_message(MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS),
                 ),
                 JobDeclaration::PushSolution(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_PUSH_SOLUTION))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_PUSH_SOLUTION))
                 }
             }
         }
@@ -135,13 +142,17 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     ) -> Result<(), Error>;
 }
 
-pub trait HandleJobDeclarationMessagesFromClientSync {
+pub trait HandleJobDeclarationMessagesFromClientSync<Error: HandlerErrorType> {
+    type Error;
+
     fn handle_job_declaration_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: JobDeclaration<'_> = (message_type, payload).try_into()?;
+        let parsed: JobDeclaration<'_> = (message_type, payload)
+            .try_into()
+            .map_err(Error::parse_error)?;
         self.handle_job_declaration_message_from_client(parsed)
     }
 
@@ -159,16 +170,16 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
             }
             JobDeclaration::PushSolution(msg) => self.handle_push_solution(msg),
 
-            JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(Error::UnexpectedMessage(
+            JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
             )),
-            JobDeclaration::DeclareMiningJobSuccess(_) => Err(Error::UnexpectedMessage(
+            JobDeclaration::DeclareMiningJobSuccess(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
             )),
-            JobDeclaration::DeclareMiningJobError(_) => Err(Error::UnexpectedMessage(
+            JobDeclaration::DeclareMiningJobError(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
             )),
-            JobDeclaration::ProvideMissingTransactions(_) => Err(Error::UnexpectedMessage(
+            JobDeclaration::ProvideMissingTransactions(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
             )),
         }
@@ -190,16 +201,20 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait HandleJobDeclarationMessagesFromClientAsync {
+pub trait HandleJobDeclarationMessagesFromClientAsync<Error: HandlerErrorType> {
+    type Error;
+
     async fn handle_job_declaration_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: Result<JobDeclaration<'_>, _> = (message_type, payload).try_into();
         async move {
-            let parsed = parsed?;
-            self.handle_job_declaration_message_from_client(parsed).await
+            let parsed: JobDeclaration<'_> = (message_type, payload)
+                .try_into()
+                .map_err(Error::parse_error)?;
+            self.handle_job_declaration_message_from_client(parsed)
+                .await
         }
     }
 
@@ -218,16 +233,16 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
                 }
                 JobDeclaration::PushSolution(msg) => self.handle_push_solution(msg).await,
 
-                JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(Error::UnexpectedMessage(
+                JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
                 )),
-                JobDeclaration::DeclareMiningJobSuccess(_) => Err(Error::UnexpectedMessage(
+                JobDeclaration::DeclareMiningJobSuccess(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
                 )),
-                JobDeclaration::DeclareMiningJobError(_) => Err(Error::UnexpectedMessage(
+                JobDeclaration::DeclareMiningJobError(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
                 )),
-                JobDeclaration::ProvideMissingTransactions(_) => Err(Error::UnexpectedMessage(
+                JobDeclaration::ProvideMissingTransactions(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
                 )),
             }

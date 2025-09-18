@@ -1,4 +1,3 @@
-use crate::error::HandlerError as Error;
 use parsers_sv2::TemplateDistribution;
 use template_distribution_sv2::{
     CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
@@ -8,13 +7,19 @@ use template_distribution_sv2::{
 use core::convert::TryInto;
 use template_distribution_sv2::*;
 
-pub trait HandleTemplateDistributionMessagesFromServerSync {
+use crate::error::HandlerErrorType;
+
+pub trait HandleTemplateDistributionMessagesFromServerSync<Error: HandlerErrorType> {
+    type Error;
+
     fn handle_template_distribution_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: TemplateDistribution<'_> = (message_type, payload).try_into()?;
+        let parsed: TemplateDistribution<'_> = (message_type, payload)
+            .try_into()
+            .map_err(Error::parse_error)?;
         self.handle_template_distribution_message_from_server(parsed)
     }
 
@@ -32,14 +37,14 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
                 self.handle_request_tx_data_error(m)
             }
 
-            TemplateDistribution::CoinbaseOutputConstraints(_) => Err(Error::UnexpectedMessage(
+            TemplateDistribution::CoinbaseOutputConstraints(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
             )),
-            TemplateDistribution::RequestTransactionData(_) => Err(Error::UnexpectedMessage(
+            TemplateDistribution::RequestTransactionData(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
             )),
             TemplateDistribution::SubmitSolution(_) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SUBMIT_SOLUTION))
+                Err(Error::unexpected_message(MESSAGE_TYPE_SUBMIT_SOLUTION))
             }
         }
     }
@@ -59,15 +64,18 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait HandleTemplateDistributionMessagesFromServerAsync {
+pub trait HandleTemplateDistributionMessagesFromServerAsync<Error: HandlerErrorType> {
+    type Error;
+
     async fn handle_template_distribution_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: Result<TemplateDistribution<'_>, _> = (message_type, payload).try_into();
         async move {
-            let parsed = parsed?;
+            let parsed: TemplateDistribution<'_> = (message_type, payload)
+                .try_into()
+                .map_err(Error::parse_error)?;
             self.handle_template_distribution_message_from_server(parsed)
                 .await
         }
@@ -89,13 +97,13 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
                 }
 
                 TemplateDistribution::CoinbaseOutputConstraints(_) => Err(
-                    Error::UnexpectedMessage(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
+                    Error::unexpected_message(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
                 ),
-                TemplateDistribution::RequestTransactionData(_) => Err(Error::UnexpectedMessage(
+                TemplateDistribution::RequestTransactionData(_) => Err(Error::unexpected_message(
                     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
                 )),
                 TemplateDistribution::SubmitSolution(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_SUBMIT_SOLUTION))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_SUBMIT_SOLUTION))
                 }
             }
         }
@@ -115,13 +123,17 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
     ) -> Result<(), Error>;
 }
 
-pub trait HandleTemplateDistributionMessagesFromClientSync {
+pub trait HandleTemplateDistributionMessagesFromClientSync<Error: HandlerErrorType> {
+    type Error;
+
     fn handle_template_distribution_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: TemplateDistribution<'_> = (message_type, payload).try_into()?;
+        let parsed: TemplateDistribution<'_> = (message_type, payload)
+            .try_into()
+            .map_err(Error::parse_error)?;
         self.handle_template_distribution_message_from_client(parsed)
     }
 
@@ -137,15 +149,15 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
             TemplateDistribution::SubmitSolution(m) => self.handle_submit_solution(m),
 
             TemplateDistribution::NewTemplate(_) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_NEW_TEMPLATE))
+                Err(Error::unexpected_message(MESSAGE_TYPE_NEW_TEMPLATE))
             }
             TemplateDistribution::SetNewPrevHash(_) => {
-                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_NEW_PREV_HASH))
+                Err(Error::unexpected_message(MESSAGE_TYPE_SET_NEW_PREV_HASH))
             }
             TemplateDistribution::RequestTransactionDataSuccess(_) => Err(
-                Error::UnexpectedMessage(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
+                Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
             ),
-            TemplateDistribution::RequestTransactionDataError(_) => Err(Error::UnexpectedMessage(
+            TemplateDistribution::RequestTransactionDataError(_) => Err(Error::unexpected_message(
                 MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
             )),
         }
@@ -161,15 +173,18 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 }
 
 #[trait_variant::make(Send)]
-pub trait HandleTemplateDistributionMessagesFromClientAsync {
+pub trait HandleTemplateDistributionMessagesFromClientAsync<Error: HandlerErrorType> {
+    type Error;
+
     async fn handle_template_distribution_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Error> {
-        let parsed: Result<TemplateDistribution<'_>, _> = (message_type, payload).try_into();
         async move {
-            let parsed = parsed?;
+            let parsed: TemplateDistribution<'_> = (message_type, payload)
+                .try_into()
+                .map_err(Error::parse_error)?;
             self.handle_template_distribution_message_from_client(parsed)
                 .await
         }
@@ -190,16 +205,16 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
                 TemplateDistribution::SubmitSolution(m) => self.handle_submit_solution(m).await,
 
                 TemplateDistribution::NewTemplate(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_NEW_TEMPLATE))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_NEW_TEMPLATE))
                 }
                 TemplateDistribution::SetNewPrevHash(_) => {
-                    Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_NEW_PREV_HASH))
+                    Err(Error::unexpected_message(MESSAGE_TYPE_SET_NEW_PREV_HASH))
                 }
                 TemplateDistribution::RequestTransactionDataSuccess(_) => Err(
-                    Error::UnexpectedMessage(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
+                    Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
                 ),
                 TemplateDistribution::RequestTransactionDataError(_) => Err(
-                    Error::UnexpectedMessage(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
+                    Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
                 ),
             }
         }
