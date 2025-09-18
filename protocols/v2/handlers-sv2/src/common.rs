@@ -6,7 +6,7 @@ use core::convert::TryInto;
 use parsers_sv2::CommonMessages;
 
 pub trait HandleCommonMessagesFromServerSync {
-    fn handle_common_message_from_server(
+    fn handle_common_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -48,7 +48,7 @@ pub trait HandleCommonMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromServerAsync {
-    async fn handle_common_message_from_server(
+    async fn handle_common_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -103,7 +103,7 @@ pub trait HandleCommonMessagesFromServerAsync {
 }
 
 pub trait HandleCommonMessagesFromClientSync {
-    fn handle_common_message_from_client(
+    fn handle_common_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -137,7 +137,7 @@ pub trait HandleCommonMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromClientAsync {
-    async fn handle_common_message_from_client(
+    async fn handle_common_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],

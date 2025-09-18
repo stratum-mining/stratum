@@ -25,7 +25,7 @@ pub trait HandleMiningMessagesFromServerSync {
     fn get_channel_type_for_server(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_server(&self) -> bool;
 
-    fn handle_mining_message_from_server(
+    fn handle_mining_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -170,7 +170,7 @@ pub trait HandleMiningMessagesFromServerAsync {
     fn get_channel_type_for_server(&self) -> SupportedChannelTypes;
     fn is_work_selection_enabled_for_server(&self) -> bool;
 
-    async fn handle_mining_message_from_server(
+    async fn handle_mining_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -326,7 +326,7 @@ pub trait HandleMiningMessagesFromClientSync {
     fn is_work_selection_enabled_for_client(&self) -> bool;
     fn is_client_authorized(&self, user_identity: &Str0255) -> Result<bool, Error>;
 
-    fn handle_mining_message_from_client(
+    fn handle_mining_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -421,7 +421,7 @@ pub trait HandleMiningMessagesFromClientAsync {
     fn is_work_selection_enabled_for_client(&self) -> bool;
     fn is_client_authorized(&self, user_identity: &Str0255) -> Result<bool, Error>;
 
-    async fn handle_mining_message_from_client(
+    async fn handle_mining_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],

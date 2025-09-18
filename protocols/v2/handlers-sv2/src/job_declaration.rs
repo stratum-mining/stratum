@@ -9,7 +9,7 @@ use job_declaration_sv2::{
 use parsers_sv2::JobDeclaration;
 
 pub trait HandleJobDeclarationMessagesFromServerSync {
-    fn handle_job_declaration_message_from_server(
+    fn handle_job_declaration_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -68,7 +68,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromServerAsync {
-    async fn handle_job_declaration_message_from_server(
+    async fn handle_job_declaration_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -136,7 +136,7 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
 }
 
 pub trait HandleJobDeclarationMessagesFromClientSync {
-    fn handle_job_declaration_message_from_client(
+    fn handle_job_declaration_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -191,7 +191,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromClientAsync {
-    async fn handle_job_declaration_message_from_client(
+    async fn handle_job_declaration_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],

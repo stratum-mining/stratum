@@ -9,7 +9,7 @@ use core::convert::TryInto;
 use template_distribution_sv2::*;
 
 pub trait HandleTemplateDistributionMessagesFromServerSync {
-    fn handle_template_distribution_message_from_server(
+    fn handle_template_distribution_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -60,7 +60,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromServerAsync {
-    async fn handle_template_distribution_message_from_server(
+    async fn handle_template_distribution_message_frame_from_server(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -116,7 +116,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 }
 
 pub trait HandleTemplateDistributionMessagesFromClientSync {
-    fn handle_template_distribution_message_from_client(
+    fn handle_template_distribution_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
@@ -162,7 +162,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromClientAsync {
-    async fn handle_template_distribution_message_from_client(
+    async fn handle_template_distribution_message_frame_from_client(
         &mut self,
         message_type: u8,
         payload: &mut [u8],
