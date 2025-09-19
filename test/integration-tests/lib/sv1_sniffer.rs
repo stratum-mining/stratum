@@ -127,7 +127,7 @@ impl SnifferSV1 {
                 .await
                 .map_err(|_| SnifferError::DownstreamClosed)?;
             upstream_messages.add_message(msg.clone()).await;
-            tracing::info!("🔍 Sv1 Sniffer | Forwarded: {} | Direction: ⬇", msg);
+            tracing::info!("🔍 Sv1 Sniffer | Direction: ⬇ | Forwarded: {}", msg);
         }
         Err(SnifferError::UpstreamClosed)
     }
@@ -142,7 +142,7 @@ impl SnifferSV1 {
                 .await
                 .map_err(|_| SnifferError::UpstreamClosed)?;
             downstream_messages.add_message(msg.clone()).await;
-            tracing::info!("🔍 Sv1 Sniffer | Forwarded: {} | Direction: ⬆", msg);
+            tracing::info!("🔍 Sv1 Sniffer | Direction: ⬆ | Forwarded: {}", msg);
         }
         Err(SnifferError::DownstreamClosed)
     }
