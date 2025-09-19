@@ -26,14 +26,10 @@ impl Message {
 impl Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Message::StandardRequest(sr) => write!(f, "{:?}", sr.method),
-            Message::Notification(n) => write!(f, "{:?}", n.method),
-            Message::OkResponse(_) => write!(f, "\"result\": true"),
-            Message::ErrorResponse(r) => write!(
-                f,
-                "\"result\": false, \"error\": {:?}",
-                r.error.as_ref().unwrap().message
-            ),
+            Message::StandardRequest(sr) => write!(f, "{}", sr),
+            Message::Notification(n) => write!(f, "{}", n),
+            Message::OkResponse(r) => write!(f, "{}", r),
+            Message::ErrorResponse(r) => write!(f, "{}", r),
         }
     }
 }
@@ -45,10 +41,31 @@ pub struct StandardRequest {
     pub params: serde_json::Value,
 }
 
+impl fmt::Display for StandardRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let params =
+            serde_json::to_string_pretty(&self.params).unwrap_or_else(|_| self.params.to_string());
+        write!(
+            f,
+            "{{ id: {}, method: {}, params: {} }}",
+            self.id, self.method, params
+        )
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Notification {
     pub method: String,
     pub params: serde_json::Value,
+}
+
+impl fmt::Display for Notification {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let params =
+            serde_json::to_string_pretty(&self.params).unwrap_or_else(|_| self.params.to_string());
+
+        write!(f, "{{ method: \"{}\", params: {} }}", self.method, params)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -56,6 +73,23 @@ pub struct Response {
     pub id: u64,
     pub error: Option<JsonRpcError>,
     pub result: serde_json::Value,
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let result =
+            serde_json::to_string_pretty(&self.result).unwrap_or_else(|_| self.result.to_string());
+
+        if let Some(err) = &self.error {
+            write!(
+                f,
+                "{{ id: {}, error: {:?}, result: {} }}",
+                self.id, err, result
+            )
+        } else {
+            write!(f, "{{ id: {}, result: {} }}", self.id, result)
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
