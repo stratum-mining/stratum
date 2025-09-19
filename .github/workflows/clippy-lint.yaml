@@ -24,7 +24,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.89
           override: true
           components: clippy
       - name: Run Clippy on different workspaces and crates

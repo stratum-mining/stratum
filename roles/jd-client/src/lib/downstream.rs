@@ -903,6 +903,15 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
         warn!("Ignoring SetCustomMiningJob");
         Ok(SendTo::None(None))
     }
+
+    /// Handle close channel
+    fn handle_close_channel(
+        &mut self,
+        m: CloseChannel,
+    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        info!("Received Close Channel: {m}");
+        Ok(SendTo::None(None))
+    }
 }
 
 impl ParseCommonMessagesFromDownstream for DownstreamMiningNode {

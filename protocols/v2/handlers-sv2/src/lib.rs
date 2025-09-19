@@ -4,7 +4,7 @@ mod job_declaration;
 mod mining;
 mod template_distribution;
 
-pub use error::HandlerError;
+pub use error::HandlerErrorType;
 
 pub use common::{
     HandleCommonMessagesFromClientAsync, HandleCommonMessagesFromClientSync,
