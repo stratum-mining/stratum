@@ -21,6 +21,8 @@
 use bitcoin::hashes::sha256d::Hash;
 use std::collections::HashSet;
 
+use crate::share_accounting::{ShareAccountingServer, ShareAccounting};
+
 /// The outcome of share validation, from the perspective of a Mining Server.
 ///
 /// The [`ShareValidationResult::ValidWithAcknowledgement`] variant carries:
@@ -79,7 +81,7 @@ pub enum ShareValidationError {
 /// This struct manages per-channel share statistics, batch acknowledgment, duplicate detection,
 /// and difficulty tracking. Only meant for usage on Mining Servers.
 #[derive(Clone, Debug)]
-pub struct ShareAccounting {
+pub struct InMemoryShareAccountingServer {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,
@@ -88,27 +90,13 @@ pub struct ShareAccounting {
     best_diff: f64,
 }
 
-impl ShareAccounting {
-    /// Constructs a new `ShareAccounting` instance for a channel.
-    ///
-    /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.
-    pub fn new(share_batch_size: usize) -> Self {
-        Self {
-            last_share_sequence_number: 0,
-            shares_accepted: 0,
-            share_work_sum: 0,
-            share_batch_size,
-            seen_shares: HashSet::new(),
-            best_diff: 0.0,
-        }
-    }
-
+impl ShareAccounting for InMemoryShareAccountingServer {
     /// Updates internal accounting for a newly accepted share.
     ///
     /// - Increments total shares accepted and work sum.
     /// - Updates last accepted sequence number.
     /// - Records the share hash to detect duplicates.
-    pub fn update_share_accounting(
+    fn update_share_accounting(
         &mut self,
         share_work: u64,
         share_sequence_number: u32,
@@ -124,49 +112,65 @@ impl ShareAccounting {
     ///
     /// Should be called on every chain tip update to avoid unbounded growth of memory
     /// and allow new shares for the new tip.
-    pub fn flush_seen_shares(&mut self) {
+    fn flush_seen_shares(&mut self) {
         self.seen_shares.clear();
     }
 
     /// Returns the sequence number of the last accepted share.
-    pub fn get_last_share_sequence_number(&self) -> u32 {
+    fn get_last_share_sequence_number(&self) -> u32 {
         self.last_share_sequence_number
     }
 
     /// Returns the total number of shares accepted on this channel.
-    pub fn get_shares_accepted(&self) -> u32 {
+    fn get_shares_accepted(&self) -> u32 {
         self.shares_accepted
     }
 
     /// Returns the sum of work contributed by all accepted shares.
-    pub fn get_share_work_sum(&self) -> u64 {
+    fn get_share_work_sum(&self) -> u64 {
         self.share_work_sum
     }
 
-    /// Returns the configured batch size for share acknowledgments.
-    pub fn get_share_batch_size(&self) -> usize {
-        self.share_batch_size
-    }
-
-    /// Returns true if the current count of accepted shares triggers an acknowledgment.
-    pub fn should_acknowledge(&self) -> bool {
-        self.shares_accepted % self.share_batch_size as u32 == 0
-    }
-
     /// Checks if the share hash has already been accepted (duplicate detection).
-    pub fn is_share_seen(&self, share_hash: Hash) -> bool {
+    fn is_share_seen(&self, share_hash: Hash) -> bool {
         self.seen_shares.contains(&share_hash)
     }
 
     /// Returns the highest difficulty found among accepted shares.
-    pub fn get_best_diff(&self) -> f64 {
+    fn get_best_diff(&self) -> f64 {
         self.best_diff
     }
 
     /// Updates the best difficulty if the new value is higher.
-    pub fn update_best_diff(&mut self, diff: f64) {
+    fn update_best_diff(&mut self, diff: f64) {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
+    }
+}
+
+impl ShareAccountingServer for InMemoryShareAccountingServer {
+    /// Constructs a new `ShareAccounting` instance for a channel.
+    ///
+    /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.
+    fn new(share_batch_size: usize) -> Self {
+        Self {
+            last_share_sequence_number: 0,
+            shares_accepted: 0,
+            share_work_sum: 0,
+            share_batch_size,
+            seen_shares: HashSet::new(),
+            best_diff: 0.0,
+        }
+    }
+
+    /// Returns the configured batch size for share acknowledgments.
+    fn get_share_batch_size(&self) -> usize {
+        self.share_batch_size
+    }
+
+    /// Returns true if the current count of accepted shares triggers an acknowledgment.
+    fn should_acknowledge(&self) -> bool {
+        self.shares_accepted > 0 && self.shares_accepted % self.share_batch_size as u32 == 0
     }
 }

@@ -43,7 +43,8 @@ use stratum_common::{
         self,
         bitcoin::{Amount, TxOut},
         channels_sv2::server::{
-            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+            extended::ExtendedChannel, group::GroupChannel,
+            share_accounting::InMemoryShareAccountingServer, standard::StandardChannel,
         },
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
@@ -103,9 +104,11 @@ pub struct Downstream {
     extranonce_prefix_factory_extended: Arc<Mutex<ExtendedExtranonce>>,
     extranonce_prefix_factory_standard: Arc<Mutex<ExtendedExtranonce>>,
     // A map of all extended channels, keyed by their ID.
-    extended_channels: HashMap<u32, Arc<RwLock<ExtendedChannel<'static>>>>,
+    extended_channels:
+        HashMap<u32, Arc<RwLock<ExtendedChannel<'static, InMemoryShareAccountingServer>>>>,
     // A map of all standard channels, keyed by their ID.
-    standard_channels: HashMap<u32, Arc<RwLock<StandardChannel<'static>>>>,
+    standard_channels:
+        HashMap<u32, Arc<RwLock<StandardChannel<'static, InMemoryShareAccountingServer>>>>,
     vardiff: HashMap<u32, Arc<RwLock<Box<dyn Vardiff>>>>,
     // naive approach:
     // we create one group channel for the connection
@@ -1142,7 +1145,7 @@ async fn send_set_target_downstream(
 
 fn run_vardiff_on_extended_channel(
     channel_id: u32,
-    channel: Arc<RwLock<ExtendedChannel<'static>>>,
+    channel: Arc<RwLock<ExtendedChannel<'static, InMemoryShareAccountingServer>>>,
     vardiff_state: Arc<RwLock<Box<dyn Vardiff>>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
@@ -1183,7 +1186,7 @@ fn run_vardiff_on_extended_channel(
 
 fn run_vardiff_on_standard_channel(
     channel_id: u32,
-    channel: Arc<RwLock<StandardChannel<'static>>>,
+    channel: Arc<RwLock<StandardChannel<'static, InMemoryShareAccountingServer>>>,
     vardiff_state: &Arc<RwLock<Box<dyn Vardiff>>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
