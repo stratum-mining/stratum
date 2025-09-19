@@ -62,7 +62,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use stratum_common::roles_logic_sv2::{
-    bitcoin::BlockHash, common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
+    common_messages_sv2::Reconnect, handlers::mining::SupportedChannelTypes,
     mining_sv2::SetGroupChannel,
 };
 
