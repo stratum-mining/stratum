@@ -178,6 +178,7 @@ where
                 }
                 _ => Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_CUSTOM_MINING_JOB)),
             },
+            Ok(Mining::CloseChannel(m)) => self_mutex.safe_lock(|x| x.handle_close_channel(m))?,
             Ok(_) => Err(Error::UnexpectedMessage(0)),
             Err(e) => Err(e),
         }
@@ -230,6 +231,9 @@ where
     /// This method processes a `SetCustomMiningJob` message and applies the custom mining job
     /// settings.
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<Up>, Error>;
+
+    /// Handles a request to close a mining channel.
+    fn handle_close_channel(&mut self, m: CloseChannel) -> Result<SendTo<Up>, Error>;
 }
 
 /// A trait defining the parser for upstream mining messages used by a downstream.
