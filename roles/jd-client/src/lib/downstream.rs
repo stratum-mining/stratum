@@ -909,7 +909,7 @@ impl ParseMiningMessagesFromDownstream<UpstreamMiningNode> for DownstreamMiningN
         &mut self,
         m: CloseChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Received Close Channle: {m}");
+        info!("Received Close Channel: {m}");
         Ok(SendTo::None(None))
     }
 }

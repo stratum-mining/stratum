@@ -998,4 +998,12 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         };
         Ok(SendTo::Respond(Mining::SetCustomMiningJobSuccess(success)))
     }
+
+    fn handle_close_channel(&mut self, m: CloseChannel) -> Result<SendTo<()>, Error> {
+        info!("Received Close Channel: {m}");
+        self.extended_channels.remove(&m.channel_id);
+        self.standard_channels.remove(&m.channel_id);
+        self.vardiff.remove(&m.channel_id);
+        Ok(SendTo::None(None))
+    }
 }
