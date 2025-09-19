@@ -100,7 +100,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             // we only create one group channel for all standard channels
 
             let group_channel_id = self.channel_id_factory.next();
-            let job_store = Box::new(DefaultJobStore::new());
+            let job_store = DefaultJobStore::new();
 
             let mut group_channel = GroupChannel::new_for_pool(
                 group_channel_id,
@@ -132,7 +132,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .to_vec();
 
         let channel_id = self.channel_id_factory.next();
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
         let mut standard_channel = match StandardChannel::new_for_pool(
             channel_id,
             user_identity,
@@ -314,7 +314,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         };
 
         let channel_id = self.channel_id_factory.next();
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
         let mut extended_channel = match ExtendedChannel::new_for_pool(
             channel_id,
             user_identity,

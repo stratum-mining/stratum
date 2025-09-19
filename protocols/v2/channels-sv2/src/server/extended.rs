@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Target as BitcoinTarget,
 };
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
-use std::{collections::HashMap, convert::TryInto};
+use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -83,7 +83,10 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel<'a, J>
+where
+    J: JobStore<ExtendedJob<'a>>,
+{
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -91,14 +94,18 @@ pub struct ExtendedChannel<'a> {
     requested_max_target: Target,
     target: Target, // todo: try to use Target from rust-bitcoin
     nominal_hashrate: f32,
-    job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+    job_store: J,
     job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
+    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl<'a, J> ExtendedChannel<'a, J>
+where
+    J: JobStore<ExtendedJob<'a>>,
+{
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -120,7 +127,7 @@ impl<'a> ExtendedChannel<'a> {
         requested_min_rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+        job_store: J,
         pool_tag_string: String,
     ) -> Result<Self, ExtendedChannelError> {
         Self::new(
@@ -160,7 +167,7 @@ impl<'a> ExtendedChannel<'a> {
         requested_min_rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+        job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, ExtendedChannelError> {
@@ -192,7 +199,7 @@ impl<'a> ExtendedChannel<'a> {
         requested_min_rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: Box<dyn JobStore<ExtendedJob<'a>>>,
+        job_store: J,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
     ) -> Result<Self, ExtendedChannelError> {
@@ -229,6 +236,7 @@ impl<'a> ExtendedChannel<'a> {
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
+            phantom: PhantomData,
         })
     }
 
@@ -750,7 +758,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -901,7 +909,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1021,7 +1029,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1100,7 +1108,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1210,7 +1218,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1323,7 +1331,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1446,7 +1454,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         // this is the most permissive possible max_target
         let max_target: Target = [0xff; 32].into();
@@ -1544,7 +1552,7 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
         let share_batch_size = 100;
-        let job_store = Box::new(DefaultJobStore::new());
+        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
