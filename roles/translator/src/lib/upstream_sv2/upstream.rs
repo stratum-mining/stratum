@@ -70,16 +70,6 @@ use stratum_common::roles_logic_sv2::{
 /// and handling a new previous hash. Indicates whether a `NewExtendedMiningJob`
 /// has been fully processed.
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
-/// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
-/// from the Downstream role.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct PrevHash {
-    /// `prevhash` of mining job.
-    prev_hash: BlockHash,
-    /// `nBits` encoded difficulty target.
-    nbits: u32,
-}
 
 /// Represents a connection to a single SV2 Upstream role.
 ///
