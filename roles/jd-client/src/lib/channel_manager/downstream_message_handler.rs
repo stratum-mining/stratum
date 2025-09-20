@@ -976,22 +976,24 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     .get(&(channel_id, job_id))
                     .and_then(|tid| channel_manager_data.template_id_to_upstream_job_id.get(tid))
                     .map(|&upstream_job_id| {
-                        let sequence_number = channel_manager_data.sequence_number_factory.next();
                         SubmitSharesExtended {
                             channel_id: upstream_channel.get_channel_id(),
                             job_id: upstream_job_id as u32,
                             extranonce: extranonce_parts.try_into().unwrap(),
                             nonce: msg.nonce,
                             ntime: msg.ntime,
-                            sequence_number,
+                            // We assign sequence number later, when we validate the share
+                            // and send it to upstream.
+                            sequence_number: 0,
                             version: msg.version,
                         }
                     });
 
-                    if let Some(upstream_message) = upstream_message {
+                    if let Some(mut upstream_message) = upstream_message {
                         let res = upstream_channel.validate_share(upstream_message.clone());
                         match res {
                             Ok(client::share_accounting::ShareValidationResult::Valid) => {
+                                upstream_message.sequence_number = channel_manager_data.sequence_number_factory.next();
                                 info!(
                                     "SubmitSharesStandard, forwarding it to upstream: valid share | channel_id: {}, sequence_number: {}  ✅",
                                     channel_id, upstream_message.sequence_number
@@ -999,6 +1001,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 messages.push(Mining::SubmitSharesExtended(upstream_message).into());
                             }
                             Ok(client::share_accounting::ShareValidationResult::BlockFound) => {
+                                upstream_message.sequence_number = channel_manager_data.sequence_number_factory.next();
                                 info!("SubmitSharesStandard forwarding it to upstream: 💰 Block Found!!! 💰");
                                 let push_solution = PushSolution {
                                     extranonce: standard_channel.get_extranonce_prefix().to_vec().try_into()?,
@@ -1172,21 +1175,23 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     .get(&(channel_id, job_id))
                     .and_then(|tid| channel_manager_data.template_id_to_upstream_job_id.get(tid))
                     .map(|&upstream_job_id| {
-                        let sequence_number = channel_manager_data.sequence_number_factory.next();
                         let mut new_msg = msg.clone();
                         new_msg.channel_id = upstream_channel.get_channel_id();
                         new_msg.job_id = upstream_job_id as u32;
-                        new_msg.sequence_number = sequence_number;
+                        // We assign sequence number later, when we validate the share
+                        // and send it to upstream.
+                        new_msg.sequence_number = 0;
 
                         extranonce_parts.extend_from_slice(&msg.extranonce.to_vec());
                         new_msg.extranonce = extranonce_parts.try_into().unwrap();
 
                         new_msg
                     });
-                    if let Some(upstream_message) = upstream_message{
+                    if let Some(mut upstream_message) = upstream_message{
                         let res = upstream_channel.validate_share(upstream_message.clone());
                         match res {
                             Ok(client::share_accounting::ShareValidationResult::Valid) => {
+                                upstream_message.sequence_number = channel_manager_data.sequence_number_factory.next();
                                 info!(
                                     "SubmitSharesExtended forwarding it to upstream: valid share | channel_id: {}, sequence_number: {}  ✅",
                                     channel_id, upstream_message.sequence_number
@@ -1196,6 +1201,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 );
                             }
                             Ok(client::share_accounting::ShareValidationResult::BlockFound) => {
+                                upstream_message.sequence_number = channel_manager_data.sequence_number_factory.next();
                                 info!("SubmitSharesExtended forwarding it to upstream: 💰 Block Found!!! 💰");
                                 let mut channel_extranonce = upstream_channel.get_extranonce_prefix().to_vec();
                                 channel_extranonce.extend_from_slice(&upstream_message.extranonce.to_vec());
