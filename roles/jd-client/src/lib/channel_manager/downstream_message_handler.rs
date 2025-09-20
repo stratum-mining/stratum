@@ -18,7 +18,7 @@ use stratum_common::roles_logic_sv2::{
     mining_sv2::*,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
-    VardiffState,
+    Vardiff, VardiffState,
 };
 use tracing::{debug, error, info, warn};
 
@@ -408,7 +408,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                         let vardiff = VardiffState::new().expect("Vardiff state should instantiate.");
 
-                        channel_manager_data.vardiff.insert((standard_channel_id, downstream_id), Box::new(vardiff));
+                        channel_manager_data.vardiff.insert((standard_channel_id, downstream_id),vardiff);
                         data.standard_channels.insert(standard_channel_id, standard_channel);
                         channel_manager_data
                             .channel_id_to_downstream_id
@@ -624,7 +624,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             Mining::SetNewPrevHash(set_new_prev_hash_mining),
                         ).into());
 
-                        let vardiff = Box::new(VardiffState::new().expect("Vardiff should instantiate."));
+                        let vardiff = VardiffState::new().expect("Vardiff should instantiate.");
                         data.extended_channels.insert(extended_channel_id, extended_channel);
                         channel_manager_data
                             .channel_id_to_downstream_id

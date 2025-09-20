@@ -32,7 +32,7 @@ use stratum_common::{
         parsers_sv2::{AnyMessage, JobDeclaration, Mining},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
         utils::{Id as IdFactory, Mutex},
-        Vardiff,
+        Vardiff, VardiffState,
     },
 };
 use tokio::{net::TcpListener, select, sync::broadcast};
@@ -132,7 +132,7 @@ pub struct ChannelManagerData {
     job_factory: Option<JobFactory>,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
-    vardiff: HashMap<(u32, u32), Box<dyn Vardiff>>,
+    vardiff: HashMap<(u32, u32), VardiffState>,
 }
 
 impl ChannelManagerData {
@@ -892,7 +892,7 @@ impl ChannelManager {
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
         >,
-        vardiff_state: &mut Box<dyn Vardiff>,
+        vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {
         let (hashrate, target, shares_per_minute) = (
@@ -935,7 +935,7 @@ impl ChannelManager {
         downstream_id: u32,
         channel_id: u32,
         channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>,
-        vardiff_state: &mut Box<dyn Vardiff>,
+        vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {
         let hashrate = channel.get_nominal_hashrate();
