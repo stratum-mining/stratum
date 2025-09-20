@@ -62,6 +62,7 @@ use stratum_common::{
             NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
         },
         utils::{Id as IdFactory, Mutex},
+        VardiffState,
     },
 };
 
@@ -111,7 +112,7 @@ pub struct Downstream {
     // A map of all standard channels, keyed by their ID.
     standard_channels:
         HashMap<u32, Arc<RwLock<StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>>>,
-    vardiff: HashMap<u32, Arc<RwLock<Box<dyn Vardiff>>>>,
+    vardiff: HashMap<u32, Arc<RwLock<VardiffState>>>,
     // naive approach:
     // we create one group channel for the connection
     // and add all standard channels to this same single group channel
@@ -1149,7 +1150,7 @@ async fn send_set_target_downstream(
 fn run_vardiff_on_extended_channel(
     channel_id: u32,
     channel: Arc<RwLock<ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>>,
-    vardiff_state: Arc<RwLock<Box<dyn Vardiff>>>,
+    vardiff_state: Arc<RwLock<VardiffState>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
     let Ok(mut channel_state) = channel.write() else {
@@ -1190,7 +1191,7 @@ fn run_vardiff_on_extended_channel(
 fn run_vardiff_on_standard_channel(
     channel_id: u32,
     channel: Arc<RwLock<StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>>,
-    vardiff_state: &Arc<RwLock<Box<dyn Vardiff>>>,
+    vardiff_state: &Arc<RwLock<VardiffState>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
     let Ok(mut channel_state) = channel.write() else {

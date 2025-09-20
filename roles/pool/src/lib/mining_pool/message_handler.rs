@@ -27,7 +27,7 @@ use stratum_common::roles_logic_sv2::{
     parsers_sv2::Mining,
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
-    VardiffState,
+    Vardiff, VardiffState,
 };
 use tracing::{error, info};
 
@@ -252,7 +252,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .insert(channel_id, Arc::new(RwLock::new(standard_channel)));
 
         self.vardiff
-            .insert(channel_id, Arc::new(RwLock::new(Box::new(vardiff))));
+            .insert(channel_id, Arc::new(RwLock::new(vardiff)));
 
         if let Some(group_channel_guard) = &self.group_channel {
             let mut group_channel = group_channel_guard
@@ -457,7 +457,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         self.extended_channels
             .insert(channel_id, Arc::new(RwLock::new(extended_channel)));
         self.vardiff
-            .insert(channel_id, Arc::new(RwLock::new(Box::new(vardiff))));
+            .insert(channel_id, Arc::new(RwLock::new(vardiff)));
 
         Ok(SendTo::Multiple(messages))
     }
