@@ -8,7 +8,13 @@ use stratum_common::{
         self,
         channels_sv2::{
             client::extended::ExtendedChannel,
-            server::{jobs::factory::JobFactory, standard::StandardChannel},
+            server::{
+                jobs::{
+                    extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
+                    standard::StandardJob,
+                },
+                standard::StandardChannel,
+            },
         },
         codec_sv2::{Responder, Sv2Frame},
         handlers_sv2::{
@@ -884,6 +890,7 @@ impl ChannelManager {
         channel_id: u32,
         channel_state: &mut roles_logic_sv2::channels_sv2::server::extended::ExtendedChannel<
             'static,
+            DefaultJobStore<ExtendedJob<'static>>,
         >,
         vardiff_state: &mut Box<dyn Vardiff>,
         updates: &mut Vec<RouteMessageTo>,
@@ -927,7 +934,7 @@ impl ChannelManager {
     fn run_vardiff_on_standard_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel: &mut StandardChannel<'static>,
+        channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>,
         vardiff_state: &mut Box<dyn Vardiff>,
         updates: &mut Vec<RouteMessageTo>,
     ) {

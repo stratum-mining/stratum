@@ -5,7 +5,10 @@ use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
         channels_sv2::server::{
-            extended::ExtendedChannel, group::GroupChannel, standard::StandardChannel,
+            extended::ExtendedChannel,
+            group::GroupChannel,
+            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+            standard::StandardChannel,
         },
         codec_sv2,
         common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
@@ -39,9 +42,11 @@ mod message_handler;
 /// - Active [`StandardChannel`]s keyed by channel ID.
 pub struct DownstreamData {
     pub require_std_job: bool,
-    pub group_channels: Option<GroupChannel<'static>>,
-    pub extended_channels: HashMap<u32, ExtendedChannel<'static>>,
-    pub standard_channels: HashMap<u32, StandardChannel<'static>>,
+    pub group_channels: Option<GroupChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
+    pub extended_channels:
+        HashMap<u32, ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
+    pub standard_channels:
+        HashMap<u32, StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>,
 }
 
 /// Communication layer for a downstream connection.

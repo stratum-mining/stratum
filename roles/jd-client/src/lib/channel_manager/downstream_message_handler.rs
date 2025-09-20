@@ -249,7 +249,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                         if !data.require_std_job && data.group_channels.is_none() {
                             let group_channel_id = channel_manager_data.channel_id_factory.next();
-                            let job_store = Box::new(DefaultJobStore::new());
+                            let job_store = DefaultJobStore::new();
                             let mut group_channel = GroupChannel::new_for_job_declaration_client(
                                 group_channel_id,
                                 job_store,
@@ -296,7 +296,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             }
                         };
 
-                        let job_store = Box::new(DefaultJobStore::new());
+                        let job_store = DefaultJobStore::new();
                         let mut standard_channel =
                             match StandardChannel::new_for_job_declaration_client(
                                 standard_channel_id,
@@ -511,7 +511,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             return Err(JDCError::LastNewPrevhashNotFound);
                         };
 
-                        let job_store = Box::new(DefaultJobStore::new());
+                        let job_store = DefaultJobStore::new();
 
                         let mut extended_channel = match ExtendedChannel::new_for_job_declaration_client(
                             extended_channel_id,
