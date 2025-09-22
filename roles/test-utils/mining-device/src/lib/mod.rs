@@ -653,7 +653,10 @@ pub struct FastSha256d {
     state0: [u32; 8],
     // Second block for the first SHA256 (contains merkle tail, time, bits, nonce, padding, length)
     // We mutate only the time (bytes 4..8) and nonce (bytes 12..16) per attempt.
-    block1: [u8; 64],
+    block1: GenericArray<u8, U64>,
+    // Reusable buffer for the second SHA256 block. Bytes 32 and 56..64 are constant; we only
+    // overwrite the first 32 bytes with the first digest each attempt.
+    second_block: GenericArray<u8, U64>,
 }
 
 impl FastSha256d {
@@ -680,12 +683,18 @@ impl FastSha256d {
         // bytes 16: 0x80 padding
         // bytes 17..56: zeros
         // bytes 56..64: length in bits of the message (80 bytes -> 640 bits) in big-endian
-        let mut block1 = [0u8; 64];
+        let mut block1 = GenericArray::<u8, U64>::default();
         block1[0..16].copy_from_slice(chunk1_last16);
         block1[16] = 0x80;
         block1[56..64].copy_from_slice(&640u64.to_be_bytes());
 
-        Self { state0, block1 }
+        // Prepare reusable second block: set constants once
+        let mut second_block = GenericArray::<u8, U64>::default();
+        second_block[32] = 0x80;
+        // 33..56 are already zero via default
+        second_block[56..64].copy_from_slice(&256u64.to_be_bytes());
+
+        Self { state0, block1, second_block }
     }
 
     // Hashes header where only time and nonce vary, returns double-SHA256 as [u8;32] (little-endian like rust-bitcoin output)
@@ -694,27 +703,22 @@ impl FastSha256d {
         // In our block1_template (offset 0..16 == 64..80 of header):
         // time at 0..4, bits at 4..8, nonce at 12..16
         // Update time and nonce in place
-        self.block1[4..8].copy_from_slice(&time.to_le_bytes());
-        self.block1[12..16].copy_from_slice(&nonce.to_le_bytes());
+    self.block1[4..8].copy_from_slice(&time.to_le_bytes());
+    self.block1[12..16].copy_from_slice(&nonce.to_le_bytes());
 
         // Compute first SHA256 digest using midstate + block1
-        let mut state1 = self.state0;
-        let ga1 = GenericArray::<u8, U64>::clone_from_slice(&self.block1);
-        compress256(&mut state1, std::slice::from_ref(&ga1));
+    let mut state1 = self.state0;
+    compress256(&mut state1, std::slice::from_ref(&self.block1));
 
         // Now perform the second SHA256 over the 32-byte first digest
         // Build 64-byte block: [digest(32)] + [0x80] + [zeros] + [length=256 bits]
-        let mut second_block = [0u8; 64];
-        // state1 words -> big-endian bytes per SHA-256 spec
+        // state1 words -> big-endian bytes per SHA-256 spec (fill first 32 bytes)
         for (i, word) in state1.iter().enumerate() {
-            second_block[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
+            self.second_block[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
         }
-        second_block[32] = 0x80;
-        second_block[56..64].copy_from_slice(&256u64.to_be_bytes());
 
-        let mut state2 = sha256_initial_state();
-        let ga2 = GenericArray::<u8, U64>::clone_from_slice(&second_block);
-        compress256(&mut state2, std::slice::from_ref(&ga2));
+    let mut state2 = sha256_initial_state();
+    compress256(&mut state2, std::slice::from_ref(&self.second_block));
 
         // Convert state2 words to bytes (big-endian), then reverse for Bitcoin-style little-endian
         let mut out = [0u8; 32];
