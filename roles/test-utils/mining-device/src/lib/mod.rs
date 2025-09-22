@@ -1,6 +1,7 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
+use num_format::{Locale, ToFormattedString};
 use primitive_types::U256;
 use rand::{thread_rng, Rng};
 use std::{
@@ -272,8 +273,13 @@ fn open_channel(
     let user_identity = device_id.unwrap_or_default().try_into().unwrap();
     let id: u32 = 10;
     info!("Measuring CPU hashrate");
-    let measured_hashrate = measure_hashrate(5, handicap) as f32;
-    info!("Measured CPU hashrate is {}", measured_hashrate);
+    let measured_total_hs = measure_hashrate(5, handicap);
+    let measured_total_mhs = measured_total_hs / 1_000_000.0;
+    info!(
+        "Measured CPU hashrate ≈ {} MH/s",
+        format_mhs(measured_total_mhs)
+    );
+    let measured_hashrate = measured_total_hs as f32;
     let nominal_hash_rate = match nominal_hashrate_multiplier {
         Some(m) => measured_hashrate * m,
         None => measured_hashrate,
@@ -599,6 +605,11 @@ impl Miner {
         self.target = Some(U256::from_little_endian(target.as_slice()));
     }
 
+    // Same as new_target but without logging (useful for internal probes)
+    fn new_target_silent(&mut self, target: Vec<u8>) {
+        self.target = Some(U256::from_little_endian(target.as_slice()));
+    }
+
     fn new_header(&mut self, set_new_prev_hash: &SetNewPrevHash, new_job: &NewMiningJob) {
         self.job_id = Some(new_job.job_id);
         self.version = Some(new_job.version);
@@ -745,7 +756,11 @@ impl FastSha256d {
         // 33..56 are already zero via default
         second_block[56..64].copy_from_slice(&256u64.to_be_bytes());
 
-        Self { state0, block1, second_block }
+        Self {
+            state0,
+            block1,
+            second_block,
+        }
     }
 
     // Hashes header where only time and nonce vary, returns double-SHA256 as [u8;32] (little-endian like rust-bitcoin output)
@@ -754,12 +769,12 @@ impl FastSha256d {
         // In our block1_template (offset 0..16 == 64..80 of header):
         // time at 0..4, bits at 4..8, nonce at 12..16
         // Update time and nonce in place
-    self.block1[4..8].copy_from_slice(&time.to_le_bytes());
-    self.block1[12..16].copy_from_slice(&nonce.to_le_bytes());
+        self.block1[4..8].copy_from_slice(&time.to_le_bytes());
+        self.block1[12..16].copy_from_slice(&nonce.to_le_bytes());
 
         // Compute first SHA256 digest using midstate + block1
-    let mut state1 = self.state0;
-    compress256(&mut state1, std::slice::from_ref(&self.block1));
+        let mut state1 = self.state0;
+        compress256(&mut state1, std::slice::from_ref(&self.block1));
 
         // Now perform the second SHA256 over the 32-byte first digest
         // Build 64-byte block: [digest(32)] + [0x80] + [zeros] + [length=256 bits]
@@ -768,8 +783,8 @@ impl FastSha256d {
             self.second_block[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
         }
 
-    let mut state2 = sha256_initial_state();
-    compress256(&mut state2, std::slice::from_ref(&self.second_block));
+        let mut state2 = sha256_initial_state();
+        compress256(&mut state2, std::slice::from_ref(&self.second_block));
 
         // Convert state2 words to bytes (big-endian), then reverse for Bitcoin-style little-endian
         let mut out = [0u8; 32];
@@ -831,16 +846,23 @@ fn hash_meets_target_le(hash: &[u8; 32], tgt_le: &[u8; 32]) -> bool {
     is_below || is_equal
 }
 
-// returns hashrate based on how fast the device hashes over the given duration
+// Format MH/s with thousands separators and 2 decimal places using en locale separators
+fn format_mhs(val_mhs: f64) -> String {
+    let rounded = val_mhs.round() as i64;
+    rounded.to_formatted_string(&Locale::en)
+}
+
+// returns hashrate by running all worker threads in parallel for the given duration
 fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
+    use std::sync::Barrier;
+
+    // Prepare a random header template to hash
     let mut rng = thread_rng();
     let prev_hash: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
     let prev_hash = Hash::from_byte_array(prev_hash);
-    // We create a random block that we can hash, we are only interested in knowing how many hashes
-    // per unit of time we can do
     let merkle_root: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
     let merkle_root = Hash::from_byte_array(merkle_root);
-    let header = Header {
+    let header_template = Header {
         version: Version::from_consensus(rng.gen()),
         prev_blockhash: BlockHash::from_raw_hash(prev_hash),
         merkle_root,
@@ -851,30 +873,45 @@ fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
         bits: CompactTarget::from_consensus(rng.gen()),
         nonce: 0,
     };
-    let start_time = Instant::now();
-    let mut hashes: u64 = 0;
+
     let duration = Duration::from_secs(duration_secs);
-    let mut miner = Miner::new(handicap);
-    // We put the target to 0 we are only interested in how many hashes per unit of time we can do
-    // and do not want to be botherd by messages about valid shares found.
-    miner.new_target(vec![0_u8; 32]);
-    miner.header = Some(header);
-    if let Some(h) = miner.header.as_ref() {
-        miner.fast_hasher = Some(FastSha256d::from_header_static(h));
+    let p = worker_count() as usize;
+    let barrier = Arc::new(Barrier::new(p + 1)); // +1 for coordinator
+
+    let mut handles = Vec::with_capacity(p);
+    // Log a single consolidated target-setting message for the probe
+    info!("Set target to {}", "0".repeat(64));
+    for _ in 0..p {
+        let barrier = barrier.clone();
+        // Each thread gets its own miner and header copy
+        let mut miner = Miner::new(handicap);
+        // Set target to zero (silently) so we never trigger share submits; we're only counting hashes
+        miner.new_target_silent(vec![0_u8; 32]);
+        miner.header = Some(header_template);
+        if let Some(h) = miner.header.as_ref() {
+            miner.fast_hasher = Some(FastSha256d::from_header_static(h));
+        }
+        handles.push(std::thread::spawn(move || {
+            // Synchronize start across threads
+            barrier.wait();
+            let start = Instant::now();
+            let mut hashes: u64 = 0;
+            while start.elapsed() < duration {
+                miner.next_share();
+                hashes += 1;
+            }
+            hashes
+        }));
     }
 
-    while start_time.elapsed() < duration {
-        miner.next_share();
-        hashes += 1;
+    // Release all workers simultaneously
+    barrier.wait();
+    let mut total_hashes: u64 = 0;
+    for h in handles {
+        total_hashes += h.join().unwrap_or(0);
     }
-
-    let elapsed_secs = start_time.elapsed().as_secs_f64();
-    let hashrate_single_thread = hashes as f64 / elapsed_secs;
-
-    // We measured for a single thread; approximate total by number of mining workers.
-    // Leave one core for OS/scheduling: use N-1, but at least 1.
-    let workers = worker_count() as usize;
-    hashrate_single_thread * workers as f64
+    // Each thread ran for approximately `duration`, so total hashes per second is total/duration
+    (total_hashes as f64) / (duration_secs as f64)
 }
 fn generate_random_32_byte_array() -> [u8; 32] {
     let mut rng = thread_rng();
@@ -922,7 +959,8 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
             }
             std::thread::sleep(std::time::Duration::from_micros(miner.handicap.into()));
             // Prefer fast path with micro-batching when possible
-            let can_fast = miner.fast_hasher.is_some() && miner.target.is_some() && miner.header.is_some();
+            let can_fast =
+                miner.fast_hasher.is_some() && miner.target.is_some() && miner.header.is_some();
             if can_fast {
                 let header = miner.header.as_mut().unwrap();
                 let time = header.time;
@@ -975,7 +1013,8 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
             if kill.load(Ordering::Relaxed) {
                 break;
             }
-            let can_fast = miner.fast_hasher.is_some() && miner.target.is_some() && miner.header.is_some();
+            let can_fast =
+                miner.fast_hasher.is_some() && miner.target.is_some() && miner.header.is_some();
             if can_fast {
                 let header = miner.header.as_mut().unwrap();
                 let time = header.time;
