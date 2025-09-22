@@ -575,7 +575,7 @@ impl Sv1Server {
 
         let hashrate = config.min_individual_miner_hashrate as f64;
         let shares_per_min = config.shares_per_minute as f64;
-        let min_extranonce_size = self.config.min_extranonce2_size;
+        let min_extranonce_size = self.config.downstream_extranonce2_size;
         let vardiff_enabled = config.enable_vardiff;
 
         let max_target = if vardiff_enabled {
@@ -790,7 +790,7 @@ mod tests {
             difficulty_config,     // downstream_difficulty_config
             2,                     // max_supported_version
             1,                     // min_supported_version
-            4,                     // min_extranonce2_size
+            4,                     // downstream_extranonce2_size
             "test_user".to_string(),
             true, // aggregate_channels
         )

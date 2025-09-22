@@ -21,7 +21,7 @@ use stratum_common::roles_logic_sv2::{
     utils::Mutex,
 };
 
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
     type Error = TproxyError;
@@ -90,7 +90,6 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         Some(Arc::new(RwLock::new(extended_channel.clone())));
 
                     let upstream_extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
-                    info!(downstream_extranonce_len, "downstream_extranonce_len");
                     let translator_proxy_extranonce_prefix_len = proxy_extranonce_prefix_len(
                         m.extranonce_size.into(),
                         downstream_extranonce_len,
@@ -102,7 +101,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     // that is used for rolling)
                     let range_0 = 0..extranonce_prefix.len();
                     let range1 = range_0.end..range_0.end + translator_proxy_extranonce_prefix_len;
-                    let range2 = range1.end..m.extranonce_size as usize + extranonce_prefix.len();
+                    let range2 = range1.end..range1.end + downstream_extranonce_len;
+                    debug!("\n\nrange_0: {:?}, range1: {:?}, range2: {:?}\n\n", range_0, range1, range2);
                     let extended_extranonce_factory = ExtendedExtranonce::from_upstream_extranonce(
                         upstream_extranonce_prefix,
                         range_0,
@@ -121,12 +121,66 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         .safe_lock(|f| f.get_range2_len())
                         .expect("extranonce_prefix_factory mutex should not be poisoned")
                         as u16;
-                    if downstream_extranonce_len <= new_extranonce_size as usize {
+                    let new_extranonce_prefix = factory
+                        .safe_lock(|f| f.next_prefix_extended(new_extranonce_size as usize))
+                        .expect("extranonce_prefix_factory mutex should not be poisoned")
+                        .expect("next_prefix_extended should return a value for valid input")
+                        .into_b032();
+                    let new_downstream_extended_channel = ExtendedChannel::new(
+                        m.channel_id,
+                        user_identity.clone(),
+                        new_extranonce_prefix.clone().into_static().to_vec(),
+                        target.clone().into(),
+                        nominal_hashrate,
+                        true,
+                        new_extranonce_size,
+                    );
+                    channel_manager_data.extended_channels.insert(
+                        m.channel_id,
+                        Arc::new(RwLock::new(new_downstream_extended_channel)),
+                    );
+                    let new_open_extended_mining_channel_success =
+                        OpenExtendedMiningChannelSuccess {
+                            request_id: m.request_id,
+                            channel_id: m.channel_id,
+                            extranonce_prefix: new_extranonce_prefix,
+                            extranonce_size: new_extranonce_size,
+                            target: m.target.clone(),
+                        };
+                    new_open_extended_mining_channel_success.into_static()
+                } else {
+                    // Non-aggregated mode: check if we need to adjust extranonce size
+                    if m.extranonce_size as usize != downstream_extranonce_len {
+                        // We need to create an extranonce factory to ensure proper extranonce2_size
+                        let upstream_extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
+                        let translator_proxy_extranonce_prefix_len = proxy_extranonce_prefix_len(
+                            m.extranonce_size.into(),
+                            downstream_extranonce_len,
+                        );
+
+                        // range 0 is the extranonce1 from upstream
+                        // range 1 is the extranonce1 added by the tproxy
+                        // range 2 is the extranonce2 used by the miner for rolling
+                        let range_0 = 0..extranonce_prefix.len();
+                        let range1 = range_0.end..range_0.end + translator_proxy_extranonce_prefix_len;
+                        let range2 = range1.end..range1.end + downstream_extranonce_len;
+                        debug!("\n\nrange_0: {:?}, range1: {:?}, range2: {:?}\n\n", range_0, range1, range2);
+                        // Create the factory - this should succeed if configuration is valid
+                        let extended_extranonce_factory = ExtendedExtranonce::from_upstream_extranonce(
+                            upstream_extranonce_prefix,
+                            range_0,
+                            range1,
+                            range2,
+                        )
+                        .expect("Failed to create ExtendedExtranonce factory - likely extranonce size configuration issue");
+                        // Store the factory for this specific channel
+                        let factory = Arc::new(Mutex::new(extended_extranonce_factory));
                         let new_extranonce_prefix = factory
-                            .safe_lock(|f| f.next_prefix_extended(new_extranonce_size as usize))
-                            .expect("extranonce_prefix_factory mutex should not be poisoned")
-                            .expect("next_prefix_extended should return a value for valid input")
+                            .safe_lock(|f| f.next_prefix_extended(downstream_extranonce_len))
+                            .expect("Failed to access extranonce factory")
+                            .expect("Failed to generate extranonce prefix")
                             .into_b032();
+                        // Create channel with the configured extranonce size
                         let new_downstream_extended_channel = ExtendedChannel::new(
                             m.channel_id,
                             user_identity.clone(),
@@ -134,31 +188,35 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                             target.clone().into(),
                             nominal_hashrate,
                             true,
-                            new_extranonce_size,
+                            downstream_extranonce_len as u16,
                         );
                         channel_manager_data.extended_channels.insert(
                             m.channel_id,
                             Arc::new(RwLock::new(new_downstream_extended_channel)),
                         );
-                        let new_open_extended_mining_channel_success =
-                            OpenExtendedMiningChannelSuccess {
-                                request_id: m.request_id,
-                                channel_id: m.channel_id,
-                                extranonce_prefix: new_extranonce_prefix,
-                                extranonce_size: new_extranonce_size,
-                                target: m.target.clone(),
-                            };
-                        return new_open_extended_mining_channel_success.into_static();
+                        // Store factory for this channel (we'll need it for share processing)
+                        if channel_manager_data.extranonce_factories.is_none() {
+                            channel_manager_data.extranonce_factories = Some(std::collections::HashMap::new());
+                        }
+                        if let Some(ref mut factories) = channel_manager_data.extranonce_factories {
+                            factories.insert(m.channel_id, factory);
+                        }
+                        let new_open_extended_mining_channel_success = OpenExtendedMiningChannelSuccess {
+                            request_id: m.request_id,
+                            channel_id: m.channel_id,
+                            extranonce_prefix: new_extranonce_prefix,
+                            extranonce_size: downstream_extranonce_len as u16,
+                            target: m.target.clone(),
+                        };
+                        new_open_extended_mining_channel_success.into_static()
+                    } else {
+                        // Extranonce size matches, use as-is
+                        channel_manager_data
+                            .extended_channels
+                            .insert(m.channel_id, Arc::new(RwLock::new(extended_channel)));
+                        m.into_static()
                     }
                 }
-
-                // If we are not in aggregated mode, we just insert the extended channel into the
-                // map
-                channel_manager_data
-                    .extended_channels
-                    .insert(m.channel_id, Arc::new(RwLock::new(extended_channel)));
-
-                m.into_static()
             })
             .map_err(|e| {
                 error!("Failed to lock channel manager data: {:?}", e);
@@ -228,7 +286,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         m: SubmitSharesError<'_>,
     ) -> Result<(), Self::Error> {
-        warn!("Received: {} ❌", m.channel_id);
+        warn!("Received: {} ❌", m);
         Ok(())
     }
 

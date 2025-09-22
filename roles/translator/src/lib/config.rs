@@ -27,8 +27,8 @@ pub struct TranslatorConfig {
     pub max_supported_version: u16,
     /// The minimum supported protocol version for communication.
     pub min_supported_version: u16,
-    /// The minimum size required for the extranonce2 field in mining submissions.
-    pub min_extranonce2_size: u16,
+    /// The size of the extranonce2 field for downstream mining connections.
+    pub downstream_extranonce2_size: u16,
     /// The user identity/username to use when connecting to the pool.
     /// This will be appended with a counter for each mining channel (e.g., username.miner1,
     /// username.miner2).
@@ -74,7 +74,7 @@ impl TranslatorConfig {
         downstream_difficulty_config: DownstreamDifficultyConfig,
         max_supported_version: u16,
         min_supported_version: u16,
-        min_extranonce2_size: u16,
+        downstream_extranonce2_size: u16,
         user_identity: String,
         aggregate_channels: bool,
     ) -> Self {
@@ -84,7 +84,7 @@ impl TranslatorConfig {
             downstream_port,
             max_supported_version,
             min_supported_version,
-            min_extranonce2_size,
+            downstream_extranonce2_size,
             user_identity,
             downstream_difficulty_config,
             aggregate_channels,
@@ -182,7 +182,7 @@ mod tests {
         assert_eq!(config.downstream_port, 3333);
         assert_eq!(config.max_supported_version, 2);
         assert_eq!(config.min_supported_version, 1);
-        assert_eq!(config.min_extranonce2_size, 4);
+        assert_eq!(config.downstream_extranonce2_size, 4);
         assert_eq!(config.user_identity, "test_user");
         assert!(config.aggregate_channels);
         assert!(config.log_file.is_none());

@@ -35,7 +35,7 @@ max_supported_version = 2
 min_supported_version = 2
 
 # Extranonce Configuration
-min_extranonce2_size = 4  # Min: 2, Max: 16 (CGminer max: 8)
+downstream_extranonce2_size = 4  # Min: 2, Max: 16 (CGminer max: 8)
 
 # User Identity (appended with counter for each miner)
 user_identity = "your_username_here"

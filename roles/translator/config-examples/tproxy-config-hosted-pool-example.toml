@@ -6,11 +6,11 @@ downstream_port = 34255
 max_supported_version = 2
 min_supported_version = 2
 
-# Minimum extranonce2 size for downstream
-# Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
+# Extranonce2 size for downstream connections
+# This controls the rollable part of the extranonce for downstream SV1 miners
 # Max value for CGminer: 8
 # Min value: 2
-min_extranonce2_size = 4
+downstream_extranonce2_size = 4
 
 # User identity/username for pool connection
 # This will be appended with a counter for each mining client (e.g., username.miner1, username.miner2)

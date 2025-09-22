@@ -24,6 +24,11 @@ use stratum_common::roles_logic_sv2::{
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
 
+/// Extra bytes allocated for translator search space in aggregated mode.
+/// This allows the translator to manage multiple downstream connections
+/// by allocating unique extranonce prefixes to each downstream.
+const AGGREGATED_MODE_TRANSLATOR_SEARCH_SPACE_BYTES: usize = 4;
+
 /// Type alias for SV2 mining messages with static lifetime
 pub type Sv2Message = Mining<'static>;
 
@@ -413,13 +418,30 @@ impl ChannelManager {
                             user_identity.as_bytes().to_vec().try_into().unwrap();
                     }
                 }
-                // Store the user identity and hashrate
+                // In aggregated mode, add extra bytes for translator search space allocation
+                let upstream_min_extranonce_size = self.channel_manager_data.super_safe_lock(|c| {
+                    if c.mode == ChannelMode::Aggregated {
+                        min_extranonce_size + AGGREGATED_MODE_TRANSLATOR_SEARCH_SPACE_BYTES
+                    } else {
+                        min_extranonce_size
+                    }
+                });
+
+                // Update the message with the adjusted extranonce size for upstream
+                open_channel_msg.min_extranonce_size = upstream_min_extranonce_size as u16;
+
+                // Store the user identity, hashrate, and original downstream extranonce size
                 self.channel_manager_data.super_safe_lock(|c| {
                     c.pending_channels.insert(
                         open_channel_msg.request_id,
                         (user_identity, hashrate, min_extranonce_size),
                     );
                 });
+
+                info!(
+                    "Sending OpenExtendedMiningChannel message to upstream: {:?}",
+                    open_channel_msg
+                );
 
                 let frame = StdFrame::try_from(Message::Mining(Mining::OpenExtendedMiningChannel(
                     open_channel_msg,
@@ -510,6 +532,39 @@ impl ChannelManager {
                         m.sequence_number = self
                             .channel_manager_data
                             .super_safe_lock(|c| c.next_share_sequence_number(m.channel_id));
+
+                        // Check if we have a per-channel factory for extranonce adjustment
+                        let channel_factory = self.channel_manager_data.super_safe_lock(|c| {
+                            c.extranonce_factories
+                                .as_ref()
+                                .and_then(|factories| factories.get(&m.channel_id).cloned())
+                        });
+
+                        if let Some(factory) = channel_factory {
+                            // We need to adjust the extranonce for this channel
+                            let downstream_extranonce_prefix =
+                                self.channel_manager_data.super_safe_lock(|c| {
+                                    c.extended_channels.get(&m.channel_id).map(|channel| {
+                                        channel.read().unwrap().get_extranonce_prefix().clone()
+                                    })
+                                });
+                            let range0_len = factory
+                                .safe_lock(|e| e.get_range0_len())
+                                .expect("Failed to access extranonce factory range - this should not happen");
+                            if let Some(downstream_extranonce_prefix) = downstream_extranonce_prefix
+                            {
+                                // Skip the upstream prefix (range0) and take the remaining
+                                // bytes (translator proxy prefix)
+                                let translator_prefix = &downstream_extranonce_prefix[range0_len..];
+                                // Create new extranonce: translator proxy prefix + miner's
+                                // extranonce
+                                let mut new_extranonce = translator_prefix.to_vec();
+                                new_extranonce.extend_from_slice(m.extranonce.as_ref());
+                                // Replace the original extranonce with the modified one for
+                                // upstream submission
+                                m.extranonce = new_extranonce.try_into()?;
+                            }
+                        }
                     }
 
                     info!(

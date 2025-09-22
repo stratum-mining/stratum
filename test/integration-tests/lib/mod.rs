@@ -261,7 +261,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
         upstream_port,
         upstream_authority_pubkey,
     );
-    let min_extranonce2_size = 4;
+    let downstream_extranonce2_size = 4;
 
     let config = translator_sv2::config::TranslatorConfig::new(
         vec![upstream_conf],
@@ -270,7 +270,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
         downstream_difficulty_config,
         2,
         2,
-        min_extranonce2_size,
+        downstream_extranonce2_size,
         "user_identity".to_string(),
         false,
     );

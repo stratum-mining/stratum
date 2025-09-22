@@ -46,6 +46,9 @@ pub struct ChannelManagerData {
     /// In aggregated mode: single counter for all shares going to the upstream channel.
     /// In non-aggregated mode: one counter per downstream channel.
     pub share_sequence_counters: HashMap<u32, u32>,
+    /// Per-channel extranonce factories for non-aggregated mode when extranonce adjustment is
+    /// needed
+    pub extranonce_factories: Option<HashMap<u32, Arc<Mutex<ExtendedExtranonce>>>>,
 }
 
 impl ChannelManagerData {
@@ -64,6 +67,7 @@ impl ChannelManagerData {
             extranonce_prefix_factory: None,
             mode,
             share_sequence_counters: HashMap::new(),
+            extranonce_factories: None,
         }
     }
 
@@ -85,6 +89,7 @@ impl ChannelManagerData {
         self.upstream_extended_channel = None;
         self.extranonce_prefix_factory = None;
         self.share_sequence_counters.clear();
+        self.extranonce_factories = None;
         // Note: we intentionally preserve `mode` as it's a configuration setting
     }
 

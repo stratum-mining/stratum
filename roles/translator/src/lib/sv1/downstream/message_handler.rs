@@ -62,7 +62,7 @@ impl IsServer<'static> for DownstreamData {
     fn handle_submit(&self, request: &client_to_server::Submit<'static>) -> bool {
         if let Some(channel_id) = self.channel_id {
             info!(
-                "Received mining.submit from Sv1 downstream for channel id: {}",
+                "Received mining.submit from SV1 downstream for channel id: {}",
                 channel_id
             );
             let is_valid_share = validate_sv1_share(
