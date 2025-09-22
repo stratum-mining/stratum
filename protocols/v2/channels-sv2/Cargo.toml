@@ -28,3 +28,4 @@ hashbrown = { version = "0.15.5", optional = true }
 [features]
 default = []
 no_std = ["hashbrown"]
+persistence = []
