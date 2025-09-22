@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use mining_device::{set_nonces_per_call, FastSha256d};
 use rand::{thread_rng, Rng};
+use std::time::Duration;
 use stratum_common::roles_logic_sv2::bitcoin::{
     block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
-use std::time::Duration;
 
 fn random_header() -> Header {
     let mut rng = thread_rng();
@@ -26,6 +26,20 @@ fn random_header() -> Header {
 }
 
 fn bench_microbatch(c: &mut Criterion) {
+    // Report hardware SHA availability once at start
+    #[cfg(target_arch = "x86_64")]
+    println!(
+        "Hardware SHA available (x86 SHA-NI): {}",
+        std::is_x86_feature_detected!("sha")
+    );
+    #[cfg(target_arch = "aarch64")]
+    println!(
+        "Hardware SHA available (ARMv8 SHA2): {}",
+        std::arch::is_aarch64_feature_detected!("sha2")
+    );
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    println!("Hardware SHA detection: not applicable for this arch");
+
     let mut group = c.benchmark_group("mining_device_microbatch");
     // Keep output and run-time concise
     group.sample_size(10);
