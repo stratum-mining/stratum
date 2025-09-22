@@ -38,6 +38,23 @@ use sha2::compress256;
 use sha2::digest::generic_array::{typenum::U64, GenericArray};
 use stratum_common::roles_logic_sv2::bitcoin::consensus::encode::serialize as btc_serialize;
 
+// Tuneable: how many nonces to try per mining loop iteration when fast hasher is available.
+// Runtime-configurable so the binary and benches can adjust it without changing code.
+use std::sync::atomic::AtomicU32;
+static NONCES_PER_CALL_RUNTIME: AtomicU32 = AtomicU32::new(32);
+
+#[inline]
+pub fn set_nonces_per_call(n: u32) {
+    // Avoid zero (would stall the loop); clamp to at least 1
+    let n = n.max(1);
+    NONCES_PER_CALL_RUNTIME.store(n, Ordering::Relaxed);
+}
+
+#[inline]
+fn nonces_per_call() -> u32 {
+    NONCES_PER_CALL_RUNTIME.load(Ordering::Relaxed).max(1)
+}
+
 pub async fn connect(
     address: String,
     pub_key: Option<Secp256k1PublicKey>,
@@ -749,6 +766,37 @@ impl NextShareOutcome {
     }
 }
 
+#[inline]
+fn hash_meets_target_le(hash: &[u8; 32], tgt_le: &[u8; 32]) -> bool {
+    // Compare from most significant u32 word (index 7) to least (index 0)
+    let mut is_below = false;
+    let mut is_equal = true;
+    for i in (0..8).rev() {
+        let off = i * 4;
+        let hw = u32::from_le_bytes([hash[off], hash[off + 1], hash[off + 2], hash[off + 3]]);
+        let tw = u32::from_le_bytes([
+            tgt_le[off],
+            tgt_le[off + 1],
+            tgt_le[off + 2],
+            tgt_le[off + 3],
+        ]);
+        match hw.cmp(&tw) {
+            core::cmp::Ordering::Less => {
+                is_below = true;
+                is_equal = false;
+                break;
+            }
+            core::cmp::Ordering::Greater => {
+                is_below = false;
+                is_equal = false;
+                break;
+            }
+            core::cmp::Ordering::Equal => {}
+        }
+    }
+    is_below || is_equal
+}
+
 // returns hashrate based on how fast the device hashes over the given duration
 fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
     let mut rng = thread_rng();
@@ -838,38 +886,109 @@ fn mine(mut miner: Miner, share_send: Sender<(u32, u32, u32, u32)>, kill: Arc<At
                 break;
             }
             std::thread::sleep(std::time::Duration::from_micros(miner.handicap.into()));
-            if miner.next_share().is_valid() {
-                let nonce = miner.header.unwrap().nonce;
-                let time = miner.header.unwrap().time;
-                let job_id = miner.job_id.unwrap();
-                let version = miner.version;
-                share_send
-                    .try_send((nonce, job_id, version.unwrap(), time))
-                    .unwrap();
+            // Prefer fast path with micro-batching when possible
+            let can_fast = miner.fast_hasher.is_some() && miner.target.is_some() && miner.header.is_some();
+            if can_fast {
+                let header = miner.header.as_mut().unwrap();
+                let time = header.time;
+                let start = header.nonce;
+                let tgt_le = miner.target.unwrap().to_little_endian();
+                let fast = miner.fast_hasher.as_mut().unwrap();
+                let mut found = None;
+                let batch = nonces_per_call();
+                for i in 0..batch {
+                    let nonce = start.wrapping_add(i);
+                    let hash = fast.hash_with_nonce_time(nonce, time);
+                    if hash_meets_target_le(&hash, &tgt_le) {
+                        found = Some((nonce, hash));
+                        break;
+                    }
+                }
+                if let Some((nonce, hash)) = found {
+                    header.nonce = nonce;
+                    info!(
+                        "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
+                        header.nonce, miner.target, hash,
+                    );
+                    let job_id = miner.job_id.unwrap();
+                    let version = miner.version;
+                    share_send
+                        .try_send((nonce, job_id, version.unwrap(), time))
+                        .unwrap();
+                }
+                // Advance nonce window
+                header.nonce = start.wrapping_add(batch);
+            } else {
+                if miner.next_share().is_valid() {
+                    let nonce = miner.header.unwrap().nonce;
+                    let time = miner.header.unwrap().time;
+                    let job_id = miner.job_id.unwrap();
+                    let version = miner.version;
+                    share_send
+                        .try_send((nonce, job_id, version.unwrap(), time))
+                        .unwrap();
+                }
+                miner
+                    .header
+                    .as_mut()
+                    .map(|h| h.nonce = h.nonce.wrapping_add(1));
             }
-            miner
-                .header
-                .as_mut()
-                .map(|h| h.nonce = h.nonce.wrapping_add(1));
         }
     } else {
         loop {
-            if miner.next_share().is_valid() {
-                if kill.load(Ordering::Relaxed) {
-                    break;
-                }
-                let nonce = miner.header.unwrap().nonce;
-                let time = miner.header.unwrap().time;
-                let job_id = miner.job_id.unwrap();
-                let version = miner.version;
-                share_send
-                    .try_send((nonce, job_id, version.unwrap(), time))
-                    .unwrap();
+            // Prefer fast path with micro-batching when possible
+            if kill.load(Ordering::Relaxed) {
+                break;
             }
-            miner
-                .header
-                .as_mut()
-                .map(|h| h.nonce = h.nonce.wrapping_add(1));
+            let can_fast = miner.fast_hasher.is_some() && miner.target.is_some() && miner.header.is_some();
+            if can_fast {
+                let header = miner.header.as_mut().unwrap();
+                let time = header.time;
+                let start = header.nonce;
+                let tgt_le = miner.target.unwrap().to_little_endian();
+                let fast = miner.fast_hasher.as_mut().unwrap();
+                let mut found = None;
+                let batch = nonces_per_call();
+                for i in 0..batch {
+                    let nonce = start.wrapping_add(i);
+                    let hash = fast.hash_with_nonce_time(nonce, time);
+                    if hash_meets_target_le(&hash, &tgt_le) {
+                        found = Some((nonce, hash));
+                        break;
+                    }
+                }
+                if let Some((nonce, hash)) = found {
+                    header.nonce = nonce;
+                    info!(
+                        "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
+                        header.nonce, miner.target, hash,
+                    );
+                    let job_id = miner.job_id.unwrap();
+                    let version = miner.version;
+                    share_send
+                        .try_send((nonce, job_id, version.unwrap(), time))
+                        .unwrap();
+                }
+                // Advance nonce window
+                header.nonce = start.wrapping_add(batch);
+            } else {
+                if miner.next_share().is_valid() {
+                    if kill.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let nonce = miner.header.unwrap().nonce;
+                    let time = miner.header.unwrap().time;
+                    let job_id = miner.job_id.unwrap();
+                    let version = miner.version;
+                    share_send
+                        .try_send((nonce, job_id, version.unwrap(), time))
+                        .unwrap();
+                }
+                miner
+                    .header
+                    .as_mut()
+                    .map(|h| h.nonce = h.nonce.wrapping_add(1));
+            }
         }
     }
 }

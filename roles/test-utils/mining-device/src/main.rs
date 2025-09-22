@@ -45,6 +45,12 @@ struct Args {
          \nIf empty, the CPU miner will simply advertise its real capacity."
     )]
     nominal_hashrate_multiplier: Option<f32>,
+    #[arg(
+        long,
+        help = "Number of nonces to try per mining loop iteration when fast hashing is available (micro-batching)",
+        default_value = "32"
+    )]
+    nonces_per_call: u32,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -52,6 +58,8 @@ async fn main() {
     let args = Args::parse();
     tracing_subscriber::fmt::init();
     info!("start");
+    // Configure micro-batch size
+    mining_device::set_nonces_per_call(args.nonces_per_call);
     let _ = mining_device::connect(
         args.address_pool,
         args.pubkey_pool,

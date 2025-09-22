@@ -46,3 +46,7 @@ half = "=2.3.1"
 [[bench]]
 name = "hasher_bench"
 harness = false
+
+[[bench]]
+name = "microbatch_bench"
+harness = false

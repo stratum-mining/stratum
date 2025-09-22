@@ -21,6 +21,8 @@ Options:
           If 0.0 < nominal_hashrate_multiplier < 1.0, the CPU miner will advertise a nominal hashrate that is smaller than its real capacity.
           If nominal_hashrate_multiplier > 1.0, the CPU miner will advertise a nominal hashrate that is bigger than its real capacity.
           If empty, the CPU miner will simply advertise its real capacity.
+      --nonces-per-call <NONCES_PER_CALL>
+          Number of nonces to try per mining loop iteration when fast hashing is available (micro-batching). [default: 32]
   -h, --help
           Print help
   -V, --version
@@ -30,6 +32,14 @@ Options:
 Usage example:
 ```
 cargo run --release -- --address-pool 127.0.0.1:20000 --id-device device_id::SOLO::bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+```
+
+To adjust micro-batching (see below), you can pass for example `--nonces-per-call 64`:
+
+```
+cargo run --release -- --address-pool 127.0.0.1:20000 \
+        --id-device device_id::SOLO::bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh \
+        --nonces-per-call 64
 ```
 
 ## handicap
@@ -59,10 +69,40 @@ This feature can also be used to advertise a bigger nominal hashrate by using va
 
 That can also be useful for testing difficulty adjustment algorithms on Sv2 upstreams.
 
-## Microbenchmark
+## Micro-batching (nonces per call)
 
-You can measure the hashing loop performance (baseline vs optimized) with Criterion. From this directory:
+The miner supports hashing multiple consecutive nonces per loop iteration when the fast hashing path is available. This reduces outer-loop overhead and can slightly increase throughput on some CPUs.
+
+- Flag: `--nonces-per-call <N>`
+- Default: `32`
+- Trade-off: larger batches can increase latency to detecting a found share because the loop advances in steps of `N`. Choose smaller values (e.g., `4`–`16`) if you care more about latency; larger values (e.g., `32`–`128`) may squeeze a bit more throughput.
+
+This setting only affects the CPU loop structure; it does not change the hash function or correctness.
+
+## Benchmarks
+
+You can measure performance with Criterion. From this directory:
 
 ```zsh
 cargo bench --bench hasher_bench -- --quiet
 ```
+
+- `hasher_bench` compares baseline `block_hash()` against the optimized midstate+compress256 path.
+
+To analyze the effect of micro-batching on an end-of-loop iteration, run:
+
+```zsh
+cargo bench --bench microbatch_bench -- --quiet
+```
+
+- `microbatch_bench` sweeps several batch sizes and sets Criterion throughput to `Elements = N` where each element is one nonce. This means:
+        - The reported time per iteration divides roughly by `N` to get per-nonce time.
+        - Criterion also prints throughput in elements/s (hashes/s). For convenience, the bench additionally prints a concise `MH/s` per configuration.
+
+By default the bench runs a concise subset of batch sizes: `1,8,32,128`. You can override the list via an environment variable:
+
+```zsh
+MINING_DEVICE_BATCH_SIZES=1,4,8,16,32,64,128 cargo bench --bench microbatch_bench -- --quiet
+```
+
+Tip: pick the smallest `N` that gives you near-peak throughput to keep share-finding latency low.
