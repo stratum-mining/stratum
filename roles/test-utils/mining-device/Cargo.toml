@@ -38,10 +38,7 @@ primitive-types = "0.13.1"
 # Criterion 0.5 without default features; combined with a dev pin of `half = 2.3.1` to stay Rust 1.75-compatible.
 criterion = { version = "0.5", default-features = false, features = ["stable"] }
 half = "=2.3.1"
-
-[patch.crates-io]
-# Force an older `half` that works on Rust 1.75 (pulled via `ciborium` used by `criterion`).
-half = "=2.3.1"
+num_cpus = "1"
 
 [[bench]]
 name = "hasher_bench"
@@ -49,4 +46,8 @@ harness = false
 
 [[bench]]
 name = "microbatch_bench"
+harness = false
+
+[[bench]]
+name = "scaling_bench"
 harness = false

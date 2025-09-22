@@ -106,3 +106,15 @@ MINING_DEVICE_BATCH_SIZES=1,4,8,16,32,64,128 cargo bench --bench microbatch_benc
 ```
 
 Tip: pick the smallest `N` that gives you near-peak throughput to keep share-finding latency low.
+
+### Total scaling (multi-core)
+
+Total throughput doesn’t always scale linearly with more workers (due to CPU topology, turbo, thermal limits, etc.). Use the scaling bench to measure aggregate MH/s while ramping worker counts from 1 up to your number of logical CPUs:
+
+```zsh
+cargo bench --bench scaling_bench -- --quiet
+```
+
+- The bench automatically detects the number of logical CPUs and iterates workers from `1..=N` (no environment variable needed).
+
+The bench prints one concise summary line per configuration and shows incremental improvements versus the previous worker count, including the approximate MH/s gained per additional worker. It also sets Criterion throughput to Elements equal to total nonces hashed, so Elements/s equals total hashes/s.
