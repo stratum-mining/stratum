@@ -42,13 +42,6 @@ pub enum ShareAccountingEvent {
         /// Timestamp when the event occurred
         timestamp: std::time::SystemTime,
     },
-    /// Share hashes were flushed (typically on chain tip update).
-    ShareHashesFlushed {
-        /// The channel identifier
-        channel_id: u32,
-        /// Timestamp when the flush occurred
-        timestamp: std::time::SystemTime,
-    },
     /// Best difficulty was updated for the channel.
     BestDifficultyUpdated {
         /// The channel identifier
