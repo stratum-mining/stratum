@@ -23,6 +23,8 @@ Options:
           If empty, the CPU miner will simply advertise its real capacity.
       --nonces-per-call <NONCES_PER_CALL>
           Number of nonces to try per mining loop iteration when fast hashing is available (micro-batching). [default: 32]
+      --cores <CORES>
+          Number of worker threads to use for mining. Defaults to logical CPUs minus one (leaves one core free).
   -h, --help
           Print help
   -V, --version
@@ -78,6 +80,21 @@ The miner supports hashing multiple consecutive nonces per loop iteration when t
 - Trade-off: larger batches can increase latency to detecting a found share because the loop advances in steps of `N`. Choose smaller values (e.g., `4`–`16`) if you care more about latency; larger values (e.g., `32`–`128`) may squeeze a bit more throughput.
 
 This setting only affects the CPU loop structure; it does not change the hash function or correctness.
+
+## Worker threads
+
+By default, the miner uses one worker thread per logical CPU minus one (N-1). This leaves a core available for the operating system and scheduling overhead.
+
+You can override this with `--cores <N>`, clamped between `1` and the number of logical CPUs.
+
+Examples:
+
+```zsh
+# Pin to a small fixed number of workers
+cargo run --release -- --address-pool 127.0.0.1:20000 --cores 2
+```
+
+If `--cores` is omitted, auto mode (N-1) is used.
 
 ## Benchmarks
 

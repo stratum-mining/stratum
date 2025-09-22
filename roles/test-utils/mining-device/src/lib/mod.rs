@@ -42,6 +42,8 @@ use stratum_common::roles_logic_sv2::bitcoin::consensus::encode::serialize as bt
 // Runtime-configurable so the binary and benches can adjust it without changing code.
 use std::sync::atomic::AtomicU32;
 static NONCES_PER_CALL_RUNTIME: AtomicU32 = AtomicU32::new(32);
+// Runtime-configurable number of worker threads; 0 means "auto" (N-1)
+static WORKER_OVERRIDE: AtomicU32 = AtomicU32::new(0);
 
 #[inline]
 pub fn set_nonces_per_call(n: u32) {
@@ -53,6 +55,38 @@ pub fn set_nonces_per_call(n: u32) {
 #[inline]
 fn nonces_per_call() -> u32 {
     NONCES_PER_CALL_RUNTIME.load(Ordering::Relaxed).max(1)
+}
+
+/// Override the number of mining worker threads. If set to 0, auto mode (N-1) is used.
+#[inline]
+pub fn set_cores(n: u32) {
+    WORKER_OVERRIDE.store(n, Ordering::Relaxed);
+}
+
+/// Resolve effective worker count: if override is 0, use max(1, logical_cpus-1).
+#[inline]
+fn worker_count() -> u32 {
+    let total_cpus = available_parallelism().map(|p| p.get()).unwrap_or(1) as u32;
+    let auto = total_cpus.saturating_sub(1).max(1);
+    let override_n = WORKER_OVERRIDE.load(Ordering::Relaxed);
+    if override_n == 0 {
+        auto
+    } else {
+        // Clamp to [1, total_cpus] to avoid oversubscription or zero
+        override_n.clamp(1, total_cpus)
+    }
+}
+
+/// Public helper: current effective worker threads (after considering override and auto mode)
+#[inline]
+pub fn effective_worker_count() -> u32 {
+    worker_count()
+}
+
+/// Public helper: total logical CPUs detected
+#[inline]
+pub fn total_logical_cpus() -> u32 {
+    available_parallelism().map(|p| p.get()).unwrap_or(1) as u32
 }
 
 pub async fn connect(
@@ -837,10 +871,10 @@ fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
     let elapsed_secs = start_time.elapsed().as_secs_f64();
     let hashrate_single_thread = hashes as f64 / elapsed_secs;
 
-    // we just measured for a single thread, need to multiply by the available parallelism
-    let p = available_parallelism().unwrap().get();
-
-    hashrate_single_thread * p as f64
+    // We measured for a single thread; approximate total by number of mining workers.
+    // Leave one core for OS/scheduling: use N-1, but at least 1.
+    let workers = worker_count() as usize;
+    hashrate_single_thread * workers as f64
 }
 fn generate_random_32_byte_array() -> [u8; 32] {
     let mut rng = thread_rng();
@@ -857,7 +891,8 @@ fn start_mining_threads(
     tokio::task::spawn(async move {
         let mut killers: Vec<Arc<AtomicBool>> = vec![];
         loop {
-            let p = available_parallelism().unwrap().get() as u32;
+            // Determine number of workers based on override or auto (N-1)
+            let p = worker_count();
             let unit = u32::MAX / p;
             while have_new_job.recv().await.is_ok() {
                 while let Some(killer) = killers.pop() {
