@@ -30,6 +30,25 @@ key-utils = { path = "../../../utils/key-utils" }
 clap = { version = "^4.5.4", features = ["derive"] }
 tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
-sha2 = "0.10.6"
+sha2 = { version = "0.10.6", features = ["compress", "asm"] }
 tokio = "1.44.1"
 primitive-types = "0.13.1"
+num-format = "0.4"
+
+[dev-dependencies]
+# Criterion 0.5 without default features; combined with a dev pin of `half = 2.3.1` to stay Rust 1.75-compatible.
+criterion = { version = "0.5", default-features = false, features = ["stable"] }
+half = "=2.3.1"
+num_cpus = "1"
+
+[[bench]]
+name = "hasher_bench"
+harness = false
+
+[[bench]]
+name = "microbatch_bench"
+harness = false
+
+[[bench]]
+name = "scaling_bench"
+harness = false
