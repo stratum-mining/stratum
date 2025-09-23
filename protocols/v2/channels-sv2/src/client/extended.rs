@@ -13,6 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
+    persistence::{NoPersistence, Persistence},
     target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
@@ -59,7 +60,7 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
 /// - Share accounting for the channel (as tracked by the client).
 /// - The channel's current chain tip.
 #[derive(Clone, Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel<'a, P = NoPersistence> {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -74,11 +75,14 @@ pub struct ExtendedChannel<'a> {
     past_jobs: HashMap<u32, ExtendedJob<'a>>,
     // stale jobs are indexed with job_id (u32)
     stale_jobs: HashMap<u32, ExtendedJob<'a>>,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccounting<P>,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl<'a, P> ExtendedChannel<'a, P>
+where
+    P: Persistence,
+{
     /// Constructs a new [`ExtendedChannel`].
     pub fn new(
         channel_id: u32,
@@ -88,6 +92,38 @@ impl<'a> ExtendedChannel<'a> {
         nominal_hashrate: f32,
         version_rolling: bool,
         rollable_extranonce_size: u16,
+    ) -> Self
+    where
+        P: Default,
+    {
+        Self {
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            rollable_extranonce_size,
+            target,
+            nominal_hashrate,
+            version_rolling,
+            future_jobs: HashMap::new(),
+            active_job: None,
+            past_jobs: HashMap::new(),
+            stale_jobs: HashMap::new(),
+            share_accounting: ShareAccounting::new(channel_id, P::default()),
+            chain_tip: None,
+        }
+    }
+
+    /// Constructs a new [`ExtendedChannel`] with custom persistence.
+    #[cfg(feature = "persistence")]
+    pub fn new_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        target: Target,
+        nominal_hashrate: f32,
+        version_rolling: bool,
+        rollable_extranonce_size: u16,
+        persistence: P,
     ) -> Self {
         Self {
             channel_id,
@@ -101,7 +137,7 @@ impl<'a> ExtendedChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(),
+            share_accounting: ShareAccounting::new(channel_id, persistence),
             chain_tip: None,
         }
     }
@@ -202,7 +238,7 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns a reference to the [`ShareAccounting`] for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccounting<P> {
         &self.share_accounting
     }
 
@@ -564,9 +600,12 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{
-        extended::ExtendedChannel,
-        share_accounting::{ShareValidationError, ShareValidationResult},
+    use crate::{
+        client::{
+            extended::ExtendedChannel,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+        },
+        persistence::NoPersistence,
     };
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
@@ -589,7 +628,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 4u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -671,7 +710,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 4u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -744,7 +783,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -836,7 +875,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -931,7 +970,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),

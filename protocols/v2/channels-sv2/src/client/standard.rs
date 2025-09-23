@@ -13,6 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
+    persistence::{NoPersistence, Persistence},
     target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
@@ -43,7 +44,7 @@ use tracing::debug;
 /// - share accounting state
 /// - chain tip state
 #[derive(Debug, Clone)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel<'a, P = NoPersistence> {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -53,11 +54,14 @@ pub struct StandardChannel<'a> {
     active_job: Option<NewMiningJob<'a>>,
     past_jobs: HashMap<u32, NewMiningJob<'a>>,
     stale_jobs: HashMap<u32, NewMiningJob<'a>>,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccounting<P>,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl<'a, P> StandardChannel<'a, P>
+where
+    P: Persistence,
+{
     /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(
         channel_id: u32,
@@ -65,6 +69,34 @@ impl<'a> StandardChannel<'a> {
         extranonce_prefix: Vec<u8>,
         target: Target,
         nominal_hashrate: f32,
+    ) -> Self
+    where
+        P: Default,
+    {
+        Self {
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            target,
+            nominal_hashrate,
+            future_jobs: HashMap::new(),
+            active_job: None,
+            past_jobs: HashMap::new(),
+            stale_jobs: HashMap::new(),
+            share_accounting: ShareAccounting::new(channel_id, P::default()),
+            chain_tip: None,
+        }
+    }
+
+    /// Creates a new [`StandardChannel`] instance with custom persistence.
+    #[cfg(feature = "persistence")]
+    pub fn new_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        target: Target,
+        nominal_hashrate: f32,
+        persistence: P,
     ) -> Self {
         Self {
             channel_id,
@@ -76,7 +108,7 @@ impl<'a> StandardChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(),
+            share_accounting: ShareAccounting::new(channel_id, persistence),
             chain_tip: None,
         }
     }
@@ -161,7 +193,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccounting<P> {
         &self.share_accounting
     }
 
@@ -361,9 +393,12 @@ impl<'a> StandardChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{
-        share_accounting::{ShareValidationError, ShareValidationResult},
-        standard::StandardChannel,
+    use crate::{
+        client::{
+            share_accounting::{ShareValidationError, ShareValidationResult},
+            standard::StandardChannel,
+        },
+        persistence::NoPersistence,
     };
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
@@ -381,7 +416,7 @@ mod tests {
         let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -441,7 +476,7 @@ mod tests {
         let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -489,7 +524,7 @@ mod tests {
         let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -562,7 +597,7 @@ mod tests {
         ]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -638,7 +673,7 @@ mod tests {
         ]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::new(
+        let mut channel = StandardChannel::<NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,

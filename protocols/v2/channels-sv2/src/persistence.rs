@@ -8,8 +8,10 @@
 //!
 //! - **Zero Hot Path Impact**: No `Result` types or blocking operations in share accounting methods
 //! - **Async Channel Based**: Events are sent via channels for background persistence processing
-//! - **Flexible Implementation**: Trait allows different persistence backends (database, file, etc.)
-//! - **Optional Compilation**: Gated behind `persistence` feature flag to avoid unnecessary dependencies
+//! - **Flexible Implementation**: Trait allows different persistence backends (database, file,
+//!   etc.)
+//! - **Optional Compilation**: Gated behind `persistence` feature flag to avoid unnecessary
+//!   dependencies
 //!
 //! ## Usage
 //!
@@ -27,7 +29,8 @@ use bitcoin::hashes::sha256d::Hash;
 pub enum ShareAccountingEvent {
     /// A share was accepted and accounting was updated.
     ShareAccepted {
-        /// The channel identifier (server-assigned for server channels, client-assigned for client channels)
+        /// The channel identifier (server-assigned for server channels, client-assigned for client
+        /// channels)
         channel_id: u32,
         /// Work value of the accepted share
         share_work: u64,
@@ -57,18 +60,16 @@ pub enum ShareAccountingEvent {
 
 /// Trait for persisting share accounting events.
 ///
-/// Implementations of this trait handle the background persistence of share accounting
-/// events sent through async channels. This allows the hot path share processing to
-/// remain completely non-blocking.
-///
-/// # Design Notes
-///
-/// - All methods are infallible from the caller's perspective - persistence failures
-///   must be handled internally by implementations
-/// - Events are timestamped to allow temporal analysis of mining operations
-/// - The trait provides a unified interface regardless of whether persistence is enabled
-#[cfg(feature = "persistence")]
+/// Implementations of this trait handle the persistence of share accounting events,
+/// ensuring that persistence operations are non-blocking and can handle failures internally.
 pub trait Persistence {
+    /// The type of channel sender used to send events for persistence.
+    ///
+    /// This is typically something like `tokio::sync::mpsc::UnboundedSender<ShareAccountingEvent>`
+    /// or `async_channel::Sender<ShareAccountingEvent>`.
+    #[cfg(feature = "persistence")]
+    type Sender: Clone + Send + 'static;
+
     /// Sends a share accounting event for persistence.
     ///
     /// This method MUST be non-blocking and infallible from the caller's perspective.
@@ -85,12 +86,19 @@ pub trait Persistence {
     ///
     /// Implementations can use this for cleanup operations, but should not block.
     fn shutdown(&self) {}
+
+    #[cfg(feature = "persistence")]
+    fn new(sender: Self::Sender) -> Self;
+
+    #[cfg(not(feature = "persistence"))]
+    fn new() -> Self;
 }
 
 /// A no-op persistence implementation for when persistence is disabled.
 ///
 /// This allows ShareAccounting to always call persistence methods without
 /// needing conditional compilation throughout the hot path code.
+#[derive(Debug, Clone)]
 pub struct NoPersistence;
 
 impl NoPersistence {
@@ -115,7 +123,19 @@ impl Default for NoPersistence {
     }
 }
 
-#[cfg(feature = "persistence")]
 impl Persistence for NoPersistence {
+    #[cfg(feature = "persistence")]
+    type Sender = ();
+
     fn persist_event(&self, _event: ShareAccountingEvent) {}
+
+    #[cfg(feature = "persistence")]
+    fn new(_sender: Self::Sender) -> Self {
+        Self
+    }
+
+    #[cfg(not(feature = "persistence"))]
+    fn new() -> Self {
+        Self
+    }
 }

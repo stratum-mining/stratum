@@ -42,6 +42,7 @@
 use crate::{
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
+    persistence::{NoPersistence, Persistence},
     server::{
         error::ExtendedChannelError,
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
@@ -83,7 +84,7 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J>
+pub struct ExtendedChannel<'a, J, P = NoPersistence>
 where
     J: JobStore<ExtendedJob<'a>>,
 {
@@ -96,15 +97,16 @@ where
     nominal_hashrate: f32,
     job_store: J,
     job_factory: JobFactory,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccounting<P>,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> ExtendedChannel<'a, J>
+impl<'a, J, P> ExtendedChannel<'a, J, P>
 where
     J: JobStore<ExtendedJob<'a>>,
+    P: Persistence + Default,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -186,7 +188,170 @@ where
             Some(miner_tag_string),
         )
     }
+}
 
+#[cfg(feature = "persistence")]
+impl<'a, J, P> ExtendedChannel<'a, J, P>
+where
+    J: JobStore<ExtendedJob<'a>>,
+    P: Persistence,
+{
+    /// Constructor of `ExtendedChannel` for a Sv2 Pool Server with custom persistence.
+    /// Not meant for usage on a Sv2 Job Declaration Client.
+    ///
+    /// Initializes the extended channel state with the provided parameters, including channel
+    /// identifiers, difficulty targets, share accounting, and job management.
+    /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
+    /// requirements are not met.
+    ///
+    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
+    /// and `//` delimiters: `/pool_tag_string//`
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_for_pool_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        max_target: Target,
+        nominal_hashrate: f32,
+        version_rolling_allowed: bool,
+        rollable_extranonce_size: u16,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: J,
+        pool_tag_string: String,
+        persistence: P,
+    ) -> Result<Self, ExtendedChannelError> {
+        Self::new_with_persistence(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            Some(pool_tag_string),
+            None,
+            persistence,
+        )
+    }
+
+    /// Constructor of `ExtendedChannel` for a Sv2 Job Declaration Client with custom persistence.
+    /// Not meant for usage on a Sv2 Pool Server.
+    ///
+    /// Initializes the extended channel state with the provided parameters, including channel
+    /// identifiers, difficulty targets, share accounting, and job management.
+    /// Returns an error if target/failure parameters are invalid or extranonce prefix
+    /// requirements are not met.
+    ///
+    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig in between
+    /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_for_job_declaration_client_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        max_target: Target,
+        nominal_hashrate: f32,
+        version_rolling_allowed: bool,
+        rollable_extranonce_size: u16,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: J,
+        pool_tag_string: Option<String>,
+        miner_tag_string: String,
+        persistence: P,
+    ) -> Result<Self, ExtendedChannelError> {
+        Self::new_with_persistence(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            pool_tag_string,
+            Some(miner_tag_string),
+            persistence,
+        )
+    }
+
+    // private constructor with custom persistence
+    #[allow(clippy::too_many_arguments)]
+    fn new_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        max_target: Target,
+        nominal_hashrate: f32,
+        version_rolling_allowed: bool,
+        rollable_extranonce_size: u16,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: J,
+        pool_tag: Option<String>,
+        miner_tag: Option<String>,
+        persistence: P,
+    ) -> Result<Self, ExtendedChannelError> {
+        let target_u256 =
+            match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
+                Ok(target_u256) => target_u256,
+                Err(_) => {
+                    return Err(ExtendedChannelError::InvalidNominalHashrate);
+                }
+            };
+
+        let target: Target = target_u256.clone().into();
+
+        if target > max_target {
+            return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
+        }
+
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+            return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
+        }
+
+        let script_sig_size = 5 + // BIP34
+            1 + // OP_PUSHBYTES
+            3 + // `/` delimiters
+            pool_tag.as_ref().map_or(0, |s| s.len()) +
+            miner_tag.as_ref().map_or(0, |s| s.len()) +
+            1 + // OP_PUSHBYTES
+            extranonce_prefix.len() +
+            rollable_extranonce_size as usize;
+
+        if script_sig_size > 100 {
+            return Err(ExtendedChannelError::ScriptSigSizeTooLarge);
+        }
+
+        Ok(Self {
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            rollable_extranonce_size,
+            requested_max_target: max_target,
+            target,
+            nominal_hashrate,
+            job_store,
+            job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
+            share_accounting: ShareAccounting::new(share_batch_size, channel_id, persistence),
+            expected_share_per_minute,
+            chain_tip: None,
+            phantom: PhantomData,
+        })
+    }
+}
+
+impl<'a, J, P> ExtendedChannel<'a, J, P>
+where
+    J: JobStore<ExtendedJob<'a>>,
+    P: Persistence + Default,
+{
     // private constructor
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -244,7 +409,7 @@ where
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccounting::new(share_batch_size),
+            share_accounting: ShareAccounting::new(share_batch_size, channel_id, P::default()),
             expected_share_per_minute,
             chain_tip: None,
             phantom: PhantomData,
@@ -418,7 +583,7 @@ where
         self.job_store.get_past_jobs()
     }
     /// Returns a reference to the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccounting<P> {
         &self.share_accounting
     }
 
@@ -737,6 +902,7 @@ where
 mod tests {
     use crate::{
         chain_tip::ChainTip,
+        persistence::NoPersistence,
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
@@ -772,7 +938,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -923,7 +1089,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1043,7 +1209,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1121,7 +1287,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1230,7 +1396,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1342,7 +1508,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1469,7 +1635,7 @@ mod tests {
         let max_target = Target::from_le_bytes([0xff; 32]);
 
         // Create a channel with initial hashrate
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1556,7 +1722,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),

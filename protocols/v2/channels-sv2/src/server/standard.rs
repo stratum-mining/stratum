@@ -35,6 +35,7 @@
 //! - Job lifecycle and share accounting are managed on a per-channel basis.
 use crate::{
     chain_tip::ChainTip,
+    persistence::{NoPersistence, Persistence},
     server::{
         error::StandardChannelError,
         jobs::{
@@ -80,7 +81,7 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a, J>
+pub struct StandardChannel<'a, J, P = NoPersistence>
 where
     J: JobStore<StandardJob<'a>>,
 {
@@ -90,7 +91,7 @@ where
     requested_max_target: Target,
     target: Target,
     nominal_hashrate: f32,
-    share_accounting: ShareAccounting,
+    share_accounting: ShareAccounting<P>,
     expected_share_per_minute: f32,
     job_store: J,
     job_factory: JobFactory,
@@ -98,9 +99,10 @@ where
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> StandardChannel<'a, J>
+impl<'a, J, P> StandardChannel<'a, J, P>
 where
     J: JobStore<StandardJob<'a>>,
+    P: Persistence,
 {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -123,7 +125,10 @@ where
         expected_share_per_minute: f32,
         job_store: J,
         pool_tag_string: String,
-    ) -> Result<Self, StandardChannelError> {
+    ) -> Result<Self, StandardChannelError>
+    where
+        P: Default,
+    {
         Self::new(
             channel_id,
             user_identity,
@@ -135,6 +140,7 @@ where
             job_store,
             Some(pool_tag_string),
             None,
+            P::default(),
         )
     }
 
@@ -160,6 +166,70 @@ where
         job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
+    ) -> Result<Self, StandardChannelError>
+    where
+        P: Default,
+    {
+        Self::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            requested_max_target,
+            nominal_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            pool_tag_string,
+            Some(miner_tag_string),
+            P::default(),
+        )
+    }
+
+    /// Constructor of `StandardChannel` for a Sv2 Pool Server with custom persistence.
+    #[cfg(feature = "persistence")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_for_pool_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        requested_max_target: Target,
+        nominal_hashrate: f32,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: J,
+        pool_tag_string: String,
+        persistence: P,
+    ) -> Result<Self, StandardChannelError> {
+        Self::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            requested_max_target,
+            nominal_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            Some(pool_tag_string),
+            None,
+            persistence,
+        )
+    }
+
+    /// Constructor of `StandardChannel` for a Sv2 Job Declaration Client with custom persistence.
+    #[cfg(feature = "persistence")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_for_job_declaration_client_with_persistence(
+        channel_id: u32,
+        user_identity: String,
+        extranonce_prefix: Vec<u8>,
+        requested_max_target: Target,
+        nominal_hashrate: f32,
+        share_batch_size: usize,
+        expected_share_per_minute: f32,
+        job_store: J,
+        pool_tag_string: Option<String>,
+        miner_tag_string: String,
+        persistence: P,
     ) -> Result<Self, StandardChannelError> {
         Self::new(
             channel_id,
@@ -172,6 +242,7 @@ where
             job_store,
             pool_tag_string,
             Some(miner_tag_string),
+            persistence,
         )
     }
 
@@ -188,6 +259,7 @@ where
         job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: Option<String>,
+        persistence: P,
     ) -> Result<Self, StandardChannelError> {
         let calculated_target =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
@@ -226,7 +298,7 @@ where
             requested_max_target,
             target,
             nominal_hashrate,
-            share_accounting: ShareAccounting::new(share_batch_size),
+            share_accounting: ShareAccounting::new(share_batch_size, channel_id, persistence),
             expected_share_per_minute,
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
@@ -388,7 +460,7 @@ where
     }
 
     /// Returns a reference to the share accounting state for this channel.
-    pub fn get_share_accounting(&self) -> &ShareAccounting {
+    pub fn get_share_accounting(&self) -> &ShareAccounting<P> {
         &self.share_accounting
     }
 
@@ -673,6 +745,7 @@ where
 mod tests {
     use crate::{
         chain_tip::ChainTip,
+        persistence::NoPersistence,
         server::{
             error::StandardChannelError,
             jobs::{job_store::DefaultJobStore, standard::StandardJob},
@@ -719,6 +792,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -847,6 +921,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -951,6 +1026,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1057,6 +1133,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1166,6 +1243,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1269,6 +1347,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1356,6 +1435,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 

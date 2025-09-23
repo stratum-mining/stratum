@@ -5,8 +5,8 @@
 //! are intended for use in Mining Clients.
 
 use super::HashSet;
+use crate::persistence::{NoPersistence, Persistence, ShareAccountingEvent};
 use bitcoin::hashes::sha256d::Hash;
-use crate::persistence::{NoPersistence, ShareAccountingEvent};
 
 /// The outcome of share validation, as seen by a Mining Client.
 ///
@@ -67,7 +67,10 @@ impl Default for ShareAccounting {
     }
 }
 
-impl<P> ShareAccounting<P> {
+impl<P> ShareAccounting<P>
+where
+    P: Persistence,
+{
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
     ///
     /// `channel_id` identifies the channel for persistence events.
