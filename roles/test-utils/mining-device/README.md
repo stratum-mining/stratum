@@ -51,10 +51,18 @@ difficulty target.
 
 The `--nominal-hashrate-multiplier` can be used to advertise a custom nominal hashrate.
 
-In the scenario described above, we could launch the CPU miner with `--nominal-hashrate-multiplier 0.01`. 
+In the scenario described above, we could launch the CPU miner with `--nominal-hashrate-multiplier 0.01`.
 
 The CPU miner would advertise 0.01k H/s, which would cause the upstream to set the difficulty target such that the CPU miner would find a share within ~1s.
 
 This feature can also be used to advertise a bigger nominal hashrate by using values above `1.0`.
 
 That can also be useful for testing difficulty adjustment algorithms on Sv2 upstreams.
+
+## Microbenchmark
+
+You can measure the hashing loop performance (baseline vs optimized) with Criterion. From this directory:
+
+```zsh
+cargo bench --bench hasher_bench -- --quiet
+```
