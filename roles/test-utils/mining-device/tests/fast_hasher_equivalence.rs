@@ -1,8 +1,7 @@
 use mining_device::FastSha256d;
 use rand::{thread_rng, Rng};
-use stratum_common::roles_logic_sv2::bitcoin::CompactTarget;
 use stratum_common::roles_logic_sv2::bitcoin::{
-    block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash,
+    block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
 
 fn random_header() -> Header {

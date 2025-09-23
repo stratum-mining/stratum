@@ -1,12 +1,14 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use mining_device::FastSha256d;
 use rand::{thread_rng, Rng};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Barrier,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Barrier,
+    },
+    thread,
+    time::Instant,
 };
-use std::thread;
-use std::time::Instant;
 use stratum_common::roles_logic_sv2::bitcoin::{
     block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };

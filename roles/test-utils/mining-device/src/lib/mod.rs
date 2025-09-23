@@ -35,8 +35,10 @@ use tokio::net::TcpStream;
 use tracing::{debug, error, info};
 
 // Fast SHA256d midstate hasher
-use sha2::compress256;
-use sha2::digest::generic_array::{typenum::U64, GenericArray};
+use sha2::{
+    compress256,
+    digest::generic_array::{typenum::U64, GenericArray},
+};
 use stratum_common::roles_logic_sv2::bitcoin::consensus::encode::serialize as btc_serialize;
 
 // Tuneable: how many nonces to try per mining loop iteration when fast hasher is available.
@@ -650,7 +652,8 @@ impl Miner {
                 *hash_.to_raw_hash().as_ref()
             };
 
-            // Compare hash against target quickly in little-endian u32 words (most significant at index 7)
+            // Compare hash against target quickly in little-endian u32 words (most significant at
+            // index 7)
             if let Some(target) = self.target {
                 let tgt_le = target.to_little_endian();
                 // Interpret as 8 little-endian u32 words
@@ -763,10 +766,11 @@ impl FastSha256d {
         }
     }
 
-    // Hashes header where only time and nonce vary, returns double-SHA256 as [u8;32] (little-endian like rust-bitcoin output)
+    // Hashes header where only time and nonce vary, returns double-SHA256 as [u8;32] (little-endian
+    // like rust-bitcoin output)
     pub fn hash_with_nonce_time(&mut self, nonce: u32, time: u32) -> [u8; 32] {
-        // First SHA256 second chunk: update time and nonce at offsets 68..72 and 76..80 within 80-byte header
-        // In our block1_template (offset 0..16 == 64..80 of header):
+        // First SHA256 second chunk: update time and nonce at offsets 68..72 and 76..80 within
+        // 80-byte header In our block1_template (offset 0..16 == 64..80 of header):
         // time at 0..4, bits at 4..8, nonce at 12..16
         // Update time and nonce in place
         self.block1[4..8].copy_from_slice(&time.to_le_bytes());
@@ -776,8 +780,8 @@ impl FastSha256d {
         let mut state1 = self.state0;
         compress256(&mut state1, std::slice::from_ref(&self.block1));
 
-        // Now perform the second SHA256 over the 32-byte first digest
-        // Build 64-byte block: [digest(32)] + [0x80] + [zeros] + [length=256 bits]
+        // Now perform the second SHA256 over the 32-byte first digest Build 64-byte block:
+        // [digest(32)] + [0x80] + [zeros] + [length=256 bits]
         // state1 words -> big-endian bytes per SHA-256 spec (fill first 32 bytes)
         for (i, word) in state1.iter().enumerate() {
             self.second_block[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
@@ -786,7 +790,8 @@ impl FastSha256d {
         let mut state2 = sha256_initial_state();
         compress256(&mut state2, std::slice::from_ref(&self.second_block));
 
-        // Convert state2 words to bytes (big-endian), then reverse for Bitcoin-style little-endian
+        // Convert state2 words to bytes (big-endian), then reverse for Bitcoin-style
+        // little-endian
         let mut out = [0u8; 32];
         for (i, word) in state2.iter().enumerate() {
             out[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
@@ -885,7 +890,8 @@ fn measure_hashrate(duration_secs: u64, handicap: u32) -> f64 {
         let barrier = barrier.clone();
         // Each thread gets its own miner and header copy
         let mut miner = Miner::new(handicap);
-        // Set target to zero (silently) so we never trigger share submits; we're only counting hashes
+        // Set target to zero (silently) so we never trigger share submits; we're only counting
+        // hashes
         miner.new_target_silent(vec![0_u8; 32]);
         miner.header = Some(header_template);
         if let Some(h) = miner.header.as_ref() {
