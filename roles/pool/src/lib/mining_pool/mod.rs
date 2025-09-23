@@ -1174,17 +1174,20 @@ fn run_vardiff_on_extended_channel(
     };
 
     if let Some(new_hashrate) = new_hashrate_opt {
-        if let Ok(()) = channel_state.update_channel(new_hashrate, None) {
-            let updated_target = channel_state.get_target();
-            updates.push((channel_id, updated_target.clone()));
+        match channel_state.update_channel(new_hashrate, None) {
+            Ok(()) => {
+                let updated_target = channel_state.get_target();
+                updates.push((channel_id, updated_target.clone()));
 
-            debug!(
-                "Updated target for extended channel_id={channel_id} to {:?}",
-                updated_target
-            );
-        } else {
-            warn!("Failed to update extended channel {channel_id}");
-        }
+                debug!(
+                    "Updated target for extended channel channel_id={channel_id} to {:?}",
+                    updated_target
+                );
+            }
+            Err(e) => warn!(
+                "Failed to update extended channel channel_id={channel_id} during vardiff {e:?}"
+            ),
+        };
     }
 }
 
@@ -1215,17 +1218,20 @@ fn run_vardiff_on_standard_channel(
     };
 
     if let Some(new_hashrate) = new_hashrate_opt {
-        if let Ok(()) = channel_state.update_channel(new_hashrate, None) {
-            let updated_target = channel_state.get_target();
-            updates.push((channel_id, updated_target.clone()));
+        match channel_state.update_channel(new_hashrate, None) {
+            Ok(()) => {
+                let updated_target = channel_state.get_target();
+                updates.push((channel_id, updated_target.clone()));
 
-            debug!(
-                "Updated target for standard channel_id={channel_id} to {:?}",
-                updated_target
-            );
-        } else {
-            warn!("Failed to update standard channel {channel_id}");
-        }
+                debug!(
+                    "Updated target for standard channel channel_id={channel_id} to {:?}",
+                    updated_target
+                );
+            }
+            Err(e) => warn!(
+                "Failed to update standard channel channel_id={channel_id} during vardiff {e:?}"
+            ),
+        };
     }
 }
 
