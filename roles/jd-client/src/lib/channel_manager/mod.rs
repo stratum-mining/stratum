@@ -926,7 +926,9 @@ impl ChannelManager {
                 );
                 debug!("Updated target for extended channel_id={channel_id} to {updated_target:?}",);
             }
-            Err(e) => warn!("Failed to update extended channel {channel_id} {e:?}"),
+            Err(e) => warn!(
+                "Failed to update extended channel channel_id={channel_id} during vardiff {e:?}"
+            ),
         }
     }
 
@@ -962,9 +964,11 @@ impl ChannelManager {
                         )
                             .into(),
                     );
-                    debug!(?updated_target, "Updated target for standard channel");
+                    debug!("Updated target for standard channel channel_id={channel_id} to {updated_target:?}");
                 }
-                Err(_) => warn!("Failed to update standard channel {channel_id}"),
+                Err(e) => warn!(
+                    "Failed to update standard channel channel_id={channel_id} during vardiff {e:?}"
+                ),
             }
         }
     }
