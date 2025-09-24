@@ -27,20 +27,20 @@ jobs:
       - name: Build Protocols
         run: cargo build --manifest-path=protocols/Cargo.toml
       - name: Build Roles
-        run: cargo build --manifest-path=roles/Cargo.toml
+        run: cargo build --locked --manifest-path=roles/Cargo.toml
       - name: Build Utils
-        run: cargo build --manifest-path=utils/Cargo.toml
+        run: cargo build --locked --manifest-path=utils/Cargo.toml
       - name: Build Integration Tests
-        run: cargo build --manifest-path=test/integration-tests/Cargo.toml
-      
+        run: cargo build --locked --manifest-path=test/integration-tests/Cargo.toml
+
       # also check test compilation without running tests
       - name: Check Test Compilation for Benches
         run: cargo test --manifest-path=benches/Cargo.toml --no-run
       - name: Check Test Compilation for Protocols
         run: cargo test --manifest-path=protocols/Cargo.toml --no-run
       - name: Check Test Compilation for Roles
-        run: cargo test --manifest-path=roles/Cargo.toml --no-run
+        run: cargo test --locked --manifest-path=roles/Cargo.toml --no-run
       - name: Check Test Compilation for Utils
-        run: cargo test --manifest-path=utils/Cargo.toml --no-run
+        run: cargo test --locked --manifest-path=utils/Cargo.toml --no-run
       - name: Check Test Compilation for Integration Tests
-        run: cargo test --manifest-path=test/integration-tests/Cargo.toml --no-run
+        run: cargo test --locked --manifest-path=test/integration-tests/Cargo.toml --no-run
