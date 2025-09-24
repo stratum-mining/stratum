@@ -19,7 +19,6 @@
 //! - `prop_test`: Enables support for property testing in [`template_distribution_sv2`] crate.
 pub mod errors;
 pub mod handlers;
-pub mod job_creator;
 pub mod utils;
 pub mod vardiff;
 pub use bitcoin;
