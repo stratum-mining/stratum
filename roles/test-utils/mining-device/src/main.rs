@@ -69,6 +69,11 @@ async fn main() {
     if let Some(n) = args.cores {
         mining_device::set_cores(n);
     }
+    // GPU mining is automatically enabled when built with the `gpu-metal` feature.
+    #[cfg(all(target_os = "macos", feature = "gpu-metal"))]
+    {
+        info!("GPU Metal enabled: GPU miner will start");
+    }
     // Log worker usage (after applying overrides)
     let used = mining_device::effective_worker_count();
     let total = mining_device::total_logical_cpus();
@@ -76,7 +81,7 @@ async fn main() {
         "Using {} worker threads out of {} logical CPUs",
         used, total
     );
-    let _ = mining_device::connect(
+    let connect_fut = mining_device::connect(
         args.address_pool,
         args.pubkey_pool,
         args.id_device,
@@ -84,6 +89,14 @@ async fn main() {
         args.handicap,
         args.nominal_hashrate_multiplier,
         false,
-    )
-    .await;
+    );
+
+    tokio::select! {
+        _ = connect_fut => { /* connection finished */ }
+        _ = tokio::signal::ctrl_c() => {
+            info!("Ctrl-C received, shutting down now");
+            // Exit immediately; background threads will be terminated by process exit
+            std::process::exit(0);
+        }
+    }
 }

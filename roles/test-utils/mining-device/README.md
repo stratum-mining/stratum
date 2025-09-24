@@ -85,7 +85,10 @@ This setting only affects the CPU loop structure; it does not change the hash fu
 
 By default, the miner uses one worker thread per logical CPU minus one (N-1). This leaves a core available for the operating system and scheduling overhead.
 
-You can override this with `--cores <N>`, clamped between `1` and the number of logical CPUs.
+You can override this with `--cores <N>`, clamped between `0` and the number of logical CPUs.
+
+- If you pass `--cores 0`, CPU workers are disabled. This is useful for GPU-only testing when built with the `gpu-metal` feature on macOS.
+- When the GPU path is enabled (built with `--features gpu-metal` on macOS), the miner reserves two CPU cores by default to feed the GPU and the OS, unless `--cores` explicitly sets a value.
 
 Examples:
 
@@ -123,6 +126,26 @@ MINING_DEVICE_BATCH_SIZES=1,4,8,16,32,64,128 cargo bench --bench microbatch_benc
 ```
 
 Tip: pick the smallest `N` that gives you near-peak throughput to keep share-finding latency low.
+
+## Optional: GPU mining (macOS Metal)
+
+On macOS, you can use a simple GPU mining path via Metal. This is experimental and feature-gated.
+
+- Build with feature: add `--features gpu-metal` to your cargo command. When built with this feature, the GPU path is enabled automatically.
+
+Examples:
+
+```zsh
+# Run with GPU enabled (requires macOS and Metal feature)
+RUST_LOG=info cargo run --release --features gpu-metal -- \
+        --address-pool 127.0.0.1:20000
+
+# Benchmark GPU path only (no pool needed)
+cargo bench --manifest-path roles/test-utils/mining-device/Cargo.toml \
+        --bench gpu_metal_bench --features gpu-metal
+```
+
+When the GPU path is enabled, the miner starts a GPU worker alongside CPU workers and conservatively reserves a couple of CPU cores to feed the GPU.
 
 ### Total scaling (multi-core)
 
