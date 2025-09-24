@@ -34,6 +34,7 @@ pub struct PoolConfig {
     share_batch_size: usize,
     log_file: Option<PathBuf>,
     server_id: u16,
+    share_persistence_file_path: Option<String>,
 }
 
 impl PoolConfig {
@@ -50,6 +51,7 @@ impl PoolConfig {
         shares_per_minute: f32,
         share_batch_size: usize,
         server_id: u16,
+        share_persistence_file_path: Option<String>,
     ) -> Self {
         Self {
             listen_address: pool_connection.listen_address,
@@ -64,6 +66,7 @@ impl PoolConfig {
             share_batch_size,
             log_file: None,
             server_id,
+            share_persistence_file_path
         }
     }
 
@@ -148,6 +151,11 @@ impl PoolConfig {
             value: Amount::from_sat(0),
             script_pubkey: self.coinbase_reward_script.script_pubkey().to_owned(),
         }
+    }
+
+    /// Returns the share persistence file path.
+    pub fn share_persistence_file_path(&self) -> Option<&String> {
+        self.share_persistence_file_path.as_ref()
     }
 }
 
