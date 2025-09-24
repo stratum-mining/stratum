@@ -96,7 +96,7 @@ where
     ) -> Self {
         Self {
             channel_id,
-            user_identity,
+            user_identity: user_identity.clone(),
             extranonce_prefix,
             rollable_extranonce_size,
             target,
@@ -106,7 +106,7 @@ where
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(channel_id, persistence),
+            share_accounting: ShareAccounting::new(channel_id, persistence, user_identity.clone()),
             chain_tip: None,
         }
     }

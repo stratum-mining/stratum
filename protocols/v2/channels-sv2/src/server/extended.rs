@@ -407,7 +407,7 @@ where
 
         Ok(Self {
             channel_id,
-            user_identity,
+            user_identity: user_identity.clone(),
             extranonce_prefix,
             rollable_extranonce_size,
             requested_max_target: max_target,
@@ -415,7 +415,7 @@ where
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccounting::new(share_batch_size, channel_id, P::default()),
+            share_accounting: ShareAccounting::new(share_batch_size, channel_id, P::default(), user_identity.clone()),
             expected_share_per_minute,
             chain_tip: None,
             phantom: PhantomData,

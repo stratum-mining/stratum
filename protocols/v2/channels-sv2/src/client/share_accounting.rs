@@ -59,8 +59,8 @@ pub struct ShareAccounting<P> {
     best_diff: f64,
     channel_id: u32,
     persistence: P,
+    user_identity: String,
 }
-
 
 impl<P> ShareAccounting<P>
 where
@@ -70,7 +70,8 @@ where
     ///
     /// `channel_id` identifies the channel for persistence events.
     /// `persistence` handles background persistence of share accounting events.
-    pub fn new(channel_id: u32, persistence: P) -> Self {
+    /// `user_identity` is the identity string associated with the channel.
+    pub fn new(channel_id: u32, persistence: P, user_identity: String) -> Self {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
@@ -79,6 +80,7 @@ where
             best_diff: 0.0,
             channel_id,
             persistence,
+            user_identity,
         }
     }
 
@@ -164,5 +166,10 @@ where
             };
             self.persistence.persist_event(event);
         }
+    }
+
+    /// Returns the user identity string associated with this channel.
+    pub fn get_user_identity(&self) -> &String {
+        &self.user_identity
     }
 }
