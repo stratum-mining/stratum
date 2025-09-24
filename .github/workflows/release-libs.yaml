@@ -125,6 +125,11 @@ jobs:
         run: |
           ./scripts/release-libs.sh common
 
+      # handlers_sv2 (depends on parsers_sv2, binary_sv2, common_messages_sv2, mining_sv2, template_distribution_sv2, job_declaration_sv2)
+      - name: Publish crate handlers_sv2
+        run: |
+          ./scripts/release-libs.sh protocols/v2/handlers-sv2
+
       # Utilities that depend on stratum-common
       - name: Publish crate bip32-key-derivation
         run: |
