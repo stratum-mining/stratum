@@ -1,6 +1,6 @@
 [package]
 name = "sv1_api"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"

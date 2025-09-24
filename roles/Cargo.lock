@@ -791,7 +791,7 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
 name = "codec_sv2"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -809,7 +809,7 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "common_messages_sv2"
-version = "6.0.0"
+version = "6.0.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -1237,7 +1237,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "framing_sv2"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -2260,7 +2260,7 @@ dependencies = [
 
 [[package]]
 name = "parsers_sv2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2",
  "common_messages_sv2",
@@ -3001,7 +3001,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "sv1_api"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",
