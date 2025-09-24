@@ -14,7 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^3.0.0" }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2", version = "^4.0.0" }
 buffer_sv2 = { path = "../../../utils/buffer", optional=true, version = "^2.0.0" }
 noise_sv2 = { path = "../../../protocols/v2/noise-sv2", version = "^1.0.0" }
 
