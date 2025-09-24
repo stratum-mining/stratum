@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "binary_sv2"
-version = "3.0.1"
+version = "4.0.0"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -279,7 +279,7 @@ dependencies = [
 
 [[package]]
 name = "channels_sv2"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "binary_sv2",
  "bitcoin",
@@ -682,7 +682,7 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "job_declaration_sv2"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -711,7 +711,7 @@ checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
 name = "mining_sv2"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -1199,7 +1199,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "template_distribution_sv2"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "binary_sv2",
 ]
