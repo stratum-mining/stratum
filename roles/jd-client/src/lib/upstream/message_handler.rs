@@ -6,13 +6,9 @@ use stratum_common::roles_logic_sv2::{
 };
 use tracing::{info, warn};
 
-use crate::{
-    error::JDCError,
-    jd_mode::{set_jd_mode, JdMode},
-    job_declarator::JobDeclarator,
-};
+use crate::{error::JDCError, upstream::Upstream};
 
-impl HandleCommonMessagesFromServerAsync for JobDeclarator {
+impl HandleCommonMessagesFromServerAsync for Upstream {
     type Error = JDCError;
 
     async fn handle_setup_connection_success(
@@ -20,17 +16,6 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
         msg: SetupConnectionSuccess,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
-
-        let jd_mode = match msg.flags {
-            0 => JdMode::CoinbaseOnly,
-            1 => JdMode::FullTemplate,
-            _ => JdMode::SoloMining,
-        };
-        set_jd_mode(jd_mode);
-
-        if jd_mode == JdMode::SoloMining {
-            return Err(JDCError::Shutdown);
-        }
 
         Ok(())
     }

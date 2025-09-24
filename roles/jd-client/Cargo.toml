@@ -1,6 +1,6 @@
 [package]
-name = "jd_client"
-version = "0.1.4"
+name = "jd_client_sv2"
+version = "0.1.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "Job Declarator Client (JDC) role"
@@ -12,23 +12,17 @@ license = "MIT OR Apache-2.0"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [lib]
-name = "jd_client"
+name = "jd_client_sv2"
 path = "src/lib/mod.rs"
 
 [dependencies]
-secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "rand", "rand-std"] }
 async-channel = "1.5.1"
-async-recursion = "0.3.2"
 buffer_sv2 = { path = "../../utils/buffer" }
 stratum-common = { path = "../../common", features = ["with_network_helpers"] }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
-futures = "0.3.25"
 tokio = { version = "1.44.1", features = ["full"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 tracing = { version = "0.1" }
-error_handling = { path = "../../utils/error-handling" }
-nohash-hasher = "0.2.0"
 key-utils = { path = "../../utils/key-utils" }
-primitive-types = "0.13.1"
 config_helpers_sv2 = { path = "../roles-utils/config-helpers" }
 clap = { version = "4.5.39", features = ["derive"] }

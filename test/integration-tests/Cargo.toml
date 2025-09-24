@@ -22,7 +22,7 @@ tokio = { version="1.44.1", default-features = false,  features = ["tracing"] }
 tracing = { version = "0.1.41", default-features = false }
 tracing-subscriber = { version = "0.3.19", default-features = false }
 
-jd_client = { path = "../../roles/jd-client" }
+jd_client_sv2 = { path = "../../roles/jd-client" }
 jd_server = { path = "../../roles/jd-server" }
 key-utils = { path = "../../utils/key-utils" }
 mining_device = { path = "../../roles/test-utils/mining-device" }
