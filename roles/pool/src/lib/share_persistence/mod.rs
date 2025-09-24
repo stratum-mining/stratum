@@ -4,17 +4,17 @@ use stratum_common::roles_logic_sv2::channels_sv2::persistence::{
 use tokio::io::AsyncWriteExt;
 use tracing::error;
 
-use crate::status::Status;
+use crate::status::{self};
 
 pub struct ShareFileHandler {
     file: tokio::fs::File,
     receiver: async_channel::Receiver<ShareAccountingEvent>,
     sender: async_channel::Sender<ShareAccountingEvent>,
-    status_tx: async_channel::Sender<Status>,
+    status_tx: status::Sender,
 }
 
 impl ShareFileHandler {
-    pub async fn new(path: &str, status_tx: async_channel::Sender<Status>) -> Self {
+    pub async fn new(path: &str, status_tx: status::Sender) -> Self {
         let file = tokio::fs::File::create(path).await.unwrap();
         let (sender, receiver) = async_channel::bounded(1024);
         Self {
@@ -25,12 +25,12 @@ impl ShareFileHandler {
         }
     }
 
-    pub fn get_receiver(self) -> async_channel::Receiver<ShareAccountingEvent> {
-        self.receiver
+    pub fn get_receiver(&self) -> async_channel::Receiver<ShareAccountingEvent> {
+        self.receiver.clone()
     }
 
-    pub fn get_sender(self) -> async_channel::Sender<ShareAccountingEvent> {
-        self.sender
+    pub fn get_sender(&self) -> async_channel::Sender<ShareAccountingEvent> {
+        self.sender.clone()
     }
 
     pub async fn write_event_to_file(&mut self, event: ShareAccountingEvent) {
@@ -84,21 +84,29 @@ impl ShareFileHandler {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ShareFilePersistence {
-    sender: async_channel::Sender<ShareAccountingEvent>,
+    sender: Option<async_channel::Sender<ShareAccountingEvent>>,
 }
 
 impl Persistence for ShareFilePersistence {
     type Sender = async_channel::Sender<ShareAccountingEvent>;
 
     fn persist_event(&self, event: ShareAccountingEvent) {
-        let _ = self
-            .sender
-            .try_send(event)
-            .map_err(|e| error!(target = "share_file_persistence", "{}", e));
+        if let Some(sender) = &self.sender {
+            let _ = sender
+                .try_send(event)
+                .map_err(|e| error!(target = "share_file_persistence", "{}", e));
+        }
     }
 
     fn new(sender: Self::Sender) -> Self {
-        Self { sender }
+        Self { sender: Some(sender) }
+    }
+}
+
+impl Default for ShareFilePersistence {
+    fn default() -> Self {
+        Self { sender: None }
     }
 }
