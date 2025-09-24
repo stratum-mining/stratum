@@ -10,7 +10,7 @@ use crate::{
     utils::validate_sv1_share,
 };
 
-// Implements `IsServer` for `Downstream` to handle the SV1 messages.
+// Implements `IsServer` for `Downstream` to handle the Sv1 messages.
 impl IsServer<'static> for DownstreamData {
     fn handle_configure(
         &mut self,

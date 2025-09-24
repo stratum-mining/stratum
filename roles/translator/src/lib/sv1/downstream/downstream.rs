@@ -186,16 +186,21 @@ impl Downstream {
                                 .load(std::sync::atomic::Ordering::SeqCst),
                         )
                     });
-
                 let id_matches = (my_channel_id == Some(channel_id) || channel_id == 0)
                     && (downstream_id.is_none() || downstream_id == Some(my_downstream_id));
-
                 if !id_matches {
                     return Ok(()); // Message not intended for this downstream
                 }
 
-                // Sv1 handshake complete - send messages immediately
-                if handshake_complete {
+                // Check if this is a queued message response
+                let is_queued_sv1_handshake_response = self.downstream_data.super_safe_lock(|d| {
+                    d.processing_queued_sv1_handshake_responses
+                        .load(std::sync::atomic::Ordering::SeqCst)
+                });
+
+                // Sv1 handshake complete - send messages immediately, or if it's a queued
+                // Sv1 handshake message response
+                if handshake_complete || is_queued_sv1_handshake_response {
                     if let Message::Notification(notification) = &message {
                         match notification.method.as_str() {
                             "mining.set_difficulty" => {
@@ -349,37 +354,67 @@ impl Downstream {
             }
         };
 
+        // Check if channel is established
+        let channel_established = self
+            .downstream_data
+            .super_safe_lock(|d| d.channel_id.is_some());
+
+        if !channel_established {
+            // Check if this is the first message (queue is empty) and send OpenChannel request
+            let is_first_message = self
+                .downstream_data
+                .super_safe_lock(|d| d.queued_sv1_handshake_messages.is_empty());
+
+            if is_first_message {
+                let downstream_id = self.downstream_data.super_safe_lock(|d| d.downstream_id);
+                self.downstream_channel_state
+                    .sv1_server_sender
+                    .send(DownstreamMessages::OpenChannel(downstream_id))
+                    .await
+                    .map_err(|e| {
+                        error!("Down: Failed to send OpenChannel request: {:?}", e);
+                        TproxyError::ChannelErrorSender
+                    })?;
+                debug!(
+                    "Down: Sent OpenChannel request for downstream {}",
+                    downstream_id
+                );
+            }
+
+            // Queue all messages until channel is established
+            debug!("Down: Queuing Sv1 message until channel is established");
+            self.downstream_data.safe_lock(|d| {
+                d.queued_sv1_handshake_messages.push(message.clone());
+            })?;
+            return Ok(());
+        }
+
+        // Channel is established, process message normally
         let response = self
             .downstream_data
             .super_safe_lock(|data| data.handle_message(message.clone()));
 
         match response {
             Ok(Some(response_msg)) => {
-                if self
-                    .downstream_data
-                    .super_safe_lock(|d| d.channel_id)
-                    .is_some()
-                {
-                    debug!(
-                        "Down: Sending SV1 message to downstream: {:?}",
-                        response_msg
-                    );
-                    self.downstream_channel_state
-                        .downstream_sv1_sender
-                        .send(response_msg.into())
-                        .await
-                        .map_err(|e| {
-                            error!("Down: Failed to send message to downstream: {:?}", e);
-                            TproxyError::ChannelErrorSender
-                        })?;
+                debug!(
+                    "Down: Sending Sv1 message to downstream: {:?}",
+                    response_msg
+                );
+                self.downstream_channel_state
+                    .downstream_sv1_sender
+                    .send(response_msg.into())
+                    .await
+                    .map_err(|e| {
+                        error!("Down: Failed to send message to downstream: {:?}", e);
+                        TproxyError::ChannelErrorSender
+                    })?;
 
-                    // Check if this was an authorize message and handle sv1 handshake completion
-                    if let v1::json_rpc::Message::StandardRequest(request) = &message {
-                        if request.method == "mining.authorize" {
-                            if let Err(e) = self.handle_sv1_handshake_completion().await {
-                                error!("Down: Failed to handle handshake completion: {:?}", e);
-                                return Err(e);
-                            }
+                // Check if this was an authorize message and handle sv1 handshake completion
+                if let v1::json_rpc::Message::StandardRequest(request) = &message {
+                    if request.method == "mining.authorize" {
+                        if let Err(e) = self.handle_sv1_handshake_completion().await {
+                            error!("Down: Failed to handle handshake completion: {:?}", e);
+                            return Err(e);
                         }
                     }
                 }

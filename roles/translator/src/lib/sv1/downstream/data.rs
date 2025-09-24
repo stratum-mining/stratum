@@ -28,6 +28,10 @@ pub struct DownstreamData {
     pub pending_hashrate: Option<f32>,
     // Flag to track if SV1 handshake is complete (subscribe + authorize)
     pub sv1_handshake_complete: AtomicBool,
+    // Queue of Sv1 handshake messages received while waiting for SV2 channel to open
+    pub queued_sv1_handshake_messages: Vec<json_rpc::Message>,
+    // Flag to indicate we're processing queued Sv1 handshake message responses
+    pub processing_queued_sv1_handshake_responses: AtomicBool,
     // Stores pending shares to be sent to the sv1_server
     pub pending_share: RefCell<Option<SubmitShareWithChannelId>>,
     // Reference to shared sv1_server data for accessing valid_jobs during downstream sv1
@@ -61,6 +65,8 @@ impl DownstreamData {
             pending_target: None,
             pending_hashrate: None,
             sv1_handshake_complete: AtomicBool::new(false),
+            queued_sv1_handshake_messages: Vec::new(),
+            processing_queued_sv1_handshake_responses: AtomicBool::new(false),
             pending_share: RefCell::new(None),
             sv1_server_data,
             upstream_target: None,

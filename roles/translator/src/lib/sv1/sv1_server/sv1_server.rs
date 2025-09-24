@@ -40,6 +40,7 @@ use tokio::{
     sync::{broadcast, mpsc},
 };
 use tracing::{debug, error, info, warn};
+use v1::IsServer;
 
 /// SV1 server that handles connections from SV1 miners.
 ///
@@ -281,11 +282,21 @@ impl Sv1Server {
                                         d.vardiff.insert(downstream_id, vardiff);
                                     }
                                 });
-                            info!("Downstream {} registered successfully", downstream_id);
+                            info!("Downstream {} registered successfully (channel will be opened after first message)", downstream_id);
 
-                            self
-                                .open_extended_mining_channel(downstream.clone())
-                                .await?;
+                            // Start downstream tasks immediately, but defer channel opening until first message
+                            let status_sender = StatusSender::Downstream {
+                                downstream_id,
+                                tx: status_sender.clone(),
+                            };
+
+                            Downstream::run_downstream_tasks(
+                                downstream,
+                                notify_shutdown.clone(),
+                                shutdown_complete_tx.clone(),
+                                status_sender,
+                                task_manager.clone(),
+                            );
                         }
                         Err(e) => {
                             warn!("Failed to accept new connection: {:?}", e);
@@ -303,10 +314,6 @@ impl Sv1Server {
                 res = Self::handle_upstream_message(
                     Arc::clone(&self),
                     first_target.clone(),
-                    notify_shutdown.clone(),
-                    shutdown_complete_tx_main_clone.clone(),
-                    status_sender.clone(),
-                    task_manager.clone()
                 ) => {
                     if let Err(e) = res {
                         handle_error(&sv1_status_sender, e).await;
@@ -340,8 +347,21 @@ impl Sv1Server {
             .await
             .map_err(TproxyError::ChannelErrorReceiver)?;
 
-        let DownstreamMessages::SubmitShares(message) = downstream_message;
+        match downstream_message {
+            DownstreamMessages::SubmitShares(message) => {
+                return self.handle_submit_shares(message).await;
+            }
+            DownstreamMessages::OpenChannel(downstream_id) => {
+                return self.handle_open_channel_request(downstream_id).await;
+            }
+        }
+    }
 
+    /// Handles share submission messages from downstream.
+    async fn handle_submit_shares(
+        self: &Arc<Self>,
+        message: crate::sv1::downstream::SubmitShareWithChannelId,
+    ) -> Result<(), TproxyError> {
         // Increment vardiff counter for this downstream (only if vardiff is enabled)
         if self.config.downstream_difficulty_config.enable_vardiff {
             self.sv1_server_data.safe_lock(|v| {
@@ -382,6 +402,28 @@ impl Sv1Server {
         Ok(())
     }
 
+    /// Handles channel opening requests from downstream when they send their first message.
+    async fn handle_open_channel_request(
+        self: &Arc<Self>,
+        downstream_id: u32,
+    ) -> Result<(), TproxyError> {
+        info!("SV1 Server: Opening extended mining channel for downstream {} after receiving first message", downstream_id);
+
+        let downstreams = self
+            .sv1_server_data
+            .super_safe_lock(|v| v.downstreams.clone());
+        if let Some(downstream) = Self::get_downstream(downstream_id, downstreams) {
+            self.open_extended_mining_channel(downstream).await?;
+        } else {
+            error!(
+                "Downstream {} not found when trying to open channel",
+                downstream_id
+            );
+        }
+
+        Ok(())
+    }
+
     /// Handles messages received from the upstream SV2 server via the channel manager.
     ///
     /// This method processes various SV2 messages including:
@@ -403,10 +445,6 @@ impl Sv1Server {
     pub async fn handle_upstream_message(
         self: Arc<Self>,
         first_target: Target,
-        notify_shutdown: broadcast::Sender<ShutdownMessage>,
-        shutdown_complete_tx: mpsc::Sender<()>,
-        status_sender: Sender<Status>,
-        task_manager: Arc<TaskManager>,
     ) -> Result<(), TproxyError> {
         let message = self
             .sv1_server_channel_state
@@ -435,18 +473,42 @@ impl Sv1Server {
                         d.set_upstream_target(initial_target.clone());
                     })?;
 
-                    let status_sender = StatusSender::Downstream {
-                        downstream_id,
-                        tx: status_sender.clone(),
-                    };
+                    // Process all queued messages now that channel is established
+                    if let Ok(queued_messages) = downstream.downstream_data.safe_lock(|d| {
+                        let messages = d.queued_sv1_handshake_messages.clone();
+                        d.queued_sv1_handshake_messages.clear();
+                        messages
+                    }) {
+                        if !queued_messages.is_empty() {
+                            info!(
+                                "Processing {} queued Sv1 messages for downstream {}",
+                                queued_messages.len(),
+                                downstream_id
+                            );
 
-                    Downstream::run_downstream_tasks(
-                        downstream,
-                        notify_shutdown,
-                        shutdown_complete_tx,
-                        status_sender,
-                        task_manager,
-                    );
+                            // Set flag to indicate we're processing queued responses
+                            downstream.downstream_data.super_safe_lock(|data| {
+                                data.processing_queued_sv1_handshake_responses
+                                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                            });
+
+                            for message in queued_messages {
+                                if let Ok(Some(response_msg)) = downstream
+                                    .downstream_data
+                                    .super_safe_lock(|data| data.handle_message(message))
+                                {
+                                    self.sv1_server_channel_state
+                                        .sv1_server_to_downstream_sender
+                                        .send((
+                                            m.channel_id,
+                                            Some(downstream_id),
+                                            response_msg.into(),
+                                        ))
+                                        .map_err(|_| TproxyError::ChannelErrorSender)?;
+                                }
+                            }
+                        }
+                    }
 
                     let set_difficulty = build_sv1_set_difficulty_from_sv2_target(first_target)
                         .map_err(|_| {

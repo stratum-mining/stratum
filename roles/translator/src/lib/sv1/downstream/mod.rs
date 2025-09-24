@@ -14,6 +14,9 @@ pub enum DownstreamMessages {
     /// Represents a submitted share from a downstream miner,
     /// wrapped with the relevant channel ID.
     SubmitShares(SubmitShareWithChannelId),
+    /// Request to open an extended mining channel for a downstream that just sent its first
+    /// message.
+    OpenChannel(u32), // downstream_id
 }
 
 /// A wrapper around a `mining.submit` message with additional channel information.
