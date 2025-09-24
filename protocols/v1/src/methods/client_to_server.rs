@@ -319,9 +319,7 @@ impl TryFrom<StandardRequest> for Subscribe<'_> {
                     [JString(a), Null, JString(_), Null] => (a.into(), None),
                     // bosminer subscribe message
                     [JString(a), Null] => (a.into(), None),
-                    [JString(a), JString(b)] => {
-                        (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
-                    }
+                    [JString(a), JString(b)] => (a.into(), Some(Extranonce::try_from(b.as_str())?)),
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
@@ -715,4 +713,37 @@ fn test_version_extension_with_no_bit_count() {
         }
         _ => panic!(),
     };
+}
+
+#[test]
+fn test_subscribe_with_odd_length_extranonce() {
+    // Test that odd-length hex strings (with leading zeroes) are handled correctly
+    let client_message = r#"{"id":1,
+            "method": "mining.subscribe",
+            "params":["test-agent", "abc"]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
+    let subscribe = Subscribe::try_from(client_message).unwrap();
+
+    // Should successfully parse odd-length hex string by prepending "0"
+    assert_eq!(subscribe.agent_signature, "test-agent");
+    assert!(subscribe.extranonce1.is_some());
+    let extranonce = subscribe.extranonce1.unwrap();
+    assert_eq!(extranonce.0.inner_as_ref(), &[0x0a, 0xbc]); // "0abc" -> [10, 188]
+}
+
+#[test]
+fn test_subscribe_with_even_length_extranonce() {
+    // Test that even-length hex strings work as before
+    let client_message = r#"{"id":1,
+            "method": "mining.subscribe",
+            "params":["test-agent", "abcd"]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
+    let subscribe = Subscribe::try_from(client_message).unwrap();
+
+    assert_eq!(subscribe.agent_signature, "test-agent");
+    assert!(subscribe.extranonce1.is_some());
+    let extranonce = subscribe.extranonce1.unwrap();
+    assert_eq!(extranonce.0.inner_as_ref(), &[0xab, 0xcd]); // "abcd" -> [171, 205]
 }

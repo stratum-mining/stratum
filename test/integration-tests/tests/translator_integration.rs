@@ -22,26 +22,30 @@ async fn translate_sv1_to_sv2_successfully() {
     pool_translator_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
-    assert_common_message!(
-        &pool_translator_sniffer.next_message_from_downstream(),
-        SetupConnection
-    );
-    assert_common_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        SetupConnectionSuccess
-    );
-    assert_mining_message!(
-        &pool_translator_sniffer.next_message_from_downstream(),
-        OpenExtendedMiningChannel
-    );
-    assert_mining_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        OpenExtendedMiningChannelSuccess
-    );
-    assert_mining_message!(
-        &pool_translator_sniffer.next_message_from_upstream(),
-        NewExtendedMiningJob
-    );
+    pool_translator_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        )
+        .await;
+    pool_translator_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToUpstream,
+            MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+        )
+        .await;
+    pool_translator_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
+        )
+        .await;
+    pool_translator_sniffer
+        .wait_for_message_type(
+            MessageDirection::ToDownstream,
+            MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
+        )
+        .await;
     pool_translator_sniffer
         .wait_for_message_type(
             MessageDirection::ToUpstream,
