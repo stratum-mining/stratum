@@ -18,7 +18,7 @@
 //! Intended for use within mining server implementations that process SV2 share submissions and
 //! issue `SubmitShares.Success` messages. Not intended for use by mining clients.
 
-use crate::persistence::{NoPersistence, Persistence, ShareAccountingEvent};
+use crate::persistence::{Persistence, ShareAccountingEvent};
 use bitcoin::hashes::sha256d::Hash;
 use std::collections::HashSet;
 
@@ -82,7 +82,7 @@ pub enum ShareValidationError {
 /// This struct manages per-channel share statistics, batch acknowledgment, duplicate detection,
 /// and difficulty tracking. Only meant for usage on Mining Servers.
 #[derive(Clone, Debug)]
-pub struct ShareAccounting<P = NoPersistence> {
+pub struct ShareAccounting<P> {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,

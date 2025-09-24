@@ -10,8 +10,6 @@
 //! - **Async Channel Based**: Events are sent via channels for background persistence processing
 //! - **Flexible Implementation**: Trait allows different persistence backends (database, file,
 //!   etc.)
-//! - **Optional Compilation**: Gated behind `persistence` feature flag to avoid unnecessary
-//!   dependencies
 //!
 //! ## Usage
 //!
@@ -67,7 +65,6 @@ pub trait Persistence {
     ///
     /// This is typically something like `tokio::sync::mpsc::UnboundedSender<ShareAccountingEvent>`
     /// or `async_channel::Sender<ShareAccountingEvent>`.
-    #[cfg(feature = "persistence")]
     type Sender: Clone + Send + 'static;
 
     /// Sends a share accounting event for persistence.
@@ -87,11 +84,7 @@ pub trait Persistence {
     /// Implementations can use this for cleanup operations, but should not block.
     fn shutdown(&self) {}
 
-    #[cfg(feature = "persistence")]
     fn new(sender: Self::Sender) -> Self;
-
-    #[cfg(not(feature = "persistence"))]
-    fn new() -> Self;
 }
 
 /// A no-op persistence implementation for when persistence is disabled.
@@ -124,18 +117,11 @@ impl Default for NoPersistence {
 }
 
 impl Persistence for NoPersistence {
-    #[cfg(feature = "persistence")]
     type Sender = ();
 
     fn persist_event(&self, _event: ShareAccountingEvent) {}
 
-    #[cfg(feature = "persistence")]
     fn new(_sender: Self::Sender) -> Self {
-        Self
-    }
-
-    #[cfg(not(feature = "persistence"))]
-    fn new() -> Self {
         Self
     }
 }

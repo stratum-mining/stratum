@@ -60,7 +60,7 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
 /// - Share accounting for the channel (as tracked by the client).
 /// - The channel's current chain tip.
 #[derive(Clone, Debug)]
-pub struct ExtendedChannel<'a, P = NoPersistence> {
+pub struct ExtendedChannel<'a, P> {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -85,37 +85,6 @@ where
 {
     /// Constructs a new [`ExtendedChannel`].
     pub fn new(
-        channel_id: u32,
-        user_identity: String,
-        extranonce_prefix: Vec<u8>,
-        target: Target,
-        nominal_hashrate: f32,
-        version_rolling: bool,
-        rollable_extranonce_size: u16,
-    ) -> Self
-    where
-        P: Default,
-    {
-        Self {
-            channel_id,
-            user_identity,
-            extranonce_prefix,
-            rollable_extranonce_size,
-            target,
-            nominal_hashrate,
-            version_rolling,
-            future_jobs: HashMap::new(),
-            active_job: None,
-            past_jobs: HashMap::new(),
-            stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(channel_id, P::default()),
-            chain_tip: None,
-        }
-    }
-
-    /// Constructs a new [`ExtendedChannel`] with custom persistence.
-    #[cfg(feature = "persistence")]
-    pub fn new_with_persistence(
         channel_id: u32,
         user_identity: String,
         extranonce_prefix: Vec<u8>,

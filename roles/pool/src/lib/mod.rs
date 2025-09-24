@@ -25,6 +25,7 @@ pub mod status;
 pub mod task_manager;
 pub mod template_receiver;
 pub mod utils;
+pub mod share_persistence;
 
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {

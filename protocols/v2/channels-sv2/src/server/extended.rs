@@ -42,7 +42,7 @@
 use crate::{
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
-    persistence::{NoPersistence, Persistence},
+    persistence::Persistence,
     server::{
         error::ExtendedChannelError,
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
@@ -51,6 +51,8 @@ use crate::{
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
+use mining_sv2::MAX_EXTRANONCE_LEN;
+use binary_sv2::{self};
 use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
@@ -84,7 +86,7 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J, P = NoPersistence>
+pub struct ExtendedChannel<'a, J, P>
 where
     J: JobStore<ExtendedJob<'a>>,
 {
@@ -131,8 +133,9 @@ where
         expected_share_per_minute: f32,
         job_store: J,
         pool_tag_string: String,
+        persistence: P,
     ) -> Result<Self, ExtendedChannelError> {
-        Self::new(
+        Self::new_with_persistence(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -145,6 +148,7 @@ where
             job_store,
             Some(pool_tag_string),
             None,
+            persistence,
         )
     }
 
@@ -172,8 +176,9 @@ where
         job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
+        persistence: P,
     ) -> Result<Self, ExtendedChannelError> {
-        Self::new(
+        Self::new_with_persistence(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -186,6 +191,7 @@ where
             job_store,
             pool_tag_string,
             Some(miner_tag_string),
+            persistence,
         )
     }
 }

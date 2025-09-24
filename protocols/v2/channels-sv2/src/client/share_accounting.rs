@@ -5,7 +5,7 @@
 //! are intended for use in Mining Clients.
 
 use super::HashSet;
-use crate::persistence::{NoPersistence, Persistence, ShareAccountingEvent};
+use crate::persistence::{Persistence, ShareAccountingEvent};
 use bitcoin::hashes::sha256d::Hash;
 
 /// The outcome of share validation, as seen by a Mining Client.
@@ -51,7 +51,7 @@ pub enum ShareValidationError {
 /// - hashes of seen shares (for duplicate detection)
 /// - highest difficulty seen in accepted shares
 #[derive(Clone, Debug)]
-pub struct ShareAccounting<P = NoPersistence> {
+pub struct ShareAccounting<P> {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,
@@ -61,11 +61,6 @@ pub struct ShareAccounting<P = NoPersistence> {
     persistence: P,
 }
 
-impl Default for ShareAccounting {
-    fn default() -> Self {
-        Self::new(0, NoPersistence::new())
-    }
-}
 
 impl<P> ShareAccounting<P>
 where
