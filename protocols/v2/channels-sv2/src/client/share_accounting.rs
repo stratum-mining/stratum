@@ -53,23 +53,26 @@ pub struct ShareAccounting {
     share_work_sum: u64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
+    user_identity: String,
 }
 
 impl Default for ShareAccounting {
     fn default() -> Self {
-        Self::new()
+        Self::new(String::new())
     }
 }
 
 impl ShareAccounting {
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
-    pub fn new() -> Self {
+    /// `user_identity` is the identity string associated with the channel.
+    pub fn new(user_identity: String) -> Self {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
             share_work_sum: 0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
+            user_identity,
         }
     }
 
@@ -128,5 +131,10 @@ impl ShareAccounting {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
+    }
+
+    /// Returns the user identity string associated with this channel.
+    pub fn get_user_identity(&self) -> &String {
+        &self.user_identity
     }
 }

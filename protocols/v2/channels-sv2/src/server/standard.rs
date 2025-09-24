@@ -205,12 +205,12 @@ where
 
         Ok(Self {
             channel_id,
-            user_identity,
+            user_identity: user_identity.clone(),
             extranonce_prefix,
             requested_max_target,
             target,
             nominal_hashrate,
-            share_accounting: ShareAccounting::new(share_batch_size),
+            share_accounting: ShareAccounting::new(share_batch_size, user_identity),
             expected_share_per_minute,
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,

@@ -90,7 +90,7 @@ impl<'a> ExtendedChannel<'a> {
     ) -> Self {
         Self {
             channel_id,
-            user_identity,
+            user_identity: user_identity.clone(),
             extranonce_prefix,
             rollable_extranonce_size,
             target,
@@ -100,7 +100,7 @@ impl<'a> ExtendedChannel<'a> {
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(),
+            share_accounting: ShareAccounting::new(user_identity),
             chain_tip: None,
         }
     }

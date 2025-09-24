@@ -86,13 +86,15 @@ pub struct ShareAccounting {
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
+    user_identity: String,
 }
 
 impl ShareAccounting {
     /// Constructs a new `ShareAccounting` instance for a channel.
     ///
     /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.
-    pub fn new(share_batch_size: usize) -> Self {
+    /// `user_identity` is the identity string associated with the channel.
+    pub fn new(share_batch_size: usize, user_identity: String) -> Self {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
@@ -100,6 +102,7 @@ impl ShareAccounting {
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
+            user_identity,
         }
     }
 
@@ -168,5 +171,10 @@ impl ShareAccounting {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
+    }
+
+    /// Returns the user identity string associated with this channel.
+    pub fn get_user_identity(&self) -> &String {
+        &self.user_identity
     }
 }
