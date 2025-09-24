@@ -40,3 +40,4 @@ tracing-subscriber = "0.3"
 prop_test = ["template_distribution_sv2/prop_test"]
 # Code coverage tools may conflict with the nopanic logic, so we can disable it when needed
 disable_nopanic = []
+persistence = ["channels_sv2/persistence"]
