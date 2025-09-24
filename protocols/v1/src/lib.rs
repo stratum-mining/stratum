@@ -1,5 +1,5 @@
 #![allow(clippy::result_unit_err)]
-//! Startum V1 application protocol:
+//! Stratum V1 application protocol:
 //!
 //! json-rpc has two types of messages: **request** and **response**.
 //! A request message can be either a **notification** or a **standard message**.
