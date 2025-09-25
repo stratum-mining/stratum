@@ -2061,7 +2061,7 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
@@ -2630,7 +2630,7 @@ dependencies = [
 
 [[package]]
 name = "rpc_sv2"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "base64 0.21.7",
  "hex",
@@ -2970,7 +2970,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-common"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "network_helpers_sv2",
  "roles_logic_sv2",
