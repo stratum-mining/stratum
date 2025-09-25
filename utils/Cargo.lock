@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "3.0.0"
+version = "3.0.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -337,7 +337,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "6.0.0"
+version = "6.0.1"
 dependencies = [
  "binary_sv2",
 ]
@@ -525,7 +525,7 @@ dependencies = [
 
 [[package]]
 name = "framing_sv2"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -843,7 +843,7 @@ dependencies = [
 
 [[package]]
 name = "parsers_sv2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2",
  "common_messages_sv2",

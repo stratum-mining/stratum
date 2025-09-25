@@ -1,6 +1,6 @@
 [package]
 name = "framing_sv2"
-version = "5.0.0"
+version = "5.0.1"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"
