@@ -46,7 +46,7 @@ impl ShareFileHandler {
             } => {
                 let _ = self.file.write_all(
                     format!(
-                        "ShareAccepted: channel_id: {}, share_work: {}, share_sequence_number: {}, share_hash: {}, total_shares_accepted: {}, total_share_work_sum: {}, timestamp: {:#?}\n",
+                        "ShareAccepted: channel_id: {}, share_work: {}, share_sequence_number: {}, share_hash: {}, total_shares_accepted: {}, total_share_work_sum: {}, timestamp: {:?}\n",
                         channel_id,
                         share_work,
                         share_sequence_number,
@@ -68,7 +68,7 @@ impl ShareFileHandler {
             } => {
                 let _ = self.file.write_all(
                     format!(
-                        "BestDifficultyUpdated: channel_id: {}, new_best_diff: {}, previous_best_diff: {}, timestamp: {:#?}\n",
+                        "BestDifficultyUpdated: channel_id: {}, new_best_diff: {}, previous_best_diff: {}, timestamp: {:?}\n",
                         channel_id,
                         new_best_diff,
                         previous_best_diff,
