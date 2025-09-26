@@ -700,8 +700,7 @@ impl ChannelManager {
                                 upstream_message.user_identity =
                                     self.user_identity.clone().try_into()?;
                                 upstream_message.request_id = 1;
-                                upstream_message.min_extranonce_size =
-                                    self.min_extranonce_size + upstream_message.min_extranonce_size;
+                                upstream_message.min_extranonce_size += self.min_extranonce_size;
                                 let upstream_message = AnyMessage::Mining(
                                     Mining::OpenExtendedMiningChannel(upstream_message)
                                         .into_static(),
