@@ -38,7 +38,7 @@ impl fmt::Display for DeclareMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}, tx_ids_list: {}, excess_data: {})",
+            "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: 0x{:08x}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}, tx_ids_list: {}, excess_data: {})",
             self.request_id,
             self.mining_job_token.as_hex(),
             self.version,

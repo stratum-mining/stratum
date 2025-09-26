@@ -40,7 +40,7 @@ impl fmt::Display for SubmitSolution<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SubmitSolution {{ template_id: {}, version: {}, header_timestamp: {}, header_nonce: {}, coinbase_tx: {} }}",
+            "SubmitSolution {{ template_id: {}, version: 0x{:08x}, header_timestamp: {}, header_nonce: 0x{:08x}, coinbase_tx: {} }}",
             self.template_id,
             self.version,
             self.header_timestamp,

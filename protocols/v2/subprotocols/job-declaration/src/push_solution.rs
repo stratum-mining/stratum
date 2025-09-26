@@ -40,7 +40,7 @@ impl fmt::Display for PushSolution<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "PushSolution(extranonce: {}, prev_hash: {}, ntime: {}, nonce: {}, nbits: {}, version: {})",
+            "PushSolution(extranonce: {}, prev_hash: {}, ntime: {}, nonce: 0x{:08x}, nbits: 0x{:08x}, version: 0x{:08x})",
             self.extranonce,
             self.prev_hash,
             self.ntime,

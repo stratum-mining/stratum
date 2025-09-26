@@ -54,7 +54,7 @@ pub struct SetCustomMiningJob<'decoder> {
 
 impl fmt::Display for SetCustomMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version={}, prev_hash={}, min_ntime={}, nbits={}, coinbase_tx_version={}, coinbase_prefix={}, coinbase_tx_input_n_sequence={}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
+        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, min_ntime={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
             self.channel_id,
             self.request_id,
             self.token.as_hex(),
