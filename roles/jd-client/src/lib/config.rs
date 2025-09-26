@@ -42,8 +42,6 @@ pub struct JobDeclaratorClientConfig {
     shares_per_minute: f64,
     /// share batch size
     share_batch_size: u64,
-    /// Min extranonce size
-    min_extranonce_size: u16,
     /// JDC mode: FullTemplate or CoinbaseOnly
     #[serde(deserialize_with = "deserialize_jdc_mode", default)]
     pub mode: ConfigJDCMode,
@@ -61,7 +59,6 @@ impl JobDeclaratorClientConfig {
         tp_config: TPConfig,
         upstreams: Vec<Upstream>,
         jdc_signature: String,
-        min_extranonce_size: u16,
         jdc_mode: Option<String>,
     ) -> Self {
         Self {
@@ -80,7 +77,6 @@ impl JobDeclaratorClientConfig {
             user_identity,
             shares_per_minute,
             share_batch_size,
-            min_extranonce_size,
             mode: jdc_mode
                 .map(|s| s.parse::<ConfigJDCMode>().unwrap_or_default())
                 .unwrap_or_default(),
@@ -164,10 +160,6 @@ impl JobDeclaratorClientConfig {
 
     pub fn share_batch_size(&self) -> u64 {
         self.share_batch_size
-    }
-
-    pub fn min_extranonce_size(&self) -> u16 {
-        self.min_extranonce_size
     }
 }
 
