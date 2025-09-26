@@ -30,7 +30,7 @@ impl fmt::Display for SubmitSharesStandard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SubmitSharesStandard(channel_id={}, sequence_number={}, job_id={}, nonce={}, ntime={}, version={})",
+            "SubmitSharesStandard(channel_id={}, sequence_number={}, job_id={}, nonce=0x{:08x}, ntime={}, version=0x{:08x})",
             self.channel_id, self.sequence_number, self.job_id, self.nonce, self.ntime, self.version
         )
     }
@@ -76,7 +76,7 @@ impl fmt::Display for SubmitSharesExtended<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SubmitSharesExtended(channel_id={}, sequence_number={}, job_id={}, nonce={}, ntime={}, version={}, extranonce={})",
+            "SubmitSharesExtended(channel_id={}, sequence_number={}, job_id={}, nonce=0x{:08x}, ntime={}, version=0x{:08x}, extranonce={})",
             self.channel_id, self.sequence_number, self.job_id, self.nonce, self.ntime, self.version, self.extranonce
         )
     }

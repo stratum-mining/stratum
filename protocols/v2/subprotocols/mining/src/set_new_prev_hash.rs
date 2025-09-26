@@ -32,7 +32,7 @@ impl fmt::Display for SetNewPrevHash<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, min_ntime={}, nbits={})",
+            "SetNewPrevHash(channel_id={}, job_id={}, prev_hash={}, min_ntime={}, nbits=0x{:08x})",
             self.channel_id, self.job_id, self.prev_hash, self.min_ntime, self.nbits
         )
     }

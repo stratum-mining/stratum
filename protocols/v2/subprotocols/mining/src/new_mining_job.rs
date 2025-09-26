@@ -50,7 +50,7 @@ impl fmt::Display for NewMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: {}, merkle_root: {})",
+            "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, merkle_root: {})",
             self.channel_id, self.job_id, self.min_ntime, self.version, self.merkle_root
         )
     }
@@ -125,7 +125,7 @@ impl fmt::Display for NewExtendedMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: {}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
+            "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
             self.channel_id,
             self.job_id,
             self.min_ntime,

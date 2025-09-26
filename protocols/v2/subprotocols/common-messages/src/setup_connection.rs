@@ -57,7 +57,7 @@ impl fmt::Display for SetupConnection<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SetupConnection(protocol: {}, min_version: {}, max_version: {}, flags: {}, endpoint_host: {}, endpoint_port: {}, vendor: {}, hardware_version: {}, firmware: {}, device_id: {})",
+            "SetupConnection(protocol: {}, min_version: {}, max_version: {}, flags: 0x{:08x}, endpoint_host: {}, endpoint_port: {}, vendor: {}, hardware_version: {}, firmware: {}, device_id: {})",
             self.protocol as u8,
             self.min_version,
             self.max_version,
@@ -220,7 +220,7 @@ impl fmt::Display for SetupConnectionSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SetupConnectionSuccess(used_version: {}, flags: {})",
+            "SetupConnectionSuccess(used_version: {}, flags: 0x{:08x})",
             self.used_version, self.flags
         )
     }
@@ -259,7 +259,7 @@ impl fmt::Display for SetupConnectionError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "SetupConnectionError(flags: {}, error_code: {})",
+            "SetupConnectionError(flags: 0x{:08x}, error_code: {})",
             self.flags,
             self.error_code.as_utf8_or_hex()
         )
