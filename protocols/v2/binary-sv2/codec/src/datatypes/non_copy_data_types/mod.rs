@@ -183,12 +183,21 @@ impl fmt::Display for Seq0255<'_, U256<'_>> {
 impl fmt::Display for Seq064K<'_, B016M<'_>> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
+
         let as_hex = |item: &B016M<'_>| {
-            item.inner_as_ref()
+            let hex: String = item
+                .inner_as_ref()
                 .iter()
                 .map(|byte| format!("{byte:02x}"))
-                .collect::<String>()
+                .collect();
+
+            if hex.len() > 500 {
+                format!("{}…<truncated {} chars>", &hex[..500], hex.len() - 500)
+            } else {
+                hex
+            }
         };
+
         write!(f, "Seq064K<len={len}: ")?;
         match len {
             0 => write!(f, "[]"),
@@ -203,7 +212,7 @@ impl fmt::Display for Seq064K<'_, B016M<'_>> {
             ),
             _ => write!(
                 f,
-                "[{}, {}, ... , {}, {}]",
+                "[{}, {}, … , {}, {}]",
                 as_hex(&self.0[0]),
                 as_hex(&self.0[1]),
                 as_hex(&self.0[len - 2]),
