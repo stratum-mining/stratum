@@ -14,7 +14,7 @@ use crate::{
     jd_mode::{get_jd_mode, JdMode},
     status::{State, Status},
     utils::{
-        close_channel_msg, deserialize_coinbase_outputs, PendingChannelRequest, StdFrame,
+        create_close_channel_msg, deserialize_coinbase_outputs, PendingChannelRequest, StdFrame,
         UpstreamState,
     },
 };
@@ -77,7 +77,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                 let Some(pending_request) = data.pending_downstream_requests.front() else {
                     self.upstream_state.set(UpstreamState::NoChannel);
                     let close_channel =
-                        close_channel_msg(msg.channel_id, "downstream not available");
+                        create_close_channel_msg(msg.channel_id, "downstream not available");
                     return (self.upstream_state.get(), None, None, Some(close_channel));
                 };
 
@@ -119,7 +119,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         warn!("Failed to build extranonce factory: {e:?}");
                         self.upstream_state.set(UpstreamState::NoChannel);
                         let close_channel =
-                            close_channel_msg(msg.channel_id, "downstream not available");
+                            create_close_channel_msg(msg.channel_id, "downstream not available");
                         return (self.upstream_state.get(), None, None, Some(close_channel));
                     }
                 };

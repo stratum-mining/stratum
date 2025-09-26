@@ -675,14 +675,18 @@ impl ChannelManager {
             match message_type {
                 MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
                     let message: Mining = (message_type, sv2_frame.payload()).try_into()?;
-                    let Mining::OpenExtendedMiningChannel(mut x) = message else {
+                    let Mining::OpenExtendedMiningChannel(mut downstream_channel_request) = message
+                    else {
                         return Err(JDCError::UnexpectedMessage(message_type));
                     };
-                    let user_identity =
-                        format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
-                    x.user_identity = user_identity.try_into()?;
+                    let user_identity = format!(
+                        "{}#{}",
+                        downstream_channel_request.user_identity.as_utf8_or_hex(),
+                        downstream_id
+                    );
+                    downstream_channel_request.user_identity = user_identity.try_into()?;
 
-                    let downstream_msg = x.clone().into_static();
+                    let downstream_msg = downstream_channel_request.clone().into_static();
 
                     match self.upstream_state.get() {
                         UpstreamState::NoChannel => {
@@ -696,7 +700,7 @@ impl ChannelManager {
                                 .compare_and_set(UpstreamState::NoChannel, UpstreamState::Pending)
                                 .is_ok()
                             {
-                                let mut upstream_message = x;
+                                let mut upstream_message = downstream_channel_request;
                                 upstream_message.user_identity =
                                     self.user_identity.clone().try_into()?;
                                 upstream_message.request_id = 1;
@@ -738,14 +742,18 @@ impl ChannelManager {
                 }
                 MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
                     let message: Mining = (message_type, sv2_frame.payload()).try_into()?;
-                    let Mining::OpenStandardMiningChannel(mut x) = message else {
+                    let Mining::OpenStandardMiningChannel(mut downstream_channel_request) = message
+                    else {
                         return Err(JDCError::UnexpectedMessage(message_type));
                     };
 
-                    let user_identity = format!("{:?}#{}", x.user_identity, downstream_id);
-                    x.user_identity = user_identity.try_into()?;
+                    let user_identity = format!(
+                        "{:?}#{}",
+                        downstream_channel_request.user_identity, downstream_id
+                    );
+                    downstream_channel_request.user_identity = user_identity.try_into()?;
 
-                    let downstream_msg = x.clone().into_static();
+                    let downstream_msg = downstream_channel_request.clone().into_static();
 
                     match self.upstream_state.get() {
                         UpstreamState::NoChannel => {
@@ -762,8 +770,8 @@ impl ChannelManager {
                                 let upstream_open = OpenExtendedMiningChannel {
                                     user_identity: self.user_identity.clone().try_into().unwrap(),
                                     request_id: 1,
-                                    nominal_hash_rate: x.nominal_hash_rate,
-                                    max_target: x.max_target,
+                                    nominal_hash_rate: downstream_channel_request.nominal_hash_rate,
+                                    max_target: downstream_channel_request.max_target,
                                     min_extranonce_size: self.min_extranonce_size,
                                 };
 
