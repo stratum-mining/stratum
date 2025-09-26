@@ -1,4 +1,8 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use async_channel::{Receiver, Sender};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -45,7 +49,10 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{AtomicUpstreamState, Message, SV2Frame, ShutdownMessage, StdFrame, UpstreamState},
+    utils::{
+        AtomicUpstreamState, Message, PendingChannelRequest, SV2Frame, ShutdownMessage, StdFrame,
+        UpstreamState,
+    },
 };
 mod downstream_message_handler;
 mod jd_message_handler;
@@ -127,7 +134,7 @@ pub struct ChannelManagerData {
     pool_tag_string: Option<String>,
     // List of pending downstream connection requests,
     // persisted while the JDC is opening a channel with the upstream.
-    pending_downstream_requests: Vec<Mining<'static>>,
+    pending_downstream_requests: VecDeque<PendingChannelRequest>,
     // Factory for creating **custom mining jobs**, if available.
     job_factory: Option<JobFactory>,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
@@ -287,7 +294,7 @@ impl ChannelManager {
             channel_id_to_downstream_id: HashMap::new(),
             upstream_channel: None,
             pool_tag_string: None,
-            pending_downstream_requests: Vec::new(),
+            pending_downstream_requests: VecDeque::new(),
             job_factory: None,
             vardiff: HashMap::new(),
         }));
@@ -675,12 +682,13 @@ impl ChannelManager {
                         format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
                     x.user_identity = user_identity.try_into()?;
 
-                    let downstream_msg = Mining::OpenExtendedMiningChannel(x.clone()).into_static();
+                    let downstream_msg = x.clone().into_static();
 
                     match self.upstream_state.get() {
                         UpstreamState::NoChannel => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg);
+                                data.pending_downstream_requests
+                                    .push_front(downstream_msg.into());
                             });
 
                             if self
@@ -692,6 +700,8 @@ impl ChannelManager {
                                 upstream_message.user_identity =
                                     self.user_identity.clone().try_into()?;
                                 upstream_message.request_id = 1;
+                                upstream_message.min_extranonce_size =
+                                    self.min_extranonce_size + upstream_message.min_extranonce_size;
                                 let upstream_message = AnyMessage::Mining(
                                     Mining::OpenExtendedMiningChannel(upstream_message)
                                         .into_static(),
@@ -707,19 +717,20 @@ impl ChannelManager {
                         }
                         UpstreamState::Pending => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg);
+                                data.pending_downstream_requests
+                                    .push_back(downstream_msg.into());
                             });
                         }
                         UpstreamState::Connected => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenExtendedMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
                         }
                         UpstreamState::SoloMining => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenExtendedMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
@@ -735,12 +746,13 @@ impl ChannelManager {
                     let user_identity = format!("{:?}#{}", x.user_identity, downstream_id);
                     x.user_identity = user_identity.try_into()?;
 
-                    let downstream_msg = Mining::OpenStandardMiningChannel(x.clone()).into_static();
+                    let downstream_msg = x.clone().into_static();
 
                     match self.upstream_state.get() {
                         UpstreamState::NoChannel => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg)
+                                data.pending_downstream_requests
+                                    .push_front(downstream_msg.into())
                             });
 
                             if self
@@ -769,19 +781,20 @@ impl ChannelManager {
                         }
                         UpstreamState::Pending => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg)
+                                data.pending_downstream_requests
+                                    .push_back(downstream_msg.into())
                             });
                         }
                         UpstreamState::Connected => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenStandardMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
                         }
                         UpstreamState::SoloMining => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenStandardMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
