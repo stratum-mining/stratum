@@ -9,7 +9,10 @@ use stratum_common::roles_logic_sv2::{
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    channel_manager::{downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob},
+    channel_manager::{
+        downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob,
+        JDC_SEARCH_SPACE_BYTES,
+    },
     error::JDCError,
     jd_mode::{get_jd_mode, JdMode},
     status::{State, Status},
@@ -86,14 +89,14 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         (m.nominal_hash_rate, m.min_extranonce_size)
                     }
                     PendingChannelRequest::StandardChannel(m) => {
-                        (m.nominal_hash_rate, self.min_extranonce_size)
+                        (m.nominal_hash_rate, JDC_SEARCH_SPACE_BYTES as u16)
                     }
                 };
 
                 let prefix_len = msg.extranonce_prefix.len();
                 let jdc_extranonce_len = std::cmp::min(
                     (msg.extranonce_size as usize).saturating_sub(min_extranonce_size as usize),
-                    self.min_extranonce_size as usize,
+                    JDC_SEARCH_SPACE_BYTES,
                 );
                 let total_len = prefix_len + msg.extranonce_size as usize;
                 let range_0 = 0..prefix_len;
@@ -338,8 +341,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     let extranonce_size = MAX_EXTRANONCE_LEN - prefix_len;
                     let jdc_extranonce_len = std::cmp::min(
                         (extranonce_size)
-                            .saturating_sub(self.min_extranonce_size as usize),
-                        self.min_extranonce_size as usize,
+                            .saturating_sub(JDC_SEARCH_SPACE_BYTES),
+                            JDC_SEARCH_SPACE_BYTES,
                     );
                     let total_len = prefix_len + extranonce_size;
                     let range_0 = 0..prefix_len;

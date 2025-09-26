@@ -59,6 +59,8 @@ mod jd_message_handler;
 mod template_message_handler;
 mod upstream_message_handler;
 
+pub const JDC_SEARCH_SPACE_BYTES: usize = 4;
+
 /// A `DeclaredJob` encapsulates all the relevant data associated with a single
 /// job declaration, including its template, optional messages, coinbase output,
 /// and transaction list.
@@ -148,7 +150,7 @@ impl ChannelManagerData {
     /// This method is primarily used during **fallback scenarios** to clear and
     /// reinitialize all internal data structures. It ensures that the Channel Manager
     /// returns to a clean state, ready to handle fresh upstream or downstream connections.
-    pub fn reset(&mut self, coinbase_outputs: Vec<u8>, min_extranonce_size: usize) {
+    pub fn reset(&mut self, coinbase_outputs: Vec<u8>) {
         self.downstream.clear();
         self.template_store.clear();
         self.last_declare_job_store.clear();
@@ -162,7 +164,7 @@ impl ChannelManagerData {
         self.channel_id_factory = IdFactory::new();
 
         let (range_0, range_1, range_2) = {
-            let range_1 = 0..min_extranonce_size;
+            let range_1 = 0..JDC_SEARCH_SPACE_BYTES;
             (
                 0..range_1.start,
                 range_1.clone(),
@@ -233,7 +235,6 @@ pub struct ChannelManager {
     share_batch_size: usize,
     shares_per_minute: f32,
     user_identity: String,
-    min_extranonce_size: u16,
     /// This represent the current state of Upstream channel
     /// 1. NoChannel: No active upstream connection.
     /// 2. Pending: A channel request has been sent, awaiting response.
@@ -259,7 +260,7 @@ impl ChannelManager {
         coinbase_outputs: Vec<u8>,
     ) -> Result<Self, JDCError> {
         let (range_0, range_1, range_2) = {
-            let range_1 = 0..config.min_extranonce_size() as usize;
+            let range_1 = 0..JDC_SEARCH_SPACE_BYTES;
             (
                 0..range_1.start,
                 range_1.clone(),
@@ -318,7 +319,6 @@ impl ChannelManager {
             shares_per_minute: config.shares_per_minute() as f32,
             miner_tag_string: config.jdc_signature().to_string(),
             user_identity: config.user_identity().to_string(),
-            min_extranonce_size: config.min_extranonce_size(),
             upstream_state: AtomicUpstreamState::new(UpstreamState::SoloMining),
         };
 
@@ -480,13 +480,13 @@ impl ChannelManager {
                             Ok(ShutdownMessage::JobDeclaratorShutdownFallback((coinbase_outputs,tx))) => {
                                 info!("Channel Manager: Job declarator shutdown signal");
                                 self.upstream_state.set(UpstreamState::SoloMining);
-                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs, cm.min_extranonce_size as usize));
+                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
                                 drop(tx);
                             }
                             Ok(ShutdownMessage::UpstreamShutdownFallback((coinbase_outputs,tx))) => {
                                 info!("Channel Manager: Upstream shutdown signal");
                                 self.upstream_state.set(UpstreamState::SoloMining);
-                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs, cm.min_extranonce_size as usize));
+                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
                                 drop(tx);
                             }
                             Err(e) => {
@@ -704,7 +704,8 @@ impl ChannelManager {
                                 upstream_message.user_identity =
                                     self.user_identity.clone().try_into()?;
                                 upstream_message.request_id = 1;
-                                upstream_message.min_extranonce_size += self.min_extranonce_size;
+                                upstream_message.min_extranonce_size +=
+                                    JDC_SEARCH_SPACE_BYTES as u16;
                                 let upstream_message = AnyMessage::Mining(
                                     Mining::OpenExtendedMiningChannel(upstream_message)
                                         .into_static(),
@@ -772,7 +773,7 @@ impl ChannelManager {
                                     request_id: 1,
                                     nominal_hash_rate: downstream_channel_request.nominal_hash_rate,
                                     max_target: downstream_channel_request.max_target,
-                                    min_extranonce_size: self.min_extranonce_size,
+                                    min_extranonce_size: JDC_SEARCH_SPACE_BYTES as u16,
                                 };
 
                                 let frame: StdFrame = AnyMessage::Mining(
