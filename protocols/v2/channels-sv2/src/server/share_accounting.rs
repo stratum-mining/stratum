@@ -18,6 +18,7 @@
 //! Intended for use within mining server implementations that process SV2 share submissions and
 //! issue `SubmitShares.Success` messages. Not intended for use by mining clients.
 
+use crate::persistence::{NoPersistence, Persistence, ShareAccountingEvent};
 use bitcoin::hashes::sha256d::Hash;
 use std::collections::HashSet;
 
@@ -79,20 +80,27 @@ pub enum ShareValidationError {
 /// This struct manages per-channel share statistics, batch acknowledgment, duplicate detection,
 /// and difficulty tracking. Only meant for usage on Mining Servers.
 #[derive(Clone, Debug)]
-pub struct ShareAccounting {
+pub struct ShareAccounting<P = NoPersistence> {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: u64,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
+    channel_id: u32,
+    persistence: P,
 }
 
-impl ShareAccounting {
+impl<P> ShareAccounting<P>
+where
+    P: Persistence,
+{
     /// Constructs a new `ShareAccounting` instance for a channel.
     ///
     /// `share_batch_size` controls how many accepted shares trigger a batch acknowledgment.
-    pub fn new(share_batch_size: usize) -> Self {
+    /// `channel_id` identifies the channel for persistence events.
+    /// `persistence` handles background persistence of share accounting events.
+    pub fn new(share_batch_size: usize, channel_id: u32, persistence: P) -> Self {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
@@ -100,6 +108,8 @@ impl ShareAccounting {
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
+            channel_id,
+            persistence,
         }
     }
 
@@ -118,6 +128,18 @@ impl ShareAccounting {
         self.shares_accepted += 1;
         self.share_work_sum += share_work;
         self.seen_shares.insert(share_hash);
+
+        // Persist the share accepted event
+        let event = ShareAccountingEvent::ShareAccepted {
+            channel_id: self.channel_id,
+            share_work,
+            share_sequence_number,
+            share_hash,
+            total_shares_accepted: self.shares_accepted,
+            total_share_work_sum: self.share_work_sum,
+            timestamp: std::time::SystemTime::now(),
+        };
+        self.persistence.persist_event(event);
     }
 
     /// Clears the set of seen share hashes.
@@ -126,6 +148,9 @@ impl ShareAccounting {
     /// and allow new shares for the new tip.
     pub fn flush_seen_shares(&mut self) {
         self.seen_shares.clear();
+
+        // Ensure any pending persistence events are flushed
+        self.persistence.flush();
     }
 
     /// Returns the sequence number of the last accepted share.
@@ -165,8 +190,18 @@ impl ShareAccounting {
 
     /// Updates the best difficulty if the new value is higher.
     pub fn update_best_diff(&mut self, diff: f64) {
+        let previous_best_diff = self.best_diff;
         if diff > self.best_diff {
             self.best_diff = diff;
+
+            // Persist the best difficulty updated event
+            let event = ShareAccountingEvent::BestDifficultyUpdated {
+                channel_id: self.channel_id,
+                new_best_diff: diff,
+                previous_best_diff,
+                timestamp: std::time::SystemTime::now(),
+            };
+            self.persistence.persist_event(event);
         }
     }
 }

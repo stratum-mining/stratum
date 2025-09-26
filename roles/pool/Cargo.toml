@@ -18,7 +18,7 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 async-channel = "1.5.1"
-stratum-common = { path = "../../common", features = ["with_network_helpers"] }
+stratum-common = { path = "../../common", features = ["with_network_helpers", "persistence"] }
 buffer_sv2 = { path = "../../utils/buffer" }
 rand = "0.8.4"
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
@@ -36,3 +36,7 @@ clap = { version = "4.5.39", features = ["derive"] }
 [dev-dependencies]
 hex = "0.4.3"
 integration_tests_sv2 = { path = "../../test/integration-tests" }
+
+[features]
+persistence = ["stratum-common/persistence"]
+default = ["persistence"]

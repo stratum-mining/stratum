@@ -28,6 +28,7 @@ pub struct PoolConfig {
     share_batch_size: usize,
     log_file: Option<PathBuf>,
     server_id: u16,
+    share_persistence_file_path: Option<String>,
 }
 
 impl PoolConfig {
@@ -44,6 +45,7 @@ impl PoolConfig {
         shares_per_minute: f32,
         share_batch_size: usize,
         server_id: u16,
+        share_persistence_file_path: Option<String>,
     ) -> Self {
         Self {
             listen_address: pool_connection.listen_address,
@@ -58,6 +60,7 @@ impl PoolConfig {
             share_batch_size,
             log_file: None,
             server_id,
+            share_persistence_file_path
         }
     }
 
@@ -135,6 +138,11 @@ impl PoolConfig {
     /// Returns the server id.
     pub fn server_id(&self) -> u16 {
         self.server_id
+    }
+
+    /// Returns the share persistence file path.
+    pub fn share_persistence_file_path(&self) -> Option<&String> {
+        self.share_persistence_file_path.as_ref()
     }
 }
 
