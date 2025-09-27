@@ -3,17 +3,23 @@ use stratum_common::roles_logic_sv2::{
     channels_sv2::{client::extended::ExtendedChannel, server::jobs::factory::JobFactory},
     handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
     mining_sv2::*,
-    parsers_sv2::{AnyMessage, IsSv2Message, Mining, TemplateDistribution},
+    parsers_sv2::{AnyMessage, Mining, TemplateDistribution},
     template_distribution_sv2::RequestTransactionData,
 };
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    channel_manager::{downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob},
+    channel_manager::{
+        downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob,
+        JDC_SEARCH_SPACE_BYTES,
+    },
     error::JDCError,
     jd_mode::{get_jd_mode, JdMode},
     status::{State, Status},
-    utils::{deserialize_coinbase_outputs, StdFrame, UpstreamState},
+    utils::{
+        create_close_channel_msg, deserialize_coinbase_outputs, PendingChannelRequest, StdFrame,
+        UpstreamState,
+    },
 };
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
@@ -69,26 +75,28 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
-        let (channel_state, template, custom_job) =
+        let (channel_state, template, custom_job, close_channel) =
             self.channel_manager_data.super_safe_lock(|data| {
-                let (hashrate, min_extranonce_size) = data
-                    .pending_downstream_requests
-                    .first()
-                    .map(|req| match req {
-                        Mining::OpenExtendedMiningChannel(m) => {
-                            (m.nominal_hash_rate, m.min_extranonce_size)
-                        }
-                        Mining::OpenStandardMiningChannel(m) => {
-                            (m.nominal_hash_rate, self.min_extranonce_size)
-                        }
-                        _ => panic!("No pending downstream request found"),
-                    })
-                    .expect("No pending downstream request found");
+                let Some(pending_request) = data.pending_downstream_requests.front() else {
+                    self.upstream_state.set(UpstreamState::NoChannel);
+                    let close_channel =
+                        create_close_channel_msg(msg.channel_id, "downstream not available");
+                    return (self.upstream_state.get(), None, None, Some(close_channel));
+                };
+
+                let (hashrate, min_extranonce_size) = match pending_request {
+                    PendingChannelRequest::ExtendedChannel(m) => {
+                        (m.nominal_hash_rate, m.min_extranonce_size)
+                    }
+                    PendingChannelRequest::StandardChannel(m) => {
+                        (m.nominal_hash_rate, JDC_SEARCH_SPACE_BYTES as u16)
+                    }
+                };
 
                 let prefix_len = msg.extranonce_prefix.len();
                 let jdc_extranonce_len = std::cmp::min(
                     (msg.extranonce_size as usize).saturating_sub(min_extranonce_size as usize),
-                    self.min_extranonce_size as usize,
+                    JDC_SEARCH_SPACE_BYTES,
                 );
                 let total_len = prefix_len + msg.extranonce_size as usize;
                 let range_0 = 0..prefix_len;
@@ -113,7 +121,9 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     Err(e) => {
                         warn!("Failed to build extranonce factory: {e:?}");
                         self.upstream_state.set(UpstreamState::NoChannel);
-                        return (self.upstream_state.get(), None, None);
+                        let close_channel =
+                            create_close_channel_msg(msg.channel_id, "downstream not available");
+                        return (self.upstream_state.get(), None, None, Some(close_channel));
                     }
                 };
 
@@ -188,6 +198,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     self.upstream_state.get(),
                     data.last_future_template.clone(),
                     set_custom_job,
+                    None,
                 )
             });
 
@@ -227,9 +238,24 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
             for pending_downstream in pending_downstreams {
                 let message_type = pending_downstream.message_type();
-                self.send_open_channel_request_to_mining_handler(pending_downstream, message_type)
-                    .await?;
+                self.send_open_channel_request_to_mining_handler(
+                    pending_downstream.into(),
+                    message_type,
+                )
+                .await?;
             }
+        }
+
+        // In case of failure, close the channel with upstream.
+        if let Some(close_channel) = close_channel {
+            let close_channel = AnyMessage::Mining(Mining::CloseChannel(close_channel));
+            let frame: StdFrame = close_channel.try_into()?;
+            self.channel_manager_channel
+                .upstream_sender
+                .send(frame)
+                .await
+                .map_err(|_e| JDCError::ChannelErrorSender)?;
+            _ = self.allocate_tokens(1).await;
         }
 
         Ok(())
@@ -315,8 +341,8 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     let extranonce_size = MAX_EXTRANONCE_LEN - prefix_len;
                     let jdc_extranonce_len = std::cmp::min(
                         (extranonce_size)
-                            .saturating_sub(self.min_extranonce_size as usize),
-                        self.min_extranonce_size as usize,
+                            .saturating_sub(JDC_SEARCH_SPACE_BYTES),
+                            JDC_SEARCH_SPACE_BYTES,
                     );
                     let total_len = prefix_len + extranonce_size;
                     let range_0 = 0..prefix_len;
