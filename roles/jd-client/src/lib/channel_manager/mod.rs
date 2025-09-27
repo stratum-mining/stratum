@@ -1,4 +1,8 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use async_channel::{Receiver, Sender};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -45,12 +49,17 @@ use crate::{
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{AtomicUpstreamState, Message, SV2Frame, ShutdownMessage, StdFrame, UpstreamState},
+    utils::{
+        AtomicUpstreamState, Message, PendingChannelRequest, SV2Frame, ShutdownMessage, StdFrame,
+        UpstreamState,
+    },
 };
 mod downstream_message_handler;
 mod jd_message_handler;
 mod template_message_handler;
 mod upstream_message_handler;
+
+pub const JDC_SEARCH_SPACE_BYTES: usize = 4;
 
 /// A `DeclaredJob` encapsulates all the relevant data associated with a single
 /// job declaration, including its template, optional messages, coinbase output,
@@ -127,7 +136,7 @@ pub struct ChannelManagerData {
     pool_tag_string: Option<String>,
     // List of pending downstream connection requests,
     // persisted while the JDC is opening a channel with the upstream.
-    pending_downstream_requests: Vec<Mining<'static>>,
+    pending_downstream_requests: VecDeque<PendingChannelRequest>,
     // Factory for creating **custom mining jobs**, if available.
     job_factory: Option<JobFactory>,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
@@ -141,7 +150,7 @@ impl ChannelManagerData {
     /// This method is primarily used during **fallback scenarios** to clear and
     /// reinitialize all internal data structures. It ensures that the Channel Manager
     /// returns to a clean state, ready to handle fresh upstream or downstream connections.
-    pub fn reset(&mut self, coinbase_outputs: Vec<u8>, min_extranonce_size: usize) {
+    pub fn reset(&mut self, coinbase_outputs: Vec<u8>) {
         self.downstream.clear();
         self.template_store.clear();
         self.last_declare_job_store.clear();
@@ -155,7 +164,7 @@ impl ChannelManagerData {
         self.channel_id_factory = IdFactory::new();
 
         let (range_0, range_1, range_2) = {
-            let range_1 = 0..min_extranonce_size;
+            let range_1 = 0..JDC_SEARCH_SPACE_BYTES;
             (
                 0..range_1.start,
                 range_1.clone(),
@@ -226,7 +235,6 @@ pub struct ChannelManager {
     share_batch_size: usize,
     shares_per_minute: f32,
     user_identity: String,
-    min_extranonce_size: u16,
     /// This represent the current state of Upstream channel
     /// 1. NoChannel: No active upstream connection.
     /// 2. Pending: A channel request has been sent, awaiting response.
@@ -252,7 +260,7 @@ impl ChannelManager {
         coinbase_outputs: Vec<u8>,
     ) -> Result<Self, JDCError> {
         let (range_0, range_1, range_2) = {
-            let range_1 = 0..config.min_extranonce_size() as usize;
+            let range_1 = 0..JDC_SEARCH_SPACE_BYTES;
             (
                 0..range_1.start,
                 range_1.clone(),
@@ -287,7 +295,7 @@ impl ChannelManager {
             channel_id_to_downstream_id: HashMap::new(),
             upstream_channel: None,
             pool_tag_string: None,
-            pending_downstream_requests: Vec::new(),
+            pending_downstream_requests: VecDeque::new(),
             job_factory: None,
             vardiff: HashMap::new(),
         }));
@@ -311,7 +319,6 @@ impl ChannelManager {
             shares_per_minute: config.shares_per_minute() as f32,
             miner_tag_string: config.jdc_signature().to_string(),
             user_identity: config.user_identity().to_string(),
-            min_extranonce_size: config.min_extranonce_size(),
             upstream_state: AtomicUpstreamState::new(UpstreamState::SoloMining),
         };
 
@@ -473,13 +480,13 @@ impl ChannelManager {
                             Ok(ShutdownMessage::JobDeclaratorShutdownFallback((coinbase_outputs,tx))) => {
                                 info!("Channel Manager: Job declarator shutdown signal");
                                 self.upstream_state.set(UpstreamState::SoloMining);
-                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs, cm.min_extranonce_size as usize));
+                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
                                 drop(tx);
                             }
                             Ok(ShutdownMessage::UpstreamShutdownFallback((coinbase_outputs,tx))) => {
                                 info!("Channel Manager: Upstream shutdown signal");
                                 self.upstream_state.set(UpstreamState::SoloMining);
-                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs, cm.min_extranonce_size as usize));
+                                self.channel_manager_data.super_safe_lock(|data| data.reset(coinbase_outputs));
                                 drop(tx);
                             }
                             Err(e) => {
@@ -668,19 +675,24 @@ impl ChannelManager {
             match message_type {
                 MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
                     let message: Mining = (message_type, sv2_frame.payload()).try_into()?;
-                    let Mining::OpenExtendedMiningChannel(mut x) = message else {
+                    let Mining::OpenExtendedMiningChannel(mut downstream_channel_request) = message
+                    else {
                         return Err(JDCError::UnexpectedMessage(message_type));
                     };
-                    let user_identity =
-                        format!("{}#{}", x.user_identity.as_utf8_or_hex(), downstream_id);
-                    x.user_identity = user_identity.try_into()?;
+                    let user_identity = format!(
+                        "{}#{}",
+                        downstream_channel_request.user_identity.as_utf8_or_hex(),
+                        downstream_id
+                    );
+                    downstream_channel_request.user_identity = user_identity.try_into()?;
 
-                    let downstream_msg = Mining::OpenExtendedMiningChannel(x.clone()).into_static();
+                    let downstream_msg = downstream_channel_request.clone().into_static();
 
                     match self.upstream_state.get() {
                         UpstreamState::NoChannel => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg);
+                                data.pending_downstream_requests
+                                    .push_front(downstream_msg.into());
                             });
 
                             if self
@@ -688,10 +700,12 @@ impl ChannelManager {
                                 .compare_and_set(UpstreamState::NoChannel, UpstreamState::Pending)
                                 .is_ok()
                             {
-                                let mut upstream_message = x;
+                                let mut upstream_message = downstream_channel_request;
                                 upstream_message.user_identity =
                                     self.user_identity.clone().try_into()?;
                                 upstream_message.request_id = 1;
+                                upstream_message.min_extranonce_size +=
+                                    JDC_SEARCH_SPACE_BYTES as u16;
                                 let upstream_message = AnyMessage::Mining(
                                     Mining::OpenExtendedMiningChannel(upstream_message)
                                         .into_static(),
@@ -707,19 +721,20 @@ impl ChannelManager {
                         }
                         UpstreamState::Pending => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg);
+                                data.pending_downstream_requests
+                                    .push_back(downstream_msg.into());
                             });
                         }
                         UpstreamState::Connected => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenExtendedMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
                         }
                         UpstreamState::SoloMining => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenExtendedMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
@@ -728,19 +743,24 @@ impl ChannelManager {
                 }
                 MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
                     let message: Mining = (message_type, sv2_frame.payload()).try_into()?;
-                    let Mining::OpenStandardMiningChannel(mut x) = message else {
+                    let Mining::OpenStandardMiningChannel(mut downstream_channel_request) = message
+                    else {
                         return Err(JDCError::UnexpectedMessage(message_type));
                     };
 
-                    let user_identity = format!("{:?}#{}", x.user_identity, downstream_id);
-                    x.user_identity = user_identity.try_into()?;
+                    let user_identity = format!(
+                        "{:?}#{}",
+                        downstream_channel_request.user_identity, downstream_id
+                    );
+                    downstream_channel_request.user_identity = user_identity.try_into()?;
 
-                    let downstream_msg = Mining::OpenStandardMiningChannel(x.clone()).into_static();
+                    let downstream_msg = downstream_channel_request.clone().into_static();
 
                     match self.upstream_state.get() {
                         UpstreamState::NoChannel => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg)
+                                data.pending_downstream_requests
+                                    .push_front(downstream_msg.into())
                             });
 
                             if self
@@ -751,9 +771,9 @@ impl ChannelManager {
                                 let upstream_open = OpenExtendedMiningChannel {
                                     user_identity: self.user_identity.clone().try_into().unwrap(),
                                     request_id: 1,
-                                    nominal_hash_rate: x.nominal_hash_rate,
-                                    max_target: x.max_target,
-                                    min_extranonce_size: self.min_extranonce_size,
+                                    nominal_hash_rate: downstream_channel_request.nominal_hash_rate,
+                                    max_target: downstream_channel_request.max_target,
+                                    min_extranonce_size: JDC_SEARCH_SPACE_BYTES as u16,
                                 };
 
                                 let frame: StdFrame = AnyMessage::Mining(
@@ -769,19 +789,20 @@ impl ChannelManager {
                         }
                         UpstreamState::Pending => {
                             self.channel_manager_data.super_safe_lock(|data| {
-                                data.pending_downstream_requests.push(downstream_msg)
+                                data.pending_downstream_requests
+                                    .push_back(downstream_msg.into())
                             });
                         }
                         UpstreamState::Connected => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenStandardMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;
                         }
                         UpstreamState::SoloMining => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_msg,
+                                Mining::OpenStandardMiningChannel(downstream_msg),
                                 message_type,
                             )
                             .await?;

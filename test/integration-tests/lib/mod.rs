@@ -168,7 +168,6 @@ pub fn start_jdc(
     );
     let shares_per_minute = 10.0;
     let shares_batch_size = 1;
-    let min_extranonce_size = 4;
     let user_identity = "IT-test".to_string();
     let jdc_signature = "JDC".to_string();
     let jd_client_proxy = JobDeclaratorClientConfig::new(
@@ -181,7 +180,6 @@ pub fn start_jdc(
         tp_config,
         upstreams,
         jdc_signature,
-        min_extranonce_size,
         None,
     );
     let ret = jd_client_sv2::JobDeclaratorClient::new(jd_client_proxy);

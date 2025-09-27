@@ -24,7 +24,7 @@ use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
         bitcoin::{self, TxOut},
-        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
+        codec_sv2::{binary_sv2::Str0255, Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
         common_messages_sv2::{
             Protocol, SetupConnection, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION,
@@ -37,6 +37,7 @@ use stratum_common::{
             MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
         },
         mining_sv2::{
+            CloseChannel, OpenExtendedMiningChannel, OpenStandardMiningChannel,
             MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
             MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB,
             MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
@@ -50,7 +51,7 @@ use stratum_common::{
             MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS, MESSAGE_TYPE_UPDATE_CHANNEL,
             MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
         },
-        parsers_sv2::AnyMessage,
+        parsers_sv2::{AnyMessage, Mining},
         template_distribution_sv2::{
             MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS, MESSAGE_TYPE_NEW_TEMPLATE,
             MESSAGE_TYPE_REQUEST_TRANSACTION_DATA, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
@@ -434,6 +435,65 @@ impl AtomicUpstreamState {
                 3 => UpstreamState::SoloMining,
                 _ => unreachable!("invalid upstream state"),
             })
+    }
+}
+
+/// Represents a pending channel request during the bootstrap phase
+/// of the Job Declarator Client (JDC).  
+///
+/// These requests are created by downstreams that want to open
+/// a mining channel but cannot proceed immediately.  
+/// They remain queued until an upstream channel is successfully opened,
+/// at which point they can be processed.
+///
+/// Two types of requests can be pending:
+/// - [`OpenExtendedMiningChannel`] for extended mining channels
+/// - [`OpenStandardMiningChannel`] for standard mining channels
+pub enum PendingChannelRequest {
+    /// A request to open an extended mining channel.
+    ExtendedChannel(OpenExtendedMiningChannel<'static>),
+    /// A request to open a standard mining channel.
+    StandardChannel(OpenStandardMiningChannel<'static>),
+}
+
+impl From<OpenExtendedMiningChannel<'static>> for PendingChannelRequest {
+    fn from(value: OpenExtendedMiningChannel<'static>) -> Self {
+        PendingChannelRequest::ExtendedChannel(value)
+    }
+}
+
+impl From<OpenStandardMiningChannel<'static>> for PendingChannelRequest {
+    fn from(value: OpenStandardMiningChannel<'static>) -> Self {
+        PendingChannelRequest::StandardChannel(value)
+    }
+}
+
+impl From<PendingChannelRequest> for Mining<'_> {
+    fn from(value: PendingChannelRequest) -> Self {
+        match value {
+            PendingChannelRequest::ExtendedChannel(m) => Mining::OpenExtendedMiningChannel(m),
+            PendingChannelRequest::StandardChannel(m) => Mining::OpenStandardMiningChannel(m),
+        }
+    }
+}
+
+impl PendingChannelRequest {
+    pub fn message_type(&self) -> u8 {
+        match self {
+            PendingChannelRequest::ExtendedChannel(_) => MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+            PendingChannelRequest::StandardChannel(_) => MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+        }
+    }
+}
+
+/// Creates a [`CloseChannel`] message for the given channel ID and reason.
+///
+/// The `msg` is converted into a [`Str0255`] reason code.  
+/// If conversion fails, this function will panic.
+pub(crate) fn create_close_channel_msg<'a>(channel_id: u32, msg: &'a str) -> CloseChannel<'a> {
+    CloseChannel {
+        channel_id,
+        reason_code: Str0255::try_from(msg.to_string()).expect("Could not convert message."),
     }
 }
 
