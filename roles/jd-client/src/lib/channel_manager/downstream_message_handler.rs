@@ -514,11 +514,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         };
 
                         let job_store = DefaultJobStore::new();
+                        let full_extranonce_length = channel_manager_data.upstream_channel.as_ref().map(|channel| channel.get_extranonce_length()).unwrap_or(MAX_EXTRANONCE_LEN as u16);
 
                         let mut extended_channel = match ExtendedChannel::new_for_job_declaration_client(
                             extended_channel_id,
                             user_identity.to_string(),
                             extranonce_prefix.into(),
+                            full_extranonce_length,
                             requested_max_target.into(),
                             nominal_hash_rate,
                             true,
