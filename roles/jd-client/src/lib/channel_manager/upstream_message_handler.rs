@@ -141,6 +141,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     hashrate,
                     true,
                     min_extranonce_size,
+                    prefix_len as u16 + msg.extranonce_size,
                 );
 
                 if let Some(ref mut prevhash) = data.last_new_prev_hash {
@@ -328,29 +329,25 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             .super_safe_lock(|channel_manager_data| {
                 let mut messages_results: Vec<Result<RouteMessageTo, Self::Error>> = vec![];
                 if let Some(upstream_channel) = channel_manager_data.upstream_channel.as_mut() {
-                    if let Err(_e) =
-                        upstream_channel.set_extranonce_prefix(msg.extranonce_prefix.to_vec())
-                    {
-                        // Correct these errors, we need Extended Channel Error but on client side.
-                        return Err(JDCError::RolesSv2Logic(
-                            roles_logic_sv2::Error::BadPayloadSize),
-                        );
-                    }
-
-                    let prefix_len = msg.extranonce_prefix.len();
-                    let extranonce_size = MAX_EXTRANONCE_LEN - prefix_len;
+                    let new_extranonce_prefix = msg.extranonce_prefix.to_vec();
+                    let new_extranonce_prefix_len = new_extranonce_prefix.len();
+                    let full_extranonce_len = upstream_channel.get_extranonce_length();
+                    // In this scenario, if the upstream sends an extranonce prefix that does not
+                    // satisfy the channel’s `min_extranonce_condition`, the upstream will fall back.
+                    upstream_channel.set_extranonce_prefix(new_extranonce_prefix.to_vec())?;
+                    let extranonce_size = full_extranonce_len as usize - new_extranonce_prefix_len;
                     let jdc_extranonce_len = std::cmp::min(
                         (extranonce_size)
                             .saturating_sub(JDC_SEARCH_SPACE_BYTES),
                             JDC_SEARCH_SPACE_BYTES,
                     );
-                    let total_len = prefix_len + extranonce_size;
-                    let range_0 = 0..prefix_len;
-                    let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
-                    let range_2 = prefix_len + jdc_extranonce_len..total_len;
+                    let total_len = new_extranonce_prefix_len + extranonce_size;
+                    let range_0 = 0..new_extranonce_prefix_len;
+                    let range_1 = new_extranonce_prefix_len..new_extranonce_prefix_len + jdc_extranonce_len;
+                    let range_2 = new_extranonce_prefix_len + jdc_extranonce_len..total_len;
 
                     debug!(
-                        prefix_len,
+                        new_extranonce_prefix_len,
                         extranonce_size,
                         jdc_extranonce_len,
                         total_len,
