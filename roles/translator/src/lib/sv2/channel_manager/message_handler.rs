@@ -73,6 +73,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                 let extranonce_prefix = m.extranonce_prefix.clone().into_static().to_vec();
                 let target = m.target.clone().into_static();
                 let version_rolling = true; // we assume this is always true on extended channels
+                let extranonce_length = extranonce_prefix.len() as u16 + m.extranonce_size;
                 let extended_channel = ExtendedChannel::new(
                     m.channel_id,
                     user_identity.clone(),
@@ -81,6 +82,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     nominal_hashrate,
                     version_rolling,
                     m.extranonce_size,
+                    extranonce_length
                 );
 
                 // If we are in aggregated mode, we need to create a new extranonce prefix and
@@ -126,14 +128,17 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         .expect("extranonce_prefix_factory mutex should not be poisoned")
                         .expect("next_prefix_extended should return a value for valid input")
                         .into_b032();
+                    let extranonce_prefix = new_extranonce_prefix.to_vec();
+                    let extranonce_length = extranonce_prefix.len() as u16 + new_extranonce_size;
                     let new_downstream_extended_channel = ExtendedChannel::new(
                         m.channel_id,
                         user_identity.clone(),
-                        new_extranonce_prefix.clone().into_static().to_vec(),
+                        extranonce_prefix,
                         target.clone().into(),
                         nominal_hashrate,
                         true,
                         new_extranonce_size,
+                        extranonce_length
                     );
                     channel_manager_data.extended_channels.insert(
                         m.channel_id,
@@ -180,6 +185,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                             .expect("Failed to access extranonce factory")
                             .expect("Failed to generate extranonce prefix")
                             .into_b032();
+                        let extranonce_length = new_extranonce_prefix.to_vec().len() + downstream_extranonce_len;
                         // Create channel with the configured extranonce size
                         let new_downstream_extended_channel = ExtendedChannel::new(
                             m.channel_id,
@@ -189,6 +195,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                             nominal_hashrate,
                             true,
                             downstream_extranonce_len as u16,
+                            extranonce_length as u16
                         );
                         channel_manager_data.extended_channels.insert(
                             m.channel_id,

@@ -306,6 +306,9 @@ impl ChannelManager {
                                     self.channel_manager_data.super_safe_lock(|c| {
                                         c.extended_channels.keys().max().unwrap_or(&0) + 1
                                     });
+                                let extranonce_length = new_extranonce_prefix.clone().to_vec().len()
+                                    as u16
+                                    + new_extranonce_size as u16;
                                 let new_downstream_extended_channel = ExtendedChannel::new(
                                     next_channel_id,
                                     user_identity.clone(),
@@ -318,6 +321,7 @@ impl ChannelManager {
                                     hashrate,
                                     true,
                                     new_extranonce_size as u16,
+                                    extranonce_length,
                                 );
                                 self.channel_manager_data.super_safe_lock(|c| {
                                     c.extended_channels.insert(
