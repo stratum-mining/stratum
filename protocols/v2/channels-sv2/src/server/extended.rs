@@ -429,6 +429,7 @@ where
                         self.extranonce_prefix.clone(),
                         template.clone(),
                         coinbase_reward_outputs,
+                        self.get_full_extranonce_size(),
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
@@ -446,6 +447,7 @@ where
                                 self.extranonce_prefix.clone(),
                                 template.clone(),
                                 coinbase_reward_outputs,
+                                self.get_full_extranonce_size(),
                             )
                             .map_err(ExtendedChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);
@@ -516,6 +518,7 @@ where
             .new_extended_job_from_custom_job(
                 set_custom_mining_job.clone(),
                 self.extranonce_prefix.clone(),
+                self.get_full_extranonce_size(),
             )
             .map_err(ExtendedChannelError::JobFactoryError)?;
 
@@ -836,7 +839,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 38, 82, 0, 3, 47, 47, 47, 31,
             ]
             .try_into()
             .unwrap(),
@@ -989,7 +992,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 38, 82, 0, 3, 47, 47, 47, 31,
             ]
             .try_into()
             .unwrap(),
