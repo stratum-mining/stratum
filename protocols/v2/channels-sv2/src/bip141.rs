@@ -3,12 +3,9 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
-use mining_sv2::MAX_EXTRANONCE_LEN;
 
-use bitcoin::io::Cursor;
-
-const MARKER_FLAG_OFFSET: usize = 4;
+const MARKER_OFFSET: usize = 4;
+const FLAG_OFFSET: usize = 5;
 const MARKER_FLAG_LEN: usize = 2;
 const WITNESS_COUNT_LEN: usize = 1;
 const WITNESS_LEN_LEN: usize = 1;
@@ -37,33 +34,18 @@ pub fn try_strip_bip141(
     coinbase_tx_prefix: &[u8],
     coinbase_tx_suffix: &[u8],
 ) -> Result<Option<(Vec<u8>, Vec<u8>)>, StripBip141Error> {
-    let mut encoded = Vec::with_capacity(
-        coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + MAX_EXTRANONCE_LEN,
-    );
-    encoded.extend_from_slice(coinbase_tx_prefix);
-    encoded.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
-    encoded.extend_from_slice(coinbase_tx_suffix);
+    // https://github.com/bitcoinbook/bitcoinbook/blob/third_edition_github/ch06_transactions.adoc#extended-marker-and-flag
+    let has_bip141_marker_and_flag =
+        (coinbase_tx_prefix[MARKER_OFFSET] == 0x00) && (coinbase_tx_prefix[FLAG_OFFSET] != 0x00);
 
-    let mut decoder = Cursor::new(encoded);
-    let coinbase = Transaction {
-        version: Decodable::consensus_decode(&mut decoder)
-            .map_err(|_| StripBip141Error::FailedToDeserializeCoinbaseVersion)?,
-        input: Decodable::consensus_decode(&mut decoder)
-            .map_err(|_| StripBip141Error::FailedToDeserializeCoinbaseInputs)?,
-        output: Decodable::consensus_decode(&mut decoder)
-            .map_err(|_| StripBip141Error::FailedToDeserializeCoinbaseOutputs)?,
-        lock_time: Decodable::consensus_decode(&mut decoder)
-            .map_err(|_| StripBip141Error::FailedToDeserializeCoinbaseLockTime)?,
-    };
-
-    if coinbase.compute_txid().to_raw_hash() == coinbase.compute_wtxid().to_raw_hash() {
+    if !has_bip141_marker_and_flag {
         return Ok(None);
     }
 
     // strip bip141 marker and flag bytes from coinbase_tx_prefix
-    let mut coinbase_tx_prefix_stripped_bip141 = coinbase_tx_prefix[0..MARKER_FLAG_OFFSET].to_vec();
+    let mut coinbase_tx_prefix_stripped_bip141 = coinbase_tx_prefix[0..MARKER_OFFSET].to_vec();
     coinbase_tx_prefix_stripped_bip141
-        .extend_from_slice(&coinbase_tx_prefix[MARKER_FLAG_OFFSET + MARKER_FLAG_LEN..]);
+        .extend_from_slice(&coinbase_tx_prefix[MARKER_OFFSET + MARKER_FLAG_LEN..]);
 
     // strip bip141 witness bytes from coinbase_tx_suffix
     let locktime_position = coinbase_tx_suffix.len() - LOCKTIME_LEN;
