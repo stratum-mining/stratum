@@ -26,6 +26,8 @@ pub enum ShareValidationResult {
 /// - `VersionRollingNotAllowed`: Version rolling is not permitted for this channel/job.
 /// - `DuplicateShare`: The share has already been submitted (detected by hash).
 /// - `NoChainTip`: The chain tip is unknown or unavailable.
+/// - `BadExtranonceSize`: The share extranonce size is different from the channel's rollable
+///   extranonce size.
 #[derive(Debug)]
 pub enum ShareValidationError {
     Invalid,
@@ -35,6 +37,7 @@ pub enum ShareValidationError {
     VersionRollingNotAllowed,
     DuplicateShare,
     NoChainTip,
+    BadExtranonceSize,
 }
 
 /// Tracks share validation state for a specific channel (Extended or Standard).
