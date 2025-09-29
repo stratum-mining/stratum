@@ -9,7 +9,7 @@ use stratum_common::{
             self, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
             absolute::LockTime, transaction::Version,
         },
-        codec_sv2::{self, HandshakeRole, Initiator, framing_sv2, noise_sv2::Error},
+        codec_sv2::{HandshakeRole, Initiator, framing_sv2, noise_sv2::Error},
         handlers_sv2::HandleCommonMessagesFromServerAsync,
         parsers_sv2::{AnyMessage, TemplateDistribution},
         template_distribution_sv2::CoinbaseOutputConstraints,
