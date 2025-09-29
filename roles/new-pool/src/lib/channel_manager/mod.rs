@@ -24,6 +24,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     config::PoolConfig,
+    downstream::Downstream,
     error::PoolResult,
     status::{Status, StatusSender, handle_error},
     task_manager::TaskManager,
@@ -32,9 +33,6 @@ use crate::{
 
 mod downstream_message_handler;
 mod template_message_handler;
-
-#[derive(Clone)]
-pub struct Downstream;
 
 const POOL_SEARCH_SPACE_BYTES: usize = 4;
 
@@ -61,6 +59,8 @@ pub struct ChannelManagerData {
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
     vardiff: HashMap<(u32, u32), VardiffState>,
+
+    channel_id_to_downstream_id: HashMap<u32, u32>,
 }
 
 #[derive(Clone)]
@@ -121,6 +121,7 @@ impl ChannelManager {
             request_id_factory: IdFactory::new(),
             channel_id_factory: IdFactory::new(),
             vardiff: HashMap::new(),
+            channel_id_to_downstream_id: HashMap::new(),
         }));
 
         let channel_manager_channel = ChannelManagerChannel {
@@ -214,19 +215,29 @@ impl ChannelManager {
                                     .channel_manager_data
                                     .super_safe_lock(|data| data.downstream_id_factory.next());
 
-                                let downstream = Downstream;
+
+                                let downstream = Downstream::new(
+                                    downstream_id,
+                                    channel_manager_sender.clone(),
+                                    channel_manager_receiver.clone(),
+                                    noise_stream,
+                                    notify_shutdown.clone(),
+                                    task_manager_clone.clone(),
+                                    status_sender.clone(),
+                                );
+
 
                                 self.channel_manager_data.super_safe_lock(|data| {
                                     data.downstream.insert(downstream_id, downstream.clone());
                                 });
 
-                                // downstream
-                                //     .start(
-                                //         notify_shutdown.clone(),
-                                //         status_sender.clone(),
-                                //         task_manager_clone.clone(),
-                                //     )
-                                //     .await;
+                                downstream
+                                    .start(
+                                        notify_shutdown.clone(),
+                                        status_sender.clone(),
+                                        task_manager_clone.clone(),
+                                    )
+                                    .await;
                                 }
 
                                 Err(e) => {
@@ -315,17 +326,17 @@ impl ChannelManager {
     //    entries from `channel_id_to_downstream_id`.
     fn remove_downstream(&mut self, downstream_id: u32) -> PoolResult<()> {
         self.channel_manager_data.super_safe_lock(|cm_data| {
-            // if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
-            //     downstream.downstream_data.super_safe_lock(|ds_data| {
-            //         for k in ds_data
-            //             .standard_channels
-            //             .keys()
-            //             .chain(ds_data.extended_channels.keys())
-            //         {
-            //             cm_data.channel_id_to_downstream_id.remove(k);
-            //         }
-            //     });
-            // }
+            if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
+                downstream.downstream_data.super_safe_lock(|ds_data| {
+                    for k in ds_data
+                        .standard_channels
+                        .keys()
+                        .chain(ds_data.extended_channels.keys())
+                    {
+                        cm_data.channel_id_to_downstream_id.remove(k);
+                    }
+                });
+            }
         });
         Ok(())
     }
@@ -341,41 +352,6 @@ impl ChannelManager {
         Ok(())
     }
 
-    // Handles messages received from downstream clients and routes them appropriately.
-    //
-    // # Overview
-    // This method is similar to the upstream JDS message handler, but introduces additional
-    // logic for handling OpenChannel requests (both standard and extended).
-    //
-    // # Message Flow
-    // - For most mining messages: The message is forwarded directly to
-    //   `handle_mining_message_from_client`, and the `channel_id_to_downstream_id` map is used to
-    //   determine the origin downstream.
-    //
-    // - For OpenChannel messages: At the time of request, the `channel_id` is not yet assigned, so
-    //   we cannot map the message back to the downstream. To solve this:
-    //   1. The `downstream_id` is appended to the `user_identity` (e.g.,
-    //      `"identity#downstream_id"`).
-    //   2. Later, the appended downstream ID is stripped and used by the message handler to
-    //      correctly attribute the request.
-    //
-    // # Channel Establishment Logic
-    // - NoChannel → Pending:
-    //   - The first downstream OpenChannel request is stored in `pending_downstream_requests`.
-    //   - The upstream state transitions from `NoChannel` to `Pending`.
-    //   - A single channel request is then sent to the upstream (JDC → upstream).
-    //
-    // - Pending:
-    //   - Additional downstream OpenChannel requests are stored in `pending_downstream_requests`
-    //     until the upstream connection is established.
-    //
-    // - Connected / SoloMining:
-    //   - Downstream OpenChannel requests are immediately forwarded to the mining handler.
-    //
-    // # Notes
-    // - Only one upstream channel is created per JDC instance.
-    // - After the upstream channel is established, all new downstream requests bypass the pending
-    //   mechanism and are sent directly to the mining handler.
     async fn handle_downstream_message(&mut self) -> PoolResult<()> {
         if let Ok((downstream_id, mut sv2_frame)) = self
             .channel_manager_channel
@@ -513,56 +489,54 @@ impl ChannelManager {
                     else {
                         continue;
                     };
-                    // downstream.downstream_data.super_safe_lock(|data| {
-                    //     if let Some(standard_channel) =
-                    // data.standard_channels.get_mut(channel_id) {
-                    //         Self::run_vardiff_on_standard_channel(
-                    //             *downstream_id,
-                    //             *channel_id,
-                    //             standard_channel,
-                    //             vardiff_state,
-                    //             &mut messages,
-                    //         );
-                    //     }
-                    //     if let Some(extended_channel) =
-                    // data.extended_channels.get_mut(channel_id) {
-                    //         Self::run_vardiff_on_extended_channel(
-                    //             *downstream_id,
-                    //             *channel_id,
-                    //             extended_channel,
-                    //             vardiff_state,
-                    //             &mut messages,
-                    //         );
-                    //     }
-                    // });
+                    downstream.downstream_data.super_safe_lock(|data| {
+                        if let Some(standard_channel) = data.standard_channels.get_mut(channel_id) {
+                            Self::run_vardiff_on_standard_channel(
+                                *downstream_id,
+                                *channel_id,
+                                standard_channel,
+                                vardiff_state,
+                                &mut messages,
+                            );
+                        }
+                        if let Some(extended_channel) = data.extended_channels.get_mut(channel_id) {
+                            Self::run_vardiff_on_extended_channel(
+                                *downstream_id,
+                                *channel_id,
+                                extended_channel,
+                                vardiff_state,
+                                &mut messages,
+                            );
+                        }
+                    });
                 }
 
                 if !messages.is_empty() {
                     let mut downstream_hashrate = 0.0;
                     let mut min_target: Target = [0xff; 32].into();
 
-                    // for (_, downstream) in channel_manager_data.downstream.iter() {
-                    //     downstream.downstream_data.super_safe_lock(|data| {
-                    //         let mut update_from_channel = |hashrate: f32, target: &Target| {
-                    //             downstream_hashrate += hashrate;
-                    //             min_target = std::cmp::min(target.clone(), min_target.clone());
-                    //         };
+                    for (_, downstream) in channel_manager_data.downstream.iter() {
+                        downstream.downstream_data.super_safe_lock(|data| {
+                            let mut update_from_channel = |hashrate: f32, target: &Target| {
+                                downstream_hashrate += hashrate;
+                                min_target = std::cmp::min(target.clone(), min_target.clone());
+                            };
 
-                    //         for (_, channel) in data.standard_channels.iter() {
-                    //             update_from_channel(
-                    //                 channel.get_nominal_hashrate(),
-                    //                 channel.get_target(),
-                    //             );
-                    //         }
+                            for (_, channel) in data.standard_channels.iter() {
+                                update_from_channel(
+                                    channel.get_nominal_hashrate(),
+                                    channel.get_target(),
+                                );
+                            }
 
-                    //         for (_, channel) in data.extended_channels.iter() {
-                    //             update_from_channel(
-                    //                 channel.get_nominal_hashrate(),
-                    //                 channel.get_target(),
-                    //             );
-                    //         }
-                    //     });
-                    // }
+                            for (_, channel) in data.extended_channels.iter() {
+                                update_from_channel(
+                                    channel.get_nominal_hashrate(),
+                                    channel.get_target(),
+                                );
+                            }
+                        });
+                    }
                 }
             });
 
