@@ -1,6 +1,6 @@
 // This file contains integration tests for the `JDC/S` module.
 use integration_tests_sv2::{
-    interceptor::{IgnoreMessage, MessageDirection, ReplaceMessage},
+    interceptor::{MessageDirection, ReplaceMessage},
     template_provider::DifficultyLevel,
     *,
 };
