@@ -91,6 +91,7 @@ where
     user_identity: String,
     extranonce_prefix: Vec<u8>,
     rollable_extranonce_size: u16,
+    full_extranonce_length: u16,
     requested_max_target: Target,
     target: Target, // todo: try to use Target from rust-bitcoin
     nominal_hashrate: f32,
@@ -134,6 +135,7 @@ where
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -161,6 +163,7 @@ where
         channel_id: u32,
         user_identity: String,
         extranonce_prefix: Vec<u8>,
+        full_extranonce_length: u16,
         max_target: Target,
         nominal_hashrate: f32,
         version_rolling_allowed: bool,
@@ -175,6 +178,7 @@ where
             channel_id,
             user_identity,
             extranonce_prefix,
+            full_extranonce_length,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -193,6 +197,7 @@ where
         channel_id: u32,
         user_identity: String,
         extranonce_prefix: Vec<u8>,
+        full_extranonce_length: u16,
         max_target: Target,
         nominal_hashrate: f32,
         version_rolling_allowed: bool,
@@ -227,6 +232,7 @@ where
             channel_id,
             user_identity,
             extranonce_prefix,
+            full_extranonce_length,
             rollable_extranonce_size: available_rollable_extranonce_size,
             requested_max_target: max_target,
             target,
@@ -271,6 +277,11 @@ where
         self.chain_tip = Some(chain_tip);
     }
 
+    /// Returns full extranonce length
+    pub fn get_extranonce_length(&self) -> u16 {
+        self.full_extranonce_length
+    }
+
     /// Updates the extranonce prefix for this channel.
     ///
     /// After this call, all newly created jobs will reference the new prefix.
@@ -282,7 +293,7 @@ where
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
         let new_rollable_extranonce_size =
-            MAX_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
+            self.full_extranonce_length - extranonce_prefix.len() as u16;
 
         // we return an error if the new extranonce_prefix would violate
         // min_rollable_extranonce_size that was already established with the client when the
@@ -764,6 +775,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -915,6 +927,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -1035,6 +1048,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -1114,6 +1128,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -1224,6 +1239,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -1337,6 +1353,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
@@ -1464,6 +1481,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix,
+            MAX_EXTRANONCE_LEN as u16,
             max_target.clone(),
             initial_hashrate,
             version_rolling_allowed,
@@ -1558,6 +1576,7 @@ mod tests {
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
+            MAX_EXTRANONCE_LEN as u16,
             max_target,
             nominal_hashrate,
             version_rolling_allowed,

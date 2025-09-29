@@ -63,6 +63,7 @@ pub struct ExtendedChannel<'a> {
     user_identity: String,
     extranonce_prefix: Vec<u8>,
     rollable_extranonce_size: u16,
+    full_extranonce_length: u16,
     target: Target, // todo: try to use Target from rust-bitcoin
     nominal_hashrate: f32,
     version_rolling: bool,
@@ -79,6 +80,7 @@ pub struct ExtendedChannel<'a> {
 
 impl<'a> ExtendedChannel<'a> {
     /// Constructs a new [`ExtendedChannel`].
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_id: u32,
         user_identity: String,
@@ -87,12 +89,14 @@ impl<'a> ExtendedChannel<'a> {
         nominal_hashrate: f32,
         version_rolling: bool,
         rollable_extranonce_size: u16,
+        full_extranonce_length: u16,
     ) -> Self {
         Self {
             channel_id,
             user_identity,
             extranonce_prefix,
             rollable_extranonce_size,
+            full_extranonce_length,
             target,
             nominal_hashrate,
             version_rolling,
@@ -135,6 +139,11 @@ impl<'a> ExtendedChannel<'a> {
         self.chain_tip = Some(chain_tip);
     }
 
+    /// Returns full extranonce length
+    pub fn get_extranonce_length(&self) -> u16 {
+        self.full_extranonce_length
+    }
+
     /// Sets a new extranonce prefix for the channel.
     ///
     /// After this change, all new jobs will use the new extranonce prefix.
@@ -148,7 +157,7 @@ impl<'a> ExtendedChannel<'a> {
         new_extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
         let new_rollable_extranonce_size =
-            MAX_EXTRANONCE_LEN as u16 - new_extranonce_prefix.len() as u16;
+            self.full_extranonce_length - new_extranonce_prefix.len() as u16;
 
         // we return an error if the new extranonce_prefix would violate
         // min_rollable_extranonce_size that was already established with the client when the
@@ -596,6 +605,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            MAX_EXTRANONCE_LEN as u16,
         );
 
         let future_job = NewExtendedMiningJob {
@@ -678,6 +688,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            MAX_EXTRANONCE_LEN as u16,
         );
 
         let ntime: u32 = 1746839905;
@@ -752,6 +763,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            MAX_EXTRANONCE_LEN as u16,
         );
 
         let future_job = NewExtendedMiningJob {
@@ -846,6 +858,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            MAX_EXTRANONCE_LEN as u16,
         );
 
         let future_job = NewExtendedMiningJob {
@@ -943,6 +956,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            MAX_EXTRANONCE_LEN as u16,
         );
 
         let future_job = NewExtendedMiningJob {

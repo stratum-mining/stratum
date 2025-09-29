@@ -17,12 +17,25 @@ use stratum_common::{
     network_helpers_sv2,
     roles_logic_sv2::{
         self, bitcoin,
+        channels_sv2::{
+            client::error::ExtendedChannelError as ExtendedChannelClientError,
+            server::error::{
+                ExtendedChannelError as ExtendedChannelServerError, StandardChannelError,
+            },
+        },
         codec_sv2::{self, binary_sv2, framing_sv2},
         handlers_sv2::HandlerErrorType,
         parsers_sv2::ParserError,
     },
 };
 use tokio::{sync::broadcast, time::error::Elapsed};
+
+#[derive(Debug)]
+pub enum ChannelSv2Error {
+    ExtendedChannelClientSide(ExtendedChannelClientError),
+    ExtendedChannelServerSide(ExtendedChannelServerError),
+    StandardChannelServerSide(StandardChannelError),
+}
 
 #[derive(Debug)]
 pub enum JDCError {
@@ -42,6 +55,7 @@ pub enum JDCError {
     Io(std::io::Error),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
+    ChannelSv2(ChannelSv2Error),
     /// Errors from `roles_logic_sv2` crate.
     RolesSv2Logic(roles_logic_sv2::errors::Error),
     UpstreamIncoming(roles_logic_sv2::errors::Error),
@@ -154,6 +168,9 @@ impl fmt::Display for JDCError {
             }
             FailedToCreateCustomJob => {
                 write!(f, "failed to create custom job")
+            }
+            ChannelSv2(channel_error) => {
+                write!(f, "Channel error: {channel_error:?}")
             }
         }
     }
@@ -276,5 +293,23 @@ impl HandlerErrorType for JDCError {
 
     fn unexpected_message(message_type: u8) -> Self {
         JDCError::UnexpectedMessage(message_type)
+    }
+}
+
+impl From<ExtendedChannelClientError> for JDCError {
+    fn from(value: ExtendedChannelClientError) -> Self {
+        JDCError::ChannelSv2(ChannelSv2Error::ExtendedChannelClientSide(value))
+    }
+}
+
+impl From<ExtendedChannelServerError> for JDCError {
+    fn from(value: ExtendedChannelServerError) -> Self {
+        JDCError::ChannelSv2(ChannelSv2Error::ExtendedChannelServerSide(value))
+    }
+}
+
+impl From<StandardChannelError> for JDCError {
+    fn from(value: StandardChannelError) -> Self {
+        JDCError::ChannelSv2(ChannelSv2Error::StandardChannelServerSide(value))
     }
 }
