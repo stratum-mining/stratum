@@ -14,6 +14,9 @@ use stratum_common::{
             standard::StandardChannel,
         },
         codec_sv2::Responder,
+        handlers_sv2::{
+            HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
+        },
         mining_sv2::{ExtendedExtranonce, MAX_EXTRANONCE_LEN, SetTarget, Target},
         parsers_sv2::{Mining, TemplateDistribution},
         utils::{Id as IdFactory, Mutex},
@@ -348,17 +351,37 @@ impl ChannelManager {
     //   distribution message handler.
     // - If the frame contains any unsupported message type, an error is returned.
     async fn handle_template_provider_message(&mut self) -> PoolResult<()> {
-        if let Ok(message) = self.channel_manager_channel.tp_receiver.recv().await {}
+        if let Ok(message) = self.channel_manager_channel.tp_receiver.recv().await {
+            self.handle_template_distribution_message_from_server(message)
+                .await?;
+        }
         Ok(())
     }
 
     async fn handle_downstream_message(&mut self) -> PoolResult<()> {
-        if let Ok((downstream_id, mut sv2_frame)) = self
+        if let Ok((downstream_id, mut message)) = self
             .channel_manager_channel
             .downstream_receiver
             .recv()
             .await
-        {}
+        {
+            let msg = match message {
+                Mining::OpenExtendedMiningChannel(mut m) => {
+                    let user_identity =
+                        format!("{}#{}", m.user_identity.as_utf8_or_hex(), downstream_id);
+                    m.user_identity = user_identity.try_into()?;
+                    Mining::OpenExtendedMiningChannel(m)
+                }
+                Mining::OpenStandardMiningChannel(mut m) => {
+                    let user_identity =
+                        format!("{}#{}", m.user_identity.as_utf8_or_hex(), downstream_id);
+                    m.user_identity = user_identity.try_into()?;
+                    Mining::OpenStandardMiningChannel(m)
+                }
+                _ => message,
+            };
+            self.handle_mining_message_from_client(msg).await?;
+        }
 
         Ok(())
     }
