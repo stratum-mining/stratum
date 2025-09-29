@@ -5,11 +5,14 @@ use std::{
 };
 
 use stratum_common::roles_logic_sv2::{
-    self,
+    self, bitcoin,
     codec_sv2::{self, binary_sv2, noise_sv2},
+    handlers_sv2::HandlerErrorType,
     parsers_sv2::{Mining, ParserError},
     vardiff::error::VardiffError,
 };
+
+pub type PoolResult<T> = Result<T, PoolError>;
 
 /// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]
@@ -42,6 +45,11 @@ pub enum PoolError {
     Sv2ProtocolError((u32, Mining<'static>)),
     Vardiff(VardiffError),
     Parser(ParserError),
+    Shutdown,
+    UnexpectedMessage(u8),
+    ChannelErrorSender,
+    InvalidSocketAddress(String),
+    BitcoinEncodeError(bitcoin::consensus::encode::Error),
 }
 
 impl From<VardiffError> for PoolError {
@@ -79,11 +87,14 @@ impl std::fmt::Display for PoolError {
                 write!(f, "Received Vardiff Error : {e:?}")
             }
             Parser(e) => write!(f, "Parser error: `{e:?}`"),
+            Shutdown => write!(f, "Shutdown"),
+            UnexpectedMessage(message_type) => write!(f, "message type: {message_type:?}"),
+            ChannelErrorSender => write!(f, "Channel sender error"),
+            InvalidSocketAddress(address) => write!(f, "Invalid socket address: {address:?}"),
+            BitcoinEncodeError(_) => write!(f, "Error generated during encoding"),
         }
     }
 }
-
-pub type PoolResult<T> = Result<T, PoolError>;
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {
@@ -153,5 +164,21 @@ impl<T> From<PoisonError<MutexGuard<'_, T>>> for PoolError {
 impl From<(u32, Mining<'static>)> for PoolError {
     fn from(e: (u32, Mining<'static>)) -> Self {
         PoolError::Sv2ProtocolError(e)
+    }
+}
+
+impl HandlerErrorType for PoolError {
+    fn parse_error(error: ParserError) -> Self {
+        PoolError::Parser(error)
+    }
+
+    fn unexpected_message(message_type: u8) -> Self {
+        PoolError::UnexpectedMessage(message_type)
+    }
+}
+
+impl From<stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error> for PoolError {
+    fn from(value: stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error) -> Self {
+        PoolError::BitcoinEncodeError(value)
     }
 }
