@@ -9,7 +9,7 @@ use stratum_common::{
             self, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
             absolute::LockTime, transaction::Version,
         },
-        codec_sv2::{self, HandshakeRole, Initiator, framing_sv2},
+        codec_sv2::{self, HandshakeRole, Initiator, framing_sv2, noise_sv2::Error},
         handlers_sv2::HandleCommonMessagesFromServerAsync,
         parsers_sv2::{AnyMessage, TemplateDistribution},
         template_distribution_sv2::CoinbaseOutputConstraints,
@@ -359,7 +359,7 @@ impl TemplateReceiver {
             .await
             .map_err(|e| {
                 error!(?e, "Upstream connection closed during handshake");
-                PoolError::Noise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+                PoolError::Noise(Error::ExpectedIncomingHandshakeMessage)
             })?;
 
         let msg_type = incoming
