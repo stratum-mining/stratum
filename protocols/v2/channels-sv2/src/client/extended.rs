@@ -141,24 +141,16 @@ impl<'a> ExtendedChannel<'a> {
     /// Jobs created before this call retain the previous extranonce prefix,
     /// and share validation is performed accordingly.
     ///
-    /// Returns an error if the new prefix violates the minimum rollable extranonce size established
-    /// at channel creation.
+    /// Returns an error if the new extranonce prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
         new_extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
-        let new_rollable_extranonce_size =
-            MAX_EXTRANONCE_LEN as u16 - new_extranonce_prefix.len() as u16;
-
-        // we return an error if the new extranonce_prefix would violate
-        // min_rollable_extranonce_size that was already established with the client when the
-        // channel was created
-        if new_rollable_extranonce_size < self.rollable_extranonce_size {
+        if new_extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
             return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = new_extranonce_prefix;
-        self.rollable_extranonce_size = new_rollable_extranonce_size;
 
         Ok(())
     }
@@ -296,7 +288,10 @@ impl<'a> ExtendedChannel<'a> {
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(set_custom_mining_job.coinbase_prefix.inner_as_ref());
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        let full_extranonce_size =
+            self.extranonce_prefix.len() + self.rollable_extranonce_size as usize;
+        let full_extranonce = vec![0; full_extranonce_size];
+        script_sig.extend_from_slice(&full_extranonce);
 
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
@@ -326,7 +321,7 @@ impl<'a> ExtendedChannel<'a> {
 
         let coinbase_tx_prefix = serialized_coinbase[0..prefix_index].to_vec();
 
-        let suffix_index = prefix_index + MAX_EXTRANONCE_LEN;
+        let suffix_index = prefix_index + full_extranonce_size;
 
         let coinbase_tx_suffix = serialized_coinbase[suffix_index..].to_vec();
 
@@ -570,7 +565,6 @@ mod tests {
     use binary_sv2::Sv2Option;
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
-        MAX_EXTRANONCE_LEN,
     };
     use std::convert::TryInto;
 
@@ -586,7 +580,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -668,7 +662,7 @@ mod tests {
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -735,14 +729,13 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         let target = [0xff; 32].into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 8u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -800,7 +793,7 @@ mod tests {
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
 
-        // this share has hash 38b6a7d5b2cae08bc6c8b4b4fc13ff129ae0a07309240108f46ddf48c498b120
+        // this share has hash 155d3f07a6fb97038dab34f71813b3f32e883c2d4ab4c75f606e1139d50eaebf
         // which satisfies network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
         let share_valid_block = SubmitSharesExtended {
@@ -810,7 +803,7 @@ mod tests {
             nonce: 741057,
             ntime: 1745596971,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(share_valid_block);
@@ -823,8 +816,7 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
@@ -836,7 +828,7 @@ mod tests {
         .into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 8u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -894,7 +886,7 @@ mod tests {
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
 
-        // this share has hash bc1f25bceec05b1cc60fd0f0a3ede685efbb00d2a7d39c879d2c187b2af3538d
+        // this share has hash 84d3931c81d0e5af5440bf3ff94d84ff19a4dc0113e65cc11703330a7d599f61
         // which does not meet the channel target
         // 0000ffff00000000000000000000000000000000000000000000000000000000
         let share_low_diff = SubmitSharesExtended {
@@ -904,7 +896,7 @@ mod tests {
             nonce: 741057,
             ntime: 1745596971,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(share_low_diff);
@@ -920,8 +912,7 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
@@ -933,7 +924,7 @@ mod tests {
         .into();
         let nominal_hashrate = 1.0;
         let version_rolling = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 8u16;
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -991,17 +982,17 @@ mod tests {
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
 
-        // this share has hash 0000d769e5ab58b7309b7507834cb0bc60749315c93015e8bba97b9752ced5b7
+        // this share has hash 00005e460def43b0153246e6300ce38d9da1c9abd8ef2157a88b2e9a12a8524a
         // which does meet the channel target
         // 0000ffff00000000000000000000000000000000000000000000000000000000
         let valid_share = SubmitSharesExtended {
             channel_id,
             sequence_number: 0,
             job_id: 1,
-            nonce: 2426,
+            nonce: 102103,
             ntime: 1745596971,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(valid_share);
@@ -1014,10 +1005,10 @@ mod tests {
             channel_id,
             sequence_number: 1,
             job_id: 1,
-            nonce: 2426,
+            nonce: 102103,
             ntime: 1745596971,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(repeated_share);
