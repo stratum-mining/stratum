@@ -8,15 +8,19 @@
 //! - Managing [`TemplateProviderConfig`], [`AuthorityConfig`], [`CoinbaseOutput`], and
 //!   [`ConnectionConfig`]
 //! - Validating and converting coinbase outputs
-use std::path::{Path, PathBuf};
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+};
 
 use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
 
 /// Configuration for the Pool, including connection, authority, and coinbase settings.
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct PoolConfig {
-    listen_address: String,
+    listen_address: SocketAddr,
     tp_address: String,
     tp_authority_public_key: Option<Secp256k1PublicKey>,
     authority_public_key: Secp256k1PublicKey,
@@ -67,7 +71,7 @@ impl PoolConfig {
     }
 
     /// Returns Pool listenining address.
-    pub fn listen_address(&self) -> &String {
+    pub fn listen_address(&self) -> &SocketAddr {
         &self.listen_address
     }
 
@@ -136,6 +140,13 @@ impl PoolConfig {
     pub fn server_id(&self) -> u16 {
         self.server_id
     }
+
+    pub fn get_txout(&self) -> TxOut {
+        TxOut {
+            value: Amount::from_sat(0),
+            script_pubkey: self.coinbase_reward_script.script_pubkey().to_owned(),
+        }
+    }
 }
 
 /// Configuration for connecting to a Template Provider.
@@ -170,13 +181,13 @@ impl AuthorityConfig {
 
 /// Connection settings for the Pool listener.
 pub struct ConnectionConfig {
-    listen_address: String,
+    listen_address: SocketAddr,
     cert_validity_sec: u64,
     signature: String,
 }
 
 impl ConnectionConfig {
-    pub fn new(listen_address: String, cert_validity_sec: u64, signature: String) -> Self {
+    pub fn new(listen_address: SocketAddr, cert_validity_sec: u64, signature: String) -> Self {
         Self {
             listen_address,
             cert_validity_sec,
