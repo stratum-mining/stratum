@@ -3,6 +3,7 @@ name = "handlers_sv2"
 version = "0.1.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
+readme = "README.md"
 description = "Sv2 Message handlers"
 documentation = "https://docs.rs/handlers_sv2"
 license = "MIT OR Apache-2.0"
