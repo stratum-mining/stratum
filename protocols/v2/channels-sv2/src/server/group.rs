@@ -70,6 +70,7 @@ where
     job_factory: JobFactory,
     job_store: J,
     chain_tip: Option<ChainTip>,
+    full_extranonce_size: usize,
     phantom: PhantomData<&'a ()>,
 }
 
@@ -85,8 +86,19 @@ where
     ///
     /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
     /// and `//` delimiters: `/pool_tag_string//`
-    pub fn new_for_pool(group_channel_id: u32, job_store: J, pool_tag_string: String) -> Self {
-        Self::new(group_channel_id, job_store, Some(pool_tag_string), None)
+    pub fn new_for_pool(
+        group_channel_id: u32,
+        job_store: J,
+        full_extranonce_size: usize,
+        pool_tag_string: String,
+    ) -> Self {
+        Self::new(
+            group_channel_id,
+            job_store,
+            full_extranonce_size,
+            Some(pool_tag_string),
+            None,
+        )
     }
 
     /// Constructor of `GroupChannel` for a Sv2 Job Declaration Client.
@@ -102,12 +114,14 @@ where
     pub fn new_for_job_declaration_client(
         group_channel_id: u32,
         job_store: J,
+        full_extranonce_size: usize,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Self {
         Self::new(
             group_channel_id,
             job_store,
+            full_extranonce_size,
             pool_tag_string,
             Some(miner_tag_string),
         )
@@ -117,6 +131,7 @@ where
     fn new(
         group_channel_id: u32,
         job_store: J,
+        full_extranonce_size: usize,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
     ) -> Self {
@@ -126,6 +141,7 @@ where
             job_factory: JobFactory::new(true, pool_tag, miner_tag),
             job_store,
             chain_tip: None,
+            full_extranonce_size,
             phantom: PhantomData,
         }
     }
@@ -143,6 +159,10 @@ where
     /// Returns the unique group channel ID for this group channel.
     pub fn get_group_channel_id(&self) -> u32 {
         self.group_channel_id
+    }
+
+    pub fn get_full_extranonce_size(&self) -> usize {
+        self.full_extranonce_size
     }
 
     /// Returns a reference to the set of standard channel IDs associated with this group channel.
@@ -198,6 +218,7 @@ where
                                  * prefix */
                         template.clone(),
                         coinbase_reward_outputs,
+                        self.full_extranonce_size,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
@@ -217,6 +238,7 @@ where
                                          * channel's extranonce prefix */
                                 template.clone(),
                                 coinbase_reward_outputs,
+                                self.full_extranonce_size,
                             )
                             .map_err(GroupChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);
@@ -279,7 +301,14 @@ mod tests {
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
         let job_store = DefaultJobStore::new();
-        let mut group_channel = GroupChannel::new(group_channel_id, job_store, None, None);
+        let full_extranonce_size = 32;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            job_store,
+            full_extranonce_size,
+            None,
+            None,
+        );
 
         let template = NewTemplate {
             template_id: 1,
@@ -406,7 +435,14 @@ mod tests {
         let group_channel_id = 1;
 
         let job_store = DefaultJobStore::new();
-        let mut group_channel = GroupChannel::new(group_channel_id, job_store, None, None);
+        let full_extranonce_size = 32;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            job_store,
+            full_extranonce_size,
+            None,
+            None,
+        );
 
         let ntime = 1746839905;
         let prev_hash = [
@@ -496,7 +532,14 @@ mod tests {
         let group_channel_id = 1;
 
         let job_store = DefaultJobStore::new();
-        let mut group_channel = GroupChannel::new(group_channel_id, job_store, None, None);
+        let full_extranonce_size = 32;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            job_store,
+            full_extranonce_size,
+            None,
+            None,
+        );
 
         let template = NewTemplate {
             template_id: 1,
