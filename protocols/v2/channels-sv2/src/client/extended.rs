@@ -454,6 +454,11 @@ impl<'a> ExtendedChannel<'a> {
             return Err(ShareValidationError::InvalidJobId);
         };
 
+        let extranonce_size = share.extranonce.inner_as_ref().len();
+        if extranonce_size != self.rollable_extranonce_size as usize {
+            return Err(ShareValidationError::BadExtranonceSize);
+        }
+
         let mut full_extranonce = vec![];
         full_extranonce.extend_from_slice(job.1.as_slice());
         full_extranonce.extend_from_slice(share.extranonce.inner_as_ref());

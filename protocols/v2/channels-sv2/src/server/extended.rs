@@ -587,6 +587,11 @@ where
                 .expect("stale job must exist")
         };
 
+        let extranonce_size = share.extranonce.inner_as_ref().len();
+        if extranonce_size != self.rollable_extranonce_size as usize {
+            return Err(ShareValidationError::BadExtranonceSize);
+        }
+
         let extranonce_prefix = job.get_extranonce_prefix();
         let mut full_extranonce = vec![];
         full_extranonce.extend(extranonce_prefix.clone());
