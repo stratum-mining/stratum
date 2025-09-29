@@ -597,7 +597,7 @@ where
 
             let mut script_sig = job.get_template().coinbase_prefix.to_vec();
             script_sig.extend(op_pushbytes_pool_miner_tag);
-            script_sig.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+            script_sig.push(self.extranonce_prefix.len() as u8); // OP_PUSHBYTES_X (for the extranonce)
             script_sig.extend(job.get_extranonce_prefix());
 
             let tx_in = TxIn {
