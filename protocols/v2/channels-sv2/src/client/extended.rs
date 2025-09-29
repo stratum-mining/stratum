@@ -155,6 +155,11 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
+    /// Returns the full extranonce size in bytes.
+    pub fn get_full_extranonce_size(&self) -> usize {
+        self.extranonce_prefix.len() + self.rollable_extranonce_size as usize
+    }
+
     /// Returns the available size, in bytes, of the rollable portion of the extranonce.
     pub fn get_rollable_extranonce_size(&self) -> u16 {
         self.rollable_extranonce_size

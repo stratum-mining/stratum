@@ -290,6 +290,11 @@ where
         self.rollable_extranonce_size
     }
 
+    /// Returns the full extranonce size in bytes.
+    pub fn get_full_extranonce_size(&self) -> usize {
+        self.extranonce_prefix.len() + self.rollable_extranonce_size as usize
+    }
+
     /// Returns the requested maximum target for this channel.
     pub fn get_requested_max_target(&self) -> &Target {
         &self.requested_max_target
