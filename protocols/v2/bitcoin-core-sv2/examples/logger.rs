@@ -40,6 +40,7 @@ async fn main() {
     let fee_threshold = 100;
 
     let (request_transaction_data_sender, request_transaction_data_receiver) = unbounded();
+    let (coinbase_output_constraints_sender, coinbase_output_constraints_receiver) = unbounded(); // not used in this example
     let (_submit_solution_sender, submit_solution_receiver) = unbounded(); // not used in this example
     let (template_distribution_message_sender, template_distribution_message_receiver) =
         unbounded();
@@ -89,6 +90,41 @@ async fn main() {
         }
     });
 
+    let cancellation_token_clone = cancellation_token.clone();
+
+    let new_coinbase_output_constraints = CoinbaseOutputConstraints {
+        coinbase_output_max_additional_size: 2,
+        coinbase_output_max_additional_sigops: 2,
+    };
+
+    // spawn a task to periodically send new coinbase output constraints
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    info!("Ctrl+C received");
+                    cancellation_token_clone.cancel();
+                    return;
+                }
+                _ = cancellation_token_clone.cancelled() => {
+                    info!("Cancellation token activated");
+                    return;
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
+                    match coinbase_output_constraints_sender.send(new_coinbase_output_constraints).await {
+                        Ok(_) => (),
+                        Err(e) => {
+                            tracing::error!("Failed to send new coinbase output constraints: {}", e);
+                            cancellation_token_clone.cancel();
+                            return;
+                        }
+                    }
+                    info!("Sent new CoinbaseOutputConstraints");
+                }
+            }
+        }
+    });
+
     // `capnp` clients are not `Send`, so we need to use a `LocalSet` to run them
     let tokio_local_set = tokio::task::LocalSet::new();
 
@@ -97,9 +133,10 @@ async fn main() {
         .run_until(async move {
             // create a new `BitcoinCoreSv2` instance
             let sv2_bitcoin_core = match BitcoinCoreSv2::new(
-                bitcoin_core_unix_socket_path,
+                Path::new(&bitcoin_core_unix_socket_path),
                 coinbase_output_constraints,
                 fee_threshold,
+                coinbase_output_constraints_receiver,
                 request_transaction_data_receiver,
                 submit_solution_receiver,
                 template_distribution_message_sender,
