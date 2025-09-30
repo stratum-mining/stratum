@@ -4,7 +4,7 @@ use stratum_common::roles_logic_sv2::{
     },
     handlers_sv2::HandleCommonMessagesFromServerAsync,
 };
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::{error::PoolError, template_receiver::TemplateReceiver};
 
@@ -15,8 +15,10 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Self::Error> {
-        info!("Received: {}", msg);
-
+        info!(
+            "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
+            msg.used_version, msg.flags
+        );
         Ok(())
     }
 
@@ -24,7 +26,10 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Self::Error> {
-        info!("Received: {}", msg);
+        info!(
+            "Received ChannelEndpointChanged with channel id: {}",
+            msg.channel_id
+        );
         Ok(())
     }
 
@@ -37,7 +42,10 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Self::Error> {
-        warn!("Received: {}", msg);
+        error!(
+            "Received `SetupConnectionError` from TP with error code {}",
+            std::str::from_utf8(msg.error_code.as_ref()).unwrap_or("unknown error code")
+        );
         Err(PoolError::Shutdown)
     }
 }
