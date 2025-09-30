@@ -160,13 +160,16 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     ) {
                         let request_id = data.request_id_factory.fetch_add(1, Ordering::Relaxed);
 
+                        let full_extranonce_size = extended_channel.get_full_extranonce_size();
+
                         if let Ok(custom_job) = job_factory.new_custom_job(
                             extended_channel.get_channel_id(),
                             request_id,
                             token.clone().mining_job_token,
                             prevhash.clone().into(),
                             template.clone(),
-                            outputs.clone(),
+                            outputs,
+                            full_extranonce_size,
                         ) {
                             let last_declare = DeclaredJob {
                                 declare_mining_job: None,

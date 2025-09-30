@@ -267,9 +267,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         if !data.require_std_job && data.group_channels.is_none() {
                             let group_channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::Relaxed);
                             let job_store = DefaultJobStore::new();
+                            let full_extranonce_size = channel_manager_data.upstream_channel.as_ref().map(|channel| channel.get_full_extranonce_size()).unwrap_or(32);
                             let mut group_channel = GroupChannel::new_for_job_declaration_client(
                                 group_channel_id,
                                 job_store,
+                                full_extranonce_size,
                                 channel_manager_data.pool_tag_string.clone(),
                                 self.miner_tag_string.clone(),
                             );

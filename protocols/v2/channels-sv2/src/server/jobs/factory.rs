@@ -114,8 +114,8 @@ impl JobFactory {
         let op_pushbytes = match pool_miner_tag.len() {
             // 100 bytes are available for scriptSig
             // subtract 5 for BIP34
-            // subtract 1 for OP_PUSHBYTES opcode before pool/miner tag
-            // subtract 1+32 for extranonce (OP_PUSHBYTES_X + 32 bytes max)
+            // subtract 1 for OP_PUSHBYTES before pool/miner tag
+            // subtract 1+32 for extranonce (OP_PUSHBYTES + 32 bytes max)
             len @ 1..=61 => len as u8,
             _ => return Err(JobFactoryError::CoinbaseTxPrefixError),
         };
