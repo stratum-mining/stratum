@@ -331,20 +331,15 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
                     let prefix_len = msg.extranonce_prefix.len();
                     let extranonce_size = MAX_EXTRANONCE_LEN - prefix_len;
-                    let jdc_extranonce_len = std::cmp::min(
-                        (extranonce_size)
-                            .saturating_sub(JDC_SEARCH_SPACE_BYTES),
-                            JDC_SEARCH_SPACE_BYTES,
-                    );
+
                     let total_len = prefix_len + extranonce_size;
                     let range_0 = 0..prefix_len;
-                    let range_1 = prefix_len..prefix_len + jdc_extranonce_len;
-                    let range_2 = prefix_len + jdc_extranonce_len..total_len;
+                    let range_1 = prefix_len..prefix_len + JDC_SEARCH_SPACE_BYTES;
+                    let range_2 = prefix_len + JDC_SEARCH_SPACE_BYTES..total_len;
 
                     debug!(
                         prefix_len,
                         extranonce_size,
-                        jdc_extranonce_len,
                         total_len,
                         "Calculated extranonce ranges"
                     );
