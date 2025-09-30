@@ -1,6 +1,7 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use async_channel::{Receiver, Sender};
+use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
@@ -89,6 +90,7 @@ pub struct ChannelManager {
     pool_tag_string: String,
     share_batch_size: usize,
     shares_per_minute: f32,
+    coinbase_reward_script: CoinbaseRewardScript,
 }
 
 impl ChannelManager {
@@ -148,6 +150,7 @@ impl ChannelManager {
             share_batch_size: config.share_batch_size() as usize,
             shares_per_minute: config.shares_per_minute() as f32,
             pool_tag_string: config.pool_signature().to_string(),
+            coinbase_reward_script: config.coinbase_reward_script().clone(),
         };
 
         Ok(channel_manager)
