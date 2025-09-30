@@ -1,5 +1,5 @@
 use crate::{downstream::Downstream, error::PoolError, utils::StdFrame};
-use std::convert::TryInto;
+use std::{convert::TryInto, sync::atomic::Ordering};
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{
         Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
@@ -8,44 +8,35 @@ use stratum_common::roles_logic_sv2::{
     handlers_sv2::HandleCommonMessagesFromClientAsync,
     parsers_sv2::AnyMessage,
 };
-use tracing::info;
+use tracing::{debug, info};
 
 impl HandleCommonMessagesFromClientAsync for Downstream {
     type Error = PoolError;
-    // Handles the initial [`SetupConnection`] message from a downstream client.
-    //
-    // This method validates that the connection request is compatible with the
-    // supported mining protocol and feature set. The flow is:
-    //
-    // 1. Protocol validation
-    //    - Only the `MiningProtocol` is supported.
-    //    - If the client requests another protocol, the connection is rejected with a
-    //      [`SetupConnectionError`] (`unsupported-protocol`).
-    //
-    // 2. Feature flag validation
-    //    - Work selection (`work_selection`) is not allowed.
-    //    - If requested, the connection is rejected with a [`SetupConnectionError`]
-    //      (`unsupported-feature-flags`).
-    //
-    // 3. Standard job requirement
-    //    - If the downstream sets the `requires_standard_job` flag, it is recorded in
-    //      [`DownstreamData::require_std_job`].
-    //
-    // 4. Successful setup
-    //    - If all validations pass, a [`SetupConnectionSuccess`] message is
+
     async fn handle_setup_connection(
         &mut self,
         msg: SetupConnection<'_>,
     ) -> Result<(), Self::Error> {
-        info!("Received: {}", msg);
+        info!(
+            "Received `SetupConnection`: version={}, flags={:b}",
+            msg.min_version, msg.flags
+        );
+
+        self.requires_custom_work
+            .store(has_work_selection(msg.flags), Ordering::SeqCst);
+        self.requires_standard_jobs
+            .store(has_requires_std_job(msg.flags), Ordering::SeqCst);
 
         let response = SetupConnectionSuccess {
             used_version: 2,
             flags: msg.flags,
         };
         let frame: StdFrame = AnyMessage::Common(response.into_static().into()).try_into()?;
-
-        _ = self.downstream_channel.downstream_sender.send(frame).await;
+        _ = self
+            .downstream_channel
+            .downstream_sender
+            .send(frame)
+            .await?;
 
         Ok(())
     }

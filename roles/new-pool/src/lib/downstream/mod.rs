@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 use async_channel::{Receiver, Sender, unbounded};
 use stratum_common::{
@@ -69,6 +72,8 @@ pub struct Downstream {
     pub downstream_data: Arc<Mutex<DownstreamData>>,
     downstream_channel: DownstreamChannel,
     pub downstream_id: u32,
+    pub requires_standard_jobs: Arc<AtomicBool>,
+    pub requires_custom_work: Arc<AtomicBool>,
 }
 
 impl Downstream {
@@ -114,6 +119,8 @@ impl Downstream {
             downstream_channel,
             downstream_data,
             downstream_id,
+            requires_standard_jobs: Arc::new(AtomicBool::new(false)),
+            requires_custom_work: Arc::new(AtomicBool::new(false)),
         }
     }
 
