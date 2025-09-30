@@ -140,7 +140,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     msg.target.into(),
                     hashrate,
                     true,
-                    min_extranonce_size,
+                    msg.extranonce_size,
                 );
 
                 if let Some(ref mut prevhash) = data.last_new_prev_hash {
