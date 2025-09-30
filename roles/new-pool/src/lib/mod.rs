@@ -44,11 +44,6 @@ impl PoolSv2 {
 
     /// Starts the Job Declarator Client (JDC) main loop.
     pub async fn start(&self) -> PoolResult<()> {
-        // info!(
-        //     "Job declarator client starting... setting up subsystems, User Identity: {}",
-        //     self.config.user_identity()
-        // );
-
         let miner_coinbase_outputs = vec![self.config.get_txout()];
         let mut encoded_outputs = vec![];
 
@@ -183,5 +178,12 @@ impl PoolSv2 {
         task_manager.join_all().await;
         info!("JD Client shutdown complete.");
         Ok(())
+    }
+}
+
+impl Drop for PoolSv2 {
+    fn drop(&mut self) {
+        info!("PoolSv2 dropped");
+        let _ = self.notify_shutdown.send(ShutdownMessage::ShutdownAll);
     }
 }

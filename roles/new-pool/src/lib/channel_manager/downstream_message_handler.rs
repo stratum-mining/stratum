@@ -241,6 +241,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 if let Some(group_channel) = downstream_data.group_channels.as_mut() {
                     group_channel.add_standard_channel_id(channel_id);
                 }
+                let vardiff = VardiffState::new()?;
+                channel_manager_data.vardiff.insert((downstream_id, channel_id), vardiff);
 
                 Ok(messages)
             })
@@ -521,6 +523,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         channel_manager_data
                             .channel_id_to_downstream_id
                             .insert(channel_id, downstream_id);
+                        let vardiff = VardiffState::new()?;
+                        channel_manager_data
+                            .vardiff
+                            .insert((downstream_id, channel_id), vardiff);
 
                         Ok(messages)
                     })
