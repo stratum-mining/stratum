@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use stratum_common::roles_logic_sv2::{
-    bitcoin::{Amount, Transaction, TxOut, consensus, hashes::Hash},
+    bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut},
     channels_sv2::chain_tip::ChainTip,
     codec_sv2::binary_sv2::{Seq064K, U256},
     handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
@@ -15,7 +15,7 @@ use tracing::{error, info, warn};
 use crate::{
     channel_manager::{ChannelManager, RouteMessageTo},
     error::PoolError,
-    utils::{StdFrame, deserialize_coinbase_outputs},
+    utils::{deserialize_coinbase_outputs, StdFrame},
 };
 
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {

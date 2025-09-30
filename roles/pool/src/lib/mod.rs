@@ -1,265 +1,189 @@
-//! # Pool Module
-//! Core logic for running the mining pool server.
-//!
-//! Responsibilities:
-//! - Spawns the Template Receiver client.
-//! - Starts the Pool server for downstream miners.
-//! - Monitors Pool status and handles shutdowns.
-pub mod config;
-pub mod error;
-pub mod mining_pool;
-pub mod status;
-pub mod template_receiver;
-use async_channel::{bounded, unbounded};
-use config::PoolConfig;
-use error::PoolError;
-use mining_pool::Pool;
-use std::sync::{Arc, Mutex};
-use stratum_common::roles_logic_sv2::bitcoin::{
-    absolute::LockTime,
-    blockdata::witness::Witness,
-    script::ScriptBuf,
-    transaction::{OutPoint, Transaction, Version},
-    Amount, Sequence, TxIn, TxOut,
+#![allow(warnings)]
+use std::sync::Arc;
+
+use async_channel::unbounded;
+use stratum_common::roles_logic_sv2::{
+    bitcoin::consensus::Encodable, parsers_sv2::TemplateDistribution,
 };
-use template_receiver::TemplateRx;
-use tokio::select;
-use tracing::{error, info, warn};
-/// Represents the PoolSv2 instance, which manages the pool's operations.
-///
-/// This struct holds the pool configuration and provides functionality to start
-/// and manage the pool, handling both upstream (Template Provider) and downstream connections.
+use tokio::sync::broadcast;
+use tracing::{debug, info, warn};
+
+use crate::{
+    channel_manager::ChannelManager,
+    config::PoolConfig,
+    error::PoolResult,
+    status::{State, Status},
+    task_manager::TaskManager,
+    template_receiver::TemplateReceiver,
+    utils::ShutdownMessage,
+};
+
+pub mod channel_manager;
+pub mod config;
+pub mod downstream;
+pub mod error;
+pub mod status;
+pub mod task_manager;
+pub mod template_receiver;
+pub mod utils;
+
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {
     config: PoolConfig,
-    status_tx: Arc<Mutex<Option<async_channel::Sender<status::Status>>>>,
+    notify_shutdown: broadcast::Sender<ShutdownMessage>,
 }
 
 impl PoolSv2 {
-    /// Creates a new PoolSv2 instance with the given configuration.
-    pub fn new(config: PoolConfig) -> PoolSv2 {
-        PoolSv2 {
+    pub fn new(config: PoolConfig) -> Self {
+        let (notify_shutdown, _) = tokio::sync::broadcast::channel::<ShutdownMessage>(100);
+        Self {
             config,
-            status_tx: Arc::new(Mutex::new(None)),
+            notify_shutdown,
         }
     }
 
-    /// Starts the Pool-SV2 server and manages upstream and downstream connections.
-    ///
-    /// - Initializes a Template Receiver client to connect with the Template Provider.
-    /// - Sets up a server for downstream miners to connect.
-    /// - Creates multiple channels for communication between components.
-    /// - Monitors system health and handles shutdown conditions.
-    pub async fn start(&self) -> Result<(), PoolError> {
-        let config = self.config.clone();
-        // Channels for internal communication between Template Receiver and downstream miners.
-        let (status_tx, status_rx) = unbounded(); // Monitors status of both upstream and downstream.
+    /// Starts the Job Declarator Client (JDC) main loop.
+    pub async fn start(&self) -> PoolResult<()> {
+        let miner_coinbase_outputs = vec![self.config.get_txout()];
+        let mut encoded_outputs = vec![];
 
-        if let Ok(mut s_tx) = self.status_tx.lock() {
-            *s_tx = Some(status_tx.clone());
-        } else {
-            error!("Failed to access Pool status lock");
-            return Err(PoolError::Custom(
-                "Failed to access Pool status lock".to_string(),
-            ));
-        }
-        // Watch channel used to signal the downstream Pool listener to stop.
-        let (send_stop_signal, recv_stop_signal) = tokio::sync::watch::channel(());
+        miner_coinbase_outputs
+            .consensus_encode(&mut encoded_outputs)
+            .expect("Invalid coinbase output in config");
 
-        // Bounded channels for specific data flow between TemplateRx and Pool.
-        let (s_new_t, r_new_t) = bounded(10); // New template updates.
-        let (s_prev_hash, r_prev_hash) = bounded(10); // Previous hash updates.
-        let (s_solution, r_solution) = bounded(10); // Share solution submissions from downstream.
+        let notify_shutdown = self.notify_shutdown.clone();
 
-        // This channel does something weird, it sends zero sized data from downstream upon
-        // retrieval of any message from template receiver, and make the template receiver
-        // wait until it receivers confirmation from downstream. Can be removed.
-        let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
+        let task_manager = Arc::new(TaskManager::new());
 
-        // Prepare coinbase output information required by TemplateRx.
-        // We use an empty output here only for calculation of the size and sigops of the coinbase
-        // output. We still don't know the template revenue.
-        let empty_coinbase_output = TxOut {
-            value: Amount::from_sat(0),
-            script_pubkey: config.coinbase_reward_script().script_pubkey(),
-        };
-        let coinbase_output_len = empty_coinbase_output.size() as u32;
-        let tp_authority_public_key = config.tp_authority_public_key().cloned();
+        let (status_sender, status_receiver) = async_channel::unbounded::<Status>();
 
-        // create a dummy coinbase transaction with the empty output
-        // this is used to calculate the sigops of the coinbase output
-        let dummy_coinbase = Transaction {
-            version: Version::TWO,
-            lock_time: LockTime::ZERO,
-            input: vec![TxIn {
-                previous_output: OutPoint::null(),
-                script_sig: ScriptBuf::new(),
-                sequence: Sequence::MAX,
-                witness: Witness::from(vec![vec![0; 32]]),
-            }],
-            output: vec![empty_coinbase_output],
-        };
+        let (channel_manager_to_downstream_sender, _channel_manager_to_downstream_receiver) =
+            broadcast::channel(10);
+        let (downstream_to_channel_manager_sender, downstream_to_channel_manager_receiver) =
+            unbounded();
 
-        let coinbase_output_sigops = dummy_coinbase.total_sigop_cost(|_| None) as u16;
+        let (channel_manager_to_tp_sender, channel_manager_to_tp_receiver) =
+            unbounded::<TemplateDistribution<'static>>();
+        let (tp_to_channel_manager_sender, tp_to_channel_manager_receiver) =
+            unbounded::<TemplateDistribution<'static>>();
 
-        // --- Spawn Template Receiver Task ---
-        let tp_address = config.tp_address().clone();
-        let cloned_status_tx = status_tx.clone();
-        tokio::spawn(async move {
-            let _ = TemplateRx::connect(
-                tp_address.parse().unwrap(),
-                s_new_t,
-                s_prev_hash,
-                r_solution,
-                r_message_recv_signal,
-                status::Sender::Upstream(cloned_status_tx),
-                coinbase_output_len,
-                coinbase_output_sigops,
-                tp_authority_public_key,
+        debug!("Channels initialized.");
+
+        let channel_manager = ChannelManager::new(
+            self.config.clone(),
+            channel_manager_to_tp_sender.clone(),
+            tp_to_channel_manager_receiver.clone(),
+            channel_manager_to_downstream_sender.clone(),
+            downstream_to_channel_manager_receiver,
+            status_sender.clone(),
+            encoded_outputs.clone(),
+        )
+        .await
+        .unwrap();
+
+        let channel_manager_clone = channel_manager.clone();
+
+        // Initialize the template Receiver
+        let tp_address = self.config.tp_address().to_string();
+        let tp_pubkey = self.config.tp_authority_public_key().copied();
+
+        let template_receiver = TemplateReceiver::new(
+            tp_address.clone(),
+            tp_pubkey,
+            channel_manager_to_tp_receiver,
+            tp_to_channel_manager_sender,
+            notify_shutdown.clone(),
+            task_manager.clone(),
+            status_sender.clone(),
+        )
+        .await
+        .unwrap();
+
+        info!("Template provider setup done");
+
+        let notify_shutdown_cl = notify_shutdown.clone();
+        let status_sender_cl = status_sender.clone();
+        let task_manager_cl = task_manager.clone();
+
+        template_receiver
+            .start(
+                tp_address,
+                notify_shutdown_cl,
+                status_sender_cl,
+                task_manager_cl,
+                encoded_outputs.clone(),
             )
             .await;
-        });
 
-        // --- Start Downstream Pool Listener ---
-        let pool = Pool::start(
-            config.clone(),
-            r_new_t,
-            r_prev_hash,
-            s_solution,
-            s_message_recv_signal,
-            status::Sender::DownstreamListener(status_tx),
-            config.shares_per_minute(),
-            recv_stop_signal,
-        )
-        .await?;
-        // Monitor the status of Template Receiver and downstream connections.
-        // Start the error handling loop
-        // See `./status.rs` and `utils/error_handling` for information on how this operates
-        // --- Spawn Status Monitoring and Shutdown Handling Loop ---
-        tokio::spawn(async move {
-            loop {
-                let task_status = select! {
-                    task_status = status_rx.recv() => task_status,
-                    interrupt_signal = tokio::signal::ctrl_c() => {
-                        match interrupt_signal {
-                            Ok(()) => {
-                                info!("Interrupt received");
-                            },
-                            Err(err) => {
-                                error!("Unable to listen for interrupt signal: {}", err);
-                                // we also shut down in case of error
-                            },
-                        }
-                        break;
-                    }
-                };
-                let task_status: status::Status = task_status.unwrap();
+        channel_manager
+            .start(
+                notify_shutdown.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
+            )
+            .await;
 
-                match task_status.state {
-                    status::State::Shutdown => {
-                        info!("Received shutdown signal");
-                        let _ = send_stop_signal.send(());
-                        break;
-                    }
-                    // Should only be sent by the downstream listener
-                    status::State::DownstreamShutdown(err) => {
-                        error!(
-                            "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
-                            err
-                        );
-                        let _ = send_stop_signal.send(());
-                        break;
-                    }
-                    status::State::TemplateProviderShutdown(err) => {
-                        error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
-                        let _ = send_stop_signal.send(());
-                        break;
-                    }
-                    status::State::Healthy(msg) => {
-                        info!("HEALTHY message: {}", msg);
-                    }
-                    status::State::DownstreamInstanceDropped(downstream_id) => {
-                        warn!("Dropping downstream instance {} from pool", downstream_id);
-                        if pool
-                            .safe_lock(|p| p.remove_downstream(downstream_id))
-                            .is_err()
-                        {
-                            let _ = send_stop_signal.send(());
-                            break;
+        _ = channel_manager_clone
+            .clone()
+            .start_downstream_server(
+                *self.config.authority_public_key(),
+                *self.config.authority_secret_key(),
+                self.config.cert_validity_sec(),
+                *self.config.listen_address(),
+                task_manager.clone(),
+                notify_shutdown.clone(),
+                status_sender.clone(),
+                downstream_to_channel_manager_sender.clone(),
+                channel_manager_to_downstream_sender.clone(),
+            )
+            .await;
+
+        info!("Spawning status listener task...");
+        let notify_shutdown_clone = notify_shutdown.clone();
+
+        loop {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {
+                    info!("Ctrl+C received — initiating graceful shutdown...");
+                    let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                    break;
+                }
+                message = status_receiver.recv() => {
+                    if let Ok(status) = message {
+                        match status.state {
+                            State::DownstreamShutdown{downstream_id,..} => {
+                                warn!("Downstream {downstream_id:?} disconnected — Channel manager.");
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdown(downstream_id));
+                            }
+                            State::TemplateReceiverShutdown(_) => {
+                                warn!("Template Receiver shutdown requested — initiating full shutdown.");
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                                break;
+                            }
+                            State::ChannelManagerShutdown(_) => {
+                                warn!("Channel Manager shutdown requested — initiating full shutdown.");
+                                let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                                break;
+                            }
                         }
                     }
                 }
             }
-        });
-        Ok(())
-    }
-
-    /// Initiates a graceful shutdown of the running pool instance.
-    ///
-    /// It attempts to acquire the lock on the `status_tx` mutex. If successful
-    /// and the pool is running (i.e., `status_tx` contains a `Some(sender)`),
-    /// it sends a `State::Shutdown` message via the status channel.
-    pub fn shutdown(&self) {
-        info!("Attempting to shutdown pool");
-        if let Ok(status_tx) = &self.status_tx.lock() {
-            if let Some(status_tx) = status_tx.as_ref().cloned() {
-                info!("Pool is running, sending shutdown signal");
-                tokio::spawn(async move {
-                    if let Err(e) = status_tx
-                        .send(status::Status {
-                            state: status::State::Shutdown,
-                        })
-                        .await
-                    {
-                        error!("Failed to send shutdown signal to status loop: {:?}", e);
-                    } else {
-                        info!("Sent shutdown signal to Pool");
-                    }
-                });
-            } else {
-                info!("Pool is not running.");
-            }
-        } else {
-            error!("Failed to access Pool status lock");
         }
+
+        warn!("Graceful shutdown");
+        task_manager.abort_all().await;
+
+        info!("Joining remaining tasks...");
+        task_manager.join_all().await;
+        info!("JD Client shutdown complete.");
+        Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ext_config::{Config, File, FileFormat};
-    use integration_tests_sv2::template_provider::DifficultyLevel;
-
-    #[tokio::test]
-    async fn shutdown_pool() {
-        let template_provider =
-            integration_tests_sv2::start_template_provider(None, DifficultyLevel::Low);
-        let config_path = "config-examples/pool-config-local-tp-example.toml";
-        let mut config: PoolConfig = match Config::builder()
-            .add_source(File::new(config_path, FileFormat::Toml))
-            .build()
-        {
-            Ok(settings) => match settings.try_deserialize::<PoolConfig>() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Failed to deserialize config: {}", e);
-                    return;
-                }
-            },
-            Err(e) => {
-                error!("Failed to build config: {}", e);
-                return;
-            }
-        };
-        config.set_tp_address(template_provider.1.to_string());
-        let pool_0 = PoolSv2::new(config.clone());
-        let pool_1 = PoolSv2::new(config);
-        assert!(pool_0.start().await.is_ok());
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        assert!(pool_1.start().await.is_err());
-        pool_0.shutdown();
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        assert!(pool_1.start().await.is_ok());
+impl Drop for PoolSv2 {
+    fn drop(&mut self) {
+        info!("PoolSv2 dropped");
+        let _ = self.notify_shutdown.send(ShutdownMessage::ShutdownAll);
     }
 }

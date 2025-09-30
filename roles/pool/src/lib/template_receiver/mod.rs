@@ -1,239 +1,376 @@
-//! ## Template Receiver Module
-//! [`TemplateRx`] manages the connection to the Template Provider.
-//!
-//! It is responsible for:
-//! - Receiving and forwarding messages like `NewTemplate` and `SetNewPrevHash` to other subsystems.
-//! - Receiving solutions from other subsystems and forwarding `SubmitSolution` messages to the
-//!   template provider.
-//! - Managing the underlying network connection and message flow.ike `SetNewPrevhash` and
-//!   `newTemplate` and send it other subsystem.
-use super::{
-    error::{PoolError, PoolResult},
-    mining_pool::{EitherFrame, StdFrame},
-    status,
-};
-use async_channel::{Receiver, Sender};
-use error_handling::handle_result;
+use std::{net::SocketAddr, sync::Arc};
+mod message_handler;
+use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
+    network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        self, codec_sv2,
-        codec_sv2::{HandshakeRole, Initiator},
-        handlers::template_distribution::ParseTemplateDistributionMessagesFromServer,
-        parsers_sv2::{AnyMessage, TemplateDistribution},
-        template_distribution_sv2::{
-            CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
+        bitcoin::{
+            self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
+            Transaction, TxIn, TxOut, Witness,
         },
+        codec_sv2::{framing_sv2, noise_sv2::Error, HandshakeRole, Initiator},
+        handlers_sv2::HandleCommonMessagesFromServerAsync,
+        parsers_sv2::{AnyMessage, TemplateDistribution},
+        template_distribution_sv2::CoinbaseOutputConstraints,
         utils::Mutex,
     },
 };
-use tokio::{net::TcpStream, task};
-use tracing::{info, warn};
+use tokio::{net::TcpStream, sync::broadcast};
+use tracing::{debug, error, info, warn};
 
-mod message_handler;
-mod setup_connection;
-use setup_connection::SetupConnectionHandler;
+use crate::{
+    error::{PoolError, PoolResult},
+    status::{handle_error, Status, StatusSender},
+    task_manager::TaskManager,
+    utils::{
+        get_setup_connection_message_tp, protocol_message_type, spawn_io_tasks, Message,
+        MessageType, SV2Frame, ShutdownMessage, StdFrame,
+    },
+};
 
-/// Manages communication with the template provider and relays relevant messages downstream.
-///
-/// This struct maintains connection channels to the Template Provider and handles:
-/// - Receiving and forwarding template-related messages to downstream.
-/// - Intercepting and forwarding solution submission messages from downstream.
-/// - Ensuring proper message flow between components.
-pub struct TemplateRx {
-    // Receiver for incoming messages from the template provider.
-    receiver: Receiver<EitherFrame>,
-    // Sender for outgoing messages to the template provider.
-    sender: Sender<EitherFrame>,
-    // Signal channel to indicate that a message has been received and processed.
-    message_received_signal: Receiver<()>,
-    // Sender for forwarding `NewTemplate` messages to other subsystems.
-    new_template_sender: Sender<NewTemplate<'static>>,
-    // Sender for forwarding `SetNewPrevHash` messages to other subsystems.
-    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
-    // Sender for reporting status updates.
-    status_tx: status::Sender,
+#[derive(Clone)]
+pub struct TemplateReceiverChannel {
+    channel_manager_sender: Sender<TemplateDistribution<'static>>,
+    channel_manager_receiver: Receiver<TemplateDistribution<'static>>,
+    tp_sender: Sender<SV2Frame>,
+    tp_receiver: Receiver<SV2Frame>,
 }
 
-impl TemplateRx {
-    //// Establishes a connection with the template provider and sets up communication channels.
+pub struct TemplateReceiverData;
+
+#[derive(Clone)]
+pub struct TemplateReceiver {
+    template_receiver_channel: TemplateReceiverChannel,
+    template_receiver_data: Arc<Mutex<TemplateReceiverData>>,
+}
+
+impl TemplateReceiver {
+    /// Establish a new connection to a Template Provider.
     ///
-    /// This function handles connection retries in case of initial failure. Once connected,
-    /// it performs the SV2 handshake using the `SetupConnectionHandler`. It then sends the
-    /// `CoinbaseOutputConstraints` message to inform the template provider about the pool's
-    /// constraints. Finally, it spawns two asynchronous tasks: one to handle incoming messages
-    /// from the Template Provider (`start`) and another to handle outgoing solution submissions
-    /// from downstream (`on_new_solution`).
-    #[allow(clippy::too_many_arguments)]
-    pub async fn connect(
-        address: SocketAddr,
-        templ_sender: Sender<NewTemplate<'static>>,
-        prev_h_sender: Sender<SetNewPrevHash<'static>>,
-        solution_receiver: Receiver<SubmitSolution<'static>>,
-        message_received_signal: Receiver<()>,
-        status_tx: status::Sender,
-        coinbase_out_len: u32,
-        coinbase_out_sigops: u16,
-        expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
-    ) -> PoolResult<()> {
-        // Attempt to establish a TCP connection to the template provider, retrying on failure.
-        let stream = loop {
-            match TcpStream::connect(address).await {
-                Ok(stream) => break stream,
-                Err(err) => {
-                    warn!("Failed to connect to {}: {}. Retrying...", address, err);
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    /// - Opens a TCP connection
+    /// - Performs Noise handshake
+    /// - Spawns IO tasks for inbound/outbound frames
+    ///
+    /// Retries up to 3 times before returning [`JDCError::Shutdown`].
+    pub async fn new(
+        tp_address: String,
+        public_key: Option<Secp256k1PublicKey>,
+        channel_manager_receiver: Receiver<TemplateDistribution<'static>>,
+        channel_manager_sender: Sender<TemplateDistribution<'static>>,
+        notify_shutdown: broadcast::Sender<ShutdownMessage>,
+        task_manager: Arc<TaskManager>,
+        status_sender: Sender<Status>,
+    ) -> PoolResult<TemplateReceiver> {
+        const MAX_RETRIES: usize = 3;
+
+        for attempt in 1..=MAX_RETRIES {
+            info!(attempt, MAX_RETRIES, "Connecting to template provider");
+
+            let initiator = match public_key {
+                Some(pub_key) => {
+                    debug!(attempt, "Using public key for initiator handshake");
+                    Initiator::from_raw_k(pub_key.into_bytes())
                 }
-            }
-        };
-        info!("Connected to template distribution server at {}", address);
+                None => {
+                    debug!(attempt, "Using anonymous initiator (no public key)");
+                    Initiator::without_pk()
+                }
+            }?;
 
-        // Initialize the Noise protocol initiator for secure communication.
-        let initiator = match expected_tp_authority_public_key {
-            Some(expected_tp_authority_public_key) => {
-                Initiator::from_raw_k(expected_tp_authority_public_key.into_bytes())
-            }
-            None => Initiator::without_pk(),
-        }?;
+            match TcpStream::connect(tp_address.as_str()).await {
+                Ok(stream) => {
+                    info!(
+                        attempt,
+                        "TCP connection established, starting Noise handshake"
+                    );
 
-        let (mut receiver, mut sender) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator))
-                .await
-                .unwrap();
-        // Perform the SV2 SetupConnection handshake.
-        SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
-
-        // Create the TemplateRx instance with the established channels.
-        let self_ = Arc::new(Mutex::new(Self {
-            receiver,
-            sender,
-            new_template_sender: templ_sender,
-            new_prev_hash_sender: prev_h_sender,
-            message_received_signal,
-            status_tx,
-        }));
-        let cloned = self_.clone();
-
-        // Define and send the CoinbaseOutputConstraints message.
-        let coinbase_output_constraints = CoinbaseOutputConstraints {
-            coinbase_output_max_additional_size: coinbase_out_len,
-            coinbase_output_max_additional_sigops: coinbase_out_sigops,
-        };
-        let frame = AnyMessage::TemplateDistribution(
-            TemplateDistribution::CoinbaseOutputConstraints(coinbase_output_constraints),
-        )
-        .try_into()?;
-
-        Self::send(self_.clone(), frame).await?;
-
-        // Spawn a task to handle incoming messages from the template provider.
-        task::spawn(async { Self::start(cloned).await });
-        // Spawn a task to handle outgoing solution submissions to the template provider.
-        task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });
-
-        Ok(())
-    }
-
-    /// Listens for messages from the Template Provider and relays them downstream.
-    ///
-    /// This task runs in a loop, receiving messages from the template provider,
-    /// parsing them as Template Distribution messages, and forwarding relevant messages
-    /// (`NewTemplate`, `SetNewPrevHash`) to the appropriate internal channels. It also
-    /// handles signaling after processing a message.
-    pub async fn start(self_: Arc<Mutex<Self>>) {
-        let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
-            self_
-                .safe_lock(|s| {
-                    (
-                        s.message_received_signal.clone(),
-                        s.receiver.clone(),
-                        s.new_template_sender.clone(),
-                        s.new_prev_hash_sender.clone(),
-                        s.status_tx.clone(),
+                    match NoiseTcpStream::<Message>::new(
+                        stream,
+                        HandshakeRole::Initiator(initiator),
                     )
-                })
-                .unwrap();
-        loop {
-            let message_from_tp = handle_result!(status_tx, receiver.recv().await);
-            let mut message_from_tp: StdFrame = handle_result!(
-                status_tx,
-                message_from_tp
-                    .try_into()
-                    .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
-            );
-            let message_type_res = message_from_tp
-                .get_header()
-                .ok_or_else(|| PoolError::Custom(String::from("No header set")));
-            let message_type = handle_result!(status_tx, message_type_res).msg_type();
-            let payload = message_from_tp.payload();
-            let msg = handle_result!(
-                status_tx,
-                ParseTemplateDistributionMessagesFromServer::handle_message_template_distribution(
-                    self_.clone(),
-                    message_type,
-                    payload,
-                )
-            );
-            match msg {
-                roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
-                    TemplateDistribution::CoinbaseOutputConstraints(_) => todo!(),
-                    TemplateDistribution::NewTemplate(m) => {
-                        let res = new_template_sender.send(m).await;
-                        handle_result!(status_tx, res);
-                        handle_result!(status_tx, recv_msg_signal.recv().await);
+                    .await
+                    {
+                        Ok(noise_stream) => {
+                            info!(attempt, "Noise handshake completed successfully");
+
+                            let (noise_stream_reader, noise_stream_writer) =
+                                noise_stream.into_split();
+
+                            let status_sender = StatusSender::TemplateReceiver(status_sender);
+                            let (inbound_tx, inbound_rx) = unbounded::<SV2Frame>();
+                            let (outbound_tx, outbound_rx) = unbounded::<SV2Frame>();
+
+                            info!(attempt, "Spawning IO tasks for template receiver");
+                            spawn_io_tasks(
+                                task_manager.clone(),
+                                noise_stream_reader,
+                                noise_stream_writer,
+                                outbound_rx,
+                                inbound_tx,
+                                notify_shutdown,
+                                status_sender,
+                            );
+
+                            let template_receiver_data = Arc::new(Mutex::new(TemplateReceiverData));
+                            let template_receiver_channel = TemplateReceiverChannel {
+                                channel_manager_receiver,
+                                channel_manager_sender,
+                                tp_receiver: inbound_rx,
+                                tp_sender: outbound_tx,
+                            };
+
+                            info!(attempt, "TemplateReceiver initialized successfully");
+                            return Ok(TemplateReceiver {
+                                template_receiver_channel,
+                                template_receiver_data,
+                            });
+                        }
+                        Err(e) => {
+                            error!(attempt, error = ?e, "Noise handshake failed");
+                        }
                     }
-                    TemplateDistribution::RequestTransactionData(_) => todo!(),
-                    TemplateDistribution::RequestTransactionDataError(_) => todo!(),
-                    TemplateDistribution::RequestTransactionDataSuccess(_) => todo!(),
-                    TemplateDistribution::SetNewPrevHash(m) => {
-                        let res = new_prev_hash_sender.send(m).await;
-                        handle_result!(status_tx, res);
-                        handle_result!(status_tx, recv_msg_signal.recv().await);
-                    }
-                    TemplateDistribution::SubmitSolution(_) => todo!(),
-                },
-                roles_logic_sv2::handlers::SendTo_::None(None) => (),
-                _ => {
-                    info!("Error: {:?}", msg);
-                    std::process::abort();
+                }
+                Err(e) => {
+                    warn!(attempt, MAX_RETRIES, error = ?e, "Failed to connect to template provider");
                 }
             }
+
+            if attempt < MAX_RETRIES {
+                debug!(attempt, "Retrying connection after backoff");
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
         }
+
+        error!("Exhausted all connection attempts, shutting down TemplateReceiver");
+        Err(PoolError::Shutdown)
     }
 
-    /// Sends a message to the template provider.
-    pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> PoolResult<()> {
-        let either_frame = sv2_frame.into();
-        let sender = self_
-            .safe_lock(|self_| self_.sender.clone())
-            .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
-        sender.send(either_frame).await?;
+    /// Start unified message loop for template receiver.
+    ///
+    /// Responsibilities:
+    /// - Run handshake (`setup_connection`)
+    /// - Send [`CoinbaseOutputConstraints`]
+    /// - Handle:
+    ///   - Messages from template provider
+    ///   - Messages from channel manager
+    ///   - Shutdown signals (upstream/job-declarator fallback)
+    pub async fn start(
+        mut self,
+        socket_address: String,
+        notify_shutdown: broadcast::Sender<ShutdownMessage>,
+        status_sender: Sender<Status>,
+        task_manager: Arc<TaskManager>,
+        coinbase_outputs: Vec<u8>,
+    ) {
+        let status_sender = StatusSender::TemplateReceiver(status_sender);
+        let mut shutdown_rx = notify_shutdown.subscribe();
+
+        info!("Initialized state for starting template receiver");
+        _ = self.setup_connection(socket_address).await;
+
+        _ = self.coinbase_constraints(coinbase_outputs).await;
+
+        info!("Setup Connection done. connection with template receiver is now done");
+        task_manager.spawn(
+            async move {
+                loop {
+                    let mut self_clone_1 = self.clone();
+                    let self_clone_2 = self.clone();
+                    tokio::select! {
+                        message = shutdown_rx.recv() => {
+                            match message {
+                                Ok(ShutdownMessage::ShutdownAll) => {
+                                    info!("Template Receiver: received shutdown signal");
+                                    break;
+                                },
+                                Err(e) => {
+                                    warn!(error = ?e, "Template Receiver: shutdown channel closed unexpectedly");
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                        res = self_clone_1.handle_template_provider_message() => {
+                            if let Err(e) = res {
+                                error!("TemplateReceiver template provider handler failed: {e:?}");
+                                handle_error(&status_sender, e).await;
+                                break;
+                            }
+                        }
+                        res = self_clone_2.handle_channel_manager_message() => {
+                            if let Err(e) = res {
+                                error!("TemplateReceiver channel manager handler failed: {e:?}");
+                                handle_error(&status_sender, e).await;
+                                break;
+                            }
+                        },
+                    }
+                }
+                warn!("TemplateReceiver: unified message loop exited.");
+            },
+        );
+    }
+
+    /// Handle inbound messages from the template provider.
+    ///
+    /// Routes:
+    /// - `Common` messages → handled locally
+    /// - `TemplateDistribution` messages → forwarded to channel manager
+    /// - Unsupported messages → logged and ignored
+    pub async fn handle_template_provider_message(&mut self) -> PoolResult<()> {
+        let mut sv2_frame = self.template_receiver_channel.tp_receiver.recv().await?;
+        debug!("Received SV2 frame from Template provider.");
+        let Some(message_type) = sv2_frame.get_header().map(|m| m.msg_type()) else {
+            return Ok(());
+        };
+
+        match protocol_message_type(message_type) {
+            MessageType::Common => {
+                info!(
+                    ?message_type,
+                    "Handling common message from Template provider."
+                );
+
+                self.handle_common_message_frame_from_server(message_type, sv2_frame.payload())
+                    .await?;
+            }
+            MessageType::TemplateDistribution => {
+                let message = TemplateDistribution::try_from((message_type, sv2_frame.payload()))?
+                    .into_static();
+
+                self.template_receiver_channel
+                    .channel_manager_sender
+                    .send(message)
+                    .await
+                    .map_err(|e| {
+                        error!(error=?e, "Failed to send template distribution message to channel manager.");
+                        PoolError::ChannelErrorSender
+                    })?;
+            }
+            _ => {
+                warn!("Received unsupported message type from template provider: {message_type}");
+            }
+        }
         Ok(())
     }
 
-    // Handles solution submission messages from downstream.
-    //
-    // This task listens on a dedicated receiver channel for `SubmitSolution`
-    // messages. When a solution is received, it formats it into an SV2 `StdFrame` and
-    // sends it to the template provider using the `send()` function.
-    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        while let Ok(solution) = rx.recv().await {
-            info!("Sending Solution to TP: {}", &solution);
-            let sv2_frame_res: Result<StdFrame, _> =
-                AnyMessage::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
-                    .try_into();
-            match sv2_frame_res {
-                Ok(frame) => {
-                    handle_result!(status_tx, Self::send(self_.clone(), frame).await);
-                }
-                Err(_e) => {
-                    // return submit error
-                    todo!()
-                }
-            };
-        }
+    /// Handle messages from channel manager → template provider.
+    ///
+    /// Forwards outbound frames upstream
+    pub async fn handle_channel_manager_message(&self) -> PoolResult<()> {
+        let msg = self
+            .template_receiver_channel
+            .channel_manager_receiver
+            .recv()
+            .await?;
+        let message = AnyMessage::TemplateDistribution(msg).into_static();
+        let frame: StdFrame = message.try_into()?;
+
+        debug!("Forwarding message from channel manager to outbound_tx");
+        self.template_receiver_channel
+            .tp_sender
+            .send(frame.into())
+            .await
+            .map_err(|_| PoolError::ChannelErrorSender)?;
+
+        Ok(())
+    }
+
+    /// Build and send [`CoinbaseOutputConstraints`] upstream TP.
+    pub async fn coinbase_constraints(&mut self, coinbase_outputs: Vec<u8>) -> PoolResult<()> {
+        debug!(
+            "Deserializing coinbase outputs ({} bytes)",
+            coinbase_outputs.len()
+        );
+        let outputs: Vec<TxOut> = bitcoin::consensus::deserialize(&coinbase_outputs)?;
+
+        let max_size: u32 = outputs.iter().map(|o| o.size() as u32).sum();
+        debug!(
+            max_size,
+            outputs_count = outputs.len(),
+            "Calculated max coinbase output size"
+        );
+
+        let dummy_coinbase = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::from(vec![vec![0; 32]]),
+            }],
+            output: outputs,
+        };
+
+        let max_sigops = dummy_coinbase.total_sigop_cost(|_| None) as u16;
+        debug!(max_sigops, "Calculated max sigops for coinbase");
+
+        let constraints = CoinbaseOutputConstraints {
+            coinbase_output_max_additional_size: max_size,
+            coinbase_output_max_additional_sigops: max_sigops,
+        };
+
+        let msg = AnyMessage::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputConstraints(constraints),
+        );
+
+        let frame: StdFrame = msg.try_into()?;
+        info!("Sending CoinbaseOutputConstraints message upstream");
+        self.template_receiver_channel
+            .tp_sender
+            .send(frame)
+            .await
+            .map_err(|_| {
+                error!("Failed to send CoinbaseOutputConstraints message upstream");
+                PoolError::ChannelErrorSender
+            })?;
+
+        Ok(())
+    }
+
+    // Performs the initial handshake with template provider.
+    pub async fn setup_connection(&mut self, addr: String) -> PoolResult<()> {
+        let socket: SocketAddr = addr.parse().map_err(|_| {
+            error!(%addr, "Invalid socket address");
+            PoolError::InvalidSocketAddress(addr.clone())
+        })?;
+
+        info!(%socket, "Building setup connection message for upstream");
+        let setup_msg = get_setup_connection_message_tp(socket);
+        let frame: StdFrame = Message::Common(setup_msg.into()).try_into()?;
+
+        info!("Sending setup connection message to upstream");
+        self.template_receiver_channel
+            .tp_sender
+            .send(frame)
+            .await
+            .map_err(|_| {
+                error!("Failed to send setup connection message upstream");
+                PoolError::ChannelErrorSender
+            })?;
+
+        info!("Waiting for upstream handshake response");
+        let mut incoming: StdFrame = self
+            .template_receiver_channel
+            .tp_receiver
+            .recv()
+            .await
+            .map_err(|e| {
+                error!(?e, "Upstream connection closed during handshake");
+                PoolError::Noise(Error::ExpectedIncomingHandshakeMessage)
+            })?;
+
+        let msg_type = incoming
+            .get_header()
+            .ok_or(framing_sv2::Error::ExpectedHandshakeFrame)?
+            .msg_type();
+        debug!(?msg_type, "Received upstream handshake response");
+
+        self.handle_common_message_frame_from_server(msg_type, incoming.payload())
+            .await?;
+        info!("Handshake with upstream completed successfully");
+        Ok(())
     }
 }

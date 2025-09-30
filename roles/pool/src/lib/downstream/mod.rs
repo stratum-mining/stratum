@@ -1,9 +1,9 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc},
 };
 
-use async_channel::{Receiver, Sender, unbounded};
+use async_channel::{unbounded, Receiver, Sender};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
@@ -25,11 +25,11 @@ use tracing::{debug, error, warn};
 
 use crate::{
     error::{PoolError, PoolResult},
-    status::{Status, StatusSender, handle_error},
+    status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{
-        Message, MessageType, SV2Frame, ShutdownMessage, StdFrame, protocol_message_type,
-        spawn_io_tasks,
+        protocol_message_type, spawn_io_tasks, Message, MessageType, SV2Frame, ShutdownMessage,
+        StdFrame,
     },
 };
 

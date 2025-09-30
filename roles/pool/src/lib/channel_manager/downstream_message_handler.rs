@@ -1,8 +1,8 @@
 use std::sync::atomic::Ordering;
 
 use stratum_common::roles_logic_sv2::{
-    self, Vardiff, VardiffState,
-    bitcoin::{Amount, TxOut, consensus::Decodable},
+    self,
+    bitcoin::{consensus::Decodable, Amount, TxOut},
     channels_sv2::{
         client,
         server::{
@@ -20,13 +20,14 @@ use stratum_common::roles_logic_sv2::{
     mining_sv2::*,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
+    Vardiff, VardiffState,
 };
 use tracing::{debug, error, info, warn};
 
 use crate::{
     channel_manager::{ChannelManager, ChannelManagerChannel, RouteMessageTo},
     error::PoolError,
-    utils::{StdFrame, deserialize_coinbase_outputs},
+    utils::{deserialize_coinbase_outputs, StdFrame},
 };
 
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
@@ -310,15 +311,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                         .try_into()
                                         .expect("error code must be valid string"),
                                 };
-                                return Ok(vec![
-                                    (
-                                        downstream_id,
-                                        Mining::OpenMiningChannelError(
-                                            open_extended_mining_channel_error,
-                                        ),
-                                    )
-                                        .into(),
-                                ]);
+                                return Ok(vec![(
+                                    downstream_id,
+                                    Mining::OpenMiningChannelError(
+                                        open_extended_mining_channel_error,
+                                    ),
+                                )
+                                    .into()]);
                             }
                         };
 
@@ -350,15 +349,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                                 .try_into()
                                                 .expect("error code must be valid string"),
                                         };
-                                    return Ok(vec![
-                                        (
-                                            downstream_id,
-                                            Mining::OpenMiningChannelError(
-                                                open_extended_mining_channel_error,
-                                            ),
-                                        )
-                                            .into(),
-                                    ]);
+                                    return Ok(vec![(
+                                        downstream_id,
+                                        Mining::OpenMiningChannelError(
+                                            open_extended_mining_channel_error,
+                                        ),
+                                    )
+                                        .into()]);
                                 }
                                 ExtendedChannelError::RequestedMaxTargetOutOfRange => {
                                     error!("OpenMiningChannelError: max-target-out-of-range");
@@ -370,15 +367,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                                 .try_into()
                                                 .expect("error code must be valid string"),
                                         };
-                                    return Ok(vec![
-                                        (
-                                            downstream_id,
-                                            Mining::OpenMiningChannelError(
-                                                open_extended_mining_channel_error,
-                                            ),
-                                        )
-                                            .into(),
-                                    ]);
+                                    return Ok(vec![(
+                                        downstream_id,
+                                        Mining::OpenMiningChannelError(
+                                            open_extended_mining_channel_error,
+                                        ),
+                                    )
+                                        .into()]);
                                 }
                                 ExtendedChannelError::RequestedMinExtranonceSizeTooLarge => {
                                     error!("OpenMiningChannelError: min-extranonce-size-too-large");
@@ -390,15 +385,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                                 .try_into()
                                                 .expect("error code must be valid string"),
                                         };
-                                    return Ok(vec![
-                                        (
-                                            downstream_id,
-                                            Mining::OpenMiningChannelError(
-                                                open_extended_mining_channel_error,
-                                            ),
-                                        )
-                                            .into(),
-                                    ]);
+                                    return Ok(vec![(
+                                        downstream_id,
+                                        Mining::OpenMiningChannelError(
+                                            open_extended_mining_channel_error,
+                                        ),
+                                    )
+                                        .into()]);
                                 }
                                 _ => {
                                     error!("error in handle_open_extended_mining_channel: {:?}", e);

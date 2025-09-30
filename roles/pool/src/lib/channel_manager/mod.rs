@@ -6,7 +6,7 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        self, Vardiff, VardiffState,
+        self,
         channels_sv2::server::{
             jobs::{
                 extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
@@ -18,10 +18,11 @@ use stratum_common::{
         handlers_sv2::{
             HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
-        mining_sv2::{ExtendedExtranonce, MAX_EXTRANONCE_LEN, SetTarget, Target},
+        mining_sv2::{ExtendedExtranonce, SetTarget, Target, MAX_EXTRANONCE_LEN},
         parsers_sv2::{Mining, TemplateDistribution},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
         utils::{Id as IdFactory, Mutex},
+        Vardiff, VardiffState,
     },
 };
 use tokio::{net::TcpListener, select, sync::broadcast};
@@ -31,7 +32,7 @@ use crate::{
     config::PoolConfig,
     downstream::Downstream,
     error::PoolResult,
-    status::{Status, StatusSender, handle_error},
+    status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{Message, ShutdownMessage},
 };

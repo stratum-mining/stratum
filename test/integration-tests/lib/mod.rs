@@ -88,7 +88,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         "127.0.0.1:8442".to_string()
     };
     let connection_config = pool_sv2::config::ConnectionConfig::new(
-        listening_address.to_string(),
+        listening_address,
         cert_validity_sec,
         pool_signature,
     );
