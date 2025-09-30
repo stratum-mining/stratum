@@ -5,11 +5,11 @@ use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
         bitcoin::{self, TxOut},
-        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame, binary_sv2::Str0255},
+        codec_sv2::{binary_sv2::Str0255, Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
         common_messages_sv2::{
-            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_RECONNECT,
-            MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-            MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS, Protocol, SetupConnection,
+            Protocol, SetupConnection, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION,
+            MESSAGE_TYPE_SETUP_CONNECTION_ERROR, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         },
         job_declaration_sv2::{
             MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
@@ -41,7 +41,7 @@ use stratum_common::{
     },
 };
 use tokio::sync::broadcast;
-use tracing::{Instrument, error, trace, warn};
+use tracing::{error, trace, warn, Instrument};
 
 use crate::{
     error::PoolResult,
