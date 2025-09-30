@@ -19,6 +19,7 @@ use stratum_common::{
         },
         mining_sv2::{ExtendedExtranonce, MAX_EXTRANONCE_LEN, SetTarget, Target},
         parsers_sv2::{Mining, TemplateDistribution},
+        template_distribution_sv2::{NewTemplate, SetNewPrevHash},
         utils::{Id as IdFactory, Mutex},
     },
 };
@@ -64,6 +65,9 @@ pub struct ChannelManagerData {
     vardiff: HashMap<(u32, u32), VardiffState>,
 
     channel_id_to_downstream_id: HashMap<u32, u32>,
+    coinbase_outputs: Vec<u8>,
+    last_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    last_future_template: Option<NewTemplate<'static>>,
 }
 
 #[derive(Clone)]
@@ -125,6 +129,9 @@ impl ChannelManager {
             channel_id_factory: IdFactory::new(),
             vardiff: HashMap::new(),
             channel_id_to_downstream_id: HashMap::new(),
+            coinbase_outputs,
+            last_future_template: None,
+            last_new_prev_hash: None,
         }));
 
         let channel_manager_channel = ChannelManagerChannel {
@@ -395,7 +402,7 @@ impl ChannelManager {
             DefaultJobStore<ExtendedJob<'static>>,
         >,
         vardiff_state: &mut VardiffState,
-        updates: &mut Vec<()>,
+        updates: &mut Vec<RouteMessageTo>,
     ) {
         let (hashrate, target, shares_per_minute) = (
             channel_state.get_nominal_hashrate(),
@@ -416,16 +423,16 @@ impl ChannelManager {
         match channel_state.update_channel(new_hashrate, None) {
             Ok(()) => {
                 let updated_target = channel_state.get_target();
-                // updates.push(
-                //     (
-                //         downstream_id,
-                //         Mining::SetTarget(SetTarget {
-                //             channel_id,
-                //             maximum_target: updated_target.clone().into(),
-                //         }),
-                //     )
-                //         .into(),
-                // );
+                updates.push(
+                    (
+                        downstream_id,
+                        Mining::SetTarget(SetTarget {
+                            channel_id,
+                            maximum_target: updated_target.clone().into(),
+                        }),
+                    )
+                        .into(),
+                );
                 debug!("Updated target for extended channel_id={channel_id} to {updated_target:?}",);
             }
             Err(e) => warn!(
@@ -440,7 +447,7 @@ impl ChannelManager {
         channel_id: u32,
         channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>,
         vardiff_state: &mut VardiffState,
-        updates: &mut Vec<()>,
+        updates: &mut Vec<RouteMessageTo>,
     ) {
         let hashrate = channel.get_nominal_hashrate();
         let target = channel.get_target();
@@ -456,16 +463,16 @@ impl ChannelManager {
             match channel.update_channel(new_hashrate, None) {
                 Ok(()) => {
                     let updated_target = channel.get_target();
-                    // updates.push(
-                    //     (
-                    //         downstream_id,
-                    //         Mining::SetTarget(SetTarget {
-                    //             channel_id,
-                    //             maximum_target: updated_target.clone().into(),
-                    //         }),
-                    //     )
-                    //         .into(),
-                    // );
+                    updates.push(
+                        (
+                            downstream_id,
+                            Mining::SetTarget(SetTarget {
+                                channel_id,
+                                maximum_target: updated_target.clone().into(),
+                            }),
+                        )
+                            .into(),
+                    );
                     debug!(
                         "Updated target for standard channel channel_id={channel_id} to {updated_target:?}"
                     );
@@ -502,7 +509,7 @@ impl ChannelManager {
     // - Propagates difficulty changes to downstreams and also sends an `UpdateChannel` message
     //   upstream if applicable.
     async fn run_vardiff(&self) -> PoolResult<()> {
-        let mut messages: Vec<()> = vec![];
+        let mut messages: Vec<RouteMessageTo> = vec![];
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
                 for ((channel_id, downstream_id), vardiff_state) in
@@ -563,11 +570,49 @@ impl ChannelManager {
                 }
             });
 
-        // for message in messages {
-        //     message.forward(&self.channel_manager_channel).await;
-        // }
+        for message in messages {
+            message.forward(&self.channel_manager_channel).await;
+        }
 
         info!("Vardiff update cycle complete");
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub enum RouteMessageTo<'a> {
+    /// Route to the template provider subsystem.
+    TemplateProvider(TemplateDistribution<'a>),
+    /// Route to a specific downstream client by ID, along with its mining message.
+    Downstream((u32, Mining<'a>)),
+}
+
+impl<'a> From<TemplateDistribution<'a>> for RouteMessageTo<'a> {
+    fn from(value: TemplateDistribution<'a>) -> Self {
+        Self::TemplateProvider(value)
+    }
+}
+
+impl<'a> From<(u32, Mining<'a>)> for RouteMessageTo<'a> {
+    fn from(value: (u32, Mining<'a>)) -> Self {
+        Self::Downstream(value)
+    }
+}
+
+impl RouteMessageTo<'_> {
+    pub async fn forward(self, channel_manager_channel: &ChannelManagerChannel) {
+        match self {
+            RouteMessageTo::Downstream((downstream_id, message)) => {
+                _ = channel_manager_channel
+                    .downstream_sender
+                    .send((downstream_id, message.into_static()));
+            }
+            RouteMessageTo::TemplateProvider(message) => {
+                _ = channel_manager_channel
+                    .tp_sender
+                    .send(message.into_static())
+                    .await;
+            }
+        }
     }
 }
