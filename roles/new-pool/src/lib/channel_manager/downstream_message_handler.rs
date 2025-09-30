@@ -33,16 +33,39 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     fn get_channel_type_for_client(&self) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
+
     fn is_work_selection_enabled_for_client(&self) -> bool {
-        false
+        true
     }
+
     fn is_client_authorized(&self, _user_identity: &Str0255) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
     async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Self::Error> {
-        info!("Received: {}", msg);
-        Ok(())
+        info!("Received Close Channel: {msg}");
+        self.channel_manager_data
+            .super_safe_lock(|channel_manager_data| {
+                let Some(downstream_id) = channel_manager_data
+                    .channel_id_to_downstream_id
+                    .remove(&msg.channel_id)
+                else {
+                    return Err(PoolError::DownstreamNotFoundWithChannelId(msg.channel_id));
+                };
+
+                let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id)
+                else {
+                    return Err(PoolError::DownstreamNotFound(downstream_id));
+                };
+
+                downstream
+                    .downstream_data
+                    .super_safe_lock(|downstream_data| {
+                        downstream_data.standard_channels.remove(&msg.channel_id);
+                        downstream_data.extended_channels.remove(&msg.channel_id);
+                    });
+                Ok(())
+            })
     }
 
     async fn handle_open_standard_mining_channel(
