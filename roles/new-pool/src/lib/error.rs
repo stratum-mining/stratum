@@ -50,6 +50,12 @@ pub enum PoolError {
     ChannelErrorSender,
     InvalidSocketAddress(String),
     BitcoinEncodeError(bitcoin::consensus::encode::Error),
+    DownstreamNotFoundWithChannelId(u32),
+    DownstreamNotFound(u32),
+    DownstreamIdNotFound,
+    FutureTemplateNotPresent,
+    LastNewPrevhashNotFound,
+    VardiffNotFound(u32),
 }
 
 impl From<VardiffError> for PoolError {
@@ -92,6 +98,20 @@ impl std::fmt::Display for PoolError {
             ChannelErrorSender => write!(f, "Channel sender error"),
             InvalidSocketAddress(address) => write!(f, "Invalid socket address: {address:?}"),
             BitcoinEncodeError(_) => write!(f, "Error generated during encoding"),
+            DownstreamNotFoundWithChannelId(channel_id) => {
+                write!(f, "Downstream not found for channel id: {channel_id}")
+            }
+            DownstreamNotFound(downstream_id) => write!(
+                f,
+                "Downstream not found with downstream id: {downstream_id}"
+            ),
+            DownstreamIdNotFound => write!(f, "Downstream id not found"),
+            FutureTemplateNotPresent => write!(f, "future template not present"),
+            LastNewPrevhashNotFound => write!(f, "last prev hash not present"),
+            VardiffNotFound(downstream_id) => write!(
+                f,
+                "Vardiff not found available for downstream id: {downstream_id}"
+            ),
         }
     }
 }
