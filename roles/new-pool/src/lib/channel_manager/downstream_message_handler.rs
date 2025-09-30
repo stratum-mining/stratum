@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use stratum_common::roles_logic_sv2::{
     self, Vardiff, VardiffState,
     bitcoin::{Amount, TxOut, consensus::Decodable},
@@ -72,6 +74,182 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenStandardMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
+        let request_id = msg.get_request_id_as_u32();
+        let user_string = msg.user_identity.as_utf8_or_hex();
+
+        let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
+            Some((user_identity, id)) => match id.parse::<u32>() {
+                Ok(id) => (user_identity, id),
+                Err(e) => {
+                    warn!(
+                        ?e,
+                        user_string, "Failed to parse downstream_id from user_identity"
+                    );
+                    return Err(PoolError::ParseInt(e));
+                }
+            },
+            None => {
+                warn!(user_string, "User identity missing downstream_id");
+                return Err(PoolError::DownstreamIdNotFound);
+            }
+        };
+
+        info!("Received OpenStandardMiningChannel: {}", msg);
+
+        let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
+            let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id) else {
+                return Err(PoolError::DownstreamIdNotFound);
+            };
+
+            let message: Vec<RouteMessageTo> = Vec::new();
+
+            if downstream.requires_custom_work.load(Ordering::SeqCst) {
+                error!("OpenStandardMiningChannel: Standard Channels are not supported for this connection");
+                let open_standard_mining_channel_error = OpenMiningChannelError {
+                    request_id,
+                    error_code: "standard-channels-not-supported-for-custom-work"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                };
+                return Ok(vec![(downstream_id, Mining::OpenMiningChannelError(open_standard_mining_channel_error)).into()]);
+            }
+
+            let Some(last_future_template) = channel_manager_data.last_future_template.clone() else {
+                return Err(PoolError::FutureTemplateNotPresent);
+            };
+
+            let Some(last_set_new_prev_hash_tdp) = channel_manager_data.last_new_prev_hash.clone() else {
+                return Err(PoolError::LastNewPrevhashNotFound);
+            };
+
+
+            let pool_coinbase_output = TxOut {
+                value: Amount::from_sat(last_future_template.coinbase_tx_value_remaining),
+                script_pubkey: self.coinbase_reward_script.script_pubkey(),
+            };
+
+            downstream.downstream_data.super_safe_lock(|downstream_data| {
+                if !downstream.requires_standard_jobs.load(Ordering::SeqCst) && downstream_data.group_channels.is_none() {
+                    let group_channel_id = channel_manager_data.channel_id_factory.next();
+                    let job_store = DefaultJobStore::new();
+
+                    let mut group_channel = GroupChannel::new_for_pool(group_channel_id, job_store, self.pool_tag_string.clone());
+                    if let Err(e) = group_channel.on_new_template(last_future_template.clone(), vec![pool_coinbase_output.clone()]) {
+                        return Err(PoolError::ChannelErrorSender);
+                    }
+
+                    if let Err(e) = group_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone()) {
+                        return Err(PoolError::ChannelErrorSender);
+                    }
+
+                    downstream_data.group_channels = Some(group_channel);
+                }
+                let nominal_hash_rate = msg.nominal_hash_rate;
+                let requested_max_target = msg.max_target.into_static();
+                let extranonce_prefix = channel_manager_data.extranonce_prefix_factory_standard.next_prefix_standard().map_err(|_| PoolError::ChannelErrorSender)?;
+
+                let channel_id = channel_manager_data.channel_id_factory.next();
+                let job_store = DefaultJobStore::new();
+
+                let mut standard_channel = match StandardChannel::new_for_pool(channel_id, user_identity.to_string(), extranonce_prefix.to_vec(), requested_max_target.into(), nominal_hash_rate, self.share_batch_size, self.shares_per_minute, job_store, self.pool_tag_string.clone()) {
+                    Ok(channel) => channel,
+                    Err(e) => match e {
+                        StandardChannelError::InvalidNominalHashrate => {
+                            error!("OpenMiningChannelError: invalid-nominal-hashrate");
+                            let open_standard_mining_channel_error = OpenMiningChannelError {
+                                request_id,
+                                error_code: "invalid-nominal-hashrate"
+                                    .to_string()
+                                    .try_into()
+                                    .expect("error code must be valid string"),
+                            };
+                            return Ok(vec![(downstream_id, Mining::OpenMiningChannelError(open_standard_mining_channel_error)).into()]);
+                        }
+                        StandardChannelError::RequestedMaxTargetOutOfRange => {
+                            error!("OpenMiningChannelError: max-target-out-of-range");
+                            let open_standard_mining_channel_error = OpenMiningChannelError {
+                                request_id,
+                                error_code: "max-target-out-of-range"
+                                    .to_string()
+                                    .try_into()
+                                    .expect("error code must be valid string"),
+                            };
+                            return Ok(vec![(downstream_id, Mining::OpenMiningChannelError(open_standard_mining_channel_error)).into()]);
+                        }
+                        _ => {
+                            error!("error in handle_open_standard_mining_channel: {:?}", e);
+                            return Err(PoolError::ChannelErrorSender);
+                        }
+                    },
+                };
+
+                let group_channel_id = downstream_data.group_channels.as_ref().map(|channel| channel.get_group_channel_id()).unwrap_or(0);
+
+                let open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
+                    request_id: msg.request_id,
+                    channel_id,
+                    target: standard_channel.get_target().clone().into(),
+                    extranonce_prefix: standard_channel.get_extranonce_prefix().clone().try_into().expect("Extranonce_prefix must be valid"),
+                    group_channel_id
+                }.into_static();
+
+                let mut  messages: Vec<RouteMessageTo> = Vec::new();
+
+                messages.push((downstream_id, Mining::OpenStandardMiningChannelSuccess(open_standard_mining_channel_success)).into());
+
+                let template_id = last_future_template.template_id;
+
+                // create a future standard job based on the last future template
+                if let Err(e) = standard_channel.on_new_template(last_future_template, vec![pool_coinbase_output.clone()]) {
+                    return Err(PoolError::ChannelErrorSender);
+                }
+
+                let future_standard_job_id = standard_channel
+                    .get_future_template_to_job_id()
+                    .get(&template_id)
+                    .expect("future job id must exist");
+                let future_standard_job = standard_channel
+                    .get_future_jobs()
+                    .get(future_standard_job_id)
+                    .expect("future job must exist");
+                let future_standard_job_message =
+                    future_standard_job.get_job_message().clone().into_static();
+
+                messages.push((downstream_id, Mining::NewMiningJob(future_standard_job_message)).into());
+                let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+                let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+                let n_bits = last_set_new_prev_hash_tdp.n_bits;
+                let set_new_prev_hash_mining = SetNewPrevHash {
+                    channel_id,
+                    job_id: *future_standard_job_id,
+                    prev_hash,
+                    min_ntime: header_timestamp,
+                    nbits: n_bits,
+                };
+
+
+                if let Err(e) = standard_channel
+                .on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone()) {
+                    return Err(PoolError::ChannelErrorSender);
+                };
+
+                messages.push((downstream_id, Mining::SetNewPrevHash(set_new_prev_hash_mining)).into());
+
+                downstream_data.standard_channels.insert(channel_id, standard_channel);
+                channel_manager_data.channel_id_to_downstream_id.insert(channel_id, downstream_id);
+                if let Some(group_channel) = downstream_data.group_channels.as_mut() {
+                    group_channel.add_standard_channel_id(channel_id);
+                }
+
+                Ok(messages)
+            })
+        })?;
+
+        for message in messages {
+            message.forward(&self.channel_manager_channel).await;
+        }
+
         Ok(())
     }
 
@@ -79,11 +257,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Self::Error> {
-        info!("Received: {}", msg);
         Ok(())
     }
 
@@ -100,6 +273,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesExtended");
+        Ok(())
+    }
+
+    async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Self::Error> {
+        info!("Received: {}", msg);
         Ok(())
     }
 

@@ -56,6 +56,8 @@ pub enum PoolError {
     FutureTemplateNotPresent,
     LastNewPrevhashNotFound,
     VardiffNotFound(u32),
+    /// Errors on bad `String` to `int` conversion.
+    ParseInt(std::num::ParseIntError),
 }
 
 impl From<VardiffError> for PoolError {
@@ -112,6 +114,7 @@ impl std::fmt::Display for PoolError {
                 f,
                 "Vardiff not found available for downstream id: {downstream_id}"
             ),
+            ParseInt(e) => write!(f, "Conversion error: {e:?}"),
         }
     }
 }
