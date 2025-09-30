@@ -257,6 +257,279 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
+        let request_id = msg.get_request_id_as_u32();
+        let user_string = msg.user_identity.as_utf8_or_hex();
+
+        let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
+            Some((user_identity, id)) => match id.parse::<u32>() {
+                Ok(id) => (user_identity, id),
+                Err(e) => {
+                    warn!(
+                        ?e,
+                        user_string, "Failed to parse downstream_id from user_identity"
+                    );
+                    return Err(PoolError::ParseInt(e));
+                }
+            },
+            None => {
+                warn!(user_string, "User identity missing downstream_id");
+                return Err(PoolError::DownstreamIdNotFound);
+            }
+        };
+        info!("Received OpenExtendedMiningChannel: {}", msg);
+
+        let nominal_hash_rate = msg.nominal_hash_rate;
+        let requested_max_target = msg.max_target.into_static();
+        let requested_min_rollable_extranonce_size = msg.min_extranonce_size;
+
+        let messages = self
+            .channel_manager_data
+            .super_safe_lock(|channel_manager_data| {
+                let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id)
+                else {
+                    return Err(PoolError::DownstreamIdNotFound);
+                };
+                downstream
+                    .downstream_data
+                    .super_safe_lock(|downstream_data| {
+                        let mut messages: Vec<RouteMessageTo> = Vec::new();
+
+                        let extranonce_prefix = match channel_manager_data
+                            .extranonce_prefix_factory_extended
+                            .next_prefix_extended(requested_min_rollable_extranonce_size.into())
+                        {
+                            Ok(extranonce_prefix) => extranonce_prefix.to_vec(),
+                            Err(_) => {
+                                error!("OpenMiningChannelError: min-extranonce-size-too-large");
+                                let open_extended_mining_channel_error = OpenMiningChannelError {
+                                    request_id,
+                                    error_code: "min-extranonce-size-too-large"
+                                        .to_string()
+                                        .try_into()
+                                        .expect("error code must be valid string"),
+                                };
+                                return Ok(vec![
+                                    (
+                                        downstream_id,
+                                        Mining::OpenMiningChannelError(
+                                            open_extended_mining_channel_error,
+                                        ),
+                                    )
+                                        .into(),
+                                ]);
+                            }
+                        };
+
+                        let channel_id = channel_manager_data.channel_id_factory.next();
+                        let job_store = DefaultJobStore::new();
+
+                        let mut extended_channel = match ExtendedChannel::new_for_pool(
+                            channel_id,
+                            user_identity.to_string(),
+                            extranonce_prefix,
+                            requested_max_target.into(),
+                            nominal_hash_rate,
+                            true, // version rolling always allowed
+                            requested_min_rollable_extranonce_size,
+                            self.share_batch_size,
+                            self.shares_per_minute,
+                            job_store,
+                            self.pool_tag_string.clone(),
+                        ) {
+                            Ok(channel) => channel,
+                            Err(e) => match e {
+                                ExtendedChannelError::InvalidNominalHashrate => {
+                                    error!("OpenMiningChannelError: invalid-nominal-hashrate");
+                                    let open_extended_mining_channel_error =
+                                        OpenMiningChannelError {
+                                            request_id,
+                                            error_code: "invalid-nominal-hashrate"
+                                                .to_string()
+                                                .try_into()
+                                                .expect("error code must be valid string"),
+                                        };
+                                    return Ok(vec![
+                                        (
+                                            downstream_id,
+                                            Mining::OpenMiningChannelError(
+                                                open_extended_mining_channel_error,
+                                            ),
+                                        )
+                                            .into(),
+                                    ]);
+                                }
+                                ExtendedChannelError::RequestedMaxTargetOutOfRange => {
+                                    error!("OpenMiningChannelError: max-target-out-of-range");
+                                    let open_extended_mining_channel_error =
+                                        OpenMiningChannelError {
+                                            request_id,
+                                            error_code: "max-target-out-of-range"
+                                                .to_string()
+                                                .try_into()
+                                                .expect("error code must be valid string"),
+                                        };
+                                    return Ok(vec![
+                                        (
+                                            downstream_id,
+                                            Mining::OpenMiningChannelError(
+                                                open_extended_mining_channel_error,
+                                            ),
+                                        )
+                                            .into(),
+                                    ]);
+                                }
+                                ExtendedChannelError::RequestedMinExtranonceSizeTooLarge => {
+                                    error!("OpenMiningChannelError: min-extranonce-size-too-large");
+                                    let open_extended_mining_channel_error =
+                                        OpenMiningChannelError {
+                                            request_id,
+                                            error_code: "min-extranonce-size-too-large"
+                                                .to_string()
+                                                .try_into()
+                                                .expect("error code must be valid string"),
+                                        };
+                                    return Ok(vec![
+                                        (
+                                            downstream_id,
+                                            Mining::OpenMiningChannelError(
+                                                open_extended_mining_channel_error,
+                                            ),
+                                        )
+                                            .into(),
+                                    ]);
+                                }
+                                _ => {
+                                    error!("error in handle_open_extended_mining_channel: {:?}", e);
+                                    return Err(PoolError::ChannelErrorSender);
+                                }
+                            },
+                        };
+
+                        let open_extended_mining_channel_success =
+                            OpenExtendedMiningChannelSuccess {
+                                request_id,
+                                channel_id,
+                                target: extended_channel.get_target().clone().into(),
+                                extranonce_prefix: extended_channel
+                                    .get_extranonce_prefix()
+                                    .clone()
+                                    .try_into()?,
+                                extranonce_size: extended_channel.get_rollable_extranonce_size(),
+                            }
+                            .into_static();
+
+                        messages.push(
+                            (
+                                downstream_id,
+                                Mining::OpenExtendedMiningChannelSuccess(
+                                    open_extended_mining_channel_success,
+                                ),
+                            )
+                                .into(),
+                        );
+
+                        let Some(last_set_new_prev_hash_tdp) =
+                            channel_manager_data.last_new_prev_hash.clone()
+                        else {
+                            return Err(PoolError::LastNewPrevhashNotFound);
+                        };
+
+                        let Some(last_future_template) =
+                            channel_manager_data.last_future_template.clone()
+                        else {
+                            return Err(PoolError::FutureTemplateNotPresent);
+                        };
+
+                        // if the client requires custom work, we don't need to send any extended
+                        // jobs so we just process the SetNewPrevHash
+                        // message
+                        if downstream.requires_custom_work.load(Ordering::SeqCst) {
+                            if let Err(e) =
+                                extended_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp)
+                            {
+                                return Err(PoolError::ChannelErrorSender);
+                            }
+                            // if the client does not require custom work, we need to send the
+                            // future extended job
+                            // and the SetNewPrevHash message
+                        } else {
+                            let pool_coinbase_output = TxOut {
+                                value: Amount::from_sat(
+                                    last_future_template.coinbase_tx_value_remaining,
+                                ),
+                                script_pubkey: self.coinbase_reward_script.script_pubkey(),
+                            };
+
+                            if let Err(e) = extended_channel.on_new_template(
+                                last_future_template.clone(),
+                                vec![pool_coinbase_output],
+                            ) {
+                                return Err(PoolError::ChannelErrorSender);
+                            }
+
+                            let future_extended_job_id = extended_channel
+                                .get_future_template_to_job_id()
+                                .get(&last_future_template.template_id)
+                                .expect("future job id must exist");
+                            let future_extended_job = extended_channel
+                                .get_future_jobs()
+                                .get(future_extended_job_id)
+                                .expect("future job must exist");
+
+                            let future_extended_job_message =
+                                future_extended_job.get_job_message().clone().into_static();
+
+                            // send this future job as new job message
+                            // to be immediately activated with the subsequent SetNewPrevHash
+                            // message
+                            messages.push(
+                                (
+                                    downstream_id,
+                                    Mining::NewExtendedMiningJob(future_extended_job_message),
+                                )
+                                    .into(),
+                            );
+
+                            // SetNewPrevHash message activates the future job
+                            let prev_hash = last_set_new_prev_hash_tdp.prev_hash.clone();
+                            let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
+                            let n_bits = last_set_new_prev_hash_tdp.n_bits;
+                            let set_new_prev_hash_mining = SetNewPrevHash {
+                                channel_id,
+                                job_id: *future_extended_job_id,
+                                prev_hash,
+                                min_ntime: header_timestamp,
+                                nbits: n_bits,
+                            };
+                            if let Err(e) =
+                                extended_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp)
+                            {
+                                return Err(PoolError::ChannelErrorSender);
+                            };
+                            messages.push(
+                                (
+                                    downstream_id,
+                                    Mining::SetNewPrevHash(set_new_prev_hash_mining),
+                                )
+                                    .into(),
+                            );
+                        }
+
+                        downstream_data
+                            .extended_channels
+                            .insert(channel_id, extended_channel);
+                        channel_manager_data
+                            .channel_id_to_downstream_id
+                            .insert(channel_id, downstream_id);
+
+                        Ok(messages)
+                    })
+            })?;
+
+        for message in messages {
+            message.forward(&self.channel_manager_channel).await;
+        }
+
         Ok(())
     }
 
