@@ -1,6 +1,6 @@
 use stratum_common::roles_logic_sv2::{
     self, Vardiff, VardiffState,
-    bitcoin::Amount,
+    bitcoin::{Amount, TxOut, consensus::Decodable},
     channels_sv2::{
         client,
         server::{
@@ -22,7 +22,7 @@ use stratum_common::roles_logic_sv2::{
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    channel_manager::{ChannelManager, ChannelManagerChannel},
+    channel_manager::{ChannelManager, ChannelManagerChannel, RouteMessageTo},
     error::PoolError,
     utils::{StdFrame, deserialize_coinbase_outputs},
 };
@@ -107,7 +107,92 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         msg: SetCustomMiningJob<'_>,
     ) -> Result<(), Self::Error> {
-        warn!("Received: {}", msg);
+        info!("Received: {}", msg);
+
+        // this is a naive implementation, but ideally we should check the SetCustomMiningJob
+        // message parameters, especially:
+        // - the mining_job_token
+        // - the amount of the pool payout output
+        let custom_job_coinbase_outputs = Vec::<TxOut>::consensus_decode(
+            &mut msg.coinbase_tx_outputs.inner_as_ref().to_vec().as_slice(),
+        )?;
+
+        let message: RouteMessageTo =
+            self.channel_manager_data
+                .super_safe_lock(|channel_manager_data| {
+                    let Some(downstream_id) = channel_manager_data
+                        .channel_id_to_downstream_id
+                        .get(&msg.channel_id)
+                    else {
+                        return Err(PoolError::DownstreamNotFound(msg.channel_id));
+                    };
+
+                    // check that the script_pubkey from self.coinbase_reward_script
+                    // is present in the custom job coinbase outputs
+                    let missing_script = !custom_job_coinbase_outputs.iter().any(|pool_output| {
+                        *pool_output.script_pubkey == *self.coinbase_reward_script.script_pubkey()
+                    });
+
+                    if missing_script {
+                        error!("SetCustomMiningJobError: pool-payout-script-missing");
+
+                        let error = SetCustomMiningJobError {
+                            request_id: msg.request_id,
+                            channel_id: msg.channel_id,
+                            error_code: "pool-payout-script-missing"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+
+                        return Ok((*downstream_id, Mining::SetCustomMiningJobError(error)).into());
+                    }
+
+                    let Some(downstream) = channel_manager_data.downstream.get_mut(downstream_id)
+                    else {
+                        return Err(PoolError::DownstreamNotFound(*downstream_id));
+                    };
+
+                    downstream
+                        .downstream_data
+                        .super_safe_lock(|downstream_data| {
+                            let Some(extended_channel) =
+                                downstream_data.extended_channels.get_mut(&msg.channel_id)
+                            else {
+                                error!("SetCustomMiningJobError: invalid-channel-id");
+                                let error = SetCustomMiningJobError {
+                                    request_id: msg.request_id,
+                                    channel_id: msg.channel_id,
+                                    error_code: "invalid-channel-id"
+                                        .to_string()
+                                        .try_into()
+                                        .expect("error code must be valid string"),
+                                };
+                                return Ok((
+                                    *downstream_id,
+                                    Mining::SetCustomMiningJobError(error),
+                                )
+                                    .into());
+                            };
+
+                            let job_id = extended_channel
+                                .on_set_custom_mining_job(msg.clone().into_static())
+                                .map_err(|_| PoolError::DownstreamIdNotFound)?;
+
+                            let success = SetCustomMiningJobSuccess {
+                                channel_id: msg.channel_id,
+                                request_id: msg.request_id,
+                                job_id,
+                            };
+                            return Ok((
+                                *downstream_id,
+                                Mining::SetCustomMiningJobSuccess(success),
+                            )
+                                .into());
+                        })
+                })?;
+
+        message.forward(&self.channel_manager_channel).await;
         Ok(())
     }
 }
