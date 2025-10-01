@@ -12,6 +12,7 @@ use stratum_common::{
         self,
         channels_sv2::{
             client::extended::ExtendedChannel,
+            id_factory::IdFactory,
             server::{
                 jobs::{
                     extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
@@ -35,7 +36,7 @@ use stratum_common::{
         },
         parsers_sv2::{AnyMessage, JobDeclaration, Mining},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
-        utils::{Id as IdFactory, Mutex},
+        utils::Mutex,
         Vardiff, VardiffState,
     },
 };

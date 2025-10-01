@@ -18,6 +18,7 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget},
+        channels_sv2::id_factory::IdFactory,
         codec_sv2,
         codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame},
         common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
@@ -28,7 +29,7 @@ use stratum_common::{
         },
         mining_sv2::*,
         parsers_sv2::{Mining, MiningDeviceMessages},
-        utils::{Id, Mutex},
+        utils::Mutex,
     },
 };
 use tokio::net::TcpStream;
@@ -263,7 +264,7 @@ pub struct Device {
     miner: Arc<Mutex<Miner>>,
     jobs: Vec<NewMiningJob<'static>>,
     prev_hash: Option<SetNewPrevHash<'static>>,
-    sequence_numbers: Id,
+    sequence_numbers: IdFactory,
     notify_changes_to_mining_thread: NewWorkNotifier,
 }
 
@@ -329,7 +330,7 @@ impl Device {
             jobs: Vec::new(),
             prev_hash: None,
             channel_id: None,
-            sequence_numbers: Id::new(),
+            sequence_numbers: IdFactory::new(),
             notify_changes_to_mining_thread: NewWorkNotifier {
                 should_send: true,
                 sender: notify_changes_to_mining_thread,

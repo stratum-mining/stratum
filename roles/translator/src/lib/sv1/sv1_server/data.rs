@@ -4,8 +4,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 use stratum_common::roles_logic_sv2::{
+    channels_sv2::id_factory::IdFactory,
     mining_sv2::{SetNewPrevHash, Target},
-    utils::Id as IdFactory,
     vardiff::classic::VardiffState,
 };
 use v1::server_to_client;
