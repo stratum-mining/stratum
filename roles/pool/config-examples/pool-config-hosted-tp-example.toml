@@ -1,0 +1,32 @@
+# SRI Pool config
+authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+cert_validity_sec = 3600
+test_only_listen_adress_plain = "0.0.0.0:34250"
+listen_address = "0.0.0.0:34254"
+
+# Coinbase outputs are specified as descriptors. A full list of descriptors is available at
+#     https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki#appendix-b-index-of-script-expressions
+# Although the `musig` descriptor is not yet supported and the legacy `combo` descriptor never
+# will be. If you have an address, embed it in a descriptor like `addr(<address here>)`.
+coinbase_reward_script = "addr(tb1qa0sm0hxzj0x25rh8gw5xlzwlsfvvyz8u96w3p8)"
+
+# Server Id (number to guarantee unique search space allocation across different Pool servers)
+server_id = 1
+
+# Pool signature (string to be included in coinbase tx)
+pool_signature = "Stratum V2 SRI Pool"
+
+# Enable this option to set a predefined log file path.
+# When enabled, logs will always be written to this file.
+# The CLI option --log-file (or -f) will override this setting if provided.
+# log_file = "./pool.log"
+
+# Template Provider config
+# Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
+#tp_address = "127.0.0.1:8442"
+# Hosted testnet TP 
+tp_address = "75.119.150.111:8442"
+tp_authority_public_key = "9bwHCYnjhbHm4AS3pWg9MtAH83mzWohoJJJDELYBqZhDNqszDLc"
+shares_per_minute = 1.0
+share_batch_size = 10
