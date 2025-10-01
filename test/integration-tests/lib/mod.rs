@@ -10,6 +10,7 @@ use pool_sv2::PoolSv2;
 use std::{
     convert::TryFrom,
     net::{Ipv4Addr, SocketAddr},
+    time::Duration,
 };
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -106,7 +107,11 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         1,
     );
     let pool = PoolSv2::new(config);
-    assert!(pool.start().await.is_ok());
+    let pool_clone = pool.clone();
+    tokio::spawn(async move {
+        _ = pool_clone.start().await;
+    });
+    tokio::time::sleep(Duration::from_secs(1)).await;
     (pool, listening_address)
 }
 
