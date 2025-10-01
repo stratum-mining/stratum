@@ -32,6 +32,7 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{consensus::encode::serialize, Amount, Block, Transaction, TxOut, Txid},
+        channels_sv2::id_factory::IdFactory,
         codec_sv2::{
             binary_sv2::{self, B0255, U256},
             HandshakeRole, Responder,
@@ -42,7 +43,7 @@ use stratum_common::{
         handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
         job_declaration_sv2::{DeclareMiningJob, PushSolution},
         parsers_sv2::{AnyMessage as JdsMessages, JobDeclaration},
-        utils::{Id, Mutex},
+        utils::Mutex,
     },
 };
 use tokio::{net::TcpListener, time::Duration};
@@ -94,7 +95,7 @@ pub struct JobDeclaratorDownstream {
     // TODO: use coinbase output
     coinbase_output: Vec<u8>,
     token_to_job_map: HashMap<u32, Option<u8>, BuildNoHashHasher<u32>>,
-    tokens: Id,
+    tokens: IdFactory,
     public_key: Secp256k1PublicKey,
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
@@ -119,7 +120,7 @@ impl JobDeclaratorDownstream {
     ) -> Self {
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
-        let tokens = Id::new();
+        let tokens = IdFactory::new();
         let add_txs_to_mempool_inner = AddTrasactionsToMempoolInner {
             known_transactions: vec![],
             unknown_transactions: vec![],
