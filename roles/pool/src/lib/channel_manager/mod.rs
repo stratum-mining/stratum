@@ -15,7 +15,7 @@ use stratum_common::{
         handlers_sv2::{
             HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
-        mining_sv2::{ExtendedExtranonce, SetTarget, Target, MAX_EXTRANONCE_LEN},
+        mining_sv2::{ExtendedExtranonce, SetTarget, MAX_EXTRANONCE_LEN},
         parsers_sv2::{Mining, TemplateDistribution},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
         utils::{Id as IdFactory, Mutex},
@@ -66,14 +66,12 @@ pub struct ChannelManagerData {
     last_future_template: Option<NewTemplate<'static>>,
 }
 
-#[allow(warnings)]
 #[derive(Clone)]
 pub struct ChannelManagerChannel {
     tp_sender: Sender<TemplateDistribution<'static>>,
     tp_receiver: Receiver<TemplateDistribution<'static>>,
     downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
     downstream_receiver: Receiver<(u32, Mining<'static>)>,
-    status_sender: Sender<Status>,
 }
 
 /// Contains all the state of mutable and immutable data required
@@ -98,7 +96,6 @@ impl ChannelManager {
         tp_receiver: Receiver<TemplateDistribution<'static>>,
         downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
         downstream_receiver: Receiver<(u32, Mining<'static>)>,
-        status_sender: Sender<Status>,
         coinbase_outputs: Vec<u8>,
     ) -> PoolResult<Self> {
         let (range_0, range_1, range_2) = {
@@ -136,7 +133,6 @@ impl ChannelManager {
             tp_receiver,
             downstream_sender,
             downstream_receiver,
-            status_sender,
         };
 
         let channel_manager = ChannelManager {
@@ -537,34 +533,6 @@ impl ChannelManager {
                             );
                         }
                     });
-                }
-
-                if !messages.is_empty() {
-                    let mut downstream_hashrate = 0.0;
-                    let mut min_target: Target = [0xff; 32].into();
-
-                    for (_, downstream) in channel_manager_data.downstream.iter() {
-                        downstream.downstream_data.super_safe_lock(|data| {
-                            let mut update_from_channel = |hashrate: f32, target: &Target| {
-                                downstream_hashrate += hashrate;
-                                min_target = std::cmp::min(target.clone(), min_target.clone());
-                            };
-
-                            for (_, channel) in data.standard_channels.iter() {
-                                update_from_channel(
-                                    channel.get_nominal_hashrate(),
-                                    channel.get_target(),
-                                );
-                            }
-
-                            for (_, channel) in data.extended_channels.iter() {
-                                update_from_channel(
-                                    channel.get_nominal_hashrate(),
-                                    channel.get_target(),
-                                );
-                            }
-                        });
-                    }
                 }
             });
 
