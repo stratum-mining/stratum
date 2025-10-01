@@ -6,18 +6,32 @@ use std::{
 
 use stratum_common::roles_logic_sv2::{
     self, bitcoin,
+    channels_sv2::{
+        client::error::ExtendedChannelError as ExtendedChannelClientError,
+        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+    },
     codec_sv2::{self, binary_sv2, noise_sv2},
     handlers_sv2::HandlerErrorType,
+    mining_sv2::ExtendedExtranonceError,
     parsers_sv2::{Mining, ParserError},
 };
 
 pub type PoolResult<T> = Result<T, PoolError>;
+
+#[derive(Debug)]
+pub enum ChannelSv2Error {
+    ExtendedChannelServerSide(ExtendedChannelError),
+    StandardChannelServerSide(StandardChannelError),
+    GroupChannelServerSide(GroupChannelError),
+    ExtranonceError(ExtendedExtranonceError),
+}
 
 /// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     /// I/O-related error.
     Io(std::io::Error),
+    ChannelSv2(ChannelSv2Error),
     /// Error when sending a message through a channel.
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     /// Error when receiving a message from an asynchronous channel.
@@ -114,6 +128,9 @@ impl std::fmt::Display for PoolError {
                 "Vardiff not found available for downstream id: {downstream_id}"
             ),
             ParseInt(e) => write!(f, "Conversion error: {e:?}"),
+            ChannelSv2(channel_error) => {
+                write!(f, "Channel error: {channel_error:?}")
+            }
         }
     }
 }
@@ -202,5 +219,29 @@ impl HandlerErrorType for PoolError {
 impl From<stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error> for PoolError {
     fn from(value: stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error) -> Self {
         PoolError::BitcoinEncodeError(value)
+    }
+}
+
+impl From<ExtendedChannelError> for PoolError {
+    fn from(value: ExtendedChannelError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::ExtendedChannelServerSide(value))
+    }
+}
+
+impl From<StandardChannelError> for PoolError {
+    fn from(value: StandardChannelError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::StandardChannelServerSide(value))
+    }
+}
+
+impl From<GroupChannelError> for PoolError {
+    fn from(value: GroupChannelError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::GroupChannelServerSide(value))
+    }
+}
+
+impl From<ExtendedExtranonceError> for PoolError {
+    fn from(value: ExtendedExtranonceError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::ExtranonceError(value))
     }
 }
