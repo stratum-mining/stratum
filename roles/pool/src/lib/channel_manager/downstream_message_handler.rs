@@ -136,19 +136,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     let job_store = DefaultJobStore::new();
 
                     let mut group_channel = GroupChannel::new_for_pool(group_channel_id, job_store, self.pool_tag_string.clone());
-                    if let Err(e) = group_channel.on_new_template(last_future_template.clone(), vec![pool_coinbase_output.clone()]) {
-                        return Err(PoolError::ChannelErrorSender);
-                    }
+                    group_channel.on_new_template(last_future_template.clone(), vec![pool_coinbase_output.clone()])?;
 
-                    if let Err(e) = group_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone()) {
-                        return Err(PoolError::ChannelErrorSender);
-                    }
-
+                    group_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())?;
                     downstream_data.group_channels = Some(group_channel);
                 }
                 let nominal_hash_rate = msg.nominal_hash_rate;
                 let requested_max_target = msg.max_target.into_static();
-                let extranonce_prefix = channel_manager_data.extranonce_prefix_factory_standard.next_prefix_standard().map_err(|_| PoolError::ChannelErrorSender)?;
+                let extranonce_prefix = channel_manager_data.extranonce_prefix_factory_standard.next_prefix_standard()?;
 
                 let channel_id = channel_manager_data.channel_id_factory.next();
                 let job_store = DefaultJobStore::new();
@@ -202,10 +197,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 let template_id = last_future_template.template_id;
 
                 // create a future standard job based on the last future template
-                if let Err(e) = standard_channel.on_new_template(last_future_template, vec![pool_coinbase_output.clone()]) {
-                    return Err(PoolError::ChannelErrorSender);
-                }
-
+                standard_channel.on_new_template(last_future_template, vec![pool_coinbase_output.clone()])?;
                 let future_standard_job_id = standard_channel
                     .get_future_template_to_job_id()
                     .get(&template_id)
@@ -230,10 +222,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 };
 
 
-                if let Err(e) = standard_channel
-                .on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone()) {
-                    return Err(PoolError::ChannelErrorSender);
-                };
+                standard_channel
+                .on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())?;
 
                 messages.push((downstream_id, Mining::SetNewPrevHash(set_new_prev_hash_mining)).into());
 
@@ -393,9 +383,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                     )
                                         .into()]);
                                 }
-                                _ => {
+                                e => {
                                     error!("error in handle_open_extended_mining_channel: {:?}", e);
-                                    return Err(PoolError::ChannelErrorSender);
+                                    return Err(e)?;
                                 }
                             },
                         };
@@ -439,11 +429,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         // jobs so we just process the SetNewPrevHash
                         // message
                         if downstream.requires_custom_work.load(Ordering::SeqCst) {
-                            if let Err(e) =
-                                extended_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp)
-                            {
-                                return Err(PoolError::ChannelErrorSender);
-                            }
+                            extended_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp)?;
                             // if the client does not require custom work, we need to send the
                             // future extended job
                             // and the SetNewPrevHash message
@@ -455,12 +441,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 script_pubkey: self.coinbase_reward_script.script_pubkey(),
                             };
 
-                            if let Err(e) = extended_channel.on_new_template(
+                            extended_channel.on_new_template(
                                 last_future_template.clone(),
                                 vec![pool_coinbase_output],
-                            ) {
-                                return Err(PoolError::ChannelErrorSender);
-                            }
+                            )?;
 
                             let future_extended_job_id = extended_channel
                                 .get_future_template_to_job_id()
@@ -496,11 +480,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 min_ntime: header_timestamp,
                                 nbits: n_bits,
                             };
-                            if let Err(e) =
-                                extended_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp)
-                            {
-                                return Err(PoolError::ChannelErrorSender);
-                            };
+
+                            extended_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp)?;
+
                             messages.push(
                                 (
                                     downstream_id,
@@ -902,8 +884,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                     };
                                     messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                                 }
-                                _ => {
-                                    return Err(PoolError::ChannelErrorSender);
+                                standard_channel_error => {
+                                    return Err(standard_channel_error)?;
                                 }
                             }
                         }
@@ -944,8 +926,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                     };
                                     messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                                 }
-                                _ => {
-                                    return Err(PoolError::ChannelErrorSender);
+                                extended_channel_error => {
+                                    return Err(extended_channel_error)?;
                                 }
                             }
                         }
@@ -1052,8 +1034,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             };
 
                             let job_id = extended_channel
-                                .on_set_custom_mining_job(msg.clone().into_static())
-                                .map_err(|_| PoolError::DownstreamIdNotFound)?;
+                                .on_set_custom_mining_job(msg.clone().into_static())?;
 
                             let success = SetCustomMiningJobSuccess {
                                 channel_id: msg.channel_id,
