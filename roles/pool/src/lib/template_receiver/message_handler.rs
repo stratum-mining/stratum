@@ -4,7 +4,7 @@ use stratum_common::roles_logic_sv2::{
     },
     handlers_sv2::HandleCommonMessagesFromServerAsync,
 };
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::{error::PoolError, template_receiver::TemplateReceiver};
 

@@ -2,13 +2,12 @@ use crate::{downstream::Downstream, error::PoolError, utils::StdFrame};
 use std::{convert::TryInto, sync::atomic::Ordering};
 use stratum_common::roles_logic_sv2::{
     common_messages_sv2::{
-        has_requires_std_job, has_work_selection, Protocol, SetupConnection, SetupConnectionError,
-        SetupConnectionSuccess,
+        has_requires_std_job, has_work_selection, SetupConnection, SetupConnectionSuccess,
     },
     handlers_sv2::HandleCommonMessagesFromClientAsync,
     parsers_sv2::AnyMessage,
 };
-use tracing::{debug, info};
+use tracing::info;
 
 impl HandleCommonMessagesFromClientAsync for Downstream {
     type Error = PoolError;
@@ -32,8 +31,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
             flags: msg.flags,
         };
         let frame: StdFrame = AnyMessage::Common(response.into_static().into()).try_into()?;
-        _ = self
-            .downstream_channel
+        self.downstream_channel
             .downstream_sender
             .send(frame)
             .await?;

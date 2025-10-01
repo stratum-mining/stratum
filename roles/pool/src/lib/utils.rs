@@ -5,7 +5,7 @@ use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
         bitcoin::{self, TxOut},
-        codec_sv2::{binary_sv2::Str0255, Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
+        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
         common_messages_sv2::{
             Protocol, SetupConnection, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION,
@@ -18,7 +18,7 @@ use stratum_common::{
             MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION,
         },
         mining_sv2::{
-            CloseChannel, MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+            MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
             MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB,
             MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
             MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
@@ -66,6 +66,7 @@ pub enum ShutdownMessage {
 }
 
 /// Constructs a `SetupConnection` message for the mining protocol.
+#[allow(clippy::result_large_err)]
 pub fn get_setup_connection_message(
     min_version: u16,
     max_version: u16,
@@ -250,17 +251,6 @@ pub fn spawn_io_tasks(
 /// Deserializes a raw coinbase output into a list of transaction outputs.
 pub fn deserialize_coinbase_outputs(coinbase_output: &[u8]) -> Vec<TxOut> {
     bitcoin::consensus::deserialize(coinbase_output).expect("Invalid coinbase output")
-}
-
-/// Creates a [`CloseChannel`] message for the given channel ID and reason.
-///
-/// The `msg` is converted into a [`Str0255`] reason code.  
-/// If conversion fails, this function will panic.
-pub(crate) fn create_close_channel_msg<'a>(channel_id: u32, msg: &'a str) -> CloseChannel<'a> {
-    CloseChannel {
-        channel_id,
-        reason_code: Str0255::try_from(msg.to_string()).expect("Could not convert message."),
-    }
 }
 
 pub fn is_common_message(message_type: u8) -> bool {

@@ -8,10 +8,7 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         channels_sv2::server::{
-            jobs::{
-                extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
-                standard::StandardJob,
-            },
+            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
             standard::StandardChannel,
         },
         codec_sv2::Responder,
@@ -52,26 +49,24 @@ pub struct ChannelManagerData {
     // Extranonce prefix factory for **standard downstream channels**.
     // Each new standard downstream receives a unique extranonce prefix.
     extranonce_prefix_factory_standard: ExtendedExtranonce,
-    // Factory that generates **monotonically increasing request IDs**
-    // for messages sent from the JDC.
-    request_id_factory: IdFactory,
     // Factory that assigns a unique ID to each new **downstream connection**.
     downstream_id_factory: IdFactory,
     // Factory that assigns a unique **channel ID** to each channel.
-    //
-    // ⚠️ Note: In this version of the JDC, channel IDs are unique
-    // across *all downstreams*, not scoped per downstream.
     channel_id_factory: IdFactory,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
     vardiff: HashMap<(u32, u32), VardiffState>,
-
+    // Channel_id to downstream_id map
     channel_id_to_downstream_id: HashMap<u32, u32>,
+    // Coinbase outputs
     coinbase_outputs: Vec<u8>,
+    // Last new prevhash
     last_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    // Last future template
     last_future_template: Option<NewTemplate<'static>>,
 }
 
+#[allow(warnings)]
 #[derive(Clone)]
 pub struct ChannelManagerChannel {
     tp_sender: Sender<TemplateDistribution<'static>>,
@@ -128,7 +123,6 @@ impl ChannelManager {
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
             downstream_id_factory: IdFactory::new(),
-            request_id_factory: IdFactory::new(),
             channel_id_factory: IdFactory::new(),
             vardiff: HashMap::new(),
             channel_id_to_downstream_id: HashMap::new(),
@@ -148,8 +142,8 @@ impl ChannelManager {
         let channel_manager = ChannelManager {
             channel_manager_data,
             channel_manager_channel,
-            share_batch_size: config.share_batch_size() as usize,
-            shares_per_minute: config.shares_per_minute() as f32,
+            share_batch_size: config.share_batch_size(),
+            shares_per_minute: config.shares_per_minute(),
             pool_tag_string: config.pool_signature().to_string(),
             coinbase_reward_script: config.coinbase_reward_script().clone(),
         };
@@ -276,7 +270,7 @@ impl ChannelManager {
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
-    ) {
+    ) -> PoolResult<()> {
         let status_sender = StatusSender::ChannelManager(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
 
@@ -286,8 +280,6 @@ impl ChannelManager {
             let vardiff_future = vd.run_vardiff_loop();
             tokio::pin!(vardiff_future);
             loop {
-                let mut cm_jds = cm.clone();
-                let mut cm_pool = cm.clone();
                 let mut cm_template = cm.clone();
                 let mut cm_downstreams = cm.clone();
                 tokio::select! {
@@ -330,6 +322,7 @@ impl ChannelManager {
                 }
             }
         });
+        Ok(())
     }
 
     // Removes a downstream entry from the Channel Manager’s state.
@@ -338,6 +331,7 @@ impl ChannelManager {
     // 1. Removes the corresponding downstream from the `downstream` map.
     // 2. Cleans up all associated channel mappings (both standard and extended) by removing their
     //    entries from `channel_id_to_downstream_id`.
+    #[allow(clippy::result_large_err)]
     fn remove_downstream(&mut self, downstream_id: u32) -> PoolResult<()> {
         self.channel_manager_data.super_safe_lock(|cm_data| {
             if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
@@ -370,7 +364,7 @@ impl ChannelManager {
     }
 
     async fn handle_downstream_message(&mut self) -> PoolResult<()> {
-        if let Ok((downstream_id, mut message)) = self
+        if let Ok((downstream_id, message)) = self
             .channel_manager_channel
             .downstream_receiver
             .recv()

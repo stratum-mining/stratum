@@ -9,5 +9,7 @@ mod args;
 async fn main() {
     let config = process_cli_args();
     init_logging(config.log_dir());
-    let _ = PoolSv2::new(config).start().await;
+    if let Err(e) = PoolSv2::new(config).start().await {
+        tracing::error!("Pool Error'ed out: {e}");
+    };
 }

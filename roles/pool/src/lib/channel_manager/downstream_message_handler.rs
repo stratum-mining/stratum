@@ -1,33 +1,27 @@
 use std::sync::atomic::Ordering;
 
 use stratum_common::roles_logic_sv2::{
-    self,
     bitcoin::{consensus::Decodable, Amount, TxOut},
-    channels_sv2::{
-        client,
-        server::{
-            error::{ExtendedChannelError, StandardChannelError},
-            extended::ExtendedChannel,
-            group::GroupChannel,
-            jobs::job_store::DefaultJobStore,
-            share_accounting::{ShareValidationError, ShareValidationResult},
-            standard::StandardChannel,
-        },
+    channels_sv2::server::{
+        error::{ExtendedChannelError, StandardChannelError},
+        extended::ExtendedChannel,
+        group::GroupChannel,
+        jobs::job_store::DefaultJobStore,
+        share_accounting::{ShareValidationError, ShareValidationResult},
+        standard::StandardChannel,
     },
     codec_sv2::binary_sv2::Str0255,
     handlers_sv2::{HandleMiningMessagesFromClientAsync, SupportedChannelTypes},
-    job_declaration_sv2::PushSolution,
     mining_sv2::*,
-    parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
+    parsers_sv2::{Mining, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
     Vardiff, VardiffState,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::{
-    channel_manager::{ChannelManager, ChannelManagerChannel, RouteMessageTo},
+    channel_manager::{ChannelManager, RouteMessageTo},
     error::PoolError,
-    utils::{deserialize_coinbase_outputs, StdFrame},
 };
 
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
@@ -101,8 +95,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
             let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id) else {
                 return Err(PoolError::DownstreamIdNotFound);
             };
-
-            let message: Vec<RouteMessageTo> = Vec::new();
 
             if downstream.requires_custom_work.load(Ordering::SeqCst) {
                 error!("OpenStandardMiningChannel: Standard Channels are not supported for this connection");
@@ -545,7 +537,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     return Ok(vec![(*downstream_id, Mining::SubmitSharesError(submit_shares_error)).into()]);
                 };
 
-                let Some(mut vardiff) = channel_manager_data.vardiff.get_mut(&(*downstream_id, channel_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(*downstream_id, channel_id)) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
@@ -1041,11 +1033,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 request_id: msg.request_id,
                                 job_id,
                             };
-                            return Ok((
-                                *downstream_id,
-                                Mining::SetCustomMiningJobSuccess(success),
-                            )
-                                .into());
+                            Ok((*downstream_id, Mining::SetCustomMiningJobSuccess(success)).into())
                         })
                 })?;
 
