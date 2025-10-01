@@ -64,7 +64,7 @@ impl Default for Id {
 ///
 /// Not suitable for deserializing outputs from a SetCustomMiningJob message or
 /// AllocateMiningJobToken.Success.
-pub fn deserialize_template_outputs(
+fn deserialize_template_outputs(
     serialized_outputs: Vec<u8>,
     coinbase_tx_outputs_count: u32,
 ) -> Result<Vec<TxOut>, Error> {
@@ -168,7 +168,7 @@ impl<T> Mutex<T> {
     /// Acquires a lock on the [`Mutex`] and returns a [`MutexGuard`] for direct access to the
     /// inner value. Allows for manual lock handling and is useful in scenarios where closures are
     /// not convenient.
-    pub fn to_remove(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
+    fn to_remove(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
         self.0.lock()
     }
 }
@@ -219,7 +219,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
 /// ## Components
 /// * `coinbase_id`: Coinbase transaction hash.
 /// * `path`: List of transaction hashes. Should be converted from [`binary_sv2::U256`].
-pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
+fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     match path.len() {
         0 => coinbase_id,
         _ => reduce_path(coinbase_id, path),
@@ -413,7 +413,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
 }
 
 /// Converts a `Target` to a `f64` difficulty.
-pub fn target_to_difficulty(target: Target) -> f64 {
+fn target_to_difficulty(target: Target) -> f64 {
     // Genesis block target: 0x00000000ffff0000000000000000000000000000000000000000000000000000
     // (in little endian)
     let max_target_bytes = [
@@ -445,7 +445,7 @@ pub fn target_to_difficulty(target: Target) -> f64 {
 }
 
 /// Converts a `u128` to a [`U256`].
-pub fn from_u128_to_u256(input: u128) -> U256Primitive {
+fn from_u128_to_u256(input: u128) -> U256Primitive {
     let input: [u8; 16] = input.to_be_bytes();
     let mut be_bytes = [0_u8; 32];
     for (i, b) in input.iter().enumerate() {
@@ -472,7 +472,7 @@ pub fn from_u128_to_u256(input: u128) -> U256Primitive {
 /// single entity, the protocol reduces overhead of managing individual channels, especially in
 /// large mining farms.
 #[derive(Debug, Default)]
-pub struct GroupId {
+struct GroupId {
     group_ids: Id,
     channel_ids: Id,
 }
@@ -481,7 +481,7 @@ impl GroupId {
     /// Creates a new [`GroupId`] instance.
     ///
     /// New GroupId it starts with groups 0, since 0 is reserved for hom downstream's.
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             group_ids: Id::new(),
             channel_ids: Id::new(),
@@ -491,7 +491,7 @@ impl GroupId {
     /// Generates a new unique group ID.
     ///
     /// Increments the internal group ID counter and returns the next available group ID.
-    pub fn new_group_id(&mut self) -> u32 {
+    fn new_group_id(&mut self) -> u32 {
         self.group_ids.next()
     }
 
@@ -501,7 +501,7 @@ impl GroupId {
     ///
     /// **Note**: The `_group_id` parameter is reserved for future use to create a hierarchical
     /// structure of IDs without breaking compatibility with older versions.
-    pub fn new_channel_id(&mut self, _group_id: u32) -> u32 {
+    fn new_channel_id(&mut self, _group_id: u32) -> u32 {
         self.channel_ids.next()
     }
 
@@ -510,7 +510,7 @@ impl GroupId {
     /// Concatenates the group ID and channel ID, storing the group ID in the higher 32 bits and
     /// the channel ID in the lower 32 bits. This combined identifier is useful for efficiently
     /// tracking and referencing unique group-channel pairs.
-    pub fn into_complete_id(group_id: u32, channel_id: u32) -> u64 {
+    fn into_complete_id(group_id: u32, channel_id: u32) -> u64 {
         let part_1 = channel_id.to_le_bytes();
         let part_2 = group_id.to_le_bytes();
         u64::from_be_bytes([
@@ -521,7 +521,7 @@ impl GroupId {
     /// Extracts the group ID from a complete group-channel 64-bit unique ID.
     ///
     /// The group ID is the higher 32 bits.
-    pub fn into_group_id(complete_id: u64) -> u32 {
+    fn into_group_id(complete_id: u64) -> u32 {
         let complete = complete_id.to_le_bytes();
         u32::from_le_bytes([complete[4], complete[5], complete[6], complete[7]])
     }
@@ -529,7 +529,7 @@ impl GroupId {
     /// Extracts the channel ID from a complete group-channel 64-bit unique ID.
     ///
     /// The channel ID is the lower 32 bits.
-    pub fn into_channel_id(complete_id: u64) -> u32 {
+    fn into_channel_id(complete_id: u64) -> u32 {
         let complete = complete_id.to_le_bytes();
         u32::from_le_bytes([complete[0], complete[1], complete[2], complete[3]])
     }
