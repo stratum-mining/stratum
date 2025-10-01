@@ -26,7 +26,7 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 
 ## I Have a Question
 
-> If you want to ask a question, we assume that you have read the documentation available at [stratumprotocol.org/docs](https://stratumprotocol.org).
+> If you want to ask a question, we assume that you have read the documentation available at [https://stratumprotocol.org](https://stratumprotocol.org).
 
 Best way to ask a question is to hop onto our community [Discord](https://discord.com/invite/fsEW23wFYs). Two most suitable places to post a question are:
 - #newbies-qs and
@@ -36,7 +36,7 @@ If you then still feel the need to ask a question and need clarification, we rec
 
 - Open an [Issue](https://github.com/stratum-mining/stratum/issues/new).
 - Provide as much context as you can about what you're running into.
-  
+
 We will then take care of the issue as soon as possible.
 
 ## What Should I Know Before I Get Started
