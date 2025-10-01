@@ -6,10 +6,7 @@ use std::{
 
 use stratum_common::roles_logic_sv2::{
     self, bitcoin,
-    channels_sv2::{
-        client::error::ExtendedChannelError as ExtendedChannelClientError,
-        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
-    },
+    channels_sv2::server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
     codec_sv2::{self, binary_sv2, noise_sv2},
     handlers_sv2::HandlerErrorType,
     mining_sv2::ExtendedExtranonceError,
@@ -56,33 +53,34 @@ pub enum PoolError {
     Custom(String),
     /// Error related to the SV2 protocol, including an error code and a `Mining` message.
     Sv2ProtocolError((u32, Mining<'static>)),
+    /// Vardiff Error
     Vardiff(VardiffError),
+    /// Parser Error
     Parser(ParserError),
+    /// Shutdown
     Shutdown,
+    /// Unexpected message
     UnexpectedMessage(u8),
+    /// Channel error sender
     ChannelErrorSender,
+    /// Invalid socket address
     InvalidSocketAddress(String),
+    /// Bitcoin Encode Error
     BitcoinEncodeError(bitcoin::consensus::encode::Error),
+    /// Downstream not found for the channel
     DownstreamNotFoundWithChannelId(u32),
+    /// Downstream not found
     DownstreamNotFound(u32),
+    /// Downstream Id not found
     DownstreamIdNotFound,
+    /// Future template not present
     FutureTemplateNotPresent,
+    /// Last new prevhash not found
     LastNewPrevhashNotFound,
+    /// Vardiff associated to channel not found
     VardiffNotFound(u32),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
-}
-
-impl From<VardiffError> for PoolError {
-    fn from(value: VardiffError) -> Self {
-        PoolError::Vardiff(value)
-    }
-}
-
-impl From<ParserError> for PoolError {
-    fn from(value: ParserError) -> Self {
-        PoolError::Parser(value)
-    }
 }
 
 impl std::fmt::Display for PoolError {
@@ -243,5 +241,17 @@ impl From<GroupChannelError> for PoolError {
 impl From<ExtendedExtranonceError> for PoolError {
     fn from(value: ExtendedExtranonceError) -> Self {
         PoolError::ChannelSv2(ChannelSv2Error::ExtranonceError(value))
+    }
+}
+
+impl From<VardiffError> for PoolError {
+    fn from(value: VardiffError) -> Self {
+        PoolError::Vardiff(value)
+    }
+}
+
+impl From<ParserError> for PoolError {
+    fn from(value: ParserError) -> Self {
+        PoolError::Parser(value)
     }
 }

@@ -1,21 +1,16 @@
 use std::sync::atomic::Ordering;
 
 use stratum_common::roles_logic_sv2::{
-    bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut},
-    channels_sv2::chain_tip::ChainTip,
-    codec_sv2::binary_sv2::{Seq064K, U256},
-    handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
-    job_declaration_sv2::DeclareMiningJob,
-    mining_sv2::SetNewPrevHash as SetNewPrevHashMp,
-    parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
+    bitcoin::Amount, handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
+    mining_sv2::SetNewPrevHash as SetNewPrevHashMp, parsers_sv2::Mining,
     template_distribution_sv2::*,
 };
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use crate::{
     channel_manager::{ChannelManager, RouteMessageTo},
     error::PoolError,
-    utils::{deserialize_coinbase_outputs, StdFrame},
+    utils::deserialize_coinbase_outputs,
 };
 
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {

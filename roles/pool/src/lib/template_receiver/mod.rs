@@ -39,6 +39,7 @@ pub struct TemplateReceiverChannel {
 
 pub struct TemplateReceiverData;
 
+#[allow(warnings)]
 #[derive(Clone)]
 pub struct TemplateReceiver {
     template_receiver_channel: TemplateReceiverChannel,
@@ -162,14 +163,14 @@ impl TemplateReceiver {
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
         coinbase_outputs: Vec<u8>,
-    ) {
+    ) -> PoolResult<()> {
         let status_sender = StatusSender::TemplateReceiver(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
 
         info!("Initialized state for starting template receiver");
-        _ = self.setup_connection(socket_address).await;
+        self.setup_connection(socket_address).await?;
 
-        _ = self.coinbase_constraints(coinbase_outputs).await;
+        self.coinbase_constraints(coinbase_outputs).await?;
 
         info!("Setup Connection done. connection with template receiver is now done");
         task_manager.spawn(
@@ -210,6 +211,7 @@ impl TemplateReceiver {
                 warn!("TemplateReceiver: unified message loop exited.");
             },
         );
+        Ok(())
     }
 
     /// Handle inbound messages from the template provider.
@@ -270,7 +272,7 @@ impl TemplateReceiver {
         debug!("Forwarding message from channel manager to outbound_tx");
         self.template_receiver_channel
             .tp_sender
-            .send(frame.into())
+            .send(frame)
             .await
             .map_err(|_| PoolError::ChannelErrorSender)?;
 

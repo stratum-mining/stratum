@@ -1,4 +1,3 @@
-#![allow(warnings)]
 use std::sync::Arc;
 
 use async_channel::unbounded;
@@ -42,7 +41,7 @@ impl PoolSv2 {
         }
     }
 
-    /// Starts the Job Declarator Client (JDC) main loop.
+    /// Starts the Pool main loop.
     pub async fn start(&self) -> PoolResult<()> {
         let miner_coinbase_outputs = vec![self.config.get_txout()];
         let mut encoded_outputs = vec![];
@@ -78,8 +77,7 @@ impl PoolSv2 {
             status_sender.clone(),
             encoded_outputs.clone(),
         )
-        .await
-        .unwrap();
+        .await?;
 
         let channel_manager_clone = channel_manager.clone();
 
@@ -96,24 +94,19 @@ impl PoolSv2 {
             task_manager.clone(),
             status_sender.clone(),
         )
-        .await
-        .unwrap();
+        .await?;
 
         info!("Template provider setup done");
-
-        let notify_shutdown_cl = notify_shutdown.clone();
-        let status_sender_cl = status_sender.clone();
-        let task_manager_cl = task_manager.clone();
 
         template_receiver
             .start(
                 tp_address,
-                notify_shutdown_cl,
-                status_sender_cl,
-                task_manager_cl,
+                notify_shutdown.clone(),
+                status_sender.clone(),
+                task_manager.clone(),
                 encoded_outputs.clone(),
             )
-            .await;
+            .await?;
 
         channel_manager
             .start(
@@ -121,10 +114,9 @@ impl PoolSv2 {
                 status_sender.clone(),
                 task_manager.clone(),
             )
-            .await;
+            .await?;
 
-        _ = channel_manager_clone
-            .clone()
+        channel_manager_clone
             .start_downstream_server(
                 *self.config.authority_public_key(),
                 *self.config.authority_secret_key(),
@@ -136,16 +128,14 @@ impl PoolSv2 {
                 downstream_to_channel_manager_sender.clone(),
                 channel_manager_to_downstream_sender.clone(),
             )
-            .await;
+            .await?;
 
         info!("Spawning status listener task...");
-        let notify_shutdown_clone = notify_shutdown.clone();
-
         loop {
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
                     info!("Ctrl+C received — initiating graceful shutdown...");
-                    let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                    let _ = notify_shutdown.send(ShutdownMessage::ShutdownAll);
                     break;
                 }
                 message = status_receiver.recv() => {
@@ -153,16 +143,16 @@ impl PoolSv2 {
                         match status.state {
                             State::DownstreamShutdown{downstream_id,..} => {
                                 warn!("Downstream {downstream_id:?} disconnected — Channel manager.");
-                                let _ = notify_shutdown_clone.send(ShutdownMessage::DownstreamShutdown(downstream_id));
+                                let _ = notify_shutdown.send(ShutdownMessage::DownstreamShutdown(downstream_id));
                             }
                             State::TemplateReceiverShutdown(_) => {
                                 warn!("Template Receiver shutdown requested — initiating full shutdown.");
-                                let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                                let _ = notify_shutdown.send(ShutdownMessage::ShutdownAll);
                                 break;
                             }
                             State::ChannelManagerShutdown(_) => {
                                 warn!("Channel Manager shutdown requested — initiating full shutdown.");
-                                let _ = notify_shutdown_clone.send(ShutdownMessage::ShutdownAll);
+                                let _ = notify_shutdown.send(ShutdownMessage::ShutdownAll);
                                 break;
                             }
                         }
@@ -173,10 +163,9 @@ impl PoolSv2 {
 
         warn!("Graceful shutdown");
         task_manager.abort_all().await;
-
         info!("Joining remaining tasks...");
         task_manager.join_all().await;
-        info!("JD Client shutdown complete.");
+        info!("Pool shutdown complete.");
         Ok(())
     }
 }
