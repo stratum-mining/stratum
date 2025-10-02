@@ -1,6 +1,7 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_connection::Connection;
 use num_format::{Locale, ToFormattedString};
 use primitive_types::U256;
 use rand::{thread_rng, Rng};
@@ -14,13 +15,13 @@ use std::{
     time::{Duration, Instant},
 };
 use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
+    bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget},
+    codec_sv2::{self, StandardEitherFrame, StandardSv2Frame},
+    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
+    mining_sv2::*,
+    noise_sv2::Initiator,
+    parsers_sv2::{Mining, MiningDeviceMessages},
     roles_logic_sv2::{
-        self,
-        bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget},
-        codec_sv2,
-        codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame},
-        common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
         errors::Error,
         handlers::{
             common::ParseCommonMessagesFromUpstream,
@@ -39,7 +40,7 @@ use sha2::{
     compress256,
     digest::generic_array::{typenum::U64, GenericArray},
 };
-use stratum_common::roles_logic_sv2::bitcoin::consensus::encode::serialize as btc_serialize;
+use stratum_common::bitcoin::consensus::encode::serialize as btc_serialize;
 
 // Tuneable: how many nonces to try per mining loop iteration when fast hasher is available.
 // Runtime-configurable so the binary and benches can adjust it without changing code.
@@ -154,7 +155,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
 use std::convert::TryInto;
-use stratum_common::roles_logic_sv2::{bitcoin::block::Version, common_messages_sv2::Reconnect};
+use stratum_common::{bitcoin::block::Version, common_messages_sv2::Reconnect};
 
 impl SetupConnectionHandler {
     pub fn new() -> Self {
@@ -214,8 +215,11 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         m: SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
-        use roles_logic_sv2::handlers::common::SendTo;
+    ) -> Result<
+        stratum_common::roles_logic_sv2::handlers::common::SendTo,
+        stratum_common::roles_logic_sv2::errors::Error,
+    > {
+        use stratum_common::roles_logic_sv2::handlers::common::SendTo;
         info!(
             "Received `SetupConnectionSuccess`: version={}, flags={:b}",
             m.used_version, m.flags
@@ -225,23 +229,29 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
 
     fn handle_setup_connection_error(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        _: stratum_common::common_messages_sv2::SetupConnectionError,
+    ) -> Result<
+        stratum_common::roles_logic_sv2::handlers::common::SendTo,
+        stratum_common::roles_logic_sv2::errors::Error,
+    > {
         error!("Setup connection error");
         todo!()
     }
 
     fn handle_channel_endpoint_changed(
         &mut self,
-        _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        _: stratum_common::common_messages_sv2::ChannelEndpointChanged,
+    ) -> Result<
+        stratum_common::roles_logic_sv2::handlers::common::SendTo,
+        stratum_common::roles_logic_sv2::errors::Error,
+    > {
         todo!()
     }
 
     fn handle_reconnect(
         &mut self,
         _m: Reconnect,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+    ) -> Result<stratum_common::roles_logic_sv2::handlers::common::SendTo, Error> {
         todo!()
     }
 }
@@ -367,10 +377,10 @@ impl Device {
                 .safe_lock(|s| s.notify_changes_to_mining_thread.clone())
                 .unwrap();
             if notify_changes_to_mining_thread.should_send
-                && (message_type == roles_logic_sv2::mining_sv2::MESSAGE_TYPE_NEW_MINING_JOB
+                && (message_type == stratum_common::mining_sv2::MESSAGE_TYPE_NEW_MINING_JOB
                     || message_type
-                        == roles_logic_sv2::mining_sv2::MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH
-                    || message_type == roles_logic_sv2::mining_sv2::MESSAGE_TYPE_SET_TARGET)
+                        == stratum_common::mining_sv2::MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH
+                    || message_type == stratum_common::mining_sv2::MESSAGE_TYPE_SET_TARGET)
             {
                 notify_changes_to_mining_thread
                     .sender

@@ -20,9 +20,9 @@ path = "src/lib/mod.rs"
 
 
 [dependencies]
-stratum-common = { path = "../../../common", features = ["with_network_helpers"] }
+stratum-common = { path = "../../../common" }
+network_helpers_sv2 = { path = "../../roles-utils/network-helpers", features = ["with_buffer_pool"] }
 async-channel = "1.5.1"
-buffer_sv2 = { path = "../../../utils/buffer" }
 async-recursion = "0.3.2"
 rand = "0.8.4"
 futures = "0.3.5"
