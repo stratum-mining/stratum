@@ -22,7 +22,6 @@ path = "src/main.rs"
 [dependencies]
 stratum-common = { path = "../../common" }
 async-channel = "1.5.1"
-buffer_sv2 = { path = "../../utils/buffer" }
 network_helpers_sv2 = { path = "../roles-utils/network-helpers", features=["with_buffer_pool", "sv1"] }
 stratum_translation = { path = "../roles-utils/stratum-translation" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }

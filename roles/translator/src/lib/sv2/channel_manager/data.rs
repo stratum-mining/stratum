@@ -2,8 +2,9 @@ use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
-use stratum_common::roles_logic_sv2::{
-    channels_sv2::client::extended::ExtendedChannel, mining_sv2::ExtendedExtranonce, utils::Mutex,
+use stratum_common::{
+    channels_sv2::client::extended::ExtendedChannel, mining_sv2::ExtendedExtranonce,
+    roles_logic_sv2::utils::Mutex,
 };
 
 /// Defines the operational mode for channel management.
