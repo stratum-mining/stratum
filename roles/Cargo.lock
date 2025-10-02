@@ -1878,7 +1878,7 @@ dependencies = [
  "codec_sv2",
  "futures",
  "serde_json",
- "sv1_api",
+ "stratum-common",
  "tokio",
  "tokio-util",
  "tracing",

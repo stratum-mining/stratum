@@ -9,18 +9,21 @@
 //! non-blocking behavior.
 
 use crate::Error;
-use codec_sv2::{
+use stratum_common::{
     binary_sv2::{Deserialize, GetSize, Serialize},
+    codec_sv2::{HandshakeRole, NoiseEncoder, StandardNoiseDecoder, State},
     noise_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
-    HandshakeRole, NoiseEncoder, StandardNoiseDecoder, State,
 };
 use tokio::net::{
     tcp::{OwnedReadHalf, OwnedWriteHalf},
     TcpStream,
 };
 
-use codec_sv2::{noise_sv2::ELLSWIFT_ENCODING_SIZE, HandShakeFrame, StandardEitherFrame};
 use std::convert::TryInto;
+use stratum_common::{
+    codec_sv2::StandardEitherFrame, framing_sv2::framing::HandShakeFrame,
+    noise_sv2::ELLSWIFT_ENCODING_SIZE,
+};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, error};
 
@@ -78,7 +81,7 @@ where
 
         match role {
             HandshakeRole::Initiator(_) => {
-                let mut responder_state = codec_sv2::State::not_initialized(&role);
+                let mut responder_state = State::not_initialized(&role);
                 let first_msg = state.step_0()?;
                 send_message(&mut writer, first_msg.into(), &mut state, &mut encoder).await?;
                 debug!("First handshake message sent");
@@ -99,7 +102,9 @@ where
                             state = transport_state;
                             break;
                         }
-                        Err(Error::CodecError(codec_sv2::Error::MissingBytes(_))) => {
+                        Err(Error::CodecError(stratum_common::codec_sv2::Error::MissingBytes(
+                            _,
+                        ))) => {
                             debug!("Waiting for more bytes during handshake");
                         }
                         Err(e) => {
@@ -110,7 +115,7 @@ where
                 }
             }
             HandshakeRole::Responder(_) => {
-                let mut initiator_state = codec_sv2::State::not_initialized(&role);
+                let mut initiator_state = State::not_initialized(&role);
 
                 loop {
                     match receive_message(&mut reader, &mut initiator_state, &mut decoder).await {
@@ -130,7 +135,9 @@ where
                             state = transport_state;
                             break;
                         }
-                        Err(Error::CodecError(codec_sv2::Error::MissingBytes(_))) => {
+                        Err(Error::CodecError(stratum_common::codec_sv2::Error::MissingBytes(
+                            _,
+                        ))) => {
                             debug!("Waiting for more bytes during handshake");
                         }
                         Err(e) => {
@@ -250,7 +257,7 @@ where
 
             match self.decoder.next_frame(&mut self.state) {
                 Ok(frame) => return Ok(frame),
-                Err(codec_sv2::Error::MissingBytes(_)) => {
+                Err(stratum_common::codec_sv2::Error::MissingBytes(_)) => {
                     tokio::task::yield_now().await;
                     continue;
                 }
@@ -295,7 +302,7 @@ where
 
         match self.decoder.next_frame(&mut self.state) {
             Ok(frame) => Ok(Some(frame)),
-            Err(codec_sv2::Error::MissingBytes(_)) => Ok(None),
+            Err(stratum_common::codec_sv2::Error::MissingBytes(_)) => Ok(None),
             Err(e) => Err(Error::CodecError(e)),
         }
     }

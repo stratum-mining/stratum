@@ -1,6 +1,6 @@
 use async_channel::{unbounded, Receiver, Sender};
 use futures::StreamExt;
-use sv1_api::json_rpc;
+use stratum_common::sv1_api::json_rpc;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
     net::TcpStream,

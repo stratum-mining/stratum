@@ -5,9 +5,7 @@ pub mod plain_connection;
 pub mod sv1_connection;
 
 use async_channel::{RecvError, SendError};
-use codec_sv2::Error as CodecError;
-
-pub use codec_sv2;
+use stratum_common::codec_sv2::Error as CodecError;
 
 #[derive(Debug)]
 pub enum Error {

@@ -1,13 +1,16 @@
 use async_channel::{bounded, Receiver, Sender};
-use codec_sv2::binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
+use stratum_common::binary_sv2::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     task,
 };
 
-use codec_sv2::{binary_sv2::GetSize, Error::MissingBytes, StandardDecoder, StandardEitherFrame};
+use stratum_common::{
+    binary_sv2::GetSize,
+    codec_sv2::{Error::MissingBytes, StandardDecoder, StandardEitherFrame},
+};
 use tracing::{error, trace};
 
 #[derive(Debug)]
@@ -88,7 +91,7 @@ impl PlainConnection {
 
         // ENCODE AND SEND INCOMING MESSAGES TO TCP STREAM
         task::spawn(async move {
-            let mut encoder = codec_sv2::Encoder::<Message>::new();
+            let mut encoder = stratum_common::codec_sv2::Encoder::<Message>::new();
 
             loop {
                 let received = receiver_outgoing.recv().await;
