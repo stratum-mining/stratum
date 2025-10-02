@@ -1,5 +1,4 @@
 use crate::{sniffer::*, sv1_minerd::MinerdProcess, template_provider::*};
-use config_helpers_sv2::CoinbaseRewardScript;
 use corepc_node::{ConnectParams, CookieValues};
 use interceptor::InterceptAction;
 use jd_client_sv2::JobDeclaratorClient;
@@ -23,7 +22,6 @@ pub mod mock_roles;
 pub mod sniffer;
 pub mod sniffer_error;
 pub mod sv1_minerd;
-#[cfg(feature = "sv1")]
 pub mod sv1_sniffer;
 pub mod template_provider;
 pub mod types;
@@ -325,7 +323,6 @@ pub fn start_mining_device_sv2(
     });
 }
 
-#[cfg(feature = "sv1")]
 pub fn start_sv1_sniffer(upstream_address: SocketAddr) -> (sv1_sniffer::SnifferSV1, SocketAddr) {
     let listening_address = get_available_address();
     let sniffer_sv1 = sv1_sniffer::SnifferSV1::new(listening_address, upstream_address);

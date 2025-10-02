@@ -29,4 +29,4 @@ jobs:
 
       - name: Integration Tests
         run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --features sv1 --nocapture
+         RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --nocapture

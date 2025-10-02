@@ -2690,6 +2690,7 @@ dependencies = [
  "noise_sv2",
  "parsers_sv2",
  "roles_logic_sv2",
+ "sv1_api",
  "template_distribution_sv2",
 ]
 
