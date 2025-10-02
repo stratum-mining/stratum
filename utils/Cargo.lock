@@ -160,6 +160,15 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_hashes"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b7a2e9773ee7ae7f2560f0426c938f57902dcb9e39321b0cbd608f47ed579a4"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
+name = "bitcoin_hashes"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1930a4dabfebb8d7d9992db18ebe3ae2876f0a305fab206fd168df931ede293b"
@@ -1046,6 +1055,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 name = "roles_logic_sv2"
 version = "4.0.0"
 dependencies = [
+ "binary_sv2",
  "bitcoin",
  "chacha20poly1305",
  "channels_sv2",
@@ -1199,7 +1209,21 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "stratum-common"
 version = "4.0.1"
 dependencies = [
+ "binary_sv2",
+ "bitcoin",
+ "buffer_sv2",
+ "channels_sv2",
+ "codec_sv2",
+ "common_messages_sv2",
+ "framing_sv2",
+ "handlers_sv2",
+ "job_declaration_sv2",
+ "mining_sv2",
+ "noise_sv2",
+ "parsers_sv2",
  "roles_logic_sv2",
+ "sv1_api",
+ "template_distribution_sv2",
 ]
 
 [[package]]
@@ -1207,6 +1231,19 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "sv1_api"
+version = "2.1.1"
+dependencies = [
+ "binary_sv2",
+ "bitcoin_hashes 0.3.2",
+ "byteorder",
+ "hex",
+ "serde",
+ "serde_json",
+ "tracing",
+]
 
 [[package]]
 name = "syn"
