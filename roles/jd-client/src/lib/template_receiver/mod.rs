@@ -14,19 +14,19 @@ use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_stream::NoiseTcpStream;
 use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
-        bitcoin::{
-            self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
-            Transaction, TxIn, TxOut, Witness,
-        },
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
-        handlers_sv2::HandleCommonMessagesFromServerAsync,
-        parsers_sv2::{AnyMessage, TemplateDistribution},
-        template_distribution_sv2::CoinbaseOutputConstraints,
-        utils::Mutex,
+    bitcoin::{
+        self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence, Transaction,
+        TxIn, TxOut, Witness,
     },
+    codec_sv2::HandshakeRole,
+    framing_sv2,
+    handlers_sv2::HandleCommonMessagesFromServerAsync,
+    noise_sv2::Initiator,
+    parsers_sv2::{AnyMessage, TemplateDistribution},
+    roles_logic_sv2::utils::Mutex,
+    template_distribution_sv2::CoinbaseOutputConstraints,
 };
 use tokio::{net::TcpStream, sync::broadcast};
 use tracing::{debug, error, info, warn};
@@ -405,7 +405,9 @@ impl TemplateReceiver {
             .await
             .map_err(|e| {
                 error!(?e, "Upstream connection closed during handshake");
-                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+                JDCError::CodecNoise(
+                    stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                )
             })?;
 
         let msg_type = incoming
