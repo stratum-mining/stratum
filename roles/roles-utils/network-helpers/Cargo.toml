@@ -1,6 +1,6 @@
 [package]
 name = "network_helpers_sv2"
-version = "4.0.1"
+version = "5.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "Networking utils for SV2 roles"
@@ -17,7 +17,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 async-std = { version = "1.8.0", optional = true }
 async-channel = { version = "1.8.0" }
 tokio = { version = "1.44.1", features = ["full"] }
-stratum-common = { path = "../../../common", version = "^4.0.0" }
+stratum-common = { path = "../../../common", version = "^5.0.0" }
 tracing = { version = "0.1" }
 futures = "0.3.28"
 tokio-util = { version = "0.7.10", default-features = false, features = ["codec"], optional = true }
