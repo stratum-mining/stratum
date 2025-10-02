@@ -35,12 +35,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use framing_sv2::framing::Frame;
-
 extern crate alloc;
 
 #[cfg(feature = "noise_sv2")]
 use alloc::boxed::Box;
+#[cfg(feature = "noise_sv2")]
+use framing_sv2::framing::{handshake_message_to_frame as h2f, HandShakeFrame};
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::NoiseCodec;
 
 mod decoder;
 mod encoder;
@@ -57,19 +59,6 @@ pub use decoder::StandardNoiseDecoder;
 pub use encoder::Encoder;
 #[cfg(feature = "noise_sv2")]
 pub use encoder::NoiseEncoder;
-
-#[cfg(feature = "noise_sv2")]
-pub use framing_sv2::framing::HandShakeFrame;
-pub use framing_sv2::framing::Sv2Frame;
-
-#[cfg(feature = "noise_sv2")]
-pub use noise_sv2::{self, Initiator, NoiseCodec, Responder};
-
-pub use buffer_sv2;
-
-pub use binary_sv2;
-
-pub use framing_sv2::{self, framing::handshake_message_to_frame as h2f};
 
 /// Represents the role in the Noise handshake process, either as an initiator or a responder.
 ///
