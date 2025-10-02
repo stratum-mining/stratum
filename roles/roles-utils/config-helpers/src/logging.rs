@@ -1,4 +1,9 @@
-use std::{fs::OpenOptions, io, path::Path, str::FromStr};
+use std::{
+    fs::OpenOptions,
+    io::{self, IsTerminal},
+    path::Path,
+    str::FromStr,
+};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 
@@ -10,19 +15,23 @@ pub fn init_logging(log_file: Option<&Path>) {
     let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
     let log_level_filter = LevelFilter::from_str(&rust_log).unwrap_or(LevelFilter::INFO);
     let env_filter = EnvFilter::new(log_level_filter.to_string());
+    let stdout_layer = fmt::layer()
+        .with_writer(io::stdout)
+        .with_ansi(io::stdout().is_terminal());
 
     let subscriber: Box<dyn tracing::Subscriber + Send + Sync> = match log_file {
         Some(path) => {
             // Log to both file and stdout
             let path = path.to_owned();
-            let file_layer = fmt::layer().with_writer(move || {
-                OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(&path)
-                    .expect("Failed to open log file")
-            });
-            let stdout_layer = fmt::layer().with_writer(io::stdout);
+            let file_layer = fmt::layer()
+                .with_writer(move || {
+                    OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&path)
+                        .expect("Failed to open log file")
+                })
+                .with_ansi(false);
             Box::new(
                 Registry::default()
                     .with(env_filter)
@@ -32,7 +41,6 @@ pub fn init_logging(log_file: Option<&Path>) {
         }
         None => {
             // Log only to stdout
-            let stdout_layer = fmt::layer().with_writer(io::stdout);
             Box::new(Registry::default().with(env_filter).with(stdout_layer))
         }
     };
