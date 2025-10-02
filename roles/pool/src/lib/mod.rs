@@ -15,7 +15,7 @@ use config::PoolConfig;
 use error::PoolError;
 use mining_pool::Pool;
 use std::sync::{Arc, Mutex};
-use stratum_common::roles_logic_sv2::bitcoin::{
+use stratum_common::bitcoin::{
     absolute::LockTime,
     blockdata::witness::Witness,
     script::ScriptBuf,

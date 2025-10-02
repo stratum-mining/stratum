@@ -15,18 +15,17 @@ use super::{
 use async_channel::{Receiver, Sender};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_connection::Connection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
+    codec_sv2::{self, HandshakeRole},
+    noise_sv2::Initiator,
+    parsers_sv2::{AnyMessage, TemplateDistribution},
     roles_logic_sv2::{
-        self, codec_sv2,
-        codec_sv2::{HandshakeRole, Initiator},
-        handlers::template_distribution::ParseTemplateDistributionMessagesFromServer,
-        parsers_sv2::{AnyMessage, TemplateDistribution},
-        template_distribution_sv2::{
-            CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
-        },
-        utils::Mutex,
+        handlers::template_distribution::ParseTemplateDistributionMessagesFromServer, utils::Mutex,
+    },
+    template_distribution_sv2::{
+        CoinbaseOutputConstraints, NewTemplate, SetNewPrevHash, SubmitSolution,
     },
 };
 use tokio::{net::TcpStream, task};
@@ -177,7 +176,10 @@ impl TemplateRx {
                 )
             );
             match msg {
-                roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
+                stratum_common::roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(
+                    _,
+                    m,
+                ) => match m {
                     TemplateDistribution::CoinbaseOutputConstraints(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
                         let res = new_template_sender.send(m).await;
@@ -194,7 +196,7 @@ impl TemplateRx {
                     }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
-                roles_logic_sv2::handlers::SendTo_::None(None) => (),
+                stratum_common::roles_logic_sv2::handlers::SendTo_::None(None) => (),
                 _ => {
                     info!("Error: {:?}", msg);
                     std::process::abort();

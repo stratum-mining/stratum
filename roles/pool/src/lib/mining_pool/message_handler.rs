@@ -10,7 +10,8 @@ use std::{
     convert::TryInto,
     sync::{atomic::Ordering, Arc, RwLock},
 };
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
+    binary_sv2::Str0255,
     bitcoin::{consensus::Decodable, transaction::TxOut, Amount},
     channels_sv2::{
         server::{
@@ -23,13 +24,14 @@ use stratum_common::roles_logic_sv2::{
         },
         Vardiff, VardiffState,
     },
-    codec_sv2::binary_sv2::Str0255,
-    errors::Error,
-    handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
     mining_sv2::*,
     parsers_sv2::Mining,
+    roles_logic_sv2::{
+        errors::Error,
+        handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
+        utils::Mutex,
+    },
     template_distribution_sv2::SubmitSolution,
-    utils::Mutex,
 };
 use tracing::{error, info};
 

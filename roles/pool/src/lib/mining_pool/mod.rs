@@ -28,6 +28,7 @@ use async_channel::{Receiver, Sender};
 use config_helpers_sv2::CoinbaseRewardScript;
 use error_handling::handle_result;
 use key_utils::SignatureService;
+use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use secp256k1;
 use std::{
@@ -40,10 +41,11 @@ use std::{
     },
     time::Duration,
 };
-use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
-    roles_logic_sv2::{
-        self,
+use stratum_apps::{
+    config_helpers::CoinbaseRewardScript,
+    network_helpers::noise_connection::Connection,
+    stratum_core::{
+        binary_sv2::U256,
         bitcoin::{Amount, TxOut},
         channels_sv2::{
             server::{
@@ -52,26 +54,25 @@ use stratum_common::{
                 jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
                 standard::StandardChannel,
             },
-            VardiffState,
+            Vardiff, VardiffState,
         },
-        codec_sv2::{
-            self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
-        },
-        errors::Error,
-        handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
+        codec_sv2::{self, HandshakeRole, StandardEitherFrame, StandardSv2Frame},
         mining_sv2::{
             ExtendedExtranonce, SetNewPrevHash as SetNewPrevHashMp, SetTarget, Target,
             MAX_EXTRANONCE_LEN,
         },
+        noise_sv2::Responder,
         parsers_sv2::{AnyMessage, Mining},
+        roles_logic_sv2::{
+            errors::Error,
+            handlers::mining::{ParseMiningMessagesFromDownstream, SendTo},
+            utils::Mutex,
+        },
         template_distribution_sv2::{
             NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
         },
-        utils::Mutex,
     },
 };
-
-use roles_logic_sv2::channels_sv2::Vardiff;
 
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
@@ -388,7 +389,7 @@ impl Downstream {
     /// This method is used to send message to downstream.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers_sv2::Mining<'static>,
+        message: stratum_common::parsers_sv2::Mining<'static>,
     ) -> PoolResult<()> {
         //let message = if let Mining::NewExtendedMiningJob(job) = message {
         //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
@@ -1300,12 +1301,12 @@ async fn spawn_vardiff_loop(
 mod test {
     use ext_config::{Config, File, FileFormat};
     use std::convert::TryInto;
-    use stratum_common::roles_logic_sv2::{
+    use stratum_common::{
+        binary_sv2::{B0255, B064K},
         bitcoin::{
             self, absolute::LockTime, consensus, transaction::Version, Amount, Transaction, TxOut,
             Witness,
         },
-        codec_sv2::binary_sv2::{B0255, B064K},
     };
     use tracing::error;
 
