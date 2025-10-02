@@ -1,6 +1,6 @@
 [package]
 name = "stratum-common"
-version = "4.0.1"
+version = "5.0.0"
 edition = "2021"
 description = "SV2 pool role"
 license = "MIT OR Apache-2.0"

@@ -108,7 +108,7 @@ dependencies = [
 
 [[package]]
 name = "bip32_derivation"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "stratum-common",
  "toml",
@@ -1201,7 +1201,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-common"
-version = "4.0.1"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
