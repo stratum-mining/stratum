@@ -490,7 +490,7 @@ impl PendingChannelRequest {
 ///
 /// The `msg` is converted into a [`Str0255`] reason code.  
 /// If conversion fails, this function will panic.
-pub(crate) fn create_close_channel_msg<'a>(channel_id: u32, msg: &'a str) -> CloseChannel<'a> {
+pub(crate) fn create_close_channel_msg(channel_id: u32, msg: &str) -> CloseChannel<'_> {
     CloseChannel {
         channel_id,
         reason_code: Str0255::try_from(msg.to_string()).expect("Could not convert message."),
