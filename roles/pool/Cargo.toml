@@ -18,8 +18,9 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 async-channel = "1.5.1"
-stratum-common = { path = "../../common", features = ["with_network_helpers"] }
-buffer_sv2 = { path = "../../utils/buffer" }
+stratum-common = { path = "../../common" }
+network_helpers_sv2 = { path = "../roles-utils/network-helpers", features = ["with_buffer_pool"] }
+rand = "0.8.4"
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "rand", "rand-std"] }
 tokio = { version = "1.44.1", features = ["full"] }

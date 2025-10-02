@@ -1661,6 +1661,7 @@ dependencies = [
  "config",
  "config_helpers_sv2",
  "key-utils",
+ "network_helpers_sv2",
  "serde",
  "stratum-common",
  "tokio",
@@ -1680,6 +1681,7 @@ dependencies = [
  "hashbrown 0.11.2",
  "hex",
  "key-utils",
+ "network_helpers_sv2",
  "nohash-hasher",
  "rand",
  "rpc_sv2",
@@ -1821,6 +1823,7 @@ dependencies = [
  "futures",
  "half",
  "key-utils",
+ "network_helpers_sv2",
  "num-format",
  "num_cpus",
  "primitive-types",
@@ -1875,7 +1878,6 @@ version = "4.0.1"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
- "codec_sv2",
  "futures",
  "serde_json",
  "stratum-common",
@@ -2337,6 +2339,7 @@ checksum = "caf4aa5b0f434c91fe5c7f1ecb6a5ece2130b02ad2a590589dda5146df959001"
 name = "roles_logic_sv2"
 version = "5.0.0"
 dependencies = [
+ "binary_sv2",
  "bitcoin",
  "chacha20poly1305",
  "channels_sv2",
@@ -2676,8 +2679,20 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "stratum-common"
 version = "4.0.1"
 dependencies = [
- "network_helpers_sv2",
+ "binary_sv2",
+ "bitcoin",
+ "buffer_sv2",
+ "channels_sv2",
+ "codec_sv2",
+ "common_messages_sv2",
+ "framing_sv2",
+ "handlers_sv2",
+ "job_declaration_sv2",
+ "mining_sv2",
+ "noise_sv2",
+ "parsers_sv2",
  "roles_logic_sv2",
+ "template_distribution_sv2",
 ]
 
 [[package]]

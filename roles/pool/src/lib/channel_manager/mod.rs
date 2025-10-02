@@ -24,6 +24,7 @@ use stratum_common::{
             HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
         mining_sv2::{ExtendedExtranonce, SetTarget},
+        noise_sv2::Responder,
         parsers_sv2::{Mining, TemplateDistribution},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
         utils::Mutex,
