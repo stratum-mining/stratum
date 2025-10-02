@@ -8,7 +8,7 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
-use stratum_common::roles_logic_sv2::parsers_sv2::Mining;
+use stratum_common::parsers_sv2::Mining;
 
 use super::error::JdsError;
 
@@ -171,10 +171,9 @@ mod tests {
 
     use super::*;
     use async_channel::{bounded, RecvError};
-    use stratum_common::roles_logic_sv2::{
-        self,
-        codec_sv2::{self, binary_sv2, noise_sv2},
-        mining_sv2::OpenMiningChannelError,
+    use stratum_common::{
+        binary_sv2, codec_sv2, framing_sv2, mining_sv2::OpenMiningChannelError, noise_sv2,
+        roles_logic_sv2,
     };
 
     #[tokio::test]
@@ -347,7 +346,7 @@ mod tests {
     async fn test_handle_error_framing_error() {
         let (tx, rx) = bounded(1);
         let sender = Sender::Downstream(tx);
-        let error = JdsError::Framing(codec_sv2::framing_sv2::Error::ExpectedHandshakeFrame);
+        let error = JdsError::Framing(framing_sv2::Error::ExpectedHandshakeFrame);
         let error_string = error.to_string();
         handle_error(&sender, error).await;
         match rx.recv().await {
