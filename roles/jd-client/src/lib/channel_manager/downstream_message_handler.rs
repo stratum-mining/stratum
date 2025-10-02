@@ -3,6 +3,7 @@ use stratum_common::roles_logic_sv2::{
     bitcoin::Amount,
     channels_sv2::{
         client,
+        outputs::deserialize_outputs,
         server::{
             error::{ExtendedChannelError, StandardChannelError},
             extended::ExtendedChannel,
@@ -26,7 +27,7 @@ use crate::{
     channel_manager::{ChannelManager, ChannelManagerChannel},
     error::JDCError,
     jd_mode::{get_jd_mode, JdMode},
-    utils::{deserialize_coinbase_outputs, StdFrame},
+    utils::StdFrame,
 };
 
 /// `RouteMessageTo` is an abstraction used to route protocol messages
@@ -191,6 +192,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let request_id = msg.get_request_id_as_u32();
         let user_string = msg.user_identity.as_utf8_or_hex();
 
+        let coinbase_outputs = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.coinbase_outputs.clone());
+
+        let mut coinbase_outputs = deserialize_outputs(coinbase_outputs)
+            .map_err(|_| JDCError::ChannelManagerHasBadCoinbaseOutputs)?;
+
         let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
             Some((user_identity, id)) => match id.parse::<u32>() {
                 Ok(id) => (user_identity, id),
@@ -239,9 +247,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         return Err(JDCError::DownstreamNotFound(downstream_id));
                     };
 
-                    let mut coinbase_output =
-                        deserialize_coinbase_outputs(&channel_manager_data.coinbase_outputs);
-                    coinbase_output[0].value =
+                    coinbase_outputs[0].value =
                         Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
                     downstream.downstream_data.super_safe_lock(|data| {
@@ -259,7 +265,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                             if let Err(e) = group_channel.on_new_template(
                                 last_future_template.clone(),
-                                coinbase_output.clone(),
+                                coinbase_outputs.clone(),
                             ) {
                                 error!(?e, "Failed to apply template to group channel");
                                 return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessNewTemplateGroupChannel(e)));
@@ -354,7 +360,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         );
 
                         if let Err(e) = standard_channel
-                            .on_new_template(last_future_template.clone(), coinbase_output.clone())
+                            .on_new_template(last_future_template.clone(), coinbase_outputs.clone())
                         {
                             error!(?e, "Failed to apply template to standard channel");
                             return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessNewTemplateStandardChannel(e)));
@@ -572,14 +578,17 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             ),
                         ).into());
 
-                        let mut coinbase_output = deserialize_coinbase_outputs(&channel_manager_data.coinbase_outputs);
-                        coinbase_output[0].value =
+                        let mut coinbase_outputs = match deserialize_outputs(channel_manager_data.coinbase_outputs.clone()) {
+                            Ok(outputs) => outputs,
+                            Err(_) => return Err(JDCError::ChannelManagerHasBadCoinbaseOutputs),
+                        };
+                        coinbase_outputs[0].value =
                             Amount::from_sat(last_future_template.coinbase_tx_value_remaining);
 
 
                         // create a future extended job based on the last future template
                         if let Err(e) =
-                            extended_channel.on_new_template(last_future_template.clone(), coinbase_output)
+                            extended_channel.on_new_template(last_future_template.clone(), coinbase_outputs)
                         {
                             error!(?e, "Failed to apply template to extended channel");
                             return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessNewTemplateExtendedChannel(e)));

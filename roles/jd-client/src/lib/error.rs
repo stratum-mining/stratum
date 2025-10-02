@@ -78,6 +78,9 @@ pub enum JDCError {
     TxDataError,
     FrameConversionError,
     FailedToCreateCustomJob,
+    AllocateMiningJobTokenSuccessCoinbaseOutputsError,
+    ChannelManagerHasBadCoinbaseOutputs,
+    DeclaredJobHasBadCoinbaseOutputs,
 }
 
 impl std::error::Error for JDCError {}
@@ -154,6 +157,18 @@ impl fmt::Display for JDCError {
             }
             FailedToCreateCustomJob => {
                 write!(f, "failed to create custom job")
+            }
+            AllocateMiningJobTokenSuccessCoinbaseOutputsError => {
+                write!(
+                    f,
+                    "AllocateMiningJobToken.Success coinbase outputs are not deserializable"
+                )
+            }
+            ChannelManagerHasBadCoinbaseOutputs => {
+                write!(f, "Channel Manager coinbase outputs are not deserializable")
+            }
+            DeclaredJobHasBadCoinbaseOutputs => {
+                write!(f, "Declared job coinbase outputs are not deserializable")
             }
         }
     }

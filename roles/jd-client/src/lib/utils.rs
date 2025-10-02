@@ -23,7 +23,6 @@ use async_channel::{Receiver, Sender};
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
-        bitcoin::{self, TxOut},
         codec_sv2::{binary_sv2::Str0255, Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
         common_messages_sv2::{
             Protocol, SetupConnection, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
@@ -369,11 +368,6 @@ pub fn spawn_io_tasks(
             spawned_at = %format!("{}:{}", caller.file(), caller.line())
         )));
     }
-}
-
-/// Deserializes a raw coinbase output into a list of transaction outputs.
-pub fn deserialize_coinbase_outputs(coinbase_output: &[u8]) -> Vec<TxOut> {
-    bitcoin::consensus::deserialize(coinbase_output).expect("Invalid coinbase output")
 }
 
 /// Represents the state of the upstream connection.
