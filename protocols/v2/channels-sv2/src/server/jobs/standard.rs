@@ -20,8 +20,8 @@
 //! mining servers.
 
 use crate::{
+    outputs::deserialize_template_outputs,
     server::jobs::{error::StandardJobError, Job},
-    template::deserialize_template_outputs,
 };
 use binary_sv2::{Sv2Option, U256};
 use bitcoin::transaction::TxOut;
