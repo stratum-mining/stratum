@@ -2,7 +2,7 @@ use std::{
     cell::RefCell,
     sync::{atomic::AtomicBool, Arc},
 };
-use stratum_common::roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
+use stratum_common::{mining_sv2::Target, roles_logic_sv2::utils::Mutex};
 use tracing::debug;
 use v1::{json_rpc, utils::HexU32Be};
 

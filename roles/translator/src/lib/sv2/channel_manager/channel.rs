@@ -1,6 +1,6 @@
 use crate::sv2::upstream::upstream::EitherFrame;
 use async_channel::{Receiver, Sender};
-use stratum_common::roles_logic_sv2::parsers_sv2::Mining;
+use stratum_common::parsers_sv2::Mining;
 use tracing::debug;
 
 #[derive(Clone, Debug)]

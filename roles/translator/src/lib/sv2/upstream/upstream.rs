@@ -9,12 +9,13 @@ use async_channel::{Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection::Connection;
 use std::{net::SocketAddr, sync::Arc};
-use stratum_common::roles_logic_sv2::{
-    codec_sv2::{
-        self, framing_sv2, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame,
-    },
+use stratum_common::{
+    buffer_sv2,
+    codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
     common_messages_sv2::{Protocol, SetupConnection},
+    framing_sv2,
     handlers_sv2::HandleCommonMessagesFromServerAsync,
+    noise_sv2::Initiator,
     parsers_sv2::AnyMessage,
 };
 use tokio::{
@@ -227,7 +228,7 @@ impl Upstream {
                 Err(e) => {
                     error!("Failed to receive handshake response from upstream: {}", e);
                     return Err(TproxyError::CodecNoise(
-                        codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                        stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                     ));
                 }
             };
@@ -264,8 +265,10 @@ impl Upstream {
                 let std_frame: StdFrame = sv2_frame;
 
                 // Parse message from frame
-                let mut frame: codec_sv2::Frame<AnyMessage<'static>, buffer_sv2::Slice> =
-                    std_frame.clone().into();
+                let mut frame: stratum_common::framing_sv2::framing::Frame<
+                    AnyMessage<'static>,
+                    buffer_sv2::Slice,
+                > = std_frame.clone().into();
 
                 let (messsage_type, mut payload, parsed_message) = message_from_frame(&mut frame)?;
 
