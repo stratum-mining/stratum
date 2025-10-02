@@ -1,3 +1,5 @@
+use stratum_common::{binary_sv2, codec_sv2};
+
 #[derive(std::fmt::Debug)]
 pub enum Error {
     Io(std::io::Error),
