@@ -198,10 +198,11 @@ impl Downstream {
                         .load(std::sync::atomic::Ordering::SeqCst)
                 });
 
-                // Sv1 handshake complete - send messages immediately, or if it's a queued
-                // Sv1 handshake message response
-                if handshake_complete || is_queued_sv1_handshake_response {
-                    if let Message::Notification(notification) = &message {
+                // Handle messages based on message type and handshake state
+                if let Message::Notification(notification) = &message {
+                    // For notifications (mining.set_difficulty, mining.notify), only send if
+                    // handshake is complete
+                    if handshake_complete {
                         match notification.method.as_str() {
                             "mining.set_difficulty" => {
                                 // Cache the Sv1 set_difficulty message to be sent before the next
@@ -262,6 +263,7 @@ impl Downstream {
                                 }
 
                                 if let Some(notify) = notify_opt {
+                                    debug!("Down: Sending mining.notify");
                                     self.downstream_channel_state
                                         .downstream_sv1_sender
                                         .send(notify.into())
@@ -273,30 +275,29 @@ impl Downstream {
                                 }
                                 return Ok(());
                             }
-                            _ => {} // Not a special message, proceed below
+                            _ => {
+                                // Other notifications - forward if handshake complete
+                                self.downstream_channel_state
+                                    .downstream_sv1_sender
+                                    .send(message.clone())
+                                    .await
+                                    .map_err(|e| {
+                                        error!(
+                                            "Down: Failed to send notification to downstream: {:?}",
+                                            e
+                                        );
+                                        TproxyError::ChannelErrorSender
+                                    })?;
+                            }
                         }
-                    }
-
-                    // Default path: forward all other messages
-                    self.downstream_channel_state
-                        .downstream_sv1_sender
-                        .send(message.clone())
-                        .await
-                        .map_err(|e| {
-                            error!("Down: Failed to send message to downstream: {:?}", e);
-                            TproxyError::ChannelErrorSender
-                        })?;
-                } else {
-                    // Sv1 handshake not complete - cache only mining.set_difficulty and
-                    // mining.notify messages
-                    if let Message::Notification(notification) = &message {
+                    } else {
+                        // Handshake not complete - cache mining notifications but skip others
                         match notification.method.as_str() {
                             "mining.set_difficulty" => {
                                 debug!("Down: SV1 handshake not complete, caching mining.set_difficulty");
                                 self.downstream_data.super_safe_lock(|d| {
                                     d.cached_set_difficulty = Some(message);
                                 });
-                                return Ok(());
                             }
                             "mining.notify" => {
                                 debug!("Down: SV1 handshake not complete, caching mining.notify");
@@ -307,12 +308,28 @@ impl Downstream {
                                             .expect("this must be a mining.notify");
                                     d.last_job_version_field = Some(notify.version.0);
                                 });
-                                return Ok(());
                             }
-                            _ => {}
+                            _ => {
+                                debug!(
+                                    "Down: SV1 handshake not complete, skipping other notification"
+                                );
+                            }
                         }
                     }
-                    debug!("Down: SV1 handshake not complete, skipping other message");
+                } else if is_queued_sv1_handshake_response {
+                    // For non-notification messages, send if processing queued handshake responses
+                    self.downstream_channel_state
+                        .downstream_sv1_sender
+                        .send(message.clone())
+                        .await
+                        .map_err(|e| {
+                            error!("Down: Failed to send queued message to downstream: {:?}", e);
+                            TproxyError::ChannelErrorSender
+                        })?;
+                } else {
+                    // Neither handshake complete nor queued response - skip non-notification
+                    // messages
+                    debug!("Down: SV1 handshake not complete, skipping non-notification message");
                 }
             }
             Err(e) => {
@@ -412,6 +429,7 @@ impl Downstream {
                 // Check if this was an authorize message and handle sv1 handshake completion
                 if let v1::json_rpc::Message::StandardRequest(request) = &message {
                     if request.method == "mining.authorize" {
+                        info!("Down: Handling mining.authorize after handshake completion");
                         if let Err(e) = self.handle_sv1_handshake_completion().await {
                             error!("Down: Failed to handle handshake completion: {:?}", e);
                             return Err(e);
