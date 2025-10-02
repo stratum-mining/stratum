@@ -1,8 +1,11 @@
 use crate::messages::{Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE};
-use codec_sv2::{Frame, StandardDecoder, StandardSv2Frame};
 use std::{
     io::{Read, Write},
     net::TcpStream,
+};
+use stratum_common::{
+    binary_sv2,
+    codec_sv2::{self, StandardDecoder, StandardSv2Frame},
 };
 
 use crate::error::Error;
