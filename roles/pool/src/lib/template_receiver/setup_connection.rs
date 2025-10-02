@@ -9,13 +9,15 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use stratum_common::roles_logic_sv2::{
-    self, codec_sv2,
+use stratum_common::{
+    codec_sv2,
     common_messages_sv2::{Protocol, Reconnect, SetupConnection, SetupConnectionError},
-    errors::Error,
-    handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
     parsers_sv2::{AnyMessage, CommonMessages},
-    utils::Mutex,
+    roles_logic_sv2::{
+        errors::Error,
+        handlers::common::{ParseCommonMessagesFromUpstream, SendTo},
+        utils::Mutex,
+    },
 };
 use tracing::{error, info};
 
@@ -82,7 +84,7 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     // Handles a successful setup connection response from the template provider.
     fn handle_setup_connection_success(
         &mut self,
-        m: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
+        m: stratum_common::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendTo, Error> {
         info!(
             "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
@@ -116,14 +118,14 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     // Handles a channel endpoint change notification from the template provider.
     fn handle_channel_endpoint_changed(
         &mut self,
-        m: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
+        m: stratum_common::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<SendTo, Error> {
         info!(
             "Received ChannelEndpointChanged with channel id: {}",
             m.channel_id
         );
         Err(Error::UnexpectedMessage(
-            roles_logic_sv2::common_messages_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            stratum_common::common_messages_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
     }
 
