@@ -14,7 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 bitcoin = { version = "0.32.5" }
-channels_sv2 = { path = "../channels-sv2", version = "^1.0.0" }
+channels_sv2 = { path = "../channels-sv2", version = "^2.0.0" }
 parsers_sv2 = { path = "../parsers-sv2", version = "^0.1.0" }
 handlers_sv2 = { path = "../handlers-sv2", version = "^0.1.0" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^6.0.0" }
