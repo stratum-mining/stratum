@@ -1,6 +1,6 @@
 [package]
 name = "bip32_derivation"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "bip32_derivation"
@@ -20,7 +20,7 @@ name = "bip32_derivation-bin"
 path = "src/main.rs"
 
 [dependencies]
-stratum-common = { path = "../../common", version = "4.0.0" }
+stratum-common = { path = "../../common", version = "5.0.0" }
 
 
 [dev-dependencies]
