@@ -22,9 +22,9 @@ use async_channel::Receiver;
 use hashbrown::HashMap;
 use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{str::FromStr, sync::Arc};
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
     bitcoin::{blockdata::transaction::Transaction, hash_types::Txid},
-    utils::Mutex,
+    roles_logic_sv2::utils::Mutex,
 };
 
 /// Wrapper around a known transaction and its hash.
