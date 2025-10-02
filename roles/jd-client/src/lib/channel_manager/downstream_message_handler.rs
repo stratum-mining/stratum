@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
-use stratum_common::roles_logic_sv2::{
-    self,
+use stratum_common::{
+    binary_sv2::Str0255,
     bitcoin::Amount,
     channels_sv2::{
         client,
@@ -16,11 +16,11 @@ use stratum_common::roles_logic_sv2::{
         },
         Vardiff, VardiffState,
     },
-    codec_sv2::binary_sv2::Str0255,
     handlers_sv2::{HandleMiningMessagesFromClientAsync, SupportedChannelTypes},
     job_declaration_sv2::PushSolution,
     mining_sv2::*,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
+    roles_logic_sv2,
     template_distribution_sv2::SubmitSolution,
 };
 use tracing::{debug, error, info, warn};

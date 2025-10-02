@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
+use stratum_common::bitcoin::{Amount, TxOut};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct JobDeclaratorClientConfig {

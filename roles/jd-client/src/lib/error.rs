@@ -12,15 +12,13 @@
 //! This module ensures that all errors can be passed around consistently, including across async
 //! boundaries.
 use ext_config::ConfigError;
+use network_helpers_sv2;
 use std::fmt;
-use stratum_common::{
-    network_helpers_sv2,
-    roles_logic_sv2::{
-        self, bitcoin,
-        channels_sv2::server::error::GroupChannelError,
-        codec_sv2::{self, binary_sv2, framing_sv2},
-        handlers_sv2::HandlerErrorType,
-        parsers_sv2::ParserError,
+use stratum_apps::{
+    network_helpers,
+    stratum_core::{
+        binary_sv2, bitcoin, channels_sv2::server::error::GroupChannelError, framing_sv2,
+        handlers_sv2::HandlerErrorType, noise_sv2, parsers_sv2::ParserError, roles_logic_sv2,
     },
 };
 use tokio::{sync::broadcast, time::error::Elapsed};
@@ -36,7 +34,7 @@ pub enum JDCError {
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
-    CodecNoise(codec_sv2::noise_sv2::Error),
+    CodecNoise(noise_sv2::Error),
     /// Errors from `framing_sv2` crate.
     FramingSv2(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
@@ -60,7 +58,7 @@ pub enum JDCError {
     /// Broadcast channel receiver error
     BroadcastChannelErrorReceiver(broadcast::error::RecvError),
     Shutdown,
-    NetworkHelpersError(stratum_common::network_helpers_sv2::Error),
+    NetworkHelpersError(network_helpers_sv2::Error),
     UnexpectedMessage(u8),
     InvalidUserIdentity(String),
     BitcoinEncodeError(bitcoin::consensus::encode::Error),
@@ -227,8 +225,8 @@ impl From<binary_sv2::Error> for JDCError {
     }
 }
 
-impl From<codec_sv2::noise_sv2::Error> for JDCError {
-    fn from(e: codec_sv2::noise_sv2::Error) -> Self {
+impl From<noise_sv2::Error> for JDCError {
+    fn from(e: noise_sv2::Error) -> Self {
         JDCError::CodecNoise(e)
     }
 }
@@ -281,8 +279,8 @@ impl From<network_helpers_sv2::Error> for JDCError {
     }
 }
 
-impl From<stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error> for JDCError {
-    fn from(value: stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error) -> Self {
+impl From<stratum_common::bitcoin::consensus::encode::Error> for JDCError {
+    fn from(value: stratum_common::bitcoin::consensus::encode::Error) -> Self {
         JDCError::BitcoinEncodeError(value)
     }
 }

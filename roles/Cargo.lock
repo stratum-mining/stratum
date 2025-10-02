@@ -1656,7 +1656,6 @@ name = "jd_client_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
- "buffer_sv2",
  "clap",
  "config",
  "config_helpers_sv2",

@@ -1,4 +1,4 @@
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
     common_messages_sv2::{
         ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess,
     },
