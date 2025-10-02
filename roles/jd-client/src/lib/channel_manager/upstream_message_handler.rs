@@ -1,9 +1,9 @@
-use stratum_common::roles_logic_sv2::{
-    self,
+use stratum_common::{
     channels_sv2::{client::extended::ExtendedChannel, server::jobs::factory::JobFactory},
     handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
     mining_sv2::*,
     parsers_sv2::{AnyMessage, Mining, TemplateDistribution},
+    roles_logic_sv2,
     template_distribution_sv2::RequestTransactionData,
 };
 use tracing::{debug, error, info, warn};
