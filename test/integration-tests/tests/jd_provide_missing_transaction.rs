@@ -1,5 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, template_provider::DifficultyLevel, *};
-use stratum_common::roles_logic_sv2::job_declaration_sv2::*;
+use stratum_common::job_declaration_sv2::*;
 
 #[tokio::test]
 async fn jds_ask_for_missing_transactions() {
