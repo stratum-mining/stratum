@@ -1,7 +1,10 @@
 use std::{
     collections::{HashMap, VecDeque},
     net::SocketAddr,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 use async_channel::{Receiver, Sender};
@@ -12,7 +15,6 @@ use stratum_common::{
         self,
         channels_sv2::{
             client::extended::ExtendedChannel,
-            id_factory::IdFactory,
             server::{
                 jobs::{
                     extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
@@ -100,17 +102,17 @@ pub struct ChannelManagerData {
     extranonce_prefix_factory_standard: ExtendedExtranonce,
     // Factory that generates **monotonically increasing request IDs**
     // for messages sent from the JDC.
-    request_id_factory: IdFactory,
+    request_id_factory: AtomicU32,
     // Factory that assigns a unique ID to each new **downstream connection**.
-    downstream_id_factory: IdFactory,
+    downstream_id_factory: AtomicU32,
     // Factory that assigns a unique **channel ID** to each channel.
     //
     // ⚠️ Note: In this version of the JDC, channel IDs are unique
     // across *all downstreams*, not scoped per downstream.
-    channel_id_factory: IdFactory,
+    channel_id_factory: AtomicU32,
     // Factory that assigns a unique **sequence number** to each share
     // submitted from the JDC to the upstream.
-    sequence_number_factory: IdFactory,
+    sequence_number_factory: AtomicU32,
     // The last **future template** received from the upstream.
     last_future_template: Option<NewTemplate<'static>>,
     // The last **new prevhash** received from the upstream.
@@ -160,9 +162,9 @@ impl ChannelManagerData {
         self.channel_id_to_downstream_id.clear();
         self.pending_downstream_requests.clear();
 
-        self.downstream_id_factory = IdFactory::new();
-        self.request_id_factory = IdFactory::new();
-        self.channel_id_factory = IdFactory::new();
+        self.downstream_id_factory = AtomicU32::new(0);
+        self.request_id_factory = AtomicU32::new(0);
+        self.channel_id_factory = AtomicU32::new(0);
 
         let (range_0, range_1, range_2) = {
             let range_1 = 0..JDC_SEARCH_SPACE_BYTES;
@@ -281,10 +283,10 @@ impl ChannelManager {
             downstream: HashMap::new(),
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
-            downstream_id_factory: IdFactory::new(),
-            request_id_factory: IdFactory::new(),
-            channel_id_factory: IdFactory::new(),
-            sequence_number_factory: IdFactory::new(),
+            downstream_id_factory: AtomicU32::new(0),
+            request_id_factory: AtomicU32::new(0),
+            channel_id_factory: AtomicU32::new(0),
+            sequence_number_factory: AtomicU32::new(0),
             last_future_template: None,
             last_new_prev_hash: None,
             allocate_tokens: None,
@@ -404,7 +406,7 @@ impl ChannelManager {
 
                                 let downstream_id = self
                                     .channel_manager_data
-                                    .super_safe_lock(|data| data.downstream_id_factory.next());
+                                    .super_safe_lock(|data| data.downstream_id_factory.fetch_add(1, Ordering::Relaxed));
 
                                 let downstream = Downstream::new(
                                     downstream_id,
@@ -867,7 +869,7 @@ impl ChannelManager {
         for i in 0..token_to_allocate {
             let request_id = self
                 .channel_manager_data
-                .super_safe_lock(|data| data.request_id_factory.next());
+                .super_safe_lock(|data| data.request_id_factory.fetch_add(1, Ordering::Relaxed));
 
             debug!(
                 request_id,

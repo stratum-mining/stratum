@@ -8,7 +8,7 @@
 use super::super::mining_pool::Downstream;
 use std::{
     convert::TryInto,
-    sync::{Arc, RwLock},
+    sync::{atomic::Ordering, Arc, RwLock},
 };
 use stratum_common::roles_logic_sv2::{
     bitcoin::{consensus::Decodable, transaction::TxOut, Amount},
@@ -99,7 +99,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
         if !self.requires_standard_jobs && self.group_channel.is_none() {
             // we only create one group channel for all standard channels
 
-            let group_channel_id = self.channel_id_factory.next();
+            let group_channel_id = self.channel_id_factory.fetch_add(1, Ordering::Relaxed);
             let job_store = DefaultJobStore::new();
 
             let mut group_channel = GroupChannel::new_for_pool(
@@ -131,7 +131,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             .and_then(|res| res.map_err(Error::ExtranoncePrefixFactoryError))?
             .to_vec();
 
-        let channel_id = self.channel_id_factory.next();
+        let channel_id = self.channel_id_factory.fetch_add(1, Ordering::Relaxed);
         let job_store = DefaultJobStore::new();
         let mut standard_channel = match StandardChannel::new_for_pool(
             channel_id,
@@ -313,7 +313,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             }
         };
 
-        let channel_id = self.channel_id_factory.next();
+        let channel_id = self.channel_id_factory.fetch_add(1, Ordering::Relaxed);
         let job_store = DefaultJobStore::new();
         let mut extended_channel = match ExtendedChannel::new_for_pool(
             channel_id,

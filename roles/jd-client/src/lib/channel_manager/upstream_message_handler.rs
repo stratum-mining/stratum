@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use stratum_common::roles_logic_sv2::{
     self,
     channels_sv2::{
@@ -154,7 +156,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         data.last_future_template.clone(),
                         data.last_new_prev_hash.clone(),
                     ) {
-                        let request_id = data.request_id_factory.next();
+                        let request_id = data.request_id_factory.fetch_add(1, Ordering::Relaxed);
 
                         if let Ok(custom_job) = job_factory.new_custom_job(
                             extended_channel.get_channel_id(),

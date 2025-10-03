@@ -26,7 +26,11 @@ use core::panic;
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use nohash_hasher::BuildNoHashHasher;
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    sync::{atomic::AtomicU32, Arc},
+};
 use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
     roles_logic_sv2::{
@@ -37,7 +41,6 @@ use stratum_common::{
             hashes::{sha256d::Hash as DHash, Hash},
             Amount, Block, BlockHash, CompactTarget, Transaction, TxOut, Txid,
         },
-        channels_sv2::id_factory::IdFactory,
         codec_sv2::{
             binary_sv2::{self, B0255, U256},
             HandshakeRole, Responder,
@@ -100,7 +103,7 @@ pub struct JobDeclaratorDownstream {
     // TODO: use coinbase output
     coinbase_output: Vec<u8>,
     token_to_job_map: HashMap<u32, Option<u8>, BuildNoHashHasher<u32>>,
-    tokens: IdFactory,
+    tokens: AtomicU32,
     public_key: Secp256k1PublicKey,
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
@@ -125,7 +128,7 @@ impl JobDeclaratorDownstream {
     ) -> Self {
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
-        let tokens = IdFactory::new();
+        let tokens = AtomicU32::new(0);
         let add_txs_to_mempool_inner = AddTrasactionsToMempoolInner {
             known_transactions: vec![],
             unknown_transactions: vec![],
