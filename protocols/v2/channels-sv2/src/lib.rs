@@ -25,5 +25,5 @@ pub mod bip141;
 pub mod chain_tip;
 pub mod client;
 pub mod id_factory;
-mod merkle_root;
+pub mod merkle_root;
 pub mod target;
