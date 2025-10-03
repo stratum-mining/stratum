@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use stratum_common::roles_logic_sv2::{
     bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut},
     channels_sv2::chain_tip::ChainTip,
@@ -101,7 +103,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     channel_manager_data.allocate_tokens.clone(),
                                     channel_manager_data.last_new_prev_hash.clone(),
                                 ) {
-                                    let request_id = channel_manager_data.request_id_factory.next();
+                                    let request_id = channel_manager_data.request_id_factory.fetch_add(1, Ordering::Relaxed);
                                     let output = deserialize_coinbase_outputs(&channel_manager_data.coinbase_outputs);
                                     let job_factory = channel_manager_data.job_factory.as_mut().unwrap();
                                     let custom_job = job_factory.new_custom_job(upstream_channel.get_channel_id(), request_id, token.clone().mining_job_token, prevhash.clone().into(), msg.clone(), output);
@@ -275,7 +277,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                 (
                     data.allocate_tokens.clone(),
                     data.template_store.remove(&msg.template_id),
-                    data.request_id_factory.next(),
+                    data.request_id_factory.fetch_add(1, Ordering::Relaxed),
                     data.last_new_prev_hash.clone(),
                 )
             });
@@ -437,7 +439,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         data.allocate_tokens.clone(),
                         future_template.clone(),
                     ) {
-                        let request_id = data.request_id_factory.next();
+                        let request_id = data.request_id_factory.fetch_add(1, Ordering::Relaxed);
                         let chain_tip = ChainTip::new(
                             msg.prev_hash.clone().into_static(),
                             msg.n_bits,

@@ -24,5 +24,5 @@ pub mod template;
 pub mod bip141;
 pub mod chain_tip;
 pub mod client;
-mod merkle_root;
+pub mod merkle_root;
 pub mod target;

@@ -45,7 +45,7 @@ impl Job {
             .map(|node| node.into())
             .collect();
 
-        let merkle_root = roles_logic_sv2::utils::merkle_root_from_path(
+        let merkle_root = roles_logic_sv2::channels_sv2::merkle_root::merkle_root_from_path(
             &coinbase_tx_prefix,
             &coinbase_tx_suffix,
             &extranonce,
