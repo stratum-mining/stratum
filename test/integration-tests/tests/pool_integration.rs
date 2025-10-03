@@ -94,7 +94,7 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer";
     let (tp_pool_sniffer, tp_pool_sniffer_addr) =
         start_sniffer(tp_pool_sniffer_identifier, tp_addr, false, vec![], None);
-    let (_, pool_addr) = start_pool(Some(tp_pool_sniffer_addr)).await;
+    let (_pool, pool_addr) = start_pool(Some(tp_pool_sniffer_addr)).await;
     let pool_translator_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job pool_translator sniffer";
     let (pool_translator_sniffer, pool_translator_sniffer_addr) = start_sniffer(
