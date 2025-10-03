@@ -17,7 +17,6 @@
 //!
 //! All components communicate asynchronously using `async_channel`.
 
-pub(crate) mod block_creator;
 pub mod config;
 pub mod error;
 pub mod job_declarator;

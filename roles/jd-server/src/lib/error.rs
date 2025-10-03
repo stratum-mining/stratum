@@ -45,6 +45,9 @@ pub enum JdsError {
     NoLastDeclaredJob,
     InvalidRPCUrl,
     BadCliArgs,
+    InvalidPrevHash,
+    InvalidCoinbase,
+    InvalidMerkleRoot,
 }
 
 impl std::fmt::Display for JdsError {
@@ -71,6 +74,9 @@ impl std::fmt::Display for JdsError {
             NoLastDeclaredJob => write!(f, "Last declared job not found"),
             InvalidRPCUrl => write!(f, "Invalid Template Provider RPC URL"),
             BadCliArgs => write!(f, "Bad CLI arg input"),
+            InvalidPrevHash => write!(f, "Invalid previous hash"),
+            InvalidCoinbase => write!(f, "Invalid coinbase"),
+            InvalidMerkleRoot => write!(f, "Invalid merkle root"),
         }
     }
 }
