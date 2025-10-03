@@ -2025,7 +2025,7 @@ dependencies = [
 
 [[package]]
 name = "roles_logic_sv2"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
