@@ -18,7 +18,6 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget},
-        channels_sv2::id_factory::IdFactory,
         codec_sv2,
         codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame},
         common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
@@ -264,7 +263,7 @@ pub struct Device {
     miner: Arc<Mutex<Miner>>,
     jobs: Vec<NewMiningJob<'static>>,
     prev_hash: Option<SetNewPrevHash<'static>>,
-    sequence_numbers: IdFactory,
+    sequence_numbers: AtomicU32,
     notify_changes_to_mining_thread: NewWorkNotifier,
 }
 
@@ -330,7 +329,7 @@ impl Device {
             jobs: Vec::new(),
             prev_hash: None,
             channel_id: None,
-            sequence_numbers: IdFactory::new(),
+            sequence_numbers: AtomicU32::new(0),
             notify_changes_to_mining_thread: NewWorkNotifier {
                 should_send: true,
                 sender: notify_changes_to_mining_thread,
@@ -402,7 +401,9 @@ impl Device {
         let share =
             MiningDeviceMessages::Mining(Mining::SubmitSharesStandard(SubmitSharesStandard {
                 channel_id: self_mutex.safe_lock(|s| s.channel_id.unwrap()).unwrap(),
-                sequence_number: self_mutex.safe_lock(|s| s.sequence_numbers.next()).unwrap(),
+                sequence_number: self_mutex
+                    .safe_lock(|s| s.sequence_numbers.fetch_add(1, Ordering::Relaxed))
+                    .unwrap(),
                 job_id,
                 nonce,
                 ntime,
