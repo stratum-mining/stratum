@@ -153,6 +153,15 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
         }
         JdsError::InvalidRPCUrl => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::InvalidPrevHash => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        JdsError::InvalidCoinbase => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        JdsError::InvalidMerkleRoot => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
     }
 }
 

@@ -31,7 +31,12 @@ use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
     roles_logic_sv2::{
         self,
-        bitcoin::{consensus::encode::serialize, Amount, Block, Transaction, TxOut, Txid},
+        bitcoin::{
+            block::{Header, Version},
+            consensus::{deserialize, encode::serialize},
+            hashes::{sha256d::Hash as DHash, Hash},
+            Amount, Block, BlockHash, CompactTarget, Transaction, TxOut, Txid,
+        },
         channels_sv2::id_factory::IdFactory,
         codec_sv2::{
             binary_sv2::{self, B0255, U256},
@@ -157,10 +162,46 @@ impl JobDeclaratorDownstream {
             .safe_lock(|x| x.declared_mining_job.clone())
             .map_err(|e| Box::new(JdsError::PoisonLock(e.to_string())))?;
         let last_declare = last_declare_.ok_or(Box::new(JdsError::NoLastDeclaredJob))?;
-        let transactions_list = Self::collect_txs_in_job(self_mutex)?;
-        let block: Block =
-            roles_logic_sv2::utils::BlockCreator::new(last_declare, transactions_list, message)
-                .into();
+        let mut transactions_list = Self::collect_txs_in_job(self_mutex)?;
+
+        let hash: [u8; 32] = message
+            .prev_hash
+            .to_vec()
+            .try_into()
+            .map_err(|_| Box::new(JdsError::InvalidPrevHash))?;
+        let hash = Hash::from_slice(&hash).expect("32 bytes should always be valid sha256d hash");
+        let prev_blockhash = BlockHash::from_raw_hash(hash);
+
+        let dummy_merkle_root =
+            DHash::from_slice(&[0u8; 32]).expect("32 bytes should always be valid sha256d hash");
+
+        let header = Header {
+            version: Version::from_consensus(message.version as i32),
+            prev_blockhash,
+            merkle_root: dummy_merkle_root.into(),
+            time: message.ntime,
+            bits: CompactTarget::from_consensus(message.nbits),
+            nonce: message.nonce,
+        };
+
+        let mut serialized_coinbase = Vec::new();
+        serialized_coinbase.extend_from_slice(last_declare.coinbase_tx_prefix.to_vec().as_slice());
+        serialized_coinbase.extend_from_slice(message.extranonce.to_vec().as_slice());
+        serialized_coinbase.extend_from_slice(last_declare.coinbase_tx_suffix.to_vec().as_slice());
+        let coinbase = deserialize(&serialized_coinbase[..])
+            .map_err(|_| Box::new(JdsError::InvalidCoinbase))?;
+        transactions_list.insert(0, coinbase);
+
+        let mut block = Block {
+            header,
+            txdata: transactions_list,
+        };
+
+        let merkle_root = block
+            .compute_merkle_root()
+            .ok_or(Box::new(JdsError::InvalidMerkleRoot))?;
+        block.header.merkle_root = merkle_root;
+
         Ok(hex::encode(serialize(&block)))
     }
 
