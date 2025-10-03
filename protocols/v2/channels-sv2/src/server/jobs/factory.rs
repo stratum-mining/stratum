@@ -24,8 +24,8 @@ use crate::{
     bip141::try_strip_bip141,
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
+    outputs::deserialize_template_outputs,
     server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
-    template::deserialize_template_outputs,
 };
 use binary_sv2::{Sv2Option, B0255};
 use bitcoin::{

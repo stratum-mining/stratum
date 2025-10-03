@@ -19,7 +19,7 @@
 pub mod server;
 
 #[cfg(not(feature = "no_std"))]
-pub mod template;
+pub mod outputs;
 
 pub mod bip141;
 pub mod chain_tip;

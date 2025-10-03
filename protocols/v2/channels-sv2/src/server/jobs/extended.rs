@@ -1,8 +1,8 @@
 use super::Job;
 use crate::{
     merkle_root::merkle_root_from_path,
+    outputs::deserialize_template_outputs,
     server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
-    template::deserialize_template_outputs,
 };
 use binary_sv2::{Seq0255, Sv2Option, U256};
 use bitcoin::transaction::TxOut;

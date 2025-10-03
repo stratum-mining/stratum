@@ -23,7 +23,6 @@ use async_channel::{Receiver, Sender};
 use stratum_common::{
     network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
     roles_logic_sv2::{
-        bitcoin::{self, TxOut},
         codec_sv2::{binary_sv2::Str0255, Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
         common_messages_sv2::{
             Protocol, SetupConnection, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
@@ -371,11 +370,6 @@ pub fn spawn_io_tasks(
     }
 }
 
-/// Deserializes a raw coinbase output into a list of transaction outputs.
-pub fn deserialize_coinbase_outputs(coinbase_output: &[u8]) -> Vec<TxOut> {
-    bitcoin::consensus::deserialize(coinbase_output).expect("Invalid coinbase output")
-}
-
 /// Represents the state of the upstream connection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpstreamState {
@@ -490,7 +484,7 @@ impl PendingChannelRequest {
 ///
 /// The `msg` is converted into a [`Str0255`] reason code.  
 /// If conversion fails, this function will panic.
-pub(crate) fn create_close_channel_msg<'a>(channel_id: u32, msg: &'a str) -> CloseChannel<'a> {
+pub(crate) fn create_close_channel_msg(channel_id: u32, msg: &str) -> CloseChannel<'_> {
     CloseChannel {
         channel_id,
         reason_code: Str0255::try_from(msg.to_string()).expect("Could not convert message."),
