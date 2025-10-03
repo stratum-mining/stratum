@@ -10,6 +10,8 @@ pub mod error;
 pub mod mining_pool;
 pub mod status;
 pub mod template_receiver;
+#[cfg(feature = "persistence")]
+pub mod share_persistence;
 use async_channel::{bounded, unbounded};
 use config::PoolConfig;
 use error::PoolError;

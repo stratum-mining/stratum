@@ -23,7 +23,10 @@ use super::{
     error::{PoolError, PoolResult},
     status,
 };
-use crate::config::PoolConfig;
+use crate::{
+    config::PoolConfig,
+    share_persistence::{ShareFileHandler, ShareFilePersistence},
+};
 use async_channel::{Receiver, Sender};
 use config_helpers_sv2::CoinbaseRewardScript;
 use error_handling::handle_result;
@@ -37,6 +40,7 @@ use std::{
     sync::{Arc, RwLock},
     time::Duration,
 };
+use stratum_common::roles_logic_sv2::channels_sv2::persistence::Persistence;
 use stratum_common::{
     network_helpers_sv2::noise_connection::Connection,
     roles_logic_sv2::{
@@ -108,10 +112,10 @@ pub struct Downstream {
     extranonce_prefix_factory_standard: Arc<Mutex<ExtendedExtranonce>>,
     // A map of all extended channels, keyed by their ID.
     extended_channels:
-        HashMap<u32, Arc<RwLock<ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>>>,
+        HashMap<u32, Arc<RwLock<ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, ShareFilePersistence>>>>,
     // A map of all standard channels, keyed by their ID.
     standard_channels:
-        HashMap<u32, Arc<RwLock<StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>>>,
+        HashMap<u32, Arc<RwLock<StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, ShareFilePersistence>>>>,
     vardiff: HashMap<u32, Arc<RwLock<VardiffState>>>,
     // naive approach:
     // we create one group channel for the connection
@@ -126,6 +130,8 @@ pub struct Downstream {
     coinbase_reward_script: CoinbaseRewardScript,
     // string to be written into the coinbase scriptSig on non-JD jobs
     pool_tag_string: String,
+    // Share persistence for channel creation
+    share_persistence: ShareFilePersistence,
 }
 
 /// The central state manager for the mining pool.
@@ -154,6 +160,7 @@ pub struct Pool {
     last_new_prev_hash: Option<SetNewPrevHashTdp<'static>>,
     // string to be written into the coinbase scriptSig on non-JD jobs
     pool_tag_string: String,
+    share_persistence: ShareFilePersistence,
 }
 
 impl Downstream {
@@ -193,6 +200,7 @@ impl Downstream {
             pool.safe_lock(|p| p.extranonce_prefix_factory_standard.clone())?;
 
         let share_batch_size = pool.safe_lock(|p| p.share_batch_size)?;
+        let share_persistence = pool.safe_lock(|p| p.share_persistence.clone())?;
 
         // prevents undefined behavior if some client connects
         // before the first template and prev hash are cached
@@ -241,6 +249,7 @@ impl Downstream {
             last_new_prev_hash,
             coinbase_reward_script,
             pool_tag_string: pool_tag,
+            share_persistence,
         }));
 
         tokio::spawn(spawn_vardiff_loop(self_.clone(), sender.clone(), id));
@@ -395,6 +404,8 @@ impl Downstream {
         sender.send(sv2_frame.into()).await?;
         Ok(())
     }
+
+
 }
 
 // Verifies token for a custom job which is the signed tx_hash_list_hash by Job Declarator Server
@@ -1023,6 +1034,23 @@ impl Pool {
             ExtendedExtranonce::new(range_0, range_1, range_2, Some(static_prefix.clone()))
                 .expect("Failed to create ExtendedExtranonce with valid ranges");
 
+        let share_persistence = if let Some(file_path) = config.share_persistence_file_path() {
+            let mut handler = ShareFileHandler::new(file_path, status_tx.clone()).await;
+            let sender = handler.get_sender();
+            let receiver = handler.get_receiver();
+
+            // Start background task to handle persistence events using the existing handler logic
+            tokio::spawn(async move {
+                while let Ok(event) = receiver.recv().await {
+                    handler.write_event_to_file(event).await;
+                }
+            });
+
+            ShareFilePersistence::new(sender)
+        } else {
+            panic!("No share file path passed in config")
+        };
+
         // --- Initialize Pool State ---
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
@@ -1040,6 +1068,7 @@ impl Pool {
             last_future_template: None,
             last_new_prev_hash: None,
             pool_tag_string: config.pool_signature().clone(),
+            share_persistence,
         }));
 
         let cloned = pool.clone();
@@ -1149,7 +1178,7 @@ async fn send_set_target_downstream(
 
 fn run_vardiff_on_extended_channel(
     channel_id: u32,
-    channel: Arc<RwLock<ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>>,
+    channel: Arc<RwLock<ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, ShareFilePersistence>>>,
     vardiff_state: Arc<RwLock<VardiffState>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
@@ -1193,7 +1222,7 @@ fn run_vardiff_on_extended_channel(
 
 fn run_vardiff_on_standard_channel(
     channel_id: u32,
-    channel: Arc<RwLock<StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>>,
+    channel: Arc<RwLock<StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, ShareFilePersistence>>>,
     vardiff_state: &Arc<RwLock<VardiffState>>,
     updates: &mut Vec<(u32, Target)>,
 ) {
