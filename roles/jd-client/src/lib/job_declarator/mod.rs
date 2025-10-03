@@ -2,13 +2,10 @@ use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_stream::NoiseTcpStream;
 use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
-        handlers_sv2::HandleCommonMessagesFromServerAsync,
-        utils::Mutex,
-    },
+    codec_sv2::HandshakeRole, framing_sv2, handlers_sv2::HandleCommonMessagesFromServerAsync,
+    noise_sv2::Initiator, roles_logic_sv2::utils::Mutex,
 };
 use tokio::{
     net::TcpStream,
@@ -204,7 +201,9 @@ impl JobDeclarator {
             .try_into()
             .map_err(|e| {
                 error!(error=?e, "Failed to serialize SetupConnection message.");
-                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+                JDCError::CodecNoise(
+                    stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                )
             })?;
 
         if let Err(e) = self.job_declarator_channel.jds_sender.send(sv2_frame).await {
@@ -220,7 +219,9 @@ impl JobDeclarator {
             .await
             .map_err(|e| {
                 error!(error=?e, "No handshake response received from Job declarator.");
-                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+                JDCError::CodecNoise(
+                    stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                )
             })?;
 
         let message_type = incoming

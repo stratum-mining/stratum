@@ -1,5 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, template_provider::DifficultyLevel, *};
-use stratum_common::roles_logic_sv2::common_messages_sv2::*;
+use stratum_common::common_messages_sv2::*;
 
 #[tokio::test]
 async fn sv2_mining_device_and_pool_success() {

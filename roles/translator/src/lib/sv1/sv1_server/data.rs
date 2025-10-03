@@ -3,10 +3,9 @@ use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
     mining_sv2::{SetNewPrevHash, Target},
-    utils::Id as IdFactory,
-    vardiff::classic::VardiffState,
+    roles_logic_sv2::{utils::Id as IdFactory, vardiff::classic::VardiffState},
 };
 use v1::server_to_client;
 

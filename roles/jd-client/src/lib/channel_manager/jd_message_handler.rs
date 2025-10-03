@@ -1,9 +1,9 @@
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
+    binary_sv2::{self, Sv2DataType, B016M},
     bitcoin::{
         self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence, Transaction,
         TxIn, TxOut, Witness,
     },
-    codec_sv2::binary_sv2::{self, Sv2DataType, B016M},
     handlers_sv2::HandleJobDeclarationMessagesFromServerAsync,
     job_declaration_sv2::{
         AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,

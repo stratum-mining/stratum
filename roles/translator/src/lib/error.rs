@@ -10,12 +10,12 @@
 
 use ext_config::ConfigError;
 use std::{fmt, sync::PoisonError};
-use stratum_common::roles_logic_sv2::{
-    codec_sv2::{self, binary_sv2, framing_sv2},
-    errors::Error as RolesLogicError,
+use stratum_common::{
+    binary_sv2, framing_sv2,
     handlers_sv2::HandlerErrorType,
+    noise_sv2,
     parsers_sv2::ParserError as RolesParserError,
-    Error as RolesSv2Error,
+    roles_logic_sv2::{errors::Error as RolesLogicError, Error as RolesSv2Error},
 };
 use tokio::sync::broadcast;
 use v1::server_to_client::SetDifficulty;
@@ -39,7 +39,7 @@ pub enum TproxyError {
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
-    CodecNoise(codec_sv2::noise_sv2::Error),
+    CodecNoise(noise_sv2::Error),
     /// Errors from `framing_sv2` crate.
     FramingSv2(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
@@ -129,8 +129,8 @@ impl From<binary_sv2::Error> for TproxyError {
     }
 }
 
-impl From<codec_sv2::noise_sv2::Error> for TproxyError {
-    fn from(e: codec_sv2::noise_sv2::Error) -> Self {
+impl From<noise_sv2::Error> for TproxyError {
+    fn from(e: noise_sv2::Error) -> Self {
         TproxyError::CodecNoise(e)
     }
 }

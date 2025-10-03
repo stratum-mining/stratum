@@ -1,5 +1,5 @@
 use async_channel::{Receiver, Sender};
-use stratum_common::roles_logic_sv2::{codec_sv2::StandardEitherFrame, parsers_sv2::AnyMessage};
+use stratum_common::{codec_sv2::StandardEitherFrame, parsers_sv2::AnyMessage};
 use tracing::debug;
 
 pub type Message = AnyMessage<'static>;

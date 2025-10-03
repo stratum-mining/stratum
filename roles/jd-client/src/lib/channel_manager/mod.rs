@@ -6,38 +6,38 @@ use std::{
 
 use async_channel::{Receiver, Sender};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use network_helpers_sv2::noise_stream::NoiseTcpStream;
 use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
-        self,
-        channels_sv2::{
-            client::extended::ExtendedChannel,
-            server::{
-                jobs::{
-                    extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
-                    standard::StandardJob,
-                },
-                standard::StandardChannel,
+    channels_sv2::{
+        client::extended::ExtendedChannel,
+        server::{
+            jobs::{
+                extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
+                standard::StandardJob,
             },
+            standard::StandardChannel,
         },
-        codec_sv2::{Responder, Sv2Frame},
-        handlers_sv2::{
-            HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
-            HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
-        },
-        job_declaration_sv2::{
-            AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
-        },
-        mining_sv2::{
-            ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, SetTarget, Target,
-            UpdateChannel, MAX_EXTRANONCE_LEN, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
-            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-        },
-        parsers_sv2::{AnyMessage, JobDeclaration, Mining},
-        template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
+    },
+    framing_sv2::framing::Sv2Frame,
+    handlers_sv2::{
+        HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
+        HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
+    },
+    job_declaration_sv2::{
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
+    },
+    mining_sv2::{
+        ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, SetTarget, Target,
+        UpdateChannel, MAX_EXTRANONCE_LEN, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+    },
+    noise_sv2::Responder,
+    parsers_sv2::{AnyMessage, JobDeclaration, Mining},
+    roles_logic_sv2::{
         utils::{Id as IdFactory, Mutex},
         Vardiff, VardiffState,
     },
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
 };
 use tokio::{net::TcpListener, select, sync::broadcast};
 use tracing::{debug, error, info, warn};
@@ -390,7 +390,7 @@ impl ChannelManager {
                                 };
                                 let noise_stream = match NoiseTcpStream::<Message>::new(
                                     stream,
-                                    stratum_common::roles_logic_sv2::codec_sv2::HandshakeRole::Responder(responder),
+                                    stratum_common::codec_sv2::HandshakeRole::Responder(responder),
                                 )
                                 .await
                                 {
@@ -909,7 +909,7 @@ impl ChannelManager {
     fn run_vardiff_on_extended_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel_state: &mut roles_logic_sv2::channels_sv2::server::extended::ExtendedChannel<
+        channel_state: &mut stratum_common::channels_sv2::server::extended::ExtendedChannel<
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
         >,

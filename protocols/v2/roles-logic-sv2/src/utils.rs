@@ -5,6 +5,7 @@
 //! management, mutex management, difficulty target calculations, merkle root calculations, and
 //! more.
 
+use binary_sv2::U256;
 use bitcoin::{
     blockdata::block::{Header, Version},
     consensus,
@@ -14,7 +15,6 @@ use bitcoin::{
     transaction::TxOut,
     Block, CompactTarget, Transaction,
 };
-use codec_sv2::binary_sv2::U256;
 use job_declaration_sv2::{DeclareMiningJob, PushSolution};
 use mining_sv2::Target;
 use primitive_types::U256 as U256Primitive;
@@ -876,7 +876,7 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
 mod tests {
 
     use super::{hash_rate_from_target, hash_rate_to_target, *};
-    use codec_sv2::binary_sv2::{Seq0255, B064K, U256};
+    use binary_sv2::{Seq0255, B064K, U256};
     use rand::Rng;
     use serde::Deserialize;
     use std::{convert::TryInto, num::ParseIntError};
@@ -1184,7 +1184,7 @@ mod tests {
 
     #[test]
     fn test_hash_rate_from_target_with_max_target() {
-        use codec_sv2::binary_sv2::U256;
+        use binary_sv2::U256;
         // This is the maximum value for a 256-bit unsigned integer
         let max_u128 = 340282366920938463463374607431768211455u128;
         // Compose the bytes for U256::MAX

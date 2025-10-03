@@ -1,17 +1,15 @@
 use buffer_sv2::Slice;
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
+    binary_sv2::{Sv2DataType, U256},
     bitcoin::{
         block::{Header, Version},
         hashes::Hash,
         CompactTarget, TxMerkleNode,
     },
-    codec_sv2::{
-        binary_sv2::{Sv2DataType, U256},
-        Frame,
-    },
+    framing_sv2::framing::Frame,
     mining_sv2::Target,
     parsers_sv2::{AnyMessage, CommonMessages},
-    utils::{bytes_to_hex, merkle_root_from_path, u256_to_block_hash, Mutex},
+    roles_logic_sv2::utils::{bytes_to_hex, merkle_root_from_path, u256_to_block_hash, Mutex},
 };
 use tracing::{debug, error};
 use v1::{client_to_server, utils::HexU32Be};

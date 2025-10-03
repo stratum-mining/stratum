@@ -1,7 +1,7 @@
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
+    binary_sv2::{Seq064K, U256},
     bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut},
     channels_sv2::chain_tip::ChainTip,
-    codec_sv2::binary_sv2::{Seq064K, U256},
     handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
     job_declaration_sv2::DeclareMiningJob,
     mining_sv2::SetNewPrevHash as SetNewPrevHashMp,

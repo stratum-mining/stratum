@@ -13,7 +13,7 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
-use network_helpers_sv2::{codec_sv2::binary_sv2::Str0255, sv1_connection::ConnectionSV1};
+use network_helpers_sv2::sv1_connection::ConnectionSV1;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -22,12 +22,15 @@ use std::{
         Arc, RwLock,
     },
 };
-use stratum_common::roles_logic_sv2::{
+use stratum_common::{
+    binary_sv2::Str0255,
     mining_sv2::{CloseChannel, SetTarget, Target},
     parsers_sv2::Mining,
-    utils::{hash_rate_to_target, Mutex},
-    vardiff::classic::VardiffState,
-    Vardiff,
+    roles_logic_sv2::{
+        utils::{hash_rate_to_target, Mutex},
+        vardiff::classic::VardiffState,
+        Vardiff,
+    },
 };
 use stratum_translation::{
     sv1_to_sv2::{

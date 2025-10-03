@@ -22,7 +22,6 @@ pub mod message_aggregator;
 pub mod mock_roles;
 pub mod sniffer;
 pub mod sniffer_error;
-#[cfg(feature = "sv1")]
 pub mod sv1_sniffer;
 pub mod template_provider;
 pub mod types;
@@ -281,7 +280,7 @@ pub fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr)
 }
 
 pub fn measure_hashrate(duration_secs: u64) -> f64 {
-    use stratum_common::roles_logic_sv2::bitcoin::hashes::{sha256d, Hash, HashEngine};
+    use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
     let mut share = {
         let mut rng = rng();
@@ -350,7 +349,6 @@ pub fn start_mining_device_sv2(
     });
 }
 
-#[cfg(feature = "sv1")]
 pub fn start_sv1_sniffer(upstream_address: SocketAddr) -> (sv1_sniffer::SnifferSV1, SocketAddr) {
     let listening_address = get_available_address();
     let sniffer_sv1 = sv1_sniffer::SnifferSV1::new(listening_address, upstream_address);
