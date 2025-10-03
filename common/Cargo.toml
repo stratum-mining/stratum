@@ -10,7 +10,7 @@ repository = "https://github.com/stratum-mining/stratum"
 buffer_sv2 = { path = "../utils/buffer", version = "^2.0.0" }
 bitcoin = "0.32.5"
 binary_sv2 = { path = "../protocols/v2/binary-sv2", version = "^4.0.0" }
-codec_sv2 = { path = "../protocols/v2/codec-sv2", version = "^3.0.0" }
+codec_sv2 = { path = "../protocols/v2/codec-sv2", version = "^4.0.0" }
 framing_sv2 = { path = "../protocols/v2/framing-sv2", version = "^5.0.0" }
 noise_sv2 = { path = "../protocols/v2/noise-sv2", version = "^1.0.0" }
 parsers_sv2 = { path = "../protocols/v2/parsers-sv2", version = "^0.1.0" }

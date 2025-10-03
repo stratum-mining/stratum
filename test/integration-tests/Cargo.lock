@@ -528,7 +528,7 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
 name = "codec_sv2"
-version = "3.0.1"
+version = "4.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
