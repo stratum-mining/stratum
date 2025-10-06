@@ -262,7 +262,7 @@ impl ChannelManager {
     /// and either forwarding them to the appropriate subsystem or updating  
     /// the internal state of the Channel Manager as needed.
     pub async fn start(
-        mut self,
+        self,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
@@ -272,8 +272,7 @@ impl ChannelManager {
 
         task_manager.spawn(async move {
             let cm = self.clone();
-            let vd = self.clone();
-            let vardiff_future = vd.run_vardiff_loop();
+            let vardiff_future = self.run_vardiff_loop();
             tokio::pin!(vardiff_future);
             loop {
                 let mut cm_template = cm.clone();
@@ -328,7 +327,7 @@ impl ChannelManager {
     // 2. Cleans up all associated channel mappings (both standard and extended) by removing their
     //    entries from `channel_id_to_downstream_id`.
     #[allow(clippy::result_large_err)]
-    fn remove_downstream(&mut self, downstream_id: u32) -> PoolResult<()> {
+    fn remove_downstream(&self, downstream_id: u32) -> PoolResult<()> {
         self.channel_manager_data.super_safe_lock(|cm_data| {
             if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
                 downstream.downstream_data.super_safe_lock(|ds_data| {
