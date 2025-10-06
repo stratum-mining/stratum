@@ -43,10 +43,10 @@ impl PoolSv2 {
 
     /// Starts the Pool main loop.
     pub async fn start(&self) -> PoolResult<()> {
-        let miner_coinbase_outputs = vec![self.config.get_txout()];
+        let coinbase_outputs = vec![self.config.get_txout()];
         let mut encoded_outputs = vec![];
 
-        miner_coinbase_outputs
+        coinbase_outputs
             .consensus_encode(&mut encoded_outputs)
             .expect("Invalid coinbase output in config");
 

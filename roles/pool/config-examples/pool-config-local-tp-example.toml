@@ -26,5 +26,5 @@ pool_signature = "Stratum V2 SRI Pool"
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 tp_address = "127.0.0.1:8442"
-shares_per_minute = 1.0
+shares_per_minute = 6.0
 share_batch_size = 10

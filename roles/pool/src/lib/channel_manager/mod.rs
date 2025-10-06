@@ -6,8 +6,8 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        self,
         channels_sv2::server::{
+            extended::ExtendedChannel,
             jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
             standard::StandardChannel,
         },
@@ -391,10 +391,7 @@ impl ChannelManager {
     fn run_vardiff_on_extended_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel_state: &mut roles_logic_sv2::channels_sv2::server::extended::ExtendedChannel<
-            'static,
-            DefaultJobStore<ExtendedJob<'static>>,
-        >,
+        channel_state: &mut ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {
