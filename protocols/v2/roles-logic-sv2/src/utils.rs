@@ -16,7 +16,6 @@ use mining_sv2::Target;
 use primitive_types::U256 as U256Primitive;
 use std::{
     cmp::max,
-    fmt::Write,
     ops::Div,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
@@ -116,17 +115,6 @@ impl<T> Mutex<T> {
     pub fn to_remove(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
         self.0.lock()
     }
-}
-
-// Helper function to format bytes as hex string
-// useful for visualizing targets
-pub fn bytes_to_hex(bytes: &[u8]) -> String {
-    let mut s = String::with_capacity(bytes.len() * 2);
-    for &b in bytes {
-        write!(&mut s, "{b:02x}")
-            .expect("Writing hex bytes to pre-allocated string should never fail");
-    }
-    s
 }
 
 /// A list of potential errors during conversion between hashrate and target
