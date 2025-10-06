@@ -13,8 +13,10 @@ pub enum BitcoinCoreSv2Error {
     TemplateNotFound,
     FailedToSendNewTemplateMessage,
     FailedToSendSetNewPrevHashMessage,
+    FailedToSendRequestTransactionDataResponseMessage,
     FailedToRecvTemplateDistributionMessage,
     FailedToSendTemplateDistributionMessage,
+    FailedToSubmitSolution,
 }
 
 impl From<capnp::Error> for BitcoinCoreSv2Error {

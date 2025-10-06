@@ -79,10 +79,8 @@ pub struct BitcoinCoreSv2 {
     template_data: Rc<RwLock<HashMap<u64, TemplateData>>>,
     stale_template_ids: Rc<RwLock<HashSet<u64>>>,
     template_id_factory: Rc<AtomicU64>,
-    coinbase_output_constraints_receiver: Receiver<CoinbaseOutputConstraints>,
-    request_transaction_data_receiver: Receiver<RequestTransactionData>,
-    submit_solution_receiver: Receiver<SubmitSolution<'static>>,
-    outgoing_template_distribution_message_sender: Sender<TemplateDistribution<'static>>,
+    incoming_messages: Receiver<TemplateDistribution<'static>>,
+    outgoing_messages: Sender<TemplateDistribution<'static>>,
     global_cancellation_token: CancellationToken,
     template_ipc_client_cancellation_token: CancellationToken,
 }
@@ -94,9 +92,7 @@ impl BitcoinCoreSv2 {
         bitcoin_core_unix_socket_path: &Path,
         coinbase_output_constraints: CoinbaseOutputConstraints,
         fee_threshold: u64,
-        coinbase_output_constraints_receiver: Receiver<CoinbaseOutputConstraints>,
-        request_transaction_data_receiver: Receiver<RequestTransactionData>,
-        submit_solution_receiver: Receiver<SubmitSolution<'static>>,
+        incoming_messages: Receiver<TemplateDistribution<'static>>,
         outgoing_messages: Sender<TemplateDistribution<'static>>,
         global_cancellation_token: CancellationToken,
     ) -> Result<Self, BitcoinCoreSv2Error> {
@@ -183,13 +179,11 @@ impl BitcoinCoreSv2 {
             template_id_factory: Rc::new(AtomicU64::new(0)),
             current_template_ipc_client: Rc::new(RefCell::new(template_ipc_client)),
             current_prev_hash: Rc::new(RefCell::new(None)),
-            coinbase_output_constraints_receiver,
             template_data: Rc::new(RwLock::new(HashMap::new())),
             stale_template_ids: Rc::new(RwLock::new(HashSet::new())),
             global_cancellation_token,
-            request_transaction_data_receiver,
-            submit_solution_receiver,
-            outgoing_template_distribution_message_sender: outgoing_messages,
+            incoming_messages,
+            outgoing_messages,
             template_ipc_client_cancellation_token,
         })
     }
@@ -223,7 +217,7 @@ impl BitcoinCoreSv2 {
             let future_template = template_data.get_new_template_message(true);
 
             match self
-                .outgoing_template_distribution_message_sender
+                .outgoing_messages
                 .send(TemplateDistribution::NewTemplate(future_template.clone()))
                 .await
             {
@@ -240,7 +234,7 @@ impl BitcoinCoreSv2 {
             let set_new_prev_hash = template_data.get_set_new_prev_hash_message();
 
             match self
-                .outgoing_template_distribution_message_sender
+                .outgoing_messages
                 .send(TemplateDistribution::SetNewPrevHash(
                     set_new_prev_hash.clone(),
                 ))
@@ -268,9 +262,7 @@ impl BitcoinCoreSv2 {
 
         // spawn the monitoring tasks
         self.monitor_ipc_templates();
-        self.monitor_request_transaction_data();
-        self.monitor_submit_solution();
-        self.monitor_coinbase_output_constraints();
+        self.monitor_incoming_messages();
 
         // block until the global cancellation token is activated
         self.global_cancellation_token.cancelled().await;
@@ -398,7 +390,7 @@ impl BitcoinCoreSv2 {
                                     // send the future NewTemplate message
                                     let future_template = new_template_data.get_new_template_message(true);
 
-                                    match self_clone.outgoing_template_distribution_message_sender.send(TemplateDistribution::NewTemplate(future_template.clone())).await {
+                                    match self_clone.outgoing_messages.send(TemplateDistribution::NewTemplate(future_template.clone())).await {
                                         Ok(_) => (),
                                         Err(e) => {
                                             tracing::error!("Failed to send future NewTemplate message: {:?}", e);
@@ -411,7 +403,7 @@ impl BitcoinCoreSv2 {
                                     // send the SetNewPrevHash message
                                     let set_new_prev_hash = new_template_data.get_set_new_prev_hash_message();
 
-                                    match self_clone.outgoing_template_distribution_message_sender.send(TemplateDistribution::SetNewPrevHash(set_new_prev_hash.clone())).await {
+                                    match self_clone.outgoing_messages.send(TemplateDistribution::SetNewPrevHash(set_new_prev_hash.clone())).await {
                                         Ok(_) => (),
                                         Err(e) => {
                                             tracing::error!("Failed to send SetNewPrevHash message: {:?}", e);
@@ -426,7 +418,7 @@ impl BitcoinCoreSv2 {
                                     // send the non-future NewTemplate message
                                     let non_future_template = new_template_data.get_new_template_message(false);
 
-                                    match self_clone.outgoing_template_distribution_message_sender.send(TemplateDistribution::NewTemplate(non_future_template.clone())).await {
+                                    match self_clone.outgoing_messages.send(TemplateDistribution::NewTemplate(non_future_template.clone())).await {
                                         Ok(_) => (),
                                         Err(e) => {
                                             tracing::error!("Failed to send future NewTemplate message: {:?}", e);
@@ -454,192 +446,224 @@ impl BitcoinCoreSv2 {
         });
     }
 
-    fn monitor_request_transaction_data(&self) {
-        let self_clone = self.clone();
-
-        tokio::task::spawn_local(async move {
-            loop {
-                tokio::select! {
-                    _ = self_clone.global_cancellation_token.cancelled() => {
-                        tracing::warn!("Exiting mempool change verification loop");
-                        break;
-                    }
-                    Ok(request_transaction_data) = self_clone.request_transaction_data_receiver.recv() => {
-                        tracing::debug!("Received: {}", request_transaction_data);
-
-                        // if the template id is stale, send a RequestTransactionDataError message
-                        if self_clone.stale_template_ids.read().await.contains(&request_transaction_data.template_id) {
-                            let request_transaction_data_error = RequestTransactionDataError {
-                                template_id: request_transaction_data.template_id,
-                                error_code: "stale-template-id".to_string()                        .to_string()
-                                .try_into()
-                                .expect("error code must be valid string"),
-                            };
-
-                            match self_clone.outgoing_template_distribution_message_sender.send(TemplateDistribution::RequestTransactionDataError(request_transaction_data_error.clone())).await {
-                                Ok(_) => (),
-                                Err(e) => {
-                                    tracing::error!("Failed to send RequestTransactionDataError message: {}", e);
-                                    tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                                    self_clone.global_cancellation_token.cancel();
-                                    break;
-                                }
-                            }
-
-                            // continue to the next iteration
-                            continue;
-                        }
-
-                        let response_message = match self_clone.template_data.read().await.get(&request_transaction_data.template_id) {
-                            Some(template_data) => TemplateDistribution::RequestTransactionDataSuccess(template_data.get_request_transaction_data_success_message()),
-                            None => {
-                                TemplateDistribution::RequestTransactionDataError(RequestTransactionDataError {
-                                    template_id: request_transaction_data.template_id,
-                                    error_code: "template-id-not-found".to_string()                        .to_string()
-                                    .try_into()
-                                    .expect("error code must be valid string"),
-                                })
-                            }
-                        };
-
-                        match self_clone.outgoing_template_distribution_message_sender.send(response_message.clone()).await {
-                            Ok(_) => (),
-                            Err(e) => {
-                                tracing::error!("Failed to send message: {}", e);
-                                tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                                self_clone.global_cancellation_token.cancel();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    fn monitor_submit_solution(&self) {
-        let self_clone = self.clone();
-
-        tokio::task::spawn_local(async move {
-            loop {
-                tokio::select! {
-                    _ = self_clone.global_cancellation_token.cancelled() => {
-                        tracing::warn!("Exiting submit solution loop");
-                        break;
-                    }
-                    Ok(submit_solution) = self_clone.submit_solution_receiver.recv() => {
-                        tracing::debug!("Received: {}", submit_solution);
-
-                        let template_data_guard = self_clone.template_data.read().await;
-
-                        let template_data = match template_data_guard.get(&submit_solution.template_id) {
-                            Some(template_data) => template_data,
-                            None => {
-                                tracing::error!("Template data not found for template id: {}", submit_solution.template_id);
-                                tracing::warn!("Ignoring SubmitSolution message");
-                                continue;
-                            }
-                        };
-
-                        match template_data.submit_solution(submit_solution, self_clone.thread_ipc_client.clone()).await {
-                            Ok(_) => {
-                                tracing::info!("Submitted solution successfully");
-                            },
-                            Err(e) => {
-                                tracing::error!("Failed to submit solution: {:?}", e);
-                                continue;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    fn monitor_coinbase_output_constraints(&self) {
+    fn monitor_incoming_messages(&self) {
         let mut self_clone = self.clone();
 
         tokio::task::spawn_local(async move {
             loop {
                 tokio::select! {
                     _ = self_clone.global_cancellation_token.cancelled() => {
-                        tracing::warn!("Exiting coinbase output constraints loop");
+                        tracing::warn!("Exiting incoming messages loop");
                         break;
                     }
-                    Ok(coinbase_output_constraints) = self_clone.coinbase_output_constraints_receiver.recv() => {
-                        tracing::debug!("Received: {}", coinbase_output_constraints);
-                        self_clone.template_ipc_client_cancellation_token.cancel();
+                    Ok(incoming_message) = self_clone.incoming_messages.recv() => {
+                        tracing::debug!("Received: {}", incoming_message);
 
-                        let mut template_ipc_client_request = self_clone.mining_ipc_client.create_new_block_request();
-                        let mut template_ipc_client_request_options =
-                            match template_ipc_client_request.get().get_options() {
-                                Ok(options) => options,
-                                Err(e) => {
-                                    tracing::error!("Failed to get template IPC client request options: {}", e);
-                                    tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                                    self_clone.global_cancellation_token.cancel();
-                                    break;
+                        match incoming_message {
+                            TemplateDistribution::CoinbaseOutputConstraints(coinbase_output_constraints) => {
+                                match self_clone.handle_coinbase_output_constraints(coinbase_output_constraints).await {
+                                    Ok(_) => (),
+                                    Err(e) => {
+                                        tracing::error!("Failed to handle coinbase output constraints: {:?}", e);
+                                        tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                                        self_clone.global_cancellation_token.cancel();
+                                        break;
+                                    }
                                 }
-                            };
-
-                        let coinbase_weight = (coinbase_output_constraints.coinbase_output_max_additional_size * 4) as u64;
-                        let block_reserved_weight = coinbase_weight.max(2000); // 2000 is the minimum block reserved weight
-                        template_ipc_client_request_options.set_block_reserved_weight(block_reserved_weight);
-                        template_ipc_client_request_options.set_coinbase_output_max_additional_sigops(
-                            coinbase_output_constraints.coinbase_output_max_additional_sigops as u64,
-                        );
-                        template_ipc_client_request_options.set_use_mempool(true);
-
-                        // let template_ipc_client = template_ipc_client_request
-                        //     .send()
-                        //     .promise
-                        //     .await?
-                        //     .get()?
-                        //     .get_result()?;
-
-                        let template_ipc_client_response = match template_ipc_client_request
-                            .send()
-                            .promise
-                            .await {
-                                Ok(response) => response,
-                                Err(e) => {
-                                    tracing::error!("Failed to send template IPC client request: {}", e);
-                                    tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                                    self_clone.global_cancellation_token.cancel();
-                                    break;
+                            }
+                            TemplateDistribution::RequestTransactionData(request_transaction_data) => {
+                                match self_clone.handle_request_transaction_data(request_transaction_data).await {
+                                    Ok(_) => (),
+                                    Err(e) => {
+                                        tracing::error!("Failed to handle request transaction data: {:?}", e);
+                                        tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                                        self_clone.global_cancellation_token.cancel();
+                                        break;
+                                    }
                                 }
-                            };
-
-                        let template_ipc_client_result = match template_ipc_client_response.get() {
-                            Ok(result) => result,
-                            Err(e) => {
-                                tracing::error!("Failed to get template IPC client result: {}", e);
-                                tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                                self_clone.global_cancellation_token.cancel();
-                                break;
                             }
-                        };
-
-                        let template_ipc_client = match template_ipc_client_result.get_result() {
-                            Ok(result) => result,
-                            Err(e) => {
-                                tracing::error!("Failed to get template IPC client result: {}", e);
-                                tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                                self_clone.global_cancellation_token.cancel();
-                                break;
+                            TemplateDistribution::SubmitSolution(submit_solution) => {
+                                match self_clone.handle_submit_solution(submit_solution).await {
+                                    Ok(_) => (),
+                                    Err(e) => {
+                                        tracing::error!("Failed to handle submit solution: {:?}", e);
+                                        tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                                        self_clone.global_cancellation_token.cancel();
+                                        break;
+                                    }
+                                }
                             }
-                        };
-
-                        let mut current_template_ipc_client_guard = self_clone.current_template_ipc_client.borrow_mut();
-                        *current_template_ipc_client_guard = template_ipc_client;
-
-                        self_clone.template_ipc_client_cancellation_token = CancellationToken::new();
-
-                        self_clone.monitor_ipc_templates();
+                            _ => {
+                                tracing::error!("Received unexpected message: {}", incoming_message);
+                                tracing::warn!("Ignoring message");
+                                continue;
+                            }
+                        }
                     }
                 }
             }
         });
+    }
+
+    async fn handle_coinbase_output_constraints(
+        &mut self,
+        coinbase_output_constraints: CoinbaseOutputConstraints,
+    ) -> Result<(), BitcoinCoreSv2Error> {
+        self.template_ipc_client_cancellation_token.cancel();
+
+        let mut template_ipc_client_request = self.mining_ipc_client.create_new_block_request();
+        let mut template_ipc_client_request_options =
+            match template_ipc_client_request.get().get_options() {
+                Ok(options) => options,
+                Err(e) => {
+                    tracing::error!("Failed to get template IPC client request options: {}", e);
+                    return Err(BitcoinCoreSv2Error::CapnpError(e));
+                }
+            };
+
+        let coinbase_weight =
+            (coinbase_output_constraints.coinbase_output_max_additional_size * 4) as u64;
+        let block_reserved_weight = coinbase_weight.max(2000); // 2000 is the minimum block reserved weight
+        template_ipc_client_request_options.set_block_reserved_weight(block_reserved_weight);
+        template_ipc_client_request_options.set_coinbase_output_max_additional_sigops(
+            coinbase_output_constraints.coinbase_output_max_additional_sigops as u64,
+        );
+        template_ipc_client_request_options.set_use_mempool(true);
+
+        let template_ipc_client_response = match template_ipc_client_request.send().promise.await {
+            Ok(response) => response,
+            Err(e) => {
+                tracing::error!("Failed to send template IPC client request: {}", e);
+                return Err(BitcoinCoreSv2Error::CapnpError(e));
+            }
+        };
+
+        let template_ipc_client_result = match template_ipc_client_response.get() {
+            Ok(result) => result,
+            Err(e) => {
+                tracing::error!("Failed to get template IPC client result: {}", e);
+                return Err(BitcoinCoreSv2Error::CapnpError(e));
+            }
+        };
+
+        let template_ipc_client = match template_ipc_client_result.get_result() {
+            Ok(result) => result,
+            Err(e) => {
+                tracing::error!("Failed to get template IPC client result: {}", e);
+                return Err(BitcoinCoreSv2Error::CapnpError(e));
+            }
+        };
+
+        let mut current_template_ipc_client_guard = self.current_template_ipc_client.borrow_mut();
+        *current_template_ipc_client_guard = template_ipc_client;
+
+        self.template_ipc_client_cancellation_token = CancellationToken::new();
+
+        self.monitor_ipc_templates();
+
+        Ok(())
+    }
+
+    async fn handle_request_transaction_data(
+        &self,
+        request_transaction_data: RequestTransactionData,
+    ) -> Result<(), BitcoinCoreSv2Error> {
+        if self
+            .stale_template_ids
+            .read()
+            .await
+            .contains(&request_transaction_data.template_id)
+        {
+            let request_transaction_data_error = RequestTransactionDataError {
+                template_id: request_transaction_data.template_id,
+                error_code: "stale-template-id"
+                    .to_string()
+                    .try_into()
+                    .expect("error code must be valid string"),
+            };
+
+            match self
+                .outgoing_messages
+                .send(TemplateDistribution::RequestTransactionDataError(
+                    request_transaction_data_error.clone(),
+                ))
+                .await
+            {
+                Ok(_) => (),
+                Err(e) => {
+                    tracing::error!(
+                        "Failed to send RequestTransactionDataError message: {:?}",
+                        e
+                    );
+                    return Err(
+                        BitcoinCoreSv2Error::FailedToSendRequestTransactionDataResponseMessage,
+                    );
+                }
+            }
+
+            return Ok(());
+        }
+
+        let response_message = match self
+            .template_data
+            .read()
+            .await
+            .get(&request_transaction_data.template_id)
+        {
+            Some(template_data) => TemplateDistribution::RequestTransactionDataSuccess(
+                template_data.get_request_transaction_data_success_message(),
+            ),
+            None => {
+                TemplateDistribution::RequestTransactionDataError(RequestTransactionDataError {
+                    template_id: request_transaction_data.template_id,
+                    error_code: "template-id-not-found"
+                        .to_string()
+                        .try_into()
+                        .expect("error code must be valid string"),
+                })
+            }
+        };
+
+        match self.outgoing_messages.send(response_message.clone()).await {
+            Ok(_) => (),
+            Err(e) => {
+                tracing::error!("Failed to send message: {:?}", e);
+                return Err(BitcoinCoreSv2Error::FailedToSendRequestTransactionDataResponseMessage);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_submit_solution(
+        &self,
+        submit_solution: SubmitSolution<'static>,
+    ) -> Result<(), BitcoinCoreSv2Error> {
+        let template_data_guard = self.template_data.read().await;
+
+        let template_data = match template_data_guard.get(&submit_solution.template_id) {
+            Some(template_data) => template_data,
+            None => {
+                tracing::error!(
+                    "Template data not found for template id: {}",
+                    submit_solution.template_id
+                );
+                return Err(BitcoinCoreSv2Error::TemplateNotFound);
+            }
+        };
+
+        match template_data
+            .submit_solution(submit_solution, self.thread_ipc_client.clone())
+            .await
+        {
+            Ok(_) => (),
+            Err(e) => {
+                tracing::error!("Failed to submit solution: {:?}", e);
+                return Err(BitcoinCoreSv2Error::FailedToSubmitSolution);
+            }
+        }
+
+        Ok(())
     }
 
     async fn fetch_template_data(&self) -> Result<TemplateData, BitcoinCoreSv2Error> {

@@ -39,14 +39,16 @@ async fn main() {
     // get new templates whenever the mempool has changed by more than 100 sats
     let fee_threshold = 100;
 
-    let (request_transaction_data_sender, request_transaction_data_receiver) = unbounded();
-    let (coinbase_output_constraints_sender, coinbase_output_constraints_receiver) = unbounded(); // not used in this example
-    let (_submit_solution_sender, submit_solution_receiver) = unbounded(); // not used in this example
-    let (template_distribution_message_sender, template_distribution_message_receiver) =
-        unbounded();
+    // these messages are sent into the `BitcoinCoreSv2` instance
+    let (msg_sender_into_bitcoin_core_sv2, msg_receiver_into_bitcoin_core_sv2) = unbounded();
+    // these messages are received from the `BitcoinCoreSv2` instance
+    let (msg_sender_from_bitcoin_core_sv2, msg_receiver_from_bitcoin_core_sv2) = unbounded();
 
     // clone so we can move it
     let cancellation_token_clone = cancellation_token.clone();
+
+    // clone so we can move it
+    let msg_sender_into_bitcoin_core_sv2_clone = msg_sender_into_bitcoin_core_sv2.clone();
 
     // a task to consume and log the received Sv2 Template Distribution Protocol messages
     tokio::spawn(async move {
@@ -65,18 +67,18 @@ async fn main() {
                 }
                 // monitor for Sv2 Template Distribution Protocol messages
                 // coming from `BitcoinCoreSv2`
-                Ok(template_distribution_message) = template_distribution_message_receiver.recv() => {
+                Ok(template_distribution_message) = msg_receiver_from_bitcoin_core_sv2.recv() => {
                     // log the message
                     info!("Message received: {}", template_distribution_message);
 
                     // send a RequestTransactionData every time a NewTemplate message is received
                     if let TemplateDistribution::NewTemplate(new_template) = template_distribution_message {
                         let template_id = new_template.template_id;
-                        let request_transaction_data = RequestTransactionData {
+                        let request_transaction_data = TemplateDistribution::RequestTransactionData(RequestTransactionData {
                             template_id,
-                        };
+                        });
 
-                        match request_transaction_data_sender.send(request_transaction_data).await {
+                        match msg_sender_into_bitcoin_core_sv2_clone.send(request_transaction_data).await {
                             Ok(_) => (),
                             Err(e) => {
                                 tracing::error!("Failed to send request transaction data: {}", e);
@@ -92,10 +94,14 @@ async fn main() {
 
     let cancellation_token_clone = cancellation_token.clone();
 
-    let new_coinbase_output_constraints = CoinbaseOutputConstraints {
-        coinbase_output_max_additional_size: 2,
-        coinbase_output_max_additional_sigops: 2,
-    };
+    let new_coinbase_output_constraints =
+        TemplateDistribution::CoinbaseOutputConstraints(CoinbaseOutputConstraints {
+            coinbase_output_max_additional_size: 2,
+            coinbase_output_max_additional_sigops: 2,
+        });
+
+    // clone so we can move it
+    let msg_sender_into_bitcoin_core_sv2_clone = msg_sender_into_bitcoin_core_sv2.clone();
 
     // spawn a task to periodically send new coinbase output constraints
     tokio::spawn(async move {
@@ -110,8 +116,9 @@ async fn main() {
                     info!("Cancellation token activated");
                     return;
                 }
+                // refresh coinbase output constraints every 10 seconds
                 _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
-                    match coinbase_output_constraints_sender.send(new_coinbase_output_constraints).await {
+                    match msg_sender_into_bitcoin_core_sv2_clone.send(new_coinbase_output_constraints.clone()).await {
                         Ok(_) => (),
                         Err(e) => {
                             tracing::error!("Failed to send new coinbase output constraints: {}", e);
@@ -136,10 +143,8 @@ async fn main() {
                 Path::new(&bitcoin_core_unix_socket_path),
                 coinbase_output_constraints,
                 fee_threshold,
-                coinbase_output_constraints_receiver,
-                request_transaction_data_receiver,
-                submit_solution_receiver,
-                template_distribution_message_sender,
+                msg_receiver_into_bitcoin_core_sv2,
+                msg_sender_from_bitcoin_core_sv2,
                 cancellation_token.clone(),
             )
             .await
