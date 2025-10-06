@@ -1,6 +1,6 @@
 use stratum_common::roles_logic_sv2::{
-    bitcoin::{consensus, hashes::Hash, Amount, Transaction, TxOut},
-    channels_sv2::chain_tip::ChainTip,
+    bitcoin::{consensus, hashes::Hash, Amount, Transaction},
+    channels_sv2::{chain_tip::ChainTip, outputs::deserialize_outputs},
     codec_sv2::binary_sv2::{Seq064K, U256},
     handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
     job_declaration_sv2::DeclareMiningJob,
@@ -14,7 +14,7 @@ use crate::{
     channel_manager::{downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob},
     error::JDCError,
     jd_mode::{get_jd_mode, JdMode},
-    utils::{deserialize_coinbase_outputs, StdFrame},
+    utils::StdFrame,
 };
 
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
@@ -35,13 +35,17 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     async fn handle_new_template(&mut self, msg: NewTemplate<'_>) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
-        self.channel_manager_data.super_safe_lock(|data| {
+        let coinbase_outputs = self.channel_manager_data.super_safe_lock(|data| {
             data.template_store
                 .insert(msg.template_id, msg.clone().into_static());
             if msg.future_template {
                 data.last_future_template = Some(msg.clone().into_static());
             }
+            data.coinbase_outputs.clone()
         });
+
+        let mut coinbase_outputs = deserialize_outputs(coinbase_outputs)
+            .map_err(|_| JDCError::ChannelManagerHasBadCoinbaseOutputs)?;
 
         if get_jd_mode() == JdMode::FullTemplate {
             let tx_data_request = AnyMessage::TemplateDistribution(
@@ -59,8 +63,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let mut messages: Vec<RouteMessageTo> = Vec::new();
-            let mut coinbase_output = deserialize_coinbase_outputs(&channel_manager_data.coinbase_outputs);
-            coinbase_output[0].value = Amount::from_sat(msg.coinbase_tx_value_remaining);
+            coinbase_outputs[0].value = Amount::from_sat(msg.coinbase_tx_value_remaining);
 
             for (downstream_id, downstream) in channel_manager_data.downstream.iter_mut() {
 
@@ -69,7 +72,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                     let mut messages: Vec<RouteMessageTo> = vec![];
 
                     let group_channel_job = if let Some(ref mut group_channel) = data.group_channels {
-                        if group_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()).is_ok() {
+                        if group_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()).is_ok() {
                             match msg.future_template {
                                 true => {
                                     let future_job_id = group_channel
@@ -102,9 +105,8 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     channel_manager_data.last_new_prev_hash.clone(),
                                 ) {
                                     let request_id = channel_manager_data.request_id_factory.next();
-                                    let output = deserialize_coinbase_outputs(&channel_manager_data.coinbase_outputs);
                                     let job_factory = channel_manager_data.job_factory.as_mut().unwrap();
-                                    let custom_job = job_factory.new_custom_job(upstream_channel.get_channel_id(), request_id, token.clone().mining_job_token, prevhash.clone().into(), msg.clone(), output);
+                                    let custom_job = job_factory.new_custom_job(upstream_channel.get_channel_id(), request_id, token.clone().mining_job_token, prevhash.clone().into(), msg.clone(), coinbase_outputs.clone());
 
                                     if let Ok(custom_job) = custom_job{
                                         let last_declare = DeclaredJob {
@@ -129,7 +131,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         true => {
                             for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
                                 if data.group_channels.is_none() {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()) {
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?} {e:?}");
                                         continue;
                                     }
@@ -140,7 +142,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     messages.push((*downstream_id, Mining::NewMiningJob(standard_job_message.clone())).into());
                                 }
                                 if let Some(ref group_channel_job) = group_channel_job {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()) {
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?} {e:?}");
                                         continue;
                                     }
@@ -154,7 +156,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             }
 
                             for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
+                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()) {
                                     tracing::error!("Error while adding template to standard channel: {channel_id:?} {e:?}");
                                     continue;
                                 }
@@ -177,7 +179,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                         false => {
                             for (channel_id, standard_channel) in data.standard_channels.iter_mut() {
                                 if data.group_channels.is_none() {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()) {
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?} {e:?}");
                                         continue;
                                     }
@@ -187,7 +189,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                                     messages.push((*downstream_id, Mining::NewMiningJob(standard_job_message.clone())).into());
                                 }
                                 if let Some(ref group_channel_job) = group_channel_job {
-                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
+                                    if let Err(e) = standard_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()) {
                                         tracing::error!("Error while adding template to standard channel: {channel_id:?} {e:?}");
                                         continue;
                                     }
@@ -201,7 +203,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             }
 
                             for (channel_id, extended_channel) in data.extended_channels.iter_mut() {
-                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), coinbase_output.clone()) {
+                                if let Err(e) = extended_channel.on_new_template(msg.clone().into_static(), coinbase_outputs.clone()) {
                                     tracing::error!("Error while adding template to standard channel: {channel_id:?} {e:?}");
                                     continue;
                                 }
@@ -270,6 +272,13 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         let transactions_data = msg.transaction_list;
         let excess_data = msg.excess_data;
 
+        let coinbase_outputs = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.coinbase_outputs.clone());
+
+        let mut deserialized_outputs = deserialize_outputs(coinbase_outputs)
+            .map_err(|_| JDCError::ChannelManagerHasBadCoinbaseOutputs)?;
+
         let (token, template_message, request_id, prevhash) =
             self.channel_manager_data.super_safe_lock(|data| {
                 (
@@ -292,8 +301,6 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         };
 
         let mining_token = token.mining_job_token.clone();
-        let mut deserialized_outputs: Vec<TxOut> =
-            deserialize_coinbase_outputs(&token.coinbase_outputs.to_vec());
         deserialized_outputs[0].value =
             Amount::from_sat(template_message.coinbase_tx_value_remaining);
         let reserialized_outputs = consensus::serialize(&deserialized_outputs);
@@ -321,11 +328,12 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
         let declare_job = self.channel_manager_data.super_safe_lock(|data| {
             let job_factory = data.job_factory.as_mut()?;
-            let mut output = deserialize_coinbase_outputs(&data.coinbase_outputs);
-            output[0].value = Amount::from_sat(template_message.coinbase_tx_value_remaining);
 
-            if let Ok((coinbase_tx_prefix, coinbase_tx_suffix)) =
-                job_factory.new_coinbase_tx_prefix_and_suffix(template_message.clone(), output)
+            if let Ok((coinbase_tx_prefix, coinbase_tx_suffix)) = job_factory
+                .new_coinbase_tx_prefix_and_suffix(
+                    template_message.clone(),
+                    deserialized_outputs.clone(),
+                )
             {
                 let version = template_message.version;
 
@@ -382,6 +390,13 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         msg: SetNewPrevHash<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
+
+        let coinbase_outputs = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.coinbase_outputs.clone());
+
+        let outputs = deserialize_outputs(coinbase_outputs)
+            .map_err(|_| JDCError::ChannelManagerHasBadCoinbaseOutputs)?;
 
         let (future_template, declare_job) = self.channel_manager_data.super_safe_lock(|data| {
             if let Some(upstream_channel) = data.upstream_channel.as_mut() {
@@ -443,7 +458,6 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
                             msg.n_bits,
                             msg.header_timestamp,
                         );
-                        let outputs = deserialize_coinbase_outputs(&data.coinbase_outputs);
 
                         if let Ok(custom_job) = job_factory.new_custom_job(
                             upstream_channel.get_channel_id(),

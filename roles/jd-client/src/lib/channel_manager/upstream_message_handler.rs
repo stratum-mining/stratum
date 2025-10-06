@@ -1,6 +1,9 @@
 use stratum_common::roles_logic_sv2::{
     self,
-    channels_sv2::{client::extended::ExtendedChannel, server::jobs::factory::JobFactory},
+    channels_sv2::{
+        client::extended::ExtendedChannel, outputs::deserialize_outputs,
+        server::jobs::factory::JobFactory,
+    },
     handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
     mining_sv2::*,
     parsers_sv2::{AnyMessage, Mining, TemplateDistribution},
@@ -16,10 +19,7 @@ use crate::{
     error::JDCError,
     jd_mode::{get_jd_mode, JdMode},
     status::{State, Status},
-    utils::{
-        create_close_channel_msg, deserialize_coinbase_outputs, PendingChannelRequest, StdFrame,
-        UpstreamState,
-    },
+    utils::{create_close_channel_msg, PendingChannelRequest, StdFrame, UpstreamState},
 };
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
@@ -74,6 +74,13 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: OpenExtendedMiningChannelSuccess<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
+
+        let coinbase_outputs = self
+            .channel_manager_data
+            .super_safe_lock(|data| data.coinbase_outputs.clone());
+
+        let outputs = deserialize_outputs(coinbase_outputs)
+            .map_err(|_| JDCError::DeclaredJobHasBadCoinbaseOutputs)?;
 
         let (channel_state, template, custom_job, close_channel) =
             self.channel_manager_data.super_safe_lock(|data| {
@@ -148,7 +155,6 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         data.last_new_prev_hash.clone(),
                     ) {
                         let request_id = data.request_id_factory.next();
-                        let outputs = deserialize_coinbase_outputs(&data.coinbase_outputs);
 
                         if let Ok(custom_job) = job_factory.new_custom_job(
                             extended_channel.get_channel_id(),
@@ -156,7 +162,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                             token.clone().mining_job_token,
                             prevhash.clone().into(),
                             template.clone(),
-                            outputs,
+                            outputs.clone(),
                         ) {
                             let last_declare = DeclaredJob {
                                 declare_mining_job: None,

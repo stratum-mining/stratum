@@ -3,6 +3,7 @@ use stratum_common::roles_logic_sv2::{
         self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence, Transaction,
         TxIn, TxOut, Witness,
     },
+    channels_sv2::outputs::deserialize_outputs,
     codec_sv2::binary_sv2::{self, Sv2DataType, B016M},
     handlers_sv2::HandleJobDeclarationMessagesFromServerAsync,
     job_declaration_sv2::{
@@ -18,7 +19,7 @@ use crate::{
     channel_manager::ChannelManager,
     error::JDCError,
     status::{State, Status},
-    utils::{deserialize_coinbase_outputs, StdFrame},
+    utils::StdFrame,
 };
 
 impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
@@ -167,19 +168,23 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
             return Err(JDCError::LastNewPrevhashNotFound);
         };
 
+        let outputs = match deserialize_outputs(last_declare_job.coinbase_output.clone()) {
+            Ok(outputs) => outputs,
+            Err(_) => return Err(JDCError::ChannelManagerHasBadCoinbaseOutputs),
+        };
+
         let Some(custom_job) = self
             .channel_manager_data
             .super_safe_lock(|channel_manager_data| {
                 let job_factory = channel_manager_data.job_factory.as_mut()?;
                 let upstream_channel = channel_manager_data.upstream_channel.as_ref()?;
-                let output = deserialize_coinbase_outputs(&last_declare_job.coinbase_output);
                 let custom_job = job_factory.new_custom_job(
                     upstream_channel.get_channel_id(),
                     msg.request_id,
                     msg.new_mining_job_token,
                     prevhash.into(),
                     last_declare_job.template,
-                    output,
+                    outputs,
                 );
                 Some(custom_job)
             })
