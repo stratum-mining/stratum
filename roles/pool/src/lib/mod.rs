@@ -70,8 +70,8 @@ impl PoolSv2 {
 
         let channel_manager = ChannelManager::new(
             self.config.clone(),
-            channel_manager_to_tp_sender.clone(),
-            tp_to_channel_manager_receiver.clone(),
+            channel_manager_to_tp_sender,
+            tp_to_channel_manager_receiver,
             channel_manager_to_downstream_sender.clone(),
             downstream_to_channel_manager_receiver,
             encoded_outputs.clone(),
@@ -103,7 +103,7 @@ impl PoolSv2 {
                 notify_shutdown.clone(),
                 status_sender.clone(),
                 task_manager.clone(),
-                encoded_outputs.clone(),
+                encoded_outputs,
             )
             .await?;
 
@@ -123,9 +123,9 @@ impl PoolSv2 {
                 *self.config.listen_address(),
                 task_manager.clone(),
                 notify_shutdown.clone(),
-                status_sender.clone(),
-                downstream_to_channel_manager_sender.clone(),
-                channel_manager_to_downstream_sender.clone(),
+                status_sender,
+                downstream_to_channel_manager_sender,
+                channel_manager_to_downstream_sender,
             )
             .await?;
 
