@@ -11,6 +11,7 @@ pub enum BitcoinCoreSv2Error {
     FailedToSerializeCoinbasePrefix,
     FailedToSerializeCoinbaseOutputs,
     TemplateNotFound,
+    TemplateIpcClientNotFound,
     FailedToSendNewTemplateMessage,
     FailedToSendSetNewPrevHashMessage,
     FailedToSendRequestTransactionDataResponseMessage,

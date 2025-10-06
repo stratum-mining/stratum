@@ -2,6 +2,11 @@
 //!
 //! We connect to the Bitcoin Core UNIX socket, and log the received Sv2 Template Distribution
 //! Protocol messages.
+//!
+//! Every 10s, we send a new `CoinbaseOutputConstraints` message to the `BitcoinCoreSv2` instance.
+//!
+//! `BitcoinCoreSv2` will not start distributing new templates until it receives the first
+//! `CoinbaseOutputConstraints` message.
 
 use bitcoin_core_sv2::BitcoinCoreSv2;
 use std::path::Path;
@@ -28,13 +33,6 @@ async fn main() {
 
     // `BitcoinCoreSv2` uses this to cancel internally spawned tasks
     let cancellation_token = CancellationToken::new();
-
-    // some dummy coinbase output constraints
-    // in the form of a Sv2 CoinbaseOutputConstraints message
-    let coinbase_output_constraints = CoinbaseOutputConstraints {
-        coinbase_output_max_additional_size: 1,
-        coinbase_output_max_additional_sigops: 1,
-    };
 
     // get new templates whenever the mempool has changed by more than 100 sats
     let fee_threshold = 100;
@@ -139,9 +137,8 @@ async fn main() {
     tokio_local_set
         .run_until(async move {
             // create a new `BitcoinCoreSv2` instance
-            let sv2_bitcoin_core = match BitcoinCoreSv2::new(
+            let mut sv2_bitcoin_core = match BitcoinCoreSv2::new(
                 Path::new(&bitcoin_core_unix_socket_path),
-                coinbase_output_constraints,
                 fee_threshold,
                 msg_receiver_into_bitcoin_core_sv2,
                 msg_sender_from_bitcoin_core_sv2,
