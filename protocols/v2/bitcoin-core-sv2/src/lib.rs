@@ -72,6 +72,7 @@ mod template_data;
 #[derive(Clone)]
 pub struct BitcoinCoreSv2 {
     fee_threshold: u64,
+    thread_map: ThreadMapIpcClient,
     thread_ipc_client: ThreadIpcClient,
     mining_ipc_client: MiningIpcClient,
     current_template_ipc_client: Rc<RefCell<Option<BlockTemplateIpcClient>>>,
@@ -146,6 +147,7 @@ impl BitcoinCoreSv2 {
 
         Ok(Self {
             fee_threshold,
+            thread_map,
             thread_ipc_client,
             mining_ipc_client,
             template_id_factory: Rc::new(AtomicU64::new(0)),
@@ -281,6 +283,47 @@ impl BitcoinCoreSv2 {
         let self_clone = self.clone();
 
         tokio::task::spawn_local(async move {
+            // a dedicated thread_ipc_client is used for waitNext requests
+            // this is because waitNext requests are blocking, and we don't want to block the main
+            // thread where other requests are handled
+            let blocking_thread_ipc_client = {
+                let blocking_thread_ipc_client_request =
+                    self_clone.thread_map.make_thread_request();
+                let blocking_thread_ipc_client_response =
+                    match blocking_thread_ipc_client_request.send().promise.await {
+                        Ok(thread_ipc_client) => thread_ipc_client,
+                        Err(e) => {
+                            tracing::error!("Failed to make thread request: {}", e);
+                            tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                            self_clone.global_cancellation_token.cancel();
+                            return;
+                        }
+                    };
+
+                let blocking_thread_ipc_client_result =
+                    match blocking_thread_ipc_client_response.get() {
+                        Ok(thread_ipc_client_result) => thread_ipc_client_result,
+                        Err(e) => {
+                            tracing::error!("Failed to get thread IPC client: {}", e);
+                            tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                            self_clone.global_cancellation_token.cancel();
+                            return;
+                        }
+                    };
+
+                
+
+                match blocking_thread_ipc_client_result.get_result() {
+                        Ok(thread_ipc_client) => thread_ipc_client,
+                        Err(e) => {
+                            tracing::error!("Failed to get thread IPC client: {}", e);
+                            tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                            self_clone.global_cancellation_token.cancel();
+                            return;
+                        }
+                    }
+            };
+
             loop {
                 let template_ipc_client =
                     match self_clone.current_template_ipc_client.borrow().clone() {
@@ -297,7 +340,7 @@ impl BitcoinCoreSv2 {
                 let mut wait_next_request = template_ipc_client.wait_next_request();
 
                 match wait_next_request.get().get_context() {
-                    Ok(mut context) => context.set_thread(self_clone.thread_ipc_client.clone()),
+                    Ok(mut context) => context.set_thread(blocking_thread_ipc_client.clone()),
                     Err(e) => {
                         tracing::error!("Failed to set thread: {}", e);
                         tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -317,7 +360,11 @@ impl BitcoinCoreSv2 {
                 };
 
                 wait_next_request_options.set_fee_threshold(self_clone.fee_threshold as i64);
-                wait_next_request_options.set_timeout(f64::MAX);
+
+                // 30 seconds timeout for waitNext requests
+                // please note that this is NOT how often we expect to get new templates
+                // it's just the max time we'll wait for the current waitNext request to complete
+                wait_next_request_options.set_timeout(30_000.0);
 
                 tokio::select! {
                     _ = self_clone.global_cancellation_token.cancelled() => {
