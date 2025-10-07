@@ -11,7 +11,6 @@ use async_channel::{Receiver, Sender};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::channels_sv2::{Vardiff, VardiffState},
     roles_logic_sv2::{
         self,
         channels_sv2::{
@@ -23,6 +22,7 @@ use stratum_common::{
                 },
                 standard::StandardChannel,
             },
+            Vardiff, VardiffState,
         },
         codec_sv2::{Responder, Sv2Frame},
         handlers_sv2::{

@@ -4,9 +4,11 @@
 //! module. It includes the [`Error`] enum for representing various errors.
 
 use bitcoin::hashes::FromSliceError;
-use channels_sv2::server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError};
-use channels_sv2::target::InputError;
-use channels_sv2::vardiff::error::VardiffError;
+use channels_sv2::{
+    server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+    target::InputError,
+    vardiff::error::VardiffError,
+};
 use codec_sv2::binary_sv2::Error as BinarySv2Error;
 use mining_sv2::ExtendedExtranonceError;
 use parsers_sv2::AnyMessage as AllMessages;

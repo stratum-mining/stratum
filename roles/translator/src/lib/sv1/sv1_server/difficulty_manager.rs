@@ -5,8 +5,7 @@ use crate::{
 use async_channel::Sender;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use stratum_common::roles_logic_sv2::{
-    channels_sv2::target::hash_rate_to_target,
-    channels_sv2::Vardiff,
+    channels_sv2::{target::hash_rate_to_target, Vardiff},
     mining_sv2::{SetTarget, Target, UpdateChannel},
     parsers_sv2::Mining,
     utils::Mutex,

@@ -12,15 +12,17 @@ use std::{
 };
 use stratum_common::roles_logic_sv2::{
     bitcoin::{consensus::Decodable, transaction::TxOut, Amount},
-    channels_sv2::server::{
-        error::{ExtendedChannelError, StandardChannelError},
-        extended::ExtendedChannel,
-        group::GroupChannel,
-        jobs::job_store::DefaultJobStore,
-        share_accounting::{ShareValidationError, ShareValidationResult},
-        standard::StandardChannel,
+    channels_sv2::{
+        server::{
+            error::{ExtendedChannelError, StandardChannelError},
+            extended::ExtendedChannel,
+            group::GroupChannel,
+            jobs::job_store::DefaultJobStore,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+            standard::StandardChannel,
+        },
+        Vardiff, VardiffState,
     },
-    channels_sv2::{Vardiff, VardiffState},
     codec_sv2::binary_sv2::Str0255,
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},

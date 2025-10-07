@@ -45,13 +45,15 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{Amount, TxOut},
-        channels_sv2::server::{
-            extended::ExtendedChannel,
-            group::GroupChannel,
-            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
-            standard::StandardChannel,
+        channels_sv2::{
+            server::{
+                extended::ExtendedChannel,
+                group::GroupChannel,
+                jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+                standard::StandardChannel,
+            },
+            VardiffState,
         },
-        channels_sv2::VardiffState,
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
         },
