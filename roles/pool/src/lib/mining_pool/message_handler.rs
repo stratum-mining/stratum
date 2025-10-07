@@ -133,7 +133,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let channel_id = self.channel_id_factory.next();
         let job_store = DefaultJobStore::new();
-        let mut standard_channel = match StandardChannel::new_for_pool(
+        let mut standard_channel = match StandardChannel::new_for_pool_with_persistence(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -143,6 +143,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             self.shares_per_minute,
             job_store,
             self.pool_tag_string.clone(),
+            self.share_persistence.clone(),
         ) {
             Ok(channel) => channel,
             Err(e) => match e {
@@ -315,7 +316,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
 
         let channel_id = self.channel_id_factory.next();
         let job_store = DefaultJobStore::new();
-        let mut extended_channel = match ExtendedChannel::new_for_pool(
+        let mut extended_channel = match ExtendedChannel::new_for_pool_with_persistence(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -327,6 +328,7 @@ impl ParseMiningMessagesFromDownstream<()> for Downstream {
             self.shares_per_minute,
             job_store,
             self.pool_tag_string.clone(),
+            self.share_persistence.clone(),
         ) {
             Ok(channel) => channel,
             Err(e) => match e {

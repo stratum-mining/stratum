@@ -13,3 +13,4 @@ network_helpers_sv2 = { path = "../roles/roles-utils/network-helpers", version =
 [features]
 with_network_helpers = ["dep:network_helpers_sv2"]
 sv1 = ["network_helpers_sv2/sv1"]
+persistence = ["roles_logic_sv2/persistence"]
