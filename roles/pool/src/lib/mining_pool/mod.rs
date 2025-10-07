@@ -51,6 +51,7 @@ use stratum_common::{
             jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
             standard::StandardChannel,
         },
+        channels_sv2::VardiffState,
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
         },
@@ -65,11 +66,10 @@ use stratum_common::{
             NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
         },
         utils::Mutex,
-        VardiffState,
     },
 };
 
-use roles_logic_sv2::Vardiff;
+use roles_logic_sv2::channels_sv2::Vardiff;
 
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};

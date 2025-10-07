@@ -1,4 +1,4 @@
-use crate::utils::hash_rate_from_target;
+use crate::target::hash_rate_from_target;
 use mining_sv2::Target;
 use tracing::debug;
 

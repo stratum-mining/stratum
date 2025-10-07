@@ -20,6 +20,7 @@ use stratum_common::roles_logic_sv2::{
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
     },
+    channels_sv2::{Vardiff, VardiffState},
     codec_sv2::binary_sv2::Str0255,
     errors::Error,
     handlers::mining::{ParseMiningMessagesFromDownstream, SendTo, SupportedChannelTypes},
@@ -27,7 +28,6 @@ use stratum_common::roles_logic_sv2::{
     parsers_sv2::Mining,
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
-    Vardiff, VardiffState,
 };
 use tracing::{error, info};
 

@@ -161,7 +161,74 @@ pub fn from_u128_to_u256(input: u128) -> U256Primitive {
     U256Primitive::from_big_endian(be_bytes.as_ref())
 }
 
+#[derive(Debug)]
 pub enum HashRateToTargetError {
     DivisionByZero,
     NegativeInput,
+}
+
+#[derive(Debug)]
+pub enum InputError {
+    NegativeInput,
+    DivisionByZero,
+    ArithmeticOverflow,
+}
+
+/// Calculates the hashrate (H/s) required to produce a specific number of shares per minute for a
+/// given mining target (big endian).
+///
+/// It is the inverse of [`hash_rate_to_target`], enabling backward calculations to estimate a
+/// mining device's performance from its submitted shares.
+///
+/// Typically used to calculate the mining device's effective hashrate during runtime based on the
+/// submitted shares and the assigned target, also helps detect changes in miner performance and
+/// recalibrate the target (using [`hash_rate_to_target`]) if necessary.
+///
+/// ## Formula
+/// ```text
+/// h = (2^256 - t) / (s * (t + 1))
+/// ```
+///
+/// Where:
+/// - `h`: Mining device hashrate (H/s).
+/// - `t`: Target threshold.
+/// - `s`: Shares per minute.
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Result<f64, InputError> {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(InputError::DivisionByZero);
+    }
+    if share_per_min.is_sign_negative() {
+        return Err(InputError::NegativeInput);
+    }
+    let mut target_arr: [u8; 32] = [0; 32];
+    let slice: &mut [u8] = &mut target_arr;
+    slice.copy_from_slice(target.inner_as_ref());
+    target_arr.reverse();
+    let target = U256Primitive::from_big_endian(target_arr.as_ref());
+    // we calculate the numerator 2^256-t
+    // note that [255_u8,;32] actually is 2^256 -1, but 2^256 -t = (2^256-1) - (t-1)
+    let max_target = [255_u8; 32];
+    let max_target = U256Primitive::from_big_endian(max_target.as_ref());
+    let numerator = max_target - (target - U256Primitive::one());
+    // now we calculate the denominator s(t+1)
+    // *100 here to move the fractional bit up so we can make this an int later
+    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
+    // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
+    // only if s is zero.
+    let shares_occurrency_frequence = shares_occurrency_frequence as u128;
+    if shares_occurrency_frequence == 0_u128 {
+        return Err(InputError::DivisionByZero);
+    }
+    let shares_occurrency_frequence = from_u128_to_u256(shares_occurrency_frequence);
+    let target_plus_one = U256Primitive::from_big_endian(target_arr.as_ref())
+        .checked_add(U256Primitive::one())
+        .ok_or(InputError::ArithmeticOverflow)?;
+    let denominator = target_plus_one
+        .checked_mul(shares_occurrency_frequence)
+        .and_then(|e| e.checked_div(U256Primitive::from(100)))
+        .ok_or(InputError::ArithmeticOverflow)?;
+    let result = numerator.div(denominator).low_u128();
+    // we multiply back by 100 so that it cancels with the same factor at the denominator
+    Ok(result as f64)
 }

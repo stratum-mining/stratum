@@ -11,6 +11,7 @@ use async_channel::{Receiver, Sender};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
+    roles_logic_sv2::channels_sv2::{Vardiff, VardiffState},
     roles_logic_sv2::{
         self,
         channels_sv2::{
@@ -39,7 +40,6 @@ use stratum_common::{
         parsers_sv2::{AnyMessage, JobDeclaration, Mining},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
         utils::Mutex,
-        Vardiff, VardiffState,
     },
 };
 use tokio::{net::TcpListener, select, sync::broadcast};

@@ -23,11 +23,11 @@ use std::{
     },
 };
 use stratum_common::roles_logic_sv2::{
+    channels_sv2::target::hash_rate_to_target,
+    channels_sv2::{Vardiff, VardiffState},
     mining_sv2::{CloseChannel, SetTarget, Target},
     parsers_sv2::Mining,
-    utils::{hash_rate_to_target, Mutex},
-    vardiff::classic::VardiffState,
-    Vardiff,
+    utils::Mutex,
 };
 use stratum_translation::{
     sv1_to_sv2::{

@@ -14,6 +14,7 @@ use stratum_common::roles_logic_sv2::{
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
+        Vardiff, VardiffState,
     },
     codec_sv2::binary_sv2::Str0255,
     handlers_sv2::{HandleMiningMessagesFromClientAsync, SupportedChannelTypes},
@@ -21,7 +22,6 @@ use stratum_common::roles_logic_sv2::{
     mining_sv2::*,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
-    Vardiff, VardiffState,
 };
 use tracing::{debug, error, info, warn};
 

@@ -11,6 +11,7 @@ use bitcoin::{
     hashes::sha256d::Hash as DHash,
     CompactTarget,
 };
+use channels_sv2::target::InputError;
 use codec_sv2::binary_sv2::U256;
 use primitive_types::U256 as U256Primitive;
 use std::{
@@ -114,14 +115,6 @@ impl<T> Mutex<T> {
     pub fn to_remove(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
         self.0.lock()
     }
-}
-
-/// A list of potential errors during conversion between hashrate and target
-#[derive(Debug)]
-pub enum InputError {
-    NegativeInput,
-    DivisionByZero,
-    ArithmeticOverflow,
 }
 
 /// Calculates the mining target threshold for a mining device based on its hashrate (H/s) and
