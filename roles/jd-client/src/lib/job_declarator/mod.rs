@@ -233,7 +233,7 @@ impl JobDeclarator {
 
         debug!(?message_type, "Processing handshake response.");
 
-        self.handle_common_message_frame_from_server(message_type, incoming.payload())
+        self.handle_common_message_frame_from_server(1, message_type, incoming.payload())
             .await?;
 
         info!("Job declarator: SV2 handshake completed successfully.");
@@ -282,7 +282,7 @@ impl JobDeclarator {
         match protocol_message_type(message_type) {
             MessageType::Common => {
                 info!(?message_type, "Handling common message from Upstream.");
-                self.handle_common_message_frame_from_server(message_type, sv2_frame.payload())
+                self.handle_common_message_frame_from_server(1, message_type, sv2_frame.payload())
                     .await?;
             }
             MessageType::JobDeclaration => {

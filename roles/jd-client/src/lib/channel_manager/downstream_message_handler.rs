@@ -126,13 +126,17 @@ impl RouteMessageTo<'_> {
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
     type Error = JDCError;
 
-    fn get_channel_type_for_client(&self) -> SupportedChannelTypes {
+    fn get_channel_type_for_client(&self, _client_id: usize) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
-    fn is_work_selection_enabled_for_client(&self) -> bool {
+    fn is_work_selection_enabled_for_client(&self, _client_id: usize) -> bool {
         false
     }
-    fn is_client_authorized(&self, _user_identity: &Str0255) -> Result<bool, Self::Error> {
+    fn is_client_authorized(
+        &self,
+        _client_id: usize,
+        _user_identity: &Str0255,
+    ) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
@@ -140,7 +144,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     // - Look up the downstream associated with the given `channel_id`.
     // - If found, remove the channel from its `extended_channels` and `standard_channels`.
     // - If not found, return an appropriate error.
-    async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Self::Error> {
+    async fn handle_close_channel(
+        &mut self,
+        _client_id: usize,
+        msg: CloseChannel<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
@@ -189,6 +197,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     // or failure to apply updates to channels.
     async fn handle_open_standard_mining_channel(
         &mut self,
+        _client_id: usize,
         msg: OpenStandardMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
         let request_id = msg.get_request_id_as_u32();
@@ -456,6 +465,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     // or if extended channel creation fails.
     async fn handle_open_extended_mining_channel(
         &mut self,
+        _client_id: usize,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
         let user_string = msg.user_identity.as_utf8_or_hex();
@@ -672,7 +682,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     //
     // Returns an error if the downstream channel is missing or update
     // validation fails.
-    async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Self::Error> {
+    async fn handle_update_channel(
+        &mut self,
+        _client_id: usize,
+        msg: UpdateChannel<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         let channel_id = msg.channel_id;
         let new_nominal_hash_rate = msg.nominal_hash_rate;
@@ -868,6 +882,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     //    - Forward valid shares (or block solutions) upstream.
     async fn handle_submit_shares_standard(
         &mut self,
+        _client_id: usize,
         msg: SubmitSharesStandard,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesStandard");
@@ -1069,6 +1084,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     //    - Forward valid shares (or block solutions) upstream.
     async fn handle_submit_shares_extended(
         &mut self,
+        _client_id: usize,
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesExtended");
@@ -1261,6 +1277,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     // Handles an incoming `SetCustomMiningJob` message from a downstream.
     async fn handle_set_custom_mining_job(
         &mut self,
+        _client_id: usize,
         msg: SetCustomMiningJob<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);

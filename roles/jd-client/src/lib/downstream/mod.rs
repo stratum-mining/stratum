@@ -203,8 +203,12 @@ impl Downstream {
             return Err(JDCError::UnexpectedMessage(0));
         };
         if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
-            self.handle_common_message_frame_from_client(message_type, frame.payload())
-                .await?;
+            self.handle_common_message_frame_from_client(
+                self.downstream_id as usize,
+                message_type,
+                frame.payload(),
+            )
+            .await?;
             return Ok(());
         }
         Err(JDCError::UnexpectedMessage(message_type))
