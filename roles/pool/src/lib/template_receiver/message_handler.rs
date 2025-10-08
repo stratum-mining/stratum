@@ -4,7 +4,7 @@
 //! as needed.
 use super::TemplateRx;
 use std::sync::Arc;
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     parsers_sv2::TemplateDistribution,
     roles_logic_sv2::{
         errors::Error,

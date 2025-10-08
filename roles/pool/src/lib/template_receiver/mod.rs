@@ -18,7 +18,7 @@ use key_utils::Secp256k1PublicKey;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_apps::{
     network_helpers::noise_connection::Connection,
-    stratum_common::{
+    stratum_core::{
         codec_sv2::{self, HandshakeRole},
         noise_sv2::Initiator,
         parsers_sv2::{AnyMessage, TemplateDistribution},
@@ -179,7 +179,7 @@ impl TemplateRx {
                 )
             );
             match msg {
-                stratum_apps::stratum_common::roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(
+                stratum_apps::stratum_core::roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(
                     _,
                     m,
                 ) => match m {
@@ -199,7 +199,7 @@ impl TemplateRx {
                     }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
-                stratum_apps::stratum_common::roles_logic_sv2::handlers::SendTo_::None(None) => (),
+                stratum_apps::stratum_core::roles_logic_sv2::handlers::SendTo_::None(None) => (),
                 _ => {
                     info!("Error: {:?}", msg);
                     std::process::abort();

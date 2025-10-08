@@ -11,7 +11,7 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use std::sync::Arc;
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     mining_sv2::Target,
     roles_logic_sv2::utils::Mutex,
     sv1_api::{
@@ -430,7 +430,7 @@ impl Downstream {
                     })?;
 
                 // Check if this was an authorize message and handle sv1 handshake completion
-                if let stratum_apps::stratum_common::sv1_api::json_rpc::Message::StandardRequest(
+                if let stratum_apps::stratum_core::sv1_api::json_rpc::Message::StandardRequest(
                     request,
                 ) = &message
                 {

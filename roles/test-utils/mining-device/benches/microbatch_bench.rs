@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use mining_device::{set_nonces_per_call, FastSha256d};
 use rand::{thread_rng, Rng};
 use std::time::Duration;
-use stratum_apps::stratum_common::bitcoin::{
+use stratum_apps::stratum_core::bitcoin::{
     block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
 

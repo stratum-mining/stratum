@@ -14,7 +14,7 @@ use hyper_util::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use stratum_common::bitcoin::{consensus::encode::deserialize as consensus_decode, Transaction};
+use stratum_core::bitcoin::{consensus::encode::deserialize as consensus_decode, Transaction};
 
 use super::BlockHash;
 

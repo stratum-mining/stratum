@@ -33,7 +33,7 @@ use std::{
 };
 use stratum_apps::{
     network_helpers::noise_connection::Connection,
-    stratum_common::{
+    stratum_core::{
         binary_sv2::{self, B0255, U256},
         bitcoin::{
             block::{Header, Version},
@@ -277,7 +277,7 @@ impl JobDeclaratorDownstream {
     /// Wraps the message into a `StdFrame` and sends it through the established channel.
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: stratum_apps::stratum_common::parsers_sv2::JobDeclaration<'static>,
+        message: stratum_apps::stratum_core::parsers_sv2::JobDeclaration<'static>,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = JdsMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();

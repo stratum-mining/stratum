@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use mining_device::FastSha256d;
 use rand::{thread_rng, Rng};
-use stratum_apps::stratum_common::bitcoin::{
+use stratum_apps::stratum_core::bitcoin::{
     block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
 

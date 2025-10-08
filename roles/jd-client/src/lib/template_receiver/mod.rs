@@ -16,7 +16,7 @@ use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
 use stratum_apps::{
     network_helpers::noise_stream::NoiseTcpStream,
-    stratum_common::{
+    stratum_core::{
         bitcoin::{
             self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
             Transaction, TxIn, TxOut, Witness,
@@ -408,7 +408,7 @@ impl TemplateReceiver {
             .map_err(|e| {
                 error!(?e, "Upstream connection closed during handshake");
                 JDCError::CodecNoise(
-                    stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 )
             })?;
 

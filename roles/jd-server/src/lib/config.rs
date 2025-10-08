@@ -175,7 +175,7 @@ mod tests {
     use super::super::JobDeclaratorServer;
     use ext_config::{Config, ConfigError, File, FileFormat};
     use std::path::PathBuf;
-    use stratum_apps::stratum_common::bitcoin::{self, Amount, ScriptBuf, TxOut};
+    use stratum_apps::stratum_core::bitcoin::{self, Amount, ScriptBuf, TxOut};
 
     use crate::config::JobDeclaratorServerConfig;
 

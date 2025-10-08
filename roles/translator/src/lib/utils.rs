@@ -1,4 +1,4 @@
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2::{Sv2DataType, U256},
     bitcoin::{
         block::{Header, Version},

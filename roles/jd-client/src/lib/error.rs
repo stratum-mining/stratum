@@ -15,7 +15,7 @@ use ext_config::ConfigError;
 use std::fmt;
 use stratum_apps::{
     network_helpers,
-    stratum_common::{
+    stratum_core::{
         binary_sv2, bitcoin, framing_sv2,
         handlers_sv2::HandlerErrorType,
         noise_sv2,
@@ -273,8 +273,8 @@ impl From<network_helpers::Error> for JDCError {
     }
 }
 
-impl From<stratum_apps::stratum_common::bitcoin::consensus::encode::Error> for JDCError {
-    fn from(value: stratum_apps::stratum_common::bitcoin::consensus::encode::Error) -> Self {
+impl From<stratum_apps::stratum_core::bitcoin::consensus::encode::Error> for JDCError {
+    fn from(value: stratum_apps::stratum_core::bitcoin::consensus::encode::Error) -> Self {
         JDCError::BitcoinEncodeError(value)
     }
 }

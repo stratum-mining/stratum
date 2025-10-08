@@ -23,7 +23,7 @@ use hashbrown::HashMap;
 use std::{str::FromStr, sync::Arc};
 use stratum_apps::{
     rpc::{mini_rpc_client, mini_rpc_client::RpcError},
-    stratum_common::{
+    stratum_core::{
         bitcoin::{blockdata::transaction::Transaction, hash_types::Txid},
         roles_logic_sv2::utils::Mutex,
     },

@@ -10,7 +10,7 @@
 
 use ext_config::ConfigError;
 use std::{fmt, sync::PoisonError};
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2, framing_sv2,
     handlers_sv2::HandlerErrorType,
     noise_sv2,
@@ -73,9 +73,7 @@ pub enum TproxyError {
     /// Represents a generic channel send failure, described by a string.
     General(String),
     /// Error bubbling up from translator-core library
-    TranslatorCore(
-        stratum_apps::stratum_common::stratum_translation::error::StratumTranslationError,
-    ),
+    TranslatorCore(stratum_apps::stratum_core::stratum_translation::error::StratumTranslationError),
 }
 
 impl std::error::Error for TproxyError {}
@@ -192,8 +190,8 @@ impl From<SetDifficulty> for TproxyError {
     }
 }
 
-impl<'a> From<stratum_apps::stratum_common::sv1_api::error::Error<'a>> for TproxyError {
-    fn from(_: stratum_apps::stratum_common::sv1_api::error::Error<'a>) -> Self {
+impl<'a> From<stratum_apps::stratum_core::sv1_api::error::Error<'a>> for TproxyError {
+    fn from(_: stratum_apps::stratum_core::sv1_api::error::Error<'a>) -> Self {
         TproxyError::SV1Error
     }
 }
@@ -204,11 +202,11 @@ impl From<stratum_apps::network_helpers::Error> for TproxyError {
     }
 }
 
-impl From<stratum_apps::stratum_common::stratum_translation::error::StratumTranslationError>
+impl From<stratum_apps::stratum_core::stratum_translation::error::StratumTranslationError>
     for TproxyError
 {
     fn from(
-        e: stratum_apps::stratum_common::stratum_translation::error::StratumTranslationError,
+        e: stratum_apps::stratum_core::stratum_translation::error::StratumTranslationError,
     ) -> Self {
         TproxyError::TranslatorCore(e)
     }

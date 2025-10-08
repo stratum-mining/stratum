@@ -387,7 +387,7 @@ impl Downstream {
     /// This method is used to send message to downstream.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: stratum_apps::stratum_common::parsers_sv2::Mining<'static>,
+        message: stratum_apps::stratum_core::parsers_sv2::Mining<'static>,
     ) -> PoolResult<()> {
         //let message = if let Mining::NewExtendedMiningJob(job) = message {
         //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
@@ -1299,7 +1299,7 @@ async fn spawn_vardiff_loop(
 mod test {
     use ext_config::{Config, File, FileFormat};
     use std::convert::TryInto;
-    use stratum_apps::stratum_common::{
+    use stratum_apps::stratum_core::{
         binary_sv2::{B0255, B064K},
         bitcoin::{
             self, absolute::LockTime, consensus, transaction::Version, Amount, Transaction, TxOut,

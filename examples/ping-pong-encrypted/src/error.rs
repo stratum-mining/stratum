@@ -1,6 +1,6 @@
 use stratum_apps::{
     network_helpers,
-    stratum_common::{binary_sv2, codec_sv2, framing_sv2, noise_sv2},
+    stratum_core::{binary_sv2, codec_sv2, framing_sv2, noise_sv2},
 };
 
 #[derive(std::fmt::Debug)]

@@ -1,6 +1,6 @@
 use super::DownstreamMessages;
 use async_channel::{Receiver, Sender};
-use stratum_apps::stratum_common::sv1_api::json_rpc;
+use stratum_apps::stratum_core::sv1_api::json_rpc;
 use tokio::sync::broadcast;
 use tracing::debug;
 

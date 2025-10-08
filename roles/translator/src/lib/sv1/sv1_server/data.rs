@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     sync::{atomic::AtomicU32, Arc, RwLock},
 };
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     channels_sv2::vardiff::classic::VardiffState,
     mining_sv2::{SetNewPrevHash, Target},
     sv1_api::server_to_client,

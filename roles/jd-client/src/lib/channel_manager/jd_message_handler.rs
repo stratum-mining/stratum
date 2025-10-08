@@ -1,4 +1,4 @@
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2::{self, Sv2DataType, B016M},
     bitcoin::{
         self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence, Transaction,

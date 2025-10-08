@@ -19,7 +19,7 @@ This crate is organized into three main modules:
 - **`config_helpers`** - Configuration management helpers (from `config_helpers_sv2`)  
 - **`rpc`** - RPC utilities with custom serializable types (from `rpc_sv2`) - *feature-gated*
 
-The crate also re-exports `stratum-common` which provides access to all protocol types, cryptographic utilities, and error handling.
+The crate also re-exports `stratum-core` which provides access to all protocol types, cryptographic utilities, and error handling.
 
 ## Quick Start
 

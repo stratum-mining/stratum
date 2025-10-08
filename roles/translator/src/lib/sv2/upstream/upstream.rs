@@ -10,7 +10,7 @@ use key_utils::Secp256k1PublicKey;
 use std::{net::SocketAddr, sync::Arc};
 use stratum_apps::{
     network_helpers::noise_connection::Connection,
-    stratum_common::{
+    stratum_core::{
         buffer_sv2,
         codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
         common_messages_sv2::{Protocol, SetupConnection},
@@ -221,23 +221,19 @@ impl Upstream {
                 TproxyError::ChannelErrorSender
             })?;
 
-        let mut incoming: StdFrame = match self
-            .upstream_channel_state
-            .upstream_receiver
-            .recv()
-            .await
-        {
-            Ok(frame) => {
-                debug!("Received handshake response from upstream.");
-                frame.try_into()?
-            }
-            Err(e) => {
-                error!("Failed to receive handshake response from upstream: {}", e);
-                return Err(TproxyError::CodecNoise(
-                        stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
-                    ));
-            }
-        };
+        let mut incoming: StdFrame =
+            match self.upstream_channel_state.upstream_receiver.recv().await {
+                Ok(frame) => {
+                    debug!("Received handshake response from upstream.");
+                    frame.try_into()?
+                }
+                Err(e) => {
+                    error!("Failed to receive handshake response from upstream: {}", e);
+                    return Err(TproxyError::CodecNoise(
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                ));
+                }
+            };
 
         let message_type = incoming
             .get_header()
@@ -271,7 +267,7 @@ impl Upstream {
                 let std_frame: StdFrame = sv2_frame;
 
                 // Parse message from frame
-                let mut frame: stratum_apps::stratum_common::framing_sv2::framing::Frame<
+                let mut frame: stratum_apps::stratum_core::framing_sv2::framing::Frame<
                     AnyMessage<'static>,
                     buffer_sv2::Slice,
                 > = std_frame.clone().into();

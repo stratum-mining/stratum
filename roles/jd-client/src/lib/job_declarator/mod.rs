@@ -4,7 +4,7 @@ use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
 use stratum_apps::{
     network_helpers::noise_stream::NoiseTcpStream,
-    stratum_common::{
+    stratum_core::{
         codec_sv2::HandshakeRole, framing_sv2, handlers_sv2::HandleCommonMessagesFromServerAsync,
         noise_sv2::Initiator, roles_logic_sv2::utils::Mutex,
     },
@@ -204,7 +204,7 @@ impl JobDeclarator {
             .map_err(|e| {
                 error!(error=?e, "Failed to serialize SetupConnection message.");
                 JDCError::CodecNoise(
-                    stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 )
             })?;
 
@@ -222,7 +222,7 @@ impl JobDeclarator {
             .map_err(|e| {
                 error!(error=?e, "No handshake response received from Job declarator.");
                 JDCError::CodecNoise(
-                    stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 )
             })?;
 

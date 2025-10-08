@@ -7,12 +7,12 @@ use std::{
     net::{TcpListener, TcpStream},
     thread,
 };
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2,
     codec_sv2::{self, StandardDecoder, StandardSv2Frame},
 };
 
-use stratum_apps::stratum_common::framing_sv2::header::Header as StandardSv2Header;
+use stratum_apps::stratum_core::framing_sv2::header::Header as StandardSv2Header;
 
 pub fn start_server(address: &str) -> Result<(), Error> {
     let listener = TcpListener::bind(address)?;

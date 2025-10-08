@@ -4,7 +4,7 @@ use integration_tests_sv2::{
     template_provider::DifficultyLevel,
     *,
 };
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2::{Seq064K, B032, U256},
     common_messages_sv2::*,
     job_declaration_sv2::{ProvideMissingTransactionsSuccess, PushSolution, *},

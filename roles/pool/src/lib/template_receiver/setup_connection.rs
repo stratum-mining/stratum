@@ -9,7 +9,7 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     codec_sv2,
     common_messages_sv2::{Protocol, Reconnect, SetupConnection, SetupConnectionError},
     parsers_sv2::{AnyMessage, CommonMessages},
@@ -84,7 +84,7 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     // Handles a successful setup connection response from the template provider.
     fn handle_setup_connection_success(
         &mut self,
-        m: stratum_apps::stratum_common::common_messages_sv2::SetupConnectionSuccess,
+        m: stratum_apps::stratum_core::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendTo, Error> {
         info!(
             "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
@@ -118,14 +118,14 @@ impl ParseCommonMessagesFromUpstream for SetupConnectionHandler {
     // Handles a channel endpoint change notification from the template provider.
     fn handle_channel_endpoint_changed(
         &mut self,
-        m: stratum_apps::stratum_common::common_messages_sv2::ChannelEndpointChanged,
+        m: stratum_apps::stratum_core::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<SendTo, Error> {
         info!(
             "Received ChannelEndpointChanged with channel id: {}",
             m.channel_id
         );
         Err(Error::UnexpectedMessage(
-            stratum_apps::stratum_common::common_messages_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            stratum_apps::stratum_core::common_messages_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
     }
 
