@@ -12,30 +12,30 @@ pub trait HandleCommonMessagesFromServerSync {
         &mut self,
         message_type: u8,
         payload: &mut [u8],
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         let parsed: CommonMessages<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
-        self.handle_common_message_from_server(parsed, client_id)
+        self.handle_common_message_from_server(parsed, server_id)
     }
 
     fn handle_common_message_from_server(
         &mut self,
         message: CommonMessages<'_>,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         match message {
             CommonMessages::SetupConnectionSuccess(msg) => {
-                self.handle_setup_connection_success(msg, client_id)
+                self.handle_setup_connection_success(msg, server_id)
             }
             CommonMessages::SetupConnectionError(msg) => {
-                self.handle_setup_connection_error(msg, client_id)
+                self.handle_setup_connection_error(msg, server_id)
             }
             CommonMessages::ChannelEndpointChanged(msg) => {
-                self.handle_channel_endpoint_changed(msg, client_id)
+                self.handle_channel_endpoint_changed(msg, server_id)
             }
-            CommonMessages::Reconnect(msg) => self.handle_reconnect(msg, client_id),
+            CommonMessages::Reconnect(msg) => self.handle_reconnect(msg, server_id),
 
             CommonMessages::SetupConnection(_) => Err(Self::Error::unexpected_message(
                 MESSAGE_TYPE_SETUP_CONNECTION,
@@ -46,22 +46,22 @@ pub trait HandleCommonMessagesFromServerSync {
     fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     fn handle_channel_endpoint_changed(
         &mut self,
         msg: ChannelEndpointChanged,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
-    fn handle_reconnect(&mut self, msg: Reconnect, client_id: usize) -> Result<(), Self::Error>;
+    fn handle_reconnect(&mut self, msg: Reconnect, server_id: usize) -> Result<(), Self::Error>;
 }
 
 #[trait_variant::make(Send)]
@@ -71,13 +71,13 @@ pub trait HandleCommonMessagesFromServerAsync {
         &mut self,
         message_type: u8,
         payload: &mut [u8],
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         async move {
             let parsed: CommonMessages<'_> = (message_type, payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
-            self.handle_common_message_from_server(parsed, client_id)
+            self.handle_common_message_from_server(parsed, server_id)
                 .await
         }
     }
@@ -85,20 +85,20 @@ pub trait HandleCommonMessagesFromServerAsync {
     async fn handle_common_message_from_server(
         &mut self,
         message: CommonMessages<'_>,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         async move {
             match message {
                 CommonMessages::SetupConnectionSuccess(msg) => {
-                    self.handle_setup_connection_success(msg, client_id).await
+                    self.handle_setup_connection_success(msg, server_id).await
                 }
                 CommonMessages::SetupConnectionError(msg) => {
-                    self.handle_setup_connection_error(msg, client_id).await
+                    self.handle_setup_connection_error(msg, server_id).await
                 }
                 CommonMessages::ChannelEndpointChanged(msg) => {
-                    self.handle_channel_endpoint_changed(msg, client_id).await
+                    self.handle_channel_endpoint_changed(msg, server_id).await
                 }
-                CommonMessages::Reconnect(msg) => self.handle_reconnect(msg, client_id).await,
+                CommonMessages::Reconnect(msg) => self.handle_reconnect(msg, server_id).await,
 
                 CommonMessages::SetupConnection(_) => Err(Self::Error::unexpected_message(
                     MESSAGE_TYPE_SETUP_CONNECTION,
@@ -110,25 +110,25 @@ pub trait HandleCommonMessagesFromServerAsync {
     async fn handle_setup_connection_success(
         &mut self,
         msg: SetupConnectionSuccess,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     async fn handle_setup_connection_error(
         &mut self,
         msg: SetupConnectionError,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     async fn handle_channel_endpoint_changed(
         &mut self,
         msg: ChannelEndpointChanged,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     async fn handle_reconnect(
         &mut self,
         msg: Reconnect,
-        client_id: usize,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 }
 

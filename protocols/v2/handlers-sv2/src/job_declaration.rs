@@ -15,27 +15,31 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
         &mut self,
         message_type: u8,
         payload: &mut [u8],
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
-        self.handle_job_declaration_message_from_server(parsed)
+        self.handle_job_declaration_message_from_server(parsed, server_id)
     }
 
     fn handle_job_declaration_message_from_server(
         &mut self,
         message: JobDeclaration<'_>,
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         match message {
             JobDeclaration::AllocateMiningJobTokenSuccess(msg) => {
-                self.handle_allocate_mining_job_token_success(msg)
+                self.handle_allocate_mining_job_token_success(msg, server_id)
             }
             JobDeclaration::DeclareMiningJobSuccess(msg) => {
-                self.handle_declare_mining_job_success(msg)
+                self.handle_declare_mining_job_success(msg, server_id)
             }
-            JobDeclaration::DeclareMiningJobError(msg) => self.handle_declare_mining_job_error(msg),
+            JobDeclaration::DeclareMiningJobError(msg) => {
+                self.handle_declare_mining_job_error(msg, server_id)
+            }
             JobDeclaration::ProvideMissingTransactions(msg) => {
-                self.handle_provide_missing_transactions(msg)
+                self.handle_provide_missing_transactions(msg, server_id)
             }
             JobDeclaration::AllocateMiningJobToken(_) => Err(Self::Error::unexpected_message(
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
@@ -55,21 +59,25 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
     fn handle_allocate_mining_job_token_success(
         &mut self,
         msg: AllocateMiningJobTokenSuccess,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     fn handle_declare_mining_job_success(
         &mut self,
         msg: DeclareMiningJobSuccess,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     fn handle_declare_mining_job_error(
         &mut self,
         msg: DeclareMiningJobError,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     fn handle_provide_missing_transactions(
         &mut self,
         msg: ProvideMissingTransactions,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 }
 
@@ -80,12 +88,13 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
         &mut self,
         message_type: u8,
         payload: &mut [u8],
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         async move {
             let parsed: JobDeclaration<'_> = (message_type, payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
-            self.handle_job_declaration_message_from_server(parsed)
+            self.handle_job_declaration_message_from_server(parsed, server_id)
                 .await
         }
     }
@@ -93,20 +102,23 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     async fn handle_job_declaration_message_from_server(
         &mut self,
         message: JobDeclaration<'_>,
+        server_id: usize,
     ) -> Result<(), Self::Error> {
         async move {
             match message {
                 JobDeclaration::AllocateMiningJobTokenSuccess(msg) => {
-                    self.handle_allocate_mining_job_token_success(msg).await
+                    self.handle_allocate_mining_job_token_success(msg, server_id)
+                        .await
                 }
                 JobDeclaration::DeclareMiningJobSuccess(msg) => {
-                    self.handle_declare_mining_job_success(msg).await
+                    self.handle_declare_mining_job_success(msg, server_id).await
                 }
                 JobDeclaration::DeclareMiningJobError(msg) => {
-                    self.handle_declare_mining_job_error(msg).await
+                    self.handle_declare_mining_job_error(msg, server_id).await
                 }
                 JobDeclaration::ProvideMissingTransactions(msg) => {
-                    self.handle_provide_missing_transactions(msg).await
+                    self.handle_provide_missing_transactions(msg, server_id)
+                        .await
                 }
                 JobDeclaration::AllocateMiningJobToken(_) => Err(Self::Error::unexpected_message(
                     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
@@ -129,21 +141,25 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     async fn handle_allocate_mining_job_token_success(
         &mut self,
         msg: AllocateMiningJobTokenSuccess,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     async fn handle_declare_mining_job_success(
         &mut self,
         msg: DeclareMiningJobSuccess,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     async fn handle_declare_mining_job_error(
         &mut self,
         msg: DeclareMiningJobError,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 
     async fn handle_provide_missing_transactions(
         &mut self,
         msg: ProvideMissingTransactions,
+        server_id: usize,
     ) -> Result<(), Self::Error>;
 }
 
@@ -154,26 +170,28 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
         &mut self,
         message_type: u8,
         payload: &mut [u8],
+        client_id: usize,
     ) -> Result<(), Self::Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
-        self.handle_job_declaration_message_from_client(parsed)
+        self.handle_job_declaration_message_from_client(parsed, client_id)
     }
 
     fn handle_job_declaration_message_from_client(
         &mut self,
         message: JobDeclaration<'_>,
+        client_id: usize,
     ) -> Result<(), Self::Error> {
         match message {
             JobDeclaration::AllocateMiningJobToken(msg) => {
-                self.handle_allocate_mining_job_token(msg)
+                self.handle_allocate_mining_job_token(msg, client_id)
             }
-            JobDeclaration::DeclareMiningJob(msg) => self.handle_declare_mining_job(msg),
+            JobDeclaration::DeclareMiningJob(msg) => self.handle_declare_mining_job(msg, client_id),
             JobDeclaration::ProvideMissingTransactionsSuccess(msg) => {
-                self.handle_provide_missing_transactions_success(msg)
+                self.handle_provide_missing_transactions_success(msg, client_id)
             }
-            JobDeclaration::PushSolution(msg) => self.handle_push_solution(msg),
+            JobDeclaration::PushSolution(msg) => self.handle_push_solution(msg, client_id),
 
             JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(
                 Self::Error::unexpected_message(MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS),
@@ -193,16 +211,26 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
     fn handle_allocate_mining_job_token(
         &mut self,
         msg: AllocateMiningJobToken,
+        client_id: usize,
     ) -> Result<(), Self::Error>;
 
-    fn handle_declare_mining_job(&mut self, msg: DeclareMiningJob) -> Result<(), Self::Error>;
+    fn handle_declare_mining_job(
+        &mut self,
+        msg: DeclareMiningJob,
+        client_id: usize,
+    ) -> Result<(), Self::Error>;
 
     fn handle_provide_missing_transactions_success(
         &mut self,
         msg: ProvideMissingTransactionsSuccess,
+        client_id: usize,
     ) -> Result<(), Self::Error>;
 
-    fn handle_push_solution(&mut self, msg: PushSolution) -> Result<(), Self::Error>;
+    fn handle_push_solution(
+        &mut self,
+        msg: PushSolution,
+        client_id: usize,
+    ) -> Result<(), Self::Error>;
 }
 
 #[trait_variant::make(Send)]
@@ -213,12 +241,13 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
         &mut self,
         message_type: u8,
         payload: &mut [u8],
+        client_id: usize,
     ) -> Result<(), Self::Error> {
         async move {
             let parsed: JobDeclaration<'_> = (message_type, payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
-            self.handle_job_declaration_message_from_client(parsed)
+            self.handle_job_declaration_message_from_client(parsed, client_id)
                 .await
         }
     }
@@ -226,17 +255,23 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
     async fn handle_job_declaration_message_from_client(
         &mut self,
         message: JobDeclaration<'_>,
+        client_id: usize,
     ) -> Result<(), Self::Error> {
         async move {
             match message {
                 JobDeclaration::AllocateMiningJobToken(msg) => {
-                    self.handle_allocate_mining_job_token(msg).await
+                    self.handle_allocate_mining_job_token(msg, client_id).await
                 }
-                JobDeclaration::DeclareMiningJob(msg) => self.handle_declare_mining_job(msg).await,
+                JobDeclaration::DeclareMiningJob(msg) => {
+                    self.handle_declare_mining_job(msg, client_id).await
+                }
                 JobDeclaration::ProvideMissingTransactionsSuccess(msg) => {
-                    self.handle_provide_missing_transactions_success(msg).await
+                    self.handle_provide_missing_transactions_success(msg, client_id)
+                        .await
                 }
-                JobDeclaration::PushSolution(msg) => self.handle_push_solution(msg).await,
+                JobDeclaration::PushSolution(msg) => {
+                    self.handle_push_solution(msg, client_id).await
+                }
 
                 JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(
                     Self::Error::unexpected_message(MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS),
@@ -257,15 +292,24 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
     async fn handle_allocate_mining_job_token(
         &mut self,
         msg: AllocateMiningJobToken,
+        client_id: usize,
     ) -> Result<(), Self::Error>;
 
-    async fn handle_declare_mining_job(&mut self, msg: DeclareMiningJob)
-        -> Result<(), Self::Error>;
+    async fn handle_declare_mining_job(
+        &mut self,
+        msg: DeclareMiningJob,
+        client_id: usize,
+    ) -> Result<(), Self::Error>;
 
     async fn handle_provide_missing_transactions_success(
         &mut self,
         msg: ProvideMissingTransactionsSuccess,
+        client_id: usize,
     ) -> Result<(), Self::Error>;
 
-    async fn handle_push_solution(&mut self, msg: PushSolution) -> Result<(), Self::Error>;
+    async fn handle_push_solution(
+        &mut self,
+        msg: PushSolution,
+        client_id: usize,
+    ) -> Result<(), Self::Error>;
 }
