@@ -1,6 +1,6 @@
 use mining_device::FastSha256d;
 use rand::{thread_rng, Rng};
-use stratum_common::bitcoin::{
+use stratum_apps::stratum_common::bitcoin::{
     block::Version, blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
 };
 

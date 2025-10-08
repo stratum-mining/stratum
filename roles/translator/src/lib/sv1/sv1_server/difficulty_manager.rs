@@ -9,11 +9,11 @@ use stratum_apps::stratum_core::{
     mining_sv2::{SetTarget, Target, UpdateChannel},
     parsers_sv2::Mining,
     roles_logic_sv2::utils::Mutex,
+    stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target,
+    sv1_api::json_rpc,
 };
-use stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target;
 use tokio::{sync::broadcast, time};
 use tracing::{debug, error, info, trace, warn};
-use v1::json_rpc;
 
 /// Handles all variable difficulty adjustment logic for the SV1 server.
 ///

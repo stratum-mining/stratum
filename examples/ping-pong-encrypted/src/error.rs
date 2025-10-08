@@ -1,4 +1,7 @@
-use stratum_common::{binary_sv2, codec_sv2, framing_sv2, noise_sv2};
+use stratum_apps::{
+    network_helpers,
+    stratum_common::{binary_sv2, codec_sv2, framing_sv2, noise_sv2},
+};
 
 #[derive(std::fmt::Debug)]
 pub enum Error {
@@ -7,7 +10,7 @@ pub enum Error {
     FramingSv2(framing_sv2::Error),
     BinarySv2(binary_sv2::Error),
     NoiseSv2(noise_sv2::Error),
-    NetworkHelpersSv2(network_helpers_sv2::Error),
+    NetworkHelpersSv2(network_helpers::Error),
     KeyUtils(key_utils::Error),
     Receiver,
     Sender,
@@ -30,8 +33,8 @@ impl From<codec_sv2::Error> for Error {
     }
 }
 
-impl From<network_helpers_sv2::Error> for Error {
-    fn from(e: network_helpers_sv2::Error) -> Error {
+impl From<network_helpers::Error> for Error {
+    fn from(e: network_helpers::Error) -> Error {
         Error::NetworkHelpersSv2(e)
     }
 }

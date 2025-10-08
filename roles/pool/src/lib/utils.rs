@@ -1,15 +1,17 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{Receiver, Sender};
-use stratum_common::{
-    network_helpers_sv2::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
-    roles_logic_sv2::{
-        codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame},
+use stratum_apps::{
+    network_helpers::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
+    stratum_core::{
+        buffer_sv2,
+        codec_sv2::{StandardEitherFrame, StandardSv2Frame},
         common_messages_sv2::{
             Protocol, SetupConnection, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             MESSAGE_TYPE_RECONNECT, MESSAGE_TYPE_SETUP_CONNECTION,
             MESSAGE_TYPE_SETUP_CONNECTION_ERROR, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
         },
+        framing_sv2::framing::{Frame, Sv2Frame},
         job_declaration_sv2::{
             MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
             MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,

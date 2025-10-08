@@ -8,7 +8,7 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
-use stratum_common::parsers_sv2::Mining;
+use stratum_apps::stratum_common::parsers_sv2::Mining;
 
 use super::error::JdsError;
 
@@ -171,7 +171,7 @@ mod tests {
 
     use super::*;
     use async_channel::{bounded, RecvError};
-    use stratum_common::{
+    use stratum_apps::stratum_common::{
         binary_sv2, codec_sv2, framing_sv2, mining_sv2::OpenMiningChannelError, noise_sv2,
         roles_logic_sv2,
     };

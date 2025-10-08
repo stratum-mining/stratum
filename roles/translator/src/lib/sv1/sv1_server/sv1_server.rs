@@ -13,7 +13,6 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
-use network_helpers_sv2::sv1_connection::ConnectionSV1;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -22,25 +21,29 @@ use std::{
         Arc, RwLock,
     },
 };
-use stratum_common::{
-    binary_sv2::Str0255,
-    channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
-    mining_sv2::{CloseChannel, SetTarget, Target},
-    parsers_sv2::Mining,
-    roles_logic_sv2::utils::Mutex,
-};
-use stratum_translation::{
-    sv1_to_sv2::{
-        build_sv2_open_extended_mining_channel, build_sv2_submit_shares_extended_from_sv1_submit,
+use stratum_apps::{
+    network_helpers::sv1_connection::ConnectionSV1,
+    stratum_common::{
+        binary_sv2::Str0255,
+        channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
+        mining_sv2::{CloseChannel, SetTarget, Target},
+        parsers_sv2::Mining,
+        roles_logic_sv2::utils::Mutex,
+        stratum_translation::{
+            sv1_to_sv2::{
+                build_sv2_open_extended_mining_channel,
+                build_sv2_submit_shares_extended_from_sv1_submit,
+            },
+            sv2_to_sv1::{build_sv1_notify_from_sv2, build_sv1_set_difficulty_from_sv2_target},
+        },
+        sv1_api::IsServer,
     },
-    sv2_to_sv1::{build_sv1_notify_from_sv2, build_sv1_set_difficulty_from_sv2_target},
 };
 use tokio::{
     net::TcpListener,
     sync::{broadcast, mpsc},
 };
 use tracing::{debug, error, info, warn};
-use v1::IsServer;
 
 /// SV1 server that handles connections from SV1 miners.
 ///

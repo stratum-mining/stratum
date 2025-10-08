@@ -12,7 +12,6 @@
 //! This module ensures that all errors can be passed around consistently, including across async
 //! boundaries.
 use ext_config::ConfigError;
-use network_helpers_sv2;
 use std::fmt;
 use stratum_apps::{
     network_helpers,
@@ -58,7 +57,7 @@ pub enum JDCError {
     /// Broadcast channel receiver error
     BroadcastChannelErrorReceiver(broadcast::error::RecvError),
     Shutdown,
-    NetworkHelpersError(network_helpers_sv2::Error),
+    NetworkHelpersError(network_helpers::Error),
     UnexpectedMessage(u8),
     InvalidUserIdentity(String),
     BitcoinEncodeError(bitcoin::consensus::encode::Error),
@@ -273,14 +272,14 @@ impl From<tokio::sync::broadcast::error::RecvError> for JDCError {
     }
 }
 
-impl From<network_helpers_sv2::Error> for JDCError {
-    fn from(value: network_helpers_sv2::Error) -> Self {
+impl From<network_helpers::Error> for JDCError {
+    fn from(value: network_helpers::Error) -> Self {
         JDCError::NetworkHelpersError(value)
     }
 }
 
-impl From<stratum_common::bitcoin::consensus::encode::Error> for JDCError {
-    fn from(value: stratum_common::bitcoin::consensus::encode::Error) -> Self {
+impl From<stratum_apps::stratum_common::bitcoin::consensus::encode::Error> for JDCError {
+    fn from(value: stratum_apps::stratum_common::bitcoin::consensus::encode::Error) -> Self {
         JDCError::BitcoinEncodeError(value)
     }
 }

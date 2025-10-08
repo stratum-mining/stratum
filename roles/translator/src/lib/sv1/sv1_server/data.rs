@@ -3,11 +3,11 @@ use std::{
     collections::HashMap,
     sync::{atomic::AtomicU32, Arc, RwLock},
 };
-use stratum_common::{
+use stratum_apps::stratum_common::{
     channels_sv2::vardiff::classic::VardiffState,
     mining_sv2::{SetNewPrevHash, Target},
+    sv1_api::server_to_client,
 };
-use v1::server_to_client;
 
 #[derive(Debug, Clone)]
 pub struct PendingTargetUpdate {

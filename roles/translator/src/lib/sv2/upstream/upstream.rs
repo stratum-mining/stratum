@@ -7,16 +7,18 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_connection::Connection;
 use std::{net::SocketAddr, sync::Arc};
-use stratum_common::{
-    buffer_sv2,
-    codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
-    common_messages_sv2::{Protocol, SetupConnection},
-    framing_sv2,
-    handlers_sv2::HandleCommonMessagesFromServerAsync,
-    noise_sv2::Initiator,
-    parsers_sv2::AnyMessage,
+use stratum_apps::{
+    network_helpers::noise_connection::Connection,
+    stratum_common::{
+        buffer_sv2,
+        codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
+        common_messages_sv2::{Protocol, SetupConnection},
+        framing_sv2,
+        handlers_sv2::HandleCommonMessagesFromServerAsync,
+        noise_sv2::Initiator,
+        parsers_sv2::AnyMessage,
+    },
 };
 use tokio::{
     net::TcpStream,
@@ -219,19 +221,23 @@ impl Upstream {
                 TproxyError::ChannelErrorSender
             })?;
 
-        let mut incoming: StdFrame =
-            match self.upstream_channel_state.upstream_receiver.recv().await {
-                Ok(frame) => {
-                    debug!("Received handshake response from upstream.");
-                    frame.try_into()?
-                }
-                Err(e) => {
-                    error!("Failed to receive handshake response from upstream: {}", e);
-                    return Err(TproxyError::CodecNoise(
-                        stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+        let mut incoming: StdFrame = match self
+            .upstream_channel_state
+            .upstream_receiver
+            .recv()
+            .await
+        {
+            Ok(frame) => {
+                debug!("Received handshake response from upstream.");
+                frame.try_into()?
+            }
+            Err(e) => {
+                error!("Failed to receive handshake response from upstream: {}", e);
+                return Err(TproxyError::CodecNoise(
+                        stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                     ));
-                }
-            };
+            }
+        };
 
         let message_type = incoming
             .get_header()
@@ -265,7 +271,7 @@ impl Upstream {
                 let std_frame: StdFrame = sv2_frame;
 
                 // Parse message from frame
-                let mut frame: stratum_common::framing_sv2::framing::Frame<
+                let mut frame: stratum_apps::stratum_common::framing_sv2::framing::Frame<
                     AnyMessage<'static>,
                     buffer_sv2::Slice,
                 > = std_frame.clone().into();

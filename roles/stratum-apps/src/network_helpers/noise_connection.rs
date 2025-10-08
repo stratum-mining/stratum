@@ -1,5 +1,5 @@
 #![allow(clippy::new_ret_no_self)]
-use crate::{
+use crate::network_helpers::{
     noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
     Error,
 };

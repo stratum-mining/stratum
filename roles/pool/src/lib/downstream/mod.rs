@@ -7,20 +7,20 @@ use std::{
 };
 
 use async_channel::{unbounded, Receiver, Sender};
-use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_core::{
         channels_sv2::server::{
             extended::ExtendedChannel,
             group::GroupChannel,
             jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
             standard::StandardChannel,
         },
-        codec_sv2::noise_sv2::Error,
         common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
+        noise_sv2::Error,
         parsers_sv2::{AnyMessage, Mining},
-        utils::Mutex,
+        roles_logic_sv2::utils::Mutex,
     },
 };
 use tokio::sync::broadcast;

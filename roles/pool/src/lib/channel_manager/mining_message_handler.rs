@@ -1,6 +1,7 @@
 use std::sync::atomic::Ordering;
 
-use stratum_common::roles_logic_sv2::{
+use stratum_apps::stratum_core::{
+    binary_sv2::Str0255,
     bitcoin::{consensus::Decodable, Amount, TxOut},
     channels_sv2::{
         server::{
@@ -13,7 +14,6 @@ use stratum_common::roles_logic_sv2::{
         },
         Vardiff, VardiffState,
     },
-    codec_sv2::binary_sv2::Str0255,
     handlers_sv2::{HandleMiningMessagesFromClientAsync, SupportedChannelTypes},
     mining_sv2::*,
     parsers_sv2::{Mining, TemplateDistribution},

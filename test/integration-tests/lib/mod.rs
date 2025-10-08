@@ -11,6 +11,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     time::Duration,
 };
+use stratum_apps::config_helpers::CoinbaseRewardScript;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use translator_sv2::TranslatorSv2;

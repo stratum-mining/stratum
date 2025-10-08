@@ -1,18 +1,20 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
-use network_helpers_sv2::noise_stream::NoiseTcpStream;
-use stratum_common::{
-    channels_sv2::server::{
-        extended::ExtendedChannel,
-        group::GroupChannel,
-        jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
-        standard::StandardChannel,
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_common::{
+        channels_sv2::server::{
+            extended::ExtendedChannel,
+            group::GroupChannel,
+            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+            standard::StandardChannel,
+        },
+        common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
+        handlers_sv2::HandleCommonMessagesFromClientAsync,
+        parsers_sv2::{AnyMessage, IsSv2Message},
+        roles_logic_sv2::utils::Mutex,
     },
-    common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
-    handlers_sv2::HandleCommonMessagesFromClientAsync,
-    parsers_sv2::{AnyMessage, IsSv2Message},
-    roles_logic_sv2::utils::Mutex,
 };
 
 use tokio::sync::broadcast;
@@ -244,7 +246,7 @@ impl Downstream {
             .map_err(|e| {
                 error!(?e, "Downstream send failed");
                 JDCError::CodecNoise(
-                    stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 )
             })?;
 

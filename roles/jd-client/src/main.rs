@@ -1,5 +1,5 @@
-use config_helpers_sv2::logging::init_logging;
 use jd_client_sv2::JobDeclaratorClient;
+use stratum_apps::config_helpers::logging::init_logging;
 
 use crate::args::process_cli_args;
 

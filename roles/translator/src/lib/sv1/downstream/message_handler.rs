@@ -1,9 +1,9 @@
-use tracing::{debug, error, info, warn};
-use v1::{
+use stratum_apps::stratum_common::sv1_api::{
     client_to_server, json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be},
     IsServer,
 };
+use tracing::{debug, error, info, warn};
 
 use crate::{
     sv1::downstream::{data::DownstreamData, SubmitShareWithChannelId},
@@ -152,8 +152,14 @@ impl IsServer<'static> for DownstreamData {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&'_ mut self) -> Result<json_rpc::Message, v1::error::Error<'_>> {
+    fn notify(
+        &'_ mut self,
+    ) -> Result<json_rpc::Message, stratum_apps::stratum_common::sv1_api::error::Error<'_>> {
         warn!("notify() called on DownstreamData - this method is not implemented for the translator proxy");
-        Err(v1::error::Error::UnexpectedMessage("notify".to_string()))
+        Err(
+            stratum_apps::stratum_common::sv1_api::error::Error::UnexpectedMessage(
+                "notify".to_string(),
+            ),
+        )
     }
 }

@@ -3,11 +3,13 @@ use crate::{
     messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE},
 };
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers_sv2::noise_connection::Connection;
-use stratum_common::{
-    binary_sv2,
-    codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
-    noise_sv2::Responder,
+use stratum_apps::{
+    network_helpers::noise_connection::Connection,
+    stratum_common::{
+        binary_sv2,
+        codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
+        noise_sv2::Responder,
+    },
 };
 
 use async_channel::{Receiver, Sender};

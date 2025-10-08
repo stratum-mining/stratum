@@ -8,7 +8,7 @@
 //! `NoiseTcpWriteHalf`, which support frame-based encoding/decoding of SV2 messages with optional
 //! non-blocking behavior.
 
-use crate::Error;
+use crate::network_helpers::Error;
 use stratum_common::{
     binary_sv2::{Deserialize, GetSize, Serialize},
     codec_sv2::{HandshakeRole, NoiseEncoder, StandardNoiseDecoder, State},
@@ -19,7 +19,6 @@ use tokio::net::{
     TcpStream,
 };
 
-use std::convert::TryInto;
 use stratum_common::{
     codec_sv2::StandardEitherFrame, framing_sv2::framing::HandShakeFrame,
     noise_sv2::ELLSWIFT_ENCODING_SIZE,

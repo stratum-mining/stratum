@@ -10,9 +10,10 @@ use stratum_apps::stratum_core::{
         server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
         vardiff::error::VardiffError,
     },
-    codec_sv2, framing_sv2, noise_sv2,
+    codec_sv2, framing_sv2,
     handlers_sv2::HandlerErrorType,
     mining_sv2::ExtendedExtranonceError,
+    noise_sv2,
     parsers_sv2::{Mining, ParserError},
     roles_logic_sv2,
 };
@@ -42,7 +43,7 @@ pub enum PoolError {
     /// Error from the `codec_sv2` crate.
     Codec(codec_sv2::Error),
     /// Error related to parsing a coinbase output specification.
-    CoinbaseOutput(config_helpers_sv2::CoinbaseOutputError),
+    CoinbaseOutput(stratum_apps::config_helpers::CoinbaseOutputError),
     /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
     /// Error from the `roles_logic_sv2` crate.
@@ -166,8 +167,8 @@ impl From<codec_sv2::Error> for PoolError {
     }
 }
 
-impl From<config_helpers_sv2::CoinbaseOutputError> for PoolError {
-    fn from(e: config_helpers_sv2::CoinbaseOutputError) -> PoolError {
+impl From<stratum_apps::config_helpers::CoinbaseOutputError> for PoolError {
+    fn from(e: stratum_apps::config_helpers::CoinbaseOutputError) -> PoolError {
         PoolError::CoinbaseOutput(e)
     }
 }
@@ -223,8 +224,8 @@ impl HandlerErrorType for PoolError {
     }
 }
 
-impl From<stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error> for PoolError {
-    fn from(value: stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error) -> Self {
+impl From<stratum_apps::stratum_core::bitcoin::consensus::encode::Error> for PoolError {
+    fn from(value: stratum_apps::stratum_core::bitcoin::consensus::encode::Error) -> Self {
         PoolError::BitcoinEncodeError(value)
     }
 }
