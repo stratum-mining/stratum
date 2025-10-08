@@ -14,7 +14,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 
     fn handle_template_distribution_message_frame_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -26,7 +26,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 
     fn handle_template_distribution_message_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -52,25 +52,25 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
     }
     fn handle_new_template(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: NewTemplate,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_new_prev_hash(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetNewPrevHash,
     ) -> Result<(), Self::Error>;
 
     fn handle_request_tx_data_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: RequestTransactionDataSuccess,
     ) -> Result<(), Self::Error>;
 
     fn handle_request_tx_data_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: RequestTransactionDataError,
     ) -> Result<(), Self::Error>;
 }
@@ -81,7 +81,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 
     async fn handle_template_distribution_message_frame_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -96,7 +96,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 
     async fn handle_template_distribution_message_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -128,25 +128,25 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
     }
     async fn handle_new_template(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: NewTemplate,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_new_prev_hash(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetNewPrevHash,
     ) -> Result<(), Self::Error>;
 
     async fn handle_request_tx_data_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: RequestTransactionDataSuccess,
     ) -> Result<(), Self::Error>;
 
     async fn handle_request_tx_data_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: RequestTransactionDataError,
     ) -> Result<(), Self::Error>;
 }
@@ -156,7 +156,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 
     fn handle_template_distribution_message_frame_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -168,7 +168,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 
     fn handle_template_distribution_message_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -197,18 +197,18 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 
     fn handle_coinbase_output_constraints(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: CoinbaseOutputConstraints,
     ) -> Result<(), Self::Error>;
 
     fn handle_request_tx_data(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: RequestTransactionData,
     ) -> Result<(), Self::Error>;
     fn handle_submit_solution(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SubmitSolution,
     ) -> Result<(), Self::Error>;
 }
@@ -219,7 +219,7 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
 
     async fn handle_template_distribution_message_frame_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -234,7 +234,7 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
 
     async fn handle_template_distribution_message_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message: TemplateDistribution<'_>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -267,18 +267,18 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
 
     async fn handle_coinbase_output_constraints(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: CoinbaseOutputConstraints,
     ) -> Result<(), Self::Error>;
 
     async fn handle_request_tx_data(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: RequestTransactionData,
     ) -> Result<(), Self::Error>;
     async fn handle_submit_solution(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SubmitSolution,
     ) -> Result<(), Self::Error>;
 }

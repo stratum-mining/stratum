@@ -10,7 +10,7 @@ pub trait HandleCommonMessagesFromServerSync {
     type Error: HandlerErrorType;
     fn handle_common_message_frame_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -22,7 +22,7 @@ pub trait HandleCommonMessagesFromServerSync {
 
     fn handle_common_message_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message: CommonMessages<'_>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -45,23 +45,27 @@ pub trait HandleCommonMessagesFromServerSync {
 
     fn handle_setup_connection_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Self::Error>;
 
     fn handle_setup_connection_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetupConnectionError,
     ) -> Result<(), Self::Error>;
 
     fn handle_channel_endpoint_changed(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Self::Error>;
 
-    fn handle_reconnect(&mut self, server_id: usize, msg: Reconnect) -> Result<(), Self::Error>;
+    fn handle_reconnect(
+        &mut self,
+        server_id: Option<usize>,
+        msg: Reconnect,
+    ) -> Result<(), Self::Error>;
 }
 
 #[trait_variant::make(Send)]
@@ -69,7 +73,7 @@ pub trait HandleCommonMessagesFromServerAsync {
     type Error: HandlerErrorType;
     async fn handle_common_message_frame_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -84,7 +88,7 @@ pub trait HandleCommonMessagesFromServerAsync {
 
     async fn handle_common_message_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message: CommonMessages<'_>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -109,25 +113,25 @@ pub trait HandleCommonMessagesFromServerAsync {
 
     async fn handle_setup_connection_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Self::Error>;
 
     async fn handle_setup_connection_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetupConnectionError,
     ) -> Result<(), Self::Error>;
 
     async fn handle_channel_endpoint_changed(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Self::Error>;
 
     async fn handle_reconnect(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: Reconnect,
     ) -> Result<(), Self::Error>;
 }
@@ -136,7 +140,7 @@ pub trait HandleCommonMessagesFromClientSync {
     type Error: HandlerErrorType;
     fn handle_common_message_frame_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -148,7 +152,7 @@ pub trait HandleCommonMessagesFromClientSync {
 
     fn handle_common_message_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message: CommonMessages<'_>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -171,7 +175,7 @@ pub trait HandleCommonMessagesFromClientSync {
 
     fn handle_setup_connection(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SetupConnection,
     ) -> Result<(), Self::Error>;
 }
@@ -181,7 +185,7 @@ pub trait HandleCommonMessagesFromClientAsync {
     type Error: HandlerErrorType;
     async fn handle_common_message_frame_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -196,7 +200,7 @@ pub trait HandleCommonMessagesFromClientAsync {
 
     async fn handle_common_message_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message: CommonMessages<'_>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -222,7 +226,7 @@ pub trait HandleCommonMessagesFromClientAsync {
 
     async fn handle_setup_connection(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SetupConnection,
     ) -> Result<(), Self::Error>;
 }

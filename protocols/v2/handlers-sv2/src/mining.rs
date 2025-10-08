@@ -24,12 +24,12 @@ pub enum SupportedChannelTypes {
 pub trait HandleMiningMessagesFromServerSync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_server(&self, server_id: usize) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_server(&self, server_id: usize) -> bool;
+    fn get_channel_type_for_server(&self, server_id: Option<usize>) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     fn handle_mining_message_frame_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -41,7 +41,7 @@ pub trait HandleMiningMessagesFromServerSync {
 
     fn handle_mining_message_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message: Mining,
     ) -> Result<(), Self::Error> {
         let (channel_type, work_selection) = (
@@ -134,87 +134,91 @@ pub trait HandleMiningMessagesFromServerSync {
 
     fn handle_open_standard_mining_channel_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: OpenStandardMiningChannelSuccess,
     ) -> Result<(), Self::Error>;
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: OpenExtendedMiningChannelSuccess,
     ) -> Result<(), Self::Error>;
 
     fn handle_open_mining_channel_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: OpenMiningChannelError,
     ) -> Result<(), Self::Error>;
 
     fn handle_update_channel_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: UpdateChannelError,
     ) -> Result<(), Self::Error>;
 
     fn handle_close_channel(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: CloseChannel,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_extranonce_prefix(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetExtranoncePrefix,
     ) -> Result<(), Self::Error>;
 
     fn handle_submit_shares_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SubmitSharesSuccess,
     ) -> Result<(), Self::Error>;
 
     fn handle_submit_shares_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SubmitSharesError,
     ) -> Result<(), Self::Error>;
 
     fn handle_new_mining_job(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: NewMiningJob,
     ) -> Result<(), Self::Error>;
 
     fn handle_new_extended_mining_job(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: NewExtendedMiningJob,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_new_prev_hash(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetNewPrevHash,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_custom_mining_job_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetCustomMiningJobSuccess,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_custom_mining_job_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetCustomMiningJobError,
     ) -> Result<(), Self::Error>;
 
-    fn handle_set_target(&mut self, server_id: usize, msg: SetTarget) -> Result<(), Self::Error>;
+    fn handle_set_target(
+        &mut self,
+        server_id: Option<usize>,
+        msg: SetTarget,
+    ) -> Result<(), Self::Error>;
 
     fn handle_set_group_channel(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetGroupChannel,
     ) -> Result<(), Self::Error>;
 }
@@ -223,12 +227,12 @@ pub trait HandleMiningMessagesFromServerSync {
 pub trait HandleMiningMessagesFromServerAsync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_server(&self, server_id: usize) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_server(&self, server_id: usize) -> bool;
+    fn get_channel_type_for_server(&self, server_id: Option<usize>) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_for_server(&self, server_id: Option<usize>) -> bool;
 
     async fn handle_mining_message_frame_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -243,7 +247,7 @@ pub trait HandleMiningMessagesFromServerAsync {
 
     async fn handle_mining_message_from_server(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         message: Mining,
     ) -> Result<(), Self::Error> {
         let (channel_type, work_selection) = (
@@ -344,91 +348,91 @@ pub trait HandleMiningMessagesFromServerAsync {
 
     async fn handle_open_standard_mining_channel_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: OpenStandardMiningChannelSuccess,
     ) -> Result<(), Self::Error>;
 
     async fn handle_open_extended_mining_channel_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: OpenExtendedMiningChannelSuccess,
     ) -> Result<(), Self::Error>;
 
     async fn handle_open_mining_channel_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: OpenMiningChannelError,
     ) -> Result<(), Self::Error>;
 
     async fn handle_update_channel_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: UpdateChannelError,
     ) -> Result<(), Self::Error>;
 
     async fn handle_close_channel(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: CloseChannel,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_extranonce_prefix(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetExtranoncePrefix,
     ) -> Result<(), Self::Error>;
 
     async fn handle_submit_shares_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SubmitSharesSuccess,
     ) -> Result<(), Self::Error>;
 
     async fn handle_submit_shares_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SubmitSharesError,
     ) -> Result<(), Self::Error>;
 
     async fn handle_new_mining_job(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: NewMiningJob,
     ) -> Result<(), Self::Error>;
 
     async fn handle_new_extended_mining_job(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: NewExtendedMiningJob,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_new_prev_hash(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetNewPrevHash,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_custom_mining_job_success(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetCustomMiningJobSuccess,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_custom_mining_job_error(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetCustomMiningJobError,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_target(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetTarget,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_group_channel(
         &mut self,
-        server_id: usize,
+        server_id: Option<usize>,
         msg: SetGroupChannel,
     ) -> Result<(), Self::Error>;
 }
@@ -436,17 +440,17 @@ pub trait HandleMiningMessagesFromServerAsync {
 pub trait HandleMiningMessagesFromClientSync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_client(&self, client_id: usize) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_client(&self, client_id: usize) -> bool;
+    fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
     fn is_client_authorized(
         &self,
-        client_id: usize,
+        client_id: Option<usize>,
         user_identity: &Str0255,
     ) -> Result<bool, Self::Error>;
 
     fn handle_mining_message_frame_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -458,7 +462,7 @@ pub trait HandleMiningMessagesFromClientSync {
 
     fn handle_mining_message_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message: Mining,
     ) -> Result<(), Self::Error> {
         let (channel_type, work_selection) = (
@@ -525,43 +529,43 @@ pub trait HandleMiningMessagesFromClientSync {
 
     fn handle_close_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: CloseChannel,
     ) -> Result<(), Self::Error>;
 
     fn handle_open_standard_mining_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: OpenStandardMiningChannel,
     ) -> Result<(), Self::Error>;
 
     fn handle_open_extended_mining_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: OpenExtendedMiningChannel,
     ) -> Result<(), Self::Error>;
 
     fn handle_update_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: UpdateChannel,
     ) -> Result<(), Self::Error>;
 
     fn handle_submit_shares_standard(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SubmitSharesStandard,
     ) -> Result<(), Self::Error>;
 
     fn handle_submit_shares_extended(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SubmitSharesExtended,
     ) -> Result<(), Self::Error>;
 
     fn handle_set_custom_mining_job(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SetCustomMiningJob,
     ) -> Result<(), Self::Error>;
 }
@@ -570,17 +574,17 @@ pub trait HandleMiningMessagesFromClientSync {
 pub trait HandleMiningMessagesFromClientAsync {
     type Error: HandlerErrorType;
 
-    fn get_channel_type_for_client(&self, client_id: usize) -> SupportedChannelTypes;
-    fn is_work_selection_enabled_for_client(&self, client_id: usize) -> bool;
+    fn get_channel_type_for_client(&self, client_id: Option<usize>) -> SupportedChannelTypes;
+    fn is_work_selection_enabled_for_client(&self, client_id: Option<usize>) -> bool;
     fn is_client_authorized(
         &self,
-        client_id: usize,
+        client_id: Option<usize>,
         user_identity: &Str0255,
     ) -> Result<bool, Self::Error>;
 
     async fn handle_mining_message_frame_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
@@ -595,7 +599,7 @@ pub trait HandleMiningMessagesFromClientAsync {
 
     async fn handle_mining_message_from_client(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         message: Mining,
     ) -> Result<(), Self::Error> {
         let (channel_type, work_selection) = (
@@ -664,43 +668,43 @@ pub trait HandleMiningMessagesFromClientAsync {
 
     async fn handle_close_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: CloseChannel,
     ) -> Result<(), Self::Error>;
 
     async fn handle_open_standard_mining_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: OpenStandardMiningChannel,
     ) -> Result<(), Self::Error>;
 
     async fn handle_open_extended_mining_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: OpenExtendedMiningChannel,
     ) -> Result<(), Self::Error>;
 
     async fn handle_update_channel(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: UpdateChannel,
     ) -> Result<(), Self::Error>;
 
     async fn handle_submit_shares_standard(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SubmitSharesStandard,
     ) -> Result<(), Self::Error>;
 
     async fn handle_submit_shares_extended(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SubmitSharesExtended,
     ) -> Result<(), Self::Error>;
 
     async fn handle_set_custom_mining_job(
         &mut self,
-        client_id: usize,
+        client_id: Option<usize>,
         msg: SetCustomMiningJob,
     ) -> Result<(), Self::Error>;
 }
