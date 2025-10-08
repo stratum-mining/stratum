@@ -7,7 +7,7 @@ use std::{
 };
 use stratum_apps::{
     config_helpers::CoinbaseRewardScript,
-    stratum_common::bitcoin::{Amount, TxOut},
+    stratum_core::bitcoin::{Amount, TxOut},
 };
 
 #[derive(Debug, Deserialize, Clone)]

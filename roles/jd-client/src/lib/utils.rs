@@ -22,7 +22,7 @@ use std::{
 use async_channel::{Receiver, Sender};
 use stratum_apps::{
     network_helpers::noise_stream::{NoiseTcpReadHalf, NoiseTcpWriteHalf},
-    stratum_common::{
+    stratum_core::{
         binary_sv2::Str0255,
         buffer_sv2,
         codec_sv2::{StandardEitherFrame, StandardSv2Frame},

@@ -1,4 +1,4 @@
-use stratum_apps::stratum_common::sv1_api::{
+use stratum_apps::stratum_core::sv1_api::{
     client_to_server, json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be},
     IsServer,
@@ -154,10 +154,10 @@ impl IsServer<'static> for DownstreamData {
 
     fn notify(
         &'_ mut self,
-    ) -> Result<json_rpc::Message, stratum_apps::stratum_common::sv1_api::error::Error<'_>> {
+    ) -> Result<json_rpc::Message, stratum_apps::stratum_core::sv1_api::error::Error<'_>> {
         warn!("notify() called on DownstreamData - this method is not implemented for the translator proxy");
         Err(
-            stratum_apps::stratum_common::sv1_api::error::Error::UnexpectedMessage(
+            stratum_apps::stratum_core::sv1_api::error::Error::UnexpectedMessage(
                 "notify".to_string(),
             ),
         )

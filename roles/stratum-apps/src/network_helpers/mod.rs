@@ -17,7 +17,7 @@ pub mod plain_connection;
 pub mod sv1_connection;
 
 use async_channel::{RecvError, SendError};
-use stratum_common::codec_sv2::Error as CodecError;
+use stratum_core::codec_sv2::Error as CodecError;
 
 /// Networking errors that can occur in SV2 connections
 #[derive(Debug)]

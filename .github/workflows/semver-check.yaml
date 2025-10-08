@@ -41,10 +41,6 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --version 0.37.0 --locked
 
-      - name: Run semver checks for common
-        working-directory: common
-        run: cargo semver-checks
-
       - name: Run semver checks for utils/buffer
         working-directory: utils/buffer
         run: cargo semver-checks
@@ -121,10 +117,12 @@ jobs:
         working-directory: protocols/stratum-translation
         run: cargo semver-checks
 
-      - name: Run semver checks for stratum-core
-        working-directory: stratum-core
-        run: cargo semver-checks
+      # TODO: Uncomment this when the stratum-core crate is published to crates.io
+      # - name: Run semver checks for stratum-core
+      #  working-directory: stratum-core
+      #  run: cargo semver-checks
 
-      - name: Run semver checks for roles/stratum-apps
-        working-directory: roles/stratum-apps
-        run: cargo semver-checks
+      # TODO: Uncomment this when the stratum-apps crate is published to crates.io
+      # - name: Run semver checks for roles/stratum-apps
+      #  working-directory: roles/stratum-apps
+      #  run: cargo semver-checks

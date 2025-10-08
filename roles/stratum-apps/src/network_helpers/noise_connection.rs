@@ -5,7 +5,7 @@ use crate::network_helpers::{
 };
 use async_channel::{unbounded, Receiver, Sender};
 use std::sync::Arc;
-use stratum_common::{
+use stratum_core::{
     binary_sv2::{Deserialize, GetSize, Serialize},
     codec_sv2::{HandshakeRole, StandardEitherFrame},
 };

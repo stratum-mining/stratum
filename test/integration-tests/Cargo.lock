@@ -2245,7 +2245,7 @@ dependencies = [
  "miniscript",
  "serde",
  "serde_json",
- "stratum-common",
+ "stratum-core",
  "tokio",
  "tokio-util",
  "tracing",
@@ -2253,8 +2253,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "stratum-common"
-version = "5.0.0"
+name = "stratum-core"
+version = "0.1.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",

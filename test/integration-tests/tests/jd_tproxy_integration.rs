@@ -1,5 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, template_provider::DifficultyLevel, *};
-use stratum_apps::stratum_common::{common_messages_sv2::*, mining_sv2::*};
+use stratum_apps::stratum_core::{common_messages_sv2::*, mining_sv2::*};
 
 #[tokio::test]
 async fn jd_tproxy_integration() {

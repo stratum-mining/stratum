@@ -15,7 +15,7 @@ use std::{
 };
 use stratum_apps::{
     network_helpers::noise_connection::Connection,
-    stratum_common::{
+    stratum_core::{
         codec_sv2::{HandshakeRole, StandardEitherFrame},
         framing_sv2::framing::{Frame, Sv2Frame},
         noise_sv2::{Initiator, Responder},

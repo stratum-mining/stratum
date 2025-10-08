@@ -19,7 +19,7 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2, codec_sv2, framing_sv2, noise_sv2, parsers_sv2::Mining, roles_logic_sv2,
 };
 

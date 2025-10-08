@@ -1,6 +1,6 @@
 //! # Stratum Common Crate
 //!
-//! `stratum_common` is the central hub for all Stratum protocol crates.
+//! `stratum_core` is the central hub for all Stratum protocol crates.
 //! It re-exports all the low-level v1 and v2 crates to provide a single entry point
 //! for accessing the Stratum protocol implementations.
 //!

@@ -24,9 +24,9 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Rust Docs crate common
+      - name: Rust Docs crate stratum-core
         run: |
-          cd common
+          cd stratum-core
           cargo doc
 
       - name: Rust Docs crate buffer_sv2

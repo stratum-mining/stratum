@@ -2,7 +2,7 @@ use crate::messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE};
 use key_utils::Secp256k1PublicKey;
 use stratum_apps::{
     network_helpers::noise_connection::Connection,
-    stratum_common::{
+    stratum_core::{
         binary_sv2,
         codec_sv2::{HandshakeRole, StandardSv2Frame},
         noise_sv2::Initiator,

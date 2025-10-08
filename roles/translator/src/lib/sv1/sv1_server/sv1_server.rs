@@ -23,7 +23,7 @@ use std::{
 };
 use stratum_apps::{
     network_helpers::sv1_connection::ConnectionSV1,
-    stratum_common::{
+    stratum_core::{
         binary_sv2::Str0255,
         channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
         mining_sv2::{CloseChannel, SetTarget, Target},

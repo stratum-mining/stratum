@@ -1,5 +1,5 @@
 use integration_tests_sv2::{interceptor::MessageDirection, template_provider::DifficultyLevel, *};
-use stratum_apps::stratum_common::mining_sv2::*;
+use stratum_apps::stratum_core::mining_sv2::*;
 
 #[tokio::test]
 async fn jdc_submit_shares_success() {

@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: |
           cargo build --manifest-path=benches/Cargo.toml
-          cargo build --manifest-path=common/Cargo.toml
+          cargo build --manifest-path=stratum-core/Cargo.toml
           cargo build --manifest-path=protocols/Cargo.toml
           cargo build --manifest-path=roles/Cargo.toml
           cargo build --manifest-path=utils/Cargo.toml
@@ -69,7 +69,7 @@ jobs:
       - name: Test
         run: |
           cargo test --manifest-path=benches/Cargo.toml
-          cargo test --manifest-path=common/Cargo.toml
+          cargo test --manifest-path=stratum-core/Cargo.toml
           cargo test --manifest-path=protocols/Cargo.toml
           cargo test --manifest-path=roles/Cargo.toml
           cargo test --manifest-path=utils/Cargo.toml

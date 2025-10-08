@@ -24,8 +24,8 @@
 //! - [`config_helpers`] - Configuration management and parsing utilities
 //! - [`rpc`] - RPC utilities with custom serializable types (`Hash`, `BlockHash`, `Amount`)
 
-/// Re-export all the modules from `stratum_common`
-pub use stratum_common;
+/// Re-export all the modules from `stratum_core`
+pub use stratum_core;
 
 /// High-level networking utilities for SV2 connections
 ///

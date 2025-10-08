@@ -1,4 +1,4 @@
-use stratum_apps::stratum_common::{binary_sv2, codec_sv2};
+use stratum_apps::stratum_core::{binary_sv2, codec_sv2};
 
 #[derive(std::fmt::Debug)]
 pub enum Error {

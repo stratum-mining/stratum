@@ -13,7 +13,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol", "sv2"]
 
 [dependencies]
 # Core protocol layer
-stratum-common = { path = "../../common", version = "5.0.0" }
+stratum-core = { path = "../../stratum-core", version = "0.1.0" }
 
 # Utilities from utils/ directory
 key-utils = { path = "../../utils/key-utils", version = "1.2.0" }
@@ -52,9 +52,9 @@ network = ["tokio-util"]
 config = []
 rpc = ["serde_json", "hex", "base64", "hyper", "hyper-util", "http-body-util"]
 
-# Protocol features passed through to stratum-common
-sv1 = ["stratum-common/sv1", "stratum-common/translation", "tokio-util", "serde_json"]
-with_buffer_pool = ["stratum-common/with_buffer_pool"]
+# Protocol features passed through to stratum-core
+sv1 = ["stratum-core/sv1", "stratum-core/translation", "tokio-util", "serde_json"]
+with_buffer_pool = ["stratum-core/with_buffer_pool"]
 
 # Convenience feature bundles for different role types
 pool = ["network", "config", "with_buffer_pool"]

@@ -3,7 +3,7 @@ use std::{
     io::Cursor,
     sync::{atomic::Ordering, Arc},
 };
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     binary_sv2::{Decodable, Serialize, U256},
     bitcoin::{
         consensus::Decodable as BitcoinDecodable,
@@ -25,7 +25,7 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
 
 use super::{signed_token, TransactionState};
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     parsers_sv2::AnyMessage as AllMessages, roles_logic_sv2::errors::Error,
 };
 use tracing::{debug, info};

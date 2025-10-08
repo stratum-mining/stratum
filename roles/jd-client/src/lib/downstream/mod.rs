@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_channel::{unbounded, Receiver, Sender};
 use stratum_apps::{
     network_helpers::noise_stream::NoiseTcpStream,
-    stratum_common::{
+    stratum_core::{
         channels_sv2::server::{
             extended::ExtendedChannel,
             group::GroupChannel,
@@ -246,7 +246,7 @@ impl Downstream {
             .map_err(|e| {
                 error!(?e, "Downstream send failed");
                 JDCError::CodecNoise(
-                    stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 )
             })?;
 

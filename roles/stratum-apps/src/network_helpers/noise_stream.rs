@@ -9,7 +9,7 @@
 //! non-blocking behavior.
 
 use crate::network_helpers::Error;
-use stratum_common::{
+use stratum_core::{
     binary_sv2::{Deserialize, GetSize, Serialize},
     codec_sv2::{HandshakeRole, NoiseEncoder, StandardNoiseDecoder, State},
     noise_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
@@ -19,7 +19,7 @@ use tokio::net::{
     TcpStream,
 };
 
-use stratum_common::{
+use stratum_core::{
     codec_sv2::StandardEitherFrame, framing_sv2::framing::HandShakeFrame,
     noise_sv2::ELLSWIFT_ENCODING_SIZE,
 };
@@ -101,9 +101,7 @@ where
                             state = transport_state;
                             break;
                         }
-                        Err(Error::CodecError(stratum_common::codec_sv2::Error::MissingBytes(
-                            _,
-                        ))) => {
+                        Err(Error::CodecError(stratum_core::codec_sv2::Error::MissingBytes(_))) => {
                             debug!("Waiting for more bytes during handshake");
                         }
                         Err(e) => {
@@ -134,9 +132,7 @@ where
                             state = transport_state;
                             break;
                         }
-                        Err(Error::CodecError(stratum_common::codec_sv2::Error::MissingBytes(
-                            _,
-                        ))) => {
+                        Err(Error::CodecError(stratum_core::codec_sv2::Error::MissingBytes(_))) => {
                             debug!("Waiting for more bytes during handshake");
                         }
                         Err(e) => {
@@ -256,7 +252,7 @@ where
 
             match self.decoder.next_frame(&mut self.state) {
                 Ok(frame) => return Ok(frame),
-                Err(stratum_common::codec_sv2::Error::MissingBytes(_)) => {
+                Err(stratum_core::codec_sv2::Error::MissingBytes(_)) => {
                     tokio::task::yield_now().await;
                     continue;
                 }
@@ -301,7 +297,7 @@ where
 
         match self.decoder.next_frame(&mut self.state) {
             Ok(frame) => Ok(Some(frame)),
-            Err(stratum_common::codec_sv2::Error::MissingBytes(_)) => Ok(None),
+            Err(stratum_core::codec_sv2::Error::MissingBytes(_)) => Ok(None),
             Err(e) => Err(Error::CodecError(e)),
         }
     }

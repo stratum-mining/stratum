@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use stratum_common::bitcoin::{
+use stratum_core::bitcoin::{
     bip32::{DerivationPath, Error, Xpub},
     secp256k1::Secp256k1,
 };

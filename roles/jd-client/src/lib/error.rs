@@ -278,8 +278,8 @@ impl From<network_helpers::Error> for JDCError {
     }
 }
 
-impl From<stratum_apps::stratum_common::bitcoin::consensus::encode::Error> for JDCError {
-    fn from(value: stratum_apps::stratum_common::bitcoin::consensus::encode::Error) -> Self {
+impl From<stratum_apps::stratum_core::bitcoin::consensus::encode::Error> for JDCError {
+    fn from(value: stratum_apps::stratum_core::bitcoin::consensus::encode::Error) -> Self {
         JDCError::BitcoinEncodeError(value)
     }
 }

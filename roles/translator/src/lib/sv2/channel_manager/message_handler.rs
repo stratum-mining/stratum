@@ -5,7 +5,7 @@ use crate::{
     sv2::{channel_manager::ChannelMode, ChannelManager},
     utils::proxy_extranonce_prefix_len,
 };
-use stratum_apps::stratum_common::{
+use stratum_apps::stratum_core::{
     channels_sv2::client::extended::ExtendedChannel,
     handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
     mining_sv2::{
