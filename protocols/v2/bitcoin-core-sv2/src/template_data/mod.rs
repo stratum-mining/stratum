@@ -39,6 +39,23 @@ impl TemplateData {
         }
     }
 
+    pub async fn destroy_ipc_client(
+        &self,
+        thread_ipc_client: ThreadIpcClient,
+    ) -> Result<(), TemplateDataError> {
+        tracing::debug!("Destroying template IPC client: {}", self.template_id);
+        let mut destroy_ipc_client_request = self.template_ipc_client.destroy_request();
+        let destroy_ipc_client_request_params = destroy_ipc_client_request.get();
+
+        destroy_ipc_client_request_params
+            .get_context()?
+            .set_thread(thread_ipc_client);
+
+        destroy_ipc_client_request.send().promise.await?;
+
+        Ok(())
+    }
+
     pub fn get_template_id(&self) -> u64 {
         self.template_id
     }

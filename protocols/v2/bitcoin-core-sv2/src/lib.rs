@@ -444,6 +444,19 @@ impl BitcoinCoreSv2 {
                                         // save stale template ids
                                         *stale_template_ids_guard = template_data_guard.clone().into_keys().collect::<HashSet<_>>();
 
+                                        // destroy each template ipc client
+                                        for template_data in template_data_guard.values() {
+                                            match template_data.destroy_ipc_client(self_clone.thread_ipc_client.clone()).await {
+                                                Ok(_) => (),
+                                                Err(e) => {
+                                                    tracing::error!("Failed to destroy template IPC client: {:?}", e);
+                                                    tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                                                    self_clone.global_cancellation_token.cancel();
+                                                    break;
+                                                }
+                                            }
+                                        }
+
                                         // no point in keeping the old templates around
                                         template_data_guard.clear();
 
