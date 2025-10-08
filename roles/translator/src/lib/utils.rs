@@ -1,4 +1,4 @@
-use stratum_common::{
+use stratum_apps::stratum_common::{
     binary_sv2::{Sv2DataType, U256},
     bitcoin::{
         block::{Header, Version},
@@ -14,9 +14,9 @@ use stratum_common::{
     mining_sv2::Target,
     parsers_sv2::{AnyMessage, CommonMessages},
     roles_logic_sv2::utils::Mutex,
+    sv1_api::{client_to_server, utils::HexU32Be},
 };
 use tracing::{debug, error};
-use v1::{client_to_server, utils::HexU32Be};
 
 use crate::error::TproxyError;
 

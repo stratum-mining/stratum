@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use stratum_common::{
+use stratum_apps::stratum_common::{
     channels_sv2::{
         client::extended::ExtendedChannel, outputs::deserialize_outputs,
         server::jobs::factory::JobFactory,

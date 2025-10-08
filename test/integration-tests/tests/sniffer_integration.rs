@@ -5,7 +5,7 @@ use integration_tests_sv2::{
     *,
 };
 use std::convert::TryInto;
-use stratum_common::{
+use stratum_apps::stratum_common::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
     parsers_sv2::{AnyMessage, CommonMessages},
     template_distribution_sv2::*,

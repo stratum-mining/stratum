@@ -1,8 +1,7 @@
 use crate::interceptor::MessageDirection;
 use async_channel::{Receiver, Sender};
-use network_helpers_sv2::sv1_connection::ConnectionSV1;
 use std::{collections::VecDeque, net::SocketAddr, sync::Arc};
-use stratum_common::sv1_api;
+use stratum_apps::{network_helpers::sv1_connection::ConnectionSV1, stratum_common::sv1_api};
 use tokio::{
     net::{TcpListener, TcpStream},
     select,

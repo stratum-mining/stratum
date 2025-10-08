@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use stratum_common::{
+use stratum_apps::stratum_common::{
     binary_sv2::Str0255,
     bitcoin::Amount,
     channels_sv2::{

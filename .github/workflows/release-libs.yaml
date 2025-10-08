@@ -30,10 +30,6 @@ jobs:
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
 
       # Base dependencies with no local dependencies
-      - name: Publish crate config_helpers_sv2
-        run: |
-          ./scripts/release-libs.sh roles/roles-utils/config-helpers
-          
       - name: Publish crate buffer_sv2
         run: |
           ./scripts/release-libs.sh utils/buffer
@@ -108,19 +104,14 @@ jobs:
       # stratum_translation (depends on binary_sv2, mining_sv2, channels_sv2, v1)
       - name: Publish crate stratum_translation
         run: |
-          ./scripts/release-libs.sh roles/roles-utils/stratum-translation
+          ./scripts/release-libs.sh protocols/stratum-translation
 
       # Roles logic (depends on codec_sv2 and subprotocols)
       - name: Publish crate roles_logic_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/roles-logic-sv2
 
-      # Network helpers (depends on codec_sv2, sv1_api)
-      - name: Publish crate network_helpers_sv2
-        run: |
-          ./scripts/release-libs.sh roles/roles-utils/network-helpers
-
-      # Common (depends on roles_logic_sv2 and network_helpers_sv2)
+      # Common (depends on roles_logic_sv2 and stratum_translation)
       - name: Publish crate common
         run: |
           ./scripts/release-libs.sh common
@@ -135,6 +126,7 @@ jobs:
         run: |
           ./scripts/release-libs.sh utils/bip32-key-derivation
 
-      - name: Publish crate rpc_sv2
+      # stratum-apps (depends on stratum-common and external crates)
+      - name: Publish crate stratum-apps
         run: |
-          ./scripts/release-libs.sh roles/roles-utils/rpc
+          ./scripts/release-libs.sh roles/stratum-apps

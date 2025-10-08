@@ -1,6 +1,6 @@
 use corepc_node::{types::GetBlockchainInfo, Conf, ConnectParams, Node};
 use std::{env, fs::create_dir_all, path::PathBuf};
-use stratum_common::bitcoin::{Address, Amount, Txid};
+use stratum_apps::stratum_common::bitcoin::{Address, Amount, Txid};
 use tracing::warn;
 
 use crate::utils::{fs_utils, http, tarball};

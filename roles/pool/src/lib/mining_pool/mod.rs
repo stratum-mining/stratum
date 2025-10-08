@@ -25,10 +25,8 @@ use super::{
 };
 use crate::config::PoolConfig;
 use async_channel::{Receiver, Sender};
-use config_helpers_sv2::CoinbaseRewardScript;
 use error_handling::handle_result;
 use key_utils::SignatureService;
-use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use secp256k1;
 use std::{
@@ -389,7 +387,7 @@ impl Downstream {
     /// This method is used to send message to downstream.
     async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: stratum_common::parsers_sv2::Mining<'static>,
+        message: stratum_apps::stratum_common::parsers_sv2::Mining<'static>,
     ) -> PoolResult<()> {
         //let message = if let Mining::NewExtendedMiningJob(job) = message {
         //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
@@ -1301,7 +1299,7 @@ async fn spawn_vardiff_loop(
 mod test {
     use ext_config::{Config, File, FileFormat};
     use std::convert::TryInto;
-    use stratum_common::{
+    use stratum_apps::stratum_common::{
         binary_sv2::{B0255, B064K},
         bitcoin::{
             self, absolute::LockTime, consensus, transaction::Version, Amount, Transaction, TxOut,

@@ -11,13 +11,16 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use std::sync::Arc;
-use stratum_common::{mining_sv2::Target, roles_logic_sv2::utils::Mutex};
+use stratum_apps::stratum_common::{
+    mining_sv2::Target,
+    roles_logic_sv2::utils::Mutex,
+    sv1_api::{
+        json_rpc::{self, Message},
+        server_to_client, IsServer,
+    },
+};
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
-use v1::{
-    json_rpc::{self, Message},
-    server_to_client, IsServer,
-};
 
 /// Represents a downstream SV1 miner connection.
 ///
@@ -427,7 +430,10 @@ impl Downstream {
                     })?;
 
                 // Check if this was an authorize message and handle sv1 handshake completion
-                if let v1::json_rpc::Message::StandardRequest(request) = &message {
+                if let stratum_apps::stratum_common::sv1_api::json_rpc::Message::StandardRequest(
+                    request,
+                ) = &message
+                {
                     if request.method == "mining.authorize" {
                         info!("Down: Handling mining.authorize after handshake completion");
                         if let Err(e) = self.handle_sv1_handshake_completion().await {

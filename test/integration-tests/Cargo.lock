@@ -590,16 +590,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "config_helpers_sv2"
-version = "0.1.0"
-dependencies = [
- "miniscript",
- "serde",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "const-random"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1276,7 +1266,6 @@ name = "integration_tests_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "config_helpers_sv2",
  "corepc-node",
  "flate2",
  "jd_client_sv2",
@@ -1284,11 +1273,10 @@ dependencies = [
  "key-utils",
  "mining_device",
  "minreq",
- "network_helpers_sv2",
  "once_cell",
  "pool_sv2",
  "rand 0.9.2",
- "stratum-common",
+ "stratum-apps",
  "tar",
  "tokio",
  "tokio-util",
@@ -1333,11 +1321,9 @@ dependencies = [
  "async-channel",
  "clap",
  "config",
- "config_helpers_sv2",
  "key-utils",
- "network_helpers_sv2",
  "serde",
- "stratum-common",
+ "stratum-apps",
  "tokio",
  "tracing",
 ]
@@ -1349,18 +1335,15 @@ dependencies = [
  "async-channel",
  "clap",
  "config",
- "config_helpers_sv2",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
  "rand 0.8.5",
- "rpc_sv2",
  "serde",
  "serde_json",
- "stratum-common",
+ "stratum-apps",
  "tokio",
  "tracing",
 ]
@@ -1481,12 +1464,11 @@ dependencies = [
  "clap",
  "futures",
  "key-utils",
- "network_helpers_sv2",
  "num-format",
  "primitive-types",
  "rand 0.8.5",
  "sha2 0.10.9",
- "stratum-common",
+ "stratum-apps",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1542,19 +1524,6 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "network_helpers_sv2"
-version = "5.0.0"
-dependencies = [
- "async-channel",
- "futures",
- "serde_json",
- "stratum-common",
- "tokio",
- "tokio-util",
- "tracing",
 ]
 
 [[package]]
@@ -1803,15 +1772,13 @@ dependencies = [
  "async-recursion 1.1.1",
  "clap",
  "config",
- "config_helpers_sv2",
  "error_handling",
  "key-utils",
- "network_helpers_sv2",
  "nohash-hasher",
  "rand 0.8.5",
  "secp256k1 0.28.2",
  "serde",
- "stratum-common",
+ "stratum-apps",
  "tokio",
  "tracing",
 ]
@@ -2005,20 +1972,6 @@ dependencies = [
  "bitflags",
  "serde",
  "serde_derive",
-]
-
-[[package]]
-name = "rpc_sv2"
-version = "1.1.2"
-dependencies = [
- "base64 0.21.7",
- "hex",
- "http-body-util",
- "hyper",
- "hyper-util",
- "serde",
- "serde_json",
- "stratum-common",
 ]
 
 [[package]]
@@ -2285,6 +2238,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "stratum-apps"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "base64 0.21.7",
+ "clap",
+ "config",
+ "error_handling",
+ "futures",
+ "hex",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "key-utils",
+ "miniscript",
+ "serde",
+ "serde_json",
+ "stratum-common",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "stratum-common"
 version = "5.0.0"
 dependencies = [
@@ -2301,6 +2279,7 @@ dependencies = [
  "noise_sv2",
  "parsers_sv2",
  "roles_logic_sv2",
+ "stratum_translation",
  "sv1_api",
  "template_distribution_sv2",
 ]
@@ -2658,14 +2637,10 @@ dependencies = [
  "async-channel",
  "clap",
  "config",
- "config_helpers_sv2",
  "key-utils",
- "network_helpers_sv2",
  "serde",
  "serde_json",
- "stratum-common",
- "stratum_translation",
- "sv1_api",
+ "stratum-apps",
  "tokio",
  "tracing",
 ]

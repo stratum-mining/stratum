@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
-use stratum_common::{
+use stratum_apps::stratum_common::{
     channels_sv2::client::extended::ExtendedChannel, mining_sv2::ExtendedExtranonce,
     roles_logic_sv2::utils::Mutex,
 };

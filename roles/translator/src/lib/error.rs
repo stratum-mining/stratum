@@ -10,22 +10,22 @@
 
 use ext_config::ConfigError;
 use std::{fmt, sync::PoisonError};
-use stratum_common::{
+use stratum_apps::stratum_common::{
     binary_sv2, framing_sv2,
     handlers_sv2::HandlerErrorType,
     noise_sv2,
     parsers_sv2::ParserError as RolesParserError,
     roles_logic_sv2::{errors::Error as RolesLogicError, Error as RolesSv2Error},
+    sv1_api::server_to_client::SetDifficulty,
 };
 use tokio::sync::broadcast;
-use v1::server_to_client::SetDifficulty;
 
 #[derive(Debug)]
 pub enum TproxyError {
     /// Generic SV1 protocol error
     SV1Error,
     /// Error from the network helpers library
-    NetworkHelpersError(network_helpers_sv2::Error),
+    NetworkHelpersError(stratum_apps::network_helpers::Error),
     /// Error from the roles logic library
     RolesSv2LogicError(RolesSv2Error),
     /// Error from roles logic parser library
@@ -73,7 +73,9 @@ pub enum TproxyError {
     /// Represents a generic channel send failure, described by a string.
     General(String),
     /// Error bubbling up from translator-core library
-    TranslatorCore(stratum_translation::error::StratumTranslationError),
+    TranslatorCore(
+        stratum_apps::stratum_common::stratum_translation::error::StratumTranslationError,
+    ),
 }
 
 impl std::error::Error for TproxyError {}
@@ -190,20 +192,24 @@ impl From<SetDifficulty> for TproxyError {
     }
 }
 
-impl<'a> From<v1::error::Error<'a>> for TproxyError {
-    fn from(_: v1::error::Error<'a>) -> Self {
+impl<'a> From<stratum_apps::stratum_common::sv1_api::error::Error<'a>> for TproxyError {
+    fn from(_: stratum_apps::stratum_common::sv1_api::error::Error<'a>) -> Self {
         TproxyError::SV1Error
     }
 }
 
-impl From<network_helpers_sv2::Error> for TproxyError {
-    fn from(value: network_helpers_sv2::Error) -> Self {
+impl From<stratum_apps::network_helpers::Error> for TproxyError {
+    fn from(value: stratum_apps::network_helpers::Error) -> Self {
         TproxyError::NetworkHelpersError(value)
     }
 }
 
-impl From<stratum_translation::error::StratumTranslationError> for TproxyError {
-    fn from(e: stratum_translation::error::StratumTranslationError) -> Self {
+impl From<stratum_apps::stratum_common::stratum_translation::error::StratumTranslationError>
+    for TproxyError
+{
+    fn from(
+        e: stratum_apps::stratum_common::stratum_translation::error::StratumTranslationError,
+    ) -> Self {
         TproxyError::TranslatorCore(e)
     }
 }

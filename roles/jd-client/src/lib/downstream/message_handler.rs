@@ -1,6 +1,6 @@
 use crate::{downstream::Downstream, error::JDCError, utils::StdFrame};
 use std::convert::TryInto;
-use stratum_common::{
+use stratum_apps::stratum_common::{
     common_messages_sv2::{
         has_requires_std_job, has_work_selection, Protocol, SetupConnection, SetupConnectionError,
         SetupConnectionSuccess,

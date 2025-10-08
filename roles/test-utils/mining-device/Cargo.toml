@@ -20,8 +20,7 @@ path = "src/lib/mod.rs"
 
 
 [dependencies]
-stratum-common = { path = "../../../common" }
-network_helpers_sv2 = { path = "../../roles-utils/network-helpers", features = ["with_buffer_pool"] }
+stratum-apps = { path = "../../stratum-apps", features = ["mining_device"] }
 async-channel = "1.5.1"
 async-recursion = "0.3.2"
 rand = "0.8.4"

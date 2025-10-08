@@ -13,10 +13,12 @@ use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::noise_stream::NoiseTcpStream;
-use stratum_common::{
-    codec_sv2::HandshakeRole, framing_sv2, handlers_sv2::HandleCommonMessagesFromServerAsync,
-    noise_sv2::Initiator, roles_logic_sv2::utils::Mutex,
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_common::{
+        codec_sv2::HandshakeRole, framing_sv2, handlers_sv2::HandleCommonMessagesFromServerAsync,
+        noise_sv2::Initiator, roles_logic_sv2::utils::Mutex,
+    },
 };
 use tokio::{
     net::TcpStream,
@@ -136,7 +138,7 @@ impl Upstream {
         if let Err(e) = self.upstream_channel.upstream_sender.send(sv2_frame).await {
             error!(?e, "Failed to send `SetupConnection` frame to upstream");
             return Err(JDCError::CodecNoise(
-                stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
             ));
         }
         info!("Sent `SetupConnection` to upstream, awaiting response...");
@@ -149,7 +151,7 @@ impl Upstream {
             Err(e) => {
                 error!(?e, "Upstream closed connection during handshake");
                 return Err(JDCError::CodecNoise(
-                    stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                    stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 ));
             }
         };
@@ -306,7 +308,7 @@ impl Upstream {
                     .map_err(|e| {
                         error!(error=?e, "Failed to send outbound message to upstream.");
                         JDCError::CodecNoise(
-                            stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                            stratum_apps::stratum_common::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                         )
                     })?;
             }

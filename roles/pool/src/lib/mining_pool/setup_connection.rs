@@ -10,7 +10,7 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use stratum_common::{
+use stratum_apps::stratum_common::{
     common_messages_sv2::{
         has_requires_std_job, has_work_selection, SetupConnection, SetupConnectionSuccess,
     },
@@ -104,12 +104,13 @@ impl ParseCommonMessagesFromDownstream for SetupConnectionHandler {
     fn handle_setup_connection(
         &mut self,
         incoming: SetupConnection,
-    ) -> Result<stratum_common::roles_logic_sv2::handlers::common::SendTo, Error> {
+    ) -> Result<stratum_apps::stratum_common::roles_logic_sv2::handlers::common::SendTo, Error>
+    {
         info!(
             "Received `SetupConnection`: version={}, flags={:b}",
             incoming.min_version, incoming.flags
         );
-        use stratum_common::roles_logic_sv2::handlers::common::SendTo;
+        use stratum_apps::stratum_common::roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();
         debug!("Handling setup connection: header_only: {}", header_only);
         self.header_only = Some(header_only);

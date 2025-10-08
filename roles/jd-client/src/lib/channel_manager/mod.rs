@@ -393,7 +393,7 @@ impl ChannelManager {
                                 };
                                 let noise_stream = match NoiseTcpStream::<Message>::new(
                                     stream,
-                                    stratum_common::codec_sv2::HandshakeRole::Responder(responder),
+                                    stratum_apps::stratum_common::codec_sv2::HandshakeRole::Responder(responder),
                                 )
                                 .await
                                 {
@@ -918,7 +918,7 @@ impl ChannelManager {
     fn run_vardiff_on_extended_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel_state: &mut stratum_common::channels_sv2::server::extended::ExtendedChannel<
+        channel_state: &mut stratum_apps::stratum_common::channels_sv2::server::extended::ExtendedChannel<
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
         >,

@@ -3,7 +3,7 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
 };
-use stratum_common::{
+use stratum_apps::stratum_common::{
     binary_sv2,
     codec_sv2::{self, StandardDecoder, StandardSv2Frame},
 };

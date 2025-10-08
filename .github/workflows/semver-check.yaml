@@ -117,19 +117,14 @@ jobs:
         working-directory: utils/key-utils
         run: cargo semver-checks
 
-      # TODO: Uncomment this when the stratum-translation crate is published to crates.io
-      #- name: Run semver checks for roles/roles-utils/stratum-translation
-      #  working-directory: roles/roles-utils/stratum-translation
-      #  run: cargo semver-checks
-
-      - name: Run semver checks for roles/roles-utils/network-helpers
-        working-directory: roles/roles-utils/network-helpers
+      - name: Run semver checks for protocols/stratum-translation
+        working-directory: protocols/stratum-translation
         run: cargo semver-checks
 
-      - name: Run semver checks for roles/roles-utils/rpc
-        working-directory: roles/roles-utils/rpc
+      - name: Run semver checks for stratum-core
+        working-directory: stratum-core
         run: cargo semver-checks
 
-      - name: Run semver checks for roles/roles-utils/config-helpers
-        working-directory: roles/roles-utils/config-helpers
+      - name: Run semver checks for roles/stratum-apps
+        working-directory: roles/stratum-apps
         run: cargo semver-checks

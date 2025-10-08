@@ -1,4 +1,4 @@
-use stratum_common::{
+use stratum_apps::stratum_common::{
     common_messages_sv2::{
         ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess,
     },

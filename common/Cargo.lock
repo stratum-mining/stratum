@@ -851,8 +851,20 @@ dependencies = [
  "noise_sv2",
  "parsers_sv2",
  "roles_logic_sv2",
+ "stratum_translation",
  "sv1_api",
  "template_distribution_sv2",
+]
+
+[[package]]
+name = "stratum_translation"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "channels_sv2",
+ "mining_sv2",
+ "sv1_api",
+ "tracing",
 ]
 
 [[package]]

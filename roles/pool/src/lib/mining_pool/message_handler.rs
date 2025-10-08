@@ -10,7 +10,7 @@ use std::{
     convert::TryInto,
     sync::{atomic::Ordering, Arc, RwLock},
 };
-use stratum_common::{
+use stratum_apps::stratum_common::{
     binary_sv2::Str0255,
     bitcoin::{consensus::Decodable, transaction::TxOut, Amount},
     channels_sv2::{

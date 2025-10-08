@@ -6,7 +6,9 @@
 //! Centralizes and simplifies error handling across the system.
 
 /// Identifies which component sent a status update.
-use stratum_common::{parsers_sv2::Mining, roles_logic_sv2::Error as RolesLogicError};
+use stratum_apps::stratum_common::{
+    parsers_sv2::Mining, roles_logic_sv2::Error as RolesLogicError,
+};
 
 use super::error::PoolError;
 
