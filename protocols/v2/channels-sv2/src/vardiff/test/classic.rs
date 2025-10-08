@@ -2,7 +2,7 @@
 use crate::vardiff::test::{
     simulate_shares_and_wait, TEST_MIN_ALLOWED_HASHRATE, TEST_SHARES_PER_MINUTE,
 };
-use crate::{utils::hash_rate_to_target, vardiff::VardiffError, VardiffState};
+use crate::{target::hash_rate_to_target, vardiff::VardiffError, VardiffState};
 
 use super::{
     test_increment_and_reset_shares, test_try_vardiff_low_hashrate_decrease_target,

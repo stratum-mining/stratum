@@ -34,7 +34,10 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     net::SocketAddr,
-    sync::{Arc, RwLock},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, RwLock,
+    },
     time::Duration,
 };
 use stratum_common::{
@@ -42,11 +45,14 @@ use stratum_common::{
     roles_logic_sv2::{
         self,
         bitcoin::{Amount, TxOut},
-        channels_sv2::server::{
-            extended::ExtendedChannel,
-            group::GroupChannel,
-            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
-            standard::StandardChannel,
+        channels_sv2::{
+            server::{
+                extended::ExtendedChannel,
+                group::GroupChannel,
+                jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+                standard::StandardChannel,
+            },
+            VardiffState,
         },
         codec_sv2::{
             self, binary_sv2::U256, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
@@ -61,12 +67,11 @@ use stratum_common::{
         template_distribution_sv2::{
             NewTemplate, SetNewPrevHash as SetNewPrevHashTdp, SubmitSolution,
         },
-        utils::{Id as IdFactory, Mutex},
-        VardiffState,
+        utils::Mutex,
     },
 };
 
-use roles_logic_sv2::Vardiff;
+use roles_logic_sv2::channels_sv2::Vardiff;
 
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
@@ -103,7 +108,7 @@ pub struct Downstream {
     // Sender channel to forward valid `SubmitSolution` messages received from this
     // downstream miner to the main [`Pool`] task, which then sends them upstream.
     solution_sender: Sender<SubmitSolution<'static>>,
-    channel_id_factory: IdFactory,
+    channel_id_factory: AtomicU32,
     extranonce_prefix_factory_extended: Arc<Mutex<ExtendedExtranonce>>,
     extranonce_prefix_factory_standard: Arc<Mutex<ExtendedExtranonce>>,
     // A map of all extended channels, keyed by their ID.
@@ -144,7 +149,7 @@ pub struct Pool {
     // Flag indicating whether at least one `NewTemplate` has been received and processed.
     // Might be used to ensure initial jobs are sent before accepting solutions??.
     new_template_processed: bool,
-    downstream_id_factory: IdFactory,
+    downstream_id_factory: AtomicU32,
     // Sender channel for reporting status updates and errors to the main monitoring loop.
     status_tx: status::Sender,
     extranonce_prefix_factory_extended: Arc<Mutex<ExtendedExtranonce>>,
@@ -181,9 +186,9 @@ impl Downstream {
             SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
                 .await?;
 
-        let id = pool.safe_lock(|p| p.downstream_id_factory.next())?;
+        let id = pool.safe_lock(|p| p.downstream_id_factory.fetch_add(1, Ordering::Relaxed))?;
 
-        let channel_id_factory = IdFactory::new();
+        let channel_id_factory = AtomicU32::new(0);
 
         // extranonce prefix factories are shared across all downstreams
         // that avoids extranonce_prefix collision across different downstreams
@@ -1028,7 +1033,7 @@ impl Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             solution_sender,
             new_template_processed: false,
-            downstream_id_factory: IdFactory::new(),
+            downstream_id_factory: AtomicU32::new(0),
             status_tx: status_tx.clone(),
             extranonce_prefix_factory_extended: Arc::new(Mutex::new(
                 extranonce_prefix_factory_extended,

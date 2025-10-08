@@ -18,9 +18,9 @@ use std::{
 
 use stratum_common::roles_logic_sv2::{
     self,
+    channels_sv2::vardiff::error::VardiffError,
     codec_sv2::{self, binary_sv2, noise_sv2},
     parsers_sv2::{Mining, ParserError},
-    vardiff::error::VardiffError,
 };
 
 /// Represents various errors that can occur in the pool implementation.

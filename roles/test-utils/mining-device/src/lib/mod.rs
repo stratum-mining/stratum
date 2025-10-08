@@ -28,7 +28,7 @@ use stratum_common::{
         },
         mining_sv2::*,
         parsers_sv2::{Mining, MiningDeviceMessages},
-        utils::{Id, Mutex},
+        utils::Mutex,
     },
 };
 use tokio::net::TcpStream;
@@ -263,7 +263,7 @@ pub struct Device {
     miner: Arc<Mutex<Miner>>,
     jobs: Vec<NewMiningJob<'static>>,
     prev_hash: Option<SetNewPrevHash<'static>>,
-    sequence_numbers: Id,
+    sequence_numbers: AtomicU32,
     notify_changes_to_mining_thread: NewWorkNotifier,
 }
 
@@ -329,7 +329,7 @@ impl Device {
             jobs: Vec::new(),
             prev_hash: None,
             channel_id: None,
-            sequence_numbers: Id::new(),
+            sequence_numbers: AtomicU32::new(0),
             notify_changes_to_mining_thread: NewWorkNotifier {
                 should_send: true,
                 sender: notify_changes_to_mining_thread,
@@ -401,7 +401,9 @@ impl Device {
         let share =
             MiningDeviceMessages::Mining(Mining::SubmitSharesStandard(SubmitSharesStandard {
                 channel_id: self_mutex.safe_lock(|s| s.channel_id.unwrap()).unwrap(),
-                sequence_number: self_mutex.safe_lock(|s| s.sequence_numbers.next()).unwrap(),
+                sequence_number: self_mutex
+                    .safe_lock(|s| s.sequence_numbers.fetch_add(1, Ordering::Relaxed))
+                    .unwrap(),
                 job_id,
                 nonce,
                 ntime,

@@ -5,7 +5,7 @@ use std::{thread, time::Duration};
 mod classic;
 
 use super::Vardiff;
-use crate::utils::hash_rate_to_target;
+use crate::target::hash_rate_to_target;
 use mining_sv2::Target;
 
 pub const TEST_INITIAL_HASHRATE: f32 = 1000.0;

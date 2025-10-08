@@ -5,13 +5,17 @@ use stratum_common::roles_logic_sv2::{
         hashes::Hash,
         CompactTarget, TxMerkleNode,
     },
+    channels_sv2::{
+        merkle_root::merkle_root_from_path,
+        target::{bytes_to_hex, u256_to_block_hash},
+    },
     codec_sv2::{
         binary_sv2::{Sv2DataType, U256},
         Frame,
     },
     mining_sv2::Target,
     parsers_sv2::{AnyMessage, CommonMessages},
-    utils::{bytes_to_hex, merkle_root_from_path, u256_to_block_hash, Mutex},
+    utils::Mutex,
 };
 use tracing::{debug, error};
 use v1::{client_to_server, utils::HexU32Be};

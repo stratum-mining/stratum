@@ -1,4 +1,8 @@
-use std::{convert::TryInto, io::Cursor, sync::Arc};
+use std::{
+    convert::TryInto,
+    io::Cursor,
+    sync::{atomic::Ordering, Arc},
+};
 use stratum_common::roles_logic_sv2::{
     bitcoin::{
         consensus::Decodable as BitcoinDecodable,
@@ -54,7 +58,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
             message.request_id
         );
         debug!("`AllocateMiningJobToken`: {:?}", message.request_id);
-        let token = self.tokens.next();
+        let token = self.tokens.fetch_add(1, Ordering::Relaxed);
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,

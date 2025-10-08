@@ -23,11 +23,10 @@ use std::{
     },
 };
 use stratum_common::roles_logic_sv2::{
+    channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
     mining_sv2::{CloseChannel, SetTarget, Target},
     parsers_sv2::Mining,
-    utils::{hash_rate_to_target, Mutex},
-    vardiff::classic::VardiffState,
-    Vardiff,
+    utils::Mutex,
 };
 use stratum_translation::{
     sv1_to_sv2::{
@@ -261,7 +260,7 @@ impl Sv1Server {
                             info!("New SV1 downstream connection from {}", addr);
 
                             let connection = ConnectionSV1::new(stream).await;
-                            let downstream_id = self.sv1_server_data.super_safe_lock(|v| v.downstream_id_factory.next());
+                            let downstream_id = self.sv1_server_data.super_safe_lock(|v| v.downstream_id_factory.fetch_add(1, Ordering::Relaxed));
                             let downstream = Arc::new(Downstream::new(
                                 downstream_id,
                                 connection.sender().clone(),

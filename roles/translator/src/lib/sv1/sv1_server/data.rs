@@ -1,12 +1,11 @@
 use crate::sv1::downstream::downstream::Downstream;
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{atomic::AtomicU32, Arc, RwLock},
 };
 use stratum_common::roles_logic_sv2::{
+    channels_sv2::vardiff::classic::VardiffState,
     mining_sv2::{SetNewPrevHash, Target},
-    utils::Id as IdFactory,
-    vardiff::classic::VardiffState,
 };
 use v1::server_to_client;
 
@@ -22,7 +21,7 @@ pub struct Sv1ServerData {
     pub downstreams: HashMap<u32, Arc<Downstream>>,
     pub vardiff: HashMap<u32, Arc<RwLock<VardiffState>>>,
     pub prevhash: Option<SetNewPrevHash<'static>>,
-    pub downstream_id_factory: IdFactory,
+    pub downstream_id_factory: AtomicU32,
     /// Job storage for aggregated mode - all Sv1 downstreams share the same jobs
     pub aggregated_valid_jobs: Option<Vec<server_to_client::Notify<'static>>>,
     /// Job storage for non-aggregated mode - each Sv1 downstream has its own jobs
@@ -39,7 +38,7 @@ impl Sv1ServerData {
             downstreams: HashMap::new(),
             vardiff: HashMap::new(),
             prevhash: None,
-            downstream_id_factory: IdFactory::new(),
+            downstream_id_factory: AtomicU32::new(0),
             aggregated_valid_jobs: aggregate_channels.then(Vec::new),
             non_aggregated_valid_jobs: (!aggregate_channels).then(HashMap::new),
             pending_target_updates: Vec::new(),
