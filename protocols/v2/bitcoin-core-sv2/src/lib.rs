@@ -311,17 +311,15 @@ impl BitcoinCoreSv2 {
                         }
                     };
 
-                
-
                 match blocking_thread_ipc_client_result.get_result() {
-                        Ok(thread_ipc_client) => thread_ipc_client,
-                        Err(e) => {
-                            tracing::error!("Failed to get thread IPC client: {}", e);
-                            tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
-                            self_clone.global_cancellation_token.cancel();
-                            return;
-                        }
+                    Ok(thread_ipc_client) => thread_ipc_client,
+                    Err(e) => {
+                        tracing::error!("Failed to get thread IPC client: {}", e);
+                        tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
+                        self_clone.global_cancellation_token.cancel();
+                        return;
                     }
+                }
             };
 
             loop {
