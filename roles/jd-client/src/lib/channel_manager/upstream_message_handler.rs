@@ -241,7 +241,6 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             for pending_downstream in pending_downstreams {
                 let message_type = pending_downstream.message_type();
                 self.send_open_channel_request_to_mining_handler(
-                    1,
                     pending_downstream.into(),
                     message_type,
                 )

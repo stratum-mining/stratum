@@ -9,6 +9,8 @@ use parsers_sv2::JobDeclaration;
 
 use crate::error::HandlerErrorType;
 
+/// Synchronous handler trait for processing job declaration messages received from servers.
+///
 /// The server ID identifies which server a message originated from.
 /// It is optional because when there is only a single server,
 /// an explicit ID is unnecessary.
@@ -84,6 +86,8 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// Asynchronous handler trait for processing job declaration messages received from servers.
+///
 /// The server ID identifies which server a message originated from.
 /// It is optional because when there is only a single server,
 /// an explicit ID is unnecessary.
@@ -169,6 +173,8 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     ) -> Result<(), Self::Error>;
 }
 
+/// Synchronous handler trait for processing job declaration messages received from clients.
+///
 /// The client ID identifies which client a message originated from.
 /// It is optional because when there is only a single client,
 /// an explicit ID is unnecessary.
@@ -242,6 +248,8 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// Asynchronous handler trait for processing job declaration messages received from clients.
+///
 /// The client ID identifies which client a message originated from.
 /// It is optional because when there is only a single client,
 /// an explicit ID is unnecessary.

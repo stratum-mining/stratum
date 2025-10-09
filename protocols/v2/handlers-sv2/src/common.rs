@@ -6,6 +6,8 @@ use parsers_sv2::CommonMessages;
 
 use crate::error::HandlerErrorType;
 
+/// Synchronous handler trait for processing common messages received from servers.
+///
 /// The server ID identifies which server a message originated from.
 /// It is optional because when there is only a single server,
 /// an explicit ID is unnecessary.
@@ -71,6 +73,8 @@ pub trait HandleCommonMessagesFromServerSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// Asynchronous handler trait for processing common messages received from servers.
+///
 /// The server ID identifies which server a message originated from.
 /// It is optional because when there is only a single server,
 /// an explicit ID is unnecessary.
@@ -142,6 +146,8 @@ pub trait HandleCommonMessagesFromServerAsync {
     ) -> Result<(), Self::Error>;
 }
 
+/// Synchronous handler trait for processing common messages received from clients.
+///
 /// The client ID identifies which client a message originated from.
 /// It is optional because when there is only a single client,
 /// an explicit ID is unnecessary.
@@ -189,6 +195,8 @@ pub trait HandleCommonMessagesFromClientSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// Asynchronous handler trait for processing common messages received from clients.
+///
 /// The client ID identifies which client a message originated from.
 /// It is optional because when there is only a single client,
 /// an explicit ID is unnecessary.

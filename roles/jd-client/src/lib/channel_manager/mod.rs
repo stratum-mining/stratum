@@ -732,7 +732,6 @@ impl ChannelManager {
                         }
                         UpstreamState::Connected => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_id as usize,
                                 Mining::OpenExtendedMiningChannel(downstream_msg),
                                 message_type,
                             )
@@ -740,7 +739,6 @@ impl ChannelManager {
                         }
                         UpstreamState::SoloMining => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_id as usize,
                                 Mining::OpenExtendedMiningChannel(downstream_msg),
                                 message_type,
                             )
@@ -802,7 +800,6 @@ impl ChannelManager {
                         }
                         UpstreamState::Connected => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_id as usize,
                                 Mining::OpenStandardMiningChannel(downstream_msg),
                                 message_type,
                             )
@@ -810,7 +807,6 @@ impl ChannelManager {
                         }
                         UpstreamState::SoloMining => {
                             self.send_open_channel_request_to_mining_handler(
-                                downstream_id as usize,
                                 Mining::OpenStandardMiningChannel(downstream_msg),
                                 message_type,
                             )
@@ -835,7 +831,6 @@ impl ChannelManager {
     // Utility method to send open channel request from downstream to message handler.
     async fn send_open_channel_request_to_mining_handler(
         &mut self,
-        _downstream_id: usize,
         mining_msg: Mining<'static>,
         message_type: u8,
     ) -> Result<(), JDCError> {
