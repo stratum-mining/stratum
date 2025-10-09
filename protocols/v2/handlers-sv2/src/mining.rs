@@ -23,8 +23,9 @@ pub enum SupportedChannelTypes {
 /// Synchronous handler trait for processing mining messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
-/// It is optional because when there is only a single server,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleMiningMessagesFromServerSync {
     type Error: HandlerErrorType;
 
@@ -230,8 +231,9 @@ pub trait HandleMiningMessagesFromServerSync {
 /// Asynchronous handler trait for processing mining messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
-/// It is optional because when there is only a single server,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -449,8 +451,9 @@ pub trait HandleMiningMessagesFromServerAsync {
 /// Synchronous handler trait for processing mining messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
-/// It is optional because when there is only a single client,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleMiningMessagesFromClientSync {
     type Error: HandlerErrorType;
 
@@ -587,8 +590,9 @@ pub trait HandleMiningMessagesFromClientSync {
 /// Asynchronous handler trait for processing mining messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
-/// It is optional because when there is only a single client,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromClientAsync {
     type Error: HandlerErrorType;

@@ -12,8 +12,9 @@ use crate::error::HandlerErrorType;
 /// Synchronous handler trait for processing template distribution messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
-/// It is optional because when there is only a single server,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleTemplateDistributionMessagesFromServerSync {
     type Error: HandlerErrorType;
 
@@ -83,8 +84,9 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 /// Asynchronous handler trait for processing template distribution messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
-/// It is optional because when there is only a single server,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -164,8 +166,9 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 /// Synchronous handler trait for processing template distribution messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
-/// It is optional because when there is only a single client,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleTemplateDistributionMessagesFromClientSync {
     type Error: HandlerErrorType;
 
@@ -231,8 +234,9 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 /// Asynchronous handler trait for processing template distribution messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
-/// It is optional because when there is only a single client,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromClientAsync {
     type Error: HandlerErrorType;

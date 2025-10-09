@@ -9,8 +9,9 @@ use crate::error::HandlerErrorType;
 /// Synchronous handler trait for processing common messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
-/// It is optional because when there is only a single server,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleCommonMessagesFromServerSync {
     type Error: HandlerErrorType;
     fn handle_common_message_frame_from_server(
@@ -76,8 +77,9 @@ pub trait HandleCommonMessagesFromServerSync {
 /// Asynchronous handler trait for processing common messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
-/// It is optional because when there is only a single server,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -149,8 +151,9 @@ pub trait HandleCommonMessagesFromServerAsync {
 /// Synchronous handler trait for processing common messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
-/// It is optional because when there is only a single client,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleCommonMessagesFromClientSync {
     type Error: HandlerErrorType;
     fn handle_common_message_frame_from_client(
@@ -198,8 +201,9 @@ pub trait HandleCommonMessagesFromClientSync {
 /// Asynchronous handler trait for processing common messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
-/// It is optional because when there is only a single client,
-/// an explicit ID is unnecessary.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromClientAsync {
     type Error: HandlerErrorType;
