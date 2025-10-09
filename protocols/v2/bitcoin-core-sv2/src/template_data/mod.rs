@@ -127,6 +127,7 @@ impl TemplateData {
             prev_blockhash: self.block.header.prev_blockhash,
             merkle_root: {
                 let mut tmp_block = self.block.clone();
+                // replace dummy coinbase tx with the actual coinbase tx from the solution
                 tmp_block.txdata[0] = coinbase_tx;
                 tmp_block
                     .compute_merkle_root()
