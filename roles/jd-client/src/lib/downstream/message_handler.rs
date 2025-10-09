@@ -35,6 +35,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
     //    - If all validations pass, a [`SetupConnectionSuccess`] message is
     async fn handle_setup_connection(
         &mut self,
+        _client_id: Option<usize>,
         msg: SetupConnection<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);

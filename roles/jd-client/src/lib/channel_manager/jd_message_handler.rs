@@ -36,6 +36,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     // - If outputs are unchanged, skips recomputation and continues as normal.
     async fn handle_allocate_mining_job_token_success(
         &mut self,
+        _server_id: Option<usize>,
         msg: AllocateMiningJobTokenSuccess<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -115,6 +116,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     // untrustworthy or misbehaving JDS, and instead fails over to a safer state.
     async fn handle_declare_mining_job_error(
         &mut self,
+        _server_id: Option<usize>,
         msg: DeclareMiningJobError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
@@ -148,6 +150,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     // this handler returns an error to prevent propagation of an incomplete job.
     async fn handle_declare_mining_job_success(
         &mut self,
+        _server_id: Option<usize>,
         msg: DeclareMiningJobSuccess<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -226,6 +229,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     // - Send the response back to the JDS.
     async fn handle_provide_missing_transactions(
         &mut self,
+        _server_id: Option<usize>,
         msg: ProvideMissingTransactions<'_>,
     ) -> Result<(), Self::Error> {
         let request_id = msg.request_id;

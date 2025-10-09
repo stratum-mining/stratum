@@ -583,6 +583,7 @@ impl ChannelManager {
             };
 
             self.handle_job_declaration_message_frame_from_server(
+                None,
                 message_type,
                 sv2_frame.payload(),
             )
@@ -603,7 +604,7 @@ impl ChannelManager {
                 return Ok(());
             };
 
-            self.handle_mining_message_frame_from_server(message_type, sv2_frame.payload())
+            self.handle_mining_message_frame_from_server(None, message_type, sv2_frame.payload())
                 .await?;
         }
         Ok(())
@@ -621,6 +622,7 @@ impl ChannelManager {
                 return Ok(());
             };
             self.handle_template_distribution_message_frame_from_server(
+                None,
                 message_type,
                 sv2_frame.payload(),
             )
@@ -813,8 +815,12 @@ impl ChannelManager {
                     }
                 }
                 _ => {
-                    self.handle_mining_message_frame_from_client(message_type, sv2_frame.payload())
-                        .await?;
+                    self.handle_mining_message_frame_from_client(
+                        None,
+                        message_type,
+                        sv2_frame.payload(),
+                    )
+                    .await?;
                 }
             }
         }
@@ -857,7 +863,7 @@ impl ChannelManager {
             };
 
         let payload = deserialized_frame.payload();
-        self.handle_mining_message_frame_from_client(message_type, payload)
+        self.handle_mining_message_frame_from_client(None, message_type, payload)
             .await?;
         Ok(())
     }

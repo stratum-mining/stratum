@@ -166,7 +166,7 @@ impl Upstream {
             .msg_type();
 
         info!(?message_type, "Dispatching inbound handshake message");
-        self.handle_common_message_frame_from_server(message_type, incoming.payload())
+        self.handle_common_message_frame_from_server(None, message_type, incoming.payload())
             .await?;
         Ok(())
     }
@@ -271,8 +271,12 @@ impl Upstream {
         match protocol_message_type(message_type) {
             MessageType::Common => {
                 info!(?message_type, "Handling common message from Upstream.");
-                self.handle_common_message_frame_from_server(message_type, sv2_frame.payload())
-                    .await?;
+                self.handle_common_message_frame_from_server(
+                    None,
+                    message_type,
+                    sv2_frame.payload(),
+                )
+                .await?;
             }
             MessageType::Mining => {
                 self.upstream_channel

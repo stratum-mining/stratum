@@ -26,16 +26,17 @@ use tracing::{debug, error, info, warn};
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
     type Error = TproxyError;
 
-    fn get_channel_type_for_server(&self) -> SupportedChannelTypes {
+    fn get_channel_type_for_server(&self, _server_id: Option<usize>) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
 
-    fn is_work_selection_enabled_for_server(&self) -> bool {
+    fn is_work_selection_enabled_for_server(&self, _server_id: Option<usize>) -> bool {
         false
     }
 
     async fn handle_open_standard_mining_channel_success(
         &mut self,
+        _server_id: Option<usize>,
         m: OpenStandardMiningChannelSuccess<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
@@ -46,6 +47,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_open_extended_mining_channel_success(
         &mut self,
+        _server_id: Option<usize>,
         m: OpenExtendedMiningChannelSuccess<'_>,
     ) -> Result<(), Self::Error> {
         // Check if we have the pending channel data, return error if not
@@ -237,6 +239,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_open_mining_channel_error(
         &mut self,
+        _server_id: Option<usize>,
         m: OpenMiningChannelError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
@@ -245,13 +248,18 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_update_channel_error(
         &mut self,
+        _server_id: Option<usize>,
         m: UpdateChannelError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
         Ok(())
     }
 
-    async fn handle_close_channel(&mut self, m: CloseChannel<'_>) -> Result<(), Self::Error> {
+    async fn handle_close_channel(
+        &mut self,
+        _server_id: Option<usize>,
+        m: CloseChannel<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", m);
         _ = self.channel_manager_data.safe_lock(|channel_data_manager| {
             if channel_data_manager.mode == ChannelMode::Aggregated {
@@ -267,6 +275,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_extranonce_prefix(
         &mut self,
+        _server_id: Option<usize>,
         m: SetExtranoncePrefix<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
@@ -276,6 +285,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_submit_shares_success(
         &mut self,
+        _server_id: Option<usize>,
         m: SubmitSharesSuccess,
     ) -> Result<(), Self::Error> {
         info!("Received: {} ✅", m);
@@ -284,13 +294,18 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_submit_shares_error(
         &mut self,
+        _server_id: Option<usize>,
         m: SubmitSharesError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {} ❌", m);
         Ok(())
     }
 
-    async fn handle_new_mining_job(&mut self, m: NewMiningJob<'_>) -> Result<(), Self::Error> {
+    async fn handle_new_mining_job(
+        &mut self,
+        _server_id: Option<usize>,
+        m: NewMiningJob<'_>,
+    ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
         warn!("⚠️ Cannot process NewMiningJob since Translator Proxy supports only extended mining jobs. Ignoring.");
         Ok(())
@@ -298,6 +313,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_new_extended_mining_job(
         &mut self,
+        _server_id: Option<usize>,
         m: NewExtendedMiningJob<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", m);
@@ -344,7 +360,11 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         Ok(())
     }
 
-    async fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash<'_>) -> Result<(), Self::Error> {
+    async fn handle_set_new_prev_hash(
+        &mut self,
+        _server_id: Option<usize>,
+        m: SetNewPrevHash<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", m);
         let m_static = m.clone().into_static();
         _ = self.channel_manager_data.safe_lock(|channel_manager_data| {
@@ -419,6 +439,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_custom_mining_job_success(
         &mut self,
+        _server_id: Option<usize>,
         m: SetCustomMiningJobSuccess,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
@@ -430,6 +451,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_custom_mining_job_error(
         &mut self,
+        _server_id: Option<usize>,
         m: SetCustomMiningJobError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
@@ -439,7 +461,11 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         ))
     }
 
-    async fn handle_set_target(&mut self, m: SetTarget<'_>) -> Result<(), Self::Error> {
+    async fn handle_set_target(
+        &mut self,
+        _server_id: Option<usize>,
+        m: SetTarget<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", m);
 
         // Update the channel targets in the channel manager
@@ -481,6 +507,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_group_channel(
         &mut self,
+        _server_id: Option<usize>,
         m: SetGroupChannel<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", m);
