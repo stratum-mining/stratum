@@ -57,9 +57,7 @@ pub struct ShareAccounting<P> {
     share_work_sum: u64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
-    channel_id: u32,
     persistence: P,
-    user_identity: String,
 }
 
 impl<P> ShareAccounting<P>
@@ -68,19 +66,15 @@ where
 {
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
     ///
-    /// `channel_id` identifies the channel for persistence events.
     /// `persistence` handles background persistence of share accounting events.
-    /// `user_identity` is the identity string associated with the channel.
-    pub fn new(channel_id: u32, persistence: P, user_identity: String) -> Self {
+    pub fn new(persistence: P) -> Self {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
             share_work_sum: 0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
-            channel_id,
             persistence,
-            user_identity,
         }
     }
 
@@ -91,6 +85,8 @@ where
     /// - Records share hash to detect duplicates.
     pub fn update_share_accounting(
         &mut self,
+        channel_id: u32,
+        user_identity: &str,
         share_work: u64,
         share_sequence_number: u32,
         share_hash: Hash,
@@ -103,7 +99,8 @@ where
 
         // Persist the share accepted event
         let event = ShareAccountingEvent::ShareAccepted {
-            channel_id: self.channel_id,
+            channel_id,
+            user_identity: user_identity.to_string(),
             share_work,
             share_sequence_number,
             share_hash,
@@ -152,24 +149,19 @@ where
     }
 
     /// Updates the best difficulty if the new difficulty is higher than the current best.
-    pub fn update_best_diff(&mut self, diff: f64) {
+    pub fn update_best_diff(&mut self, channel_id: u32, diff: f64) {
         let previous_best_diff = self.best_diff;
         if diff > self.best_diff {
             self.best_diff = diff;
 
             // Persist the best difficulty updated event
             let event = ShareAccountingEvent::BestDifficultyUpdated {
-                channel_id: self.channel_id,
+                channel_id,
                 new_best_diff: diff,
                 previous_best_diff,
                 timestamp: std::time::SystemTime::now(),
             };
             self.persistence.persist_event(event);
         }
-    }
-
-    /// Returns the user identity string associated with this channel.
-    pub fn get_user_identity(&self) -> &String {
-        &self.user_identity
     }
 }

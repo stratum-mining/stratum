@@ -233,7 +233,7 @@ where
             requested_max_target,
             target,
             nominal_hashrate,
-            share_accounting: ShareAccounting::new(share_batch_size, channel_id, persistence, user_identity.clone()),
+            share_accounting: ShareAccounting::new(share_batch_size, persistence),
             expected_share_per_minute,
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
@@ -629,6 +629,8 @@ where
                 .map_err(|_| ShareValidationError::InvalidCoinbase)?;
 
             self.share_accounting.update_share_accounting(
+                self.channel_id,
+                &self.user_identity,
                 target_to_difficulty(self.target.clone()) as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
@@ -648,6 +650,8 @@ where
             }
 
             self.share_accounting.update_share_accounting(
+                self.channel_id,
+                &self.user_identity,
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
@@ -655,7 +659,7 @@ where
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
 
             let last_sequence_number = self.share_accounting.get_last_share_sequence_number();
             let new_submits_accepted_count = self.share_accounting.get_shares_accepted();

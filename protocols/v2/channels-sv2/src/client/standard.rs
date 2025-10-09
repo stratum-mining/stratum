@@ -81,7 +81,7 @@ where
             active_job: None,
             past_jobs: HashMap::new(),
             stale_jobs: HashMap::new(),
-            share_accounting: ShareAccounting::new(channel_id, persistence, user_identity.clone()),
+            share_accounting: ShareAccounting::new(persistence),
             chain_tip: None,
         }
     }
@@ -336,6 +336,9 @@ where
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
                 self.target.difficulty_float() as u64,
+                self.channel_id,
+                &self.user_identity,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
                 true,
@@ -351,13 +354,16 @@ where
 
             self.share_accounting.update_share_accounting(
                 self.target.difficulty_float() as u64,
+                self.channel_id,
+                &self.user_identity,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
                 false,
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
 
             return Ok(ShareValidationResult::Valid);
         }

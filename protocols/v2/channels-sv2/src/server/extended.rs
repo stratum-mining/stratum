@@ -337,7 +337,7 @@ where
 
         Ok(Self {
             channel_id,
-            user_identity,
+            user_identity: user_identity.clone(),
             extranonce_prefix,
             rollable_extranonce_size,
             requested_max_target: max_target,
@@ -345,7 +345,7 @@ where
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccounting::new(share_batch_size, channel_id, persistence),
+            share_accounting: ShareAccounting::new(share_batch_size, persistence),
             expected_share_per_minute,
             chain_tip: None,
             phantom: PhantomData,
@@ -415,7 +415,7 @@ where
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccounting::new(share_batch_size, channel_id, P::default(), user_identity.clone()),
+            share_accounting: ShareAccounting::new(share_batch_size, P::default()),
             expected_share_per_minute,
             chain_tip: None,
             phantom: PhantomData,
@@ -845,6 +845,9 @@ where
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
                 self.target.difficulty_float() as u64,
+                self.channel_id,
+                &self.user_identity,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
                 true,
@@ -877,13 +880,16 @@ where
 
             self.share_accounting.update_share_accounting(
                 self.target.difficulty_float() as u64,
+                self.channel_id,
+                &self.user_identity,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
                 false,
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
 
             let last_sequence_number = self.share_accounting.get_last_share_sequence_number();
             let new_submits_accepted_count = self.share_accounting.get_shares_accepted();

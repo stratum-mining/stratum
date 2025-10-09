@@ -30,6 +30,8 @@ pub enum ShareAccountingEvent {
         /// The channel identifier (server-assigned for server channels, client-assigned for client
         /// channels)
         channel_id: u32,
+        /// User identity associated with the channel
+        user_identity: String,
         /// Work value of the accepted share
         share_work: u64,
         /// Sequence number of the share
