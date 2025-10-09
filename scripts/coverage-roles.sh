@@ -12,7 +12,6 @@ tarpaulin
 crates=(
   "pool"
   "test-utils/mining-device"
-  "test-utils/mining-device-sv1"
   "translator"
   "jd-client"
   "jd-server"
