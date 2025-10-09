@@ -583,7 +583,7 @@ impl ChannelManager {
             };
 
             self.handle_job_declaration_message_frame_from_server(
-                1,
+                None,
                 message_type,
                 sv2_frame.payload(),
             )
@@ -604,7 +604,7 @@ impl ChannelManager {
                 return Ok(());
             };
 
-            self.handle_mining_message_frame_from_server(1, message_type, sv2_frame.payload())
+            self.handle_mining_message_frame_from_server(None, message_type, sv2_frame.payload())
                 .await?;
         }
         Ok(())
@@ -622,7 +622,7 @@ impl ChannelManager {
                 return Ok(());
             };
             self.handle_template_distribution_message_frame_from_server(
-                1,
+                None,
                 message_type,
                 sv2_frame.payload(),
             )
@@ -820,7 +820,7 @@ impl ChannelManager {
                 }
                 _ => {
                     self.handle_mining_message_frame_from_client(
-                        downstream_id as usize,
+                        None,
                         message_type,
                         sv2_frame.payload(),
                     )
@@ -835,7 +835,7 @@ impl ChannelManager {
     // Utility method to send open channel request from downstream to message handler.
     async fn send_open_channel_request_to_mining_handler(
         &mut self,
-        downstream_id: usize,
+        _downstream_id: usize,
         mining_msg: Mining<'static>,
         message_type: u8,
     ) -> Result<(), JDCError> {
@@ -868,7 +868,7 @@ impl ChannelManager {
             };
 
         let payload = deserialized_frame.payload();
-        self.handle_mining_message_frame_from_client(downstream_id, message_type, payload)
+        self.handle_mining_message_frame_from_client(None, message_type, payload)
             .await?;
         Ok(())
     }

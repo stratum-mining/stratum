@@ -17,7 +17,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
 
     async fn handle_setup_connection_success(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: SetupConnectionSuccess,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -38,7 +38,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
 
     async fn handle_channel_endpoint_changed(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: ChannelEndpointChanged,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -47,7 +47,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
 
     async fn handle_reconnect(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: Reconnect<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -56,7 +56,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
 
     async fn handle_setup_connection_error(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: SetupConnectionError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);

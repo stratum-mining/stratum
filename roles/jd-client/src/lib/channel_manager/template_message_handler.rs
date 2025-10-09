@@ -36,7 +36,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     // allocation if needed.
     async fn handle_new_template(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: NewTemplate<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -247,7 +247,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     // Handles a `RequestTransactionDataError` message from the Template Provider.
     async fn handle_request_tx_data_error(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: RequestTransactionDataError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
@@ -272,7 +272,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     //   - If not activated → cache it as a declare job for later propagation.
     async fn handle_request_tx_data_success(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: RequestTransactionDataSuccess<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -395,7 +395,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     // - Update all downstream channels and propagate the new `prevhash` via `SetNewPrevHash`.
     async fn handle_set_new_prev_hash(
         &mut self,
-        _server_id: usize,
+        _server_id: Option<usize>,
         msg: SetNewPrevHash<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
