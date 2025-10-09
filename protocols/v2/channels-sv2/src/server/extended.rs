@@ -847,6 +847,7 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
+                true,
             );
 
             let mut coinbase = vec![];
@@ -878,6 +879,7 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
+                false,
             );
 
             // update the best diff

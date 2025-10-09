@@ -42,6 +42,8 @@ pub enum ShareAccountingEvent {
         total_share_work_sum: u64,
         /// Timestamp when the event occurred
         timestamp: std::time::SystemTime,
+        /// Block found?
+        block_found: bool,
     },
     /// Best difficulty was updated for the channel.
     BestDifficultyUpdated {

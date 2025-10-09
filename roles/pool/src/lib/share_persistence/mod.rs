@@ -43,17 +43,19 @@ impl ShareFileHandler {
                 total_shares_accepted,
                 total_share_work_sum,
                 timestamp,
+                block_found,
             } => {
                 let _ = self.file.write_all(
                     format!(
-                        "ShareAccepted: channel_id: {}, share_work: {}, share_sequence_number: {}, share_hash: {}, total_shares_accepted: {}, total_share_work_sum: {}, timestamp: {:?}\n",
+                        "ShareAccepted: channel_id: {}, share_work: {}, share_sequence_number: {}, share_hash: {}, total_shares_accepted: {}, total_share_work_sum: {}, timestamp: {:?}, block_found: {}\n",
                         channel_id,
                         share_work,
                         share_sequence_number,
                         share_hash,
                         total_shares_accepted,
                         total_share_work_sum,
-                        timestamp
+                        timestamp,
+                        block_found
                     )
                     .as_bytes(),
                 ).await.map_err(|e| {

@@ -600,12 +600,6 @@ where
 
         // check if a block was found
         if network_target.is_met_by(hash) {
-            self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
-                share.sequence_number,
-                hash.to_raw_hash(),
-            );
-
             let op_pushbytes_pool_miner_tag = self
                 .job_factory
                 .op_pushbytes_pool_miner_tag()
@@ -634,6 +628,13 @@ where
                 .consensus_encode(&mut serialized_coinbase)
                 .map_err(|_| ShareValidationError::InvalidCoinbase)?;
 
+            self.share_accounting.update_share_accounting(
+                target_to_difficulty(self.target.clone()) as u64,
+                share.sequence_number,
+                hash.to_raw_hash(),
+                true
+            );
+
             return Ok(ShareValidationResult::BlockFound(
                 Some(job.get_template().template_id),
                 serialized_coinbase,
@@ -650,6 +651,7 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
+                false,
             );
 
             // update the best diff

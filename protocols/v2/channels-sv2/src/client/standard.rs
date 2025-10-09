@@ -338,6 +338,7 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
+                true,
             );
             return Ok(ShareValidationResult::BlockFound);
         }
@@ -352,6 +353,7 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
+                false,
             );
 
             // update the best diff
