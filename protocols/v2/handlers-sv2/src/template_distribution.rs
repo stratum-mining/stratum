@@ -9,6 +9,9 @@ use template_distribution_sv2::*;
 
 use crate::error::HandlerErrorType;
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 pub trait HandleTemplateDistributionMessagesFromServerSync {
     type Error: HandlerErrorType;
 
@@ -75,6 +78,9 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -151,6 +157,9 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 pub trait HandleTemplateDistributionMessagesFromClientSync {
     type Error: HandlerErrorType;
 
@@ -213,6 +222,9 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleTemplateDistributionMessagesFromClientAsync {
     type Error: HandlerErrorType;

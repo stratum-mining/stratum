@@ -6,6 +6,9 @@ use parsers_sv2::CommonMessages;
 
 use crate::error::HandlerErrorType;
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 pub trait HandleCommonMessagesFromServerSync {
     type Error: HandlerErrorType;
     fn handle_common_message_frame_from_server(
@@ -68,6 +71,9 @@ pub trait HandleCommonMessagesFromServerSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -136,6 +142,9 @@ pub trait HandleCommonMessagesFromServerAsync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 pub trait HandleCommonMessagesFromClientSync {
     type Error: HandlerErrorType;
     fn handle_common_message_frame_from_client(
@@ -180,6 +189,9 @@ pub trait HandleCommonMessagesFromClientSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromClientAsync {
     type Error: HandlerErrorType;

@@ -21,6 +21,9 @@ pub enum SupportedChannelTypes {
     GroupAndExtended,
 }
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 pub trait HandleMiningMessagesFromServerSync {
     type Error: HandlerErrorType;
 
@@ -223,6 +226,9 @@ pub trait HandleMiningMessagesFromServerSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -437,6 +443,9 @@ pub trait HandleMiningMessagesFromServerAsync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 pub trait HandleMiningMessagesFromClientSync {
     type Error: HandlerErrorType;
 
@@ -570,6 +579,9 @@ pub trait HandleMiningMessagesFromClientSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleMiningMessagesFromClientAsync {
     type Error: HandlerErrorType;

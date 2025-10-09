@@ -9,6 +9,9 @@ use parsers_sv2::JobDeclaration;
 
 use crate::error::HandlerErrorType;
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 pub trait HandleJobDeclarationMessagesFromServerSync {
     type Error: HandlerErrorType;
     fn handle_job_declaration_message_frame_from_server(
@@ -81,6 +84,9 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The server ID identifies which server a message originated from.
+/// It is optional because when there is only a single server,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromServerAsync {
     type Error: HandlerErrorType;
@@ -163,6 +169,9 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 pub trait HandleJobDeclarationMessagesFromClientSync {
     type Error: HandlerErrorType;
 
@@ -233,6 +242,9 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
     ) -> Result<(), Self::Error>;
 }
 
+/// The client ID identifies which client a message originated from.
+/// It is optional because when there is only a single client,
+/// an explicit ID is unnecessary.
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromClientAsync {
     type Error: HandlerErrorType;
