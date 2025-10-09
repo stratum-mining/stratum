@@ -379,13 +379,11 @@ pub mod http {
 }
 
 pub mod tarball {
-    use flate2::read::GzDecoder;
     use std::{
         fs::File,
         io::{BufReader, Read},
         path::Path,
     };
-    use tar::Archive;
 
     pub fn read_from_file(path: &str) -> Vec<u8> {
         let file = File::open(path).unwrap_or_else(|_| {
@@ -398,15 +396,31 @@ pub mod tarball {
     }
 
     pub fn unpack(tarball_bytes: &[u8], destination: &Path) {
-        let decoder = GzDecoder::new(tarball_bytes);
-        let mut archive = Archive::new(decoder);
-        for mut entry in archive.entries().unwrap().flatten() {
-            if let Ok(file) = entry.path() {
-                if file.ends_with("bitcoind") {
-                    entry.unpack_in(destination).unwrap();
-                }
-            }
+        use std::{io::Write as IoWrite, process::Command};
+
+        // Write tarball bytes to a temp file
+        let temp_tarball = destination.join("temp.tar.gz");
+        let mut temp_file = File::create(&temp_tarball).unwrap();
+        temp_file.write_all(tarball_bytes).unwrap();
+        drop(temp_file);
+
+        // Use system tar command to extract, which properly handles GNU sparse files
+        let output = Command::new("tar")
+            .arg("-xzf")
+            .arg(&temp_tarball)
+            .arg("-C")
+            .arg(destination)
+            .arg("--strip-components=0")
+            .output()
+            .expect("Failed to execute tar command");
+
+        if !output.status.success() {
+            eprintln!("tar stderr: {}", String::from_utf8_lossy(&output.stderr));
+            panic!("tar extraction failed");
         }
+
+        // Clean up temp tarball
+        std::fs::remove_file(&temp_tarball).ok();
     }
 }
 
