@@ -199,7 +199,7 @@ impl Downstream {
             return Err(PoolError::UnexpectedMessage(0));
         };
         if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
-            self.handle_common_message_frame_from_client(message_type, frame.payload())
+            self.handle_common_message_frame_from_client(None, message_type, frame.payload())
                 .await?;
             return Ok(());
         }

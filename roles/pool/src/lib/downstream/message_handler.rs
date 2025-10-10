@@ -14,6 +14,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
 
     async fn handle_setup_connection(
         &mut self,
+        _client_id: Option<usize>,
         msg: SetupConnection<'_>,
     ) -> Result<(), Self::Error> {
         info!(

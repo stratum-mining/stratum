@@ -2,20 +2,22 @@ use std::sync::atomic::Ordering;
 
 use stratum_common::roles_logic_sv2::{
     bitcoin::{consensus::Decodable, Amount, TxOut},
-    channels_sv2::server::{
-        error::{ExtendedChannelError, StandardChannelError},
-        extended::ExtendedChannel,
-        group::GroupChannel,
-        jobs::job_store::DefaultJobStore,
-        share_accounting::{ShareValidationError, ShareValidationResult},
-        standard::StandardChannel,
+    channels_sv2::{
+        server::{
+            error::{ExtendedChannelError, StandardChannelError},
+            extended::ExtendedChannel,
+            group::GroupChannel,
+            jobs::job_store::DefaultJobStore,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+            standard::StandardChannel,
+        },
+        Vardiff, VardiffState,
     },
     codec_sv2::binary_sv2::Str0255,
     handlers_sv2::{HandleMiningMessagesFromClientAsync, SupportedChannelTypes},
     mining_sv2::*,
     parsers_sv2::{Mining, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
-    Vardiff, VardiffState,
 };
 use tracing::{error, info, warn};
 
@@ -27,19 +29,27 @@ use crate::{
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
     type Error = PoolError;
 
-    fn get_channel_type_for_client(&self) -> SupportedChannelTypes {
+    fn get_channel_type_for_client(&self, _client_id: Option<usize>) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
 
-    fn is_work_selection_enabled_for_client(&self) -> bool {
+    fn is_work_selection_enabled_for_client(&self, _client_id: Option<usize>) -> bool {
         true
     }
 
-    fn is_client_authorized(&self, _user_identity: &Str0255) -> Result<bool, Self::Error> {
+    fn is_client_authorized(
+        &self,
+        _client_id: Option<usize>,
+        _user_identity: &Str0255,
+    ) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
-    async fn handle_close_channel(&mut self, msg: CloseChannel<'_>) -> Result<(), Self::Error> {
+    async fn handle_close_channel(
+        &mut self,
+        _client_id: Option<usize>,
+        msg: CloseChannel<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received Close Channel: {msg}");
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
@@ -67,6 +77,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_open_standard_mining_channel(
         &mut self,
+        _client_id: Option<usize>,
         msg: OpenStandardMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
         let request_id = msg.get_request_id_as_u32();
@@ -124,10 +135,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
                 if !downstream.requires_standard_jobs.load(Ordering::SeqCst) && downstream_data.group_channels.is_none() {
-                    let group_channel_id = channel_manager_data.channel_id_factory.next();
+                    let group_channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                     let job_store = DefaultJobStore::new();
 
-                    let mut group_channel = GroupChannel::new_for_pool(group_channel_id, job_store, self.pool_tag_string.clone());
+                    let mut group_channel = GroupChannel::new_for_pool(group_channel_id as u32, job_store, self.pool_tag_string.clone());
                     group_channel.on_new_template(last_future_template.clone(), vec![pool_coinbase_output.clone()])?;
 
                     group_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())?;
@@ -137,10 +148,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 let requested_max_target = msg.max_target.into_static();
                 let extranonce_prefix = channel_manager_data.extranonce_prefix_factory_standard.next_prefix_standard()?;
 
-                let channel_id = channel_manager_data.channel_id_factory.next();
+                let channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                 let job_store = DefaultJobStore::new();
 
-                let mut standard_channel = match StandardChannel::new_for_pool(channel_id, user_identity.to_string(), extranonce_prefix.to_vec(), requested_max_target.into(), nominal_hash_rate, self.share_batch_size, self.shares_per_minute, job_store, self.pool_tag_string.clone()) {
+                let mut standard_channel = match StandardChannel::new_for_pool(channel_id as u32, user_identity.to_string(), extranonce_prefix.to_vec(), requested_max_target.into(), nominal_hash_rate, self.share_batch_size, self.shares_per_minute, job_store, self.pool_tag_string.clone()) {
                     Ok(channel) => channel,
                     Err(e) => match e {
                         StandardChannelError::InvalidNominalHashrate => {
@@ -176,7 +187,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                 let open_standard_mining_channel_success = OpenStandardMiningChannelSuccess {
                     request_id: msg.request_id,
-                    channel_id,
+                    channel_id: channel_id as u32,
                     target: standard_channel.get_target().clone().into(),
                     extranonce_prefix: standard_channel.get_extranonce_prefix().clone().try_into().expect("Extranonce_prefix must be valid"),
                     group_channel_id
@@ -206,7 +217,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
                 let n_bits = last_set_new_prev_hash_tdp.n_bits;
                 let set_new_prev_hash_mining = SetNewPrevHash {
-                    channel_id,
+                    channel_id: channel_id as u32,
                     job_id: *future_standard_job_id,
                     prev_hash,
                     min_ntime: header_timestamp,
@@ -219,13 +230,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                 messages.push((downstream_id, Mining::SetNewPrevHash(set_new_prev_hash_mining)).into());
 
-                downstream_data.standard_channels.insert(channel_id, standard_channel);
-                channel_manager_data.channel_id_to_downstream_id.insert(channel_id, downstream_id);
+                downstream_data.standard_channels.insert(channel_id as u32, standard_channel);
+                channel_manager_data.channel_id_to_downstream_id.insert(channel_id as u32, downstream_id);
                 if let Some(group_channel) = downstream_data.group_channels.as_mut() {
-                    group_channel.add_standard_channel_id(channel_id);
+                    group_channel.add_standard_channel_id(channel_id as u32);
                 }
                 let vardiff = VardiffState::new()?;
-                channel_manager_data.vardiff.insert((downstream_id, channel_id), vardiff);
+                channel_manager_data.vardiff.insert((downstream_id, channel_id as u32), vardiff);
 
                 Ok(messages)
             })
@@ -240,6 +251,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_open_extended_mining_channel(
         &mut self,
+        _client_id: Option<usize>,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
         let request_id = msg.get_request_id_as_u32();
@@ -303,11 +315,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             }
                         };
 
-                        let channel_id = channel_manager_data.channel_id_factory.next();
+                        let channel_id = channel_manager_data
+                            .channel_id_factory
+                            .fetch_add(1, Ordering::SeqCst);
                         let job_store = DefaultJobStore::new();
 
                         let mut extended_channel = match ExtendedChannel::new_for_pool(
-                            channel_id,
+                            channel_id as u32,
                             user_identity.to_string(),
                             extranonce_prefix,
                             requested_max_target.into(),
@@ -385,7 +399,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         let open_extended_mining_channel_success =
                             OpenExtendedMiningChannelSuccess {
                                 request_id,
-                                channel_id,
+                                channel_id: channel_id as u32,
                                 target: extended_channel.get_target().clone().into(),
                                 extranonce_prefix: extended_channel
                                     .get_extranonce_prefix()
@@ -466,7 +480,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             let header_timestamp = last_set_new_prev_hash_tdp.header_timestamp;
                             let n_bits = last_set_new_prev_hash_tdp.n_bits;
                             let set_new_prev_hash_mining = SetNewPrevHash {
-                                channel_id,
+                                channel_id: channel_id as u32,
                                 job_id: *future_extended_job_id,
                                 prev_hash,
                                 min_ntime: header_timestamp,
@@ -486,14 +500,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
                         downstream_data
                             .extended_channels
-                            .insert(channel_id, extended_channel);
+                            .insert(channel_id as u32, extended_channel);
                         channel_manager_data
                             .channel_id_to_downstream_id
-                            .insert(channel_id, downstream_id);
+                            .insert(channel_id as u32, downstream_id);
                         let vardiff = VardiffState::new()?;
                         channel_manager_data
                             .vardiff
-                            .insert((downstream_id, channel_id), vardiff);
+                            .insert((downstream_id, channel_id as u32), vardiff);
 
                         Ok(messages)
                     })
@@ -508,6 +522,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_submit_shares_standard(
         &mut self,
+        _client_id: Option<usize>,
         msg: SubmitSharesStandard,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesStandard: {msg}");
@@ -670,6 +685,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_submit_shares_extended(
         &mut self,
+        _client_id: Option<usize>,
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesExtended");
@@ -827,7 +843,11 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         Ok(())
     }
 
-    async fn handle_update_channel(&mut self, msg: UpdateChannel<'_>) -> Result<(), Self::Error> {
+    async fn handle_update_channel(
+        &mut self,
+        _client_id: Option<usize>,
+        msg: UpdateChannel<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let messages: Vec<RouteMessageTo> = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
@@ -955,6 +975,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_set_custom_mining_job(
         &mut self,
+        _client_id: Option<usize>,
         msg: SetCustomMiningJob<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
