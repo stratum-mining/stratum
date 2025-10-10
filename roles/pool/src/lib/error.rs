@@ -6,7 +6,10 @@ use std::{
 
 use stratum_common::roles_logic_sv2::{
     self, bitcoin,
-    channels_sv2::server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+    channels_sv2::{
+        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+        vardiff::error::VardiffError,
+    },
     codec_sv2::{self, binary_sv2, noise_sv2},
     handlers_sv2::HandlerErrorType,
     mining_sv2::ExtendedExtranonceError,

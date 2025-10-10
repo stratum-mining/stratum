@@ -234,8 +234,12 @@ impl TemplateReceiver {
                     "Handling common message from Template provider."
                 );
 
-                self.handle_common_message_frame_from_server(message_type, sv2_frame.payload())
-                    .await?;
+                self.handle_common_message_frame_from_server(
+                    None,
+                    message_type,
+                    sv2_frame.payload(),
+                )
+                .await?;
             }
             MessageType::TemplateDistribution => {
                 let message = TemplateDistribution::try_from((message_type, sv2_frame.payload()))?
@@ -370,7 +374,7 @@ impl TemplateReceiver {
             .msg_type();
         debug!(?msg_type, "Received upstream handshake response");
 
-        self.handle_common_message_frame_from_server(msg_type, incoming.payload())
+        self.handle_common_message_frame_from_server(None, msg_type, incoming.payload())
             .await?;
         info!("Handshake with upstream completed successfully");
         Ok(())

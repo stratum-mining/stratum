@@ -1,15 +1,23 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use async_channel::{Receiver, Sender};
 use config_helpers_sv2::CoinbaseRewardScript;
+use core::sync::atomic::Ordering;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_common::{
     network_helpers_sv2::noise_stream::NoiseTcpStream,
     roles_logic_sv2::{
-        channels_sv2::server::{
-            extended::ExtendedChannel,
-            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
-            standard::StandardChannel,
+        channels_sv2::{
+            server::{
+                extended::ExtendedChannel,
+                jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+                standard::StandardChannel,
+            },
+            Vardiff, VardiffState,
         },
         codec_sv2::Responder,
         handlers_sv2::{
@@ -18,8 +26,7 @@ use stratum_common::{
         mining_sv2::{ExtendedExtranonce, SetTarget, MAX_EXTRANONCE_LEN},
         parsers_sv2::{Mining, TemplateDistribution},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
-        utils::{Id as IdFactory, Mutex},
-        Vardiff, VardiffState,
+        utils::Mutex,
     },
 };
 use tokio::{net::TcpListener, select, sync::broadcast};
@@ -50,9 +57,9 @@ pub struct ChannelManagerData {
     // Each new standard downstream receives a unique extranonce prefix.
     extranonce_prefix_factory_standard: ExtendedExtranonce,
     // Factory that assigns a unique ID to each new **downstream connection**.
-    downstream_id_factory: IdFactory,
+    downstream_id_factory: AtomicUsize,
     // Factory that assigns a unique **channel ID** to each channel.
-    channel_id_factory: IdFactory,
+    channel_id_factory: AtomicUsize,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
     vardiff: HashMap<(u32, u32), VardiffState>,
@@ -119,8 +126,8 @@ impl ChannelManager {
             downstream: HashMap::new(),
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
-            downstream_id_factory: IdFactory::new(),
-            channel_id_factory: IdFactory::new(),
+            downstream_id_factory: AtomicUsize::new(1),
+            channel_id_factory: AtomicUsize::new(1),
             vardiff: HashMap::new(),
             channel_id_to_downstream_id: HashMap::new(),
             coinbase_outputs,
@@ -217,7 +224,7 @@ impl ChannelManager {
 
                                 let downstream_id = self
                                     .channel_manager_data
-                                    .super_safe_lock(|data| data.downstream_id_factory.next());
+                                    .super_safe_lock(|data| data.downstream_id_factory.fetch_add(1, Ordering::SeqCst) as u32);
 
 
                                 let downstream = Downstream::new(
@@ -352,7 +359,7 @@ impl ChannelManager {
     // - If the frame contains any unsupported message type, an error is returned.
     async fn handle_template_provider_message(&mut self) -> PoolResult<()> {
         if let Ok(message) = self.channel_manager_channel.tp_receiver.recv().await {
-            self.handle_template_distribution_message_from_server(message)
+            self.handle_template_distribution_message_from_server(None, message)
                 .await?;
         }
         Ok(())
@@ -380,7 +387,7 @@ impl ChannelManager {
                 }
                 _ => message,
             };
-            self.handle_mining_message_from_client(msg).await?;
+            self.handle_mining_message_from_client(None, msg).await?;
         }
 
         Ok(())

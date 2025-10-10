@@ -16,7 +16,11 @@ use crate::{
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     type Error = PoolError;
 
-    async fn handle_new_template(&mut self, msg: NewTemplate<'_>) -> Result<(), Self::Error> {
+    async fn handle_new_template(
+        &mut self,
+        _server_id: Option<usize>,
+        msg: NewTemplate<'_>,
+    ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
@@ -164,6 +168,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
     async fn handle_request_tx_data_error(
         &mut self,
+        _server_id: Option<usize>,
         msg: RequestTransactionDataError<'_>,
     ) -> Result<(), Self::Error> {
         warn!("Received: {}", msg);
@@ -172,6 +177,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
     async fn handle_request_tx_data_success(
         &mut self,
+        _server_id: Option<usize>,
         msg: RequestTransactionDataSuccess<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
@@ -180,6 +186,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
 
     async fn handle_set_new_prev_hash(
         &mut self,
+        _server_id: Option<usize>,
         msg: SetNewPrevHash<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
