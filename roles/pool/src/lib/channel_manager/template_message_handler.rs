@@ -1,9 +1,10 @@
 use std::sync::atomic::Ordering;
 
 use stratum_common::roles_logic_sv2::{
-    bitcoin::Amount, handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
+    bitcoin::Amount, channels_sv2::outputs::deserialize_outputs,
+    handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
     mining_sv2::SetNewPrevHash as SetNewPrevHashMp, parsers_sv2::Mining,
-    template_distribution_sv2::*, channels_sv2::outputs::deserialize_outputs,
+    template_distribution_sv2::*,
 };
 use tracing::{info, warn};
 
