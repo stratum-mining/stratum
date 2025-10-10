@@ -3,14 +3,13 @@ use std::sync::atomic::Ordering;
 use stratum_common::roles_logic_sv2::{
     bitcoin::Amount, handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
     mining_sv2::SetNewPrevHash as SetNewPrevHashMp, parsers_sv2::Mining,
-    template_distribution_sv2::*,
+    template_distribution_sv2::*, channels_sv2::outputs::deserialize_outputs,
 };
 use tracing::{info, warn};
 
 use crate::{
     channel_manager::{ChannelManager, RouteMessageTo},
     error::PoolError,
-    utils::deserialize_coinbase_outputs,
 };
 
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
@@ -27,7 +26,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
             channel_manager_data.last_future_template = Some(msg.clone().into_static());
 
             let mut messages: Vec<RouteMessageTo> = Vec::new();
-            let mut coinbase_output = deserialize_coinbase_outputs(&channel_manager_data.coinbase_outputs);
+            let mut coinbase_output = deserialize_outputs(channel_manager_data.coinbase_outputs.clone()).expect("deserialization failed");
             coinbase_output[0].value = Amount::from_sat(msg.coinbase_tx_value_remaining);
 
             for (downstream_id, downstream) in channel_manager_data.downstream.iter_mut() {
