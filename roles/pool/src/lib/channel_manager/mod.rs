@@ -58,8 +58,6 @@ pub struct ChannelManagerData {
     extranonce_prefix_factory_standard: ExtendedExtranonce,
     // Factory that assigns a unique ID to each new **downstream connection**.
     downstream_id_factory: AtomicUsize,
-    // Factory that assigns a unique **channel ID** to each channel.
-    channel_id_factory: AtomicUsize,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
     vardiff: HashMap<(u32, u32), VardiffState>,
@@ -127,7 +125,6 @@ impl ChannelManager {
             extranonce_prefix_factory_extended,
             extranonce_prefix_factory_standard,
             downstream_id_factory: AtomicUsize::new(1),
-            channel_id_factory: AtomicUsize::new(1),
             vardiff: HashMap::new(),
             channel_id_to_downstream_id: HashMap::new(),
             coinbase_outputs,
@@ -372,22 +369,8 @@ impl ChannelManager {
             .recv()
             .await
         {
-            let msg = match message {
-                Mining::OpenExtendedMiningChannel(mut m) => {
-                    let user_identity =
-                        format!("{}#{}", m.user_identity.as_utf8_or_hex(), downstream_id);
-                    m.user_identity = user_identity.try_into()?;
-                    Mining::OpenExtendedMiningChannel(m)
-                }
-                Mining::OpenStandardMiningChannel(mut m) => {
-                    let user_identity =
-                        format!("{}#{}", m.user_identity.as_utf8_or_hex(), downstream_id);
-                    m.user_identity = user_identity.try_into()?;
-                    Mining::OpenStandardMiningChannel(m)
-                }
-                _ => message,
-            };
-            self.handle_mining_message_from_client(None, msg).await?;
+            self.handle_mining_message_from_client(Some(downstream_id as usize), message)
+                .await?;
         }
 
         Ok(())

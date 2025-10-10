@@ -19,7 +19,7 @@ use stratum_common::roles_logic_sv2::{
     parsers_sv2::{Mining, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
 };
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::{
     channel_manager::{ChannelManager, RouteMessageTo},
@@ -47,19 +47,14 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_close_channel(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: CloseChannel<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received Close Channel: {msg}");
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
-                let Some(downstream_id) = channel_manager_data
-                    .channel_id_to_downstream_id
-                    .remove(&msg.channel_id)
-                else {
-                    return Err(PoolError::DownstreamNotFoundWithChannelId(msg.channel_id));
-                };
-
                 let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id)
                 else {
                     return Err(PoolError::DownstreamNotFound(downstream_id));
@@ -77,28 +72,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_open_standard_mining_channel(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: OpenStandardMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
         let request_id = msg.get_request_id_as_u32();
-        let user_string = msg.user_identity.as_utf8_or_hex();
-
-        let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
-            Some((user_identity, id)) => match id.parse::<u32>() {
-                Ok(id) => (user_identity, id),
-                Err(e) => {
-                    warn!(
-                        ?e,
-                        user_string, "Failed to parse downstream_id from user_identity"
-                    );
-                    return Err(PoolError::ParseInt(e));
-                }
-            },
-            None => {
-                warn!(user_string, "User identity missing downstream_id");
-                return Err(PoolError::DownstreamIdNotFound);
-            }
-        };
+        let user_identity = msg.user_identity.as_utf8_or_hex();
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
 
         info!("Received OpenStandardMiningChannel: {}", msg);
 
@@ -135,7 +115,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
                 if !downstream.requires_standard_jobs.load(Ordering::SeqCst) && downstream_data.group_channels.is_none() {
-                    let group_channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
+                    let group_channel_id = downstream_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                     let job_store = DefaultJobStore::new();
 
                     let mut group_channel = GroupChannel::new_for_pool(group_channel_id as u32, job_store, self.pool_tag_string.clone());
@@ -148,7 +128,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 let requested_max_target = msg.max_target.into_static();
                 let extranonce_prefix = channel_manager_data.extranonce_prefix_factory_standard.next_prefix_standard()?;
 
-                let channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
+                let channel_id = downstream_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                 let job_store = DefaultJobStore::new();
 
                 let mut standard_channel = match StandardChannel::new_for_pool(channel_id as u32, user_identity.to_string(), extranonce_prefix.to_vec(), requested_max_target.into(), nominal_hash_rate, self.share_batch_size, self.shares_per_minute, job_store, self.pool_tag_string.clone()) {
@@ -231,7 +211,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 messages.push((downstream_id, Mining::SetNewPrevHash(set_new_prev_hash_mining)).into());
 
                 downstream_data.standard_channels.insert(channel_id as u32, standard_channel);
-                channel_manager_data.channel_id_to_downstream_id.insert(channel_id as u32, downstream_id);
                 if let Some(group_channel) = downstream_data.group_channels.as_mut() {
                     group_channel.add_standard_channel_id(channel_id as u32);
                 }
@@ -251,28 +230,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_open_extended_mining_channel(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: OpenExtendedMiningChannel<'_>,
     ) -> Result<(), Self::Error> {
         let request_id = msg.get_request_id_as_u32();
-        let user_string = msg.user_identity.as_utf8_or_hex();
-
-        let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
-            Some((user_identity, id)) => match id.parse::<u32>() {
-                Ok(id) => (user_identity, id),
-                Err(e) => {
-                    warn!(
-                        ?e,
-                        user_string, "Failed to parse downstream_id from user_identity"
-                    );
-                    return Err(PoolError::ParseInt(e));
-                }
-            },
-            None => {
-                warn!(user_string, "User identity missing downstream_id");
-                return Err(PoolError::DownstreamIdNotFound);
-            }
-        };
+        let user_identity = msg.user_identity.as_utf8_or_hex();
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
         info!("Received OpenExtendedMiningChannel: {}", msg);
 
         let nominal_hash_rate = msg.nominal_hash_rate;
@@ -315,7 +279,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             }
                         };
 
-                        let channel_id = channel_manager_data
+                        let channel_id = downstream_data
                             .channel_id_factory
                             .fetch_add(1, Ordering::SeqCst);
                         let job_store = DefaultJobStore::new();
@@ -501,9 +465,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         downstream_data
                             .extended_channels
                             .insert(channel_id as u32, extended_channel);
-                        channel_manager_data
-                            .channel_id_to_downstream_id
-                            .insert(channel_id as u32, downstream_id);
                         let vardiff = VardiffState::new()?;
                         channel_manager_data
                             .vardiff
@@ -522,24 +483,23 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_submit_shares_standard(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: SubmitSharesStandard,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesStandard: {msg}");
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let channel_id = msg.channel_id;
-            let Some(downstream_id) = channel_manager_data.channel_id_to_downstream_id.get(&channel_id) else {
-                return Err(PoolError::DownstreamIdNotFound);
-            };
 
-            let Some(downstream) = channel_manager_data.downstream.get(downstream_id) else {
-                return Err(PoolError::DownstreamNotFound(*downstream_id));
+            let Some(downstream) = channel_manager_data.downstream.get(&downstream_id) else {
+                return Err(PoolError::DownstreamNotFound(downstream_id));
             };
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
                 let mut messages: Vec<RouteMessageTo> = Vec::new();
-                let Some(standard_channel) = downstream_data.standard_channels.get_mut(downstream_id) else {
+                let Some(standard_channel) = downstream_data.standard_channels.get_mut(&downstream_id) else {
                     let submit_shares_error = SubmitSharesError {
                         channel_id,
                         sequence_number: msg.sequence_number,
@@ -549,10 +509,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .expect("error code must be valid string"),
                     };
                     error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", channel_id, msg.sequence_number);
-                    return Ok(vec![(*downstream_id, Mining::SubmitSharesError(submit_shares_error)).into()]);
+                    return Ok(vec![(downstream_id, Mining::SubmitSharesError(submit_shares_error)).into()]);
                 };
 
-                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(*downstream_id, channel_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id)) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
@@ -579,7 +539,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             new_shares_sum,
                         };
                         info!("SubmitSharesStandard: {} ✅", success);
-                        messages.push((*downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
                     Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
                         info!("SubmitSharesStandard: 💰 Block Found!!! 💰");
@@ -603,7 +563,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             new_submits_accepted_count: share_accounting.get_shares_accepted(),
                             new_shares_sum: share_accounting.get_share_work_sum(),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
                     Err(ShareValidationError::Invalid) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, msg.sequence_number);
@@ -616,7 +576,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .expect("error code must be valid string"),
                         };
 
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::Stale) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, msg.sequence_number);
@@ -628,7 +588,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::InvalidJobId) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, msg.sequence_number);
@@ -640,7 +600,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DoesNotMeetTarget) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, msg.sequence_number);
@@ -652,7 +612,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DuplicateShare) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, msg.sequence_number);
@@ -664,7 +624,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     _ => {
                         // any other error variations should never happen
@@ -685,18 +645,16 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_submit_shares_extended(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesExtended");
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let channel_id = msg.channel_id;
-            let Some(downstream_id) = channel_manager_data.channel_id_to_downstream_id.get(&channel_id) else {
-                return Err(PoolError::DownstreamIdNotFound);
-            };
-
-            let Some(downstream) = channel_manager_data.downstream.get(downstream_id) else {
-                return Err(PoolError::DownstreamNotFound(*downstream_id));
+            let Some(downstream) = channel_manager_data.downstream.get(&downstream_id) else {
+                return Err(PoolError::DownstreamNotFound(downstream_id));
             };
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
@@ -711,10 +669,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .expect("error code must be valid string"),
                     };
                     error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", channel_id, msg.sequence_number);
-                    return Ok(vec![(*downstream_id, Mining::SubmitSharesError(error)).into()]);
+                    return Ok(vec![(downstream_id, Mining::SubmitSharesError(error)).into()]);
                 };
 
-                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(*downstream_id, channel_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id)) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
@@ -740,7 +698,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             new_shares_sum,
                         };
                         info!("SubmitSharesExtended: {} ✅", success);
-                        messages.push((*downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
                     Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
                         info!("SubmitSharesExtended: 💰 Block Found!!! 💰");
@@ -764,7 +722,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             new_submits_accepted_count: share_accounting.get_shares_accepted(),
                             new_shares_sum: share_accounting.get_share_work_sum(),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
                     Err(ShareValidationError::Invalid) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, msg.sequence_number);
@@ -776,7 +734,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::Stale) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, msg.sequence_number);
@@ -788,7 +746,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::InvalidJobId) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, msg.sequence_number);
@@ -800,7 +758,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DoesNotMeetTarget) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, msg.sequence_number);
@@ -812,7 +770,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DuplicateShare) => {
                         error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, msg.sequence_number);
@@ -824,7 +782,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .try_into()
                                 .expect("error code must be valid string"),
                         };
-                        messages.push((*downstream_id, Mining::SubmitSharesError(error)).into());
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     _ => {
                         // any other error variations should never happen
@@ -845,19 +803,17 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_update_channel(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: UpdateChannel<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
 
-        let messages: Vec<RouteMessageTo> = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
-            let channel_id = msg.channel_id;
-            let Some(downstream_id) = channel_manager_data.channel_id_to_downstream_id.get(&channel_id) else {
-                return Err(PoolError::DownstreamIdNotFound);
-            };
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
 
-            let Some(downstream) = channel_manager_data.downstream.get(downstream_id) else {
-                return Err(PoolError::DownstreamNotFound(*downstream_id));
+        let messages: Vec<RouteMessageTo> = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
+            let Some(downstream) = channel_manager_data.downstream.get(&downstream_id) else {
+                return Err(PoolError::DownstreamNotFound(downstream_id));
             };
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
@@ -883,7 +839,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                             .try_into()
                                             .expect("error code must be valid string"),
                                     };
-                                    messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
+                                    messages.push((downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                                 }
                                 StandardChannelError::RequestedMaxTargetOutOfRange => {
                                     error!("UpdateChannelError: requested-max-target-out-of-range");
@@ -894,7 +850,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                             .try_into()
                                             .expect("error code must be valid string"),
                                     };
-                                    messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
+                                    messages.push((downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                                 }
                                 standard_channel_error => {
                                     return Err(standard_channel_error)?;
@@ -907,7 +863,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         channel_id,
                         maximum_target: new_target.clone().into(),
                     };
-                    messages.push((*downstream_id, Mining::SetTarget(set_target)).into());
+                    messages.push((downstream_id, Mining::SetTarget(set_target)).into());
                 } else if let Some(extended_channel) = downstream_data.extended_channels.get_mut(&channel_id) {
                     let res = extended_channel
                                     .update_channel(new_nominal_hash_rate, Some(requested_maximum_target.into()));
@@ -925,7 +881,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                             .try_into()
                                             .expect("error code must be valid string"),
                                     };
-                                    messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
+                                    messages.push((downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                                 }
                                 ExtendedChannelError::RequestedMaxTargetOutOfRange => {
                                     error!("UpdateChannelError: max-target-out-of-range");
@@ -936,7 +892,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                             .try_into()
                                             .expect("error code must be valid string"),
                                     };
-                                    messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
+                                    messages.push((downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                                 }
                                 extended_channel_error => {
                                     return Err(extended_channel_error)?;
@@ -949,7 +905,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         channel_id,
                         maximum_target: new_target.clone().into(),
                     };
-                    messages.push((*downstream_id, Mining::SetTarget(set_target)).into());
+                    messages.push((downstream_id, Mining::SetTarget(set_target)).into());
                 } else {
                     error!("UpdateChannelError: invalid-channel-id");
                     let update_channel_error = UpdateChannelError {
@@ -959,7 +915,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .try_into()
                             .expect("error code must be valid string"),
                     };
-                    messages.push((*downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
+                    messages.push((downstream_id, Mining::UpdateChannelError(update_channel_error)).into());
                 }
 
                 Ok(messages)
@@ -975,10 +931,12 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
     async fn handle_set_custom_mining_job(
         &mut self,
-        _client_id: Option<usize>,
+        client_id: Option<usize>,
         msg: SetCustomMiningJob<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
+        let downstream_id =
+            client_id.expect("client_id must be present for downstream_id extraction") as u32;
 
         // this is a naive implementation, but ideally we should check the SetCustomMiningJob
         // message parameters, especially:
@@ -991,13 +949,6 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let message: RouteMessageTo =
             self.channel_manager_data
                 .super_safe_lock(|channel_manager_data| {
-                    let Some(downstream_id) = channel_manager_data
-                        .channel_id_to_downstream_id
-                        .get(&msg.channel_id)
-                    else {
-                        return Err(PoolError::DownstreamNotFound(msg.channel_id));
-                    };
-
                     // check that the script_pubkey from self.coinbase_reward_script
                     // is present in the custom job coinbase outputs
                     let missing_script = !custom_job_coinbase_outputs.iter().any(|pool_output| {
@@ -1016,12 +967,12 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .expect("error code must be valid string"),
                         };
 
-                        return Ok((*downstream_id, Mining::SetCustomMiningJobError(error)).into());
+                        return Ok((downstream_id, Mining::SetCustomMiningJobError(error)).into());
                     }
 
-                    let Some(downstream) = channel_manager_data.downstream.get_mut(downstream_id)
+                    let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id)
                     else {
-                        return Err(PoolError::DownstreamNotFound(*downstream_id));
+                        return Err(PoolError::DownstreamNotFound(downstream_id));
                     };
 
                     downstream
@@ -1039,11 +990,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                         .try_into()
                                         .expect("error code must be valid string"),
                                 };
-                                return Ok((
-                                    *downstream_id,
-                                    Mining::SetCustomMiningJobError(error),
-                                )
-                                    .into());
+                                return Ok(
+                                    (downstream_id, Mining::SetCustomMiningJobError(error)).into()
+                                );
                             };
 
                             let job_id = extended_channel
@@ -1054,7 +1003,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 request_id: msg.request_id,
                                 job_id,
                             };
-                            Ok((*downstream_id, Mining::SetCustomMiningJobSuccess(success)).into())
+                            Ok((downstream_id, Mining::SetCustomMiningJobSuccess(success)).into())
                         })
                 })?;
 
