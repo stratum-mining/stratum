@@ -71,6 +71,8 @@ pub enum ShareValidationError {
     InvalidCoinbase,
     /// No chain tip is set for the channel (required for share validation).
     NoChainTip,
+    /// The share extranonce size is different from the channel's rollable extranonce size.
+    BadExtranonceSize,
 }
 
 /// The state of share validation in the context of some specific channel (either Extended or

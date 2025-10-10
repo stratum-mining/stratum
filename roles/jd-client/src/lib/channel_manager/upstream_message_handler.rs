@@ -160,13 +160,16 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     ) {
                         let request_id = data.request_id_factory.fetch_add(1, Ordering::Relaxed);
 
+                        let full_extranonce_size = extended_channel.get_full_extranonce_size();
+
                         if let Ok(custom_job) = job_factory.new_custom_job(
                             extended_channel.get_channel_id(),
                             request_id,
                             token.clone().mining_job_token,
                             prevhash.clone().into(),
                             template.clone(),
-                            outputs.clone(),
+                            outputs,
+                            full_extranonce_size,
                         ) {
                             let last_declare = DeclaredJob {
                                 declare_mining_job: None,
@@ -346,18 +349,21 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         );
                     }
 
-                    let prefix_len = msg.extranonce_prefix.len();
-                    let extranonce_size = MAX_EXTRANONCE_LEN - prefix_len;
+                    let new_prefix_len = msg.extranonce_prefix.len();
+                    let rollable_extranonce_size = upstream_channel.get_rollable_extranonce_size();
+                    let full_extranonce_size = new_prefix_len + rollable_extranonce_size as usize;
+                    if full_extranonce_size > MAX_EXTRANONCE_LEN {
+                        return Err(JDCError::ExtranonceSizeTooLarge);
+                    }
 
-                    let total_len = prefix_len + extranonce_size;
-                    let range_0 = 0..prefix_len;
-                    let range_1 = prefix_len..prefix_len + JDC_SEARCH_SPACE_BYTES;
-                    let range_2 = prefix_len + JDC_SEARCH_SPACE_BYTES..total_len;
+                    let range_0 = 0..new_prefix_len;
+                    let range_1 = new_prefix_len..new_prefix_len + JDC_SEARCH_SPACE_BYTES;
+                    let range_2 = new_prefix_len + JDC_SEARCH_SPACE_BYTES..full_extranonce_size;
 
                     debug!(
-                        prefix_len,
-                        extranonce_size,
-                        total_len,
+                        new_prefix_len,
+                        rollable_extranonce_size,
+                        full_extranonce_size,
                         "Calculated extranonce ranges"
                     );
                     let extranonces = match ExtendedExtranonce::from_upstream_extranonce(

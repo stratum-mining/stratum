@@ -81,6 +81,7 @@ pub enum JDCError {
     AllocateMiningJobTokenSuccessCoinbaseOutputsError,
     ChannelManagerHasBadCoinbaseOutputs,
     DeclaredJobHasBadCoinbaseOutputs,
+    ExtranonceSizeTooLarge,
 }
 
 impl std::error::Error for JDCError {}
@@ -169,6 +170,9 @@ impl fmt::Display for JDCError {
             }
             DeclaredJobHasBadCoinbaseOutputs => {
                 write!(f, "Declared job coinbase outputs are not deserializable")
+            }
+            ExtranonceSizeTooLarge => {
+                write!(f, "Extranonce size too large")
             }
         }
     }

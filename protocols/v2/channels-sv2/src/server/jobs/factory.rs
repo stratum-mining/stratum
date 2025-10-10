@@ -35,7 +35,7 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
     Amount, Sequence,
 };
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob, MAX_EXTRANONCE_LEN};
+use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
@@ -161,10 +161,16 @@ impl JobFactory {
 
         let version = template.version;
 
-        let coinbase_tx_prefix =
-            self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
-        let coinbase_tx_suffix =
-            self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
+        let coinbase_tx_prefix = self.coinbase_tx_prefix(
+            template.clone(),
+            additional_coinbase_outputs.clone(),
+            extranonce_prefix.len(),
+        )?;
+        let coinbase_tx_suffix = self.coinbase_tx_suffix(
+            template.clone(),
+            additional_coinbase_outputs.clone(),
+            extranonce_prefix.len(),
+        )?;
         let merkle_path = template.merkle_path.clone();
         let merkle_root = merkle_root_from_path(
             &coinbase_tx_prefix,
@@ -229,6 +235,7 @@ impl JobFactory {
         extranonce_prefix: Vec<u8>,
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
+        full_extranonce_size: usize,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
@@ -242,10 +249,16 @@ impl JobFactory {
 
         let version = template.version;
 
-        let coinbase_tx_prefix =
-            self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
-        let coinbase_tx_suffix =
-            self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
+        let coinbase_tx_prefix = self.coinbase_tx_prefix(
+            template.clone(),
+            additional_coinbase_outputs.clone(),
+            full_extranonce_size,
+        )?;
+        let coinbase_tx_suffix = self.coinbase_tx_suffix(
+            template.clone(),
+            additional_coinbase_outputs.clone(),
+            full_extranonce_size,
+        )?;
 
         // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
         let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
@@ -315,6 +328,7 @@ impl JobFactory {
         &self,
         template: NewTemplate<'_>,
         additional_coinbase_outputs: Vec<TxOut>,
+        full_extranonce_size: usize,
     ) -> Result<(Vec<u8>, Vec<u8>), JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
@@ -324,10 +338,16 @@ impl JobFactory {
             return Err(JobFactoryError::InvalidCoinbaseOutputsSum);
         }
 
-        let coinbase_tx_prefix =
-            self.coinbase_tx_prefix(template.clone(), additional_coinbase_outputs.clone())?;
-        let coinbase_tx_suffix =
-            self.coinbase_tx_suffix(template.clone(), additional_coinbase_outputs.clone())?;
+        let coinbase_tx_prefix = self.coinbase_tx_prefix(
+            template.clone(),
+            additional_coinbase_outputs.clone(),
+            full_extranonce_size,
+        )?;
+        let coinbase_tx_suffix = self.coinbase_tx_suffix(
+            template.clone(),
+            additional_coinbase_outputs.clone(),
+            full_extranonce_size,
+        )?;
         Ok((coinbase_tx_prefix, coinbase_tx_suffix))
     }
 
@@ -337,6 +357,7 @@ impl JobFactory {
     ///
     /// It's up to the caller to ensure that the sum of the additional coinbase outputs is equal to
     /// available template revenue.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_custom_job<'a>(
         &self,
         channel_id: u32,
@@ -345,6 +366,7 @@ impl JobFactory {
         chain_tip: ChainTip,
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
+        full_extranonce_size: usize,
     ) -> Result<SetCustomMiningJob<'a>, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
@@ -369,7 +391,7 @@ impl JobFactory {
         let mut coinbase_prefix = vec![];
         coinbase_prefix.extend_from_slice(&template.coinbase_prefix.to_vec());
         coinbase_prefix.extend_from_slice(&self.op_pushbytes_pool_miner_tag()?);
-        coinbase_prefix.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+        coinbase_prefix.push(full_extranonce_size as u8); // OP_PUSHBYTES_X (for the full extranonce)
 
         let set_custom_mining_job = SetCustomMiningJob {
             channel_id,
@@ -403,6 +425,7 @@ impl JobFactory {
         &mut self,
         set_custom_mining_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
+        full_extranonce_size: usize,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
         let serialized_outputs = set_custom_mining_job
             .coinbase_tx_outputs
@@ -416,8 +439,10 @@ impl JobFactory {
 
         let version = set_custom_mining_job.version;
 
-        let coinbase_tx_prefix = self.custom_coinbase_tx_prefix(set_custom_mining_job.clone())?;
-        let coinbase_tx_suffix = self.custom_coinbase_tx_suffix(set_custom_mining_job.clone())?;
+        let coinbase_tx_prefix =
+            self.custom_coinbase_tx_prefix(set_custom_mining_job.clone(), full_extranonce_size)?;
+        let coinbase_tx_suffix =
+            self.custom_coinbase_tx_suffix(set_custom_mining_job.clone(), full_extranonce_size)?;
 
         // strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix
         let (coinbase_tx_prefix_stripped_bip141, coinbase_tx_suffix_stripped_bip141) =
@@ -462,7 +487,11 @@ impl JobFactory {
     // build a coinbase transaction from a SetCustomMiningJob
     // this is only used to extract coinbase_tx_prefix and coinbase_tx_suffix from the custom
     // coinbase
-    fn custom_coinbase(&self, m: SetCustomMiningJob<'_>) -> Result<Transaction, JobFactoryError> {
+    fn custom_coinbase(
+        &self,
+        m: SetCustomMiningJob<'_>,
+        full_extranonce_size: usize,
+    ) -> Result<Transaction, JobFactoryError> {
         let deserialized_outputs = Vec::<TxOut>::consensus_decode(
             &mut m.coinbase_tx_outputs.inner_as_ref().to_vec().as_slice(),
         )
@@ -470,7 +499,7 @@ impl JobFactory {
 
         let mut script_sig = vec![];
         script_sig.extend_from_slice(m.coinbase_prefix.inner_as_ref());
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        script_sig.extend_from_slice(&vec![0; full_extranonce_size]);
 
         // Create transaction input
         let tx_in = TxIn {
@@ -493,8 +522,9 @@ impl JobFactory {
     fn custom_coinbase_tx_prefix(
         &self,
         m: SetCustomMiningJob<'_>,
+        full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
-        let coinbase = self.custom_coinbase(m.clone())?;
+        let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
         let serialized_coinbase = serialize(&coinbase);
 
         let index = 4 // tx version
@@ -513,12 +543,10 @@ impl JobFactory {
     fn custom_coinbase_tx_suffix(
         &self,
         m: SetCustomMiningJob<'_>,
+        full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
-        let coinbase = self.custom_coinbase(m.clone())?;
+        let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
         let serialized_coinbase = serialize(&coinbase);
-
-        // Calculate full extranonce size
-        let full_extranonce_size = MAX_EXTRANONCE_LEN;
 
         let index = 4 // tx version
             + 2 // segwit
@@ -539,6 +567,7 @@ impl JobFactory {
         &self,
         template: NewTemplate<'_>,
         coinbase_reward_outputs: Vec<TxOut>,
+        full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
         // check that the sum of the additional coinbase outputs is equal to the value remaining in
         // the active template
@@ -572,8 +601,8 @@ impl JobFactory {
         let mut script_sig = vec![];
         script_sig.extend_from_slice(&template.coinbase_prefix.to_vec());
         script_sig.extend_from_slice(&op_pushbytes_pool_miner_tag);
-        script_sig.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
-        script_sig.extend_from_slice(&[0; MAX_EXTRANONCE_LEN]);
+        script_sig.push(full_extranonce_size as u8); // OP_PUSHBYTES_X (for the full extranonce)
+        script_sig.extend_from_slice(&vec![0; full_extranonce_size]);
 
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
@@ -596,8 +625,13 @@ impl JobFactory {
         &self,
         template: NewTemplate<'_>,
         coinbase_reward_outputs: Vec<TxOut>,
+        full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
-        let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
+        let coinbase = self.coinbase(
+            template.clone(),
+            coinbase_reward_outputs,
+            full_extranonce_size,
+        )?;
         let serialized_coinbase = serialize(&coinbase);
 
         // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
@@ -625,8 +659,13 @@ impl JobFactory {
         &self,
         template: NewTemplate<'_>,
         coinbase_reward_outputs: Vec<TxOut>,
+        full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
-        let coinbase = self.coinbase(template.clone(), coinbase_reward_outputs)?;
+        let coinbase = self.coinbase(
+            template.clone(),
+            coinbase_reward_outputs,
+            full_extranonce_size,
+        )?;
         let serialized_coinbase = serialize(&coinbase);
 
         // Calculate the full pool/miner tag length including delimiters and OP_PUSHBYTES opcode
@@ -634,9 +673,6 @@ impl JobFactory {
             + 3 // three "/" delimiters
             + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
             + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
-
-        // 32 bytes
-        let full_extranonce_size = MAX_EXTRANONCE_LEN;
 
         let coinbase_tx_suffix = serialized_coinbase[4 // tx version
             + 2 // segwit bytes
@@ -646,7 +682,7 @@ impl JobFactory {
             + 1 // bytes in script
             + template.coinbase_prefix.len()
             + pool_miner_tag_len
-            + 1 // OP_PUSHBYTES_32 (for the extranonce)
+            + 1 // OP_PUSHBYTES_X (for the full extranonce)
             + full_extranonce_size..]
             .to_vec();
 
@@ -717,6 +753,7 @@ mod tests {
                 extranonce_prefix,
                 template,
                 coinbase_reward_outputs,
+                32,
             )
             .unwrap();
 
@@ -817,6 +854,7 @@ mod tests {
                 chain_tip,
                 template,
                 coinbase_reward_outputs,
+                32,
             )
             .unwrap();
 
@@ -824,7 +862,7 @@ mod tests {
             JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
 
         let custom_job = pool_job_factory
-            .new_extended_job_from_custom_job(set_custom_mining_job, extranonce_prefix)
+            .new_extended_job_from_custom_job(set_custom_mining_job, extranonce_prefix, 32)
             .unwrap();
 
         let expected_job = NewExtendedMiningJob {
