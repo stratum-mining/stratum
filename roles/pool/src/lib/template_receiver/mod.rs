@@ -13,7 +13,6 @@ use stratum_common::{
         handlers_sv2::HandleCommonMessagesFromServerAsync,
         parsers_sv2::{AnyMessage, TemplateDistribution},
         template_distribution_sv2::CoinbaseOutputConstraints,
-        utils::Mutex,
     },
 };
 use tokio::{net::TcpStream, sync::broadcast};
@@ -37,13 +36,9 @@ pub struct TemplateReceiverChannel {
     tp_receiver: Receiver<SV2Frame>,
 }
 
-pub struct TemplateReceiverData;
-
-#[allow(warnings)]
 #[derive(Clone)]
 pub struct TemplateReceiver {
     template_receiver_channel: TemplateReceiverChannel,
-    template_receiver_data: Arc<Mutex<TemplateReceiverData>>,
 }
 
 impl TemplateReceiver {
@@ -113,7 +108,6 @@ impl TemplateReceiver {
                                 status_sender,
                             );
 
-                            let template_receiver_data = Arc::new(Mutex::new(TemplateReceiverData));
                             let template_receiver_channel = TemplateReceiverChannel {
                                 channel_manager_receiver,
                                 channel_manager_sender,
@@ -124,7 +118,6 @@ impl TemplateReceiver {
                             info!(attempt, "TemplateReceiver initialized successfully");
                             return Ok(TemplateReceiver {
                                 template_receiver_channel,
-                                template_receiver_data,
                             });
                         }
                         Err(e) => {
