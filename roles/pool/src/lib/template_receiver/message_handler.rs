@@ -4,12 +4,14 @@
 //! as needed.
 use super::TemplateRx;
 use std::sync::Arc;
-use stratum_common::roles_logic_sv2::{
-    errors::Error,
-    handlers::template_distribution::{ParseTemplateDistributionMessagesFromServer, SendTo},
+use stratum_apps::stratum_core::{
     parsers_sv2::TemplateDistribution,
+    roles_logic_sv2::{
+        errors::Error,
+        handlers::template_distribution::{ParseTemplateDistributionMessagesFromServer, SendTo},
+        utils::Mutex,
+    },
     template_distribution_sv2::*,
-    utils::Mutex,
 };
 use tracing::{debug, error, info};
 

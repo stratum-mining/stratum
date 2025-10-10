@@ -49,7 +49,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           directory: ./roles/target/tarpaulin-reports/mining-device-coverage
-          file: ./rroles/target/tarpaulin-reports/mining-device-coverage/cobertura.xml
+          file: ./roles/target/tarpaulin-reports/mining-device-coverage/cobertura.xml
           flags: mining_device-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -75,4 +75,12 @@ jobs:
           directory: ./roles/target/tarpaulin-reports/translator-coverage
           file: ./roles/target/tarpaulin-reports/translator-coverage/cobertura.xml
           flags: translator_sv2-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload stratum-apps-coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./roles/target/tarpaulin-reports/stratum-apps-coverage
+          file: ./roles/target/tarpaulin-reports/stratum-apps-coverage/cobertura.xml
+          flags: stratum-apps-coverage
           token: ${{ secrets.CODECOV_TOKEN }}

@@ -1,9 +1,9 @@
 use crate::sv1::downstream::DownstreamMessages;
 use async_channel::{unbounded, Receiver, Sender};
-use stratum_common::roles_logic_sv2::parsers_sv2::Mining;
+use stratum_apps::stratum_core::parsers_sv2::Mining;
 
+use stratum_apps::stratum_core::sv1_api::json_rpc;
 use tokio::sync::broadcast;
-use v1::json_rpc;
 
 pub struct Sv1ServerChannelState {
     pub sv1_server_to_downstream_sender: broadcast::Sender<(u32, Option<u32>, json_rpc::Message)>,

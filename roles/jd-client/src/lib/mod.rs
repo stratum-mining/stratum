@@ -2,7 +2,7 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use stratum_common::roles_logic_sv2::bitcoin::consensus::Encodable;
+use stratum_apps::stratum_core::bitcoin::consensus::Encodable;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, info, warn};
 

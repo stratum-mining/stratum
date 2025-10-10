@@ -4,12 +4,11 @@ use integration_tests_sv2::{
     template_provider::DifficultyLevel,
     *,
 };
-use stratum_common::roles_logic_sv2::{
-    self,
-    codec_sv2::binary_sv2::{Seq064K, B032, U256},
+use stratum_apps::stratum_core::{
+    binary_sv2::{Seq064K, B032, U256},
     common_messages_sv2::*,
     job_declaration_sv2::{ProvideMissingTransactionsSuccess, PushSolution, *},
-    parsers_sv2::AnyMessage,
+    parsers_sv2::{self, AnyMessage},
 };
 
 // This test verifies that jd-server does not exit when a connected jd-client shuts down.
@@ -93,16 +92,14 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
     let submit_solution_replace = ReplaceMessage::new(
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-        AnyMessage::JobDeclaration(roles_logic_sv2::parsers_sv2::JobDeclaration::PushSolution(
-            PushSolution {
-                ntime: 0,
-                nbits: 0,
-                nonce: 0,
-                version: 0,
-                prev_hash,
-                extranonce,
-            },
-        )),
+        AnyMessage::JobDeclaration(parsers_sv2::JobDeclaration::PushSolution(PushSolution {
+            ntime: 0,
+            nbits: 0,
+            nonce: 0,
+            version: 0,
+            prev_hash,
+            extranonce,
+        })),
     );
 
     // This sniffer sits between `jds` and `jdc`, replacing `ProvideMissingTransactionSuccess`
@@ -180,7 +177,7 @@ async fn jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transa
         MessageDirection::ToUpstream,
         MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
         AnyMessage::JobDeclaration(
-            roles_logic_sv2::parsers_sv2::JobDeclaration::ProvideMissingTransactionsSuccess(
+            parsers_sv2::JobDeclaration::ProvideMissingTransactionsSuccess(
                 ProvideMissingTransactionsSuccess {
                     request_id: 1,
                     transaction_list: Seq064K::new(Vec::new()).unwrap(),

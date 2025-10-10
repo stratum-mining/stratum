@@ -1,8 +1,8 @@
 use super::DownstreamMessages;
 use async_channel::{Receiver, Sender};
+use stratum_apps::stratum_core::sv1_api::json_rpc;
 use tokio::sync::broadcast;
 use tracing::debug;
-use v1::json_rpc;
 
 #[derive(Debug)]
 pub struct DownstreamChannelState {

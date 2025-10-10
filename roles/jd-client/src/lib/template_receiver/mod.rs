@@ -14,18 +14,20 @@ use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_core::{
         bitcoin::{
             self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
             Transaction, TxIn, TxOut, Witness,
         },
-        codec_sv2::{self, framing_sv2, HandshakeRole, Initiator},
+        codec_sv2::HandshakeRole,
+        framing_sv2,
         handlers_sv2::HandleCommonMessagesFromServerAsync,
+        noise_sv2::Initiator,
         parsers_sv2::{AnyMessage, TemplateDistribution},
+        roles_logic_sv2::utils::Mutex,
         template_distribution_sv2::CoinbaseOutputConstraints,
-        utils::Mutex,
     },
 };
 use tokio::{net::TcpStream, sync::broadcast};
@@ -405,7 +407,9 @@ impl TemplateReceiver {
             .await
             .map_err(|e| {
                 error!(?e, "Upstream connection closed during handshake");
-                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+                JDCError::CodecNoise(
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                )
             })?;
 
         let msg_type = incoming

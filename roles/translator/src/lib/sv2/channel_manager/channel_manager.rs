@@ -13,13 +13,13 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
-use stratum_common::roles_logic_sv2::{
+use stratum_apps::stratum_core::{
     channels_sv2::client::extended::ExtendedChannel,
-    codec_sv2::Frame,
+    framing_sv2::framing::Frame,
     handlers_sv2::HandleMiningMessagesFromServerAsync,
     mining_sv2::OpenExtendedMiningChannelSuccess,
     parsers_sv2::{AnyMessage, Mining},
-    utils::Mutex,
+    roles_logic_sv2::utils::Mutex,
 };
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
@@ -657,7 +657,7 @@ mod tests {
     use super::*;
     use crate::sv2::channel_manager::data::ChannelMode;
     use async_channel::unbounded;
-    use stratum_common::roles_logic_sv2::mining_sv2::{
+    use stratum_apps::stratum_core::mining_sv2::{
         OpenExtendedMiningChannel, SubmitSharesExtended, UpdateChannel,
     };
 

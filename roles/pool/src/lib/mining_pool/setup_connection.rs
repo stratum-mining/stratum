@@ -10,15 +10,14 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use stratum_common::roles_logic_sv2::{
-    self,
+use stratum_apps::stratum_core::{
     common_messages_sv2::{
         has_requires_std_job, has_work_selection, SetupConnection, SetupConnectionSuccess,
     },
-    errors::Error,
-    handlers::common::ParseCommonMessagesFromDownstream,
     parsers_sv2::{AnyMessage, CommonMessages},
-    utils::Mutex,
+    roles_logic_sv2::{
+        errors::Error, handlers::common::ParseCommonMessagesFromDownstream, utils::Mutex,
+    },
 };
 use tracing::{debug, error, info};
 
@@ -78,9 +77,9 @@ impl SetupConnectionHandler {
             payload,
         )?;
 
-        let message = response.into_message().ok_or(PoolError::RolesLogic(
-            roles_logic_sv2::Error::NoDownstreamsConnected,
-        ))?;
+        let message = response
+            .into_message()
+            .ok_or(PoolError::RolesLogic(Error::NoDownstreamsConnected))?;
 
         let sv2_frame: StdFrame = AnyMessage::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
@@ -105,12 +104,12 @@ impl ParseCommonMessagesFromDownstream for SetupConnectionHandler {
     fn handle_setup_connection(
         &mut self,
         incoming: SetupConnection,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+    ) -> Result<stratum_apps::stratum_core::roles_logic_sv2::handlers::common::SendTo, Error> {
         info!(
             "Received `SetupConnection`: version={}, flags={:b}",
             incoming.min_version, incoming.flags
         );
-        use roles_logic_sv2::handlers::common::SendTo;
+        use stratum_apps::stratum_core::roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();
         debug!("Handling setup connection: header_only: {}", header_only);
         self.header_only = Some(header_only);

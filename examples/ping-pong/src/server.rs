@@ -2,14 +2,17 @@ use crate::{
     error::Error,
     messages::{Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE},
 };
-use codec_sv2::{Frame, StandardDecoder, StandardSv2Frame};
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     thread,
 };
+use stratum_apps::stratum_core::{
+    binary_sv2,
+    codec_sv2::{self, StandardDecoder, StandardSv2Frame},
+};
 
-use codec_sv2::framing_sv2::header::Header as StandardSv2Header;
+use stratum_apps::stratum_core::framing_sv2::header::Header as StandardSv2Header;
 
 pub fn start_server(address: &str) -> Result<(), Error> {
     let listener = TcpListener::bind(address)?;

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::types::MsgType;
-use stratum_common::roles_logic_sv2::parsers_sv2::AnyMessage;
+use stratum_apps::stratum_core::parsers_sv2::AnyMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageDirection {

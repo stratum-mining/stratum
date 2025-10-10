@@ -1,7 +1,7 @@
 mod args;
 use std::process;
 
-use config_helpers_sv2::logging::init_logging;
+use stratum_apps::config_helpers::logging::init_logging;
 pub use translator_sv2::{config, error, status, sv1, sv2, TranslatorSv2};
 
 use crate::args::process_cli_args;

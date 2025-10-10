@@ -1,20 +1,19 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
-use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_core::{
         channels_sv2::server::{
             extended::ExtendedChannel,
             group::GroupChannel,
             jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
             standard::StandardChannel,
         },
-        codec_sv2,
         common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
         parsers_sv2::{AnyMessage, IsSv2Message},
-        utils::Mutex,
+        roles_logic_sv2::utils::Mutex,
     },
 };
 
@@ -246,7 +245,9 @@ impl Downstream {
             .await
             .map_err(|e| {
                 error!(?e, "Downstream send failed");
-                JDCError::CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage)
+                JDCError::CodecNoise(
+                    stratum_apps::stratum_core::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                )
             })?;
 
         Ok(())

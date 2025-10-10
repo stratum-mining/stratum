@@ -16,11 +16,12 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
-use stratum_common::roles_logic_sv2::{
-    self,
+use stratum_apps::stratum_core::{
+    binary_sv2,
     channels_sv2::vardiff::error::VardiffError,
-    codec_sv2::{self, binary_sv2, noise_sv2},
+    codec_sv2, framing_sv2, noise_sv2,
     parsers_sv2::{Mining, ParserError},
+    roles_logic_sv2,
 };
 
 /// Represents various errors that can occur in the pool implementation.
@@ -37,13 +38,13 @@ pub enum PoolError {
     /// Error from the `codec_sv2` crate.
     Codec(codec_sv2::Error),
     /// Error related to parsing a coinbase output specification.
-    CoinbaseOutput(config_helpers_sv2::CoinbaseOutputError),
+    CoinbaseOutput(stratum_apps::config_helpers::CoinbaseOutputError),
     /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
     /// Error from the `roles_logic_sv2` crate.
     RolesLogic(roles_logic_sv2::Error),
     /// Error related to SV2 message framing.
-    Framing(codec_sv2::framing_sv2::Error),
+    Framing(framing_sv2::Error),
     /// Error due to a poisoned lock, typically from a failed mutex operation.
     PoisonLock(String),
     /// Error indicating that a component has shut down unexpectedly.
@@ -121,8 +122,8 @@ impl From<codec_sv2::Error> for PoolError {
     }
 }
 
-impl From<config_helpers_sv2::CoinbaseOutputError> for PoolError {
-    fn from(e: config_helpers_sv2::CoinbaseOutputError) -> PoolError {
+impl From<stratum_apps::config_helpers::CoinbaseOutputError> for PoolError {
+    fn from(e: stratum_apps::config_helpers::CoinbaseOutputError) -> PoolError {
         PoolError::CoinbaseOutput(e)
     }
 }
@@ -150,8 +151,8 @@ impl From<String> for PoolError {
         PoolError::Custom(e)
     }
 }
-impl From<codec_sv2::framing_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::framing_sv2::Error) -> PoolError {
+impl From<framing_sv2::Error> for PoolError {
+    fn from(e: framing_sv2::Error) -> PoolError {
         PoolError::Framing(e)
     }
 }

@@ -6,7 +6,7 @@
 //! Centralizes and simplifies error handling across the system.
 
 /// Identifies which component sent a status update.
-use stratum_common::roles_logic_sv2::{self, parsers_sv2::Mining};
+use stratum_apps::stratum_core::{parsers_sv2::Mining, roles_logic_sv2::Error as RolesLogicError};
 
 use super::error::PoolError;
 
@@ -101,7 +101,7 @@ async fn send_status(
             }
         },
         Sender::DownstreamListener(tx) => match e {
-            PoolError::RolesLogic(roles_logic_sv2::Error::NoDownstreamsConnected) => {
+            PoolError::RolesLogic(RolesLogicError::NoDownstreamsConnected) => {
                 tx.send(Status {
                     state: State::Healthy("No Downstreams Connected".to_string()),
                 })
@@ -150,7 +150,7 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         PoolError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
-        PoolError::RolesLogic(roles_logic_sv2::Error::NoDownstreamsConnected) => {
+        PoolError::RolesLogic(RolesLogicError::NoDownstreamsConnected) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
         PoolError::RolesLogic(_) => {

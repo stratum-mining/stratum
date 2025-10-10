@@ -9,10 +9,9 @@ use std::{
 
 use async_channel::{Receiver, Sender};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
-        self,
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_core::{
         channels_sv2::{
             client::extended::ExtendedChannel,
             server::{
@@ -24,7 +23,7 @@ use stratum_common::{
             },
             Vardiff, VardiffState,
         },
-        codec_sv2::{Responder, Sv2Frame},
+        framing_sv2::framing::Sv2Frame,
         handlers_sv2::{
             HandleJobDeclarationMessagesFromServerAsync, HandleMiningMessagesFromClientAsync,
             HandleMiningMessagesFromServerAsync, HandleTemplateDistributionMessagesFromServerAsync,
@@ -37,9 +36,10 @@ use stratum_common::{
             UpdateChannel, MAX_EXTRANONCE_LEN, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
             MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
         },
+        noise_sv2::Responder,
         parsers_sv2::{AnyMessage, JobDeclaration, Mining},
+        roles_logic_sv2::utils::Mutex,
         template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
-        utils::Mutex,
     },
 };
 use tokio::{net::TcpListener, select, sync::broadcast};
@@ -393,7 +393,7 @@ impl ChannelManager {
                                 };
                                 let noise_stream = match NoiseTcpStream::<Message>::new(
                                     stream,
-                                    stratum_common::roles_logic_sv2::codec_sv2::HandshakeRole::Responder(responder),
+                                    stratum_apps::stratum_core::codec_sv2::HandshakeRole::Responder(responder),
                                 )
                                 .await
                                 {
@@ -918,7 +918,7 @@ impl ChannelManager {
     fn run_vardiff_on_extended_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel_state: &mut roles_logic_sv2::channels_sv2::server::extended::ExtendedChannel<
+        channel_state: &mut stratum_apps::stratum_core::channels_sv2::server::extended::ExtendedChannel<
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
         >,
