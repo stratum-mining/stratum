@@ -1,6 +1,9 @@
 use std::{
     collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicUsize},
+        Arc,
+    },
 };
 
 use async_channel::{unbounded, Receiver, Sender};
@@ -48,6 +51,7 @@ pub struct DownstreamData {
         HashMap<u32, ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
     pub standard_channels:
         HashMap<u32, StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>,
+    pub channel_id_factory: AtomicUsize,
 }
 
 /// Communication layer for a downstream connection.
@@ -114,6 +118,7 @@ impl Downstream {
             extended_channels: HashMap::new(),
             standard_channels: HashMap::new(),
             group_channels: None,
+            channel_id_factory: AtomicUsize::new(1),
         }));
         Downstream {
             downstream_channel,
