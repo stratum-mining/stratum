@@ -84,6 +84,8 @@ pub enum PoolError {
     VardiffNotFound(u32),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
+    /// Failed to create group channel
+    FailedToCreateGroupChannel(GroupChannelError),
 }
 
 impl std::fmt::Display for PoolError {
@@ -131,6 +133,9 @@ impl std::fmt::Display for PoolError {
             ParseInt(e) => write!(f, "Conversion error: {e:?}"),
             ChannelSv2(channel_error) => {
                 write!(f, "Channel error: {channel_error:?}")
+            }
+            FailedToCreateGroupChannel(ref e) => {
+                write!(f, "Failed to create group channel: {e:?}")
             }
         }
     }

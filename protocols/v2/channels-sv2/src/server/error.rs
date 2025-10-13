@@ -12,6 +12,7 @@ pub enum ExtendedChannelError {
     JobIdNotFound,
     RequestedMinExtranonceSizeTooLarge,
     NewExtranoncePrefixTooLarge,
+    ScriptSigSizeTooLarge,
 }
 
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum GroupChannelError {
     ChainTipNotSet,
     TemplateIdNotFound,
     JobFactoryError(JobFactoryError),
+    ScriptSigSizeTooLarge,
 }
 
 #[derive(Debug)]
@@ -30,4 +32,5 @@ pub enum StandardChannelError {
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,
     FailedToConvertToStandardJob,
+    ScriptSigSizeTooLarge,
 }

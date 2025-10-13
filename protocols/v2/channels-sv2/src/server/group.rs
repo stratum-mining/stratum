@@ -91,14 +91,15 @@ where
         job_store: J,
         full_extranonce_size: usize,
         pool_tag_string: String,
-    ) -> Self {
-        Self::new(
+    ) -> Result<Self, GroupChannelError> {
+        let group_channel = Self::new(
             group_channel_id,
             job_store,
             full_extranonce_size,
             Some(pool_tag_string),
             None,
-        )
+        )?;
+        Ok(group_channel)
     }
 
     /// Constructor of `GroupChannel` for a Sv2 Job Declaration Client.
@@ -117,14 +118,15 @@ where
         full_extranonce_size: usize,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
-    ) -> Self {
-        Self::new(
+    ) -> Result<Self, GroupChannelError> {
+        let group_channel = Self::new(
             group_channel_id,
             job_store,
             full_extranonce_size,
             pool_tag_string,
             Some(miner_tag_string),
-        )
+        )?;
+        Ok(group_channel)
     }
 
     // private constructor
@@ -134,8 +136,20 @@ where
         full_extranonce_size: usize,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, GroupChannelError> {
+        let script_sig_size = 5 + // BIP34
+            1 + // OP_PUSHBYTES
+            3 + // `/` delimiters
+            pool_tag.as_ref().map_or(0, |s| s.len()) +
+            miner_tag.as_ref().map_or(0, |s| s.len()) +
+            1 + // OP_PUSHBYTES
+            full_extranonce_size;
+
+        if script_sig_size > 100 {
+            return Err(GroupChannelError::ScriptSigSizeTooLarge);
+        }
+
+        Ok(Self {
             group_channel_id,
             standard_channel_ids: HashSet::new(),
             job_factory: JobFactory::new(true, pool_tag, miner_tag),
@@ -143,7 +157,7 @@ where
             chain_tip: None,
             full_extranonce_size,
             phantom: PhantomData,
-        }
+        })
     }
 
     /// Adds a standard channel ID to this group channel.
@@ -308,7 +322,8 @@ mod tests {
             full_extranonce_size,
             None,
             None,
-        );
+        )
+        .unwrap();
 
         let template = NewTemplate {
             template_id: 1,
@@ -442,7 +457,8 @@ mod tests {
             full_extranonce_size,
             None,
             None,
-        );
+        )
+        .unwrap();
 
         let ntime = 1746839905;
         let prev_hash = [
@@ -539,7 +555,8 @@ mod tests {
             full_extranonce_size,
             None,
             None,
-        );
+        )
+        .unwrap();
 
         let template = NewTemplate {
             template_id: 1,

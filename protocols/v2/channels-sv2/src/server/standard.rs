@@ -203,6 +203,18 @@ where
             return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
+        let script_sig_size = 5 + // BIP34
+            1 + // OP_PUSHBYTES
+            3 + // `/` delimiters
+            pool_tag_string.as_ref().map_or(0, |s| s.len()) +
+            miner_tag_string.as_ref().map_or(0, |s| s.len()) +
+            1 + // OP_PUSHBYTES
+            extranonce_prefix.len();
+
+        if script_sig_size > 100 {
+            return Err(StandardChannelError::ScriptSigSizeTooLarge);
+        }
+
         Ok(Self {
             channel_id,
             user_identity,

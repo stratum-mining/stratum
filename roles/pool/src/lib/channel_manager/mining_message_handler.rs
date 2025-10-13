@@ -118,7 +118,13 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     let group_channel_id = downstream_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                     let job_store = DefaultJobStore::new();
 
-                    let mut group_channel = GroupChannel::new_for_pool(group_channel_id as u32, job_store, FULL_EXTRANONCE_SIZE, self.pool_tag_string.clone());
+                    let mut group_channel = match GroupChannel::new_for_pool(group_channel_id as u32, job_store, FULL_EXTRANONCE_SIZE, self.pool_tag_string.clone()) {
+                        Ok(channel) => channel,
+                        Err(e) => {
+                            error!(?e, "Failed to create group channel");
+                            return Err(PoolError::FailedToCreateGroupChannel(e));
+                        }
+                    };
                     group_channel.on_new_template(last_future_template.clone(), vec![pool_coinbase_output.clone()])?;
 
                     group_channel.on_set_new_prev_hash(last_set_new_prev_hash_tdp.clone())?;
