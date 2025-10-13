@@ -113,8 +113,18 @@ impl ChannelManager {
         };
 
         let make_extranonce_factory = || {
-            ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone(), None)
-                .expect("Failed to create ExtendedExtranonce with valid ranges")
+            // simulating a scenario where there are multiple mining servers
+            // this static prefix allows unique extranonce_prefix allocation
+            // for this mining server
+            let static_prefix = config.server_id().to_be_bytes().to_vec();
+
+            ExtendedExtranonce::new(
+                range_0.clone(),
+                range_1.clone(),
+                range_2.clone(),
+                Some(static_prefix),
+            )
+            .expect("Failed to create ExtendedExtranonce with valid ranges")
         };
 
         let extranonce_prefix_factory_extended = make_extranonce_factory();
