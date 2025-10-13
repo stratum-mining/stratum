@@ -1,15 +1,3 @@
-//! ## Error Module
-//!
-//! Defines [`PoolError`], the main error type used across the Pool.
-//!
-//! Centralizes errors from:
-//! - I/O operations
-//! - Channel send/receive
-//! - SV2 stack: Binary, Codec, Noise, Framing, Roles Logic
-//! - Locking (PoisonError)
-//!
-//! Ensures all errors are easy to pass around, including across async boundaries.
-
 use std::{
     convert::From,
     fmt::Debug,
@@ -17,17 +5,33 @@ use std::{
 };
 
 use stratum_common::roles_logic_sv2::{
-    self,
-    channels_sv2::vardiff::error::VardiffError,
+    self, bitcoin,
+    channels_sv2::{
+        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+        vardiff::error::VardiffError,
+    },
     codec_sv2::{self, binary_sv2, noise_sv2},
+    handlers_sv2::HandlerErrorType,
+    mining_sv2::ExtendedExtranonceError,
     parsers_sv2::{Mining, ParserError},
 };
+
+pub type PoolResult<T> = Result<T, PoolError>;
+
+#[derive(Debug)]
+pub enum ChannelSv2Error {
+    ExtendedChannelServerSide(ExtendedChannelError),
+    StandardChannelServerSide(StandardChannelError),
+    GroupChannelServerSide(GroupChannelError),
+    ExtranonceError(ExtendedExtranonceError),
+}
 
 /// Represents various errors that can occur in the pool implementation.
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     /// I/O-related error.
     Io(std::io::Error),
+    ChannelSv2(ChannelSv2Error),
     /// Error when sending a message through a channel.
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     /// Error when receiving a message from an asynchronous channel.
@@ -52,50 +56,85 @@ pub enum PoolError {
     Custom(String),
     /// Error related to the SV2 protocol, including an error code and a `Mining` message.
     Sv2ProtocolError((u32, Mining<'static>)),
+    /// Vardiff Error
     Vardiff(VardiffError),
+    /// Parser Error
     Parser(ParserError),
-}
-
-impl From<VardiffError> for PoolError {
-    fn from(value: VardiffError) -> Self {
-        PoolError::Vardiff(value)
-    }
-}
-
-impl From<ParserError> for PoolError {
-    fn from(value: ParserError) -> Self {
-        PoolError::Parser(value)
-    }
+    /// Shutdown
+    Shutdown,
+    /// Unexpected message
+    UnexpectedMessage(u8),
+    /// Channel error sender
+    ChannelErrorSender,
+    /// Invalid socket address
+    InvalidSocketAddress(String),
+    /// Bitcoin Encode Error
+    BitcoinEncodeError(bitcoin::consensus::encode::Error),
+    /// Downstream not found for the channel
+    DownstreamNotFoundWithChannelId(u32),
+    /// Downstream not found
+    DownstreamNotFound(u32),
+    /// Downstream Id not found
+    DownstreamIdNotFound,
+    /// Future template not present
+    FutureTemplateNotPresent,
+    /// Last new prevhash not found
+    LastNewPrevhashNotFound,
+    /// Vardiff associated to channel not found
+    VardiffNotFound(u32),
+    /// Errors on bad `String` to `int` conversion.
+    ParseInt(std::num::ParseIntError),
 }
 
 impl std::fmt::Display for PoolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use PoolError::*;
         match self {
-            Io(ref e) => write!(f, "I/O error: `{e:?}"),
-            ChannelSend(ref e) => write!(f, "Channel send failed: `{e:?}`"),
-            ChannelRecv(ref e) => write!(f, "Channel recv failed: `{e:?}`"),
-            BinarySv2(ref e) => write!(f, "Binary SV2 error: `{e:?}`"),
-            Codec(ref e) => write!(f, "Codec SV2 error: `{e:?}"),
-            CoinbaseOutput(ref e) => write!(f, "Coinbase output error: `{e:?}"),
-            Framing(ref e) => write!(f, "Framing SV2 error: `{e:?}`"),
-            Noise(ref e) => write!(f, "Noise SV2 error: `{e:?}"),
-            RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{e:?}`"),
-            PoisonLock(ref e) => write!(f, "Poison lock: {e:?}"),
-            ComponentShutdown(ref e) => write!(f, "Component shutdown: {e:?}"),
-            Custom(ref e) => write!(f, "Custom SV2 error: `{e:?}`"),
-            Sv2ProtocolError(ref e) => {
+            Io(e) => write!(f, "I/O error: `{e:?}"),
+            ChannelSend(e) => write!(f, "Channel send failed: `{e:?}`"),
+            ChannelRecv(e) => write!(f, "Channel recv failed: `{e:?}`"),
+            BinarySv2(e) => write!(f, "Binary SV2 error: `{e:?}`"),
+            Codec(e) => write!(f, "Codec SV2 error: `{e:?}"),
+            CoinbaseOutput(e) => write!(f, "Coinbase output error: `{e:?}"),
+            Framing(e) => write!(f, "Framing SV2 error: `{e:?}`"),
+            Noise(e) => write!(f, "Noise SV2 error: `{e:?}"),
+            RolesLogic(e) => write!(f, "Roles Logic SV2 error: `{e:?}`"),
+            PoisonLock(e) => write!(f, "Poison lock: {e:?}"),
+            ComponentShutdown(e) => write!(f, "Component shutdown: {e:?}"),
+            Custom(e) => write!(f, "Custom SV2 error: `{e:?}`"),
+            Sv2ProtocolError(e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{e:?}`")
             }
-            PoolError::Vardiff(ref e) => {
+            PoolError::Vardiff(e) => {
                 write!(f, "Received Vardiff Error : {e:?}")
             }
-            Parser(ref e) => write!(f, "Parser error: `{e:?}`"),
+            Parser(e) => write!(f, "Parser error: `{e:?}`"),
+            Shutdown => write!(f, "Shutdown"),
+            UnexpectedMessage(message_type) => write!(f, "message type: {message_type:?}"),
+            ChannelErrorSender => write!(f, "Channel sender error"),
+            InvalidSocketAddress(address) => write!(f, "Invalid socket address: {address:?}"),
+            BitcoinEncodeError(_) => write!(f, "Error generated during encoding"),
+            DownstreamNotFoundWithChannelId(channel_id) => {
+                write!(f, "Downstream not found for channel id: {channel_id}")
+            }
+            DownstreamNotFound(downstream_id) => write!(
+                f,
+                "Downstream not found with downstream id: {downstream_id}"
+            ),
+            DownstreamIdNotFound => write!(f, "Downstream id not found"),
+            FutureTemplateNotPresent => write!(f, "future template not present"),
+            LastNewPrevhashNotFound => write!(f, "last prev hash not present"),
+            VardiffNotFound(downstream_id) => write!(
+                f,
+                "Vardiff not found available for downstream id: {downstream_id}"
+            ),
+            ParseInt(e) => write!(f, "Conversion error: {e:?}"),
+            ChannelSv2(channel_error) => {
+                write!(f, "Channel error: {channel_error:?}")
+            }
         }
     }
 }
-
-pub type PoolResult<T> = Result<T, PoolError>;
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {
@@ -165,5 +204,57 @@ impl<T> From<PoisonError<MutexGuard<'_, T>>> for PoolError {
 impl From<(u32, Mining<'static>)> for PoolError {
     fn from(e: (u32, Mining<'static>)) -> Self {
         PoolError::Sv2ProtocolError(e)
+    }
+}
+
+impl HandlerErrorType for PoolError {
+    fn parse_error(error: ParserError) -> Self {
+        PoolError::Parser(error)
+    }
+
+    fn unexpected_message(message_type: u8) -> Self {
+        PoolError::UnexpectedMessage(message_type)
+    }
+}
+
+impl From<stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error> for PoolError {
+    fn from(value: stratum_common::roles_logic_sv2::bitcoin::consensus::encode::Error) -> Self {
+        PoolError::BitcoinEncodeError(value)
+    }
+}
+
+impl From<ExtendedChannelError> for PoolError {
+    fn from(value: ExtendedChannelError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::ExtendedChannelServerSide(value))
+    }
+}
+
+impl From<StandardChannelError> for PoolError {
+    fn from(value: StandardChannelError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::StandardChannelServerSide(value))
+    }
+}
+
+impl From<GroupChannelError> for PoolError {
+    fn from(value: GroupChannelError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::GroupChannelServerSide(value))
+    }
+}
+
+impl From<ExtendedExtranonceError> for PoolError {
+    fn from(value: ExtendedExtranonceError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::ExtranonceError(value))
+    }
+}
+
+impl From<VardiffError> for PoolError {
+    fn from(value: VardiffError) -> Self {
+        PoolError::Vardiff(value)
+    }
+}
+
+impl From<ParserError> for PoolError {
+    fn from(value: ParserError) -> Self {
+        PoolError::Parser(value)
     }
 }
