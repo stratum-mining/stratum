@@ -220,6 +220,7 @@ version = "2.0.0"
 dependencies = [
  "aes-gcm",
  "criterion",
+ "generic-array",
  "iai",
  "rand",
 ]
@@ -731,6 +732,7 @@ name = "key-utils"
 version = "1.2.0"
 dependencies = [
  "bs58",
+ "generic-array",
  "rand",
  "rustversion",
  "secp256k1 0.28.2",
@@ -781,6 +783,7 @@ version = "1.4.0"
 dependencies = [
  "aes-gcm",
  "chacha20poly1305",
+ "generic-array",
  "rand",
  "rand_chacha",
  "secp256k1 0.28.2",
