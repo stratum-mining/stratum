@@ -28,6 +28,7 @@ secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","
 serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
 rand = {version = "0.8.5", default-features = false }
 rustversion = "1.0"
+generic-array = "=0.14.7"
 
 [dev-dependencies]
 toml = { version = "0.5.6", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }

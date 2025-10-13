@@ -411,6 +411,7 @@ name = "buffer_sv2"
 version = "2.0.0"
 dependencies = [
  "aes-gcm",
+ "generic-array",
 ]
 
 [[package]]
@@ -1400,6 +1401,7 @@ name = "key-utils"
 version = "1.2.0"
 dependencies = [
  "bs58",
+ "generic-array",
  "rand 0.8.5",
  "rustversion",
  "secp256k1 0.28.2",
