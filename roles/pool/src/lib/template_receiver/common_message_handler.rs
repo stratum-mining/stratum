@@ -32,7 +32,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
             "Received ChannelEndpointChanged with channel id: {}",
             msg.channel_id
         );
-        Ok(())
+        Err(PoolError::Shutdown)
     }
 
     async fn handle_reconnect(
