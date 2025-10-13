@@ -217,6 +217,10 @@ where
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
         }
 
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+            return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
+        }
+
         let script_sig_size = 5 + // BIP34
             1 + // OP_PUSHBYTES
             3 + // `/` delimiters
@@ -290,7 +294,7 @@ where
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
         if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
-            return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
+            return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
@@ -1599,7 +1603,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(ExtendedChannelError::NewExtranoncePrefixTooLarge)
+            Err(ExtendedChannelError::ExtranoncePrefixTooLarge)
         ));
     }
 }

@@ -203,6 +203,10 @@ where
             return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+            return Err(StandardChannelError::ExtranoncePrefixTooLarge);
+        }
+
         let script_sig_size = 5 + // BIP34
             1 + // OP_PUSHBYTES
             3 + // `/` delimiters
@@ -254,7 +258,7 @@ where
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), StandardChannelError> {
         if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
-            return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
+            return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
