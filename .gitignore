@@ -24,3 +24,4 @@ cobertura.xml
 **/template-provider
 stratum-message-generator
 *.log
+**/minerd
