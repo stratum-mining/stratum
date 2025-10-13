@@ -114,7 +114,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
             };
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
-                if !downstream.requires_standard_jobs.load(Ordering::SeqCst) && downstream_data.group_channels.is_none() {
+                if downstream_data.group_channels.is_none() {
                     let group_channel_id = downstream_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                     let job_store = DefaultJobStore::new();
 

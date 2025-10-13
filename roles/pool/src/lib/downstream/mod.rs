@@ -36,7 +36,7 @@ use crate::{
     },
 };
 
-mod message_handler;
+mod common_message_handler;
 
 /// Holds state related to a downstream connection's mining channels.
 ///
@@ -175,7 +175,7 @@ impl Downstream {
                             _ => {}
                         }
                     }
-                    res = self_clone_1.handle_downstream_message() => {
+                    res = self_clone_1.handle_downstream_mining_message() => {
                         if let Err(e) = res {
                             error!(?e, "Error handling downstream message for {downstream_id}");
                             handle_error(&status_sender, e).await;
@@ -203,6 +203,9 @@ impl Downstream {
         let Some(message_type) = frame.get_header().map(|m| m.msg_type()) else {
             return Err(PoolError::UnexpectedMessage(0));
         };
+
+        // The first ever message received on a new downstream connection
+        // should always be a setup connection message.
         if message_type == MESSAGE_TYPE_SETUP_CONNECTION {
             self.handle_common_message_frame_from_client(None, message_type, frame.payload())
                 .await?;
@@ -248,7 +251,7 @@ impl Downstream {
     }
 
     // Handles incoming messages from the downstream peer.
-    async fn handle_downstream_message(self) -> PoolResult<()> {
+    async fn handle_downstream_mining_message(self) -> PoolResult<()> {
         let mut sv2_frame = self.downstream_channel.downstream_receiver.recv().await?;
 
         let Some(message_type) = sv2_frame.get_header().map(|h| h.msg_type()) else {

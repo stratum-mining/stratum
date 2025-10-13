@@ -41,8 +41,8 @@ use crate::{
     utils::{Message, ShutdownMessage},
 };
 
-mod downstream_message_handler;
-mod template_message_handler;
+mod mining_message_handler;
+mod template_distribution_message_handler;
 
 const POOL_SEARCH_SPACE_BYTES: usize = 4;
 
@@ -311,7 +311,7 @@ impl ChannelManager {
                             break;
                         }
                     }
-                    res = cm_downstreams.handle_downstream_message() => {
+                    res = cm_downstreams.handle_downstream_mining_message() => {
                         if let Err(e) = res {
                             error!(error = ?e, "Error handling Downstreams message");
                             handle_error(&status_sender, e).await;
@@ -362,7 +362,7 @@ impl ChannelManager {
         Ok(())
     }
 
-    async fn handle_downstream_message(&mut self) -> PoolResult<()> {
+    async fn handle_downstream_mining_message(&mut self) -> PoolResult<()> {
         if let Ok((downstream_id, message)) = self
             .channel_manager_channel
             .downstream_receiver

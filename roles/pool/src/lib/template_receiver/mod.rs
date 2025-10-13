@@ -1,5 +1,5 @@
 use std::{net::SocketAddr, sync::Arc};
-mod message_handler;
+mod common_message_handler;
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
 use stratum_common::{
@@ -48,7 +48,7 @@ impl TemplateReceiver {
     /// - Performs Noise handshake
     /// - Spawns IO tasks for inbound/outbound frames
     ///
-    /// Retries up to 3 times before returning [`JDCError::Shutdown`].
+    /// Retries up to 3 times before returning [`PoolError::Shutdown`].
     pub async fn new(
         tp_address: String,
         public_key: Option<Secp256k1PublicKey>,
@@ -276,7 +276,7 @@ impl TemplateReceiver {
         Ok(())
     }
 
-    /// Build and send [`CoinbaseOutputConstraints`] upstream TP.
+    /// Build and send [`CoinbaseOutputConstraints`] to the TP.
     pub async fn coinbase_constraints(&mut self, coinbase_outputs: Vec<u8>) -> PoolResult<()> {
         debug!(
             "Deserializing coinbase outputs ({} bytes)",
@@ -336,11 +336,11 @@ impl TemplateReceiver {
             PoolError::InvalidSocketAddress(addr.clone())
         })?;
 
-        info!(%socket, "Building setup connection message for upstream");
+        debug!(%socket, "Building SetupConnection message to the Template Provider");
         let setup_msg = get_setup_connection_message_tp(socket);
         let frame: StdFrame = Message::Common(setup_msg.into()).try_into()?;
 
-        info!("Sending setup connection message to upstream");
+        info!("Sending SetupConnection message to the Template Provider");
         self.template_receiver_channel
             .tp_sender
             .send(frame)
