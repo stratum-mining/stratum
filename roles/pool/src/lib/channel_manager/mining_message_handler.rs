@@ -114,7 +114,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
             };
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
-                if downstream_data.group_channels.is_none() {
+                if !downstream.requires_standard_jobs.load(Ordering::SeqCst) && downstream_data.group_channels.is_none() {
                     let group_channel_id = downstream_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                     let job_store = DefaultJobStore::new();
 
@@ -499,7 +499,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
 
             downstream.downstream_data.super_safe_lock(|downstream_data| {
                 let mut messages: Vec<RouteMessageTo> = Vec::new();
-                let Some(standard_channel) = downstream_data.standard_channels.get_mut(&downstream_id) else {
+                let Some(standard_channel) = downstream_data.standard_channels.get_mut(&channel_id) else {
                     let submit_shares_error = SubmitSharesError {
                         channel_id,
                         sequence_number: msg.sequence_number,
