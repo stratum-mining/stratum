@@ -61,8 +61,6 @@ pub struct ChannelManagerData {
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
     vardiff: HashMap<(u32, u32), VardiffState>,
-    // Channel_id to downstream_id map
-    channel_id_to_downstream_id: HashMap<u32, u32>,
     // Coinbase outputs
     coinbase_outputs: Vec<u8>,
     // Last new prevhash
@@ -93,7 +91,7 @@ pub struct ChannelManager {
 }
 
 impl ChannelManager {
-    /// Constructor method used to instantiate the Channel Manager
+    /// Constructor method used to instantiate the ChannelManager
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         config: PoolConfig,
@@ -136,7 +134,6 @@ impl ChannelManager {
             extranonce_prefix_factory_standard,
             downstream_id_factory: AtomicUsize::new(1),
             vardiff: HashMap::new(),
-            channel_id_to_downstream_id: HashMap::new(),
             coinbase_outputs,
             last_future_template: None,
             last_new_prev_hash: None,
@@ -334,26 +331,14 @@ impl ChannelManager {
         Ok(())
     }
 
-    // Removes a downstream entry from the Channel Manager’s state.
+    // Removes a Downstream entry from the ChannelManager’s state.
     //
     // Given a `downstream_id`, this method:
-    // 1. Removes the corresponding downstream from the `downstream` map.
-    // 2. Cleans up all associated channel mappings (both standard and extended) by removing their
-    //    entries from `channel_id_to_downstream_id`.
+    // 1. Removes the corresponding Downstream from the `downstream` map.
     #[allow(clippy::result_large_err)]
     fn remove_downstream(&self, downstream_id: u32) -> PoolResult<()> {
         self.channel_manager_data.super_safe_lock(|cm_data| {
-            if let Some(downstream) = cm_data.downstream.remove(&downstream_id) {
-                downstream.downstream_data.super_safe_lock(|ds_data| {
-                    for k in ds_data
-                        .standard_channels
-                        .keys()
-                        .chain(ds_data.extended_channels.keys())
-                    {
-                        cm_data.channel_id_to_downstream_id.remove(k);
-                    }
-                });
-            }
+            cm_data.downstream.remove(&downstream_id);
         });
         Ok(())
     }
@@ -361,7 +346,7 @@ impl ChannelManager {
     // Handles messages received from the TP subsystem.
     //
     // This method listens for incoming frames on the `tp_receiver` channel.
-    // - If the frame contains a TemplateDistribution message, it forwards it to the   template
+    // - If the frame contains a TemplateDistribution message, it forwards it to the template
     //   distribution message handler.
     // - If the frame contains any unsupported message type, an error is returned.
     async fn handle_template_provider_message(&mut self) -> PoolResult<()> {

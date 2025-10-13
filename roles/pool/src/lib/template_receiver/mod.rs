@@ -140,14 +140,14 @@ impl TemplateReceiver {
         Err(PoolError::Shutdown)
     }
 
-    /// Start unified message loop for template receiver.
+    /// Start unified message loop for TemplateReceiver.
     ///
     /// Responsibilities:
     /// - Run handshake (`setup_connection`)
     /// - Send [`CoinbaseOutputConstraints`]
     /// - Handle:
-    ///   - Messages from template provider
-    ///   - Messages from channel manager
+    ///   - Messages from Template Provider
+    ///   - Messages from ChannelManager
     ///   - Shutdown signals (upstream/job-declarator fallback)
     pub async fn start(
         mut self,
@@ -211,7 +211,7 @@ impl TemplateReceiver {
     ///
     /// Routes:
     /// - `Common` messages → handled locally
-    /// - `TemplateDistribution` messages → forwarded to channel manager
+    /// - `TemplateDistribution` messages → forwarded to ChannelManager
     /// - Unsupported messages → logged and ignored
     pub async fn handle_template_provider_message(&mut self) -> PoolResult<()> {
         let mut sv2_frame = self.template_receiver_channel.tp_receiver.recv().await?;
@@ -329,7 +329,7 @@ impl TemplateReceiver {
         Ok(())
     }
 
-    // Performs the initial handshake with template provider.
+    // Performs the initial handshake with Template Provider.
     pub async fn setup_connection(&mut self, addr: String) -> PoolResult<()> {
         let socket: SocketAddr = addr.parse().map_err(|_| {
             error!(%addr, "Invalid socket address");
