@@ -14,6 +14,7 @@ use crate::{
     },
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
+    MAX_EXTRANONCE_PREFIX_LEN,
 };
 use alloc::{format, string::String, vec, vec::Vec};
 use binary_sv2::{self, Sv2Option};
@@ -27,7 +28,7 @@ use bitcoin::{
 };
 use mining_sv2::{
     NewExtendedMiningJob, SetCustomMiningJob, SetCustomMiningJobSuccess,
-    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN,
+    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target,
 };
 use tracing::debug;
 
@@ -146,7 +147,7 @@ impl<'a> ExtendedChannel<'a> {
         &mut self,
         new_extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
-        if new_extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+        if new_extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
             return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
         }
 

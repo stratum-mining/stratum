@@ -43,6 +43,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
+    MAX_EXTRANONCE_PREFIX_LEN,
 };
 use binary_sv2::{self};
 use bitcoin::{
@@ -56,7 +57,7 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
     CompactTarget, Sequence, Target as BitcoinTarget,
 };
-use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
+use mining_sv2::{SubmitSharesStandard, Target};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
@@ -203,7 +204,7 @@ where
             return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
-        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
@@ -257,7 +258,7 @@ where
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
