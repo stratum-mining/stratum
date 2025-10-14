@@ -11,12 +11,8 @@
 use ext_config::ConfigError;
 use std::{fmt, sync::PoisonError};
 use stratum_apps::stratum_core::{
-    binary_sv2, framing_sv2,
-    handlers_sv2::HandlerErrorType,
-    noise_sv2,
-    parsers_sv2::ParserError as RolesParserError,
-    roles_logic_sv2::{errors::Error as RolesLogicError, Error as RolesSv2Error},
-    sv1_api::server_to_client::SetDifficulty,
+    binary_sv2, framing_sv2, handlers_sv2::HandlerErrorType, noise_sv2,
+    parsers_sv2::ParserError as RolesParserError, sv1_api::server_to_client::SetDifficulty,
 };
 use tokio::sync::broadcast;
 
@@ -26,8 +22,6 @@ pub enum TproxyError {
     SV1Error,
     /// Error from the network helpers library
     NetworkHelpersError(stratum_apps::network_helpers::Error),
-    /// Error from the roles logic library
-    RolesSv2LogicError(RolesSv2Error),
     /// Error from roles logic parser library
     ParserError(RolesParserError),
     /// Errors on bad CLI argument input.
@@ -46,8 +40,6 @@ pub enum TproxyError {
     Io(std::io::Error),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
-    /// Error parsing incoming upstream messages
-    UpstreamIncoming(RolesLogicError),
     /// Mutex poison lock error
     PoisonLock,
     /// Channel receiver error
@@ -91,7 +83,6 @@ impl fmt::Display for TproxyError {
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{e:?}`"),
             Io(ref e) => write!(f, "I/O error: `{e:?}"),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{e:?}`"),
-            UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{e:?}`"),
             PoisonLock => write!(f, "Poison Lock error"),
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{e:?}`"),
             BroadcastChannelErrorReceiver(ref e) => {
@@ -117,7 +108,6 @@ impl fmt::Display for TproxyError {
             SV1Error => write!(f, "Sv1 error"),
             TranslatorCore(ref e) => write!(f, "Translator core error: {e:?}"),
             NetworkHelpersError(ref e) => write!(f, "Network helpers error: {e:?}"),
-            RolesSv2LogicError(ref e) => write!(f, "Roles logic error: {e:?}"),
             ParserError(ref e) => write!(f, "Roles logic parser error: {e:?}"),
         }
     }
