@@ -23,7 +23,7 @@ use stratum_common::{
         handlers_sv2::{
             HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
-        mining_sv2::{ExtendedExtranonce, SetTarget, MAX_EXTRANONCE_LEN},
+        mining_sv2::{ExtendedExtranonce, SetTarget},
         parsers_sv2::{Mining, TemplateDistribution},
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
         utils::Mutex,
@@ -44,7 +44,9 @@ use crate::{
 mod mining_message_handler;
 mod template_distribution_message_handler;
 
-const POOL_SEARCH_SPACE_BYTES: usize = 4;
+const POOL_ALLOCATION_BYTES: usize = 4;
+const CLIENT_SEARCH_SPACE_BYTES: usize = 8;
+pub const FULL_EXTRANONCE_SIZE: usize = POOL_ALLOCATION_BYTES + CLIENT_SEARCH_SPACE_BYTES;
 
 pub struct ChannelManagerData {
     // Mapping of `downstream_id` → `Downstream` object,
@@ -101,14 +103,9 @@ impl ChannelManager {
         downstream_receiver: Receiver<(u32, Mining<'static>)>,
         coinbase_outputs: Vec<u8>,
     ) -> PoolResult<Self> {
-        let (range_0, range_1, range_2) = {
-            let range_1 = 0..POOL_SEARCH_SPACE_BYTES;
-            (
-                0..range_1.start,
-                range_1.clone(),
-                range_1.end..MAX_EXTRANONCE_LEN,
-            )
-        };
+        let range_0 = 0..0;
+        let range_1 = 0..POOL_ALLOCATION_BYTES;
+        let range_2 = POOL_ALLOCATION_BYTES..POOL_ALLOCATION_BYTES + CLIENT_SEARCH_SPACE_BYTES;
 
         let make_extranonce_factory = || {
             // simulating a scenario where there are multiple mining servers

@@ -43,6 +43,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
+    MAX_EXTRANONCE_PREFIX_LEN,
 };
 use binary_sv2::{self};
 use bitcoin::{
@@ -56,7 +57,7 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
     CompactTarget, Sequence, Target as BitcoinTarget,
 };
-use mining_sv2::{SubmitSharesStandard, Target, MAX_EXTRANONCE_LEN};
+use mining_sv2::{SubmitSharesStandard, Target};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
@@ -203,6 +204,22 @@ where
             return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
         }
 
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+            return Err(StandardChannelError::ExtranoncePrefixTooLarge);
+        }
+
+        let script_sig_size = 5 + // BIP34
+            1 + // OP_PUSHBYTES
+            3 + // `/` delimiters
+            pool_tag_string.as_ref().map_or(0, |s| s.len()) +
+            miner_tag_string.as_ref().map_or(0, |s| s.len()) +
+            1 + // OP_PUSHBYTES
+            extranonce_prefix.len();
+
+        if script_sig_size > 100 {
+            return Err(StandardChannelError::ScriptSigSizeTooLarge);
+        }
+
         Ok(Self {
             channel_id,
             user_identity,
@@ -241,8 +258,8 @@ where
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
-            return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+            return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
@@ -597,7 +614,7 @@ where
 
             let mut script_sig = job.get_template().coinbase_prefix.to_vec();
             script_sig.extend(op_pushbytes_pool_miner_tag);
-            script_sig.push(MAX_EXTRANONCE_LEN as u8); // OP_PUSHBYTES_32 (for the extranonce)
+            script_sig.push(self.extranonce_prefix.len() as u8); // OP_PUSHBYTES_X (for the extranonce)
             script_sig.extend(job.get_extranonce_prefix());
 
             let tx_in = TxIn {

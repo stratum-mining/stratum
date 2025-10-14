@@ -17,6 +17,7 @@ use stratum_common::{
     network_helpers_sv2,
     roles_logic_sv2::{
         self, bitcoin,
+        channels_sv2::server::error::GroupChannelError,
         codec_sv2::{self, binary_sv2, framing_sv2},
         handlers_sv2::HandlerErrorType,
         parsers_sv2::ParserError,
@@ -81,6 +82,8 @@ pub enum JDCError {
     AllocateMiningJobTokenSuccessCoinbaseOutputsError,
     ChannelManagerHasBadCoinbaseOutputs,
     DeclaredJobHasBadCoinbaseOutputs,
+    ExtranonceSizeTooLarge,
+    FailedToCreateGroupChannel(GroupChannelError),
 }
 
 impl std::error::Error for JDCError {}
@@ -169,6 +172,12 @@ impl fmt::Display for JDCError {
             }
             DeclaredJobHasBadCoinbaseOutputs => {
                 write!(f, "Declared job coinbase outputs are not deserializable")
+            }
+            ExtranonceSizeTooLarge => {
+                write!(f, "Extranonce size too large")
+            }
+            FailedToCreateGroupChannel(ref e) => {
+                write!(f, "Failed to create group channel: {e:?}")
             }
         }
     }

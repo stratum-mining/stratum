@@ -15,6 +15,9 @@
 //! - [`client`] module is `no_std` compatible. To enable it build the crate with `no_std` feature.
 #![cfg_attr(feature = "no_std", no_std)]
 
+/// Maximum length for extranonce prefixes in bytes
+const MAX_EXTRANONCE_PREFIX_LEN: usize = 32;
+
 #[cfg(not(feature = "no_std"))]
 pub mod server;
 

@@ -48,6 +48,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
+    MAX_EXTRANONCE_PREFIX_LEN,
 };
 use binary_sv2::{self};
 use bitcoin::{
@@ -56,7 +57,7 @@ use bitcoin::{
     transaction::TxOut,
     CompactTarget, Target as BitcoinTarget,
 };
-use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
+use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
@@ -124,7 +125,7 @@ where
         max_target: Target,
         nominal_hashrate: f32,
         version_rolling_allowed: bool,
-        requested_min_rollable_extranonce_size: u16,
+        rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
         job_store: J,
@@ -137,7 +138,7 @@ where
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
-            requested_min_rollable_extranonce_size,
+            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -164,7 +165,7 @@ where
         max_target: Target,
         nominal_hashrate: f32,
         version_rolling_allowed: bool,
-        requested_min_rollable_extranonce_size: u16,
+        rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
         job_store: J,
@@ -178,7 +179,7 @@ where
             max_target,
             nominal_hashrate,
             version_rolling_allowed,
-            requested_min_rollable_extranonce_size,
+            rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
             job_store,
@@ -196,7 +197,7 @@ where
         max_target: Target,
         nominal_hashrate: f32,
         version_rolling_allowed: bool,
-        requested_min_rollable_extranonce_size: u16,
+        rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
         job_store: J,
@@ -217,17 +218,28 @@ where
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
         }
 
-        let available_rollable_extranonce_size =
-            (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
-        if requested_min_rollable_extranonce_size > available_rollable_extranonce_size {
-            return Err(ExtendedChannelError::RequestedMinExtranonceSizeTooLarge);
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+            return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
+        }
+
+        let script_sig_size = 5 + // BIP34
+            1 + // OP_PUSHBYTES
+            3 + // `/` delimiters
+            pool_tag.as_ref().map_or(0, |s| s.len()) +
+            miner_tag.as_ref().map_or(0, |s| s.len()) +
+            1 + // OP_PUSHBYTES
+            extranonce_prefix.len() +
+            rollable_extranonce_size as usize;
+
+        if script_sig_size > 100 {
+            return Err(ExtendedChannelError::ScriptSigSizeTooLarge);
         }
 
         Ok(Self {
             channel_id,
             user_identity,
             extranonce_prefix,
-            rollable_extranonce_size: available_rollable_extranonce_size,
+            rollable_extranonce_size,
             requested_max_target: max_target,
             target,
             nominal_hashrate,
@@ -276,23 +288,17 @@ where
     /// After this call, all newly created jobs will reference the new prefix.
     /// Jobs created before the update will continue to use the previous prefix,
     /// and share validation will be performed accordingly.
-    /// Returns an error if the new prefix violates minimum rollable extranonce size.
+    ///
+    /// Returns an error if the new extranonce prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
-        let new_rollable_extranonce_size =
-            MAX_EXTRANONCE_LEN as u16 - extranonce_prefix.len() as u16;
-
-        // we return an error if the new extranonce_prefix would violate
-        // min_rollable_extranonce_size that was already established with the client when the
-        // channel was created
-        if new_rollable_extranonce_size < self.rollable_extranonce_size {
-            return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
+        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+            return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
         self.extranonce_prefix = extranonce_prefix;
-        self.rollable_extranonce_size = new_rollable_extranonce_size;
 
         Ok(())
     }
@@ -300,6 +306,11 @@ where
     /// Returns the number of bytes available for the rollable portion of the extranonce.
     pub fn get_rollable_extranonce_size(&self) -> u16 {
         self.rollable_extranonce_size
+    }
+
+    /// Returns the full extranonce size in bytes.
+    pub fn get_full_extranonce_size(&self) -> usize {
+        self.extranonce_prefix.len() + self.rollable_extranonce_size as usize
     }
 
     /// Returns the requested maximum target for this channel.
@@ -436,6 +447,7 @@ where
                         self.extranonce_prefix.clone(),
                         template.clone(),
                         coinbase_reward_outputs,
+                        self.get_full_extranonce_size(),
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
@@ -453,6 +465,7 @@ where
                                 self.extranonce_prefix.clone(),
                                 template.clone(),
                                 coinbase_reward_outputs,
+                                self.get_full_extranonce_size(),
                             )
                             .map_err(ExtendedChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);
@@ -523,6 +536,7 @@ where
             .new_extended_job_from_custom_job(
                 set_custom_mining_job.clone(),
                 self.extranonce_prefix.clone(),
+                self.get_full_extranonce_size(),
             )
             .map_err(ExtendedChannelError::JobFactoryError)?;
 
@@ -586,6 +600,11 @@ where
                 .get(&job_id)
                 .expect("stale job must exist")
         };
+
+        let extranonce_size = share.extranonce.inner_as_ref().len();
+        if extranonce_size != self.rollable_extranonce_size as usize {
+            return Err(ShareValidationError::BadExtranonceSize);
+        }
 
         let extranonce_prefix = job.get_extranonce_prefix();
         let mut full_extranonce = vec![];
@@ -734,7 +753,7 @@ mod tests {
     };
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
-    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target, MAX_EXTRANONCE_LEN};
+    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target};
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
@@ -756,7 +775,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -838,7 +857,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 38, 82, 0, 3, 47, 47, 47, 31,
             ]
             .try_into()
             .unwrap(),
@@ -907,7 +926,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -991,7 +1010,7 @@ mod tests {
             version_rolling_allowed: true,
             coinbase_tx_prefix: vec![
                 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 39, 82, 0, 3, 47, 47, 47, 32,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 38, 82, 0, 3, 47, 47, 47, 31,
             ]
             .try_into()
             .unwrap(),
@@ -1027,7 +1046,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -1098,15 +1117,14 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         let max_target = [0xff; 32].into();
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -1180,17 +1198,17 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 564e724a9eb5716f7eec638e5aeed595f45643bb57913c9445bafdf28d8be022
+        // this share has hash 4c68f79a585c8b609e9b43113f73311eada20ec88a70a999406267db3499f1d9
         // which satisfies network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
         let share_valid_block = SubmitSharesExtended {
             channel_id,
             sequence_number: 0,
             job_id: 1,
-            nonce: 0,
+            nonce: 8,
             ntime: 1745596971,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(share_valid_block);
@@ -1208,15 +1226,14 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         let max_target = [0xff; 32].into();
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 100.0; // bigger hashrate to get higher difficulty
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -1290,17 +1307,17 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash efc366b8401ff88cd581644fd935f42dd66348a08dd1ccf2f2f0dcbbbf989300
+        // this share has hash d5767872f3a26e7f9f21cd968f27cfdb8b4061bb9ce0959852594ee8620f4efb
         // which does not meet the channel target
         // 000aebbc990fff5144366f000aebbc990fff5144366f000aebbc990fff514435
         let share_low_diff = SubmitSharesExtended {
             channel_id,
             sequence_number: 0,
             job_id: 1,
-            nonce: 741057,
+            nonce: 0,
             ntime: 1745596971,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(share_low_diff);
@@ -1321,15 +1338,14 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
         let max_target = [0xff; 32].into();
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0; // bigger hashrate to get higher difficulty
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -1404,7 +1420,7 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 00003126092fcbc15f05fbdf7e38dd468249e4e473fb5286caba164d8206f7f4
+        // this share has hash 000004f9d35777e4d56eedc20b1d05d251a7c0ed0b4e3013b5a809852844e218
         // which does meet the channel target
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // but does not meet network target
@@ -1413,10 +1429,10 @@ mod tests {
             channel_id,
             sequence_number: 1,
             job_id: 1,
-            nonce: 109053,
+            nonce: 51208,
             ntime: 1745611105,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(valid_share);
@@ -1428,10 +1444,10 @@ mod tests {
             channel_id,
             sequence_number: 2,
             job_id: 1,
-            nonce: 109053,
+            nonce: 51208,
             ntime: 1745611105,
             version: 536870912,
-            extranonce: vec![1, 0, 0, 0, 0].try_into().unwrap(),
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
         };
 
         let res = channel.validate_share(repeated_share);
@@ -1452,7 +1468,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -1541,16 +1557,12 @@ mod tests {
     fn test_update_extranonce_prefix() {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
-        let extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 1,
-        ]
-        .to_vec();
+        let extranonce_prefix = [0, 0, 0, 0, 0, 0, 0, 1].to_vec();
         let max_target = [0xff; 32].into();
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let version_rolling_allowed = true;
-        let rollable_extranonce_size = (MAX_EXTRANONCE_LEN - extranonce_prefix.len()) as u16;
+        let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
@@ -1573,11 +1585,7 @@ mod tests {
         let current_extranonce_prefix = channel.get_extranonce_prefix();
         assert_eq!(current_extranonce_prefix, &extranonce_prefix);
 
-        let new_extranonce_prefix = [
-            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 2,
-        ]
-        .to_vec();
+        let new_extranonce_prefix = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2].to_vec();
 
         channel
             .set_extranonce_prefix(new_extranonce_prefix.clone())
@@ -1587,7 +1595,7 @@ mod tests {
 
         let new_extranonce_prefix_too_large = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
-            0, 0, 0, 0, 0, 0, 2, 0,
+            0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
         ]
         .to_vec();
 
@@ -1596,7 +1604,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(ExtendedChannelError::NewExtranoncePrefixTooLarge)
+            Err(ExtendedChannelError::ExtranoncePrefixTooLarge)
         ));
     }
 }
