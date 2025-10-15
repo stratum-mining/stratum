@@ -281,7 +281,7 @@ pub fn spawn_io_tasks(
             drop(inbound_tx);
             drop(outbound_rx_clone);
             warn!("Reader task exited.");
-        }.instrument(tracing::info_span!(
+        }.instrument(tracing::trace_span!(
             "reader_task",
             spawned_at = %format!("{}:{}", caller.file(), caller.line())
         )));
@@ -366,7 +366,7 @@ pub fn spawn_io_tasks(
             drop(outbound_rx);
             drop(inbound_tx_clone);
             warn!("Writer task exited.");
-        }.instrument(tracing::info_span!(
+        }.instrument(tracing::trace_span!(
             "writer_task",
             spawned_at = %format!("{}:{}", caller.file(), caller.line())
         )));

@@ -24,7 +24,9 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         info!("Received: {}", msg);
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
-            channel_manager_data.last_future_template = Some(msg.clone().into_static());
+            if msg.future_template {
+                channel_manager_data.last_future_template = Some(msg.clone().into_static());
+            }
 
             let mut messages: Vec<RouteMessageTo> = Vec::new();
             let mut coinbase_output = deserialize_outputs(channel_manager_data.coinbase_outputs.clone()).expect("deserialization failed");
