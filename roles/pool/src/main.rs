@@ -1,5 +1,5 @@
-use config_helpers_sv2::logging::init_logging;
 use pool_sv2::PoolSv2;
+use stratum_apps::config_helpers::logging::init_logging;
 
 use crate::args::process_cli_args;
 

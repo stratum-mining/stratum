@@ -38,6 +38,8 @@ jobs:
         run: cargo test --manifest-path=benches/Cargo.toml --no-run
       - name: Check Test Compilation for Protocols
         run: cargo test --manifest-path=protocols/Cargo.toml --no-run
+      - name: Check Test Compilation for Stratum Core
+        run: cargo test --manifest-path=stratum-core/Cargo.toml --no-run
       - name: Check Test Compilation for Roles
         run: cargo test --locked --manifest-path=roles/Cargo.toml --no-run
       - name: Check Test Compilation for Utils

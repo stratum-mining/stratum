@@ -3,7 +3,7 @@ use integration_tests_sv2::{
     template_provider::DifficultyLevel,
     *,
 };
-use stratum_common::roles_logic_sv2::{job_declaration_sv2::*, template_distribution_sv2::*};
+use stratum_apps::stratum_core::{job_declaration_sv2::*, template_distribution_sv2::*};
 
 // Block propagated from JDS to TP
 #[tokio::test]

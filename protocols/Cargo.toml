@@ -18,6 +18,7 @@ members = [
     "v2/channels-sv2",
     "v2/parsers-sv2", 
     "v2/handlers-sv2",
+    "stratum-translation",
 ]
 
 [profile.dev]

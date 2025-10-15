@@ -1,6 +1,6 @@
 #!/bin/bash
 
-workspaces=("benches" "common" "roles" "protocols" "utils" "test/integration-tests")
+workspaces=("benches" "stratum-core" "roles" "protocols" "utils" "test/integration-tests")
 
 # print current rust version
 echo "Rust version: $(rustc --version)"

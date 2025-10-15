@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_channel::unbounded;
-use stratum_common::roles_logic_sv2::{
+use stratum_apps::stratum_core::{
     bitcoin::consensus::Encodable, parsers_sv2::TemplateDistribution,
 };
 use tokio::sync::broadcast;

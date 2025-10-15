@@ -13,13 +13,12 @@ use std::{
     net::{SocketAddr, TcpListener},
     sync::Mutex,
 };
-use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
-    roles_logic_sv2::{
-        codec_sv2::{
-            framing_sv2::framing::Frame, HandshakeRole, Initiator, Responder, StandardEitherFrame,
-            Sv2Frame,
-        },
+use stratum_apps::{
+    network_helpers::noise_connection::Connection,
+    stratum_core::{
+        codec_sv2::{HandshakeRole, StandardEitherFrame},
+        framing_sv2::framing::{Frame, Sv2Frame},
+        noise_sv2::{Initiator, Responder},
         parsers_sv2::{
             message_type_to_name, AnyMessage, CommonMessages, IsSv2Message,
             JobDeclaration::{

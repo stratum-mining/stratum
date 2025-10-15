@@ -19,11 +19,15 @@
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 #[cfg(feature = "noise_sv2")]
 use codec_sv2::{
-    Error, HandshakeRole, Initiator, NoiseEncoder, Responder, StandardEitherFrame,
-    StandardNoiseDecoder, StandardSv2Frame, State, Sv2Frame,
+    Error, HandshakeRole, NoiseEncoder, StandardEitherFrame, StandardNoiseDecoder,
+    StandardSv2Frame, State,
 };
 #[cfg(feature = "noise_sv2")]
+use framing_sv2::framing::Sv2Frame;
+#[cfg(feature = "noise_sv2")]
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::{Initiator, Responder};
 
 #[cfg(feature = "noise_sv2")]
 use noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};

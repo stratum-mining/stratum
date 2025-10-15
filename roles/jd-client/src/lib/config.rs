@@ -1,4 +1,3 @@
-use config_helpers_sv2::CoinbaseRewardScript;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
@@ -6,7 +5,10 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use stratum_common::roles_logic_sv2::bitcoin::{Amount, TxOut};
+use stratum_apps::{
+    config_helpers::CoinbaseRewardScript,
+    stratum_core::bitcoin::{Amount, TxOut},
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct JobDeclaratorClientConfig {

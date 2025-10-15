@@ -4,16 +4,16 @@ use crate::{
 };
 use async_channel::Sender;
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use stratum_common::roles_logic_sv2::{
+use stratum_apps::stratum_core::{
     channels_sv2::{target::hash_rate_to_target, Vardiff},
     mining_sv2::{SetTarget, Target, UpdateChannel},
     parsers_sv2::Mining,
-    utils::Mutex,
+    roles_logic_sv2::utils::Mutex,
+    stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target,
+    sv1_api::json_rpc,
 };
-use stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target;
 use tokio::{sync::broadcast, time};
 use tracing::{debug, error, info, trace, warn};
-use v1::json_rpc;
 
 /// Handles all variable difficulty adjustment logic for the SV1 server.
 ///

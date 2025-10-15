@@ -1,14 +1,14 @@
 #![allow(clippy::new_ret_no_self)]
-use crate::{
+use crate::network_helpers::{
     noise_stream::{NoiseTcpReadHalf, NoiseTcpStream, NoiseTcpWriteHalf},
     Error,
 };
 use async_channel::{unbounded, Receiver, Sender};
-use codec_sv2::{
-    binary_sv2::{Deserialize, GetSize, Serialize},
-    HandshakeRole, StandardEitherFrame,
-};
 use std::sync::Arc;
+use stratum_core::{
+    binary_sv2::{Deserialize, GetSize, Serialize},
+    codec_sv2::{HandshakeRole, StandardEitherFrame},
+};
 use tokio::{net::TcpStream, task};
 use tracing::{debug, error};
 

@@ -5,12 +5,12 @@ use std::{
 };
 
 use async_channel::{Receiver, Sender};
-use config_helpers_sv2::CoinbaseRewardScript;
 use core::sync::atomic::Ordering;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
+use stratum_apps::{
+    config_helpers::CoinbaseRewardScript,
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_core::{
         channels_sv2::{
             server::{
                 extended::ExtendedChannel,
@@ -19,14 +19,14 @@ use stratum_common::{
             },
             Vardiff, VardiffState,
         },
-        codec_sv2::Responder,
         handlers_sv2::{
             HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
         mining_sv2::{ExtendedExtranonce, SetTarget},
+        noise_sv2::Responder,
         parsers_sv2::{Mining, TemplateDistribution},
+        roles_logic_sv2::utils::Mutex,
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
-        utils::Mutex,
     },
 };
 use tokio::{net::TcpListener, select, sync::broadcast};
@@ -212,7 +212,7 @@ impl ChannelManager {
                                 };
                                 let noise_stream = match NoiseTcpStream::<Message>::new(
                                     stream,
-                                    stratum_common::roles_logic_sv2::codec_sv2::HandshakeRole::Responder(responder),
+                                    stratum_apps::stratum_core::codec_sv2::HandshakeRole::Responder(responder),
                                 )
                                 .await
                                 {

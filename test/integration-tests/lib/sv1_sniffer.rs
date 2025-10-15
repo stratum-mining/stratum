@@ -1,8 +1,7 @@
-#![cfg(feature = "sv1")]
 use crate::interceptor::MessageDirection;
 use async_channel::{Receiver, Sender};
 use std::{collections::VecDeque, net::SocketAddr, sync::Arc};
-use stratum_common::network_helpers_sv2::sv1_connection::ConnectionSV1;
+use stratum_apps::{network_helpers::sv1_connection::ConnectionSV1, stratum_core::sv1_api};
 use tokio::{
     net::{TcpListener, TcpStream},
     select,
@@ -45,8 +44,8 @@ impl SnifferSV1 {
 
     /// Start the sniffer.
     pub fn start(&self) {
-        let upstream_address = self.upstream_address.clone();
-        let listening_address = self.listening_address.clone();
+        let upstream_address = self.upstream_address;
+        let listening_address = self.listening_address;
         let messages_from_downstream = self.messages_from_downstream.clone();
         let messages_from_upstream = self.messages_from_upstream.clone();
         tokio::spawn(async move {
@@ -86,7 +85,7 @@ impl SnifferSV1 {
 
     /// Wait for a specific message to be received from the downstream role.
     pub async fn wait_for_message(&self, message: &[&str], direction: MessageDirection) {
-        if message.len() == 0 {
+        if message.is_empty() {
             panic!("Message cannot be empty");
         }
         let now = std::time::Instant::now();
@@ -107,7 +106,7 @@ impl SnifferSV1 {
                         }
                     }
                     if now.elapsed().as_secs() > 60 {
-                        panic!( "Timeout: SV1 message {} not found", message.get(0).unwrap());
+                        panic!( "Timeout: SV1 message {} not found", message.first().unwrap());
                     } else {
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                         continue;
@@ -171,8 +170,8 @@ impl MessagesAggregatorSV1 {
     async fn has_message(&self, expected_msg: &[&str]) -> bool {
         let messages = self.messages.lock().await;
         let ret = messages.iter().any(|msg| match msg {
-            sv1_api::Message::StandardRequest(req) => req.method == *expected_msg.get(0).unwrap(),
-            sv1_api::Message::Notification(notif) => notif.method == *expected_msg.get(0).unwrap(),
+            sv1_api::Message::StandardRequest(req) => req.method == *expected_msg.first().unwrap(),
+            sv1_api::Message::Notification(notif) => notif.method == *expected_msg.first().unwrap(),
             sv1_api::Message::OkResponse(res) => {
                 if let Ok(res) = corepc_node::serde_json::to_string(&res) {
                     for m in expected_msg {
@@ -180,13 +179,13 @@ impl MessagesAggregatorSV1 {
                             return false;
                         }
                     }
-                    return true;
+                    true
                 } else {
                     false
                 }
             }
             sv1_api::Message::ErrorResponse(res) => {
-                res.error.clone().unwrap().message == *expected_msg.get(0).unwrap()
+                res.error.clone().unwrap().message == *expected_msg.first().unwrap()
             }
         });
         ret

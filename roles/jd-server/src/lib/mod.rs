@@ -28,12 +28,12 @@ use error::JdsError;
 use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
-pub use rpc_sv2::Uri;
 use std::{ops::Sub, str::FromStr, sync::Arc};
-use stratum_common::roles_logic_sv2::{
+pub use stratum_apps::rpc::Uri;
+use stratum_apps::stratum_core::{
     codec_sv2::{StandardEitherFrame, StandardSv2Frame},
     parsers_sv2::AnyMessage as JdsMessages,
-    utils::Mutex,
+    roles_logic_sv2::utils::Mutex,
 };
 use tokio::{select, task};
 use tracing::{error, info, warn};

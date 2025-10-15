@@ -20,13 +20,4 @@
 pub mod errors;
 pub mod handlers;
 pub mod utils;
-pub use bitcoin;
-pub use channels_sv2;
-pub use codec_sv2;
-pub use common_messages_sv2;
 pub use errors::Error;
-pub use handlers_sv2;
-pub use job_declaration_sv2;
-pub use mining_sv2;
-pub use parsers_sv2;
-pub use template_distribution_sv2;

@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use stratum_common::roles_logic_sv2::{
+use stratum_apps::stratum_core::{
     bitcoin::Amount, channels_sv2::outputs::deserialize_outputs,
     handlers_sv2::HandleTemplateDistributionMessagesFromServerAsync,
     mining_sv2::SetNewPrevHash as SetNewPrevHashMp, parsers_sv2::Mining,

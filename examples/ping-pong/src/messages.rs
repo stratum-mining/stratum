@@ -1,5 +1,5 @@
 use crate::error::Error;
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
+use stratum_apps::stratum_core::binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
 
 use rand::Rng;
 
@@ -28,7 +28,7 @@ pub struct Pong {
     nonce: u8,
 }
 
-impl<'decoder> Pong {
+impl Pong {
     pub fn new(nonce: u8) -> Result<Self, Error> {
         Ok(Self { nonce })
     }

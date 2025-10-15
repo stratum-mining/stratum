@@ -15,7 +15,8 @@
 // ```
 
 use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
-use codec_sv2::{Encoder, Error, StandardDecoder, StandardSv2Frame, Sv2Frame};
+use codec_sv2::{Encoder, Error, StandardDecoder, StandardSv2Frame};
+use framing_sv2::framing::Sv2Frame;
 use std::{
     convert::TryInto,
     io::{Read, Write},

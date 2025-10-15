@@ -1,6 +1,6 @@
 use crate::{downstream::Downstream, error::JDCError, utils::StdFrame};
 use std::convert::TryInto;
-use stratum_common::roles_logic_sv2::{
+use stratum_apps::stratum_core::{
     common_messages_sv2::{
         has_requires_std_job, has_work_selection, Protocol, SetupConnection, SetupConnectionError,
         SetupConnectionSuccess,

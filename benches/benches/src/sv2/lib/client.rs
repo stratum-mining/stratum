@@ -1,24 +1,24 @@
 use async_channel::{Receiver, Sender};
 use async_std::channel::unbounded;
 use binary_sv2::u256_from_int;
+use bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess};
+use mining_sv2::*;
+use parsers_sv2::{Mining, MiningDeviceMessages};
 use primitive_types::U256;
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
         common::ParseCommonMessagesFromUpstream,
         mining::{ParseMiningMessagesFromUpstream, SendTo, SupportedChannelTypes},
     },
-    mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages},
     routing_logic::NoRouting,
     selectors::NullDownstreamMiningSelector,
     utils::{Id, Mutex},
 };
 use std::{net::SocketAddr, sync::Arc};
-use stratum_common::bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash};
 use tracing::{debug, error, info, trace};
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

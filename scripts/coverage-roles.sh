@@ -15,6 +15,7 @@ crates=(
   "translator"
   "jd-client"
   "jd-server"
+  "stratum-apps"
 )
 
 for crate in "${crates[@]}"; do

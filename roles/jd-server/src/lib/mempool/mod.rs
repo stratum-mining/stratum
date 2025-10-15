@@ -20,11 +20,13 @@ use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;
 use async_channel::Receiver;
 use hashbrown::HashMap;
-use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{str::FromStr, sync::Arc};
-use stratum_common::roles_logic_sv2::{
-    bitcoin::{blockdata::transaction::Transaction, hash_types::Txid},
-    utils::Mutex,
+use stratum_apps::{
+    rpc::{mini_rpc_client, mini_rpc_client::RpcError},
+    stratum_core::{
+        bitcoin::{blockdata::transaction::Transaction, hash_types::Txid},
+        roles_logic_sv2::utils::Mutex,
+    },
 };
 
 /// Wrapper around a known transaction and its hash.
@@ -42,7 +44,7 @@ pub struct JDsMempool {
     /// Auth for RPC connection to the node.
     auth: mini_rpc_client::Auth,
     /// URI of the Bitcoin node.
-    url: rpc_sv2::Uri,
+    url: stratum_apps::rpc::Uri,
     /// Receiver for new block solutions coming from JDC.
     new_block_receiver: Receiver<String>,
 }
@@ -70,7 +72,7 @@ impl JDsMempool {
 
     /// Instantiates a new empty mempool for JDS.
     pub fn new(
-        url: rpc_sv2::Uri,
+        url: stratum_apps::rpc::Uri,
         username: String,
         password: String,
         new_block_receiver: Receiver<String>,

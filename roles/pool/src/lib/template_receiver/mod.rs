@@ -2,15 +2,17 @@ use std::{net::SocketAddr, sync::Arc};
 mod common_message_handler;
 use async_channel::{unbounded, Receiver, Sender};
 use key_utils::Secp256k1PublicKey;
-use stratum_common::{
-    network_helpers_sv2::noise_stream::NoiseTcpStream,
-    roles_logic_sv2::{
+use stratum_apps::{
+    network_helpers::noise_stream::NoiseTcpStream,
+    stratum_core::{
         bitcoin::{
             self, absolute::LockTime, transaction::Version, OutPoint, ScriptBuf, Sequence,
             Transaction, TxIn, TxOut, Witness,
         },
-        codec_sv2::{framing_sv2, noise_sv2::Error, HandshakeRole, Initiator},
+        codec_sv2::HandshakeRole,
+        framing_sv2,
         handlers_sv2::HandleCommonMessagesFromServerAsync,
+        noise_sv2::{Error, Initiator},
         parsers_sv2::{AnyMessage, TemplateDistribution},
         template_distribution_sv2::CoinbaseOutputConstraints,
     },

@@ -1,6 +1,6 @@
 [package]
 name = "codec_sv2"
-version = "3.0.1"
+version = "4.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"

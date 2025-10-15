@@ -2,11 +2,15 @@ use crate::{
     error::Error,
     messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE},
 };
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-
-use codec_sv2::{HandshakeRole, Responder};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers_sv2::noise_connection::Connection;
+use stratum_apps::{
+    network_helpers::noise_connection::Connection,
+    stratum_core::{
+        binary_sv2,
+        codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
+        noise_sv2::Responder,
+    },
+};
 
 use async_channel::{Receiver, Sender};
 use tokio::net::TcpListener;

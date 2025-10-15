@@ -16,7 +16,7 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-pub use v1::server_to_client;
+pub use stratum_apps::stratum_core::sv1_api::server_to_client;
 
 use config::TranslatorConfig;
 

@@ -31,27 +31,27 @@ use std::{
     convert::TryInto,
     sync::{atomic::AtomicU32, Arc},
 };
-use stratum_common::{
-    network_helpers_sv2::noise_connection::Connection,
-    roles_logic_sv2::{
-        self,
+use stratum_apps::{
+    network_helpers::noise_connection::Connection,
+    stratum_core::{
+        binary_sv2::{self, B0255, U256},
         bitcoin::{
             block::{Header, Version},
             consensus::{deserialize, encode::serialize},
             hashes::{sha256d::Hash as DHash, Hash},
             Amount, Block, BlockHash, CompactTarget, Transaction, TxOut, Txid,
         },
-        codec_sv2::{
-            binary_sv2::{self, B0255, U256},
-            HandshakeRole, Responder,
-        },
+        codec_sv2::HandshakeRole,
         common_messages_sv2::{
             Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
         },
-        handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
         job_declaration_sv2::{DeclareMiningJob, PushSolution},
+        noise_sv2::Responder,
         parsers_sv2::{AnyMessage as JdsMessages, JobDeclaration},
-        utils::Mutex,
+        roles_logic_sv2::{
+            handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
+            utils::Mutex,
+        },
     },
 };
 use tokio::{net::TcpListener, time::Duration};
@@ -277,7 +277,7 @@ impl JobDeclaratorDownstream {
     /// Wraps the message into a `StdFrame` and sends it through the established channel.
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers_sv2::JobDeclaration<'static>,
+        message: stratum_apps::stratum_core::parsers_sv2::JobDeclaration<'static>,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = JdsMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();

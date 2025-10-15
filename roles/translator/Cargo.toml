@@ -20,20 +20,15 @@ name = "translator_sv2"
 path = "src/main.rs"
 
 [dependencies]
-stratum-common = { path = "../../common" }
+stratum-apps = { path = "../stratum-apps", features = ["translator"] }
+key-utils = { path = "../../utils/key-utils" }
 async-channel = "1.5.1"
-buffer_sv2 = { path = "../../utils/buffer" }
-network_helpers_sv2 = { path = "../roles-utils/network-helpers", features=["with_buffer_pool", "sv1"] }
-stratum_translation = { path = "../roles-utils/stratum-translation" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 tokio = { version = "1.44.1", features = ["full"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 tracing = { version = "0.1" }
-v1 = { path = "../../protocols/v1", package="sv1_api" }
-key-utils = { path = "../../utils/key-utils" }
 clap = { version = "4.5.39", features = ["derive"] }
-config_helpers_sv2 = { path = "../roles-utils/config-helpers" }
 
 
 [dev-dependencies]

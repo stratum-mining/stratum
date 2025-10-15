@@ -1,0 +1,39 @@
+[package]
+name = "stratum-core"
+version = "0.1.0"
+authors = ["The Stratum V2 Developers"]
+edition = "2021"
+readme = "README.md"
+description = "Central hub for the Stratum V2 ecosystem, consolidating all low-level protocol crates into a single, cohesive API"
+documentation = "https://docs.rs/stratum-core"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+homepage = "https://stratumprotocol.org"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
+[dependencies]
+buffer_sv2 = { path = "../utils/buffer", version = "^2.0.0" }
+bitcoin = "0.32.5"
+binary_sv2 = { path = "../protocols/v2/binary-sv2", version = "^4.0.0" }
+codec_sv2 = { path = "../protocols/v2/codec-sv2", version = "^4.0.0" }
+framing_sv2 = { path = "../protocols/v2/framing-sv2", version = "^5.0.0" }
+noise_sv2 = { path = "../protocols/v2/noise-sv2", version = "^1.0.0" }
+parsers_sv2 = { path = "../protocols/v2/parsers-sv2", version = "^0.1.0" }
+handlers_sv2 = { path = "../protocols/v2/handlers-sv2", version = "^0.2.0" }
+channels_sv2 = { path = "../protocols/v2/channels-sv2", version = "^2.0.0" }
+roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2", version = "5.0.0" }
+common_messages_sv2 = { path = "../protocols/v2/subprotocols/common-messages", version = "^6.0.0" }
+mining_sv2 = { path = "../protocols/v2/subprotocols/mining", version = "^5.0.0" }
+template_distribution_sv2 = { path = "../protocols/v2/subprotocols/template-distribution", version = "^4.0.0" }
+job_declaration_sv2 = { path = "../protocols/v2/subprotocols/job-declaration", version = "^5.0.0" }
+sv1_api = { path = "../protocols/v1", version = "^2.1.0", optional = true }
+stratum_translation = { path = "../protocols/stratum-translation", version = "^0.1.0", optional = true }
+
+[features]
+with_buffer_pool = [
+    "binary_sv2/with_buffer_pool",
+    "framing_sv2/with_buffer_pool", 
+    "codec_sv2/with_buffer_pool"
+]
+sv1 = ["sv1_api"]
+translation = ["stratum_translation", "sv1"]

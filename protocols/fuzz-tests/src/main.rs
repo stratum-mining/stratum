@@ -2,8 +2,9 @@
 use libfuzzer_sys::fuzz_target;
 use binary_codec_sv2::{Seq064K,U256,B0255,Seq0255};
 use binary_codec_sv2::from_bytes;
-use codec_sv2::{StandardDecoder,Sv2Frame};
-use roles_logic_sv2::parsers::AnyMessage;
+use codec_sv2::StandardDecoder;
+use framing_sv2::framing::Sv2Frame;
+use parsers_sv2::AnyMessage;
 
 type F = Sv2Frame<AnyMessage<'static>,Vec<u8>>;
 

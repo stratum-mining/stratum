@@ -5,9 +5,8 @@ use crate::{
 };
 use async_channel::Sender;
 use std::net::SocketAddr;
-use stratum_common::roles_logic_sv2::{
-    codec_sv2::{StandardEitherFrame, Sv2Frame},
-    parsers_sv2::AnyMessage,
+use stratum_apps::stratum_core::{
+    codec_sv2::StandardEitherFrame, framing_sv2::framing::Sv2Frame, parsers_sv2::AnyMessage,
 };
 use tokio::net::TcpStream;
 
@@ -110,9 +109,10 @@ mod tests {
     use super::*;
     use crate::{start_template_provider, template_provider::DifficultyLevel};
     use std::{convert::TryInto, net::TcpListener};
-    use stratum_common::roles_logic_sv2::{
-        codec_sv2::{StandardEitherFrame, Sv2Frame},
+    use stratum_apps::stratum_core::{
+        codec_sv2::StandardEitherFrame,
         common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess, *},
+        framing_sv2::framing::Sv2Frame,
         parsers_sv2::CommonMessages,
     };
 

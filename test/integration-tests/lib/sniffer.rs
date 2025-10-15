@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use std::net::SocketAddr;
-use stratum_common::roles_logic_sv2::parsers_sv2::{message_type_to_name, AnyMessage};
+use stratum_apps::stratum_core::parsers_sv2::{message_type_to_name, AnyMessage};
 use tokio::{net::TcpStream, select};
 
 const DEFAULT_TIMEOUT: u64 = 60;
