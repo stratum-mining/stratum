@@ -1,6 +1,6 @@
 #!/bin/sh
 
-WORKSPACES="benches stratum-core protocols roles utils"
+WORKSPACES="stratum-core protocols roles utils"
 
 for workspace in $WORKSPACES; do
     echo "Executing clippy on: $workspace"
