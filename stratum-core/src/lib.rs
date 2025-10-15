@@ -21,7 +21,7 @@ pub use job_declaration_sv2;
 pub use mining_sv2;
 pub use noise_sv2;
 pub use parsers_sv2;
-pub use roles_logic_sv2;
+//pub use roles_logic_sv2;
 #[cfg(feature = "translation")]
 pub use stratum_translation;
 #[cfg(feature = "sv1")]

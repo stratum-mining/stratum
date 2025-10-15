@@ -437,17 +437,42 @@ checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
 
 [[package]]
 name = "binary_codec_sv2"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ad24342e0abdcc463ad6ad4ac7b0ec606122c11eddf92de186a657df0114eb7"
+
+[[package]]
+name = "binary_codec_sv2"
 version = "3.0.0"
 dependencies = [
- "buffer_sv2",
+ "buffer_sv2 2.0.0",
+]
+
+[[package]]
+name = "binary_codec_sv2"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d16415a0a9ccee2f71820da352c1f2a7f16d9f8e3ae6fb5e97834c6d732e98cd"
+dependencies = [
+ "buffer_sv2 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "binary_sv2"
 version = "4.0.0"
 dependencies = [
- "binary_codec_sv2",
- "derive_codec_sv2",
+ "binary_codec_sv2 3.0.0",
+ "derive_codec_sv2 1.1.1",
+]
+
+[[package]]
+name = "binary_sv2"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba8295945d51b707f3a49e17810dddef858549e2b52383c7f2c4dd036f6bc1e6"
+dependencies = [
+ "binary_codec_sv2 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "derive_codec_sv2 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -599,6 +624,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "buffer_sv2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19781425841d2e217eb7ded68089b693b47c8f756eb02231c92122dbf505bcf0"
+dependencies = [
+ "aes-gcm",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,15 +704,31 @@ dependencies = [
 
 [[package]]
 name = "channels_sv2"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11ac02b93b5bd92a7dda2bc4b8c9d1f087e1fffc8b1018b532109135629051fc"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoin",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "primitive-types",
+ "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing",
+]
+
+[[package]]
+name = "channels_sv2"
 version = "2.0.0"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
  "bitcoin",
- "common_messages_sv2",
- "job_declaration_sv2",
- "mining_sv2",
+ "common_messages_sv2 6.0.1",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
  "primitive-types",
- "template_distribution_sv2",
+ "template_distribution_sv2 4.0.1",
  "tracing",
 ]
 
@@ -762,12 +812,26 @@ checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
 
 [[package]]
 name = "codec_sv2"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01e6d43e79e66d0f98038922157db8b6101594921be87ac2cca3754d669f2a05"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "buffer_sv2 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand",
+ "tracing",
+]
+
+[[package]]
+name = "codec_sv2"
 version = "4.0.0"
 dependencies = [
- "binary_sv2",
- "buffer_sv2",
- "framing_sv2",
- "noise_sv2",
+ "binary_sv2 4.0.0",
+ "buffer_sv2 2.0.0",
+ "framing_sv2 5.0.1",
+ "noise_sv2 1.4.0",
  "rand",
  "tracing",
 ]
@@ -782,7 +846,16 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 name = "common_messages_sv2"
 version = "6.0.1"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "common_messages_sv2"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e6ec6ab527aeebf8ead273d6ab712ff181c050ee5e1082f3f6a2c65c0a10bf6"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -811,6 +884,18 @@ dependencies = [
  "serde_json",
  "toml",
  "yaml-rust2",
+]
+
+[[package]]
+name = "config_helpers_sv2"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ced3307b494a63dab36d0bec2b1e830b6568f53300aaa9516ac673a434e799ae"
+dependencies = [
+ "miniscript",
+ "serde",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -983,7 +1068,16 @@ dependencies = [
 name = "derive_codec_sv2"
 version = "1.1.1"
 dependencies = [
- "binary_codec_sv2",
+ "binary_codec_sv2 3.0.0",
+]
+
+[[package]]
+name = "derive_codec_sv2"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "924f288d967a5cd37956b195269ee7f710999169895cf670a736e1b2267d6137"
+dependencies = [
+ "binary_codec_sv2 1.2.0",
 ]
 
 [[package]]
@@ -1044,6 +1138,16 @@ dependencies = [
  "libc",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "error_handling"
+version = "1.0.0"
+
+[[package]]
+name = "error_handling"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfdf3be9049288001eb8a37f21b0f4e922598a6fa0098630fd3a6a14459ef217"
 
 [[package]]
 name = "event-listener"
@@ -1126,9 +1230,20 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "framing_sv2"
 version = "5.0.1"
 dependencies = [
- "binary_sv2",
- "buffer_sv2",
- "noise_sv2",
+ "binary_sv2 4.0.0",
+ "buffer_sv2 2.0.0",
+ "noise_sv2 1.4.0",
+]
+
+[[package]]
+name = "framing_sv2"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc6543955264144174b93780e0e76623ee4293037c9e180cfde3e2c155b59fa9"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "buffer_sv2 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1334,14 +1449,29 @@ dependencies = [
 
 [[package]]
 name = "handlers_sv2"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "472824f98b68a963dbf4c77625a8b5525c322abe49afa9403dfb816e35dd4d93"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trait-variant",
+]
+
+[[package]]
+name = "handlers_sv2"
 version = "0.2.0"
 dependencies = [
- "binary_sv2",
- "common_messages_sv2",
- "job_declaration_sv2",
- "mining_sv2",
- "parsers_sv2",
- "template_distribution_sv2",
+ "binary_sv2 4.0.0",
+ "common_messages_sv2 6.0.1",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
+ "parsers_sv2 0.1.1",
+ "template_distribution_sv2 4.0.1",
  "trait-variant",
 ]
 
@@ -1644,6 +1774,7 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
+ "key-utils 1.2.0",
  "serde",
  "stratum-apps",
  "tokio",
@@ -1655,15 +1786,29 @@ name = "jd_server"
 version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoin",
  "clap",
+ "codec_sv2 3.0.1",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "config",
+ "config_helpers_sv2",
+ "error_handling 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.11.2",
  "hex",
+ "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "key-utils 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "network_helpers_sv2",
  "nohash-hasher",
+ "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand",
+ "roles_logic_sv2 5.0.0",
+ "rpc_sv2",
  "serde",
  "serde_json",
- "stratum-apps",
  "tokio",
  "tracing",
 ]
@@ -1672,7 +1817,16 @@ dependencies = [
 name = "job_declaration_sv2"
 version = "5.0.1"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "job_declaration_sv2"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8d4edc436d29e8dcac178539222de2b3681d629f9884191bd7db8831e49dd24"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1693,6 +1847,31 @@ checksum = "96b0db21af676c1ce64250b5f40f3ce2cf27e4e47cb91ed91eb6fe9350b430c1"
 dependencies = [
  "pest",
  "pest_derive",
+ "serde",
+]
+
+[[package]]
+name = "key-utils"
+version = "1.2.0"
+dependencies = [
+ "bs58",
+ "generic-array",
+ "rand",
+ "rustversion",
+ "secp256k1 0.28.2",
+ "serde",
+]
+
+[[package]]
+name = "key-utils"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffe8551792fd4461e519fdfd8b8f334d1bf480250786fd202baf418854ff7130"
+dependencies = [
+ "bs58",
+ "rand",
+ "rustversion",
+ "secp256k1 0.28.2",
  "serde",
 ]
 
@@ -1780,16 +1959,29 @@ version = "0.1.3"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion",
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoin",
+ "buffer_sv2 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap",
+ "codec_sv2 3.0.1",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "config_helpers_sv2",
  "criterion",
+ "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
  "half",
+ "key-utils 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "network_helpers_sv2",
+ "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-format",
  "num_cpus",
+ "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "primitive-types",
  "rand",
+ "roles_logic_sv2 5.0.0",
+ "rpc_sv2",
  "sha2 0.10.9",
- "stratum-apps",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1799,7 +1991,16 @@ dependencies = [
 name = "mining_sv2"
 version = "5.0.1"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "mining_sv2"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1eb3c055232f64d36e3eee4296adcaa584fb3185a57e0de11ad5807766c45edc"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1833,6 +2034,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "network_helpers_sv2"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05d720d6a31532fb4f08e59b71669084d06462f42e9d2c2aede7368d221d36db"
+dependencies = [
+ "async-channel 1.9.0",
+ "codec_sv2 3.0.1",
+ "futures",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1845,6 +2059,19 @@ dependencies = [
  "aes-gcm",
  "chacha20poly1305",
  "generic-array",
+ "rand",
+ "rand_chacha",
+ "secp256k1 0.28.2",
+]
+
+[[package]]
+name = "noise_sv2"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30964f9fbc4572bb5a1b0046176331d20e9ce6de0ca18afc3cfd42c6e91a94aa"
+dependencies = [
+ "aes-gcm",
+ "chacha20poly1305",
  "rand",
  "rand_chacha",
  "secp256k1 0.28.2",
@@ -2002,12 +2229,26 @@ dependencies = [
 name = "parsers_sv2"
 version = "0.1.1"
 dependencies = [
- "binary_sv2",
- "common_messages_sv2",
- "framing_sv2",
- "job_declaration_sv2",
- "mining_sv2",
- "template_distribution_sv2",
+ "binary_sv2 4.0.0",
+ "common_messages_sv2 6.0.1",
+ "framing_sv2 5.0.1",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
+ "template_distribution_sv2 4.0.1",
+]
+
+[[package]]
+name = "parsers_sv2"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "109e80bc77241a729f61cad15f3f246f3de12e1b741b31e419fc7e02f20c2ccb"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2150,6 +2391,8 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
+ "error_handling 1.0.0",
+ "key-utils 1.2.0",
  "rand",
  "secp256k1 0.28.2",
  "serde",
@@ -2281,22 +2524,46 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "5.0.0"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7241840512841396df29ede2094619ad06cbbd1a0dc342553c7a5901506d096b"
 dependencies = [
- "binary_sv2",
  "bitcoin",
  "chacha20poly1305",
- "channels_sv2",
- "codec_sv2",
- "common_messages_sv2",
- "handlers_sv2",
+ "channels_sv2 1.0.2",
+ "codec_sv2 3.0.1",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "handlers_sv2 0.1.0",
  "hex-conservative 0.3.0",
- "job_declaration_sv2",
- "mining_sv2",
+ "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "nohash-hasher",
- "parsers_sv2",
+ "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "primitive-types",
- "template_distribution_sv2",
+ "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing",
+]
+
+[[package]]
+name = "roles_logic_sv2"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88850ead16993f86cb4616d154ddd37b9c0d739ea23711b1cc51f40484e0e39a"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcoin",
+ "chacha20poly1305",
+ "channels_sv2 1.0.2",
+ "codec_sv2 3.0.1",
+ "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "handlers_sv2 0.1.0",
+ "hex-conservative 0.3.0",
+ "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nohash-hasher",
+ "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "primitive-types",
+ "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
 
@@ -2310,6 +2577,22 @@ dependencies = [
  "bitflags 2.9.4",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "rpc_sv2"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af9b3a6c43d03c5cc6ca9f40797cbf17a9a30b8db236be6c87f5243bd404d6af"
+dependencies = [
+ "base64 0.21.7",
+ "hex",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "stratum-common",
 ]
 
 [[package]]
@@ -2614,12 +2897,14 @@ dependencies = [
  "bs58",
  "clap",
  "config",
+ "error_handling 1.0.0",
  "futures",
  "generic-array",
  "hex",
  "http-body-util",
  "hyper",
  "hyper-util",
+ "key-utils 1.2.0",
  "miniscript",
  "rand",
  "rustversion",
@@ -2634,34 +2919,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "stratum-common"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77b7dc7a762d19aba6f355599a61440b29603ceece5a158914888691b9867ebe"
+dependencies = [
+ "roles_logic_sv2 4.0.0",
+]
+
+[[package]]
 name = "stratum-core"
 version = "0.1.0"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
  "bitcoin",
- "buffer_sv2",
- "channels_sv2",
- "codec_sv2",
- "common_messages_sv2",
- "framing_sv2",
- "handlers_sv2",
- "job_declaration_sv2",
- "mining_sv2",
- "noise_sv2",
- "parsers_sv2",
- "roles_logic_sv2",
+ "buffer_sv2 2.0.0",
+ "channels_sv2 2.0.0",
+ "codec_sv2 4.0.0",
+ "common_messages_sv2 6.0.1",
+ "framing_sv2 5.0.1",
+ "handlers_sv2 0.2.0",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
+ "noise_sv2 1.4.0",
+ "parsers_sv2 0.1.1",
  "stratum_translation",
  "sv1_api",
- "template_distribution_sv2",
+ "template_distribution_sv2 4.0.1",
 ]
 
 [[package]]
 name = "stratum_translation"
 version = "0.1.0"
 dependencies = [
- "binary_sv2",
- "channels_sv2",
- "mining_sv2",
+ "binary_sv2 4.0.0",
+ "channels_sv2 2.0.0",
+ "mining_sv2 5.0.1",
  "sv1_api",
  "tracing",
 ]
@@ -2682,7 +2975,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 name = "sv1_api"
 version = "2.1.1"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
  "bitcoin_hashes 0.3.2",
  "byteorder",
  "hex",
@@ -2744,7 +3037,16 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "template_distribution_sv2"
 version = "4.0.1"
 dependencies = [
- "binary_sv2",
+ "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "template_distribution_sv2"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6298fc9f339b1c3b654ef3590857d5d3eff6d709891f003b7f7a701b8a64a3a4"
+dependencies = [
+ "binary_sv2 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2995,6 +3297,7 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
+ "key-utils 1.2.0",
  "serde",
  "serde_json",
  "sha2 0.10.9",

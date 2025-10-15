@@ -22,37 +22,33 @@ use super::{
     error::JdsError, mempool::JDsMempool, status, EitherFrame, JobDeclaratorServerConfig, StdFrame,
 };
 use async_channel::{Receiver, Sender};
+use binary_sv2::{self, B0255, U256};
+use bitcoin::{
+    block::{Header, Version},
+    consensus::{deserialize, encode::serialize},
+    hashes::{sha256d::Hash as DHash, Hash},
+    Amount, Block, BlockHash, CompactTarget, Transaction, TxOut, Txid,
+};
+use codec_sv2::HandshakeRole;
+use common_messages_sv2::{
+    Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+};
 use core::panic;
+use error_handling::handle_result;
+use job_declaration_sv2::{DeclareMiningJob, PushSolution};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
+use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
+use noise_sv2::Responder;
+use parsers_sv2::{AnyMessage as JdsMessages, JobDeclaration};
+use roles_logic_sv2::{
+    handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
+    utils::Mutex,
+};
 use std::{
     collections::HashMap,
     convert::TryInto,
     sync::{atomic::AtomicU32, Arc},
-};
-use stratum_apps::{
-    handle_result,
-    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService},
-    network_helpers::noise_connection::Connection,
-    stratum_core::{
-        binary_sv2::{self, B0255, U256},
-        bitcoin::{
-            block::{Header, Version},
-            consensus::{deserialize, encode::serialize},
-            hashes::{sha256d::Hash as DHash, Hash},
-            Amount, Block, BlockHash, CompactTarget, Transaction, TxOut, Txid,
-        },
-        codec_sv2::HandshakeRole,
-        common_messages_sv2::{
-            Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
-        },
-        job_declaration_sv2::{DeclareMiningJob, PushSolution},
-        noise_sv2::Responder,
-        parsers_sv2::{AnyMessage as JdsMessages, JobDeclaration},
-        roles_logic_sv2::{
-            handlers::job_declaration::{ParseJobDeclarationMessagesFromDownstream, SendTo},
-            utils::Mutex,
-        },
-    },
 };
 use tokio::{net::TcpListener, time::Duration};
 use tracing::{debug, error, info};
@@ -277,7 +273,7 @@ impl JobDeclaratorDownstream {
     /// Wraps the message into a `StdFrame` and sends it through the established channel.
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: stratum_apps::stratum_core::parsers_sv2::JobDeclaration<'static>,
+        message: parsers_sv2::JobDeclaration<'static>,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = JdsMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();

@@ -6,8 +6,8 @@
 //! The actual task orchestration and shutdown logic are managed in `lib/mod.rs`.
 mod args;
 use args::process_cli_args;
+use config_helpers_sv2::logging::init_logging;
 use jd_server::JobDeclaratorServer;
-use stratum_apps::config_helpers::logging::init_logging;
 use tracing::error;
 
 /// Entrypoint for the Job Declarator Server binary.
