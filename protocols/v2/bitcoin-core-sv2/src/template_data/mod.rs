@@ -5,7 +5,7 @@ use bitcoin_capnp::{
     proxy_capnp::thread::Client as ThreadIpcClient,
 };
 use error::TemplateDataError;
-use roles_logic_sv2::bitcoin::{
+use stratum_core::bitcoin::{
     Target, Transaction, TxOut,
     amount::{Amount, CheckedSum},
     block::{Block, Header, Version},

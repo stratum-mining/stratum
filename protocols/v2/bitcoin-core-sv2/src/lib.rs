@@ -19,7 +19,7 @@ use bitcoin_capnp::{
 use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
 use error::BitcoinCoreSv2Error;
 use parsers_sv2::TemplateDistribution;
-use roles_logic_sv2::bitcoin::{block::Block, consensus::deserialize};
+use stratum_core::bitcoin::{block::Block, consensus::deserialize};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},

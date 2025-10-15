@@ -20,4 +20,4 @@ async-channel = "1.5.1"
 template_distribution_sv2 = { path = "../subprotocols/template-distribution", version = "^4.0.0" }
 binary_sv2 = { path = "../binary-sv2", version = "^4.0.0" }
 parsers_sv2 = { path = "../parsers-sv2", version = "^0.1.0" }
-roles_logic_sv2 = { path = "../roles-logic-sv2", version = "^4.0.0" }
+stratum-core = { path = "../../../stratum-core", version = "^0.1.0" }

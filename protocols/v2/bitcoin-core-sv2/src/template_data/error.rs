@@ -1,4 +1,4 @@
-use roles_logic_sv2::bitcoin::{
+use stratum_core::bitcoin::{
     block::ValidationError, consensus::encode::Error as ConsensusEncodeError,
 };
 

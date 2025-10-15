@@ -17,7 +17,7 @@ use std::path::Path;
 use async_channel::unbounded;
 use binary_sv2::U256;
 use parsers_sv2::TemplateDistribution;
-use roles_logic_sv2::bitcoin::{
+use stratum_core::bitcoin::{
     CompactTarget, Sequence,
     absolute::LockTime,
     block::{Block, Header, Version as BlockVersion},
