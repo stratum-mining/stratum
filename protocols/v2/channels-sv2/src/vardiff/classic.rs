@@ -1,5 +1,5 @@
 use crate::target::hash_rate_from_target;
-use mining_sv2::Target;
+use bitcoin::Target;
 use tracing::debug;
 
 /// Default minimum hashrate (H/s) if not specified.
@@ -127,7 +127,7 @@ impl Vardiff for VardiffState {
         );
 
         let mut new_hashrate = match hash_rate_from_target(
-            target.clone().into(),
+            target.to_le_bytes().into(),
             realized_share_per_min,
         ) {
             Ok(hashrate) => hashrate as f32,

@@ -3,12 +3,13 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::Sender;
+use bitcoin::Target;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
         channels_sv2::{target::hash_rate_to_target, Vardiff},
-        mining_sv2::{SetTarget, Target, UpdateChannel},
+        mining_sv2::{SetTarget, UpdateChannel},
         parsers_sv2::Mining,
         stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target,
         sv1_api::json_rpc,
@@ -149,8 +150,8 @@ impl DifficultyManager {
                                 d.hashrate.unwrap(), /* It's safe to unwrap because we know that
                                                       * the downstream has a hashrate (we are
                                                       * doing vardiff) */
-                                d.target.clone(),
-                                d.upstream_target.clone(),
+                                d.target,
+                                d.upstream_target,
                             ))
                         })
                     })
@@ -170,7 +171,7 @@ impl DifficultyManager {
                 // Calculate new target based on new hashrate
                 let new_target: Target =
                     match hash_rate_to_target(new_hashrate as f64, self.shares_per_minute as f64) {
-                        Ok(target) => target.into(),
+                        Ok(target) => target,
                         Err(e) => {
                             error!(
                                 "Failed to calculate target for hashrate {}: {:?}",
@@ -184,14 +185,14 @@ impl DifficultyManager {
                 _ = sv1_server_data.safe_lock(|dmap| {
                     if let Some(d) = dmap.downstreams.get(downstream_id) {
                         _ = d.downstream_data.safe_lock(|d| {
-                            d.set_pending_target(new_target.clone());
+                            d.set_pending_target(new_target);
                             d.set_pending_hashrate(Some(new_hashrate));
                         });
                     }
                 });
 
                 // All updates will be sent as UpdateChannel messages
-                all_updates.push((*downstream_id, channel_id, new_target.clone(), new_hashrate));
+                all_updates.push((*downstream_id, channel_id, new_target, new_hashrate));
 
                 // Determine if we should send set_difficulty immediately or wait
                 match upstream_target {
@@ -203,11 +204,7 @@ impl DifficultyManager {
                                 "✅ Target comparison: new_target ({:?}) >= upstream_target ({:?}) for downstream {}, will send set_difficulty immediately",
                                 new_target, upstream_target, downstream_id
                             );
-                            immediate_updates.push((
-                                channel_id,
-                                Some(*downstream_id),
-                                new_target.clone(),
-                            ));
+                            immediate_updates.push((channel_id, Some(*downstream_id), new_target));
                         } else {
                             // Case 2: new_target < upstream_target, delay set_difficulty until
                             // SetTarget
@@ -219,7 +216,7 @@ impl DifficultyManager {
                             sv1_server_data.super_safe_lock(|data| {
                                 data.pending_target_updates.push(PendingTargetUpdate {
                                     downstream_id: *downstream_id,
-                                    new_target: new_target.clone(),
+                                    new_target,
                                     new_hashrate,
                                 });
                             });
@@ -231,11 +228,7 @@ impl DifficultyManager {
                             "No upstream target set for downstream {}, will send set_difficulty immediately",
                             downstream_id
                         );
-                        immediate_updates.push((
-                            channel_id,
-                            Some(*downstream_id),
-                            new_target.clone(),
-                        ));
+                        immediate_updates.push((channel_id, Some(*downstream_id), new_target));
                     }
                 }
             }
@@ -295,7 +288,7 @@ impl DifficultyManager {
                         .map(|downstream| {
                             downstream.downstream_data.super_safe_lock(|d| {
                                 // Use pending_target if available, otherwise current target
-                                d.pending_target.as_ref().unwrap_or(&d.target).clone()
+                                *d.pending_target.as_ref().unwrap_or(&d.target)
                             })
                         })
                         .min()
@@ -320,7 +313,7 @@ impl DifficultyManager {
                 let update_channel = UpdateChannel {
                     channel_id: *channel_id,
                     nominal_hash_rate: total_hashrate,
-                    maximum_target: min_target.clone().into(),
+                    maximum_target: min_target.to_le_bytes().into(),
                 };
 
                 debug!(
@@ -343,7 +336,7 @@ impl DifficultyManager {
                 let update_channel = UpdateChannel {
                     channel_id: *channel_id,
                     nominal_hash_rate: *new_hashrate,
-                    maximum_target: new_target.clone().into(),
+                    maximum_target: new_target.to_le_bytes().into(),
                 };
 
                 debug!(
@@ -376,7 +369,8 @@ impl DifficultyManager {
         sv1_server_to_downstream_sender: &broadcast::Sender<(u32, Option<u32>, json_rpc::Message)>,
         is_aggregated: bool,
     ) {
-        let new_upstream_target: Target = set_target.maximum_target.clone().into();
+        let new_upstream_target =
+            Target::from_le_bytes(set_target.maximum_target.inner_as_ref().try_into().unwrap());
         debug!(
             "Received SetTarget for channel {}: new_upstream_target = {:?}",
             set_target.channel_id, new_upstream_target
@@ -422,7 +416,7 @@ impl DifficultyManager {
             _ = sv1_server_data.safe_lock(|data| {
                 if let Some(downstream) = data.downstreams.get(&downstream_id) {
                     _ = downstream.downstream_data.safe_lock(|d| {
-                        d.set_upstream_target(new_upstream_target.clone());
+                        d.set_upstream_target(new_upstream_target);
                     });
                 }
             });
@@ -476,7 +470,7 @@ impl DifficultyManager {
             _ = sv1_server_data.safe_lock(|data| {
                 if let Some(downstream) = data.downstreams.get(&downstream_id) {
                     _ = downstream.downstream_data.safe_lock(|d| {
-                        d.set_upstream_target(new_upstream_target.clone());
+                        d.set_upstream_target(new_upstream_target);
                     });
                 }
             });
@@ -557,7 +551,7 @@ impl DifficultyManager {
             if let Some(channel_id) = channel_id {
                 // Send set_difficulty message
                 if let Ok(set_difficulty_msg) =
-                    build_sv1_set_difficulty_from_sv2_target(pending_update.new_target.clone())
+                    build_sv1_set_difficulty_from_sv2_target(pending_update.new_target)
                 {
                     if let Err(e) = sv1_server_to_downstream_sender.send((
                         channel_id,
@@ -616,7 +610,7 @@ impl DifficultyManager {
                     .map(|downstream| {
                         downstream.downstream_data.super_safe_lock(|d| {
                             // Use pending_target if available, otherwise current target
-                            d.pending_target.as_ref().unwrap_or(&d.target).clone()
+                            *d.pending_target.as_ref().unwrap_or(&d.target)
                         })
                     })
                     .min();
@@ -633,7 +627,7 @@ impl DifficultyManager {
             let update_channel = UpdateChannel {
                 channel_id,
                 nominal_hash_rate: total_hashrate,
-                maximum_target: min_target.clone().into(),
+                maximum_target: min_target.to_le_bytes().into(),
             };
 
             if let Err(e) = channel_manager_sender
@@ -742,7 +736,7 @@ mod tests {
     #[test]
     fn test_get_pending_difficulty_updates_basic() {
         let sv1_server_data = create_test_sv1_server_data();
-        let upstream_target: Target = hash_rate_to_target(150.0, 5.0).unwrap().into();
+        let upstream_target: Target = hash_rate_to_target(150.0, 5.0).unwrap();
 
         // Test with empty pending updates
         let applicable_updates = DifficultyManager::get_pending_difficulty_updates(

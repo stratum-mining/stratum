@@ -1746,6 +1746,7 @@ name = "jd_client_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
+ "bitcoin",
  "clap",
  "config",
  "serde",
@@ -2333,6 +2334,7 @@ name = "pool_sv2"
 version = "0.2.0"
 dependencies = [
  "async-channel 1.9.0",
+ "bitcoin",
  "clap",
  "config",
  "rand",
@@ -2893,6 +2895,7 @@ name = "stratum_translation"
 version = "0.1.1"
 dependencies = [
  "binary_sv2 5.0.0",
+ "bitcoin",
  "channels_sv2 2.0.1",
  "mining_sv2 5.0.2",
  "sv1_api",
@@ -3235,6 +3238,7 @@ name = "translator_sv2"
 version = "2.0.0"
 dependencies = [
  "async-channel 1.9.0",
+ "bitcoin",
  "clap",
  "config",
  "serde",

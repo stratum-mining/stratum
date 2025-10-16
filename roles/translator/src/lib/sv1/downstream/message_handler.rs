@@ -67,7 +67,7 @@ impl IsServer<'static> for DownstreamData {
             );
             let is_valid_share = validate_sv1_share(
                 request,
-                self.target.clone(),
+                self.target,
                 self.extranonce1.clone(),
                 self.version_rolling_mask.clone(),
                 self.sv1_server_data.clone(),

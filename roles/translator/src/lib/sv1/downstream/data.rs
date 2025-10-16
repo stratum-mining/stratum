@@ -1,13 +1,11 @@
+use bitcoin::Target;
 use std::{
     cell::RefCell,
     sync::{atomic::AtomicBool, Arc},
 };
 use stratum_apps::{
     custom_mutex::Mutex,
-    stratum_core::{
-        mining_sv2::Target,
-        sv1_api::{json_rpc, utils::HexU32Be},
-    },
+    stratum_core::sv1_api::{json_rpc, utils::HexU32Be},
 };
 use tracing::debug;
 
@@ -89,7 +87,7 @@ impl DownstreamData {
     }
 
     pub fn set_upstream_target(&mut self, upstream_target: Target) {
-        self.upstream_target = Some(upstream_target.clone());
+        self.upstream_target = Some(upstream_target);
         debug!(
             "Downstream {}: Set upstream target to {:?}",
             self.downstream_id, upstream_target

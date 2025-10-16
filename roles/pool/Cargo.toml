@@ -17,6 +17,7 @@ name = "pool_sv2"
 path = "src/lib/mod.rs"
 
 [dependencies]
+bitcoin = "0.32.5"
 stratum-apps = { path = "../stratum-apps", features = ["pool"] }
 async-channel = "1.5.1"
 rand = "0.8.4"

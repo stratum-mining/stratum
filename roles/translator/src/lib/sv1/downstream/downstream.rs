@@ -10,15 +10,13 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
+use bitcoin::Target;
 use std::sync::Arc;
 use stratum_apps::{
     custom_mutex::Mutex,
-    stratum_core::{
-        mining_sv2::Target,
-        sv1_api::{
-            json_rpc::{self, Message},
-            server_to_client, IsServer,
-        },
+    stratum_core::sv1_api::{
+        json_rpc::{self, Message},
+        server_to_client, IsServer,
     },
 };
 use tokio::sync::{broadcast, mpsc};

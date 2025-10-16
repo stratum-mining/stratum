@@ -47,17 +47,16 @@ use crate::{
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
-    target::{bytes_to_hex, hash_rate_to_target, target_to_difficulty, u256_to_block_hash},
+    target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
-use binary_sv2::{self};
 use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
     transaction::TxOut,
-    CompactTarget, Target as BitcoinTarget,
+    CompactTarget, Target,
 };
-use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended, Target};
+use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
@@ -204,17 +203,17 @@ where
         pool_tag: Option<String>,
         miner_tag: Option<String>,
     ) -> Result<Self, ExtendedChannelError> {
-        let target_u256 =
+        let target =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
-                Ok(target_u256) => target_u256,
+                Ok(target) => target,
                 Err(_) => {
                     return Err(ExtendedChannelError::InvalidNominalHashrate);
                 }
             };
 
-        let target: Target = target_u256.clone().into();
-
         if target > max_target {
+            println!("target: {:?}", target.to_be_bytes());
+            println!("max_target: {:?}", max_target.to_be_bytes());
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
         }
 
@@ -359,35 +358,33 @@ where
         new_nominal_hashrate: f32,
         requested_max_target: Option<Target>,
     ) -> Result<(), ExtendedChannelError> {
-        let target_u256 = match hash_rate_to_target(
+        let target = match hash_rate_to_target(
             new_nominal_hashrate.into(),
             self.expected_share_per_minute.into(),
         ) {
-            Ok(target_u256) => target_u256,
+            Ok(target) => target,
             Err(_) => {
                 return Err(ExtendedChannelError::InvalidNominalHashrate);
             }
         };
 
         let requested_max_target = match requested_max_target {
-            Some(ref requested_max_target) => requested_max_target.clone(),
-            None => self.requested_max_target.clone(),
+            Some(ref requested_max_target) => requested_max_target,
+            None => &self.requested_max_target,
         };
 
         // debug hex of target_u256 and max_Target
         // just like in share validation
-        let mut target_bytes = target_u256.to_vec();
-        target_bytes.reverse(); // Convert to big-endian for display
-        let max_target_u256: binary_sv2::U256 = requested_max_target.clone().into();
-        let mut max_target_bytes = max_target_u256.to_vec();
-        max_target_bytes.reverse(); // Convert to big-endian for display
+        // big-endian for display
+        let target_bytes = target.to_be_bytes();
+        let max_target = requested_max_target;
+        let max_target_bytes = max_target.to_be_bytes();
 
         // Get the old target for comparison on the debug log
         // Not really needed for the actual method functionality
         // But it's useful to have for debugging purposes
-        let old_target_u256: binary_sv2::U256 = self.target.clone().into();
-        let mut old_target_bytes = old_target_u256.to_vec();
-        old_target_bytes.reverse(); // Convert to big-endian for display
+        let old_target = self.target;
+        let old_target_bytes = old_target.to_be_bytes();
 
         debug!(
             "updating channel target \nold target:\t{}\nnew target:\t{}\nmax_target:\t{}",
@@ -396,15 +393,15 @@ where
             bytes_to_hex(&max_target_bytes)
         );
 
-        let new_target: Target = target_u256.into();
+        let new_target: Target = target;
 
-        if new_target > requested_max_target {
+        if new_target > *requested_max_target {
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
         }
 
         self.nominal_hashrate = new_nominal_hashrate;
         self.target = new_target;
-        self.requested_max_target = requested_max_target;
+        self.requested_max_target = *requested_max_target;
 
         Ok(())
     }
@@ -657,22 +654,18 @@ where
         // convert the header hash to a target type for easy comparison
         let hash = header.block_hash();
         let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let hash_as_target: Target = raw_hash.into();
-        let hash_as_diff = target_to_difficulty(hash_as_target.clone());
+        let block_hash_target = Target::from_le_bytes(raw_hash);
+        let hash_as_diff = block_hash_target.difficulty_float();
 
-        let network_target = BitcoinTarget::from_compact(nbits);
+        let network_target = Target::from_compact(nbits);
 
         // print hash_as_target and self.target as human readable hex
-        let hash_as_u256: binary_sv2::U256 = hash_as_target.clone().into();
-        let mut hash_bytes = hash_as_u256.to_vec();
-        hash_bytes.reverse(); // Convert to big-endian for display
-        let target_u256: binary_sv2::U256 = self.target.clone().into();
-        let mut target_bytes = target_u256.to_vec();
-        target_bytes.reverse(); // Convert to big-endian for display
+        let block_hash_target_bytes = block_hash_target.to_be_bytes();
+        let target_bytes = self.target.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&hash_bytes),
+            bytes_to_hex(&block_hash_target_bytes),
             bytes_to_hex(&target_bytes),
             format!("{:x}", network_target)
         );
@@ -680,7 +673,7 @@ where
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -705,13 +698,13 @@ where
         }
 
         // check if the share hash meets the channel target
-        if hash_as_target <= self.target {
+        if block_hash_target <= self.target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -752,8 +745,8 @@ mod tests {
         },
     };
     use binary_sv2::Sv2Option;
-    use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
-    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended, Target};
+    use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
+    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended};
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
@@ -771,7 +764,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
@@ -922,7 +915,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
@@ -1042,7 +1035,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
@@ -1120,7 +1113,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1.0;
         let version_rolling_allowed = true;
@@ -1229,7 +1222,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 100.0; // bigger hashrate to get higher difficulty
         let version_rolling_allowed = true;
@@ -1341,7 +1334,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0; // bigger hashrate to get higher difficulty
         let version_rolling_allowed = true;
@@ -1473,14 +1466,14 @@ mod tests {
         let job_store = DefaultJobStore::new();
 
         // this is the most permissive possible max_target
-        let max_target: Target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
 
         // Create a channel with initial hashrate
         let mut channel = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
-            max_target.clone(),
+            max_target,
             initial_hashrate,
             version_rolling_allowed,
             rollable_extranonce_size,
@@ -1498,7 +1491,7 @@ mod tests {
         // Update the channel with a new hashrate (higher)
         let new_hashrate = 100.0;
         channel
-            .update_channel(new_hashrate, Some(max_target.clone()))
+            .update_channel(new_hashrate, Some(max_target))
             .unwrap();
 
         // Get the new target after update
@@ -1513,7 +1506,7 @@ mod tests {
         assert_eq!(channel.get_nominal_hashrate(), new_hashrate);
 
         // Test invalid hashrate (negative)
-        let result = channel.update_channel(-1.0, Some(max_target.clone()));
+        let result = channel.update_channel(-1.0, Some(max_target));
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -1521,21 +1514,18 @@ mod tests {
         ));
 
         // Create a not so permissive max_target so we can test a target that exceeds it
-        let not_so_permissive_max_target: Target = [
+        let not_so_permissive_max_target = Target::from_le_bytes([
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
             0xff, 0xff, 0xff, 0x00,
-        ]
-        .into();
+        ]);
 
         // Try to update with a hashrate that would result in a target exceeding the max_target
         // new target: 2492492492492492492492492492492492492492492492492492492492492491
         // max target: 00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         let very_small_hashrate = 0.1;
-        let result = channel.update_channel(
-            very_small_hashrate,
-            Some(not_so_permissive_max_target.clone()),
-        );
+        let result =
+            channel.update_channel(very_small_hashrate, Some(not_so_permissive_max_target));
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -1558,7 +1548,7 @@ mod tests {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
         let extranonce_prefix = [0, 0, 0, 0, 0, 0, 0, 1].to_vec();
-        let max_target = [0xff; 32].into();
+        let max_target = Target::from_le_bytes([0xff; 32]);
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let version_rolling_allowed = true;

@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
+    target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
 use alloc::{format, string::String, vec, vec::Vec};
@@ -24,11 +24,11 @@ use bitcoin::{
     consensus::{serialize, Decodable},
     hashes::sha256d::Hash,
     transaction::Version,
-    CompactTarget, OutPoint, Sequence, Target as BitcoinTarget, Transaction, TxIn, TxOut, Witness,
+    CompactTarget, OutPoint, Sequence, Target, Transaction, TxIn, TxOut, Witness,
 };
 use mining_sv2::{
     NewExtendedMiningJob, SetCustomMiningJob, SetCustomMiningJobSuccess,
-    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended, Target,
+    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
 };
 use tracing::debug;
 
@@ -64,7 +64,7 @@ pub struct ExtendedChannel<'a> {
     user_identity: String,
     extranonce_prefix: Vec<u8>,
     rollable_extranonce_size: u16,
-    target: Target, // todo: try to use Target from rust-bitcoin
+    target: Target,
     nominal_hashrate: f32,
     version_rolling: bool,
     // future jobs are indexed with job_id (u32)
@@ -514,22 +514,18 @@ impl<'a> ExtendedChannel<'a> {
         // convert the header hash to a target type for easy comparison
         let hash = header.block_hash();
         let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let hash_as_target: Target = raw_hash.into();
-        let hash_as_diff = target_to_difficulty(hash_as_target.clone());
+        let block_hash_target = Target::from_le_bytes(raw_hash);
+        let hash_as_diff = block_hash_target.difficulty_float();
 
-        let network_target = BitcoinTarget::from_compact(nbits);
+        let network_target = Target::from_compact(nbits);
 
         // print hash_as_target and self.target as human readable hex
-        let hash_as_u256: binary_sv2::U256 = hash_as_target.clone().into();
-        let mut hash_bytes = hash_as_u256.to_vec();
-        hash_bytes.reverse(); // Convert to big-endian for display
-        let target_u256: binary_sv2::U256 = self.target.clone().into();
-        let mut target_bytes = target_u256.to_vec();
-        target_bytes.reverse(); // Convert to big-endian for display
+        let block_hash_target_bytes = block_hash_target.to_be_bytes();
+        let target_bytes = self.target.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&hash_bytes),
+            bytes_to_hex(&block_hash_target_bytes),
             bytes_to_hex(&target_bytes),
             format!("{:x}", network_target)
         );
@@ -537,7 +533,7 @@ impl<'a> ExtendedChannel<'a> {
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -545,13 +541,13 @@ impl<'a> ExtendedChannel<'a> {
         }
 
         // check if the share hash meets the channel target
-        if hash_as_target < self.target {
+        if block_hash_target < self.target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -573,6 +569,7 @@ mod tests {
         share_accounting::{ShareValidationError, ShareValidationResult},
     };
     use binary_sv2::Sv2Option;
+    use bitcoin::Target;
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
     };
@@ -587,7 +584,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = [0xff; 32].into();
+        let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
         let version_rolling = true;
         let rollable_extranonce_size = 4u16;
@@ -669,7 +666,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = [0xff; 32].into();
+        let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
         let version_rolling = true;
         let rollable_extranonce_size = 4u16;
@@ -742,7 +739,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = [0xff; 32].into();
+        let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
@@ -830,12 +827,11 @@ mod tests {
         ]
         .to_vec();
         // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
-        let target = [
+        let target = Target::from_be_bytes([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0xff, 0xff, 0x00, 0x00,
-        ]
-        .into();
+        ]);
         let nominal_hashrate = 1.0;
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
@@ -926,12 +922,11 @@ mod tests {
         ]
         .to_vec();
         // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
-        let target = [
+        let target = Target::from_le_bytes([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0xff, 0xff, 0x00, 0x00,
-        ]
-        .into();
+        ]);
         let nominal_hashrate = 1.0;
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;

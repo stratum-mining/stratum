@@ -400,7 +400,7 @@ impl ChannelManager {
                         downstream_id,
                         Mining::SetTarget(SetTarget {
                             channel_id,
-                            maximum_target: updated_target.clone().into(),
+                            maximum_target: updated_target.to_le_bytes().into(),
                         }),
                     )
                         .into(),
@@ -440,7 +440,7 @@ impl ChannelManager {
                             downstream_id,
                             Mining::SetTarget(SetTarget {
                                 channel_id,
-                                maximum_target: updated_target.clone().into(),
+                                maximum_target: updated_target.to_le_bytes().into(),
                             }),
                         )
                             .into(),

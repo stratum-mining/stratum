@@ -9,8 +9,9 @@
 //! - SV2 difficulty targets to SV1 set_difficulty messages
 
 use crate::error::{Result, StratumTranslationError};
-use channels_sv2::{bip141::try_strip_bip141, target::target_to_difficulty};
-use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget, Target};
+use bitcoin::Target;
+use channels_sv2::bip141::try_strip_bip141;
+use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget};
 use tracing::debug;
 use v1::{
     json_rpc, server_to_client,
@@ -100,7 +101,14 @@ pub fn build_sv1_notify_from_sv2(
 pub fn build_sv1_set_difficulty_from_sv2_set_target(
     set_target: SetTarget<'_>,
 ) -> Result<json_rpc::Message> {
-    build_sv1_set_difficulty_from_sv2_target(set_target.maximum_target.into())
+    build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(
+        set_target
+            .maximum_target
+            .clone()
+            .as_ref()
+            .try_into()
+            .unwrap(),
+    ))
 }
 
 /// Builds an SV1 `mining.set_difficulty` JSON-RPC message from an SV2 target.
@@ -111,7 +119,7 @@ pub fn build_sv1_set_difficulty_from_sv2_set_target(
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
 pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_rpc::Message> {
-    let value = target_to_difficulty(target);
+    let value = target.difficulty_float();
     let set_target = v1::methods::server_to_client::SetDifficulty { value };
     Ok(set_target.into())
 }
@@ -120,10 +128,11 @@ pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_r
 mod tests {
     use super::*;
     use binary_sv2::{Seq0255, Sv2Option, U256};
-    use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget as Sv2SetTarget, Target};
+    use bitcoin::Target;
+    use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget as Sv2SetTarget};
 
     fn dummy_target() -> Target {
-        [0xffu8; 32].into()
+        Target::from_le_bytes([0xffu8; 32])
     }
 
     #[test]
@@ -145,7 +154,7 @@ mod tests {
     fn test_build_sv1_set_difficulty_from_sv2_set_target() {
         let set_target = Sv2SetTarget {
             channel_id: 1,
-            maximum_target: dummy_target().into(),
+            maximum_target: dummy_target().to_le_bytes().into(),
         };
         let msg = build_sv1_set_difficulty_from_sv2_set_target(set_target)
             .expect("Should convert SetTarget to difficulty");

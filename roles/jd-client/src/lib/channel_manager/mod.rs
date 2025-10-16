@@ -8,6 +8,7 @@ use std::{
 };
 
 use async_channel::{Receiver, Sender};
+use bitcoin::Target;
 use stratum_apps::{
     custom_mutex::Mutex,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
@@ -33,7 +34,7 @@ use stratum_apps::{
             AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         },
         mining_sv2::{
-            ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, SetTarget, Target,
+            ExtendedExtranonce, OpenExtendedMiningChannel, SetCustomMiningJob, SetTarget,
             UpdateChannel, MAX_EXTRANONCE_LEN, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
             MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
         },
@@ -949,7 +950,7 @@ impl ChannelManager {
                         downstream_id,
                         Mining::SetTarget(SetTarget {
                             channel_id,
-                            maximum_target: updated_target.clone().into(),
+                            maximum_target: updated_target.to_le_bytes().into(),
                         }),
                     )
                         .into(),
@@ -989,7 +990,7 @@ impl ChannelManager {
                             downstream_id,
                             Mining::SetTarget(SetTarget {
                                 channel_id,
-                                maximum_target: updated_target.clone().into(),
+                                maximum_target: updated_target.to_le_bytes().into(),
                             }),
                         )
                             .into(),
@@ -1062,13 +1063,13 @@ impl ChannelManager {
 
                 if !messages.is_empty() {
                     let mut downstream_hashrate = 0.0;
-                    let mut min_target: Target = [0xff; 32].into();
+                    let mut min_target = [0xff; 32];
 
                     for (_, downstream) in channel_manager_data.downstream.iter() {
                         downstream.downstream_data.super_safe_lock(|data| {
                             let mut update_from_channel = |hashrate: f32, target: &Target| {
                                 downstream_hashrate += hashrate;
-                                min_target = std::cmp::min(target.clone(), min_target.clone());
+                                min_target = std::cmp::min(target.to_le_bytes(), min_target);
                             };
 
                             for (_, channel) in data.standard_channels.iter() {
