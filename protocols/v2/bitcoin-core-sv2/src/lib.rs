@@ -25,7 +25,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::Path,
     rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering},
 };
 use template_distribution_sv2::{
     CoinbaseOutputConstraints, RequestTransactionData, RequestTransactionDataError, SubmitSolution,
@@ -77,6 +77,10 @@ pub struct BitcoinCoreSv2 {
     mining_ipc_client: MiningIpcClient,
     current_template_ipc_client: Rc<RefCell<Option<BlockTemplateIpcClient>>>,
     current_prev_hash: Rc<RefCell<Option<U256<'static>>>>,
+    // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+    wait_next_request_counter: Rc<AtomicU8>,
+    // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+    coinbase_output_constraints_counter: Rc<AtomicU32>,
     template_data: Rc<RwLock<HashMap<u64, TemplateData>>>,
     stale_template_ids: Rc<RwLock<HashSet<u64>>>,
     template_id_factory: Rc<AtomicU64>,
@@ -150,6 +154,8 @@ impl BitcoinCoreSv2 {
             thread_map,
             thread_ipc_client,
             mining_ipc_client,
+            wait_next_request_counter: Rc::new(AtomicU8::new(0)),
+            coinbase_output_constraints_counter: Rc::new(AtomicU32::new(0)),
             template_id_factory: Rc::new(AtomicU64::new(0)),
             current_template_ipc_client: Rc::new(RefCell::new(None)),
             current_prev_hash: Rc::new(RefCell::new(None)),
@@ -199,6 +205,8 @@ impl BitcoinCoreSv2 {
 
                             let mut current_template_ipc_client_guard = self.current_template_ipc_client.borrow_mut();
                             *current_template_ipc_client_guard = Some(template_ipc_client);
+
+                            self.coinbase_output_constraints_counter.fetch_add(1, Ordering::SeqCst);
 
                             break;
                         }
@@ -277,6 +285,23 @@ impl BitcoinCoreSv2 {
 
         // block until the global cancellation token is activated
         self.global_cancellation_token.cancelled().await;
+
+        // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+        // wait until all waitNext requests are completed
+        let start_time = std::time::Instant::now();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tracing::info!("Waiting for waitNext requests to complete...");
+
+            let now = std::time::Instant::now();
+
+            tracing::debug!("wait_next_request_counter: {}", self.wait_next_request_counter.load(Ordering::SeqCst));
+
+            if self.wait_next_request_counter.load(Ordering::SeqCst) == 0 || now.duration_since(start_time).as_secs() > 50 {
+                tracing::info!("All waitNext requests completed (or timed out after 50 seconds)... finally ready to exit!");
+                break;
+            }
+        }
     }
 
     fn monitor_ipc_templates(&self) {
@@ -286,6 +311,7 @@ impl BitcoinCoreSv2 {
             // a dedicated thread_ipc_client is used for waitNext requests
             // this is because waitNext requests are blocking, and we don't want to block the main
             // thread where other requests are handled
+            // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
             let blocking_thread_ipc_client = {
                 let blocking_thread_ipc_client_request =
                     self_clone.thread_map.make_thread_request();
@@ -359,23 +385,36 @@ impl BitcoinCoreSv2 {
 
                 wait_next_request_options.set_fee_threshold(self_clone.fee_threshold as i64);
 
-                // 30 seconds timeout for waitNext requests
+                // 10 seconds timeout for waitNext requests
                 // please note that this is NOT how often we expect to get new templates
                 // it's just the max time we'll wait for the current waitNext request to complete
-                wait_next_request_options.set_timeout(30_000.0);
+                wait_next_request_options.set_timeout(10_000.0);
+
+                // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+                self_clone.wait_next_request_counter.fetch_add(1, Ordering::SeqCst);
+
+                // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+                let current_coinbase_output_constraints_count = self_clone.coinbase_output_constraints_counter.load(Ordering::SeqCst);
 
                 tokio::select! {
-                    _ = self_clone.global_cancellation_token.cancelled() => {
-                        tracing::warn!("Exiting mempool change monitoring loop");
-                        break;
-                    }
-                    _ = self_clone.template_ipc_client_cancellation_token.cancelled() => {
-                        tracing::debug!("template cancellation token activated");
-                        break;
-                    }
+                    // // todo: re-enable this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+                    // // and also cancel the wait_next_request
+                    // _ = self_clone.global_cancellation_token.cancelled() => {
+                    //     tracing::warn!("Exiting mempool change monitoring loop");
+                    //     break;
+                    // }
+                    // // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+                    // // and also cancel the wait_next_request
+                    // _ = self_clone.template_ipc_client_cancellation_token.cancelled() => {
+                    //     tracing::debug!("template cancellation token activated");
+                    //     break;
+                    // }
                     wait_next_request_response = wait_next_request.send().promise => {
                         match wait_next_request_response {
                             Ok(response) => {
+                                // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+                                self_clone.wait_next_request_counter.fetch_sub(1, Ordering::SeqCst);
+
                                 let result = match response.get() {
                                     Ok(result) => result,
                                     Err(e) => {
@@ -391,7 +430,17 @@ impl BitcoinCoreSv2 {
                                     Err(e) => {
                                         match e.kind {
                                             capnp::ErrorKind::MessageContainsNullCapabilityPointer => {
-                                                tracing::debug!("waitNext timed out (no mempool changes), continuing...");
+                                                tracing::debug!("waitNext timed out (no mempool changes)");
+
+                                                // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+                                                {
+                                                    let coinbase_output_constraints_count = self_clone.coinbase_output_constraints_counter.load(Ordering::SeqCst);
+                                                    let coinbase_output_constraints_changed = coinbase_output_constraints_count != current_coinbase_output_constraints_count;
+                                                    if self_clone.global_cancellation_token.is_cancelled() || coinbase_output_constraints_changed {
+                                                        break;
+                                                    }
+                                                }
+
                                                 continue; // Go back to the start of the loop
                                             }
                                             _ => {
@@ -604,6 +653,9 @@ impl BitcoinCoreSv2 {
         *current_template_ipc_client_guard = Some(template_ipc_client);
 
         self.template_ipc_client_cancellation_token = CancellationToken::new();
+
+        // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+        self.coinbase_output_constraints_counter.fetch_add(1, Ordering::SeqCst);
 
         self.monitor_ipc_templates();
 
