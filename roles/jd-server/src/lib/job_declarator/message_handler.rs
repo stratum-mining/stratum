@@ -1,15 +1,15 @@
-use roles_logic_sv2::bitcoin::{
+use binary_sv2::{Decodable, Serialize, U256};
+use bitcoin::{
     consensus::Decodable as BitcoinDecodable,
     hashes::{sha256d, Hash},
     Transaction, Txid,
 };
-use roles_logic_sv2::codec_sv2::binary_sv2::{Decodable, Serialize, U256};
-use roles_logic_sv2::job_declaration_sv2::{
+use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
     DeclareMiningJobSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     PushSolution,
 };
-use roles_logic_sv2::parsers_sv2::JobDeclaration;
+use parsers_sv2::JobDeclaration;
 use roles_logic_sv2::{
     errors::Error,
     handlers::{job_declaration::ParseJobDeclarationMessagesFromDownstream, SendTo_},
@@ -24,7 +24,7 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
 
 use super::{signed_token, TransactionState};
-use roles_logic_sv2::parsers_sv2::AnyMessage as AllMessages;
+use parsers_sv2::AnyMessage as AllMessages;
 use tracing::{debug, info};
 
 use super::JobDeclaratorDownstream;

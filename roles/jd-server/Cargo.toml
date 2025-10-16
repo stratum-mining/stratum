@@ -18,7 +18,18 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 stratum-apps = { path = "../stratum-apps", features = ["jd_server"] }
-roles_logic_sv2 = "4.0.0"
+roles_logic_sv2 = "5.0.0"
+binary_sv2 = "4.0.0"
+codec_sv2 = "3.0.1"
+framing_sv2 = "5.0.1"
+mining_sv2 = "5.0.1"
+noise_sv2 = "1.4.0"
+parsers_sv2 = "0.1.1"
+job_declaration_sv2 = "5.0.1"
+common_messages_sv2 = "6.0.1"
+network_helpers_sv2 = "4.0.1"
+rpc_sv2 = "1.1.1"
+bitcoin = "0.32.5"
 async-channel = "1.5.1"
 rand = "0.8.4"
 tokio = { version = "1.44.1", features = ["full"] }

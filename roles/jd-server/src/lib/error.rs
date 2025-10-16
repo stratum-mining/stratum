@@ -19,12 +19,12 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
+use binary_sv2;
+use codec_sv2;
+use framing_sv2;
+use noise_sv2;
+use parsers_sv2::Mining;
 use roles_logic_sv2;
-use roles_logic_sv2::codec_sv2;
-use roles_logic_sv2::codec_sv2::binary_sv2;
-use roles_logic_sv2::codec_sv2::framing_sv2;
-use roles_logic_sv2::codec_sv2::noise_sv2;
-use roles_logic_sv2::parsers_sv2::Mining;
 
 use crate::mempool::error::JdsMempoolError;
 

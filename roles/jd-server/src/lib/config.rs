@@ -16,8 +16,10 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use stratum_apps::config_helpers::CoinbaseRewardScript;
-use stratum_apps::key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use stratum_apps::{
+    config_helpers::CoinbaseRewardScript,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
+};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
@@ -173,8 +175,8 @@ impl CoreRpc {
 #[cfg(test)]
 mod tests {
     use super::super::JobDeclaratorServer;
+    use bitcoin::{self, Amount, ScriptBuf, TxOut};
     use ext_config::{Config, ConfigError, File, FileFormat};
-    use roles_logic_sv2::bitcoin::{self, Amount, ScriptBuf, TxOut};
     use std::path::PathBuf;
 
     use crate::config::JobDeclaratorServerConfig;
