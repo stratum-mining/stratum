@@ -34,14 +34,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh utils/buffer
 
-      - name: Publish crate error-handling
-        run: |
-          ./scripts/release-libs.sh utils/error-handling
-
-      - name: Publish crate key-utils
-        run: |
-          ./scripts/release-libs.sh utils/key-utils
-
       - name: Publish crate noise_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/noise-sv2
@@ -64,7 +56,7 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/framing-sv2
 
-      # codec_sv2 (depends on framing_sv2, noise_sv2, binary_sv2, buffer_sv2, key-utils)
+      # codec_sv2 (depends on framing_sv2, noise_sv2, binary_sv2, buffer_sv2)
       - name: Publish crate codec_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/codec-sv2

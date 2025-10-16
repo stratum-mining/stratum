@@ -29,8 +29,8 @@ macro_rules! handle_result {
                 // handle error
                 let res = crate::status::handle_error(&$sender, e.into()).await;
                 match res {
-                    error_handling::ErrorBranch::Break => break,
-                    error_handling::ErrorBranch::Continue => continue,
+                    $crate::error_handling::ErrorBranch::Break => break,
+                    $crate::error_handling::ErrorBranch::Continue => continue,
                 }
             }
         }

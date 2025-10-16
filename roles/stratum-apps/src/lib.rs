@@ -47,3 +47,14 @@ pub mod config_helpers;
 /// Originally from the `rpc_sv2` crate.
 #[cfg(feature = "rpc")]
 pub mod rpc;
+
+/// Key utilities for cryptographic operations
+///
+/// Provides Secp256k1 key management, serialization/deserialization, and signature services.
+/// Supports both standard and no_std environments.
+pub mod key_utils;
+
+/// Error handling utilities
+///
+/// Provides the `handle_result!` macro and error handling logic for Stratum applications.
+pub mod error_handling;

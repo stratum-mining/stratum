@@ -1,4 +1,3 @@
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
     net::SocketAddr,
@@ -7,6 +6,7 @@ use std::{
 };
 use stratum_apps::{
     config_helpers::CoinbaseRewardScript,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     stratum_core::bitcoin::{Amount, TxOut},
 };
 

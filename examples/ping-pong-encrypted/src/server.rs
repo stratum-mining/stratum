@@ -2,8 +2,8 @@ use crate::{
     error::Error,
     messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE},
 };
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_apps::{
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_connection::Connection,
     stratum_core::{
         binary_sv2,

@@ -12,7 +12,6 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 stratum-apps = { path = "../../roles/stratum-apps", features = ["network", "config"] }
-key-utils = { path = "../../utils/key-utils" }
 jd_client_sv2 = { path = "../../roles/jd-client" }
 jd_server = { path = "../../roles/jd-server" }
 mining_device = { path = "../../roles/test-utils/mining-device" }

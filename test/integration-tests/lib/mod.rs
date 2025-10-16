@@ -3,7 +3,6 @@ use corepc_node::{ConnectParams, CookieValues};
 use interceptor::InterceptAction;
 use jd_client_sv2::JobDeclaratorClient;
 use jd_server::JobDeclaratorServer;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use once_cell::sync::OnceCell;
 use pool_sv2::PoolSv2;
 use std::{
@@ -11,7 +10,10 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     time::Duration,
 };
-use stratum_apps::config_helpers::CoinbaseRewardScript;
+use stratum_apps::{
+    config_helpers::CoinbaseRewardScript,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
+};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use translator_sv2::TranslatorSv2;

@@ -18,8 +18,6 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 stratum-apps = { path = "../stratum-apps", features = ["jd_server"] }
-error_handling = { path = "../../utils/error-handling" }
-key-utils = { path = "../../utils/key-utils" }
 async-channel = "1.5.1"
 rand = "0.8.4"
 tokio = { version = "1.44.1", features = ["full"] }

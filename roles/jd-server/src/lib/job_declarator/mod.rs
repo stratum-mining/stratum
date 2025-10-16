@@ -23,8 +23,6 @@ use super::{
 };
 use async_channel::{Receiver, Sender};
 use core::panic;
-use error_handling::handle_result;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use nohash_hasher::BuildNoHashHasher;
 use std::{
     collections::HashMap,
@@ -32,6 +30,8 @@ use std::{
     sync::{atomic::AtomicU32, Arc},
 };
 use stratum_apps::{
+    handle_result,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService},
     network_helpers::noise_connection::Connection,
     stratum_core::{
         binary_sv2::{self, B0255, U256},

@@ -1,6 +1,6 @@
 use crate::messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE};
-use key_utils::Secp256k1PublicKey;
 use stratum_apps::{
+    key_utils::Secp256k1PublicKey,
     network_helpers::noise_connection::Connection,
     stratum_core::{
         binary_sv2,

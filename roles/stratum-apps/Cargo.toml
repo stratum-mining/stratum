@@ -15,10 +15,6 @@ keywords = ["stratum", "mining", "bitcoin", "protocol", "sv2"]
 # Core protocol layer
 stratum-core = { path = "../../stratum-core", version = "0.1.0" }
 
-# Utilities from utils/ directory
-key-utils = { path = "../../utils/key-utils", version = "1.2.0" }
-error_handling = { path = "../../utils/error-handling", version = "1.0.0" }
-
 # External dependencies needed by the modules
 # Network helpers dependencies
 async-channel = { version = "1.8.0" }
@@ -32,7 +28,14 @@ miniscript = { version = "12.3.4", default-features = false, features = ["no-std
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = { version = "0.1" }
 
-# RPC dependencies
+# Key utils dependencies
+bs58 = { version = "0.4.0", default-features = false, features = ["check", "alloc"] }
+secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "rand"] }
+rand = { version = "0.8.5", default-features = false }
+rustversion = "1.0"
+generic-array = "=0.14.7"
+
+# RPC optional dependencies
 serde_json = { version = "1.0", default-features = false, features = ["alloc", "raw_value"], optional = true }
 hex = { version = "0.4.3", optional = true }
 base64 = { version = "0.21.5", optional = true }
@@ -45,12 +48,13 @@ clap = { version = "4.5.39", features = ["derive"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 
 [features]
-default = ["network", "config"]
+default = ["network", "config", "std"]
 
 # Core module features
 network = ["tokio-util"]
 config = []
 rpc = ["serde_json", "hex", "base64", "hyper", "hyper-util", "http-body-util"]
+std = ["bs58/std", "secp256k1/rand-std", "rand/std", "rand/std_rng"]
 
 # Protocol features passed through to stratum-core
 sv1 = ["stratum-core/sv1", "stratum-core/translation", "tokio-util", "serde_json"]

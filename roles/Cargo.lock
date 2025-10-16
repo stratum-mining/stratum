@@ -1046,10 +1046,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "error_handling"
-version = "1.0.0"
-
-[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1648,7 +1644,6 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
- "key-utils",
  "serde",
  "stratum-apps",
  "tokio",
@@ -1662,10 +1657,8 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
- "error_handling",
  "hashbrown 0.11.2",
  "hex",
- "key-utils",
  "nohash-hasher",
  "rand",
  "serde",
@@ -1700,18 +1693,6 @@ checksum = "96b0db21af676c1ce64250b5f40f3ce2cf27e4e47cb91ed91eb6fe9350b430c1"
 dependencies = [
  "pest",
  "pest_derive",
- "serde",
-]
-
-[[package]]
-name = "key-utils"
-version = "1.2.0"
-dependencies = [
- "bs58",
- "generic-array",
- "rand",
- "rustversion",
- "secp256k1 0.28.2",
  "serde",
 ]
 
@@ -1803,7 +1784,6 @@ dependencies = [
  "criterion",
  "futures",
  "half",
- "key-utils",
  "num-format",
  "num_cpus",
  "primitive-types",
@@ -2170,8 +2150,6 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
- "error_handling",
- "key-utils",
  "rand",
  "secp256k1 0.28.2",
  "serde",
@@ -2633,16 +2611,19 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "base64 0.21.7",
+ "bs58",
  "clap",
  "config",
- "error_handling",
  "futures",
+ "generic-array",
  "hex",
  "http-body-util",
  "hyper",
  "hyper-util",
- "key-utils",
  "miniscript",
+ "rand",
+ "rustversion",
+ "secp256k1 0.28.2",
  "serde",
  "serde_json",
  "stratum-core",
@@ -3014,7 +2995,6 @@ dependencies = [
  "async-channel 1.9.0",
  "clap",
  "config",
- "key-utils",
  "serde",
  "serde_json",
  "sha2 0.10.9",

@@ -13,9 +13,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_apps::{
     config_helpers::CoinbaseRewardScript,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     stratum_core::bitcoin::{Amount, TxOut},
 };
 
