@@ -20,23 +20,8 @@ path = "src/lib/mod.rs"
 
 
 [dependencies]
-# Using published crates from crates.io
-rpc_sv2 = { version = "1.1.0" }
-config_helpers_sv2 = { version = "0.1.0" }
-network_helpers_sv2 = { version = "4.0.0" }
-roles_logic_sv2 = { version = "5.0.0" }
-# Published protocol crates to match roles_logic_sv2 v5.0.0
-binary_sv2 = { version = "4.0.0" }
-parsers_sv2 = { version = "0.1" }
-codec_sv2 = { version = "3.0.0" }
-framing_sv2 = { version = "5.0.0" }
-noise_sv2 = { version = "1.1" }
-common_messages_sv2 = { version = "6.0.0" }
-mining_sv2 = { version = "5.0" }
-buffer_sv2 = { version = "2.0" }
-# Utility crates
-key-utils = { version = "1.2.0" }
-bitcoin = "0.32.5"
+stratum-apps = {path = "../../stratum-apps/", features = ["mining_device"]}
+roles_logic_sv2 = {version = "4.0.0"}
 async-channel = "1.5.1"
 async-recursion = "0.3.2"
 rand = "0.8.4"
@@ -66,3 +51,7 @@ harness = false
 [[bench]]
 name = "scaling_bench"
 harness = false
+
+
+[patch.crates-io]
+key-utils = { path = "../../../utils/key-utils" }

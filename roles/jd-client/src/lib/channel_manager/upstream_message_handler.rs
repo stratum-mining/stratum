@@ -1,15 +1,16 @@
 use std::sync::atomic::Ordering;
-
-use stratum_apps::stratum_core::{
-    channels_sv2::{
-        client::extended::ExtendedChannel, outputs::deserialize_outputs,
-        server::jobs::factory::JobFactory,
+use stratum_apps::{
+    errors::Error,
+    stratum_core::{
+        channels_sv2::{
+            client::extended::ExtendedChannel, outputs::deserialize_outputs,
+            server::jobs::factory::JobFactory,
+        },
+        handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
+        mining_sv2::*,
+        parsers_sv2::{AnyMessage, Mining, TemplateDistribution},
+        template_distribution_sv2::RequestTransactionData,
     },
-    handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
-    mining_sv2::*,
-    parsers_sv2::{AnyMessage, Mining, TemplateDistribution},
-    roles_logic_sv2,
-    template_distribution_sv2::RequestTransactionData,
 };
 use tracing::{debug, error, info, warn};
 
@@ -335,122 +336,142 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         msg: SetExtranoncePrefix<'_>,
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
-        let messages_results = self
-            .channel_manager_data
-            .super_safe_lock(|channel_manager_data| {
-                let mut messages_results: Vec<Result<RouteMessageTo, Self::Error>> = vec![];
-                if let Some(upstream_channel) = channel_manager_data.upstream_channel.as_mut() {
-                    if let Err(_e) =
-                        upstream_channel.set_extranonce_prefix(msg.extranonce_prefix.to_vec())
-                    {
-                        // Correct these errors, we need Extended Channel Error but on client side.
-                        return Err(JDCError::RolesSv2Logic(
-                            roles_logic_sv2::Error::BadPayloadSize),
-                        );
-                    }
-
-                    let new_prefix_len = msg.extranonce_prefix.len();
-                    let rollable_extranonce_size = upstream_channel.get_rollable_extranonce_size();
-                    let full_extranonce_size = new_prefix_len + rollable_extranonce_size as usize;
-                    if full_extranonce_size > MAX_EXTRANONCE_LEN {
-                        return Err(JDCError::ExtranonceSizeTooLarge);
-                    }
-
-                    let range_0 = 0..new_prefix_len;
-                    let range_1 = new_prefix_len..new_prefix_len + JDC_SEARCH_SPACE_BYTES;
-                    let range_2 = new_prefix_len + JDC_SEARCH_SPACE_BYTES..full_extranonce_size;
-
-                    debug!(
-                        new_prefix_len,
-                        rollable_extranonce_size,
-                        full_extranonce_size,
-                        "Calculated extranonce ranges"
-                    );
-                    let extranonces = match ExtendedExtranonce::from_upstream_extranonce(
-                        msg.extranonce_prefix.clone().into(),
-                        range_0,
-                        range_1,
-                        range_2,
-                    ) {
-                        Ok(e) => e,
-                        Err(e) => {
-                            warn!("Failed to build extranonce factory: {e:?}");
-                            return Err(JDCError::RolesSv2Logic(
-                                roles_logic_sv2::Error::ExtranoncePrefixFactoryError(e),
-                            ));
+        let messages_results =
+            self.channel_manager_data
+                .super_safe_lock(|channel_manager_data| {
+                    let mut messages_results: Vec<Result<RouteMessageTo, Self::Error>> = vec![];
+                    if let Some(upstream_channel) = channel_manager_data.upstream_channel.as_mut() {
+                        if let Err(_e) =
+                            upstream_channel.set_extranonce_prefix(msg.extranonce_prefix.to_vec())
+                        {
+                            // Correct these errors, we need Extended Channel Error but on client
+                            // side.
+                            return Err(JDCError::RolesSv2Logic(Error::BadPayloadSize));
                         }
-                    };
 
-                    channel_manager_data.extranonce_prefix_factory_extended = extranonces.clone();
-                    channel_manager_data.extranonce_prefix_factory_standard = extranonces;
+                        let new_prefix_len = msg.extranonce_prefix.len();
+                        let rollable_extranonce_size =
+                            upstream_channel.get_rollable_extranonce_size();
+                        let full_extranonce_size =
+                            new_prefix_len + rollable_extranonce_size as usize;
+                        if full_extranonce_size > MAX_EXTRANONCE_LEN {
+                            return Err(JDCError::ExtranonceSizeTooLarge);
+                        }
 
-                    for (downstream_id, downstream) in channel_manager_data.downstream.iter_mut() {
-                        downstream.downstream_data.super_safe_lock(|data| {
-                            for (channel_id, standard_channel) in data.standard_channels.iter_mut()
-                            {
-                                match channel_manager_data
-                                    .extranonce_prefix_factory_standard
-                                    .next_prefix_standard()
+                        let range_0 = 0..new_prefix_len;
+                        let range_1 = new_prefix_len..new_prefix_len + JDC_SEARCH_SPACE_BYTES;
+                        let range_2 = new_prefix_len + JDC_SEARCH_SPACE_BYTES..full_extranonce_size;
+
+                        debug!(
+                            new_prefix_len,
+                            rollable_extranonce_size,
+                            full_extranonce_size,
+                            "Calculated extranonce ranges"
+                        );
+                        let extranonces = match ExtendedExtranonce::from_upstream_extranonce(
+                            msg.extranonce_prefix.clone().into(),
+                            range_0,
+                            range_1,
+                            range_2,
+                        ) {
+                            Ok(e) => e,
+                            Err(e) => {
+                                warn!("Failed to build extranonce factory: {e:?}");
+                                return Err(JDCError::RolesSv2Logic(
+                                    Error::ExtranoncePrefixFactoryError(e),
+                                ));
+                            }
+                        };
+
+                        channel_manager_data.extranonce_prefix_factory_extended =
+                            extranonces.clone();
+                        channel_manager_data.extranonce_prefix_factory_standard = extranonces;
+
+                        for (downstream_id, downstream) in
+                            channel_manager_data.downstream.iter_mut()
+                        {
+                            downstream.downstream_data.super_safe_lock(|data| {
+                                for (channel_id, standard_channel) in
+                                    data.standard_channels.iter_mut()
                                 {
-                                    Ok(prefix) => match standard_channel.set_extranonce_prefix(prefix.clone().to_vec()) {
-                                        Ok(_) => {
-                                            messages_results.push(Ok((
-                                                *downstream_id,
-                                                Mining::SetExtranoncePrefix(SetExtranoncePrefix {
-                                                    channel_id: *channel_id,
-                                                    extranonce_prefix: prefix.into(),
-                                                }),
-                                            )
-                                                .into()));
-                                        }
+                                    match channel_manager_data
+                                        .extranonce_prefix_factory_standard
+                                        .next_prefix_standard()
+                                    {
+                                        Ok(prefix) => match standard_channel
+                                            .set_extranonce_prefix(prefix.clone().to_vec())
+                                        {
+                                            Ok(_) => {
+                                                messages_results.push(Ok((
+                                                    *downstream_id,
+                                                    Mining::SetExtranoncePrefix(
+                                                        SetExtranoncePrefix {
+                                                            channel_id: *channel_id,
+                                                            extranonce_prefix: prefix.into(),
+                                                        },
+                                                    ),
+                                                )
+                                                    .into()));
+                                            }
+                                            Err(e) => {
+                                                messages_results.push(Err(
+                                                    JDCError::RolesSv2Logic(
+                                                        Error::FailedToUpdateStandardChannel(e),
+                                                    ),
+                                                ));
+                                            }
+                                        },
                                         Err(e) => {
                                             messages_results.push(Err(JDCError::RolesSv2Logic(
-                                                roles_logic_sv2::Error::FailedToUpdateStandardChannel(e),
+                                                Error::ExtranoncePrefixFactoryError(e),
                                             )));
                                         }
-                                    },
-                                    Err(e) => {
-                                        messages_results.push(Err(JDCError::RolesSv2Logic(
-                                            roles_logic_sv2::Error::ExtranoncePrefixFactoryError(e),
-                                        )));
                                     }
                                 }
-                            }
-                            for (channel_id, extended_channel) in data.extended_channels.iter_mut()
-                            {
-                                match channel_manager_data
-                                    .extranonce_prefix_factory_extended
-                                    .next_prefix_extended(extended_channel.get_rollable_extranonce_size() as usize)
+                                for (channel_id, extended_channel) in
+                                    data.extended_channels.iter_mut()
                                 {
-                                    Ok(prefix) => match extended_channel.set_extranonce_prefix(prefix.clone().to_vec()) {
-                                        Ok(_) => {
-                                            messages_results.push(Ok((
-                                                *downstream_id,
-                                                Mining::SetExtranoncePrefix(SetExtranoncePrefix {
-                                                    channel_id: *channel_id,
-                                                    extranonce_prefix: prefix.into(),
-                                                }),
-                                            )
-                                                .into()));
-                                        }
+                                    match channel_manager_data
+                                        .extranonce_prefix_factory_extended
+                                        .next_prefix_extended(
+                                            extended_channel.get_rollable_extranonce_size()
+                                                as usize,
+                                        ) {
+                                        Ok(prefix) => match extended_channel
+                                            .set_extranonce_prefix(prefix.clone().to_vec())
+                                        {
+                                            Ok(_) => {
+                                                messages_results.push(Ok((
+                                                    *downstream_id,
+                                                    Mining::SetExtranoncePrefix(
+                                                        SetExtranoncePrefix {
+                                                            channel_id: *channel_id,
+                                                            extranonce_prefix: prefix.into(),
+                                                        },
+                                                    ),
+                                                )
+                                                    .into()));
+                                            }
+                                            Err(e) => {
+                                                messages_results.push(Err(
+                                                    JDCError::RolesSv2Logic(
+                                                        Error::FailedToUpdateExtendedChannel(e),
+                                                    ),
+                                                ));
+                                            }
+                                        },
                                         Err(e) => {
                                             messages_results.push(Err(JDCError::RolesSv2Logic(
-                                                roles_logic_sv2::Error::FailedToUpdateExtendedChannel(e),
+                                                Error::ExtranoncePrefixFactoryError(e),
                                             )));
                                         }
-                                    },
-                                    Err(e) => {
-                                        messages_results.push(Err(JDCError::RolesSv2Logic(
-                                            roles_logic_sv2::Error::ExtranoncePrefixFactoryError(e),
-                                        )));
                                     }
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
-                }
-                Ok(messages_results)
-            })?;
+                    Ok(messages_results)
+                })?;
 
         for message in messages_results.into_iter().flatten() {
             message.forward(&self.channel_manager_channel).await;

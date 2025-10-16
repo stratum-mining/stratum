@@ -12,7 +12,6 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
 };
-
 use stratum_apps::{
     config_helpers::CoinbaseRewardScript,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},

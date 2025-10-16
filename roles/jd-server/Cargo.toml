@@ -17,22 +17,8 @@ name = "jd_server"
 path = "src/lib/mod.rs"
 
 [dependencies]
-rpc_sv2 = { version = "1.1.0" }
-config_helpers_sv2 = { version = "0.1.0" }
-network_helpers_sv2 = { version = "4.0.0" }
-roles_logic_sv2 = { version = "5.0.0" }
-# Published versions to match roles_logic_sv2 v5.0.0 exact dependencies
-binary_sv2 = { version = "4.0.0" }
-job_declaration_sv2 = { version = "5.0.0" }
-parsers_sv2 = { version = "0.1" }
-codec_sv2 = { version = "3.0.0" }
-framing_sv2 = { version = "5.0.0" }
-noise_sv2 = { version = "1.1" }
-common_messages_sv2 = { version = "6.0.0" }
-mining_sv2 = { version = "5.0" }
-error_handling = { version = "1.0.0" }
-key-utils = { version = "1.2.0" }
-bitcoin = "0.32.5"
+stratum-apps = { path = "../stratum-apps", features = ["jd_server"] }
+roles_logic_sv2 = "4.0.0"
 async-channel = "1.5.1"
 rand = "0.8.4"
 tokio = { version = "1.44.1", features = ["full"] }
@@ -44,3 +30,4 @@ serde = { version = "1.0.89", features = ["derive", "alloc"], default-features =
 hashbrown = { version = "0.11", default-features = false, features = ["ahash", "serde"] }
 hex = "0.4.3"
 clap = { version = "4.5.39", features = ["derive"] }
+

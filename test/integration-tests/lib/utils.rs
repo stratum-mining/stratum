@@ -5,6 +5,7 @@ use crate::{
     types::{MessageFrame, MsgType},
 };
 use async_channel::{Receiver, Sender};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use once_cell::sync::Lazy;
 use std::{
     collections::HashSet,
@@ -13,7 +14,6 @@ use std::{
     sync::Mutex,
 };
 use stratum_apps::{
-    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_connection::Connection,
     stratum_core::{
         codec_sv2::{HandshakeRole, StandardEitherFrame},

@@ -22,13 +22,13 @@ use std::{
     },
 };
 use stratum_apps::{
+    custom_mutex::Mutex,
     network_helpers::sv1_connection::ConnectionSV1,
     stratum_core::{
         binary_sv2::Str0255,
         channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
         mining_sv2::{CloseChannel, SetTarget, Target},
         parsers_sv2::Mining,
-        roles_logic_sv2::utils::Mutex,
         stratum_translation::{
             sv1_to_sv2::{
                 build_sv2_open_extended_mining_channel,

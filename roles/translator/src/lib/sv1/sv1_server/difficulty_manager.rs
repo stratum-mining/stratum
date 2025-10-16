@@ -4,13 +4,15 @@ use crate::{
 };
 use async_channel::Sender;
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use stratum_apps::stratum_core::{
-    channels_sv2::{target::hash_rate_to_target, Vardiff},
-    mining_sv2::{SetTarget, Target, UpdateChannel},
-    parsers_sv2::Mining,
-    roles_logic_sv2::utils::Mutex,
-    stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target,
-    sv1_api::json_rpc,
+use stratum_apps::{
+    custom_mutex::Mutex,
+    stratum_core::{
+        channels_sv2::{target::hash_rate_to_target, Vardiff},
+        mining_sv2::{SetTarget, Target, UpdateChannel},
+        parsers_sv2::Mining,
+        stratum_translation::sv2_to_sv1::build_sv1_set_difficulty_from_sv2_target,
+        sv1_api::json_rpc,
+    },
 };
 use tokio::{sync::broadcast, time};
 use tracing::{debug, error, info, trace, warn};

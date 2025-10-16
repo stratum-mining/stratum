@@ -10,13 +10,12 @@
 
 use ext_config::ConfigError;
 use std::{fmt, sync::PoisonError};
-use stratum_apps::stratum_core::{
-    binary_sv2, framing_sv2,
-    handlers_sv2::HandlerErrorType,
-    noise_sv2,
-    parsers_sv2::ParserError as RolesParserError,
-    roles_logic_sv2::{errors::Error as RolesLogicError, Error as RolesSv2Error},
-    sv1_api::server_to_client::SetDifficulty,
+use stratum_apps::{
+    errors::Error,
+    stratum_core::{
+        binary_sv2, framing_sv2, handlers_sv2::HandlerErrorType, noise_sv2,
+        parsers_sv2::ParserError as RolesParserError, sv1_api::server_to_client::SetDifficulty,
+    },
 };
 use tokio::sync::broadcast;
 
@@ -27,7 +26,7 @@ pub enum TproxyError {
     /// Error from the network helpers library
     NetworkHelpersError(stratum_apps::network_helpers::Error),
     /// Error from the roles logic library
-    RolesSv2LogicError(RolesSv2Error),
+    RolesSv2LogicError(Error),
     /// Error from roles logic parser library
     ParserError(RolesParserError),
     /// Errors on bad CLI argument input.
@@ -47,7 +46,7 @@ pub enum TproxyError {
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Error parsing incoming upstream messages
-    UpstreamIncoming(RolesLogicError),
+    UpstreamIncoming(Error),
     /// Mutex poison lock error
     PoisonLock,
     /// Channel receiver error

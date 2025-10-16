@@ -25,8 +25,11 @@
 //! - [`rpc`] - RPC utilities with custom serializable types (`Hash`, `BlockHash`, `Amount`)
 
 /// Re-export all the modules from `stratum_core`
+#[cfg(feature = "core")]
 pub use stratum_core;
-
+/// A wrapper around std::sync:Mutex
+pub mod custom_mutex;
+pub mod errors;
 /// High-level networking utilities for SV2 connections
 ///
 /// Provides connection management, encrypted streams, and protocol handling.

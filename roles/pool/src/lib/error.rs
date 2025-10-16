@@ -3,19 +3,20 @@ use std::{
     fmt::Debug,
     sync::{MutexGuard, PoisonError},
 };
-
-use stratum_apps::stratum_core::{
-    binary_sv2, bitcoin,
-    channels_sv2::{
-        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
-        vardiff::error::VardiffError,
+use stratum_apps::{
+    errors::Error,
+    stratum_core::{
+        binary_sv2, bitcoin,
+        channels_sv2::{
+            server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+            vardiff::error::VardiffError,
+        },
+        codec_sv2, framing_sv2,
+        handlers_sv2::HandlerErrorType,
+        mining_sv2::ExtendedExtranonceError,
+        noise_sv2,
+        parsers_sv2::{Mining, ParserError},
     },
-    codec_sv2, framing_sv2,
-    handlers_sv2::HandlerErrorType,
-    mining_sv2::ExtendedExtranonceError,
-    noise_sv2,
-    parsers_sv2::{Mining, ParserError},
-    roles_logic_sv2,
 };
 
 pub type PoolResult<T> = Result<T, PoolError>;
@@ -47,7 +48,7 @@ pub enum PoolError {
     /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
     /// Error from the `roles_logic_sv2` crate.
-    RolesLogic(roles_logic_sv2::Error),
+    RolesLogic(Error),
     /// Error related to SV2 message framing.
     Framing(framing_sv2::Error),
     /// Error due to a poisoned lock, typically from a failed mutex operation.
@@ -179,8 +180,8 @@ impl From<noise_sv2::Error> for PoolError {
     }
 }
 
-impl From<roles_logic_sv2::Error> for PoolError {
-    fn from(e: roles_logic_sv2::Error) -> PoolError {
+impl From<Error> for PoolError {
+    fn from(e: Error) -> PoolError {
         PoolError::RolesLogic(e)
     }
 }

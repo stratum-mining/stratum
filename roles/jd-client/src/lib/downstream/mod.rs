@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
 use stratum_apps::{
+    custom_mutex::Mutex,
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         channels_sv2::server::{
@@ -13,7 +14,6 @@ use stratum_apps::{
         common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
         parsers_sv2::{AnyMessage, IsSv2Message},
-        roles_logic_sv2::utils::Mutex,
     },
 };
 

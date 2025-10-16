@@ -11,12 +11,14 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use std::sync::Arc;
-use stratum_apps::stratum_core::{
-    mining_sv2::Target,
-    roles_logic_sv2::utils::Mutex,
-    sv1_api::{
-        json_rpc::{self, Message},
-        server_to_client, IsServer,
+use stratum_apps::{
+    custom_mutex::Mutex,
+    stratum_core::{
+        mining_sv2::Target,
+        sv1_api::{
+            json_rpc::{self, Message},
+            server_to_client, IsServer,
+        },
     },
 };
 use tokio::sync::{broadcast, mpsc};

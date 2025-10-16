@@ -14,10 +14,11 @@
 use ext_config::ConfigError;
 use std::fmt;
 use stratum_apps::{
+    errors::Error,
     network_helpers,
     stratum_core::{
         binary_sv2, bitcoin, channels_sv2::server::error::GroupChannelError, framing_sv2,
-        handlers_sv2::HandlerErrorType, noise_sv2, parsers_sv2::ParserError, roles_logic_sv2,
+        handlers_sv2::HandlerErrorType, noise_sv2, parsers_sv2::ParserError,
     },
 };
 use tokio::{sync::broadcast, time::error::Elapsed};
@@ -41,8 +42,8 @@ pub enum JDCError {
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
-    RolesSv2Logic(roles_logic_sv2::errors::Error),
-    UpstreamIncoming(roles_logic_sv2::errors::Error),
+    RolesSv2Logic(Error),
+    UpstreamIncoming(Error),
     #[allow(dead_code)]
     SubprotocolMining(String),
     // Locking Errors
@@ -248,8 +249,8 @@ impl From<std::num::ParseIntError> for JDCError {
     }
 }
 
-impl From<roles_logic_sv2::errors::Error> for JDCError {
-    fn from(e: roles_logic_sv2::errors::Error) -> Self {
+impl From<Error> for JDCError {
+    fn from(e: Error) -> Self {
         JDCError::RolesSv2Logic(e)
     }
 }

@@ -10,10 +10,8 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     time::Duration,
 };
-use stratum_apps::{
-    config_helpers::CoinbaseRewardScript,
-    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
-};
+use stratum_apps::config_helpers::CoinbaseRewardScript;
+use stratum_apps::key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use translator_sv2::TranslatorSv2;

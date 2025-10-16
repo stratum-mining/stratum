@@ -11,13 +11,13 @@
 //!
 //! Also defines a helper struct [`CoreRpc`] to group RPC parameters.
 
-use config_helpers_sv2::CoinbaseRewardScript;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+use stratum_apps::config_helpers::CoinbaseRewardScript;
+use stratum_apps::key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {
@@ -32,7 +32,7 @@ pub struct JobDeclaratorServerConfig {
     core_rpc_port: u16,
     core_rpc_user: String,
     core_rpc_pass: String,
-    #[serde(deserialize_with = "config_helpers_sv2::duration_from_toml")]
+    #[serde(deserialize_with = "stratum_apps::config_helpers::duration_from_toml")]
     mempool_update_interval: Duration,
     log_file: Option<PathBuf>,
 }
@@ -173,8 +173,8 @@ impl CoreRpc {
 #[cfg(test)]
 mod tests {
     use super::super::JobDeclaratorServer;
-    use bitcoin::{self, Amount, ScriptBuf, TxOut};
     use ext_config::{Config, ConfigError, File, FileFormat};
+    use roles_logic_sv2::bitcoin::{self, Amount, ScriptBuf, TxOut};
     use std::path::PathBuf;
 
     use crate::config::JobDeclaratorServerConfig;
