@@ -3,41 +3,9 @@
 extern crate alloc;
 use alloc::string::String;
 use binary_sv2::U256;
-use bitcoin::{hash_types::BlockHash, hashes::Hash};
+use bitcoin::{hash_types::BlockHash, hashes::Hash, Target};
 use core::{cmp::max, fmt::Write, ops::Div};
-use mining_sv2::Target;
 use primitive_types::U256 as U256Primitive;
-/// Converts a `Target` to a `f64` difficulty.
-pub fn target_to_difficulty(target: Target) -> f64 {
-    // Genesis block target: 0x00000000ffff0000000000000000000000000000000000000000000000000000
-    // (in little endian)
-    let max_target_bytes = [
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00,
-        0x00, 0x00,
-    ];
-    let max_target = U256Primitive::from_little_endian(&max_target_bytes);
-
-    // Convert input target to U256Primitive
-    let target_u256: U256<'static> = target.into();
-    let mut target_bytes = [0u8; 32];
-    target_bytes.copy_from_slice(target_u256.inner_as_ref());
-    let target = U256Primitive::from_little_endian(&target_bytes);
-
-    // Calculate difficulty = max_target / target
-    // We need to handle the full 256-bit values properly
-    // Convert to f64 by taking the ratio of the most significant bits
-    let max_target_high = (max_target >> 128).low_u128() as f64;
-    let max_target_low = max_target.low_u128() as f64;
-    let target_high = (target >> 128).low_u128() as f64;
-    let target_low = target.low_u128() as f64;
-
-    // Combine high and low parts with appropriate scaling
-    let max_target_f64 = max_target_high * (2.0f64.powi(128)) + max_target_low;
-    let target_f64 = target_high * (2.0f64.powi(128)) + target_low;
-
-    max_target_f64 / target_f64
-}
 
 /// Converts a `u256` to a [`BlockHash`] type.
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
@@ -109,7 +77,7 @@ pub fn bytes_to_hex(bytes: &[u8]) -> String {
 pub fn hash_rate_to_target(
     hashrate: f64,
     share_per_min: f64,
-) -> Result<U256<'static>, HashRateToTargetError> {
+) -> Result<Target, HashRateToTargetError> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(HashRateToTargetError::DivisionByZero);
@@ -146,9 +114,9 @@ pub fn hash_rate_to_target(
     h_times_s_array[16..].copy_from_slice(&h_times_s.to_be_bytes());
     let numerator = two_to_256_minus_one - U256Primitive::from_big_endian(h_times_s_array.as_ref());
 
-    let mut target = numerator.div(denominator).to_big_endian();
-    target.reverse();
-    Ok(U256::<'static>::from(target))
+    let mut target_bytes = numerator.div(denominator).to_big_endian();
+    target_bytes.reverse();
+    Ok(Target::from_le_bytes(target_bytes))
 }
 
 /// Converts a `u128` to a [`U256`].

@@ -3,10 +3,11 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::Sender;
+use bitcoin::Target;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use stratum_common::roles_logic_sv2::{
     channels_sv2::{target::hash_rate_to_target, Vardiff},
-    mining_sv2::{SetTarget, Target, UpdateChannel},
+    mining_sv2::{SetTarget, UpdateChannel},
     parsers_sv2::Mining,
     utils::Mutex,
 };
@@ -318,7 +319,7 @@ impl DifficultyManager {
                 let update_channel = UpdateChannel {
                     channel_id: *channel_id,
                     nominal_hash_rate: total_hashrate,
-                    maximum_target: min_target.clone().into(),
+                    maximum_target: min_target.to_le_bytes().into(),
                 };
 
                 debug!(
@@ -341,7 +342,7 @@ impl DifficultyManager {
                 let update_channel = UpdateChannel {
                     channel_id: *channel_id,
                     nominal_hash_rate: *new_hashrate,
-                    maximum_target: new_target.clone().into(),
+                    maximum_target: new_target.to_le_bytes().into(),
                 };
 
                 debug!(
@@ -374,7 +375,8 @@ impl DifficultyManager {
         sv1_server_to_downstream_sender: &broadcast::Sender<(u32, Option<u32>, json_rpc::Message)>,
         is_aggregated: bool,
     ) {
-        let new_upstream_target: Target = set_target.maximum_target.clone().into();
+        let new_upstream_target =
+            Target::from_le_bytes(set_target.maximum_target.inner_as_ref().try_into().unwrap());
         debug!(
             "Received SetTarget for channel {}: new_upstream_target = {:?}",
             set_target.channel_id, new_upstream_target
@@ -631,7 +633,7 @@ impl DifficultyManager {
             let update_channel = UpdateChannel {
                 channel_id,
                 nominal_hash_rate: total_hashrate,
-                maximum_target: min_target.clone().into(),
+                maximum_target: min_target.to_le_bytes().into(),
             };
 
             if let Err(e) = channel_manager_sender

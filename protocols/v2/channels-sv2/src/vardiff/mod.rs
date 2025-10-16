@@ -1,5 +1,5 @@
+use bitcoin::Target;
 use error::VardiffError;
-use mining_sv2::Target;
 use std::fmt::Debug;
 
 pub mod classic;

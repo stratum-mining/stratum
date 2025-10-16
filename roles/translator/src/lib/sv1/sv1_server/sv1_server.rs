@@ -13,6 +13,7 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
+use bitcoin::Target;
 use network_helpers_sv2::{codec_sv2::binary_sv2::Str0255, sv1_connection::ConnectionSV1};
 use std::{
     collections::HashMap,
@@ -24,7 +25,7 @@ use std::{
 };
 use stratum_common::roles_logic_sv2::{
     channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
-    mining_sv2::{CloseChannel, SetTarget, Target},
+    mining_sv2::{CloseChannel, SetTarget},
     parsers_sv2::Mining,
     utils::Mutex,
 };
@@ -463,7 +464,8 @@ impl Sv1Server {
                     .sv1_server_data
                     .super_safe_lock(|v| v.downstreams.clone());
                 if let Some(downstream) = Self::get_downstream(downstream_id, downstreams) {
-                    let initial_target: Target = m.target.clone().into();
+                    let initial_target =
+                        Target::from_le_bytes(m.target.inner_as_ref().try_into().unwrap());
                     downstream.downstream_data.safe_lock(|d| {
                         d.extranonce1 = m.extranonce_prefix.to_vec();
                         d.extranonce2_len = m.extranonce_size.into();
@@ -646,7 +648,7 @@ impl Sv1Server {
         } else {
             // If translator doesn't manage vardiff, we rely on upstream to do that,
             // so we give it more freedom by setting max_target to maximum possible value
-            Target::from([0xff; 32])
+            Target::from_le_bytes([0xff; 32])
         };
 
         // Store the initial target for use when no downstreams remain
@@ -719,7 +721,8 @@ impl Sv1Server {
     /// without any variable difficulty logic. It respects the aggregated/non-aggregated
     /// channel configuration.
     async fn handle_set_target_without_vardiff(&self, set_target: SetTarget<'_>) {
-        let new_target: Target = set_target.maximum_target.clone().into();
+        let new_target =
+            Target::from_le_bytes(set_target.maximum_target.inner_as_ref().try_into().unwrap());
         debug!(
             "Forwarding SetTarget to downstreams: channel_id={}, target={:?}",
             set_target.channel_id, new_target
@@ -958,7 +961,7 @@ mod tests {
 
         let set_target = SetTarget {
             channel_id: 1,
-            maximum_target: target.clone().into(),
+            maximum_target: target.to_le_bytes().into(),
         };
 
         // Test should not panic and should handle the message
@@ -980,7 +983,7 @@ mod tests {
 
         let set_target = SetTarget {
             channel_id: 1,
-            maximum_target: target.clone().into(),
+            maximum_target: target.to_le_bytes().into(),
         };
 
         // Test should not panic and should handle the message

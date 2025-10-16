@@ -329,7 +329,7 @@ impl ChannelManager {
                                     OpenExtendedMiningChannelSuccess {
                                         request_id: open_channel_msg.request_id,
                                         channel_id: next_channel_id,
-                                        target: target.clone().into(),
+                                        target: target.to_le_bytes().into(),
                                         extranonce_size: new_extranonce_size as u16,
                                         extranonce_prefix: new_extranonce_prefix.clone().into(),
                                     },

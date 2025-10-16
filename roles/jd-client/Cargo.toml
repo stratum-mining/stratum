@@ -16,6 +16,7 @@ name = "jd_client_sv2"
 path = "src/lib/mod.rs"
 
 [dependencies]
+bitcoin = { version = "0.32.5" }
 async-channel = "1.5.1"
 buffer_sv2 = { path = "../../utils/buffer" }
 stratum-common = { path = "../../common", features = ["with_network_helpers"] }

@@ -6,7 +6,7 @@ mod classic;
 
 use super::Vardiff;
 use crate::target::hash_rate_to_target;
-use mining_sv2::Target;
+use bitcoin::Target;
 
 pub const TEST_INITIAL_HASHRATE: f32 = 1000.0;
 pub const TEST_SHARES_PER_MINUTE: f32 = 10.0;

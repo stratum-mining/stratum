@@ -1,3 +1,4 @@
+use bitcoin::Target;
 use std::sync::{Arc, RwLock};
 
 use crate::{
@@ -73,13 +74,13 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     m, user_identity, nominal_hashrate
                 );
                 let extranonce_prefix = m.extranonce_prefix.clone().into_static().to_vec();
-                let target = m.target.clone().into_static();
+                let target = Target::from_le_bytes(m.target.clone().inner_as_ref().try_into().unwrap());
                 let version_rolling = true; // we assume this is always true on extended channels
                 let extended_channel = ExtendedChannel::new(
                     m.channel_id,
                     user_identity.clone(),
                     extranonce_prefix.clone(),
-                    target.clone().into(),
+                    target,
                     nominal_hashrate,
                     version_rolling,
                     m.extranonce_size,
@@ -473,7 +474,9 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
             if channel_manager_data.mode == ChannelMode::Aggregated {
                 if let Some(upstream_channel) = &channel_manager_data.upstream_extended_channel {
                     if let Ok(mut upstream_extended_channel) = upstream_channel.write() {
-                        upstream_extended_channel.set_target(m.maximum_target.clone().into());
+                        upstream_extended_channel.set_target(Target::from_le_bytes(
+                            m.maximum_target.inner_as_ref().try_into().unwrap(),
+                        ));
                     }
                 }
                 channel_manager_data
@@ -481,13 +484,17 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     .iter()
                     .for_each(|(_, channel)| {
                         if let Ok(mut channel) = channel.write() {
-                            channel.set_target(m.maximum_target.clone().into());
+                            channel.set_target(Target::from_le_bytes(
+                                m.maximum_target.inner_as_ref().try_into().unwrap(),
+                            ));
                         }
                     });
             } else if let Some(channel) = channel_manager_data.extended_channels.get(&m.channel_id)
             {
                 if let Ok(mut channel) = channel.write() {
-                    channel.set_target(m.maximum_target.clone().into());
+                    channel.set_target(Target::from_le_bytes(
+                        m.maximum_target.inner_as_ref().try_into().unwrap(),
+                    ));
                 }
             }
         });

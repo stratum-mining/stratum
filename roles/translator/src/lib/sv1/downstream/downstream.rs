@@ -10,8 +10,9 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
+use bitcoin::Target;
 use std::sync::Arc;
-use stratum_common::roles_logic_sv2::{mining_sv2::Target, utils::Mutex};
+use stratum_common::roles_logic_sv2::utils::Mutex;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
 use v1::{

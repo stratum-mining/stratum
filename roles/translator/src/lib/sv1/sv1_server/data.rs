@@ -1,11 +1,11 @@
 use crate::sv1::downstream::downstream::Downstream;
+use bitcoin::Target;
 use std::{
     collections::HashMap,
     sync::{atomic::AtomicU32, Arc, RwLock},
 };
 use stratum_common::roles_logic_sv2::{
-    channels_sv2::vardiff::classic::VardiffState,
-    mining_sv2::{SetNewPrevHash, Target},
+    channels_sv2::vardiff::classic::VardiffState, mining_sv2::SetNewPrevHash,
 };
 use v1::server_to_client;
 

@@ -1,5 +1,5 @@
+use bitcoin::Target;
 use std::sync::atomic::Ordering;
-
 use stratum_common::roles_logic_sv2::{
     self,
     bitcoin::Amount,
@@ -301,7 +301,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         }
 
                         let nominal_hash_rate = msg.nominal_hash_rate;
-                        let requested_max_target = msg.max_target.into_static();
+                        let requested_max_target = Target::from_le_bytes(msg.max_target.inner_as_ref().try_into().unwrap());
 
                         let group_channel_id = data
                             .group_channels
@@ -327,7 +327,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 standard_channel_id,
                                 user_identity.to_string(),
                                 extranonce_prefix.to_vec(),
-                                requested_max_target.into(),
+                                requested_max_target,
                                 nominal_hash_rate,
                                 self.share_batch_size,
                                 self.shares_per_minute,
@@ -358,7 +358,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             OpenStandardMiningChannelSuccess {
                                 request_id: msg.request_id.clone(),
                                 channel_id: standard_channel_id,
-                                target: standard_channel.get_target().clone().into(),
+                                target: standard_channel.get_target().to_le_bytes().into(),
                                 extranonce_prefix: standard_channel
                                     .get_extranonce_prefix()
                                     .clone()
@@ -495,7 +495,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let request_id = msg.get_request_id_as_u32();
 
         let nominal_hash_rate = msg.nominal_hash_rate;
-        let requested_max_target = msg.max_target.into_static();
+        let requested_max_target =
+            Target::from_le_bytes(msg.max_target.inner_as_ref().try_into().unwrap());
         let requested_min_rollable_extranonce_size = msg.min_extranonce_size;
 
         let build_error = |code: &str| {
@@ -545,7 +546,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             extended_channel_id,
                             user_identity.to_string(),
                             extranonce_prefix.into(),
-                            requested_max_target.into(),
+                            requested_max_target,
                             nominal_hash_rate,
                             true,
                             requested_min_rollable_extranonce_size,
@@ -581,7 +582,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             OpenExtendedMiningChannelSuccess {
                                 request_id,
                                 channel_id: extended_channel_id,
-                                target: extended_channel.get_target().clone().into(),
+                                target: extended_channel.get_target().to_le_bytes().into(),
                                 extranonce_prefix: extended_channel
                                     .get_extranonce_prefix()
                                     .clone()
@@ -698,7 +699,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         info!("Received: {}", msg);
         let channel_id = msg.channel_id;
         let new_nominal_hash_rate = msg.nominal_hash_rate;
-        let requested_maximum_target = msg.maximum_target.into_static();
+        let requested_maximum_target =
+            Target::from_le_bytes(msg.maximum_target.inner_as_ref().try_into().unwrap());
 
         let messages = self
             .channel_manager_data
@@ -740,7 +742,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             {
                                 let update_channel = standard_channel.update_channel(
                                     new_nominal_hash_rate,
-                                    Some(requested_maximum_target.into()),
+                                    Some(requested_maximum_target),
                                 );
                                 let new_target = standard_channel.get_target().clone();
 
@@ -768,7 +770,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                         downstream_id,
                                         Mining::SetTarget(SetTarget {
                                             channel_id,
-                                            maximum_target: new_target.into(),
+                                            maximum_target: new_target.to_le_bytes().into(),
                                         }),
                                     )
                                         .into(),
@@ -778,7 +780,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             {
                                 let update_channel = extended_channel.update_channel(
                                     new_nominal_hash_rate,
-                                    Some(requested_maximum_target.into()),
+                                    Some(requested_maximum_target),
                                 );
                                 let new_target = extended_channel.get_target().clone();
 
@@ -805,7 +807,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                         downstream_id,
                                         Mining::SetTarget(SetTarget {
                                             channel_id,
-                                            maximum_target: new_target.into(),
+                                            maximum_target: new_target.to_le_bytes().into(),
                                         }),
                                     )
                                         .into(),
@@ -823,7 +825,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 }
 
                 let mut downstream_hashrate = 0.0;
-                let mut min_target: Target = [0xff; 32].into();
+                let mut min_target = Target::from_le_bytes([0xff; 32]);
 
                 for (_, downstream) in channel_manager_data.downstream.iter() {
                     downstream.downstream_data.super_safe_lock(|data| {
@@ -861,7 +863,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         Mining::UpdateChannel(UpdateChannel {
                             channel_id: upstream_channel.get_channel_id(),
                             nominal_hash_rate: downstream_hashrate,
-                            maximum_target: min_target.into(),
+                            maximum_target: min_target.to_le_bytes().into(),
                         })
                         .into(),
                     )
