@@ -81,10 +81,6 @@ jobs:
         working-directory: protocols/v2/subprotocols/template-distribution
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/roles-logic-sv2
-        working-directory: protocols/v2/roles-logic-sv2
-        run: cargo semver-checks --default-features
-
       - name: Run semver checks for protocols/v2/channels-sv2
         working-directory: protocols/v2/channels-sv2
         run: cargo semver-checks
