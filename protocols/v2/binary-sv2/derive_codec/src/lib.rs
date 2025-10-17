@@ -42,7 +42,6 @@
 //! while `Decodable` constructs the struct from binary data. Both macros provide support for
 //! structs with or without lifetimes, ensuring versatility in applications that require efficient,
 //! protocol-level data handling.
-
 #![no_std]
 
 extern crate alloc;
@@ -791,7 +790,6 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let is_already_sized = is_already_sized(item.clone());
     let parsed_struct = get_struct_properties(item);
     let fields = parsed_struct.fields.clone();
-
 
     let mut field_into_decoded_field = String::new();
 
