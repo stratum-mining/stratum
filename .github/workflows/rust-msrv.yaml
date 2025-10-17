@@ -22,6 +22,8 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
+      - name: Build stratum-core
+        run: cargo build --manifest-path=stratum-core/Cargo.toml
       - name: Build Protocols
         run: cargo build --manifest-path=protocols/Cargo.toml
       - name: Build Roles
