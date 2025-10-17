@@ -1,13 +1,9 @@
 use crate::messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE};
-use stratum_apps::{
-    key_utils::Secp256k1PublicKey,
-    network_helpers::noise_connection::Connection,
-    stratum_core::{
-        binary_sv2,
-        codec_sv2::{HandshakeRole, StandardSv2Frame},
-        noise_sv2::Initiator,
-    },
-};
+use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::noise_connection_tokio::Connection;
+
+use codec_sv2::{noise_sv2::Initiator, HandshakeRole, StandardSv2Frame};
+
 use tokio::net::TcpStream;
 
 use crate::error::Error;
@@ -24,7 +20,8 @@ pub async fn start_client(address: &str, k_pub: String) -> Result<(), Error> {
     let initiator = Initiator::from_raw_k(k_pub.into_bytes())?;
 
     // channels for encrypted connection
-    let (receiver, sender) = Connection::new(stream, HandshakeRole::Initiator(initiator)).await?;
+    let (receiver, sender, _, _) =
+        Connection::new(stream, HandshakeRole::Initiator(initiator)).await?;
 
     // create Ping message
     let ping = Ping::new()?;
