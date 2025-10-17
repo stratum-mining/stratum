@@ -38,11 +38,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/noise-sv2
 
-      # binary_sv2 (depends on buffer_sv2)
-      - name: Publish crate binary_sv2 codec
-        run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/codec
-
       - name: Publish crate binary_sv2 derive_codec
         run: |
           ./scripts/release-libs.sh protocols/v2/binary-sv2/derive_codec
