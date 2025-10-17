@@ -25,11 +25,11 @@ pub mod status;
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use config::JobDeclaratorServerConfig;
 use error::JdsError;
+use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
 pub use rpc_sv2::Uri;
 use std::{ops::Sub, str::FromStr, sync::Arc};
-use stratum_apps::handle_result;
 
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use parsers_sv2::AnyMessage as JdsMessages;

@@ -22,7 +22,6 @@ output=$(cargo smart-release \
     mining_sv2 \
     template_distribution_sv2 \
     buffer_sv2 \
-    error_handling \
     network_helpers \
     translator_sv2 \
     pool_sv2 \

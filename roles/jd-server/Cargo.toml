@@ -20,6 +20,7 @@ path = "src/lib/mod.rs"
 stratum-apps = { path = "../stratum-apps", features = ["jd_server"] }
 roles_logic_sv2 = "5.0.0"
 binary_sv2 = "4.0.0"
+error_handling = "1.0.0"
 codec_sv2 = "3.0.1"
 framing_sv2 = "5.0.1"
 mining_sv2 = "5.0.1"

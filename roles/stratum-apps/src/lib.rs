@@ -58,8 +58,3 @@ pub mod rpc;
 /// Provides Secp256k1 key management, serialization/deserialization, and signature services.
 /// Supports both standard and no_std environments.
 pub mod key_utils;
-
-/// Error handling utilities
-///
-/// Provides the `handle_result!` macro and error handling logic for Stratum applications.
-pub mod error_handling;

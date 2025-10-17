@@ -1128,6 +1128,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "error_handling"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfdf3be9049288001eb8a37f21b0f4e922598a6fa0098630fd3a6a14459ef217"
+
+[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1769,6 +1775,7 @@ dependencies = [
  "codec_sv2 3.0.1",
  "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "config",
+ "error_handling",
  "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.11.2",
  "hex",

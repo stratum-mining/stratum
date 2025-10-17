@@ -34,6 +34,7 @@ use common_messages_sv2::{
     Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
 };
 use core::panic;
+use error_handling::handle_result;
 use job_declaration_sv2::{DeclareMiningJob, PushSolution};
 use network_helpers_sv2::noise_connection::Connection;
 use nohash_hasher::BuildNoHashHasher;
@@ -48,10 +49,7 @@ use std::{
     convert::TryInto,
     sync::{atomic::AtomicU32, Arc},
 };
-use stratum_apps::{
-    handle_result,
-    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService},
-};
+use stratum_apps::key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use tokio::{net::TcpListener, time::Duration};
 use tracing::{debug, error, info};
 

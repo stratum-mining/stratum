@@ -8,8 +8,8 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
+use error_handling;
 use parsers_sv2::Mining;
-use stratum_apps::error_handling;
 
 use super::error::JdsError;
 
