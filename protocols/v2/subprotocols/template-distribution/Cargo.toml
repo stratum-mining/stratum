@@ -1,6 +1,6 @@
 [package]
 name = "template_distribution_sv2"
-version = "4.0.1"
+version = "4.0.2"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"

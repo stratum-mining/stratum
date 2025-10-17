@@ -572,6 +572,13 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "common_messages_sv2"
+version = "6.0.2"
+dependencies = [
+ "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "common_messages_sv2"
 version = "6.0.1"
 dependencies = [
  "binary_sv2 4.0.0",
@@ -888,6 +895,15 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "framing_sv2"
+version = "5.0.2"
+dependencies = [
+ "binary_sv2 4.0.0",
+ "buffer_sv2 2.0.0",
+ "noise_sv2 1.4.0",
+]
 
 [[package]]
 name = "framing_sv2"
@@ -1409,6 +1425,13 @@ dependencies = [
 
 [[package]]
 name = "job_declaration_sv2"
+version = "5.0.2"
+dependencies = [
+ "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "job_declaration_sv2"
 version = "5.0.1"
 dependencies = [
  "binary_sv2 4.0.0",
@@ -1537,6 +1560,13 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "mining_sv2"
+version = "5.0.2"
+dependencies = [
+ "binary_sv2 4.0.0",
 ]
 
 [[package]]
@@ -1760,6 +1790,18 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "parsers_sv2"
+version = "0.1.2"
+dependencies = [
+ "binary_sv2 4.0.0",
+ "common_messages_sv2 6.0.1",
+ "framing_sv2 5.0.1",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
+ "template_distribution_sv2 4.0.1",
 ]
 
 [[package]]
@@ -2450,7 +2492,7 @@ dependencies = [
 
 [[package]]
 name = "stratum_translation"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2 4.0.0",
  "channels_sv2 2.0.0",
@@ -2473,7 +2515,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "sv1_api"
-version = "2.1.1"
+version = "2.1.2"
 dependencies = [
  "binary_sv2 4.0.0",
  "bitcoin_hashes 0.3.2",
@@ -2553,6 +2595,13 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "template_distribution_sv2"
+version = "4.0.2"
+dependencies = [
+ "binary_sv2 4.0.0",
 ]
 
 [[package]]

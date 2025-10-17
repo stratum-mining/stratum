@@ -703,25 +703,25 @@ checksum = "11ac02b93b5bd92a7dda2bc4b8c9d1f087e1fffc8b1018b532109135629051fc"
 dependencies = [
  "binary_sv2 4.0.0",
  "bitcoin",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "primitive-types",
- "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "tracing",
-]
-
-[[package]]
-name = "channels_sv2"
-version = "2.0.0"
-dependencies = [
- "binary_sv2 5.0.0",
- "bitcoin",
  "common_messages_sv2 6.0.1",
  "job_declaration_sv2 5.0.1",
  "mining_sv2 5.0.1",
  "primitive-types",
  "template_distribution_sv2 4.0.1",
+ "tracing",
+]
+
+[[package]]
+name = "channels_sv2"
+version = "2.0.1"
+dependencies = [
+ "binary_sv2 5.0.0",
+ "bitcoin",
+ "common_messages_sv2 6.0.2",
+ "job_declaration_sv2 5.0.2",
+ "mining_sv2 5.0.2",
+ "primitive-types",
+ "template_distribution_sv2 4.0.2",
  "tracing",
 ]
 
@@ -811,7 +811,7 @@ checksum = "01e6d43e79e66d0f98038922157db8b6101594921be87ac2cca3754d669f2a05"
 dependencies = [
  "binary_sv2 4.0.0",
  "buffer_sv2 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framing_sv2 5.0.1",
  "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand",
  "tracing",
@@ -819,11 +819,11 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "binary_sv2 5.0.0",
  "buffer_sv2 2.0.0",
- "framing_sv2 5.0.1",
+ "framing_sv2 5.0.2",
  "noise_sv2 1.4.0",
  "rand",
  "tracing",
@@ -838,17 +838,17 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 [[package]]
 name = "common_messages_sv2"
 version = "6.0.1"
-dependencies = [
- "binary_sv2 5.0.0",
-]
-
-[[package]]
-name = "common_messages_sv2"
-version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e6ec6ab527aeebf8ead273d6ab712ff181c050ee5e1082f3f6a2c65c0a10bf6"
 dependencies = [
  "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "common_messages_sv2"
+version = "6.0.2"
+dependencies = [
+ "binary_sv2 5.0.0",
 ]
 
 [[package]]
@@ -1203,21 +1203,21 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "framing_sv2"
 version = "5.0.1"
-dependencies = [
- "binary_sv2 5.0.0",
- "buffer_sv2 2.0.0",
- "noise_sv2 1.4.0",
-]
-
-[[package]]
-name = "framing_sv2"
-version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc6543955264144174b93780e0e76623ee4293037c9e180cfde3e2c155b59fa9"
 dependencies = [
  "binary_sv2 4.0.0",
  "buffer_sv2 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "framing_sv2"
+version = "5.0.2"
+dependencies = [
+ "binary_sv2 5.0.0",
+ "buffer_sv2 2.0.0",
+ "noise_sv2 1.4.0",
 ]
 
 [[package]]
@@ -1428,24 +1428,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "472824f98b68a963dbf4c77625a8b5525c322abe49afa9403dfb816e35dd4d93"
 dependencies = [
  "binary_sv2 4.0.0",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "trait-variant",
-]
-
-[[package]]
-name = "handlers_sv2"
-version = "0.2.0"
-dependencies = [
- "binary_sv2 5.0.0",
  "common_messages_sv2 6.0.1",
  "job_declaration_sv2 5.0.1",
  "mining_sv2 5.0.1",
  "parsers_sv2 0.1.1",
  "template_distribution_sv2 4.0.1",
+ "trait-variant",
+]
+
+[[package]]
+name = "handlers_sv2"
+version = "0.2.1"
+dependencies = [
+ "binary_sv2 5.0.0",
+ "common_messages_sv2 6.0.2",
+ "job_declaration_sv2 5.0.2",
+ "mining_sv2 5.0.2",
+ "parsers_sv2 0.1.2",
+ "template_distribution_sv2 4.0.2",
  "trait-variant",
 ]
 
@@ -1763,18 +1763,18 @@ dependencies = [
  "bitcoin",
  "clap",
  "codec_sv2 3.0.1",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common_messages_sv2 6.0.1",
  "config",
  "error_handling",
- "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framing_sv2 5.0.1",
  "hashbrown 0.11.2",
  "hex",
- "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
  "network_helpers_sv2",
  "nohash-hasher",
  "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parsers_sv2 0.1.1",
  "rand",
  "roles_logic_sv2 5.0.0",
  "rpc_sv2",
@@ -1788,17 +1788,17 @@ dependencies = [
 [[package]]
 name = "job_declaration_sv2"
 version = "5.0.1"
-dependencies = [
- "binary_sv2 5.0.0",
-]
-
-[[package]]
-name = "job_declaration_sv2"
-version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8d4edc436d29e8dcac178539222de2b3681d629f9884191bd7db8831e49dd24"
 dependencies = [
  "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "job_declaration_sv2"
+version = "5.0.2"
+dependencies = [
+ "binary_sv2 5.0.0",
 ]
 
 [[package]]
@@ -1910,17 +1910,17 @@ dependencies = [
  "bitcoin",
  "clap",
  "codec_sv2 3.0.1",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common_messages_sv2 6.0.1",
  "criterion",
- "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "framing_sv2 5.0.1",
  "futures",
  "half",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mining_sv2 5.0.1",
  "network_helpers_sv2",
  "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-format",
  "num_cpus",
- "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parsers_sv2 0.1.1",
  "primitive-types",
  "rand",
  "roles_logic_sv2 5.0.0",
@@ -1934,17 +1934,17 @@ dependencies = [
 [[package]]
 name = "mining_sv2"
 version = "5.0.1"
-dependencies = [
- "binary_sv2 5.0.0",
-]
-
-[[package]]
-name = "mining_sv2"
-version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1eb3c055232f64d36e3eee4296adcaa584fb3185a57e0de11ad5807766c45edc"
 dependencies = [
  "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "mining_sv2"
+version = "5.0.2"
+dependencies = [
+ "binary_sv2 5.0.0",
 ]
 
 [[package]]
@@ -2172,8 +2172,10 @@ dependencies = [
 [[package]]
 name = "parsers_sv2"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "109e80bc77241a729f61cad15f3f246f3de12e1b741b31e419fc7e02f20c2ccb"
 dependencies = [
- "binary_sv2 5.0.0",
+ "binary_sv2 4.0.0",
  "common_messages_sv2 6.0.1",
  "framing_sv2 5.0.1",
  "job_declaration_sv2 5.0.1",
@@ -2183,16 +2185,14 @@ dependencies = [
 
 [[package]]
 name = "parsers_sv2"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "109e80bc77241a729f61cad15f3f246f3de12e1b741b31e419fc7e02f20c2ccb"
+version = "0.1.2"
 dependencies = [
- "binary_sv2 4.0.0",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "framing_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "binary_sv2 5.0.0",
+ "common_messages_sv2 6.0.2",
+ "framing_sv2 5.0.2",
+ "job_declaration_sv2 5.0.2",
+ "mining_sv2 5.0.2",
+ "template_distribution_sv2 4.0.2",
 ]
 
 [[package]]
@@ -2474,15 +2474,15 @@ dependencies = [
  "chacha20poly1305",
  "channels_sv2 1.0.2",
  "codec_sv2 3.0.1",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common_messages_sv2 6.0.1",
  "handlers_sv2 0.1.0",
  "hex-conservative 0.3.0",
- "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
  "nohash-hasher",
- "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parsers_sv2 0.1.1",
  "primitive-types",
- "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "template_distribution_sv2 4.0.1",
  "tracing",
 ]
 
@@ -2497,15 +2497,15 @@ dependencies = [
  "chacha20poly1305",
  "channels_sv2 1.0.2",
  "codec_sv2 3.0.1",
- "common_messages_sv2 6.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "common_messages_sv2 6.0.1",
  "handlers_sv2 0.1.0",
  "hex-conservative 0.3.0",
- "job_declaration_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "mining_sv2 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "job_declaration_sv2 5.0.1",
+ "mining_sv2 5.0.1",
  "nohash-hasher",
- "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parsers_sv2 0.1.1",
  "primitive-types",
- "template_distribution_sv2 4.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "template_distribution_sv2 4.0.1",
  "tracing",
 ]
 
@@ -2874,27 +2874,27 @@ dependencies = [
  "binary_sv2 5.0.0",
  "bitcoin",
  "buffer_sv2 2.0.0",
- "channels_sv2 2.0.0",
- "codec_sv2 4.0.0",
- "common_messages_sv2 6.0.1",
- "framing_sv2 5.0.1",
- "handlers_sv2 0.2.0",
- "job_declaration_sv2 5.0.1",
- "mining_sv2 5.0.1",
+ "channels_sv2 2.0.1",
+ "codec_sv2 4.0.1",
+ "common_messages_sv2 6.0.2",
+ "framing_sv2 5.0.2",
+ "handlers_sv2 0.2.1",
+ "job_declaration_sv2 5.0.2",
+ "mining_sv2 5.0.2",
  "noise_sv2 1.4.0",
- "parsers_sv2 0.1.1",
+ "parsers_sv2 0.1.2",
  "stratum_translation",
  "sv1_api",
- "template_distribution_sv2 4.0.1",
+ "template_distribution_sv2 4.0.2",
 ]
 
 [[package]]
 name = "stratum_translation"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2 5.0.0",
- "channels_sv2 2.0.0",
- "mining_sv2 5.0.1",
+ "channels_sv2 2.0.1",
+ "mining_sv2 5.0.2",
  "sv1_api",
  "tracing",
 ]
@@ -2913,7 +2913,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "sv1_api"
-version = "2.1.1"
+version = "2.1.2"
 dependencies = [
  "binary_sv2 5.0.0",
  "bitcoin_hashes 0.3.2",
@@ -2976,17 +2976,17 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "template_distribution_sv2"
 version = "4.0.1"
-dependencies = [
- "binary_sv2 5.0.0",
-]
-
-[[package]]
-name = "template_distribution_sv2"
-version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6298fc9f339b1c3b654ef3590857d5d3eff6d709891f003b7f7a701b8a64a3a4"
 dependencies = [
  "binary_sv2 4.0.0",
+]
+
+[[package]]
+name = "template_distribution_sv2"
+version = "4.0.2"
+dependencies = [
+ "binary_sv2 5.0.0",
 ]
 
 [[package]]
