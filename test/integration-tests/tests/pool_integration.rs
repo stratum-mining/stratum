@@ -89,7 +89,8 @@ async fn success_pool_template_provider_connection() {
 async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
     start_tracing();
     let sv2_interval = Some(5);
-    let (_tp, tp_addr) = start_template_provider(sv2_interval, DifficultyLevel::High);
+    let (tp, tp_addr) = start_template_provider(sv2_interval, DifficultyLevel::Low);
+    tp.fund_wallet().unwrap();
     let tp_pool_sniffer_identifier =
         "header_timestamp_value_assertion_in_new_extended_mining_job tp_pool sniffer";
     let (tp_pool_sniffer, tp_pool_sniffer_addr) =
@@ -102,11 +103,10 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         pool_addr,
         false,
         vec![
-            // Block SubmitSharesSuccess messages to prevent them from interfering
-            // with the test's expectation to receive NewExtendedMiningJob messages
+            // Block SubmitSharesExtended messages to prevent regtest blocks from being mined
             integration_tests_sv2::interceptor::IgnoreMessage::new(
-                integration_tests_sv2::interceptor::MessageDirection::ToDownstream,
-                MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+                integration_tests_sv2::interceptor::MessageDirection::ToUpstream,
+                MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
             )
             .into(),
         ],
@@ -143,6 +143,10 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
             MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
         )
         .await;
+
+    // create a mempool transaction to force TP to send a non-future NewTemplate
+    tp.create_mempool_transaction().unwrap();
+
     // Wait for a second NewExtendedMiningJob message
     pool_translator_sniffer
         .wait_for_message_type(
