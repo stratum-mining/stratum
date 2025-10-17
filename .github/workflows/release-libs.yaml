@@ -107,11 +107,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh stratum-core/stratum-core
 
-      # Utilities that depend on stratum-core
-      - name: Publish crate bip32-key-derivation
-        run: |
-          ./scripts/release-libs.sh utils/bip32-key-derivation
-
       # stratum-apps (depends on stratum-core and external crates)
       - name: Publish crate stratum-apps
         run: |

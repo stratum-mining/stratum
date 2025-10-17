@@ -97,10 +97,6 @@ jobs:
         working-directory: protocols/v1
         run: cargo semver-checks
 
-      - name: Run semver checks for utils/bip32-key-derivation
-        working-directory: utils/bip32-key-derivation
-        run: cargo semver-checks
-
       - name: Run semver checks for protocols/stratum-translation
         working-directory: protocols/stratum-translation
         run: cargo semver-checks

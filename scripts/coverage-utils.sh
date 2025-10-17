@@ -12,7 +12,6 @@ tarpaulin
 
 crates=(
   "buffer"
-  "bip32-key-derivation"
 )
 
 for crate in "${crates[@]}"; do
