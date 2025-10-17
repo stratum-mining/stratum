@@ -12,6 +12,26 @@
 - **Protocol-Specific Types**: Supports fixed and dynamically-sized SV2 types.
 - **Optimized Memory Use**: Supports buffer pooling to enhance memory efficiency.
 
+## Sv2 Type Mapping
+
+The crate supports the following mappings between Rust and SV2 types
+
+| Rust Type   | Sv2 Type       |  
+|-------------|----------------|  
+| `bool`      | `BOOL`         |  
+| `u8`        | `U8`           |  
+| `u16`       | `U16`          |  
+| `U24`       | `U24`          |  
+| `u32`       | `U32`          |  
+| `u64`       | `U64`          |  
+| `f32`       | `F32`          |  
+| `Str0255`   | `STRO_255`     |  
+| `Signature` | `SIGNATURE`    |  
+| `[u8]`      | `BYTES`        |  
+| `Seq0255`   | `SEQ0_255[T]`  |  
+| `Seq064K`   | `SEQ0_64K[T]`  | 
+
+
 ## Features
 
 - **prop_test**: Adds property testing support.
