@@ -9,6 +9,7 @@ use std::{
 
 use async_channel::{Receiver, Sender};
 use stratum_apps::{
+    custom_mutex::Mutex,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
@@ -38,7 +39,6 @@ use stratum_apps::{
         },
         noise_sv2::Responder,
         parsers_sv2::{AnyMessage, JobDeclaration, Mining},
-        roles_logic_sv2::utils::Mutex,
         template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp},
     },
 };

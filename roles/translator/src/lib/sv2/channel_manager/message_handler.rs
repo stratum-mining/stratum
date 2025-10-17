@@ -5,22 +5,24 @@ use crate::{
     sv2::{channel_manager::ChannelMode, ChannelManager},
     utils::proxy_extranonce_prefix_len,
 };
-use stratum_apps::stratum_core::{
-    channels_sv2::client::extended::ExtendedChannel,
-    handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
-    mining_sv2::{
-        CloseChannel, ExtendedExtranonce, Extranonce, NewExtendedMiningJob, NewMiningJob,
-        OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannelSuccess,
-        SetCustomMiningJobError, SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
-        SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess, UpdateChannelError,
-        MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-        MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-        MESSAGE_TYPE_SET_GROUP_CHANNEL,
+use stratum_apps::{
+    custom_mutex::Mutex,
+    stratum_core::{
+        channels_sv2::client::extended::ExtendedChannel,
+        handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
+        mining_sv2::{
+            CloseChannel, ExtendedExtranonce, Extranonce, NewExtendedMiningJob, NewMiningJob,
+            OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
+            OpenStandardMiningChannelSuccess, SetCustomMiningJobError, SetCustomMiningJobSuccess,
+            SetExtranoncePrefix, SetGroupChannel, SetNewPrevHash, SetTarget, SubmitSharesError,
+            SubmitSharesSuccess, UpdateChannelError,
+            MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+            MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+            MESSAGE_TYPE_SET_GROUP_CHANNEL,
+        },
+        parsers_sv2::Mining,
     },
-    parsers_sv2::Mining,
-    roles_logic_sv2::utils::Mutex,
 };
-
 use tracing::{debug, error, info, warn};
 
 impl HandleMiningMessagesFromServerAsync for ChannelManager {

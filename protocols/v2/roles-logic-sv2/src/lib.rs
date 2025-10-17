@@ -17,4 +17,3 @@
 //! This crate can be built with the following features:
 //!
 //! - `prop_test`: Enables support for property testing in [`template_distribution_sv2`] crate.
-pub mod utils;

@@ -8,6 +8,7 @@ use async_channel::{Receiver, Sender};
 use core::sync::atomic::Ordering;
 use stratum_apps::{
     config_helpers::CoinbaseRewardScript,
+    custom_mutex::Mutex,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
@@ -25,7 +26,6 @@ use stratum_apps::{
         mining_sv2::{ExtendedExtranonce, SetTarget},
         noise_sv2::Responder,
         parsers_sv2::{Mining, TemplateDistribution},
-        roles_logic_sv2::utils::Mutex,
         template_distribution_sv2::{NewTemplate, SetNewPrevHash},
     },
 };

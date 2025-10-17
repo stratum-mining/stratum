@@ -8,6 +8,7 @@ use std::{
 
 use async_channel::{unbounded, Receiver, Sender};
 use stratum_apps::{
+    custom_mutex::Mutex,
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         channels_sv2::server::{
@@ -20,7 +21,6 @@ use stratum_apps::{
         handlers_sv2::HandleCommonMessagesFromClientAsync,
         noise_sv2::Error,
         parsers_sv2::{AnyMessage, Mining},
-        roles_logic_sv2::utils::Mutex,
     },
 };
 use tokio::sync::broadcast;

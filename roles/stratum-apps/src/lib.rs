@@ -42,6 +42,10 @@ pub mod network_helpers;
 #[cfg(feature = "config")]
 pub mod config_helpers;
 
+/// Custom Mutex
+///
+/// A wrapper around std::sync::Mutex
+pub mod custom_mutex;
 /// RPC utilities for Job Declaration Server
 ///
 /// HTTP-based RPC server implementation for JD Server functionality.

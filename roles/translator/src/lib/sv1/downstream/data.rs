@@ -2,10 +2,12 @@ use std::{
     cell::RefCell,
     sync::{atomic::AtomicBool, Arc},
 };
-use stratum_apps::stratum_core::{
-    mining_sv2::Target,
-    roles_logic_sv2::utils::Mutex,
-    sv1_api::{json_rpc, utils::HexU32Be},
+use stratum_apps::{
+    custom_mutex::Mutex,
+    stratum_core::{
+        mining_sv2::Target,
+        sv1_api::{json_rpc, utils::HexU32Be},
+    },
 };
 use tracing::debug;
 
