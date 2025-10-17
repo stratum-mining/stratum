@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, B0255, B064K, U256};
+use binary_sv2::{self, Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// Message used by an upstream(Template Provider) to provide a new template for downstream to mine

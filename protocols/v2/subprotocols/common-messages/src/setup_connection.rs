@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::{fmt, vec::Vec};
 use binary_sv2::{
-    binary_codec_sv2,
+    self,
     decodable::{DecodableField, FieldMarker},
     Deserialize, GetSize, Serialize, Str0255,
 };

@@ -17,7 +17,7 @@
 // cargo run --example sv2_frame
 // ```
 
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
+use binary_sv2::{self, Deserialize, Serialize};
 use framing_sv2::framing::Sv2Frame;
 use std::convert::TryInto;
 

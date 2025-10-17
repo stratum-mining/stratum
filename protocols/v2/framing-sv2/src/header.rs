@@ -21,7 +21,7 @@
 
 use crate::Error;
 use alloc::vec::Vec;
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U24};
+use binary_sv2::{self, Deserialize, Serialize, U24};
 use core::convert::TryInto;
 
 use crate::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};

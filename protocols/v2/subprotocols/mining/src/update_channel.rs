@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, U256};
+use binary_sv2::{self, Deserialize, Serialize, Str0255, U256};
 use core::convert::TryInto;
 
 /// Message used by downstream to notify an upstream about changes on a specified channel.

@@ -16,7 +16,7 @@
 // cargo run --example encrypted --features noise_sv2
 // ```
 
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
+use binary_sv2::{self, Deserialize, Serialize};
 #[cfg(feature = "noise_sv2")]
 use codec_sv2::{
     Error, HandshakeRole, NoiseEncoder, StandardEitherFrame, StandardNoiseDecoder,

@@ -1,7 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-use binary_codec_sv2::{Seq064K,U256,B0255,Seq0255};
-use binary_codec_sv2::from_bytes;
+use binary_sv2::{Seq064K,U256,B0255,Seq0255};
+use binary_sv2::from_bytes;
 use codec_sv2::StandardDecoder;
 use framing_sv2::framing::Sv2Frame;
 use parsers_sv2::AnyMessage;

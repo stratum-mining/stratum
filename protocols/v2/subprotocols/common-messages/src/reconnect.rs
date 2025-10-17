@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255};
+use binary_sv2::{self, Deserialize, Serialize, Str0255};
 use core::convert::TryInto;
 
 /// Message used by upstream to redirect downstream connection(s) to a new host.

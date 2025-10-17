@@ -17,7 +17,7 @@
 
 use crate::{header::Header, Error};
 use alloc::vec::Vec;
-use binary_sv2::{to_writer, GetSize, Serialize};
+use binary_sv2::{self, to_writer, GetSize, Serialize};
 use core::convert::TryFrom;
 
 #[cfg(not(feature = "with_buffer_pool"))]
@@ -296,9 +296,6 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
         extension_type & mask
     }
 }
-
-#[cfg(test)]
-use binary_sv2::binary_codec_sv2;
 
 #[cfg(test)]
 #[derive(Serialize)]

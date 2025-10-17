@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize, Str0255, B016M, B064K};
+use binary_sv2::{self, Deserialize, Seq064K, Serialize, Str0255, B016M, B064K};
 use core::convert::TryInto;
 
 /// Message used by a downstream to request data about all transactions in a block template.

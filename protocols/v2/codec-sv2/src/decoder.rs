@@ -417,7 +417,7 @@ impl<T: Serialize + binary_sv2::GetSize> Default for WithoutNoise<Buffer, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use binary_sv2::{binary_codec_sv2, Serialize};
+    use binary_sv2::{self, Serialize};
 
     #[derive(Serialize)]
     pub struct TestMessage {}

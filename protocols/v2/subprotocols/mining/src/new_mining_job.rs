@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
+use binary_sv2::{self, Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
 use core::{convert::TryInto, fmt};
 
 /// Message used by an upstream to provide an updated mining job to downstream.

@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
+use binary_sv2::{self, Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// Message used by downstream role to set a custom job to an upstream (Pool).

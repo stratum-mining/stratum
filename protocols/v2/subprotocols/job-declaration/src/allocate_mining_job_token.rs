@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, B0255, B064K};
+use binary_sv2::{self, Deserialize, Serialize, Str0255, B0255, B064K};
 use core::convert::TryInto;
 
 /// Message used by JDC to request an identifier for a future mining job from JDS.
