@@ -1435,7 +1435,7 @@ dependencies = [
  "noise_sv2 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.8.5",
- "roles_logic_sv2 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "roles_logic_sv2 5.0.0",
  "rpc_sv2",
  "serde",
  "serde_json",
@@ -1568,7 +1568,7 @@ dependencies = [
  "parsers_sv2 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "primitive-types",
  "rand 0.8.5",
- "roles_logic_sv2 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "roles_logic_sv2 5.0.0",
  "sha2 0.10.9",
  "stratum-apps",
  "tokio",
@@ -2115,27 +2115,6 @@ dependencies = [
 [[package]]
 name = "roles_logic_sv2"
 version = "5.0.0"
-dependencies = [
- "binary_sv2 4.0.0",
- "bitcoin",
- "chacha20poly1305",
- "channels_sv2 2.0.0",
- "codec_sv2 4.0.0",
- "common_messages_sv2 6.0.1",
- "handlers_sv2 0.2.0",
- "hex-conservative 0.3.0",
- "job_declaration_sv2 5.0.1",
- "mining_sv2 5.0.1",
- "nohash-hasher",
- "parsers_sv2 0.1.1",
- "primitive-types",
- "template_distribution_sv2 4.0.1",
- "tracing",
-]
-
-[[package]]
-name = "roles_logic_sv2"
-version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88850ead16993f86cb4616d154ddd37b9c0d739ea23711b1cc51f40484e0e39a"
 dependencies = [
@@ -2501,7 +2480,6 @@ dependencies = [
  "mining_sv2 5.0.1",
  "noise_sv2 1.4.0",
  "parsers_sv2 0.1.1",
- "roles_logic_sv2 5.0.0",
  "stratum_translation",
  "sv1_api",
  "template_distribution_sv2 4.0.1",
