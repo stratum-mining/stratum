@@ -78,7 +78,6 @@ impl MinerdProcess {
             );
             let url = format!("{download_endpoint}{download_filename}");
             let tarball_bytes = http::make_get_request(&url, 5);
-            println!("tarball_bytes: {:?}", tarball_bytes);
             tarball::unpack(&tarball_bytes, &minerd_dir);
         }
 
