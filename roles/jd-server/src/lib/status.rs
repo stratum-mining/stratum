@@ -8,7 +8,8 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
-use stratum_apps::stratum_core::parsers_sv2::Mining;
+use error_handling;
+use parsers_sv2::Mining;
 
 use super::error::JdsError;
 
@@ -171,10 +172,12 @@ mod tests {
 
     use super::*;
     use async_channel::{bounded, RecvError};
-    use stratum_apps::stratum_core::{
-        binary_sv2, codec_sv2, framing_sv2, mining_sv2::OpenMiningChannelError, noise_sv2,
-        roles_logic_sv2,
-    };
+    use binary_sv2;
+    use codec_sv2;
+    use framing_sv2;
+    use mining_sv2::OpenMiningChannelError;
+    use noise_sv2;
+    use roles_logic_sv2;
 
     #[tokio::test]
     async fn test_send_status_downstream_listener_shutdown() {

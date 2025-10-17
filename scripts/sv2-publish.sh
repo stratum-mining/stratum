@@ -17,13 +17,11 @@ output=$(cargo smart-release \
     codec_sv2 \
     framing_sv2 \
     noise_sv2 \
-    roles_logic_sv2 \
     common_messages_sv2 \
     job_declaration_sv2 \
     mining_sv2 \
     template_distribution_sv2 \
     buffer_sv2 \
-    error_handling \
     network_helpers \
     translator_sv2 \
     pool_sv2 \

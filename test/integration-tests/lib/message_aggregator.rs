@@ -1,5 +1,5 @@
 use std::{collections::VecDeque, sync::Arc};
-use stratum_apps::stratum_core::{parsers_sv2::AnyMessage, roles_logic_sv2::utils::Mutex};
+use stratum_apps::{custom_mutex::Mutex, stratum_core::parsers_sv2::AnyMessage};
 
 use crate::types::MsgType;
 

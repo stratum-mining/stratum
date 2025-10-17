@@ -34,14 +34,6 @@ jobs:
         run: |
           ./scripts/release-libs.sh utils/buffer
 
-      - name: Publish crate error-handling
-        run: |
-          ./scripts/release-libs.sh utils/error-handling
-
-      - name: Publish crate key-utils
-        run: |
-          ./scripts/release-libs.sh utils/key-utils
-
       - name: Publish crate noise_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/noise-sv2
@@ -64,7 +56,7 @@ jobs:
         run: |
           ./scripts/release-libs.sh protocols/v2/framing-sv2
 
-      # codec_sv2 (depends on framing_sv2, noise_sv2, binary_sv2, buffer_sv2, key-utils)
+      # codec_sv2 (depends on framing_sv2, noise_sv2, binary_sv2, buffer_sv2)
       - name: Publish crate codec_sv2
         run: |
           ./scripts/release-libs.sh protocols/v2/codec-sv2
@@ -105,12 +97,6 @@ jobs:
       - name: Publish crate stratum_translation
         run: |
           ./scripts/release-libs.sh protocols/stratum-translation
-
-      # Roles logic (depends on codec_sv2 and subprotocols)
-      - name: Publish crate roles_logic_sv2
-        run: |
-          ./scripts/release-libs.sh protocols/v2/roles-logic-sv2
-
       # handlers_sv2 (depends on parsers_sv2, binary_sv2, common_messages_sv2, mining_sv2, template_distribution_sv2, job_declaration_sv2)
       - name: Publish crate handlers_sv2
         run: |
@@ -120,11 +106,6 @@ jobs:
       - name: Publish crate stratum-core
         run: |
           ./scripts/release-libs.sh stratum-core/stratum-core
-
-      # Utilities that depend on stratum-core
-      - name: Publish crate bip32-key-derivation
-        run: |
-          ./scripts/release-libs.sh utils/bip32-key-derivation
 
       # stratum-apps (depends on stratum-core and external crates)
       - name: Publish crate stratum-apps

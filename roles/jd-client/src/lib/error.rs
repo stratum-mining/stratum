@@ -16,11 +16,30 @@ use std::fmt;
 use stratum_apps::{
     network_helpers,
     stratum_core::{
-        binary_sv2, bitcoin, channels_sv2::server::error::GroupChannelError, framing_sv2,
-        handlers_sv2::HandlerErrorType, noise_sv2, parsers_sv2::ParserError, roles_logic_sv2,
+        binary_sv2, bitcoin,
+        channels_sv2::{
+            client::error::ExtendedChannelError as ExtendedChannelClientError,
+            server::error::{
+                ExtendedChannelError as ExtendedChannelServerError, GroupChannelError,
+                StandardChannelError,
+            },
+        },
+        framing_sv2,
+        handlers_sv2::HandlerErrorType,
+        mining_sv2::ExtendedExtranonceError,
+        noise_sv2,
+        parsers_sv2::ParserError,
     },
 };
 use tokio::{sync::broadcast, time::error::Elapsed};
+
+#[derive(Debug)]
+pub enum ChannelSv2Error {
+    ExtendedChannelClientSide(ExtendedChannelClientError),
+    ExtendedChannelServerSide(ExtendedChannelServerError),
+    StandardChannelServerSide(StandardChannelError),
+    GroupChannelServerSide(GroupChannelError),
+}
 
 #[derive(Debug)]
 pub enum JDCError {
@@ -40,9 +59,6 @@ pub enum JDCError {
     Io(std::io::Error),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
-    /// Errors from `roles_logic_sv2` crate.
-    RolesSv2Logic(roles_logic_sv2::errors::Error),
-    UpstreamIncoming(roles_logic_sv2::errors::Error),
     #[allow(dead_code)]
     SubprotocolMining(String),
     // Locking Errors
@@ -81,6 +97,9 @@ pub enum JDCError {
     DeclaredJobHasBadCoinbaseOutputs,
     ExtranonceSizeTooLarge,
     FailedToCreateGroupChannel(GroupChannelError),
+    ///Channel Errors
+    ChannelSv2(ChannelSv2Error),
+    ExtranoncePrefixFactoryError(ExtendedExtranonceError),
 }
 
 impl std::error::Error for JDCError {}
@@ -96,9 +115,7 @@ impl fmt::Display for JDCError {
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{e:?}`"),
             Io(ref e) => write!(f, "I/O error: `{e:?}"),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{e:?}`"),
-            RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{e:?}`"),
             SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{e:?}`"),
-            UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{e:?}`"),
             PoisonLock => write!(f, "Poison Lock error"),
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{e:?}`"),
             TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{e:?}`"),
@@ -176,6 +193,12 @@ impl fmt::Display for JDCError {
             FailedToCreateGroupChannel(ref e) => {
                 write!(f, "Failed to create group channel: {e:?}")
             }
+            ExtranoncePrefixFactoryError(e) => {
+                write!(f, "Failed to create ExtranoncePrefixFactory: {e:?}")
+            }
+            ChannelSv2(channel_error) => {
+                write!(f, "Channel error: {channel_error:?}")
+            }
         }
     }
 }
@@ -248,12 +271,6 @@ impl From<std::num::ParseIntError> for JDCError {
     }
 }
 
-impl From<roles_logic_sv2::errors::Error> for JDCError {
-    fn from(e: roles_logic_sv2::errors::Error) -> Self {
-        JDCError::RolesSv2Logic(e)
-    }
-}
-
 impl From<ConfigError> for JDCError {
     fn from(e: ConfigError) -> Self {
         JDCError::BadConfigDeserialize(e)
@@ -297,5 +314,23 @@ impl HandlerErrorType for JDCError {
 
     fn unexpected_message(message_type: u8) -> Self {
         JDCError::UnexpectedMessage(message_type)
+    }
+}
+
+impl From<ExtendedChannelClientError> for JDCError {
+    fn from(value: ExtendedChannelClientError) -> Self {
+        JDCError::ChannelSv2(ChannelSv2Error::ExtendedChannelClientSide(value))
+    }
+}
+
+impl From<ExtendedChannelServerError> for JDCError {
+    fn from(value: ExtendedChannelServerError) -> Self {
+        JDCError::ChannelSv2(ChannelSv2Error::ExtendedChannelServerSide(value))
+    }
+}
+
+impl From<StandardChannelError> for JDCError {
+    fn from(value: StandardChannelError) -> Self {
+        JDCError::ChannelSv2(ChannelSv2Error::StandardChannelServerSide(value))
     }
 }

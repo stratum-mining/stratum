@@ -3,9 +3,6 @@ resolver="2"
 
 members = [
     "buffer",
-    "error-handling",
-    "key-utils",
-    "bip32-key-derivation",
 ]
 
 exclude = [

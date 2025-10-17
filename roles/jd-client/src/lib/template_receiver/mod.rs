@@ -13,8 +13,9 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
-use key_utils::Secp256k1PublicKey;
 use stratum_apps::{
+    custom_mutex::Mutex,
+    key_utils::Secp256k1PublicKey,
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         bitcoin::{
@@ -26,7 +27,6 @@ use stratum_apps::{
         handlers_sv2::HandleCommonMessagesFromServerAsync,
         noise_sv2::Initiator,
         parsers_sv2::{AnyMessage, TemplateDistribution},
-        roles_logic_sv2::utils::Mutex,
         template_distribution_sv2::CoinbaseOutputConstraints,
     },
 };

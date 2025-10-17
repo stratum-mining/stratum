@@ -25,6 +25,7 @@
 //! - [`rpc`] - RPC utilities with custom serializable types (`Hash`, `BlockHash`, `Amount`)
 
 /// Re-export all the modules from `stratum_core`
+#[cfg(feature = "core")]
 pub use stratum_core;
 
 /// High-level networking utilities for SV2 connections
@@ -41,9 +42,19 @@ pub mod network_helpers;
 #[cfg(feature = "config")]
 pub mod config_helpers;
 
+/// Custom Mutex
+///
+/// A wrapper around std::sync::Mutex
+pub mod custom_mutex;
 /// RPC utilities for Job Declaration Server
 ///
 /// HTTP-based RPC server implementation for JD Server functionality.
 /// Originally from the `rpc_sv2` crate.
 #[cfg(feature = "rpc")]
 pub mod rpc;
+
+/// Key utilities for cryptographic operations
+///
+/// Provides Secp256k1 key management, serialization/deserialization, and signature services.
+/// Supports both standard and no_std environments.
+pub mod key_utils;

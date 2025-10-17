@@ -6,9 +6,9 @@ use crate::{
     utils::{message_from_frame, ShutdownMessage},
 };
 use async_channel::{Receiver, Sender};
-use key_utils::Secp256k1PublicKey;
 use std::{net::SocketAddr, sync::Arc};
 use stratum_apps::{
+    key_utils::Secp256k1PublicKey,
     network_helpers::noise_connection::Connection,
     stratum_core::{
         buffer_sv2,

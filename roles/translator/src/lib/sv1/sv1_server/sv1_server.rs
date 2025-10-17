@@ -22,13 +22,13 @@ use std::{
     },
 };
 use stratum_apps::{
+    custom_mutex::Mutex,
     network_helpers::sv1_connection::ConnectionSV1,
     stratum_core::{
         binary_sv2::Str0255,
         channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
         mining_sv2::{CloseChannel, SetTarget, Target},
         parsers_sv2::Mining,
-        roles_logic_sv2::utils::Mutex,
         stratum_translation::{
             sv1_to_sv2::{
                 build_sv2_open_extended_mining_channel,
@@ -838,8 +838,8 @@ mod tests {
     use super::*;
     use crate::config::{DownstreamDifficultyConfig, TranslatorConfig, Upstream};
     use async_channel::unbounded;
-    use key_utils::Secp256k1PublicKey;
     use std::{collections::HashMap, str::FromStr};
+    use stratum_apps::key_utils::Secp256k1PublicKey;
 
     fn create_test_config() -> TranslatorConfig {
         let pubkey_str = "9bDuixKmZqAJnrmP746n8zU1wyAQRrus7th9dxnkPg6RzQvCnan";

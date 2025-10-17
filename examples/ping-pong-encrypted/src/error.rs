@@ -1,5 +1,5 @@
 use stratum_apps::{
-    network_helpers,
+    key_utils, network_helpers,
     stratum_core::{binary_sv2, codec_sv2, framing_sv2, noise_sv2},
 };
 

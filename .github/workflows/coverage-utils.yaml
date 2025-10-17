@@ -29,14 +29,6 @@ jobs:
           flags: utils
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Upload bip32_derivation-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./utils/target/tarpaulin-reports/bip32-key-derivation-coverage
-          file: ./utils/target/tarpaulin-reports/bip32-key-derivation-coverage/cobertura.xml
-          flags: bip32_derivation-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-      
       - name: Upload buffer_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
@@ -44,20 +36,4 @@ jobs:
           file: ./utils/target/tarpaulin-reports/buffer-coverage/cobertura.xml
           flags: buffer_sv2-coverage
           
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload error_handling-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./utils/target/tarpaulin-reports/error-handling-coverage
-          file: ./utils/target/tarpaulin-reports/error-handling-coverage/cobertura.xml
-          flags: error_handling-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload key-utils-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./utils/target/tarpaulin-reports/key-utils-coverage
-          file: ./utils/target/tarpaulin-reports/key-utils-coverage/cobertura.xml
-          flags: key-utils-coverage
           token: ${{ secrets.CODECOV_TOKEN }}

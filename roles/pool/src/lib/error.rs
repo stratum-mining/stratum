@@ -15,7 +15,6 @@ use stratum_apps::stratum_core::{
     mining_sv2::ExtendedExtranonceError,
     noise_sv2,
     parsers_sv2::{Mining, ParserError},
-    roles_logic_sv2,
 };
 
 pub type PoolResult<T> = Result<T, PoolError>;
@@ -46,8 +45,6 @@ pub enum PoolError {
     CoinbaseOutput(stratum_apps::config_helpers::CoinbaseOutputError),
     /// Error from the `noise_sv2` crate.
     Noise(noise_sv2::Error),
-    /// Error from the `roles_logic_sv2` crate.
-    RolesLogic(roles_logic_sv2::Error),
     /// Error related to SV2 message framing.
     Framing(framing_sv2::Error),
     /// Error due to a poisoned lock, typically from a failed mutex operation.
@@ -102,7 +99,6 @@ impl std::fmt::Display for PoolError {
             CoinbaseOutput(e) => write!(f, "Coinbase output error: `{e:?}"),
             Framing(e) => write!(f, "Framing SV2 error: `{e:?}`"),
             Noise(e) => write!(f, "Noise SV2 error: `{e:?}"),
-            RolesLogic(e) => write!(f, "Roles Logic SV2 error: `{e:?}`"),
             PoisonLock(e) => write!(f, "Poison lock: {e:?}"),
             ComponentShutdown(e) => write!(f, "Component shutdown: {e:?}"),
             Custom(e) => write!(f, "Custom SV2 error: `{e:?}`"),
@@ -176,12 +172,6 @@ impl From<stratum_apps::config_helpers::CoinbaseOutputError> for PoolError {
 impl From<noise_sv2::Error> for PoolError {
     fn from(e: noise_sv2::Error) -> PoolError {
         PoolError::Noise(e)
-    }
-}
-
-impl From<roles_logic_sv2::Error> for PoolError {
-    fn from(e: roles_logic_sv2::Error) -> PoolError {
-        PoolError::RolesLogic(e)
     }
 }
 

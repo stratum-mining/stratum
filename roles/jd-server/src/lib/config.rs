@@ -11,13 +11,15 @@
 //!
 //! Also defines a helper struct [`CoreRpc`] to group RPC parameters.
 
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use serde::Deserialize;
 use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use stratum_apps::config_helpers::CoinbaseRewardScript;
+use stratum_apps::{
+    config_helpers::CoinbaseRewardScript,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
+};
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct JobDeclaratorServerConfig {

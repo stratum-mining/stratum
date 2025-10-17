@@ -20,14 +20,13 @@ use stratum_apps::stratum_core::{
     job_declaration_sv2::PushSolution,
     mining_sv2::*,
     parsers_sv2::{AnyMessage, JobDeclaration, Mining, TemplateDistribution},
-    roles_logic_sv2,
     template_distribution_sv2::SubmitSolution,
 };
 use tracing::{debug, error, info, warn};
 
 use crate::{
     channel_manager::{ChannelManager, ChannelManagerChannel},
-    error::JDCError,
+    error::{ChannelSv2Error, JDCError},
     jd_mode::{get_jd_mode, JdMode},
     utils::StdFrame,
 };
@@ -265,36 +264,47 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         let mut messages: Vec<RouteMessageTo> = vec![];
 
                         if !data.require_std_job && data.group_channels.is_none() {
-                            let group_channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::Relaxed);
+                            let group_channel_id = channel_manager_data
+                                .channel_id_factory
+                                .fetch_add(1, Ordering::Relaxed);
                             let job_store = DefaultJobStore::new();
-                            let full_extranonce_size = channel_manager_data.upstream_channel.as_ref().map(|channel| channel.get_full_extranonce_size()).unwrap_or(32);
-                            let mut group_channel = match GroupChannel::new_for_job_declaration_client(
-                                group_channel_id,
-                                job_store,
-                                full_extranonce_size,
-                                channel_manager_data.pool_tag_string.clone(),
-                                self.miner_tag_string.clone(),
-                            ) {
-                                Ok(channel) => channel,
-                                Err(e) => {
-                                    error!(?e, "Failed to create group channel");
-                                    return Err(JDCError::FailedToCreateGroupChannel(e));
-                                }
-                            };
+                            let full_extranonce_size = channel_manager_data
+                                .upstream_channel
+                                .as_ref()
+                                .map(|channel| channel.get_full_extranonce_size())
+                                .unwrap_or(32);
+                            let mut group_channel =
+                                match GroupChannel::new_for_job_declaration_client(
+                                    group_channel_id,
+                                    job_store,
+                                    full_extranonce_size,
+                                    channel_manager_data.pool_tag_string.clone(),
+                                    self.miner_tag_string.clone(),
+                                ) {
+                                    Ok(channel) => channel,
+                                    Err(e) => {
+                                        error!(?e, "Failed to create group channel");
+                                        return Err(JDCError::FailedToCreateGroupChannel(e));
+                                    }
+                                };
 
                             if let Err(e) = group_channel.on_new_template(
                                 last_future_template.clone(),
                                 coinbase_outputs.clone(),
                             ) {
                                 error!(?e, "Failed to apply template to group channel");
-                                return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessNewTemplateGroupChannel(e)));
+                                return Err(JDCError::ChannelSv2(
+                                    ChannelSv2Error::GroupChannelServerSide(e),
+                                ));
                             }
 
                             if let Err(e) =
                                 group_channel.on_set_new_prev_hash(last_new_prev_hash.clone())
                             {
                                 error!(?e, "Failed to apply prevhash to group channel");
-                                return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessSetNewPrevHashGroupChannel(e)));
+                                return Err(JDCError::ChannelSv2(
+                                    ChannelSv2Error::GroupChannelServerSide(e),
+                                ));
                             };
 
                             data.group_channels = Some(group_channel);
@@ -308,7 +318,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .as_ref()
                             .map(|gc| gc.get_group_channel_id())
                             .unwrap_or(0);
-                        let standard_channel_id = channel_manager_data.channel_id_factory.fetch_add(1, Ordering::Relaxed);
+                        let standard_channel_id = channel_manager_data
+                            .channel_id_factory
+                            .fetch_add(1, Ordering::Relaxed);
 
                         let extranonce_prefix = match channel_manager_data
                             .extranonce_prefix_factory_standard
@@ -317,7 +329,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             Ok(p) => p,
                             Err(e) => {
                                 error!(?e, "Failed to get extranonce prefix");
-                                return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::ExtranoncePrefixFactoryError(e)));
+                                return Err(JDCError::ExtranoncePrefixFactoryError(e));
                             }
                         };
 
@@ -339,18 +351,22 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 Err(e) => {
                                     error!(?e, "Failed to create standard channel");
                                     return match e {
-                                        StandardChannelError::InvalidNominalHashrate => {
-                                            Ok(vec![(downstream_id, build_error("invalid-nominal-hashrate")).into()])
-                                        }
+                                        StandardChannelError::InvalidNominalHashrate => Ok(vec![(
+                                            downstream_id,
+                                            build_error("invalid-nominal-hashrate"),
+                                        )
+                                            .into()]),
                                         StandardChannelError::RequestedMaxTargetOutOfRange => {
-                                            Ok(vec![(downstream_id, build_error("max-target-out-of-range")).into()])
-                                        }
-                                        other => Err(
-                                            JDCError::RolesSv2Logic(
-                                                roles_logic_sv2::Error::FailedToCreateStandardChannel(other)
+                                            Ok(vec![(
+                                                downstream_id,
+                                                build_error("max-target-out-of-range"),
                                             )
-                                        ),
-                                    }
+                                                .into()])
+                                        }
+                                        other => Err(JDCError::ChannelSv2(
+                                            ChannelSv2Error::StandardChannelServerSide(other),
+                                        )),
+                                    };
                                 }
                             };
 
@@ -382,7 +398,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .on_new_template(last_future_template.clone(), coinbase_outputs.clone())
                         {
                             error!(?e, "Failed to apply template to standard channel");
-                            return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessNewTemplateStandardChannel(e)));
+                            return Err(JDCError::ChannelSv2(
+                                ChannelSv2Error::StandardChannelServerSide(e),
+                            ));
                         }
 
                         let future_standard_job_id = standard_channel
@@ -422,7 +440,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             standard_channel.on_set_new_prev_hash(last_new_prev_hash.clone())
                         {
                             error!(?e, "Failed to apply prevhash to standard channel");
-                            return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessSetNewPrevHashStandardChannel(e)));
+                            return Err(JDCError::ChannelSv2(
+                                ChannelSv2Error::StandardChannelServerSide(e),
+                            ));
                         }
                         messages.push(
                             (
@@ -432,15 +452,24 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 .into(),
                         );
 
-                        let vardiff = VardiffState::new().expect("Vardiff state should instantiate.");
+                        let vardiff =
+                            VardiffState::new().expect("Vardiff state should instantiate.");
 
-                        channel_manager_data.vardiff.insert((standard_channel_id, downstream_id),vardiff);
-                        data.standard_channels.insert(standard_channel_id, standard_channel);
+                        channel_manager_data
+                            .vardiff
+                            .insert((standard_channel_id, downstream_id), vardiff);
+                        data.standard_channels
+                            .insert(standard_channel_id, standard_channel);
                         channel_manager_data
                             .channel_id_to_downstream_id
                             .insert(standard_channel_id, downstream_id);
 
-                        channel_manager_data.downstream_channel_id_and_job_id_to_template_id.insert((standard_channel_id, future_standard_job_id), last_future_template.template_id);
+                        channel_manager_data
+                            .downstream_channel_id_and_job_id_to_template_id
+                            .insert(
+                                (standard_channel_id, future_standard_job_id),
+                                last_future_template.template_id,
+                            );
                         if let Some(group_channel) = data.group_channels.as_mut() {
                             group_channel.add_standard_channel_id(standard_channel_id);
                         }
@@ -525,7 +554,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             Ok(p) => p,
                             Err(e) => {
                                 error!(?e, "Extranonce prefix error");
-                                return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::ExtranoncePrefixFactoryError(e)));
+                                return Err(JDCError::ExtranoncePrefixFactoryError(e));
                             }
                         };
 
@@ -569,8 +598,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                         Ok(vec![(downstream_id, build_error("min-extranonce-size-too-large")).into()])
                                     }
                                     other => Err(
-                                        JDCError::RolesSv2Logic(
-                                            roles_logic_sv2::Error::FailedToCreateExtendedChannel(other)
+                                        JDCError::ChannelSv2(
+                                            ChannelSv2Error::ExtendedChannelServerSide(other)
                                         )
                                     ),
                                 }
@@ -611,7 +640,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             extended_channel.on_new_template(last_future_template.clone(), coinbase_outputs)
                         {
                             error!(?e, "Failed to apply template to extended channel");
-                            return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessNewTemplateExtendedChannel(e)));
+                            return Err(JDCError::ChannelSv2(ChannelSv2Error::ExtendedChannelServerSide(e)));
                         }
 
                         let future_extended_job_id = extended_channel
@@ -649,7 +678,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         };
                         if let Err(e) = extended_channel.on_set_new_prev_hash(last_new_prev_hash) {
                             error!(?e, "Failed to set prevhash on extended channel");
-                            return Err(JDCError::RolesSv2Logic(roles_logic_sv2::Error::FailedToProcessSetNewPrevHashExtendedChannel(e)));
+                            return Err(JDCError::ChannelSv2(ChannelSv2Error::ExtendedChannelServerSide(e)));
                         }
                         messages.push((
                             downstream_id,

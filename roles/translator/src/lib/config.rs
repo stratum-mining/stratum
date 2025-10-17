@@ -12,8 +12,8 @@
 //! - Downstream difficulty adjustment parameters ([`DownstreamDifficultyConfig`])
 use std::path::{Path, PathBuf};
 
-use key_utils::Secp256k1PublicKey;
 use serde::Deserialize;
+use stratum_apps::key_utils::Secp256k1PublicKey;
 
 /// Configuration for the Translator.
 #[derive(Debug, Deserialize, Clone)]
