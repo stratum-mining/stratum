@@ -5,7 +5,7 @@ use tracing::warn;
 
 use crate::utils::{fs_utils, http, tarball};
 
-const VERSION_TP: &str = "0.1.15";
+const VERSION_TP: &str = "0.1.19";
 
 fn get_bitcoind_filename(os: &str, arch: &str) -> String {
     match (os, arch) {
