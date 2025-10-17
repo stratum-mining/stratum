@@ -480,7 +480,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 /// ```ignore
 /// mod impl_parse_decodable_test {
 ///     use super::{
-///         binary_codec_sv2::{
+///         binary_sv2::{
 ///             decodable::{DecodableField, FieldMarker},
 ///             Decodable, Error, SizeHint,
 ///         },
@@ -559,7 +559,6 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 #[proc_macro_derive(Decodable)]
 pub fn decodable(item: TokenStream) -> TokenStream {
     let parsed_struct = get_struct_properties(item);
-
     let data_ident = RESERVED_FIELDS[0];
     let offset_ident = RESERVED_FIELDS[1];
 
@@ -643,7 +642,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_decodable_{} {{
 
-    use super::binary_codec_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
+    use super::binary_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
     use super::*;
 
     impl{} Decodable<'decoder> for {}{} {{
@@ -743,7 +742,7 @@ fn get_static_generics(gen: &str) -> &str {
 ///
 /// ```ignore
 /// mod impl_parse_encodable_test {
-///     use super::binary_codec_sv2::{encodable::EncodableField, GetSize};
+///     use super::binary_sv2::{encodable::EncodableField, GetSize};
 ///     extern crate alloc;
 ///     use alloc::vec::Vec;
 ///
@@ -793,6 +792,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let parsed_struct = get_struct_properties(item);
     let fields = parsed_struct.fields.clone();
 
+
     let mut field_into_decoded_field = String::new();
 
     // Create DecodableField from fields
@@ -829,7 +829,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     } else {
         format!(
             "
-            impl{} GetSize for {}{} {{
+            impl{} super::binary_sv2::GetSize for {}{} {{
                 fn get_size(&self) -> usize {{
                     let mut size = 0;
                     {}
@@ -844,12 +844,12 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_encodable_{} {{
 
-    use super::binary_codec_sv2::{{encodable::EncodableField, GetSize}};
+    use super::binary_sv2::{{encodable::EncodableField, GetSize}};
     use super::{};
     extern crate alloc;
     use alloc::vec::Vec;
 
-    impl{} From<{}{}> for EncodableField<'decoder> {{
+    impl{} From<{}{}> for super::binary_sv2::EncodableField<'decoder> {{
         fn from(v: {}{}) -> Self {{
             let mut fields: Vec<EncodableField> = Vec::new();
             {}
@@ -873,7 +873,6 @@ pub fn encodable(item: TokenStream) -> TokenStream {
         // impl get_size
         get_size,
     );
-    //println!("{}", result);
 
     // Never executed at runtime it ok to panic
     result.parse().unwrap()

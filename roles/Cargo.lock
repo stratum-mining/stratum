@@ -444,13 +444,6 @@ checksum = "8ad24342e0abdcc463ad6ad4ac7b0ec606122c11eddf92de186a657df0114eb7"
 [[package]]
 name = "binary_codec_sv2"
 version = "3.0.0"
-dependencies = [
- "buffer_sv2 2.0.0",
-]
-
-[[package]]
-name = "binary_codec_sv2"
-version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d16415a0a9ccee2f71820da352c1f2a7f16d9f8e3ae6fb5e97834c6d732e98cd"
 dependencies = [
@@ -461,7 +454,7 @@ dependencies = [
 name = "binary_sv2"
 version = "4.0.0"
 dependencies = [
- "binary_codec_sv2 3.0.0",
+ "buffer_sv2 2.0.0",
  "derive_codec_sv2 1.1.1",
 ]
 
@@ -471,7 +464,7 @@ version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba8295945d51b707f3a49e17810dddef858549e2b52383c7f2c4dd036f6bc1e6"
 dependencies = [
- "binary_codec_sv2 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "binary_codec_sv2 3.0.0",
  "derive_codec_sv2 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1055,9 +1048,6 @@ dependencies = [
 [[package]]
 name = "derive_codec_sv2"
 version = "1.1.1"
-dependencies = [
- "binary_codec_sv2 3.0.0",
-]
 
 [[package]]
 name = "derive_codec_sv2"
