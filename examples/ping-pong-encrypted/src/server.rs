@@ -2,15 +2,10 @@ use crate::{
     error::Error,
     messages::{Message, Ping, Pong, PING_MSG_TYPE, PONG_MSG_TYPE},
 };
-use stratum_apps::{
-    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
-    network_helpers::noise_connection::Connection,
-    stratum_core::{
-        binary_sv2,
-        codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame},
-        noise_sv2::Responder,
-    },
-};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use network_helpers_sv2::noise_connection_tokio::Connection;
+
+use codec_sv2::{noise_sv2::Responder, HandshakeRole, StandardEitherFrame, StandardSv2Frame};
 
 use async_channel::{Receiver, Sender};
 use tokio::net::TcpListener;
@@ -40,7 +35,7 @@ pub async fn start_server(
             )?;
 
             // channels for encrypted connection
-            let (receiver, sender) =
+            let (receiver, sender, _, _) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await?;
 
             // handle encrypted connection

@@ -7,12 +7,10 @@ use std::{
     net::{TcpListener, TcpStream},
     thread,
 };
-use stratum_apps::stratum_core::{
-    binary_sv2,
-    codec_sv2::{self, StandardDecoder, StandardSv2Frame},
-};
 
-use stratum_apps::stratum_core::framing_sv2::header::Header as StandardSv2Header;
+use codec_sv2::{self, StandardDecoder, StandardSv2Frame};
+
+use codec_sv2::framing_sv2::header::Header as StandardSv2Header;
 
 pub fn start_server(address: &str) -> Result<(), Error> {
     let listener = TcpListener::bind(address)?;
@@ -33,7 +31,6 @@ pub fn start_server(address: &str) -> Result<(), Error> {
 
     Ok(())
 }
-
 fn handle_connection(mut stream: TcpStream) -> Result<(), Error> {
     // first, we need to read the ping message
 

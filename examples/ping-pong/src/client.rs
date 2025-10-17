@@ -3,10 +3,8 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
 };
-use stratum_apps::stratum_core::{
-    binary_sv2,
-    codec_sv2::{self, StandardDecoder, StandardSv2Frame},
-};
+
+use codec_sv2::{self, StandardDecoder, StandardSv2Frame};
 
 use crate::error::Error;
 

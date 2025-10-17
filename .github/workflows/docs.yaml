@@ -39,11 +39,6 @@ jobs:
           cd protocols/v2/binary-sv2/derive_codec
           cargo doc
 
-      - name: Rust Docs crate binary_sv2 codec
-        run: |
-          cd protocols/v2/binary-sv2/codec
-          cargo doc --features with_buffer_pool
-
       - name: Rust Docs crate binary_sv2
         run: |
           cd protocols/v2/binary-sv2

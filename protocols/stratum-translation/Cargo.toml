@@ -1,6 +1,6 @@
 [package]
 name = "stratum_translation"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Stratum V1 ↔ Stratum V2 translation utilities for reuse across proxies, apps, and firmware"
@@ -10,7 +10,7 @@ name = "stratum_translation"
 path = "src/lib.rs"
 
 [dependencies]
-binary_sv2 = { path = "../v2/binary-sv2", version = "^4.0.0" }
+binary_sv2 = { path = "../v2/binary-sv2", version = "^5.0.0" }
 mining_sv2 = { path = "../v2/subprotocols/mining", version = "^5.0.0" }
 channels_sv2 = { path = "../v2/channels-sv2", version = "^2.0.0" }
 v1 = { path = "../v1", package = "sv1_api", version = "^2.0.0" }

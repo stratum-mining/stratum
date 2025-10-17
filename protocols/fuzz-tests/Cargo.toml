@@ -17,7 +17,9 @@ cargo-fuzz = true
 libfuzzer-sys = { version = "0.4.0", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
 rand = "0.8.3"
-binary_codec_sv2 = { path = "../v2/binary-sv2/codec"}
+binary_sv2 = { path = "../v2/binary-sv2"}
+parsers_sv2 = { path = "../v2/parsers-sv2" }
+framing_sv2 = { path = "../v2/framing-sv2" }
 codec_sv2 = { path = "../v2/codec-sv2", features = ["noise_sv2"]}
 affinity = "0.1.1"
 threadpool = "1.8.1"

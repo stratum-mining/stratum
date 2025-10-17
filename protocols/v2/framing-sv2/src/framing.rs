@@ -298,9 +298,6 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
 }
 
 #[cfg(test)]
-use binary_sv2::binary_codec_sv2;
-
-#[cfg(test)]
 #[derive(Serialize)]
 struct T {}
 
