@@ -11,7 +11,6 @@ tarpaulin
 
 crates=(
   "v1"
-  "v2/binary-sv2/codec"
   "v2/binary-sv2/derive_codec"
   "v2/binary-sv2"
   "v2/channels-sv2"
