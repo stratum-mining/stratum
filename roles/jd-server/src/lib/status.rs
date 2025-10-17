@@ -8,7 +8,7 @@
 //!
 //! This allows for centralized, consistent error handling across the application.
 
-use stratum_apps::stratum_core::parsers_sv2::Mining;
+use stratum_apps::{error_handling, stratum_core::parsers_sv2::Mining};
 
 use super::error::JdsError;
 

@@ -1,6 +1,5 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
-use key_utils::Secp256k1PublicKey;
 use num_format::{Locale, ToFormattedString};
 use primitive_types::U256;
 use rand::{thread_rng, Rng};
@@ -14,6 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 use stratum_apps::{
+    key_utils::Secp256k1PublicKey,
     network_helpers::noise_connection::Connection,
     stratum_core::{
         bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget},

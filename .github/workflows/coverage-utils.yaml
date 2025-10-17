@@ -45,19 +45,3 @@ jobs:
           flags: buffer_sv2-coverage
           
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload error_handling-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./utils/target/tarpaulin-reports/error-handling-coverage
-          file: ./utils/target/tarpaulin-reports/error-handling-coverage/cobertura.xml
-          flags: error_handling-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload key-utils-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./utils/target/tarpaulin-reports/key-utils-coverage
-          file: ./utils/target/tarpaulin-reports/key-utils-coverage/cobertura.xml
-          flags: key-utils-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}

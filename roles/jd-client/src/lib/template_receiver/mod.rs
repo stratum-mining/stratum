@@ -13,8 +13,8 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use async_channel::{unbounded, Receiver, Sender};
-use key_utils::Secp256k1PublicKey;
 use stratum_apps::{
+    key_utils::Secp256k1PublicKey,
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         bitcoin::{

@@ -25,15 +25,17 @@ pub mod status;
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use config::JobDeclaratorServerConfig;
 use error::JdsError;
-use error_handling::handle_result;
 use job_declarator::JobDeclarator;
 use mempool::error::JdsMempoolError;
 use std::{ops::Sub, str::FromStr, sync::Arc};
 pub use stratum_apps::rpc::Uri;
-use stratum_apps::stratum_core::{
-    codec_sv2::{StandardEitherFrame, StandardSv2Frame},
-    parsers_sv2::AnyMessage as JdsMessages,
-    roles_logic_sv2::utils::Mutex,
+use stratum_apps::{
+    handle_result,
+    stratum_core::{
+        codec_sv2::{StandardEitherFrame, StandardSv2Frame},
+        parsers_sv2::AnyMessage as JdsMessages,
+        roles_logic_sv2::utils::Mutex,
+    },
 };
 use tokio::{select, task};
 use tracing::{error, info, warn};

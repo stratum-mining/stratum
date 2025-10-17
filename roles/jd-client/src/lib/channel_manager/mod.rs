@@ -8,8 +8,8 @@ use std::{
 };
 
 use async_channel::{Receiver, Sender};
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_apps::{
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         channels_sv2::{

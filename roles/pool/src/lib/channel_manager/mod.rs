@@ -6,9 +6,9 @@ use std::{
 
 use async_channel::{Receiver, Sender};
 use core::sync::atomic::Ordering;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use stratum_apps::{
     config_helpers::CoinbaseRewardScript,
+    key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         channels_sv2::{

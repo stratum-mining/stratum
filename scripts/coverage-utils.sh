@@ -12,8 +12,6 @@ tarpaulin
 
 crates=(
   "buffer"
-  "error-handling"
-  "key-utils"
   "bip32-key-derivation"
 )
 

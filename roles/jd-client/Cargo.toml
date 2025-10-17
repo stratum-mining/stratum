@@ -17,7 +17,6 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 stratum-apps = { path = "../stratum-apps", features = ["jd_client"] }
-key-utils = { path = "../../utils/key-utils" }
 async-channel = "1.5.1"
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 tokio = { version = "1.44.1", features = ["full"] }
