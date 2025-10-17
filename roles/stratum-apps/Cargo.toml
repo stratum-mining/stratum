@@ -13,7 +13,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol", "sv2"]
 
 [dependencies]
 # Core protocol layer
-stratum-core = { path = "../../stratum-core", version = "0.1.0" }
+stratum-core = { path = "../../stratum-core", version = "0.1.0", optional = true}
 
 # External dependencies needed by the modules
 # Network helpers dependencies
@@ -51,21 +51,24 @@ ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 default = ["network", "config", "std"]
 
 # Core module features
-network = ["tokio-util"]
+network = ["tokio-util", "core"]
 config = []
 rpc = ["serde_json", "hex", "base64", "hyper", "hyper-util", "http-body-util"]
 std = ["bs58/std", "secp256k1/rand-std", "rand/std", "rand/std_rng"]
+core = ["stratum-core"]
 
 # Protocol features passed through to stratum-core
 sv1 = ["stratum-core/sv1", "stratum-core/translation", "tokio-util", "serde_json"]
 with_buffer_pool = ["stratum-core/with_buffer_pool"]
 
 # Convenience feature bundles for different role types
-pool = ["network", "config", "with_buffer_pool"]
-jd_client = ["network", "config", "with_buffer_pool"] 
-jd_server = ["network", "config", "rpc", "with_buffer_pool"]
-translator = ["network", "config", "sv1", "with_buffer_pool"]
-mining_device = ["network", "config", "with_buffer_pool"]
+pool = ["network", "config", "with_buffer_pool", "core"]
+jd_client = ["network", "config", "with_buffer_pool", "core"]
+# Note: jd_server intentionally excludes 'core', 'network', and 'rpc' - it uses crates.io crates directly
+jd_server = ["config"]
+translator = ["network", "config", "sv1", "with_buffer_pool", "core"]
+# Note: mining_device intentionally excludes 'core', 'network', and 'rpc' - it uses crates.io crates directly
+mining_device = ["config"]
 
 [package.metadata.docs.rs]
 features = ["pool", "jd_client", "jd_server", "translator", "sv1", "rpc"]

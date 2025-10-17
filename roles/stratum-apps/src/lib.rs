@@ -25,6 +25,7 @@
 //! - [`rpc`] - RPC utilities with custom serializable types (`Hash`, `BlockHash`, `Amount`)
 
 /// Re-export all the modules from `stratum_core`
+#[cfg(feature = "core")]
 pub use stratum_core;
 
 /// High-level networking utilities for SV2 connections
