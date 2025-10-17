@@ -183,18 +183,28 @@ impl BitcoinCoreSv2 {
     pub async fn run(&mut self) {
         // wait for first CoinbaseOutputConstraints message
         tracing::info!("Waiting for first CoinbaseOutputConstraints message");
+        tracing::debug!("run() started, waiting for initial CoinbaseOutputConstraints");
         loop {
             tokio::select! {
                 _ = self.global_cancellation_token.cancelled() => {
                     tracing::warn!("Exiting run");
+                    tracing::debug!("run() early exit - global cancellation token activated before first CoinbaseOutputConstraints");
                     return;
                 }
                 Ok(message) = self.incoming_messages.recv() => {
+                    tracing::debug!("run() received message during initial loop: {:?}", message);
                     match message {
                         TemplateDistribution::CoinbaseOutputConstraints(coinbase_output_constraints) => {
                             tracing::info!("Received: {:?}", coinbase_output_constraints);
+                            tracing::debug!("First CoinbaseOutputConstraints received - max_additional_size: {}, max_additional_sigops: {}", 
+                                coinbase_output_constraints.coinbase_output_max_additional_size,
+                                coinbase_output_constraints.coinbase_output_max_additional_sigops);
+                            
                             let template_ipc_client = match self.new_template_ipc_client(coinbase_output_constraints.coinbase_output_max_additional_size, coinbase_output_constraints.coinbase_output_max_additional_sigops).await {
-                                Ok(template_ipc_client) => template_ipc_client,
+                                Ok(template_ipc_client) => {
+                                    tracing::debug!("Successfully created initial template IPC client");
+                                    template_ipc_client
+                                },
                                 Err(e) => {
                                     tracing::error!("Failed to create new template IPC client: {:?}", e);
                                     tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -205,8 +215,11 @@ impl BitcoinCoreSv2 {
 
                             let mut current_template_ipc_client_guard = self.current_template_ipc_client.borrow_mut();
                             *current_template_ipc_client_guard = Some(template_ipc_client);
+                            tracing::debug!("Set current_template_ipc_client to initial template");
 
                             self.coinbase_output_constraints_counter.fetch_add(1, Ordering::SeqCst);
+                            tracing::debug!("coinbase_output_constraints_counter incremented to: {}", 
+                                self.coinbase_output_constraints_counter.load(Ordering::SeqCst));
 
                             break;
                         }
@@ -222,8 +235,12 @@ impl BitcoinCoreSv2 {
 
         // bootstrap the first template
         {
+            tracing::debug!("Bootstrapping first template...");
             let template_data = match self.fetch_template_data().await {
-                Ok(template_data) => template_data,
+                Ok(template_data) => {
+                    tracing::debug!("Successfully fetched initial template data - template_id: {}", template_data.get_template_id());
+                    template_data
+                },
                 Err(e) => {
                     tracing::error!("Failed to fetch template data: {:?}", e);
                     tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -234,13 +251,16 @@ impl BitcoinCoreSv2 {
 
             // send the future NewTemplate message
             let future_template = template_data.get_new_template_message(true);
+            tracing::debug!("Sending initial NewTemplate (future=true) with template_id: {}", template_data.get_template_id());
 
             match self
                 .outgoing_messages
                 .send(TemplateDistribution::NewTemplate(future_template.clone()))
                 .await
             {
-                Ok(_) => (),
+                Ok(_) => {
+                    tracing::debug!("Successfully sent initial NewTemplate message");
+                },
                 Err(e) => {
                     tracing::error!("Failed to send future template message: {:?}", e);
                     tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -251,6 +271,7 @@ impl BitcoinCoreSv2 {
 
             // send the SetNewPrevHash message
             let set_new_prev_hash = template_data.get_set_new_prev_hash_message();
+            tracing::debug!("Sending initial SetNewPrevHash with prev_hash: {}", template_data.get_prev_hash());
 
             match self
                 .outgoing_messages
@@ -259,7 +280,9 @@ impl BitcoinCoreSv2 {
                 ))
                 .await
             {
-                Ok(_) => (),
+                Ok(_) => {
+                    tracing::debug!("Successfully sent initial SetNewPrevHash message");
+                },
                 Err(e) => {
                     tracing::error!("Failed to send set new prev hash message: {:?}", e);
                     tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -273,45 +296,66 @@ impl BitcoinCoreSv2 {
                 .write()
                 .await
                 .insert(template_data.get_template_id(), template_data.clone());
+            tracing::debug!("Saved initial template data with template_id: {}", template_data.get_template_id());
 
             // save the current prev hash
             self.current_prev_hash
                 .replace(Some(template_data.get_prev_hash()));
+            tracing::debug!("Set current_prev_hash to: {}", template_data.get_prev_hash());
         }
 
         // spawn the monitoring tasks
+        tracing::debug!("Spawning monitoring tasks...");
         self.monitor_ipc_templates();
+        tracing::debug!("monitor_ipc_templates() spawned");
         self.monitor_incoming_messages();
+        tracing::debug!("monitor_incoming_messages() spawned");
 
         // block until the global cancellation token is activated
+        tracing::debug!("run() entering main blocking wait for global_cancellation_token");
         self.global_cancellation_token.cancelled().await;
+        tracing::debug!("global_cancellation_token cancelled - beginning shutdown sequence");
 
         // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
         // wait until all waitNext requests are completed
         let start_time = std::time::Instant::now();
+        tracing::debug!("Shutdown: Starting waitNext completion loop - initial counter: {}", 
+            self.wait_next_request_counter.load(Ordering::SeqCst));
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             tracing::info!("Waiting for waitNext requests to complete...");
 
             let now = std::time::Instant::now();
+            let counter_value = self.wait_next_request_counter.load(Ordering::SeqCst);
+            let elapsed = now.duration_since(start_time).as_secs();
 
             tracing::debug!("wait_next_request_counter: {}", self.wait_next_request_counter.load(Ordering::SeqCst));
+            tracing::debug!("Shutdown: wait_next_request_counter={}, elapsed={}s", counter_value, elapsed);
 
-            if self.wait_next_request_counter.load(Ordering::SeqCst) == 0 || now.duration_since(start_time).as_secs() > 50 {
-                tracing::info!("All waitNext requests completed (or timed out after 50 seconds)... finally ready to exit!");
+            if counter_value == 0 || elapsed > 50 {
+                if counter_value == 0 {
+                    tracing::info!("All waitNext requests completed... finally ready to exit!");
+                    tracing::debug!("Shutdown: Clean exit - all waitNext requests completed");
+                } else {
+                    tracing::info!("Timed out after 50 seconds... finally ready to exit!");
+                    tracing::debug!("Shutdown: Timeout exit - counter still at {} after 50s", counter_value);
+                }
                 break;
             }
         }
+        tracing::debug!("run() exiting");
     }
 
     fn monitor_ipc_templates(&self) {
         let self_clone = self.clone();
 
         tokio::task::spawn_local(async move {
+            tracing::debug!("monitor_ipc_templates() task started");
             // a dedicated thread_ipc_client is used for waitNext requests
             // this is because waitNext requests are blocking, and we don't want to block the main
             // thread where other requests are handled
             // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+            tracing::debug!("Creating dedicated blocking_thread_ipc_client for waitNext requests");
             let blocking_thread_ipc_client = {
                 let blocking_thread_ipc_client_request =
                     self_clone.thread_map.make_thread_request();
@@ -338,7 +382,10 @@ impl BitcoinCoreSv2 {
                     };
 
                 match blocking_thread_ipc_client_result.get_result() {
-                    Ok(thread_ipc_client) => thread_ipc_client,
+                    Ok(thread_ipc_client) => {
+                        tracing::debug!("blocking_thread_ipc_client successfully created");
+                        thread_ipc_client
+                    },
                     Err(e) => {
                         tracing::error!("Failed to get thread IPC client: {}", e);
                         tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -348,7 +395,9 @@ impl BitcoinCoreSv2 {
                 }
             };
 
+            tracing::debug!("monitor_ipc_templates() entering main loop");
             loop {
+                tracing::debug!("monitor_ipc_templates() loop iteration start");
                 let template_ipc_client =
                     match self_clone.current_template_ipc_client.borrow().clone() {
                         Some(template_ipc_client) => template_ipc_client,
@@ -392,9 +441,12 @@ impl BitcoinCoreSv2 {
 
                 // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
                 self_clone.wait_next_request_counter.fetch_add(1, Ordering::SeqCst);
+                tracing::debug!("waitNext request starting - counter incremented to: {}", 
+                    self_clone.wait_next_request_counter.load(Ordering::SeqCst));
 
                 // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
                 let current_coinbase_output_constraints_count = self_clone.coinbase_output_constraints_counter.load(Ordering::SeqCst);
+                tracing::debug!("Captured current_coinbase_output_constraints_count: {}", current_coinbase_output_constraints_count);
 
                 tokio::select! {
                     // // todo: re-enable this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
@@ -410,10 +462,13 @@ impl BitcoinCoreSv2 {
                     //     break;
                     // }
                     wait_next_request_response = wait_next_request.send().promise => {
+                        tracing::debug!("waitNext request completed");
                         match wait_next_request_response {
                             Ok(response) => {
                                 // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
                                 self_clone.wait_next_request_counter.fetch_sub(1, Ordering::SeqCst);
+                                tracing::debug!("waitNext request succeeded - counter decremented to: {}", 
+                                    self_clone.wait_next_request_counter.load(Ordering::SeqCst));
 
                                 let result = match response.get() {
                                     Ok(result) => result,
@@ -426,7 +481,10 @@ impl BitcoinCoreSv2 {
                                 };
 
                                 let new_template_ipc_client = match result.get_result() {
-                                    Ok(new_template_ipc_client) => new_template_ipc_client,
+                                    Ok(new_template_ipc_client) => {
+                                        tracing::debug!("waitNext returned new template IPC client");
+                                        new_template_ipc_client
+                                    },
                                     Err(e) => {
                                         match e.kind {
                                             capnp::ErrorKind::MessageContainsNullCapabilityPointer => {
@@ -436,11 +494,19 @@ impl BitcoinCoreSv2 {
                                                 {
                                                     let coinbase_output_constraints_count = self_clone.coinbase_output_constraints_counter.load(Ordering::SeqCst);
                                                     let coinbase_output_constraints_changed = coinbase_output_constraints_count != current_coinbase_output_constraints_count;
+                                                    tracing::debug!("waitNext timeout check - current_count: {}, captured_count: {}, changed: {}, is_cancelled: {}", 
+                                                        coinbase_output_constraints_count, 
+                                                        current_coinbase_output_constraints_count,
+                                                        coinbase_output_constraints_changed,
+                                                        self_clone.global_cancellation_token.is_cancelled());
+                                                    
                                                     if self_clone.global_cancellation_token.is_cancelled() || coinbase_output_constraints_changed {
+                                                        tracing::debug!("Breaking monitor_ipc_templates loop - cancellation or constraints changed");
                                                         break;
                                                     }
                                                 }
 
+                                                tracing::debug!("Continuing to next waitNext iteration");
                                                 continue; // Go back to the start of the loop
                                             }
                                             _ => {
@@ -456,8 +522,10 @@ impl BitcoinCoreSv2 {
                                 {
                                     let mut current_template_ipc_client_guard = self_clone.current_template_ipc_client.borrow_mut();
                                     *current_template_ipc_client_guard = Some(new_template_ipc_client);
+                                    tracing::debug!("Updated current_template_ipc_client with new template");
                                 }
 
+                                tracing::debug!("Fetching new template data...");
                                 let new_template_data = match self_clone.fetch_template_data().await {
                                     Ok(new_template_data) => new_template_data,
                                     Err(e) => {
@@ -481,6 +549,7 @@ impl BitcoinCoreSv2 {
 
                                 if new_prev_hash != current_prev_hash {
                                     info!("⛓️ Chain Tip changed! New prev_hash: {}", new_prev_hash);
+                                    tracing::debug!("CHAIN TIP CHANGE DETECTED - old: {}, new: {}", current_prev_hash, new_prev_hash);
                                     self_clone.current_prev_hash.replace(Some(new_prev_hash));
 
                                     // save stale template ids, cleanup and save the new template data
@@ -489,7 +558,9 @@ impl BitcoinCoreSv2 {
                                         let mut stale_template_ids_guard = self_clone.stale_template_ids.write().await;
 
                                         // save stale template ids
-                                        *stale_template_ids_guard = template_data_guard.clone().into_keys().collect::<HashSet<_>>();
+                                        let stale_ids: HashSet<_> = template_data_guard.clone().into_keys().collect();
+                                        tracing::debug!("Marking {} templates as stale: {:?}", stale_ids.len(), stale_ids);
+                                        *stale_template_ids_guard = stale_ids;
 
                                         // destroy each template ipc client
                                         for template_data in template_data_guard.values() {
@@ -505,14 +576,17 @@ impl BitcoinCoreSv2 {
                                         }
 
                                         // no point in keeping the old templates around
+                                        tracing::debug!("Clearing old template data");
                                         template_data_guard.clear();
 
                                         // save the new template data
+                                        tracing::debug!("Saving new template data with template_id: {}", new_template_data.get_template_id());
                                         template_data_guard.insert(new_template_data.get_template_id(), new_template_data.clone());
                                     }
 
                                     // send the future NewTemplate message
                                     let future_template = new_template_data.get_new_template_message(true);
+                                    tracing::debug!("Sending NewTemplate (future=true) after chain tip change");
 
                                     match self_clone.outgoing_messages.send(TemplateDistribution::NewTemplate(future_template.clone())).await {
                                         Ok(_) => (),
@@ -526,9 +600,12 @@ impl BitcoinCoreSv2 {
 
                                     // send the SetNewPrevHash message
                                     let set_new_prev_hash = new_template_data.get_set_new_prev_hash_message();
+                                    tracing::debug!("Sending SetNewPrevHash after chain tip change");
 
                                     match self_clone.outgoing_messages.send(TemplateDistribution::SetNewPrevHash(set_new_prev_hash.clone())).await {
-                                        Ok(_) => (),
+                                        Ok(_) => {
+                                            tracing::debug!("Successfully sent SetNewPrevHash");
+                                        },
                                         Err(e) => {
                                             tracing::error!("Failed to send SetNewPrevHash message: {:?}", e);
                                             tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
@@ -538,9 +615,11 @@ impl BitcoinCoreSv2 {
                                     }
                                 } else {
                                     info!("💹 Mempool fees increased! Sending NewTemplate message.");
+                                    tracing::debug!("MEMPOOL FEE CHANGE DETECTED - sending non-future template");
 
                                     // send the non-future NewTemplate message
                                     let non_future_template = new_template_data.get_new_template_message(false);
+                                    tracing::debug!("Sending NewTemplate (future=false) after fee change");
 
                                     match self_clone.outgoing_messages.send(TemplateDistribution::NewTemplate(non_future_template.clone())).await {
                                         Ok(_) => (),
@@ -554,10 +633,12 @@ impl BitcoinCoreSv2 {
                                 }
 
                                 // save the new template data
+                                tracing::debug!("Saving template data for template_id: {}", new_template_data.get_template_id());
                                 self_clone.template_data.write().await.insert(new_template_data.get_template_id(), new_template_data.clone());
 
                             }
                             Err(e) => {
+                                tracing::debug!("waitNext request failed with error: {}", e);
                                 tracing::error!("Failed to get response: {}", e);
                                 tracing::warn!("Terminating Sv2 Bitcoin Core IPC Connection");
                                 self_clone.global_cancellation_token.cancel();
@@ -567,6 +648,7 @@ impl BitcoinCoreSv2 {
                     }
                 }
             }
+            tracing::debug!("monitor_ipc_templates() task exiting");
         });
     }
 
@@ -574,17 +656,23 @@ impl BitcoinCoreSv2 {
         let mut self_clone = self.clone();
 
         tokio::task::spawn_local(async move {
+            tracing::debug!("monitor_incoming_messages() task started");
             loop {
                 tokio::select! {
                     _ = self_clone.global_cancellation_token.cancelled() => {
                         tracing::warn!("Exiting incoming messages loop");
+                        tracing::debug!("monitor_incoming_messages() exiting due to cancellation");
                         break;
                     }
                     Ok(incoming_message) = self_clone.incoming_messages.recv() => {
                         tracing::debug!("Received: {}", incoming_message);
+                        tracing::debug!("monitor_incoming_messages() processing message");
 
                         match incoming_message {
                             TemplateDistribution::CoinbaseOutputConstraints(coinbase_output_constraints) => {
+                                tracing::debug!("Received CoinbaseOutputConstraints - max_additional_size: {}, max_additional_sigops: {}", 
+                                    coinbase_output_constraints.coinbase_output_max_additional_size,
+                                    coinbase_output_constraints.coinbase_output_max_additional_sigops);
                                 match self_clone.handle_coinbase_output_constraints(coinbase_output_constraints).await {
                                     Ok(_) => (),
                                     Err(e) => {
@@ -596,6 +684,7 @@ impl BitcoinCoreSv2 {
                                 }
                             }
                             TemplateDistribution::RequestTransactionData(request_transaction_data) => {
+                                tracing::debug!("Received RequestTransactionData for template_id: {}", request_transaction_data.template_id);
                                 match self_clone.handle_request_transaction_data(request_transaction_data).await {
                                     Ok(_) => (),
                                     Err(e) => {
@@ -607,6 +696,7 @@ impl BitcoinCoreSv2 {
                                 }
                             }
                             TemplateDistribution::SubmitSolution(submit_solution) => {
+                                tracing::debug!("Received SubmitSolution for template_id: {}", submit_solution.template_id);
                                 match self_clone.handle_submit_solution(submit_solution).await {
                                     Ok(_) => (),
                                     Err(e) => {
@@ -633,8 +723,11 @@ impl BitcoinCoreSv2 {
         &mut self,
         coinbase_output_constraints: CoinbaseOutputConstraints,
     ) -> Result<(), BitcoinCoreSv2Error> {
+        tracing::debug!("handle_coinbase_output_constraints() called");
+        tracing::debug!("Cancelling template_ipc_client_cancellation_token");
         self.template_ipc_client_cancellation_token.cancel();
 
+        tracing::debug!("Creating new template IPC client with new constraints");
         let template_ipc_client = match self
             .new_template_ipc_client(
                 coinbase_output_constraints.coinbase_output_max_additional_size,
@@ -651,12 +744,17 @@ impl BitcoinCoreSv2 {
 
         let mut current_template_ipc_client_guard = self.current_template_ipc_client.borrow_mut();
         *current_template_ipc_client_guard = Some(template_ipc_client);
+        tracing::debug!("Updated current_template_ipc_client");
 
         self.template_ipc_client_cancellation_token = CancellationToken::new();
+        tracing::debug!("Created new template_ipc_client_cancellation_token");
 
         // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
         self.coinbase_output_constraints_counter.fetch_add(1, Ordering::SeqCst);
+        let new_count = self.coinbase_output_constraints_counter.load(Ordering::SeqCst);
+        tracing::debug!("coinbase_output_constraints_counter incremented to: {}", new_count);
 
+        tracing::debug!("Spawning new monitor_ipc_templates() task");
         self.monitor_ipc_templates();
 
         Ok(())
@@ -666,12 +764,15 @@ impl BitcoinCoreSv2 {
         &self,
         request_transaction_data: RequestTransactionData,
     ) -> Result<(), BitcoinCoreSv2Error> {
+        tracing::debug!("handle_request_transaction_data() called for template_id: {}", request_transaction_data.template_id);
+        
         if self
             .stale_template_ids
             .read()
             .await
             .contains(&request_transaction_data.template_id)
         {
+            tracing::debug!("Template {} is stale, sending error response", request_transaction_data.template_id);
             let request_transaction_data_error = RequestTransactionDataError {
                 template_id: request_transaction_data.template_id,
                 error_code: "stale-template-id"
@@ -708,10 +809,14 @@ impl BitcoinCoreSv2 {
             .await
             .get(&request_transaction_data.template_id)
         {
-            Some(template_data) => TemplateDistribution::RequestTransactionDataSuccess(
-                template_data.get_request_transaction_data_success_message(),
-            ),
+            Some(template_data) => {
+                tracing::debug!("Template {} found, sending success response", request_transaction_data.template_id);
+                TemplateDistribution::RequestTransactionDataSuccess(
+                    template_data.get_request_transaction_data_success_message(),
+                )
+            },
             None => {
+                tracing::debug!("Template {} not found, sending error response", request_transaction_data.template_id);
                 TemplateDistribution::RequestTransactionDataError(RequestTransactionDataError {
                     template_id: request_transaction_data.template_id,
                     error_code: "template-id-not-found"
@@ -737,24 +842,32 @@ impl BitcoinCoreSv2 {
         &self,
         submit_solution: SubmitSolution<'static>,
     ) -> Result<(), BitcoinCoreSv2Error> {
+        tracing::debug!("handle_submit_solution() called for template_id: {}", submit_solution.template_id);
         let template_data_guard = self.template_data.read().await;
 
         let template_data = match template_data_guard.get(&submit_solution.template_id) {
-            Some(template_data) => template_data,
+            Some(template_data) => {
+                tracing::debug!("Found template data for solution submission");
+                template_data
+            },
             None => {
                 tracing::error!(
                     "Template data not found for template id: {}",
                     submit_solution.template_id
                 );
+                tracing::debug!("Available template IDs: {:?}", template_data_guard.keys().collect::<Vec<_>>());
                 return Err(BitcoinCoreSv2Error::TemplateNotFound);
             }
         };
 
+        tracing::debug!("Submitting solution to Bitcoin Core");
         match template_data
             .submit_solution(submit_solution, self.thread_ipc_client.clone())
             .await
         {
-            Ok(_) => (),
+            Ok(_) => {
+                tracing::debug!("Solution submitted successfully");
+            },
             Err(e) => {
                 tracing::error!("Failed to submit solution: {:?}", e);
                 return Err(BitcoinCoreSv2Error::FailedToSubmitSolution);
@@ -767,6 +880,7 @@ impl BitcoinCoreSv2 {
     async fn fetch_template_data(&self) -> Result<TemplateData, BitcoinCoreSv2Error> {
         tracing::debug!("Fetching template data over IPC");
         let template_id = self.template_id_factory.fetch_add(1, Ordering::Relaxed);
+        tracing::debug!("fetch_template_data() - assigned template_id: {}", template_id);
 
         // clone the current template IPC client so it's stored in the template data HashMap
         // this is important in case we need to submit a solution relative to this specific template
@@ -794,10 +908,13 @@ impl BitcoinCoreSv2 {
             .to_vec();
 
         // Deserialize the complete block template from Bitcoin Core's serialization format
+        tracing::debug!("Deserializing block template ({} bytes)", template_block_bytes.len());
         let block: Block = deserialize(&template_block_bytes)?;
+        tracing::debug!("Block deserialized - prev_hash from header: {:?}", block.header.prev_blockhash);
 
         // Create the template data structure
         let template_data = TemplateData::new(template_id, block, template_ipc_client);
+        tracing::debug!("TemplateData created successfully");
 
         Ok(template_data)
     }
@@ -807,6 +924,9 @@ impl BitcoinCoreSv2 {
         coinbase_output_max_additional_size: u32,
         coinbase_output_max_additional_sigops: u16,
     ) -> Result<BlockTemplateIpcClient, BitcoinCoreSv2Error> {
+        tracing::debug!("new_template_ipc_client() called - max_size: {}, max_sigops: {}", 
+            coinbase_output_max_additional_size, coinbase_output_max_additional_sigops);
+        
         let mut template_ipc_client_request = self.mining_ipc_client.create_new_block_request();
         let mut template_ipc_client_request_options =
             match template_ipc_client_request.get().get_options() {
@@ -819,12 +939,14 @@ impl BitcoinCoreSv2 {
 
         let coinbase_weight = (coinbase_output_max_additional_size * 4) as u64;
         let block_reserved_weight = coinbase_weight.max(2000); // 2000 is the minimum block reserved weight
+        tracing::debug!("Setting block_reserved_weight: {}", block_reserved_weight);
         template_ipc_client_request_options.set_block_reserved_weight(block_reserved_weight);
         template_ipc_client_request_options.set_coinbase_output_max_additional_sigops(
             coinbase_output_max_additional_sigops as u64,
         );
         template_ipc_client_request_options.set_use_mempool(true);
 
+        tracing::debug!("Sending createNewBlock request to Bitcoin Core");
         let template_ipc_client_response = match template_ipc_client_request.send().promise.await {
             Ok(response) => response,
             Err(e) => {
@@ -842,7 +964,10 @@ impl BitcoinCoreSv2 {
         };
 
         let template_ipc_client = match template_ipc_client_result.get_result() {
-            Ok(result) => result,
+            Ok(result) => {
+                tracing::debug!("Successfully created new template IPC client");
+                result
+            },
             Err(e) => {
                 tracing::error!("Failed to get template IPC client result: {}", e);
                 return Err(BitcoinCoreSv2Error::CapnpError(e));
