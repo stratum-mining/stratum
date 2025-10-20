@@ -404,6 +404,7 @@ mod tests {
             extranonce_prefix,
             target,
             nominal_hashrate,
+            NoPersistence::new(),
         );
 
         let future_job = NewMiningJob {
@@ -464,6 +465,7 @@ mod tests {
             extranonce_prefix,
             target,
             nominal_hashrate,
+            NoPersistence::new(),
         );
 
         let ntime: u32 = 1746839905;
@@ -512,6 +514,7 @@ mod tests {
             extranonce_prefix,
             target,
             nominal_hashrate,
+            NoPersistence::new(),
         );
 
         let future_job = NewMiningJob {
@@ -585,6 +588,7 @@ mod tests {
             extranonce_prefix,
             target,
             nominal_hashrate,
+            NoPersistence::new(),
         );
 
         let future_job = NewMiningJob {
@@ -661,6 +665,7 @@ mod tests {
             extranonce_prefix,
             target,
             nominal_hashrate,
+            NoPersistence::new(),
         );
 
         let future_job = NewMiningJob {

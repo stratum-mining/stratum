@@ -84,6 +84,7 @@ where
     P: Persistence,
 {
     /// Constructs a new [`ExtendedChannel`].
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         channel_id: u32,
         user_identity: String,
@@ -612,6 +613,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            NoPersistence::new(),
         );
 
         let future_job = NewExtendedMiningJob {
@@ -694,6 +696,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            NoPersistence::new(),
         );
 
         let ntime: u32 = 1746839905;
@@ -767,6 +770,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            NoPersistence::new(),
         );
 
         let future_job = NewExtendedMiningJob {
@@ -859,6 +863,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            NoPersistence::new(),
         );
 
         let future_job = NewExtendedMiningJob {
@@ -954,6 +959,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
+            NoPersistence::new(),
         );
 
         let future_job = NewExtendedMiningJob {

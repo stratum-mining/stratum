@@ -194,98 +194,6 @@ where
             persistence,
         )
     }
-}
-
-#[cfg(feature = "persistence")]
-impl<'a, J, P> ExtendedChannel<'a, J, P>
-where
-    J: JobStore<ExtendedJob<'a>>,
-    P: Persistence,
-{
-    /// Constructor of `ExtendedChannel` for a Sv2 Pool Server with custom persistence.
-    /// Not meant for usage on a Sv2 Job Declaration Client.
-    ///
-    /// Initializes the extended channel state with the provided parameters, including channel
-    /// identifiers, difficulty targets, share accounting, and job management.
-    /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
-    /// requirements are not met.
-    ///
-    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
-    /// and `//` delimiters: `/pool_tag_string//`
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_for_pool_with_persistence(
-        channel_id: u32,
-        user_identity: String,
-        extranonce_prefix: Vec<u8>,
-        max_target: Target,
-        nominal_hashrate: f32,
-        version_rolling_allowed: bool,
-        rollable_extranonce_size: u16,
-        share_batch_size: usize,
-        expected_share_per_minute: f32,
-        job_store: J,
-        pool_tag_string: String,
-        persistence: P,
-    ) -> Result<Self, ExtendedChannelError> {
-        Self::new_with_persistence(
-            channel_id,
-            user_identity,
-            extranonce_prefix,
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-            Some(pool_tag_string),
-            None,
-            persistence,
-        )
-    }
-
-    /// Constructor of `ExtendedChannel` for a Sv2 Job Declaration Client with custom persistence.
-    /// Not meant for usage on a Sv2 Pool Server.
-    ///
-    /// Initializes the extended channel state with the provided parameters, including channel
-    /// identifiers, difficulty targets, share accounting, and job management.
-    /// Returns an error if target/failure parameters are invalid or extranonce prefix
-    /// requirements are not met.
-    ///
-    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig in between
-    /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_for_job_declaration_client_with_persistence(
-        channel_id: u32,
-        user_identity: String,
-        extranonce_prefix: Vec<u8>,
-        max_target: Target,
-        nominal_hashrate: f32,
-        version_rolling_allowed: bool,
-        rollable_extranonce_size: u16,
-        share_batch_size: usize,
-        expected_share_per_minute: f32,
-        job_store: J,
-        pool_tag_string: Option<String>,
-        miner_tag_string: String,
-        persistence: P,
-    ) -> Result<Self, ExtendedChannelError> {
-        Self::new_with_persistence(
-            channel_id,
-            user_identity,
-            extranonce_prefix,
-            max_target,
-            nominal_hashrate,
-            version_rolling_allowed,
-            rollable_extranonce_size,
-            share_batch_size,
-            expected_share_per_minute,
-            job_store,
-            pool_tag_string,
-            Some(miner_tag_string),
-            persistence,
-        )
-    }
 
     // private constructor
     #[allow(clippy::too_many_arguments)]
@@ -902,6 +810,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1053,6 +962,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1173,6 +1083,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1251,6 +1162,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1360,6 +1272,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1472,6 +1385,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1599,6 +1513,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
@@ -1686,6 +1601,7 @@ mod tests {
             job_store,
             None,
             None,
+            NoPersistence::new(),
         )
         .unwrap();
 
