@@ -1,4 +1,5 @@
-pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serialize, *};
+pub use binary_sv2::{self, Decodable as Deserialize, Encodable as Serialize};
+use binary_sv2::{from_bytes, to_bytes, U24};
 use core::convert::TryInto;
 pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 
@@ -6,7 +7,7 @@ pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 // These macros provide the necessary methods for serializing and deserializing the struct.
 //
 // mod impl_parse_decodable_test {
-//     use super::binary_codec_sv2::{
+//     use super::binary_sv2::{
 //         decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint,
 //     };
 //     use super::*;
@@ -64,7 +65,7 @@ pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 //     }
 // }
 // mod impl_parse_encodable_test {
-//     use super::binary_codec_sv2::{encodable::EncodableField, GetSize};
+//     use super::binary_sv2::{encodable::EncodableField, GetSize};
 //     use super::Test;
 //     extern crate alloc;
 //     use alloc::vec::Vec;

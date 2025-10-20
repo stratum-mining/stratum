@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize};
+use binary_sv2::{self, Deserialize, Seq064K, Serialize};
 use core::convert::TryInto;
 
 /// Message used by upstream to associate a set of Standard Channel(s) to a Group Channel.

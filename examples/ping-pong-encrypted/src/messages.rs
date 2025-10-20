@@ -1,6 +1,6 @@
 use crate::error::Error;
 use stratum_apps::stratum_core::binary_sv2::{
-    self as binary_sv2, binary_codec_sv2,
+    self as binary_sv2,
     decodable::{DecodableField, FieldMarker},
     Deserialize, Serialize,
 };

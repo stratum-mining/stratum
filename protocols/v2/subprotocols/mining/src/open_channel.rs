@@ -1,5 +1,5 @@
 use alloc::{string::ToString, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, Str0255, U32AsRef, B032, U256};
+use binary_sv2::{self, Deserialize, Serialize, Str0255, U32AsRef, B032, U256};
 use core::{convert::TryInto, fmt};
 /// Message used by a downstream to request opening a Standard Channel.
 ///

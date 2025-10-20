@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, B064K};
+use binary_sv2::{self, Deserialize, Serialize, B064K};
 use core::convert::TryInto;
 
 /// Message used by a downstream to submit a successful solution to a previously provided template.

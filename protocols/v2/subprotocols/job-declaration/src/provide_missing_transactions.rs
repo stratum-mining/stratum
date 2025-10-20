@@ -1,5 +1,5 @@
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize, B016M};
+use binary_sv2::{self, Deserialize, Seq064K, Serialize, B016M};
 use core::convert::TryInto;
 
 /// Message used by the JDS to ask for transactions that it did not recognize from

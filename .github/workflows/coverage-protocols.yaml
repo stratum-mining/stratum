@@ -28,14 +28,6 @@ jobs:
           file: ./protocols/target/tarpaulin-reports/cobertura.xml
           flags: protocols
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload binary_codec_sv2-coverage to codecov.io
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./protocols/target/tarpaulin-reports/codec-coverage
-          file: ./protocols/target/tarpaulin-reports/codec-coverage/cobertura.xml
-          flags: binary_codec_sv2-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
       
       - name: Upload binary_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4

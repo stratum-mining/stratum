@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, U256};
+use binary_sv2::{self, Deserialize, Serialize, U256};
 use core::{convert::TryInto, fmt};
 
 /// Message used by upstream to share or distribute the latest block hash.

@@ -45,10 +45,6 @@ jobs:
         working-directory: utils/buffer
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/binary-sv2/codec
-        working-directory: protocols/v2/binary-sv2/codec
-        run: cargo semver-checks
-
       - name: Run semver checks for protocols/v2/binary-sv2
         working-directory: protocols/v2/binary-sv2
         run: cargo semver-checks

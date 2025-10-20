@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize, B032, U256};
+use binary_sv2::{self, Deserialize, Serialize, B032, U256};
 use core::{convert::TryInto, fmt};
 
 /// Message used by JDC to push a solution to JDS as soon as it finds a new valid block.

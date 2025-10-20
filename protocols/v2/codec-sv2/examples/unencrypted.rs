@@ -14,7 +14,7 @@
 // cargo run --example unencrypted
 // ```
 
-use binary_sv2::{binary_codec_sv2, Deserialize, Serialize};
+use binary_sv2::{self, Deserialize, Serialize};
 use codec_sv2::{Encoder, Error, StandardDecoder, StandardSv2Frame};
 use framing_sv2::framing::Sv2Frame;
 use std::{
