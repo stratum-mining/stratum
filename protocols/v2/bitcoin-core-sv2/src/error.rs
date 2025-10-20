@@ -1,5 +1,5 @@
-use stratum_core::bitcoin::consensus;
 use std::path::Path;
+use stratum_core::bitcoin::consensus;
 
 /// Error type for [`crate::BitcoinCoreSv2`]
 #[derive(Debug)]
