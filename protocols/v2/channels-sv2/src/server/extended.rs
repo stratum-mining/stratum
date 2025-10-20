@@ -108,7 +108,7 @@ where
 impl<'a, J, P> ExtendedChannel<'a, J, P>
 where
     J: JobStore<ExtendedJob<'a>>,
-    P: Persistence + Default,
+    P: Persistence,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -135,7 +135,7 @@ where
         pool_tag_string: String,
         persistence: P,
     ) -> Result<Self, ExtendedChannelError> {
-        Self::new_with_persistence(
+        Self::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -178,7 +178,7 @@ where
         miner_tag_string: String,
         persistence: P,
     ) -> Result<Self, ExtendedChannelError> {
-        Self::new_with_persistence(
+        Self::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -287,9 +287,9 @@ where
         )
     }
 
-    // private constructor with custom persistence
+    // private constructor
     #[allow(clippy::too_many_arguments)]
-    fn new_with_persistence(
+    fn new(
         channel_id: u32,
         user_identity: String,
         extranonce_prefix: Vec<u8>,
@@ -356,72 +356,8 @@ where
 impl<'a, J, P> ExtendedChannel<'a, J, P>
 where
     J: JobStore<ExtendedJob<'a>>,
-    P: Persistence + Default,
+    P: Persistence,
 {
-    // private constructor
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        channel_id: u32,
-        user_identity: String,
-        extranonce_prefix: Vec<u8>,
-        max_target: Target,
-        nominal_hashrate: f32,
-        version_rolling_allowed: bool,
-        rollable_extranonce_size: u16,
-        share_batch_size: usize,
-        expected_share_per_minute: f32,
-        job_store: J,
-        pool_tag: Option<String>,
-        miner_tag: Option<String>,
-    ) -> Result<Self, ExtendedChannelError> {
-        let target =
-            match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
-                Ok(target) => target,
-                Err(_) => {
-                    return Err(ExtendedChannelError::InvalidNominalHashrate);
-                }
-            };
-
-        if target > max_target {
-            println!("target: {:?}", target.to_be_bytes());
-            println!("max_target: {:?}", max_target.to_be_bytes());
-            return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
-        }
-
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
-            return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
-        }
-
-        let script_sig_size = 5 + // BIP34
-            1 + // OP_PUSHBYTES
-            3 + // `/` delimiters
-            pool_tag.as_ref().map_or(0, |s| s.len()) +
-            miner_tag.as_ref().map_or(0, |s| s.len()) +
-            1 + // OP_PUSHBYTES
-            extranonce_prefix.len() +
-            rollable_extranonce_size as usize;
-
-        if script_sig_size > 100 {
-            return Err(ExtendedChannelError::ScriptSigSizeTooLarge);
-        }
-
-        Ok(Self {
-            channel_id,
-            user_identity: user_identity.clone(),
-            extranonce_prefix,
-            rollable_extranonce_size,
-            requested_max_target: max_target,
-            target,
-            nominal_hashrate,
-            job_store,
-            job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
-            share_accounting: ShareAccounting::new(share_batch_size, P::default()),
-            expected_share_per_minute,
-            chain_tip: None,
-            phantom: PhantomData,
-        })
-    }
-
     /// Returns the unique channel ID for this channel.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
