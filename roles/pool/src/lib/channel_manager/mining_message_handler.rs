@@ -137,7 +137,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 let channel_id = downstream_data.channel_id_factory.fetch_add(1, Ordering::SeqCst);
                 let job_store = DefaultJobStore::new();
 
-                let mut standard_channel = match StandardChannel::new_for_pool(channel_id as u32, user_identity.to_string(), extranonce_prefix.to_vec(), requested_max_target, nominal_hash_rate, self.share_batch_size, self.shares_per_minute, job_store, self.pool_tag_string.clone()) {
+                let mut standard_channel = match StandardChannel::new_for_pool(channel_id as u32, user_identity.to_string(), extranonce_prefix.to_vec(), requested_max_target, nominal_hash_rate, self.share_batch_size, self.shares_per_minute, job_store, self.pool_tag_string.clone(), self.persistence.clone()) {
                     Ok(channel) => channel,
                     Err(e) => match e {
                         StandardChannelError::InvalidNominalHashrate => {
@@ -303,6 +303,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             self.shares_per_minute,
                             job_store,
                             self.pool_tag_string.clone(),
+                            self.persistence.clone(),
                         ) {
                             Ok(channel) => channel,
                             Err(e) => match e {

@@ -76,6 +76,8 @@ impl PoolSv2 {
             channel_manager_to_downstream_sender.clone(),
             downstream_to_channel_manager_receiver,
             encoded_outputs.clone(),
+            status_sender.clone(),
+            task_manager.clone(),
         )
         .await?;
 

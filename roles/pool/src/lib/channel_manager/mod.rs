@@ -13,6 +13,7 @@ use stratum_apps::{
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         channels_sv2::{
+            persistence::{NoPersistence, Persistence, ShareAccountingEvent},
             server::{
                 extended::ExtendedChannel,
                 jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
@@ -36,13 +37,51 @@ use crate::{
     config::PoolConfig,
     downstream::Downstream,
     error::PoolResult,
-    status::{handle_error, Status, StatusSender},
+    share_persistence::{ShareFileHandler, ShareFilePersistence},
+    status::{self, handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{Message, ShutdownMessage},
 };
 
 mod mining_message_handler;
 mod template_distribution_message_handler;
+
+/// Enum wrapper for different persistence implementations used by the pool.
+/// Allows runtime selection between file-based persistence and no-op persistence.
+#[derive(Clone, Debug)]
+pub enum PoolPersistence {
+    File(ShareFilePersistence),
+    None(NoPersistence),
+}
+
+impl Persistence for PoolPersistence {
+    type Sender = async_channel::Sender<ShareAccountingEvent>;
+
+    fn persist_event(&self, event: ShareAccountingEvent) {
+        match self {
+            PoolPersistence::File(p) => p.persist_event(event),
+            PoolPersistence::None(p) => p.persist_event(event),
+        }
+    }
+
+    fn flush(&self) {
+        match self {
+            PoolPersistence::File(p) => p.flush(),
+            PoolPersistence::None(p) => p.flush(),
+        }
+    }
+
+    fn shutdown(&self) {
+        match self {
+            PoolPersistence::File(p) => p.shutdown(),
+            PoolPersistence::None(p) => p.shutdown(),
+        }
+    }
+
+    fn new(sender: Self::Sender) -> Self {
+        PoolPersistence::File(ShareFilePersistence::new(sender))
+    }
+}
 
 const POOL_ALLOCATION_BYTES: usize = 4;
 const CLIENT_SEARCH_SPACE_BYTES: usize = 8;
@@ -90,6 +129,7 @@ pub struct ChannelManager {
     share_batch_size: usize,
     shares_per_minute: f32,
     coinbase_reward_script: CoinbaseRewardScript,
+    persistence: PoolPersistence,
 }
 
 impl ChannelManager {
@@ -102,6 +142,8 @@ impl ChannelManager {
         downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
         downstream_receiver: Receiver<(u32, Mining<'static>)>,
         coinbase_outputs: Vec<u8>,
+        status_tx: status::Sender,
+        task_manager: Arc<TaskManager>,
     ) -> PoolResult<Self> {
         let range_0 = 0..0;
         let range_1 = 0..POOL_ALLOCATION_BYTES;
@@ -143,6 +185,32 @@ impl ChannelManager {
             downstream_receiver,
         };
 
+        // Initialize persistence based on config
+        let persistence = if let Some(path) = config.share_persistence_file_path() {
+            info!("Initializing file-based share persistence: {}", path);
+            let mut share_file_handler = ShareFileHandler::new(path, status_tx.clone()).await;
+            let sender = share_file_handler.get_sender();
+            let receiver = share_file_handler.get_receiver();
+
+            // Spawn the share file handler task
+            task_manager.spawn_task(async move {
+                loop {
+                    match receiver.recv().await {
+                        Ok(event) => share_file_handler.write_event_to_file(event).await,
+                        Err(_) => {
+                            info!("Share persistence channel closed, stopping file handler");
+                            break;
+                        }
+                    }
+                }
+            });
+
+            PoolPersistence::File(ShareFilePersistence::new(sender))
+        } else {
+            info!("Share persistence disabled - using NoPersistence");
+            PoolPersistence::None(NoPersistence::new())
+        };
+
         let channel_manager = ChannelManager {
             channel_manager_data,
             channel_manager_channel,
@@ -150,6 +218,7 @@ impl ChannelManager {
             shares_per_minute: config.shares_per_minute(),
             pool_tag_string: config.pool_signature().to_string(),
             coinbase_reward_script: config.coinbase_reward_script().clone(),
+            persistence,
         };
 
         Ok(channel_manager)
