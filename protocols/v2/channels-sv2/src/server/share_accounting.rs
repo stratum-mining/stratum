@@ -124,7 +124,7 @@ where
         share_work: u64,
         share_sequence_number: u32,
         share_hash: Hash,
-        block_found: bool
+        block_found: bool,
     ) {
         self.last_share_sequence_number = share_sequence_number;
         self.shares_accepted += 1;
@@ -141,7 +141,7 @@ where
             total_shares_accepted: self.shares_accepted,
             total_share_work_sum: self.share_work_sum,
             timestamp: std::time::SystemTime::now(),
-            block_found
+            block_found,
         };
         self.persistence.persist_event(event);
     }

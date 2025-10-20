@@ -634,7 +634,7 @@ where
                 target_to_difficulty(self.target.clone()) as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
-                true
+                true,
             );
 
             return Ok(ShareValidationResult::BlockFound(
@@ -659,7 +659,8 @@ where
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
+            self.share_accounting
+                .update_best_diff(self.channel_id, hash_as_diff);
 
             let last_sequence_number = self.share_accounting.get_last_share_sequence_number();
             let new_submits_accepted_count = self.share_accounting.get_shares_accepted();

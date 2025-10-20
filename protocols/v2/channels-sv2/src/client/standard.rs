@@ -363,7 +363,8 @@ where
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
+            self.share_accounting
+                .update_best_diff(self.channel_id, hash_as_diff);
 
             return Ok(ShareValidationResult::Valid);
         }

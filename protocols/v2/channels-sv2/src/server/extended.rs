@@ -51,7 +51,6 @@ use crate::{
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
-use mining_sv2::MAX_EXTRANONCE_LEN;
 use binary_sv2::{self};
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -59,6 +58,7 @@ use bitcoin::{
     transaction::TxOut,
     CompactTarget, Target,
 };
+use mining_sv2::MAX_EXTRANONCE_LEN;
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
@@ -825,7 +825,8 @@ where
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
+            self.share_accounting
+                .update_best_diff(self.channel_id, hash_as_diff);
 
             let last_sequence_number = self.share_accounting.get_last_share_sequence_number();
             let new_submits_accepted_count = self.share_accounting.get_shares_accepted();

@@ -543,7 +543,7 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
-                true
+                true,
             );
             return Ok(ShareValidationResult::BlockFound);
         }
@@ -560,11 +560,12 @@ where
                 self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
-                false
+                false,
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(self.channel_id, hash_as_diff);
+            self.share_accounting
+                .update_best_diff(self.channel_id, hash_as_diff);
 
             return Ok(ShareValidationResult::Valid);
         }
