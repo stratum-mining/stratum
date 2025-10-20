@@ -2332,12 +2332,14 @@ name = "pool_sv2"
 version = "0.2.0"
 dependencies = [
  "async-channel 1.9.0",
+ "buffer_sv2 2.0.0",
  "clap",
  "config",
  "rand",
  "secp256k1 0.28.2",
  "serde",
  "stratum-apps",
+ "stratum-core",
  "tokio",
  "tracing",
 ]

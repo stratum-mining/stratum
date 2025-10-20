@@ -5,13 +5,13 @@ use stratum_apps::stratum_core::{
     bitcoin::consensus::Encodable, parsers_sv2::TemplateDistribution,
 };
 use tokio::sync::broadcast;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 
 use crate::{
     channel_manager::ChannelManager,
     config::PoolConfig,
     error::PoolResult,
-    status::{State, Status},
+    status::{State, Status, StatusSender},
     task_manager::TaskManager,
     template_receiver::TemplateReceiver,
     utils::ShutdownMessage,
@@ -76,7 +76,7 @@ impl PoolSv2 {
             channel_manager_to_downstream_sender.clone(),
             downstream_to_channel_manager_receiver,
             encoded_outputs.clone(),
-            status_sender.clone(),
+            StatusSender::ChannelManager(status_sender.clone()),
             task_manager.clone(),
         )
         .await?;

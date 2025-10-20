@@ -19,7 +19,7 @@ path = "src/lib/mod.rs"
 [dependencies]
 stratum-apps = { path = "../stratum-apps", features = ["pool"] }
 async-channel = "1.5.1"
-stratum-common = { path = "../../common", features = ["with_network_helpers"] }
+stratum-core = { path = "../../stratum-core" }
 buffer_sv2 = { path = "../../utils/buffer" }
 rand = "0.8.4"
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
@@ -29,6 +29,3 @@ ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 tracing = { version = "0.1" }
 clap = { version = "4.5.39", features = ["derive"] }
 
-[dev-dependencies]
-hex = "0.4.3"
-integration_tests_sv2 = { path = "../../test/integration-tests" }

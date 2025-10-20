@@ -38,7 +38,7 @@ use crate::{
     downstream::Downstream,
     error::PoolResult,
     share_persistence::{ShareFileHandler, ShareFilePersistence},
-    status::{self, handle_error, Status, StatusSender},
+    status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{Message, ShutdownMessage},
 };
@@ -142,7 +142,7 @@ impl ChannelManager {
         downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
         downstream_receiver: Receiver<(u32, Mining<'static>)>,
         coinbase_outputs: Vec<u8>,
-        status_tx: status::Sender,
+        status_tx: StatusSender,
         task_manager: Arc<TaskManager>,
     ) -> PoolResult<Self> {
         let range_0 = 0..0;
@@ -193,7 +193,7 @@ impl ChannelManager {
             let receiver = share_file_handler.get_receiver();
 
             // Spawn the share file handler task
-            task_manager.spawn_task(async move {
+            task_manager.spawn(async move {
                 loop {
                     match receiver.recv().await {
                         Ok(event) => share_file_handler.write_event_to_file(event).await,
@@ -441,7 +441,7 @@ impl ChannelManager {
     fn run_vardiff_on_extended_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel_state: &mut ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>,
+        channel_state: &mut ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, PoolPersistence>,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {
@@ -486,7 +486,7 @@ impl ChannelManager {
     fn run_vardiff_on_standard_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>,
+        channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, PoolPersistence>,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {

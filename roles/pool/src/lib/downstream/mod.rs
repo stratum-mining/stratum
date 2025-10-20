@@ -27,6 +27,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, error, warn};
 
 use crate::{
+    channel_manager::PoolPersistence,
     error::{PoolError, PoolResult},
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
@@ -47,10 +48,14 @@ mod common_message_handler;
 /// - Active [`StandardChannel`]s keyed by channel ID.
 pub struct DownstreamData {
     pub group_channels: Option<GroupChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
-    pub extended_channels:
-        HashMap<u32, ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
-    pub standard_channels:
-        HashMap<u32, StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>,
+    pub extended_channels: HashMap<
+        u32,
+        ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, PoolPersistence>,
+    >,
+    pub standard_channels: HashMap<
+        u32,
+        StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, PoolPersistence>,
+    >,
     pub channel_id_factory: AtomicUsize,
 }
 

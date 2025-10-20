@@ -1,20 +1,20 @@
-use stratum_common::roles_logic_sv2::channels_sv2::persistence::{
+use stratum_core::channels_sv2::persistence::{
     Persistence, ShareAccountingEvent,
 };
 use tokio::io::AsyncWriteExt;
 use tracing::error;
 
-use crate::status::{self};
+use crate::status::{self, StatusSender};
 
 pub struct ShareFileHandler {
     file: tokio::fs::File,
     receiver: async_channel::Receiver<ShareAccountingEvent>,
     sender: async_channel::Sender<ShareAccountingEvent>,
-    status_tx: status::Sender,
+    status_tx: StatusSender,
 }
 
 impl ShareFileHandler {
-    pub async fn new(path: &str, status_tx: status::Sender) -> Self {
+    pub async fn new(path: &str, status_tx: StatusSender) -> Self {
         let file = tokio::fs::File::create(path).await.unwrap();
         let (sender, receiver) = async_channel::bounded(1024);
         Self {
