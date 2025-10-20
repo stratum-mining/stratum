@@ -24,7 +24,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::Path,
     rc::Rc,
-    sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering},
 };
 use stratum_core::bitcoin::{block::Block, consensus::deserialize};
 use template_distribution_sv2::{
@@ -81,6 +81,8 @@ pub struct BitcoinCoreSv2 {
     wait_next_request_counter: Rc<AtomicU8>,
     // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
     coinbase_output_constraints_counter: Rc<AtomicU32>,
+    // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+    pending_fetch: Rc<AtomicBool>,
     template_data: Rc<RwLock<HashMap<u64, TemplateData>>>,
     stale_template_ids: Rc<RwLock<HashSet<u64>>>,
     template_id_factory: Rc<AtomicU64>,
@@ -157,6 +159,7 @@ impl BitcoinCoreSv2 {
             wait_next_request_counter: Rc::new(AtomicU8::new(0)),
             coinbase_output_constraints_counter: Rc::new(AtomicU32::new(0)),
             template_id_factory: Rc::new(AtomicU64::new(0)),
+            pending_fetch: Rc::new(AtomicBool::new(false)),
             current_template_ipc_client: Rc::new(RefCell::new(None)),
             current_prev_hash: Rc::new(RefCell::new(None)),
             template_data: Rc::new(RwLock::new(HashMap::new())),
@@ -938,6 +941,18 @@ impl BitcoinCoreSv2 {
     }
 
     async fn fetch_template_data(&self) -> Result<TemplateData, BitcoinCoreSv2Error> {
+
+        // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+        loop {
+            if self.pending_fetch.load(Ordering::SeqCst) {
+                tracing::debug!("Pending fetch detected, waiting for 100ms");
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            } else {
+                self.pending_fetch.store(true, Ordering::SeqCst);
+                break;
+            }
+        }
+
         tracing::debug!("Fetching template data over IPC");
         let template_id = self.template_id_factory.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -984,6 +999,9 @@ impl BitcoinCoreSv2 {
         // Create the template data structure
         let template_data = TemplateData::new(template_id, block, template_ipc_client);
         tracing::debug!("TemplateData created successfully");
+
+        // todo: remove this once https://github.com/bitcoin/bitcoin/issues/33575 is implemented
+        self.pending_fetch.store(false, Ordering::SeqCst);
 
         Ok(template_data)
     }
