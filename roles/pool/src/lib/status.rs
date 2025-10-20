@@ -83,9 +83,13 @@ pub enum State {
     TemplateReceiverShutdown(PoolError),
     /// Channel manager has shut down with a reason.
     ChannelManagerShutdown(PoolError),
+    /// Share persistence encountered an error (non-fatal).
+    SharePersistenceError(String),
+    /// Represents a healthy state with an accompanying status message.
+    Healthy(String),
 }
 
-/// Wrapper around a component’s state, sent as status updates across the system.
+/// Wrapper around a component's state, sent as status updates across the system.
 #[derive(Debug)]
 pub struct Status {
     /// The current state being reported.

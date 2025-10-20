@@ -46,7 +46,7 @@ impl ShareFileHandler {
                 timestamp,
                 block_found,
             } => {
-                let _ = self.file.write_all(
+                let result = self.file.write_all(
                     format!(
                         "ShareAccepted: channel_id: {}, user_identity: {}, share_work: {}, share_sequence_number: {}, share_hash: {}, total_shares_accepted: {}, total_share_work_sum: {}, timestamp: {:?}, block_found: {}\n",
                         channel_id,
@@ -60,9 +60,18 @@ impl ShareFileHandler {
                         block_found
                     )
                     .as_bytes(),
-                ).await.map_err(|e| {
-                    error!(target = "share_file_handler", "{}", e);
-                });
+                ).await;
+
+                if let Err(e) = result {
+                    error!(target = "share_file_handler", "Failed to write share event: {}", e);
+                    let _ = self.status_tx.send(status::Status {
+                        state: status::State::SharePersistenceError(format!("Failed to write share event: {}", e)),
+                    }).await;
+                } else if block_found {
+                    let _ = self.status_tx.send(status::Status {
+                        state: status::State::Healthy(format!("Block found! channel_id: {}, user: {}", channel_id, user_identity)),
+                    }).await;
+                }
             }
             ShareAccountingEvent::BestDifficultyUpdated {
                 channel_id,
@@ -70,7 +79,7 @@ impl ShareFileHandler {
                 previous_best_diff,
                 timestamp,
             } => {
-                let _ = self.file.write_all(
+                let result = self.file.write_all(
                     format!(
                         "BestDifficultyUpdated: channel_id: {}, new_best_diff: {}, previous_best_diff: {}, timestamp: {:?}\n",
                         channel_id,
@@ -79,10 +88,14 @@ impl ShareFileHandler {
                         timestamp
                     )
                     .as_bytes(),
-                ).await
-                .map_err(|e| {
-                    error!(target = "share_file_handler", "{}", e);
-                });
+                ).await;
+
+                if let Err(e) = result {
+                    error!(target = "share_file_handler", "Failed to write difficulty update: {}", e);
+                    let _ = self.status_tx.send(status::Status {
+                        state: status::State::SharePersistenceError(format!("Failed to write difficulty update: {}", e)),
+                    }).await;
+                }
             },
         }
     }

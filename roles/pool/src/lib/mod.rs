@@ -155,6 +155,13 @@ impl PoolSv2 {
                                 let _ = notify_shutdown.send(ShutdownMessage::ShutdownAll);
                                 break;
                             }
+                            State::SharePersistenceError(err) => {
+                                error!("Share persistence error: {}", err);
+                                // Continue running - persistence errors shouldn't stop the pool
+                            }
+                            State::Healthy(msg) => {
+                                info!("Healthy status: {}", msg);
+                            }
                         }
                     }
                 }
