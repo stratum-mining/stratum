@@ -19,8 +19,6 @@ path = "src/lib/mod.rs"
 [dependencies]
 stratum-apps = { path = "../stratum-apps", features = ["pool"] }
 async-channel = "1.5.1"
-stratum-core = { path = "../../stratum-core" }
-buffer_sv2 = { path = "../../utils/buffer" }
 rand = "0.8.4"
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "rand", "rand-std"] }

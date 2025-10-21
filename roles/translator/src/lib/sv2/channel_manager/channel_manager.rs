@@ -16,7 +16,7 @@ use std::sync::{Arc, RwLock};
 use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
-        channels_sv2::client::extended::ExtendedChannel,
+        channels_sv2::{client::extended::ExtendedChannel, persistence::NoPersistence},
         framing_sv2::framing::Frame,
         handlers_sv2::HandleMiningMessagesFromServerAsync,
         mining_sv2::OpenExtendedMiningChannelSuccess,
@@ -319,6 +319,7 @@ impl ChannelManager {
                                     hashrate,
                                     true,
                                     new_extranonce_size as u16,
+                                    NoPersistence::new(),
                                 );
                                 self.channel_manager_data.super_safe_lock(|c| {
                                     c.extended_channels.insert(
@@ -786,7 +787,7 @@ mod tests {
         let update_channel = UpdateChannel {
             channel_id: 1,
             nominal_hash_rate: 2000.0,
-            maximum_target: [0xFFu8; 32].try_into().unwrap(),
+            maximum_target: [0xFFu8; 32].into(),
         };
 
         // Test that the message can be handled

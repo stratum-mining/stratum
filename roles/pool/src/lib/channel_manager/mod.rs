@@ -441,7 +441,11 @@ impl ChannelManager {
     fn run_vardiff_on_extended_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel_state: &mut ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, PoolPersistence>,
+        channel_state: &mut ExtendedChannel<
+            'static,
+            DefaultJobStore<ExtendedJob<'static>>,
+            PoolPersistence,
+        >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {
@@ -486,7 +490,11 @@ impl ChannelManager {
     fn run_vardiff_on_standard_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, PoolPersistence>,
+        channel: &mut StandardChannel<
+            'static,
+            DefaultJobStore<StandardJob<'static>>,
+            PoolPersistence,
+        >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {

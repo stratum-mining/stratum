@@ -9,7 +9,7 @@ use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
         bitcoin::Target,
-        channels_sv2::client::extended::ExtendedChannel,
+        channels_sv2::{client::extended::ExtendedChannel, persistence::NoPersistence},
         handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
         mining_sv2::{
             CloseChannel, ExtendedExtranonce, Extranonce, NewExtendedMiningJob, NewMiningJob,
@@ -86,6 +86,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     nominal_hashrate,
                     version_rolling,
                     m.extranonce_size,
+                    NoPersistence::new(),
                 );
 
                 // If we are in aggregated mode, we need to create a new extranonce prefix and
@@ -139,6 +140,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                         nominal_hashrate,
                         true,
                         new_extranonce_size,
+                        NoPersistence::new(),
                     );
                     channel_manager_data.extended_channels.insert(
                         m.channel_id,
@@ -194,6 +196,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                             nominal_hashrate,
                             true,
                             downstream_extranonce_len as u16,
+                            NoPersistence::new(),
                         );
                         channel_manager_data.extended_channels.insert(
                             m.channel_id,

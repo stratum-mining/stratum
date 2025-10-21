@@ -181,7 +181,7 @@ mod tests {
 
     use crate::config::JobDeclaratorServerConfig;
 
-    const COINBASE_CONFIG_TEMPLATE: &'static str = r#"
+    const COINBASE_CONFIG_TEMPLATE: &str = r#"
         full_template_mode_required = true
         authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
         authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
@@ -198,9 +198,9 @@ mod tests {
         unit = "secs"
         value = 1
     "#;
-    const TEST_PK_HEX: &'static str =
+    const TEST_PK_HEX: &str =
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075";
-    const TEST_INVALID_PK_HEX: &'static str =
+    const TEST_INVALID_PK_HEX: &str =
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7ffffff";
 
     fn load_config(path: &str) -> JobDeclaratorServerConfig {
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_get_invalid_miniscript_in_coinbase_reward_script() {
-        let error = load_coinbase_config_str(&format!("\"INVALID\""))
+        let error = load_coinbase_config_str("\"INVALID\"")
             .expect_err("Cannot parse config with bad miniscript");
         assert_eq!(
             error.to_string(),

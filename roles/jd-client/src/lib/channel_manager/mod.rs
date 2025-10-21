@@ -16,6 +16,7 @@ use stratum_apps::{
         bitcoin::Target,
         channels_sv2::{
             client::extended::ExtendedChannel,
+            persistence::NoPersistence,
             server::{
                 jobs::{
                     extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
@@ -135,7 +136,7 @@ pub struct ChannelManagerData {
     // Maps channel ID → downstream ID.
     channel_id_to_downstream_id: HashMap<u32, u32>,
     // The active upstream extended channel (client-side instance), if any.
-    upstream_channel: Option<ExtendedChannel<'static>>,
+    upstream_channel: Option<ExtendedChannel<'static, NoPersistence>>,
     // Optional "pool tag" string, identifying the pool.
     pool_tag_string: Option<String>,
     // List of pending downstream connection requests,
@@ -922,6 +923,7 @@ impl ChannelManager {
         channel_state: &mut stratum_apps::stratum_core::channels_sv2::server::extended::ExtendedChannel<
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
+            NoPersistence,
         >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
@@ -967,7 +969,11 @@ impl ChannelManager {
     fn run_vardiff_on_standard_channel(
         downstream_id: u32,
         channel_id: u32,
-        channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>,
+        channel: &mut StandardChannel<
+            'static,
+            DefaultJobStore<StandardJob<'static>>,
+            NoPersistence,
+        >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
     ) {

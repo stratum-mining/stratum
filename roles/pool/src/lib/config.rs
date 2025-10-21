@@ -43,6 +43,7 @@ impl PoolConfig {
     /// # Panics
     ///
     /// Panics if `coinbase_reward_script` is empty.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool_connection: ConnectionConfig,
         template_provider: TemplateProviderConfig,
@@ -66,7 +67,7 @@ impl PoolConfig {
             share_batch_size,
             log_file: None,
             server_id,
-            share_persistence_file_path
+            share_persistence_file_path,
         }
     }
 

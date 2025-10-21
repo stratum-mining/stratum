@@ -5,11 +5,14 @@ use stratum_apps::{
     custom_mutex::Mutex,
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
-        channels_sv2::server::{
-            extended::ExtendedChannel,
-            group::GroupChannel,
-            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
-            standard::StandardChannel,
+        channels_sv2::{
+            persistence::NoPersistence,
+            server::{
+                extended::ExtendedChannel,
+                group::GroupChannel,
+                jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+                standard::StandardChannel,
+            },
         },
         common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
@@ -42,10 +45,14 @@ mod message_handler;
 pub struct DownstreamData {
     pub require_std_job: bool,
     pub group_channels: Option<GroupChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
-    pub extended_channels:
-        HashMap<u32, ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
-    pub standard_channels:
-        HashMap<u32, StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>>,
+    pub extended_channels: HashMap<
+        u32,
+        ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, NoPersistence>,
+    >,
+    pub standard_channels: HashMap<
+        u32,
+        StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, NoPersistence>,
+    >,
 }
 
 /// Communication layer for a downstream connection.

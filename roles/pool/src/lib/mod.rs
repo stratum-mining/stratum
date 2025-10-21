@@ -5,7 +5,7 @@ use stratum_apps::stratum_core::{
     bitcoin::consensus::Encodable, parsers_sv2::TemplateDistribution,
 };
 use tokio::sync::broadcast;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     channel_manager::ChannelManager,
@@ -21,11 +21,11 @@ pub mod channel_manager;
 pub mod config;
 pub mod downstream;
 pub mod error;
+pub mod share_persistence;
 pub mod status;
 pub mod task_manager;
 pub mod template_receiver;
 pub mod utils;
-pub mod share_persistence;
 
 #[derive(Debug, Clone)]
 pub struct PoolSv2 {

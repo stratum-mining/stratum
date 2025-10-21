@@ -6,6 +6,7 @@ use stratum_apps::stratum_core::{
     channels_sv2::{
         client,
         outputs::deserialize_outputs,
+        persistence::NoPersistence,
         server::{
             error::{ExtendedChannelError, StandardChannelError},
             extended::ExtendedChannel,
@@ -348,6 +349,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 job_store,
                                 channel_manager_data.pool_tag_string.clone(),
                                 self.miner_tag_string.clone(),
+                                NoPersistence::new(),
                             ) {
                                 Ok(channel) => channel,
                                 Err(e) => {
@@ -586,6 +588,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             job_store,
                             channel_manager_data.pool_tag_string.clone(),
                             self.miner_tag_string.clone(),
+                            NoPersistence::new(),
                         ) {
                             Ok(c) => c,
                             Err(e) => {
