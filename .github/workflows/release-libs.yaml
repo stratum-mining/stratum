@@ -32,77 +32,73 @@ jobs:
       # Base dependencies with no local dependencies
       - name: Publish crate buffer_sv2
         run: |
-          ./scripts/release-libs.sh utils/buffer
+          ./scripts/release-libs.sh sv2/buffer-sv2
 
       - name: Publish crate noise_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/noise-sv2
+          ./scripts/release-libs.sh sv2/noise-sv2
 
       - name: Publish crate binary_sv2 derive_codec
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2/derive_codec
+          ./scripts/release-libs.sh sv2/binary-sv2/derive_codec
 
       - name: Publish crate binary_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/binary-sv2
+          ./scripts/release-libs.sh sv2/binary-sv2
 
       # framing_sv2(depends on binary_sv2, buffer_sv2, noise_sv2)
       - name: Publish crate framing_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/framing-sv2
+          ./scripts/release-libs.sh sv2/framing-sv2
 
       # codec_sv2 (depends on framing_sv2, noise_sv2, binary_sv2, buffer_sv2)
       - name: Publish crate codec_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/codec-sv2
+          ./scripts/release-libs.sh sv2/codec-sv2
 
       # Subprotocols (depend on binary_sv2)
       - name: Publish crate common_messages
         run: |
-          ./scripts/release-libs.sh protocols/v2/subprotocols/common-messages
+          ./scripts/release-libs.sh sv2/subprotocols/common-messages
 
       - name: Publish crate job_declaration
         run: |
-          ./scripts/release-libs.sh protocols/v2/subprotocols/job-declaration
+          ./scripts/release-libs.sh sv2/subprotocols/job-declaration
 
       - name: Publish crate mining
         run: |
-          ./scripts/release-libs.sh protocols/v2/subprotocols/mining
+          ./scripts/release-libs.sh sv2/subprotocols/mining
 
       - name: Publish crate template_distribution
         run: |
-          ./scripts/release-libs.sh protocols/v2/subprotocols/template-distribution
+          ./scripts/release-libs.sh sv2/subprotocols/template-distribution
 
       # channels_sv2 (depends on binary_sv2, common_messages_sv2, mining_sv2, template_distribution_sv2, job_declaration_sv2)
       - name: Publish crate channels_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/channels-sv2
+          ./scripts/release-libs.sh sv2/channels-sv2
 
       # parsers_sv2 (depends on binary_sv2, framing_sv2, common_messages, mining, template_distribution, job_declaration)
       - name: Publish crate parsers_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/parsers-sv2
+          ./scripts/release-libs.sh sv2/parsers-sv2
 
       # sv1_api (depends on binary_sv2)
       - name: Publish crate v1
         run: |
-          ./scripts/release-libs.sh protocols/v1
+          ./scripts/release-libs.sh sv1
 
       # stratum_translation (depends on binary_sv2, mining_sv2, channels_sv2, v1)
       - name: Publish crate stratum_translation
         run: |
-          ./scripts/release-libs.sh protocols/stratum-translation
+          ./scripts/release-libs.sh stratum-core/stratum-translation
       # handlers_sv2 (depends on parsers_sv2, binary_sv2, common_messages_sv2, mining_sv2, template_distribution_sv2, job_declaration_sv2)
       - name: Publish crate handlers_sv2
         run: |
-          ./scripts/release-libs.sh protocols/v2/handlers-sv2
+          ./scripts/release-libs.sh sv2/handlers-sv2
 
       # Stratum Core (re-exports all the protocol crates)
       - name: Publish crate stratum-core
         run: |
           ./scripts/release-libs.sh stratum-core/stratum-core
 
-      # stratum-apps (depends on stratum-core and external crates)
-      - name: Publish crate stratum-apps
-        run: |
-          ./scripts/release-libs.sh roles/stratum-apps

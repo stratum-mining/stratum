@@ -24,9 +24,6 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Install cargo-nextest
-        run: cargo install cargo-nextest --locked
-
-      - name: Integration Tests
+      - name: Run Integration Tests Script
         run: |
-         RUST_BACKTRACE=1 RUST_LOG=debug cargo nextest run --manifest-path=test/integration-tests/Cargo.toml --nocapture
+          ./scripts/run-integration-tests.sh

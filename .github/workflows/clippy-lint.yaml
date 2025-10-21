@@ -27,5 +27,6 @@ jobs:
           toolchain: 1.89
           override: true
           components: clippy
-      - name: Run Clippy on different workspaces and crates
-        run: ./scripts/rust/clippy.sh
+      - name: Run Clippy
+        run: |
+          cargo clippy -- -D warnings
