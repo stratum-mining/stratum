@@ -198,8 +198,7 @@ mod tests {
         unit = "secs"
         value = 1
     "#;
-    const TEST_PK_HEX: &str =
-        "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075";
+    const TEST_PK_HEX: &str = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075";
     const TEST_INVALID_PK_HEX: &str =
         "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7ffffff";
 
