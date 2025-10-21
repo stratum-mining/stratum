@@ -106,6 +106,7 @@ pub async fn start_pool(template_provider_address: Option<SocketAddr>) -> (PoolS
         SHARES_PER_MINUTE,
         share_batch_size,
         1,
+        None,
     );
     let pool = PoolSv2::new(config);
     let pool_clone = pool.clone();
