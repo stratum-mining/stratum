@@ -29,8 +29,4 @@ jobs:
           components: rustfmt
       - name: Run fmt in different workspaces and crates
         run: |
-          cargo fmt --all --manifest-path=stratum-core/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=protocols/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=roles/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=utils/Cargo.toml -- --check
-          cargo fmt --all --manifest-path=test/integration-tests/Cargo.toml -- --check
+          cargo fmt --all -- --check --verbose

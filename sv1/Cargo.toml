@@ -1,0 +1,27 @@
+[package]
+name = "sv1_api"
+version = "2.1.2"
+authors = ["The Stratum V2 Developers"]
+edition = "2021"
+readme = "README.md"
+description = "API for bridging SV1 miners to SV2 pools"
+documentation = "https://docs.rs/sv1_api"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+homepage = "https://stratumprotocol.org"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitcoin_hashes = "0.3.2"
+byteorder = "1.2.7"
+hex = "0.4.3"
+serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
+tracing = {version = "0.1"}
+binary_sv2 = { path = "../sv2/binary-sv2", version = "^5.0.0" }
+
+[dev-dependencies]
+quickcheck = "1"
+quickcheck_macros = "1"

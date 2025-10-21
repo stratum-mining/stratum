@@ -41,60 +41,60 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --version 0.37.0 --locked
 
-      - name: Run semver checks for utils/buffer
-        working-directory: utils/buffer
+      - name: Run semver checks for sv2/buffer-sv2
+        working-directory: sv2/buffer-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/binary-sv2
-        working-directory: protocols/v2/binary-sv2
+      - name: Run semver checks for sv2/binary-sv2
+        working-directory: sv2/binary-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/framing-sv2
-        working-directory: protocols/v2/framing-sv2
+      - name: Run semver checks for sv2/framing-sv2
+        working-directory: sv2/framing-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/noise-sv2
-        working-directory: protocols/v2/noise-sv2
+      - name: Run semver checks for sv2/noise-sv2
+        working-directory: sv2/noise-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/codec-sv2
-        working-directory: protocols/v2/codec-sv2
+      - name: Run semver checks for sv2/codec-sv2
+        working-directory: sv2/codec-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/common-messages
-        working-directory: protocols/v2/subprotocols/common-messages
+      - name: Run semver checks for sv2/subprotocols/common-messages
+        working-directory: sv2/subprotocols/common-messages
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/job-declaration
-        working-directory: protocols/v2/subprotocols/job-declaration
+      - name: Run semver checks for sv2/subprotocols/job-declaration
+        working-directory: sv2/subprotocols/job-declaration
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/mining
-        working-directory: protocols/v2/subprotocols/mining
+      - name: Run semver checks for sv2/subprotocols/mining
+        working-directory: sv2/subprotocols/mining
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/subprotocols/template-distribution
-        working-directory: protocols/v2/subprotocols/template-distribution
+      - name: Run semver checks for sv2/subprotocols/template-distribution
+        working-directory: sv2/subprotocols/template-distribution
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/channels-sv2
-        working-directory: protocols/v2/channels-sv2
+      - name: Run semver checks for sv2/channels-sv2
+        working-directory: sv2/channels-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/parsers-sv2
-        working-directory: protocols/v2/parsers-sv2
+      - name: Run semver checks for sv2/parsers-sv2
+        working-directory: sv2/parsers-sv2
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/v2/handlers-sv2
-        working-directory: protocols/v2/handlers-sv2
+      - name: Run semver checks for sv2/handlers-sv2
+        working-directory: sv2/handlers-sv2
         run: cargo semver-checks
 
       - name: Run semver checks for protocols/v1
-        working-directory: protocols/v1
+        working-directory: sv1
         run: cargo semver-checks
 
-      - name: Run semver checks for protocols/stratum-translation
-        working-directory: protocols/stratum-translation
+      - name: Run semver checks for stratum-core/stratum-translation
+        working-directory: stratum-core/stratum-translation
         run: cargo semver-checks
 
       # TODO: Uncomment this when the stratum-core crate is published to crates.io
@@ -102,7 +102,3 @@ jobs:
       #  working-directory: stratum-core
       #  run: cargo semver-checks
 
-      # TODO: Uncomment this when the stratum-apps crate is published to crates.io
-      # - name: Run semver checks for roles/stratum-apps
-      #  working-directory: roles/stratum-apps
-      #  run: cargo semver-checks
