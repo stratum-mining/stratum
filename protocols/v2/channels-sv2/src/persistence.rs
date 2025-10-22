@@ -60,17 +60,11 @@ pub enum ShareAccountingEvent {
     },
 }
 
-/// Trait for persisting share accounting events.
+/// Trait for handling persistence of share accounting events.
 ///
-/// Implementations of this trait handle the persistence of share accounting events,
+/// Implementations of this trait handle the actual persistence operations,
 /// ensuring that persistence operations are non-blocking and can handle failures internally.
-pub trait Persistence {
-    /// The type of channel sender used to send events for persistence.
-    ///
-    /// This is typically something like `tokio::sync::mpsc::UnboundedSender<ShareAccountingEvent>`
-    /// or `async_channel::Sender<ShareAccountingEvent>`.
-    type Sender: Clone + Send + 'static;
-
+pub trait PersistenceHandler {
     /// Sends a share accounting event for persistence.
     ///
     /// This method MUST be non-blocking and infallible from the caller's perspective.
@@ -87,45 +81,60 @@ pub trait Persistence {
     ///
     /// Implementations can use this for cleanup operations, but should not block.
     fn shutdown(&self) {}
-
-    fn new(sender: Self::Sender) -> Self;
 }
 
-/// A no-op persistence implementation for when persistence is disabled.
-///
-/// This allows ShareAccounting to always call persistence methods without
-/// needing conditional compilation throughout the hot path code.
+/// Main persistence abstraction that handles enabled/disabled states.
 #[derive(Debug, Clone)]
-pub struct NoPersistence;
-
-impl NoPersistence {
-    /// Creates a new no-op persistence handler.
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// No-op method for share accounting events.
-    pub fn persist_event(&self, _event: ShareAccountingEvent) {}
-
-    /// No-op flush method.
-    pub fn flush(&self) {}
-
-    /// No-op shutdown method.
-    pub fn shutdown(&self) {}
+pub enum Persistence<T> {
+    /// Persistence is enabled with the given handler
+    Enabled(T),
+    /// Persistence is disabled (no-op)
+    Disabled,
 }
 
-impl Default for NoPersistence {
+impl<T: PersistenceHandler> Persistence<T> {
+    /// Creates persistence state from an Option.
+    /// Some(persistence) becomes Enabled, None becomes Disabled.
+    pub fn new(persistence: Option<T>) -> Self {
+        match persistence {
+            Some(p) => Self::Enabled(p),
+            None => Self::Disabled,
+        }
+    }
+}
+
+impl<T: PersistenceHandler> Default for Persistence<T> {
+    /// Default persistence state is Disabled (no persistence).
     fn default() -> Self {
-        Self::new()
+        Self::Disabled
     }
 }
 
-impl Persistence for NoPersistence {
-    type Sender = ();
+impl<T: PersistenceHandler> PersistenceHandler for Persistence<T> {
+    fn persist_event(&self, event: ShareAccountingEvent) {
+        match self {
+            Self::Enabled(persistence) => persistence.persist_event(event),
+            Self::Disabled => {
+                // No-op - persistence is disabled
+            }
+        }
+    }
 
-    fn persist_event(&self, _event: ShareAccountingEvent) {}
+    fn flush(&self) {
+        match self {
+            Self::Enabled(persistence) => persistence.flush(),
+            Self::Disabled => {
+                // No-op - persistence is disabled
+            }
+        }
+    }
 
-    fn new(_sender: Self::Sender) -> Self {
-        Self
+    fn shutdown(&self) {
+        match self {
+            Self::Enabled(persistence) => persistence.shutdown(),
+            Self::Disabled => {
+                // No-op - persistence is disabled
+            }
+        }
     }
 }
