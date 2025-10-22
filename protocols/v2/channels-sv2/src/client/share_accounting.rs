@@ -5,7 +5,7 @@
 //! are intended for use in Mining Clients.
 
 use super::HashSet;
-use crate::persistence::{Persistence, ShareAccountingEvent};
+use crate::persistence::{PersistenceHandler, ShareAccountingEvent};
 use bitcoin::hashes::sha256d::Hash;
 
 /// The outcome of share validation, as seen by a Mining Client.
@@ -62,7 +62,7 @@ pub struct ShareAccounting<P> {
 
 impl<P> ShareAccounting<P>
 where
-    P: Persistence,
+    P: PersistenceHandler,
 {
     /// Creates a new [`ShareAccounting`] instance, initializing all statistics to zero.
     ///

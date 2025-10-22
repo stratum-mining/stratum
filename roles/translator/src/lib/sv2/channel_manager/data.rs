@@ -5,10 +5,26 @@ use std::{
 use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
-        channels_sv2::{client::extended::ExtendedChannel, persistence::NoPersistence},
+        channels_sv2::{
+            client::extended::ExtendedChannel,
+            persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
+        },
         mining_sv2::ExtendedExtranonce,
     },
 };
+
+/// Unit-like type for persistence when disabled in translator
+#[derive(Debug, Clone)]
+pub struct NoOpPersistence;
+
+impl PersistenceHandler for NoOpPersistence {
+    fn persist_event(&self, _event: ShareAccountingEvent) {
+        // No-op - this should never be called when using Persistence::Disabled
+    }
+}
+
+/// Type alias for disabled persistence used in translator
+pub type DisabledPersistence = Persistence<NoOpPersistence>;
 
 /// Defines the operational mode for channel management.
 ///
@@ -39,9 +55,10 @@ pub struct ChannelManagerData {
     /// downstream_extranonce_len)
     pub pending_channels: HashMap<u32, (String, f32, usize)>,
     /// Map of active extended channels by channel ID
-    pub extended_channels: HashMap<u32, Arc<RwLock<ExtendedChannel<'static, NoPersistence>>>>,
+    pub extended_channels: HashMap<u32, Arc<RwLock<ExtendedChannel<'static, DisabledPersistence>>>>,
     /// The upstream extended channel used in aggregated mode
-    pub upstream_extended_channel: Option<Arc<RwLock<ExtendedChannel<'static, NoPersistence>>>>,
+    pub upstream_extended_channel:
+        Option<Arc<RwLock<ExtendedChannel<'static, DisabledPersistence>>>>,
     /// Extranonce prefix factory for allocating unique prefixes in aggregated mode
     pub extranonce_prefix_factory: Option<Arc<Mutex<ExtendedExtranonce>>>,
     /// Current operational mode

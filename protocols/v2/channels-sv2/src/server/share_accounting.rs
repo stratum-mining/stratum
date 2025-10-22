@@ -18,7 +18,7 @@
 //! Intended for use within mining server implementations that process SV2 share submissions and
 //! issue `SubmitShares.Success` messages. Not intended for use by mining clients.
 
-use crate::persistence::{Persistence, ShareAccountingEvent};
+use crate::persistence::{PersistenceHandler, ShareAccountingEvent};
 use bitcoin::hashes::sha256d::Hash;
 use std::collections::HashSet;
 
@@ -94,7 +94,7 @@ pub struct ShareAccounting<P> {
 
 impl<P> ShareAccounting<P>
 where
-    P: Persistence,
+    P: PersistenceHandler,
 {
     /// Constructs a new `ShareAccounting` instance for a channel.
     ///

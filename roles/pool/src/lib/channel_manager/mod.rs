@@ -13,7 +13,7 @@ use stratum_apps::{
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
         channels_sv2::{
-            persistence::{NoPersistence, Persistence, ShareAccountingEvent},
+            persistence::Persistence,
             server::{
                 extended::ExtendedChannel,
                 jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
@@ -46,42 +46,8 @@ use crate::{
 mod mining_message_handler;
 mod template_distribution_message_handler;
 
-/// Enum wrapper for different persistence implementations used by the pool.
-/// Allows runtime selection between file-based persistence and no-op persistence.
-#[derive(Clone, Debug)]
-pub enum PoolPersistence {
-    File(ShareFilePersistence),
-    None(NoPersistence),
-}
-
-impl Persistence for PoolPersistence {
-    type Sender = async_channel::Sender<ShareAccountingEvent>;
-
-    fn persist_event(&self, event: ShareAccountingEvent) {
-        match self {
-            PoolPersistence::File(p) => p.persist_event(event),
-            PoolPersistence::None(p) => p.persist_event(event),
-        }
-    }
-
-    fn flush(&self) {
-        match self {
-            PoolPersistence::File(p) => p.flush(),
-            PoolPersistence::None(p) => p.flush(),
-        }
-    }
-
-    fn shutdown(&self) {
-        match self {
-            PoolPersistence::File(p) => p.shutdown(),
-            PoolPersistence::None(p) => p.shutdown(),
-        }
-    }
-
-    fn new(sender: Self::Sender) -> Self {
-        PoolPersistence::File(ShareFilePersistence::new(sender))
-    }
-}
+/// Type alias for the pool's persistence implementation.
+pub type PoolPersistence = Persistence<ShareFilePersistence>;
 
 const POOL_ALLOCATION_BYTES: usize = 4;
 const CLIENT_SEARCH_SPACE_BYTES: usize = 8;
@@ -205,10 +171,10 @@ impl ChannelManager {
                 }
             });
 
-            PoolPersistence::File(ShareFilePersistence::new(sender))
+            Persistence::new(Some(ShareFilePersistence::new(sender)))
         } else {
-            info!("Share persistence disabled - using NoPersistence");
-            PoolPersistence::None(NoPersistence::new())
+            info!("Share persistence disabled");
+            Persistence::new(None)
         };
 
         let channel_manager = ChannelManager {

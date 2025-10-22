@@ -4,7 +4,7 @@ use stratum_apps::stratum_core::{
     bitcoin::Target,
     channels_sv2::{
         client::extended::ExtendedChannel, outputs::deserialize_outputs,
-        persistence::NoPersistence, server::jobs::factory::JobFactory,
+        server::jobs::factory::JobFactory,
     },
     handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
     mining_sv2::*,
@@ -15,7 +15,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     channel_manager::{
-        downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob,
+        downstream_message_handler::RouteMessageTo, ChannelManager, DeclaredJob, Persistence,
         JDC_SEARCH_SPACE_BYTES,
     },
     error::{ChannelSv2Error, JDCError},
@@ -144,7 +144,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     hashrate,
                     true,
                     msg.extranonce_size,
-                    NoPersistence::new(),
+                    Persistence::default(),
                 );
 
                 if let Some(ref mut prevhash) = data.last_new_prev_hash {

@@ -5,14 +5,11 @@ use stratum_apps::{
     custom_mutex::Mutex,
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
-        channels_sv2::{
-            persistence::NoPersistence,
-            server::{
-                extended::ExtendedChannel,
-                group::GroupChannel,
-                jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
-                standard::StandardChannel,
-            },
+        channels_sv2::server::{
+            extended::ExtendedChannel,
+            group::GroupChannel,
+            jobs::{extended::ExtendedJob, job_store::DefaultJobStore, standard::StandardJob},
+            standard::StandardChannel,
         },
         common_messages_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
         handlers_sv2::HandleCommonMessagesFromClientAsync,
@@ -24,6 +21,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, error, warn};
 
 use crate::{
+    channel_manager::DisabledPersistence,
     error::JDCError,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
@@ -47,11 +45,11 @@ pub struct DownstreamData {
     pub group_channels: Option<GroupChannel<'static, DefaultJobStore<ExtendedJob<'static>>>>,
     pub extended_channels: HashMap<
         u32,
-        ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, NoPersistence>,
+        ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>, DisabledPersistence>,
     >,
     pub standard_channels: HashMap<
         u32,
-        StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, NoPersistence>,
+        StandardChannel<'static, DefaultJobStore<StandardJob<'static>>, DisabledPersistence>,
     >,
 }
 

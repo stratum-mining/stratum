@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    persistence::{NoPersistence, Persistence},
+    persistence::{NoPersistence, PersistenceHandler},
     target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
@@ -81,7 +81,7 @@ pub struct ExtendedChannel<'a, P> {
 
 impl<'a, P> ExtendedChannel<'a, P>
 where
-    P: Persistence,
+    P: PersistenceHandler,
 {
     /// Constructs a new [`ExtendedChannel`].
     #[allow(clippy::too_many_arguments)]

@@ -35,7 +35,7 @@
 //! - Job lifecycle and share accounting are managed on a per-channel basis.
 use crate::{
     chain_tip::ChainTip,
-    persistence::Persistence,
+    persistence::PersistenceHandler,
     server::{
         error::StandardChannelError,
         jobs::{
@@ -102,7 +102,7 @@ where
 impl<'a, J, P> StandardChannel<'a, J, P>
 where
     J: JobStore<StandardJob<'a>>,
-    P: Persistence,
+    P: PersistenceHandler,
 {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.

@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    persistence::{NoPersistence, Persistence},
+    persistence::{NoPersistence, PersistenceHandler},
     target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
@@ -60,7 +60,7 @@ pub struct StandardChannel<'a, P> {
 
 impl<'a, P> StandardChannel<'a, P>
 where
-    P: Persistence,
+    P: PersistenceHandler,
 {
     /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(

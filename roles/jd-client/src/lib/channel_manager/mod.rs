@@ -16,7 +16,7 @@ use stratum_apps::{
         bitcoin::Target,
         channels_sv2::{
             client::extended::ExtendedChannel,
-            persistence::NoPersistence,
+            persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
             server::{
                 jobs::{
                     extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
@@ -65,6 +65,19 @@ mod template_message_handler;
 mod upstream_message_handler;
 
 pub const JDC_SEARCH_SPACE_BYTES: usize = 4;
+
+/// Unit-like type for persistence when disabled
+#[derive(Debug, Clone)]
+pub(crate) struct NoOpPersistence;
+
+impl PersistenceHandler for NoOpPersistence {
+    fn persist_event(&self, _event: ShareAccountingEvent) {
+        // No-op - this should never be called when using Persistence::Disabled
+    }
+}
+
+/// Type alias for disabled persistence used in JD client
+pub(crate) type DisabledPersistence = Persistence<NoOpPersistence>;
 
 /// A `DeclaredJob` encapsulates all the relevant data associated with a single
 /// job declaration, including its template, optional messages, coinbase output,
@@ -136,7 +149,7 @@ pub struct ChannelManagerData {
     // Maps channel ID → downstream ID.
     channel_id_to_downstream_id: HashMap<u32, u32>,
     // The active upstream extended channel (client-side instance), if any.
-    upstream_channel: Option<ExtendedChannel<'static, NoPersistence>>,
+    upstream_channel: Option<ExtendedChannel<'static, DisabledPersistence>>,
     // Optional "pool tag" string, identifying the pool.
     pool_tag_string: Option<String>,
     // List of pending downstream connection requests,
@@ -923,7 +936,7 @@ impl ChannelManager {
         channel_state: &mut stratum_apps::stratum_core::channels_sv2::server::extended::ExtendedChannel<
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
-            NoPersistence,
+            Persistence<NoOpPersistence>,
         >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
@@ -972,7 +985,7 @@ impl ChannelManager {
         channel: &mut StandardChannel<
             'static,
             DefaultJobStore<StandardJob<'static>>,
-            NoPersistence,
+            Persistence<NoOpPersistence>,
         >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,

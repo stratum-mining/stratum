@@ -42,7 +42,7 @@
 use crate::{
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
-    persistence::Persistence,
+    persistence::PersistenceHandler,
     server::{
         error::ExtendedChannelError,
         jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
@@ -108,7 +108,7 @@ where
 impl<'a, J, P> ExtendedChannel<'a, J, P>
 where
     J: JobStore<ExtendedJob<'a>>,
-    P: Persistence,
+    P: PersistenceHandler,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -755,7 +755,7 @@ where
 mod tests {
     use crate::{
         chain_tip::ChainTip,
-        persistence::NoPersistence,
+        persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
@@ -763,6 +763,16 @@ mod tests {
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
+
+    /// Unit-like type for persistence in tests
+    #[derive(Debug, Clone)]
+    struct TestPersistence;
+
+    impl PersistenceHandler for TestPersistence {
+        fn persist_event(&self, _event: ShareAccountingEvent) {
+            // No-op for tests
+        }
+    }
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
     use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended};
@@ -791,7 +801,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -804,7 +814,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -943,7 +953,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -956,7 +966,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -1064,7 +1074,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1077,7 +1087,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -1143,7 +1153,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1156,7 +1166,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -1253,7 +1263,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1266,7 +1276,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -1366,7 +1376,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1379,7 +1389,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -1494,7 +1504,7 @@ mod tests {
         let max_target = Target::from_le_bytes([0xff; 32]);
 
         // Create a channel with initial hashrate
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1507,7 +1517,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 
@@ -1582,7 +1592,7 @@ mod tests {
         let share_batch_size = 100;
         let job_store = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::<DefaultJobStore<_>, NoPersistence>::new(
+        let mut channel = ExtendedChannel::<DefaultJobStore<_>, Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -1595,7 +1605,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::default(),
         )
         .unwrap();
 

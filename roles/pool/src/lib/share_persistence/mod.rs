@@ -1,4 +1,6 @@
-use stratum_apps::stratum_core::channels_sv2::persistence::{Persistence, ShareAccountingEvent};
+use stratum_apps::stratum_core::channels_sv2::persistence::{
+    PersistenceHandler, ShareAccountingEvent,
+};
 use tokio::io::AsyncWriteExt;
 use tracing::error;
 
@@ -123,25 +125,22 @@ impl ShareFileHandler {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ShareFilePersistence {
-    sender: Option<async_channel::Sender<ShareAccountingEvent>>,
+    sender: async_channel::Sender<ShareAccountingEvent>,
 }
 
-impl Persistence for ShareFilePersistence {
-    type Sender = async_channel::Sender<ShareAccountingEvent>;
-
-    fn persist_event(&self, event: ShareAccountingEvent) {
-        if let Some(sender) = &self.sender {
-            let _ = sender
-                .try_send(event)
-                .map_err(|e| error!(target = "share_file_persistence", "{}", e));
-        }
+impl ShareFilePersistence {
+    pub fn new(sender: async_channel::Sender<ShareAccountingEvent>) -> Self {
+        Self { sender }
     }
+}
 
-    fn new(sender: Self::Sender) -> Self {
-        Self {
-            sender: Some(sender),
-        }
+impl PersistenceHandler for ShareFilePersistence {
+    fn persist_event(&self, event: ShareAccountingEvent) {
+        let _ = self
+            .sender
+            .try_send(event)
+            .map_err(|e| error!(target = "share_file_persistence", "{}", e));
     }
 }

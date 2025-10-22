@@ -16,7 +16,7 @@ use std::sync::{Arc, RwLock};
 use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
-        channels_sv2::{client::extended::ExtendedChannel, persistence::NoPersistence},
+        channels_sv2::{client::extended::ExtendedChannel, persistence::Persistence},
         framing_sv2::framing::Frame,
         handlers_sv2::HandleMiningMessagesFromServerAsync,
         mining_sv2::OpenExtendedMiningChannelSuccess,
@@ -319,7 +319,7 @@ impl ChannelManager {
                                     hashrate,
                                     true,
                                     new_extranonce_size as u16,
-                                    NoPersistence::new(),
+                                    Persistence::default(),
                                 );
                                 self.channel_manager_data.super_safe_lock(|c| {
                                     c.extended_channels.insert(
