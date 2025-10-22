@@ -686,15 +686,23 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        chain_tip::ChainTip,
-        persistence::NoPersistence,
-        server::{
+        chain_tip::ChainTip, persistence::{Persistence, PersistenceHandler, ShareAccountingEvent}, server::{
             error::StandardChannelError,
             jobs::{job_store::DefaultJobStore, standard::StandardJob},
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
-        },
+        }
     };
+
+    /// Unit-like type for persistence in tests
+    #[derive(Debug, Clone)]
+    struct TestPersistence;
+
+    impl PersistenceHandler for TestPersistence {
+        fn persist_event(&self, _event: ShareAccountingEvent) {
+            // No-op for tests
+        }
+    }
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
     use mining_sv2::{NewMiningJob, SubmitSharesStandard};
@@ -734,7 +742,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 
@@ -863,7 +871,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 
@@ -968,7 +976,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 
@@ -1075,7 +1083,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 
@@ -1185,7 +1193,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 
@@ -1289,7 +1297,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 
@@ -1377,7 +1385,7 @@ mod tests {
             job_store,
             None,
             None,
-            NoPersistence::new(),
+            Persistence::Enabled(TestPersistence),
         )
         .unwrap();
 

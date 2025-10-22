@@ -582,7 +582,7 @@ mod tests {
             extended::ExtendedChannel,
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
-        persistence::NoPersistence,
+        persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
     };
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
@@ -590,6 +590,16 @@ mod tests {
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
     };
     use std::convert::TryInto;
+
+    /// Unit-like type for persistence in tests
+    #[derive(Debug, Clone)]
+    struct TestPersistence;
+
+    impl PersistenceHandler for TestPersistence {
+        fn persist_event(&self, _event: ShareAccountingEvent) {
+            // No-op for tests
+        }
+    }
 
     #[test]
     fn test_future_job_activation_flow() {
@@ -605,7 +615,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 4u16;
 
-        let mut channel = ExtendedChannel::<NoPersistence>::new(
+        let mut channel = ExtendedChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -613,7 +623,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewExtendedMiningJob {
@@ -688,7 +698,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 4u16;
 
-        let mut channel = ExtendedChannel::<NoPersistence>::new(
+        let mut channel = ExtendedChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -696,7 +706,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let ntime: u32 = 1746839905;
@@ -762,7 +772,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
 
-        let mut channel = ExtendedChannel::<NoPersistence>::new(
+        let mut channel = ExtendedChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -770,7 +780,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewExtendedMiningJob {
@@ -855,7 +865,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
 
-        let mut channel = ExtendedChannel::<NoPersistence>::new(
+        let mut channel = ExtendedChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -863,7 +873,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewExtendedMiningJob {
@@ -951,7 +961,7 @@ mod tests {
         let version_rolling = true;
         let rollable_extranonce_size = 8u16;
 
-        let mut channel = ExtendedChannel::<NoPersistence>::new(
+        let mut channel = ExtendedChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -959,7 +969,7 @@ mod tests {
             nominal_hashrate,
             version_rolling,
             rollable_extranonce_size,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewExtendedMiningJob {

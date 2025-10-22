@@ -380,8 +380,18 @@ mod tests {
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
-        persistence::NoPersistence,
+        persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
     };
+
+    /// Unit-like type for persistence in tests
+    #[derive(Debug, Clone)]
+    struct TestPersistence;
+
+    impl PersistenceHandler for TestPersistence {
+        fn persist_event(&self, _event: ShareAccountingEvent) {
+            // No-op for tests
+        }
+    }
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
     use mining_sv2::{NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard};
@@ -398,13 +408,13 @@ mod tests {
         let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::<NoPersistence>::new(
+        let mut channel = StandardChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
             target,
             nominal_hashrate,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewMiningJob {
@@ -459,13 +469,13 @@ mod tests {
         let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::<NoPersistence>::new(
+        let mut channel = StandardChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
             target,
             nominal_hashrate,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let ntime: u32 = 1746839905;
@@ -508,13 +518,13 @@ mod tests {
         let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::<NoPersistence>::new(
+        let mut channel = StandardChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
             target,
             nominal_hashrate,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewMiningJob {
@@ -582,13 +592,13 @@ mod tests {
         ]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::<NoPersistence>::new(
+        let mut channel = StandardChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
             target,
             nominal_hashrate,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewMiningJob {
@@ -659,13 +669,13 @@ mod tests {
         ]);
         let nominal_hashrate = 1.0;
 
-        let mut channel = StandardChannel::<NoPersistence>::new(
+        let mut channel = StandardChannel::<Persistence<TestPersistence>>::new(
             channel_id,
             user_identity,
             extranonce_prefix,
             target,
             nominal_hashrate,
-            NoPersistence::new(),
+            Persistence::default(),
         );
 
         let future_job = NewMiningJob {
