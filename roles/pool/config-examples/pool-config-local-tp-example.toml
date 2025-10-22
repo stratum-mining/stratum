@@ -22,6 +22,11 @@ pool_signature = "Stratum V2 SRI Pool"
 # The CLI option --log-file (or -f) will override this setting if provided.
 # log_file = "./pool.log"
 
+# Share persistence file path (optional)
+# When enabled, all share accounting events (accepted shares, difficulty updates, etc.)
+# will be logged to this file for auditing and analysis purposes.
+# Comment out or remove this line to disable share persistence.
+# share_persistence_file_path = "./shares.txt"
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
