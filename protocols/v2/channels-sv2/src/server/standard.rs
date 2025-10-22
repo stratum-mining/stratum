@@ -228,7 +228,7 @@ where
 
         Ok(Self {
             channel_id,
-            user_identity: user_identity.clone(),
+            user_identity,
             extranonce_prefix,
             requested_max_target,
             target,
@@ -686,12 +686,14 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        chain_tip::ChainTip, persistence::{Persistence, PersistenceHandler, ShareAccountingEvent}, server::{
+        chain_tip::ChainTip,
+        persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
+        server::{
             error::StandardChannelError,
             jobs::{job_store::DefaultJobStore, standard::StandardJob},
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
-        }
+        },
     };
 
     /// Unit-like type for persistence in tests

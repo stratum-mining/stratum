@@ -259,7 +259,7 @@ where
             phantom: PhantomData,
         })
     }
-    
+
     /// Returns the unique channel ID for this channel.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
