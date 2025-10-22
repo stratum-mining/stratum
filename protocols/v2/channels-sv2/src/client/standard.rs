@@ -73,7 +73,7 @@ where
     ) -> Self {
         Self {
             channel_id,
-            user_identity: user_identity,
+            user_identity,
             extranonce_prefix,
             target,
             nominal_hashrate,
