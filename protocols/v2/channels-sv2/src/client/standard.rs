@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    target::{bytes_to_hex, target_to_difficulty, u256_to_block_hash},
+    target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
 use alloc::{format, string::String, vec::Vec};
@@ -21,11 +21,10 @@ use binary_sv2::{self, Sv2Option};
 use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
-    CompactTarget, Target as BitcoinTarget,
+    CompactTarget, Target,
 };
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
-    Target,
 };
 use tracing::debug;
 
@@ -313,21 +312,17 @@ impl<'a> StandardChannel<'a> {
         // convert the header hash to a target type for easy comparison
         let hash = header.block_hash();
         let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let hash_as_target: Target = raw_hash.into();
-        let hash_as_diff = target_to_difficulty(hash_as_target.clone());
-        let network_target = BitcoinTarget::from_compact(nbits);
+        let block_hash_target = Target::from_le_bytes(raw_hash);
+        let hash_as_diff = block_hash_target.difficulty_float();
+        let network_target = Target::from_compact(nbits);
 
         // print hash_as_target and self.target as human readable hex
-        let hash_as_u256: binary_sv2::U256 = hash_as_target.clone().into();
-        let mut hash_bytes = hash_as_u256.to_vec();
-        hash_bytes.reverse(); // Convert to big-endian for display
-        let target_u256: binary_sv2::U256 = self.target.clone().into();
-        let mut target_bytes = target_u256.to_vec();
-        target_bytes.reverse(); // Convert to big-endian for display
+        let block_hash_target_bytes = block_hash_target.to_be_bytes();
+        let target_bytes = self.target.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&hash_bytes),
+            bytes_to_hex(&block_hash_target_bytes),
             bytes_to_hex(&target_bytes),
             format!("{:x}", network_target)
         );
@@ -335,7 +330,7 @@ impl<'a> StandardChannel<'a> {
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -343,13 +338,13 @@ impl<'a> StandardChannel<'a> {
         }
 
         // check if the share hash meets the channel target
-        if hash_as_target < self.target {
+        if block_hash_target < self.target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float() as u64,
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -371,6 +366,7 @@ mod tests {
         standard::StandardChannel,
     };
     use binary_sv2::Sv2Option;
+    use bitcoin::Target;
     use mining_sv2::{NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard};
 
     #[test]
@@ -382,7 +378,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = [0xff; 32].into();
+        let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
         let mut channel = StandardChannel::new(
@@ -442,7 +438,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = [0xff; 32].into();
+        let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
         let mut channel = StandardChannel::new(
@@ -490,7 +486,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 1,
         ]
         .to_vec();
-        let target = [0xff; 32].into();
+        let target = Target::from_le_bytes([0xff; 32]);
         let nominal_hashrate = 1.0;
 
         let mut channel = StandardChannel::new(
@@ -559,12 +555,11 @@ mod tests {
         ]
         .to_vec();
         // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
-        let target = [
+        let target = Target::from_le_bytes([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0xff, 0xff, 0x00, 0x00,
-        ]
-        .into();
+        ]);
         let nominal_hashrate = 1.0;
 
         let mut channel = StandardChannel::new(
@@ -636,12 +631,11 @@ mod tests {
         ]
         .to_vec();
         // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
-        let target = [
+        let target = Target::from_le_bytes([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0xff, 0xff, 0x00, 0x00,
-        ]
-        .into();
+        ]);
         let nominal_hashrate = 1.0;
 
         let mut channel = StandardChannel::new(

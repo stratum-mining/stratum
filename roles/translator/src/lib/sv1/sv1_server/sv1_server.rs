@@ -13,6 +13,7 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
+use bitcoin::Target;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -27,7 +28,7 @@ use stratum_apps::{
     stratum_core::{
         binary_sv2::Str0255,
         channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
-        mining_sv2::{CloseChannel, SetTarget, Target},
+        mining_sv2::{CloseChannel, SetTarget},
         parsers_sv2::Mining,
         stratum_translation::{
             sv1_to_sv2::{
@@ -144,8 +145,7 @@ impl Sv1Server {
                 .min_individual_miner_hashrate as f64,
             self.config.downstream_difficulty_config.shares_per_minute as f64,
         )
-        .unwrap()
-        .into();
+        .unwrap();
 
         // Spawn vardiff loop only if enabled
         if self.config.downstream_difficulty_config.enable_vardiff {
@@ -271,7 +271,7 @@ impl Sv1Server {
                                 connection.receiver().clone(),
                                 self.sv1_server_channel_state.downstream_to_sv1_server_sender.clone(),
                                 self.sv1_server_channel_state.sv1_server_to_downstream_sender.clone().subscribe(),
-                                first_target.clone(),
+                                first_target,
                                 Some(self.config.downstream_difficulty_config.min_individual_miner_hashrate),
                                 self.sv1_server_data.clone(),
                             ));
@@ -316,7 +316,7 @@ impl Sv1Server {
                 }
                 res = Self::handle_upstream_message(
                     Arc::clone(&self),
-                    first_target.clone(),
+                    first_target,
                 ) => {
                     if let Err(e) = res {
                         handle_error(&sv1_status_sender, e).await;
@@ -467,13 +467,14 @@ impl Sv1Server {
                     .sv1_server_data
                     .super_safe_lock(|v| v.downstreams.clone());
                 if let Some(downstream) = Self::get_downstream(downstream_id, downstreams) {
-                    let initial_target: Target = m.target.clone().into();
+                    let initial_target =
+                        Target::from_le_bytes(m.target.inner_as_ref().try_into().unwrap());
                     downstream.downstream_data.safe_lock(|d| {
                         d.extranonce1 = m.extranonce_prefix.to_vec();
                         d.extranonce2_len = m.extranonce_size.into();
                         d.channel_id = Some(m.channel_id);
                         // Set the initial upstream target from OpenExtendedMiningChannelSuccess
-                        d.set_upstream_target(initial_target.clone());
+                        d.set_upstream_target(initial_target);
                     })?;
 
                     // Process all queued messages now that channel is established
@@ -644,19 +645,17 @@ impl Sv1Server {
         let vardiff_enabled = config.enable_vardiff;
 
         let max_target = if vardiff_enabled {
-            hash_rate_to_target(hashrate, shares_per_min)
-                .unwrap()
-                .into()
+            hash_rate_to_target(hashrate, shares_per_min).unwrap()
         } else {
             // If translator doesn't manage vardiff, we rely on upstream to do that,
             // so we give it more freedom by setting max_target to maximum possible value
-            Target::from([0xff; 32])
+            Target::from_le_bytes([0xff; 32])
         };
 
         // Store the initial target for use when no downstreams remain
         self.sv1_server_data.super_safe_lock(|data| {
             if data.initial_target.is_none() {
-                data.initial_target = Some(max_target.clone());
+                data.initial_target = Some(max_target);
             }
         });
 
@@ -723,7 +722,8 @@ impl Sv1Server {
     /// without any variable difficulty logic. It respects the aggregated/non-aggregated
     /// channel configuration.
     async fn handle_set_target_without_vardiff(&self, set_target: SetTarget<'_>) {
-        let new_target: Target = set_target.maximum_target.clone().into();
+        let new_target =
+            Target::from_le_bytes(set_target.maximum_target.inner_as_ref().try_into().unwrap());
         debug!(
             "Forwarding SetTarget to downstreams: channel_id={}, target={:?}",
             set_target.channel_id, new_target
@@ -753,14 +753,12 @@ impl Sv1Server {
             if let Some(channel_id) = channel_id {
                 // Update the downstream's target
                 _ = downstream.downstream_data.safe_lock(|d| {
-                    d.set_upstream_target(target.clone());
-                    d.set_pending_target(target.clone());
+                    d.set_upstream_target(target);
+                    d.set_pending_target(target);
                 });
 
                 // Send set_difficulty message
-                if let Ok(set_difficulty_msg) =
-                    build_sv1_set_difficulty_from_sv2_target(target.clone())
-                {
+                if let Ok(set_difficulty_msg) = build_sv1_set_difficulty_from_sv2_target(target) {
                     if let Err(e) = self
                         .sv1_server_channel_state
                         .sv1_server_to_downstream_sender
@@ -802,8 +800,8 @@ impl Sv1Server {
         if let Some((downstream_id, downstream)) = affected_downstream {
             // Update the downstream's target
             _ = downstream.downstream_data.safe_lock(|d| {
-                d.set_upstream_target(target.clone());
-                d.set_pending_target(target.clone());
+                d.set_upstream_target(target);
+                d.set_pending_target(target);
             });
 
             // Send set_difficulty message
@@ -925,7 +923,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_set_difficulty_to_all_downstreams_empty() {
         let server = create_test_sv1_server();
-        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap().into();
+        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap();
 
         // Test with empty downstreams
         server.send_set_difficulty_to_all_downstreams(target).await;
@@ -936,7 +934,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_set_difficulty_to_specific_downstream_not_found() {
         let server = create_test_sv1_server();
-        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap().into();
+        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap();
         let channel_id = 1u32;
 
         // Test with no downstreams
@@ -958,11 +956,11 @@ mod tests {
         let addr = "127.0.0.1:3333".parse().unwrap();
 
         let server = Sv1Server::new(addr, cm_receiver, cm_sender, config);
-        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap().into();
+        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap();
 
         let set_target = SetTarget {
             channel_id: 1,
-            maximum_target: target.clone().into(),
+            maximum_target: target.to_le_bytes().into(),
         };
 
         // Test should not panic and should handle the message
@@ -980,11 +978,11 @@ mod tests {
         let addr = "127.0.0.1:3333".parse().unwrap();
 
         let server = Sv1Server::new(addr, cm_receiver, cm_sender, config);
-        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap().into();
+        let target: Target = hash_rate_to_target(200.0, 5.0).unwrap();
 
         let set_target = SetTarget {
             channel_id: 1,
-            maximum_target: target.clone().into(),
+            maximum_target: target.to_le_bytes().into(),
         };
 
         // Test should not panic and should handle the message

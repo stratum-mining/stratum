@@ -25,10 +25,7 @@
 #![no_std]
 
 use binary_sv2::{B032, U256};
-use core::{
-    cmp::{Ord, PartialOrd},
-    convert::TryInto,
-};
+use core::convert::TryInto;
 
 #[macro_use]
 extern crate alloc;
@@ -112,68 +109,9 @@ pub const CHANNEL_BIT_UPDATE_CHANNEL_ERROR: bool = true;
 
 pub const MAX_EXTRANONCE_LEN: usize = 32;
 
-/// Target is a 256-bit unsigned integer in little-endian
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Target {
-    head: u128, // least significant bits
-    tail: u128, // most significant bits
-}
-
-impl Target {
-    pub fn new(head: u128, tail: u128) -> Self {
-        Self { head, tail }
-    }
-}
-
-impl From<[u8; 32]> for Target {
-    fn from(v: [u8; 32]) -> Self {
-        // below unwraps never panics
-        let head = u128::from_le_bytes(v[0..16].try_into().unwrap());
-        let tail = u128::from_le_bytes(v[16..32].try_into().unwrap());
-        Self { head, tail }
-    }
-}
-
 impl From<Extranonce> for alloc::vec::Vec<u8> {
     fn from(v: Extranonce) -> Self {
         v.extranonce
-    }
-}
-
-impl<'a> From<U256<'a>> for Target {
-    fn from(v: U256<'a>) -> Self {
-        let inner = v.inner_as_ref();
-        // below unwraps never panics
-        let head = u128::from_le_bytes(inner[0..16].try_into().unwrap());
-        let tail = u128::from_le_bytes(inner[16..32].try_into().unwrap());
-        Self { head, tail }
-    }
-}
-
-impl From<Target> for U256<'static> {
-    fn from(v: Target) -> Self {
-        let mut inner = v.head.to_le_bytes().to_vec();
-        inner.extend_from_slice(&v.tail.to_le_bytes());
-        // below unwraps never panics
-        inner.try_into().unwrap()
-    }
-}
-
-impl PartialOrd for Target {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Target {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        if self.tail == other.tail && self.head == other.head {
-            core::cmp::Ordering::Equal
-        } else if self.tail != other.tail {
-            self.tail.cmp(&other.tail)
-        } else {
-            self.head.cmp(&other.head)
-        }
     }
 }
 
@@ -1109,92 +1047,6 @@ pub mod tests {
             }
             Err(_) => false, // Other errors are not expected in this test
         }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_target_from_u256(input: (u128, u128)) -> bool {
-        let target_expected = Target {
-            head: input.0,
-            tail: input.1,
-        };
-
-        let bytes = [&input.0.to_ne_bytes()[..], &input.1.to_ne_bytes()[..]].concat();
-        let u256: U256 = bytes.try_into().unwrap();
-        let target_final: Target = u256.clone().into();
-
-        let u256_final: U256 = target_final.clone().into();
-
-        target_expected == target_final && u256_final == u256
-    }
-    #[quickcheck_macros::quickcheck]
-    fn test_target_to_u256(input: (u128, u128)) -> bool {
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let u256 = U256::<'static>::from(target_start.clone());
-        let target_final = Target::from(u256);
-        target_final == target_final
-    }
-
-    #[test]
-    fn test_ord_with_equal_head_tail() {
-        let target_1 = Target { head: 1, tail: 1 };
-        let target_2 = Target { head: 1, tail: 2 };
-        assert!(target_1 < target_2);
-
-        //also test with equal tails
-        let target_3 = Target { head: 2, tail: 2 };
-        assert!(target_2 < target_3);
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_positive_increment(input: (u128, u128, u128, u128)) -> bool {
-        let max = u128::MAX;
-        // we want input.0 and input.1 >= 0 and < u128::MAX
-        let input = (input.0 % max, input.1 % max, input.2, input.3);
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let positive_increment = (
-            input.2 % (max - target_start.head) + 1,
-            input.3 % (max - target_start.tail) + 1,
-        );
-        let target_final = Target {
-            head: target_start.head + positive_increment.0,
-            tail: target_start.tail + positive_increment.1,
-        };
-        target_final > target_start
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_negative_increment(input: (u128, u128, u128, u128)) -> bool {
-        let max = u128::MAX;
-        let input = (input.0 % max + 1, input.1 % max + 1, input.2, input.3);
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let negative_increment = (
-            input.2 % target_start.head + 1,
-            input.3 % target_start.tail + 1,
-        );
-        let target_final = Target {
-            head: target_start.head - negative_increment.0,
-            tail: target_start.tail - negative_increment.1,
-        };
-        target_final < target_start
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let target_final = target_start.clone();
-        target_start == target_final
     }
 
     #[quickcheck_macros::quickcheck]

@@ -5,7 +5,7 @@ use stratum_apps::{
         bitcoin::{
             block::{Header, Version},
             hashes::Hash,
-            CompactTarget, TxMerkleNode,
+            CompactTarget, Target, TxMerkleNode,
         },
         buffer_sv2::Slice,
         channels_sv2::{
@@ -13,7 +13,6 @@ use stratum_apps::{
             target::{bytes_to_hex, u256_to_block_hash},
         },
         framing_sv2::framing::Frame,
-        mining_sv2::Target,
         parsers_sv2::{AnyMessage, CommonMessages},
         sv1_api::{client_to_server, utils::HexU32Be},
     },
@@ -117,15 +116,11 @@ pub fn validate_sv1_share(
     // convert the header hash to a target type for easy comparison
     let hash = header.block_hash();
     let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-    let hash_as_target: Target = raw_hash.into();
+    let hash_as_target = Target::from_le_bytes(raw_hash);
 
     // print hash_as_target and self.target as human readable hex
-    let hash_as_u256: U256 = hash_as_target.clone().into();
-    let mut hash_bytes = hash_as_u256.to_vec();
-    hash_bytes.reverse(); // Convert to big-endian for display
-    let target_u256: U256 = target.clone().into();
-    let mut target_bytes = target_u256.to_vec();
-    target_bytes.reverse(); // Convert to big-endian for display
+    let hash_bytes = hash_as_target.to_be_bytes();
+    let target_bytes = target.to_be_bytes();
 
     debug!(
         "share validation \nshare:\t\t{}\ndownstream target:\t{}\n",

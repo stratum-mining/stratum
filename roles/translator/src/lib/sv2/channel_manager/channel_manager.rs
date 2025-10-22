@@ -273,13 +273,12 @@ impl ChannelManager {
                         // OpenExtendedMiningChannelSuccess message directly to the sv1
                         // server
                         let target = self.channel_manager_data.super_safe_lock(|c| {
-                            c.upstream_extended_channel
+                            *c.upstream_extended_channel
                                 .as_ref()
                                 .unwrap()
                                 .read()
                                 .unwrap()
                                 .get_target()
-                                .clone()
                         });
                         let new_extranonce_prefix =
                             self.channel_manager_data.super_safe_lock(|c| {
@@ -316,7 +315,7 @@ impl ChannelManager {
                                         .into_b032()
                                         .into_static()
                                         .to_vec(),
-                                    target.clone(),
+                                    target,
                                     hashrate,
                                     true,
                                     new_extranonce_size as u16,
@@ -331,7 +330,7 @@ impl ChannelManager {
                                     OpenExtendedMiningChannelSuccess {
                                         request_id: open_channel_msg.request_id,
                                         channel_id: next_channel_id,
-                                        target: target.clone().into(),
+                                        target: target.to_le_bytes().into(),
                                         extranonce_size: new_extranonce_size as u16,
                                         extranonce_prefix: new_extranonce_prefix.clone().into(),
                                     },

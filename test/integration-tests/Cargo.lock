@@ -506,7 +506,7 @@ dependencies = [
  "bitcoin",
  "common_messages_sv2 6.0.2",
  "job_declaration_sv2 5.0.2",
- "mining_sv2 5.0.2",
+ "mining_sv2 6.0.0",
  "primitive-types",
  "template_distribution_sv2 4.0.2",
  "tracing",
@@ -1128,7 +1128,7 @@ dependencies = [
  "binary_sv2 5.0.0",
  "common_messages_sv2 6.0.2",
  "job_declaration_sv2 5.0.2",
- "mining_sv2 5.0.2",
+ "mining_sv2 6.0.0",
  "parsers_sv2 0.1.2",
  "template_distribution_sv2 4.0.2",
  "trait-variant",
@@ -1402,6 +1402,7 @@ name = "jd_client_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "bitcoin",
  "clap",
  "config",
  "serde",
@@ -1584,7 +1585,7 @@ dependencies = [
 
 [[package]]
 name = "mining_sv2"
-version = "5.0.2"
+version = "6.0.0"
 dependencies = [
  "binary_sv2 5.0.0",
 ]
@@ -1818,7 +1819,7 @@ dependencies = [
  "common_messages_sv2 6.0.2",
  "framing_sv2 5.0.2",
  "job_declaration_sv2 5.0.2",
- "mining_sv2 5.0.2",
+ "mining_sv2 6.0.0",
  "template_distribution_sv2 4.0.2",
 ]
 
@@ -1919,6 +1920,7 @@ name = "pool_sv2"
 version = "0.2.0"
 dependencies = [
  "async-channel",
+ "bitcoin",
  "clap",
  "config",
  "rand 0.8.5",
@@ -2474,7 +2476,7 @@ dependencies = [
  "framing_sv2 5.0.2",
  "handlers_sv2 0.2.1",
  "job_declaration_sv2 5.0.2",
- "mining_sv2 5.0.2",
+ "mining_sv2 6.0.0",
  "noise_sv2 1.4.0",
  "parsers_sv2 0.1.2",
  "stratum_translation",
@@ -2487,8 +2489,9 @@ name = "stratum_translation"
 version = "0.1.1"
 dependencies = [
  "binary_sv2 5.0.0",
+ "bitcoin",
  "channels_sv2 2.0.1",
- "mining_sv2 5.0.2",
+ "mining_sv2 6.0.0",
  "sv1_api",
  "tracing",
 ]
@@ -2842,6 +2845,7 @@ name = "translator_sv2"
 version = "2.0.0"
 dependencies = [
  "async-channel",
+ "bitcoin",
  "clap",
  "config",
  "serde",

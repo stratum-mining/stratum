@@ -1,3 +1,4 @@
+use bitcoin::Target;
 use std::sync::atomic::Ordering;
 
 use stratum_apps::stratum_core::{
@@ -139,7 +140,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
                     msg.channel_id,
                     self.user_identity.clone(),
                     msg.extranonce_prefix.to_vec(),
-                    msg.target.into(),
+                    Target::from_le_bytes(msg.target.inner_as_ref().try_into().unwrap()),
                     hashrate,
                     true,
                     msg.extranonce_size,
@@ -597,7 +598,9 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         info!("Received: {}", msg);
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(ref mut upstream) = data.upstream_channel {
-                upstream.set_target(msg.maximum_target.clone().into());
+                upstream.set_target(Target::from_le_bytes(
+                    msg.maximum_target.clone().as_ref().try_into().unwrap(),
+                ));
             }
         });
         Ok(())
