@@ -97,7 +97,7 @@ where
     ) -> Self {
         Self {
             channel_id,
-            user_identity: user_identity.clone(),
+            user_identity: user_identity,
             extranonce_prefix,
             rollable_extranonce_size,
             target,

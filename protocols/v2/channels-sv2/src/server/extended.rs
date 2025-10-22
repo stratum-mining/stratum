@@ -245,7 +245,7 @@ where
 
         Ok(Self {
             channel_id,
-            user_identity: user_identity.clone(),
+            user_identity: user_identity,
             extranonce_prefix,
             rollable_extranonce_size,
             requested_max_target: max_target,
@@ -259,13 +259,7 @@ where
             phantom: PhantomData,
         })
     }
-}
-
-impl<'a, J, P> ExtendedChannel<'a, J, P>
-where
-    J: JobStore<ExtendedJob<'a>>,
-    P: Persistence,
-{
+    
     /// Returns the unique channel ID for this channel.
     pub fn get_channel_id(&self) -> u32 {
         self.channel_id
