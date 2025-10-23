@@ -636,7 +636,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(e) => {
-                        return Err(PoolError::ShareValidationError(e));
+                        return Err(e)?;
                     }
                 }
 
@@ -805,7 +805,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(e) => {
-                        return Err(PoolError::ShareValidationError(e));
+                        return Err(e)?;
                     }
                 }
 

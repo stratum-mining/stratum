@@ -28,6 +28,7 @@ pub enum ChannelSv2Error {
     StandardChannelServerSide(StandardChannelError),
     GroupChannelServerSide(GroupChannelError),
     ExtranonceError(ExtendedExtranonceError),
+    ShareValidationError(ShareValidationError),
 }
 
 /// Represents various errors that can occur in the pool implementation.
@@ -88,8 +89,6 @@ pub enum PoolError {
     ParseInt(std::num::ParseIntError),
     /// Failed to create group channel
     FailedToCreateGroupChannel(GroupChannelError),
-    /// Share validation failed
-    ShareValidationError(ShareValidationError),
 }
 
 impl std::fmt::Display for PoolError {
@@ -139,9 +138,6 @@ impl std::fmt::Display for PoolError {
             }
             FailedToCreateGroupChannel(ref e) => {
                 write!(f, "Failed to create group channel: {e:?}")
-            }
-            ShareValidationError(ref e) => {
-                write!(f, "Share validation failed: {e:?}")
             }
         }
     }
@@ -266,6 +262,6 @@ impl From<ParserError> for PoolError {
 
 impl From<ShareValidationError> for PoolError {
     fn from(value: ShareValidationError) -> Self {
-        PoolError::ShareValidationError(value)
+        PoolError::ChannelSv2(ChannelSv2Error::ShareValidationError(value))
     }
 }
