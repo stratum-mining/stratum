@@ -91,8 +91,6 @@ impl ShareFileHandler {
     ///
     /// Events are formatted as human-readable text lines. Errors are logged
     /// using `tracing::error!` but do not propagate to avoid impacting mining.
-    ///
-    /// Special events like block discoveries are logged at `info` level.
     pub async fn write_event_to_file(&mut self, event: ShareAccountingEvent) {
         match event {
             ShareAccountingEvent::ShareAccepted {
