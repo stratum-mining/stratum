@@ -927,7 +927,7 @@ impl ChannelManager {
         channel_state: &mut stratum_apps::stratum_core::channels_sv2::server::extended::ExtendedChannel<
             'static,
             DefaultJobStore<ExtendedJob<'static>>,
-            Persistence<NoOpPersistence>,
+            DisabledPersistence,
         >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
@@ -976,7 +976,7 @@ impl ChannelManager {
         channel: &mut StandardChannel<
             'static,
             DefaultJobStore<StandardJob<'static>>,
-            Persistence<NoOpPersistence>,
+            DisabledPersistence,
         >,
         vardiff_state: &mut VardiffState,
         updates: &mut Vec<RouteMessageTo>,
