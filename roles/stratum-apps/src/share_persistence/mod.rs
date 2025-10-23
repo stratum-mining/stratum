@@ -123,8 +123,9 @@ impl ShareFileHandler {
                         target = "share_file_handler",
                         "Failed to write share event: {}", e
                     );
+                } else {
+                    debug!("Wrote share record to file.");
                 }
-                debug!("Wrote record")
             }
             ShareAccountingEvent::BestDifficultyUpdated {
                 channel_id,
@@ -142,12 +143,14 @@ impl ShareFileHandler {
                     )
                     .as_bytes(),
                 ).await;
-
+                
                 if let Err(e) = result {
                     error!(
                         target = "share_file_handler",
                         "Failed to write difficulty update: {}", e
                     );
+                } else {
+                    debug!("Wrote difficulty update record to file.");
                 }
             }
         }
