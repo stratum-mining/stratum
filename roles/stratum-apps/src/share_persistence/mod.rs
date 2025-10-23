@@ -195,7 +195,7 @@ impl PersistenceHandler for ShareFilePersistence {
 ///
 /// This is a unit-like type that implements `PersistenceHandler` but does nothing.
 /// It's useful for roles that need to instantiate channels but don't want to persist
-/// share accounting events (e.g., JD Client, Translator).
+/// share accounting events.
 ///
 /// ## Usage
 ///
