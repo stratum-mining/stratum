@@ -7,7 +7,10 @@ use std::{
 use stratum_apps::stratum_core::{
     binary_sv2, bitcoin,
     channels_sv2::{
-        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+        server::{
+            error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+            share_accounting::ShareValidationError,
+        },
         vardiff::error::VardiffError,
     },
     codec_sv2, framing_sv2,
@@ -25,6 +28,7 @@ pub enum ChannelSv2Error {
     StandardChannelServerSide(StandardChannelError),
     GroupChannelServerSide(GroupChannelError),
     ExtranonceError(ExtendedExtranonceError),
+    ShareValidationError(ShareValidationError),
 }
 
 /// Represents various errors that can occur in the pool implementation.
@@ -253,5 +257,11 @@ impl From<VardiffError> for PoolError {
 impl From<ParserError> for PoolError {
     fn from(value: ParserError) -> Self {
         PoolError::Parser(value)
+    }
+}
+
+impl From<ShareValidationError> for PoolError {
+    fn from(value: ShareValidationError) -> Self {
+        PoolError::ChannelSv2(ChannelSv2Error::ShareValidationError(value))
     }
 }

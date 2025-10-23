@@ -380,6 +380,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                                 extranonce_size: extended_channel.get_rollable_extranonce_size(),
                             }
                             .into_static();
+                        info!("Sending OpenExtendedMiningChannel.Success (downstream_id: {downstream_id}): {open_extended_mining_channel_success}");
 
                         messages.push(
                             (
@@ -516,7 +517,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .try_into()
                             .expect("error code must be valid string"),
                     };
-                    error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", channel_id, msg.sequence_number);
+                    error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", downstream_id, channel_id, msg.sequence_number);
                     return Ok(vec![(downstream_id, Mining::SubmitSharesError(submit_shares_error)).into()]);
                 };
 
@@ -531,8 +532,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 match res {
                     Ok(ShareValidationResult::Valid) => {
                         info!(
-                            "SubmitSharesStandard: valid share | channel_id: {}, sequence_number: {} ☑️",
-                            channel_id, msg.sequence_number
+                            "SubmitSharesStandard: valid share | downstream_id: {}, channel_id: {}, sequence_number: {} ✅",
+                            downstream_id, channel_id, msg.sequence_number
                         );
                     }
                     Ok(ShareValidationResult::ValidWithAcknowledgement(
@@ -574,7 +575,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
                     Err(ShareValidationError::Invalid) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -587,7 +588,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::Stale) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: stale-share ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -599,7 +600,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::InvalidJobId) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -611,7 +612,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DoesNotMeetTarget) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -623,7 +624,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DuplicateShare) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -634,9 +635,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         };
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
-                    _ => {
-                        // any other error variations should never happen
-                        unreachable!()
+                    Err(e) => {
+                        return Err(e)?;
                     }
                 }
 
@@ -656,7 +656,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         client_id: Option<usize>,
         msg: SubmitSharesExtended<'_>,
     ) -> Result<(), Self::Error> {
-        info!("Received SubmitSharesExtended");
+        info!("Received SubmitSharesExtended: {msg}");
         let downstream_id =
             client_id.expect("client_id must be present for downstream_id extraction") as u32;
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
@@ -676,7 +676,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             .try_into()
                             .expect("error code must be valid string"),
                     };
-                    error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", channel_id, msg.sequence_number);
+                    error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: invalid-channel-id ❌", downstream_id, channel_id, msg.sequence_number);
                     return Ok(vec![(downstream_id, Mining::SubmitSharesError(error)).into()]);
                 };
 
@@ -690,8 +690,8 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 match res {
                     Ok(ShareValidationResult::Valid) => {
                         info!(
-                            "SubmitSharesExtended: valid share | channel_id: {}, sequence_number: {} ☑️",
-                            channel_id, msg.sequence_number
+                            "SubmitSharesExtended: valid share | downstream_id: {}, channel_id: {}, sequence_number: {} ✅",
+                            downstream_id, channel_id, msg.sequence_number
                         );
                     }
                     Ok(ShareValidationResult::ValidWithAcknowledgement(
@@ -733,7 +733,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
                     Err(ShareValidationError::Invalid) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: invalid-share ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -745,7 +745,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::Stale) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: stale-share ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: stale-share ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -757,7 +757,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::InvalidJobId) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: invalid-job-id ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -769,7 +769,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DoesNotMeetTarget) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: difficulty-too-low ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -781,7 +781,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
                     Err(ShareValidationError::DuplicateShare) => {
-                        error!("SubmitSharesError: channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", channel_id, msg.sequence_number);
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: duplicate-share ❌", downstream_id, channel_id, msg.sequence_number);
                         let error = SubmitSharesError {
                             channel_id: msg.channel_id,
                             sequence_number: msg.sequence_number,
@@ -792,9 +792,20 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         };
                         messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
                     }
-                    _ => {
-                        // any other error variations should never happen
-                        unreachable!()
+                    Err(ShareValidationError::BadExtranonceSize) => {
+                        error!("SubmitSharesError: downstream_id: {}, channel_id: {}, sequence_number: {}, error_code: bad-extranonce-size ❌", downstream_id, channel_id, msg.sequence_number);
+                        let error = SubmitSharesError {
+                            channel_id: msg.channel_id,
+                            sequence_number: msg.sequence_number,
+                            error_code: "bad-extranonce-size"
+                                .to_string()
+                                .try_into()
+                                .expect("error code must be valid string"),
+                        };
+                        messages.push((downstream_id, Mining::SubmitSharesError(error)).into());
+                    }
+                    Err(e) => {
+                        return Err(e)?;
                     }
                 }
 
