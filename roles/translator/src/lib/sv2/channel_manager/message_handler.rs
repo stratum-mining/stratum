@@ -1,4 +1,3 @@
-use bitcoin::Target;
 use std::sync::{Arc, RwLock};
 
 use crate::{
@@ -9,6 +8,7 @@ use crate::{
 use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
+        bitcoin::Target,
         channels_sv2::client::extended::ExtendedChannel,
         handlers_sv2::{HandleMiningMessagesFromServerAsync, SupportedChannelTypes},
         mining_sv2::{

@@ -1,7 +1,7 @@
-use bitcoin::Target;
 use std::sync::atomic::Ordering;
 
 use stratum_apps::stratum_core::{
+    bitcoin::Target,
     channels_sv2::{
         client::extended::ExtendedChannel, outputs::deserialize_outputs,
         server::jobs::factory::JobFactory,

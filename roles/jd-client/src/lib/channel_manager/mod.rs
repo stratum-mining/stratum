@@ -8,12 +8,12 @@ use std::{
 };
 
 use async_channel::{Receiver, Sender};
-use bitcoin::Target;
 use stratum_apps::{
     custom_mutex::Mutex,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
     stratum_core::{
+        bitcoin::Target,
         channels_sv2::{
             client::extended::ExtendedChannel,
             server::{
