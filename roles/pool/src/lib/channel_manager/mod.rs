@@ -108,7 +108,6 @@ impl ChannelManager {
         downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
         downstream_receiver: Receiver<(u32, Mining<'static>)>,
         coinbase_outputs: Vec<u8>,
-        status_tx: StatusSender,
         task_manager: Arc<TaskManager>,
     ) -> PoolResult<Self> {
         let range_0 = 0..0;
@@ -154,7 +153,7 @@ impl ChannelManager {
         // Initialize persistence based on config
         let persistence = if let Some(path) = config.share_persistence_file_path() {
             info!("Initializing file-based share persistence: {}", path);
-            let mut share_file_handler = ShareFileHandler::new(path, status_tx.clone()).await;
+            let mut share_file_handler = ShareFileHandler::new(path).await;
             let sender = share_file_handler.get_sender();
             let receiver = share_file_handler.get_receiver();
 

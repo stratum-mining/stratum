@@ -11,7 +11,7 @@ use crate::{
     channel_manager::ChannelManager,
     config::PoolConfig,
     error::PoolResult,
-    status::{State, Status, StatusSender},
+    status::{State, Status},
     task_manager::TaskManager,
     template_receiver::TemplateReceiver,
     utils::ShutdownMessage,
@@ -76,7 +76,6 @@ impl PoolSv2 {
             channel_manager_to_downstream_sender.clone(),
             downstream_to_channel_manager_receiver,
             encoded_outputs.clone(),
-            StatusSender::ChannelManager(status_sender.clone()),
             task_manager.clone(),
         )
         .await?;

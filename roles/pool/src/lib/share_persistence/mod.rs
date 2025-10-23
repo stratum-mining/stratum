@@ -2,26 +2,22 @@ use stratum_apps::stratum_core::channels_sv2::persistence::{
     PersistenceHandler, ShareAccountingEvent,
 };
 use tokio::io::AsyncWriteExt;
-use tracing::error;
-
-use crate::status::{self, StatusSender};
+use tracing::{error, info};
 
 pub struct ShareFileHandler {
     file: tokio::fs::File,
     receiver: async_channel::Receiver<ShareAccountingEvent>,
     sender: async_channel::Sender<ShareAccountingEvent>,
-    status_tx: StatusSender,
 }
 
 impl ShareFileHandler {
-    pub async fn new(path: &str, status_tx: StatusSender) -> Self {
+    pub async fn new(path: &str) -> Self {
         let file = tokio::fs::File::create(path).await.unwrap();
         let (sender, receiver) = async_channel::bounded(1024);
         Self {
             file,
             receiver,
             sender,
-            status_tx,
         }
     }
 
@@ -67,25 +63,12 @@ impl ShareFileHandler {
                         target = "share_file_handler",
                         "Failed to write share event: {}", e
                     );
-                    let _ = self
-                        .status_tx
-                        .send(status::Status {
-                            state: status::State::SharePersistenceError(format!(
-                                "Failed to write share event: {}",
-                                e
-                            )),
-                        })
-                        .await;
                 } else if block_found {
-                    let _ = self
-                        .status_tx
-                        .send(status::Status {
-                            state: status::State::Healthy(format!(
-                                "Block found! channel_id: {}, user: {}",
-                                channel_id, user_identity
-                            )),
-                        })
-                        .await;
+                    info!(
+                        target = "share_file_handler",
+                        "Block found! channel_id: {}, user: {}",
+                        channel_id, user_identity
+                    );
                 }
             }
             ShareAccountingEvent::BestDifficultyUpdated {
@@ -110,15 +93,6 @@ impl ShareFileHandler {
                         target = "share_file_handler",
                         "Failed to write difficulty update: {}", e
                     );
-                    let _ = self
-                        .status_tx
-                        .send(status::Status {
-                            state: status::State::SharePersistenceError(format!(
-                                "Failed to write difficulty update: {}",
-                                e
-                            )),
-                        })
-                        .await;
                 }
             }
         }
