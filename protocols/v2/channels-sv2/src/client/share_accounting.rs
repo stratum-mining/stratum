@@ -47,14 +47,14 @@ pub enum ShareValidationError {
 /// Keeps statistics and state for shares submitted through the channel:
 /// - last received share's sequence number
 /// - total accepted shares
-/// - cumulative work from accepted shares
+/// - cumulative work from accepted shares (sum of share difficulties as floating point)
 /// - hashes of seen shares (for duplicate detection)
 /// - highest difficulty seen in accepted shares
 #[derive(Clone, Debug)]
 pub struct ShareAccounting<P> {
     last_share_sequence_number: u32,
     shares_accepted: u32,
-    share_work_sum: u64,
+    share_work_sum: f64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
     persistence: P,
@@ -71,7 +71,7 @@ where
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
-            share_work_sum: 0,
+            share_work_sum: 0.0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
             persistence,
@@ -87,7 +87,7 @@ where
         &mut self,
         channel_id: u32,
         user_identity: &str,
-        share_work: u64,
+        share_work: f64,
         share_sequence_number: u32,
         share_hash: Hash,
         block_found: bool,
@@ -134,7 +134,7 @@ where
     }
 
     /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> u64 {
+    pub fn get_share_work_sum(&self) -> f64 {
         self.share_work_sum
     }
 

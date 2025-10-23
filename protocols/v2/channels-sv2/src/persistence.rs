@@ -32,16 +32,16 @@ pub enum ShareAccountingEvent {
         channel_id: u32,
         /// User identity associated with the channel
         user_identity: String,
-        /// Work value of the accepted share
-        share_work: u64,
+        /// Work value of the accepted share (difficulty as floating point)
+        share_work: f64,
         /// Sequence number of the share
         share_sequence_number: u32,
         /// Hash of the accepted share (for duplicate detection)
         share_hash: Hash,
         /// Total shares accepted after this update
         total_shares_accepted: u32,
-        /// Total work sum after this update
-        total_share_work_sum: u64,
+        /// Total work sum after this update (sum of all share difficulties)
+        total_share_work_sum: f64,
         /// Timestamp when the event occurred
         timestamp: std::time::SystemTime,
         /// Block found?

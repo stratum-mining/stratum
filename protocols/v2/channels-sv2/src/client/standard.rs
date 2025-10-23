@@ -13,7 +13,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     merkle_root::merkle_root_from_path,
-    persistence::{NoPersistence, PersistenceHandler},
+    persistence::PersistenceHandler,
     target::{bytes_to_hex, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
@@ -335,10 +335,9 @@ where
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
                 self.channel_id,
                 &self.user_identity,
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
                 true,
@@ -353,10 +352,9 @@ where
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
                 self.channel_id,
                 &self.user_identity,
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
                 false,

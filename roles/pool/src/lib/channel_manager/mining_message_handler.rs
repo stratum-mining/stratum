@@ -545,7 +545,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             channel_id,
                             last_sequence_number,
                             new_submits_accepted_count,
-                            new_shares_sum,
+                            new_shares_sum: new_shares_sum as u64,
                         };
                         info!("SubmitSharesStandard: {} ✅", success);
                         messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
@@ -570,7 +570,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             channel_id,
                             last_sequence_number: share_accounting.get_last_share_sequence_number(),
                             new_submits_accepted_count: share_accounting.get_shares_accepted(),
-                            new_shares_sum: share_accounting.get_share_work_sum(),
+                            new_shares_sum: share_accounting.get_share_work_sum() as u64,
                         };
                         messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }
@@ -703,7 +703,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             channel_id,
                             last_sequence_number,
                             new_submits_accepted_count,
-                            new_shares_sum,
+                            new_shares_sum: new_shares_sum as u64,
                         };
                         info!("SubmitSharesExtended: {} ✅", success);
                         messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
@@ -728,7 +728,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             channel_id,
                             last_sequence_number: share_accounting.get_last_share_sequence_number(),
                             new_submits_accepted_count: share_accounting.get_shares_accepted(),
-                            new_shares_sum: share_accounting.get_share_work_sum(),
+                            new_shares_sum: share_accounting.get_share_work_sum() as u64,
                         };
                         messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                     }

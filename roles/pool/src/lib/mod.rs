@@ -5,7 +5,7 @@ use stratum_apps::stratum_core::{
     bitcoin::consensus::Encodable, parsers_sv2::TemplateDistribution,
 };
 use tokio::sync::broadcast;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     channel_manager::ChannelManager,
@@ -154,13 +154,6 @@ impl PoolSv2 {
                                 warn!("Channel Manager shutdown requested — initiating full shutdown.");
                                 let _ = notify_shutdown.send(ShutdownMessage::ShutdownAll);
                                 break;
-                            }
-                            State::SharePersistenceError(err) => {
-                                error!("Share persistence error: {}", err);
-                                // Continue running - persistence errors shouldn't stop the pool
-                            }
-                            State::Healthy(msg) => {
-                                info!("Healthy status: {}", msg);
                             }
                         }
                     }

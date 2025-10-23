@@ -44,8 +44,8 @@ pub enum ShareValidationResult {
     /// Contains:
     /// - `last_sequence_number`: The sequence number of the last accepted share in the batch.
     /// - `new_submits_accepted_count`: The number of new shares accepted in this batch.
-    /// - `new_shares_sum`: The total work contributed by shares in this batch.
-    ValidWithAcknowledgement(u32, u32, u64),
+    /// - `new_shares_sum`: The total work contributed by shares in this batch (as floating point).
+    ValidWithAcknowledgement(u32, u32, f64),
     /// The share solves a block.
     /// Contains:
     /// - `template_id`: The template ID associated with the job, or `None` for custom jobs.
@@ -85,7 +85,7 @@ pub enum ShareValidationError {
 pub struct ShareAccounting<P> {
     last_share_sequence_number: u32,
     shares_accepted: u32,
-    share_work_sum: u64,
+    share_work_sum: f64,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
@@ -104,7 +104,7 @@ where
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
-            share_work_sum: 0,
+            share_work_sum: 0.0,
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
@@ -121,7 +121,7 @@ where
         &mut self,
         channel_id: u32,
         user_identity: &str,
-        share_work: u64,
+        share_work: f64,
         share_sequence_number: u32,
         share_hash: Hash,
         block_found: bool,
@@ -168,7 +168,7 @@ where
     }
 
     /// Returns the sum of work contributed by all accepted shares.
-    pub fn get_share_work_sum(&self) -> u64 {
+    pub fn get_share_work_sum(&self) -> f64 {
         self.share_work_sum
     }
 

@@ -631,7 +631,7 @@ where
             self.share_accounting.update_share_accounting(
                 self.channel_id,
                 &self.user_identity,
-                target_to_difficulty(self.target.clone()) as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
                 true,
@@ -652,7 +652,7 @@ where
             self.share_accounting.update_share_accounting(
                 self.channel_id,
                 &self.user_identity,
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
                 false,

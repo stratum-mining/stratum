@@ -51,14 +51,12 @@ use crate::{
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
-use binary_sv2::{self};
 use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
     transaction::TxOut,
     CompactTarget, Target,
 };
-use mining_sv2::MAX_EXTRANONCE_LEN;
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
@@ -682,10 +680,9 @@ where
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
                 self.channel_id,
                 &self.user_identity,
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
                 true,
@@ -717,10 +714,9 @@ where
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
                 self.channel_id,
                 &self.user_identity,
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
                 false,

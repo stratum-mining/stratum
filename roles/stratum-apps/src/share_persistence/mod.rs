@@ -68,7 +68,6 @@ impl ShareFileHandler {
             receiver,
             sender,
         }
-        
     }
 
     /// Returns a receiver for consuming share accounting events.
@@ -127,7 +126,7 @@ impl ShareFileHandler {
                         target = "share_file_handler",
                         "Failed to write share event: {}", e
                     );
-                } 
+                }
                 debug!("Wrote record")
             }
             ShareAccountingEvent::BestDifficultyUpdated {
