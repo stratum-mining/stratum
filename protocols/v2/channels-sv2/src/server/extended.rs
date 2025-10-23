@@ -210,15 +210,13 @@ where
         miner_tag: Option<String>,
         persistence: P,
     ) -> Result<Self, ExtendedChannelError> {
-        let target_u256 =
+        let target: Target =
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
-                Ok(target_u256) => target_u256,
+                Ok(target) => target,
                 Err(_) => {
                     return Err(ExtendedChannelError::InvalidNominalHashrate);
                 }
             };
-
-        let target: Target = target_u256;
 
         if target > max_target {
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
