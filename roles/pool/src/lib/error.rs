@@ -7,7 +7,10 @@ use std::{
 use stratum_apps::stratum_core::{
     binary_sv2, bitcoin,
     channels_sv2::{
-        server::error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+        server::{
+            error::{ExtendedChannelError, GroupChannelError, StandardChannelError},
+            share_accounting::ShareValidationError,
+        },
         vardiff::error::VardiffError,
     },
     codec_sv2, framing_sv2,
@@ -85,6 +88,8 @@ pub enum PoolError {
     ParseInt(std::num::ParseIntError),
     /// Failed to create group channel
     FailedToCreateGroupChannel(GroupChannelError),
+    /// Share validation failed
+    ShareValidationError(ShareValidationError),
 }
 
 impl std::fmt::Display for PoolError {
@@ -134,6 +139,9 @@ impl std::fmt::Display for PoolError {
             }
             FailedToCreateGroupChannel(ref e) => {
                 write!(f, "Failed to create group channel: {e:?}")
+            }
+            ShareValidationError(ref e) => {
+                write!(f, "Share validation failed: {e:?}")
             }
         }
     }
@@ -253,5 +261,11 @@ impl From<VardiffError> for PoolError {
 impl From<ParserError> for PoolError {
     fn from(value: ParserError) -> Self {
         PoolError::Parser(value)
+    }
+}
+
+impl From<ShareValidationError> for PoolError {
+    fn from(value: ShareValidationError) -> Self {
+        PoolError::ShareValidationError(value)
     }
 }
