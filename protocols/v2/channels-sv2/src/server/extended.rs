@@ -218,7 +218,7 @@ where
                 }
             };
 
-        let target: Target = target_u256.clone().into();
+        let target: Target = target_u256;
 
         if target > max_target {
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);

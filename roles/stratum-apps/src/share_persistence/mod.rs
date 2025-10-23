@@ -1,7 +1,8 @@
 //! Share Persistence File Handler
 //!
-//! This module provides a generic file-based persistence implementation for share accounting events.
-//! It is designed to be reusable across different Stratum V2 roles (Pool, JD Client, Translator, etc.).
+//! This module provides a generic file-based persistence implementation for share accounting
+//! events. It is designed to be reusable across different Stratum V2 roles (Pool, JD Client,
+//! Translator, etc.).
 //!
 //! ## Design
 //!
