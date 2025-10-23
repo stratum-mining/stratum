@@ -13,7 +13,6 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::{Receiver, Sender};
-use bitcoin::Target;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -27,6 +26,7 @@ use stratum_apps::{
     network_helpers::sv1_connection::ConnectionSV1,
     stratum_core::{
         binary_sv2::Str0255,
+        bitcoin::Target,
         channels_sv2::{target::hash_rate_to_target, Vardiff, VardiffState},
         mining_sv2::{CloseChannel, SetTarget},
         parsers_sv2::Mining,

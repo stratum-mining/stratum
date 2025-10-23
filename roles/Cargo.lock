@@ -1746,7 +1746,6 @@ name = "jd_client_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
- "bitcoin",
  "clap",
  "config",
  "serde",
@@ -1908,7 +1907,6 @@ dependencies = [
  "async-channel 1.9.0",
  "async-recursion",
  "binary_sv2 4.0.0",
- "bitcoin",
  "clap",
  "codec_sv2 3.0.1",
  "common_messages_sv2 6.0.1",
@@ -2334,7 +2332,6 @@ name = "pool_sv2"
 version = "0.2.0"
 dependencies = [
  "async-channel 1.9.0",
- "bitcoin",
  "clap",
  "config",
  "rand",
@@ -3238,7 +3235,6 @@ name = "translator_sv2"
 version = "2.0.0"
 dependencies = [
  "async-channel 1.9.0",
- "bitcoin",
  "clap",
  "config",
  "serde",

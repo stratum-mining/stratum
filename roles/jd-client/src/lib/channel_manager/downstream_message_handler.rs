@@ -1,9 +1,8 @@
-use bitcoin::Target;
 use std::sync::atomic::Ordering;
 
 use stratum_apps::stratum_core::{
     binary_sv2::Str0255,
-    bitcoin::Amount,
+    bitcoin::{Amount, Target},
     channels_sv2::{
         client,
         outputs::deserialize_outputs,

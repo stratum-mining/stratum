@@ -1,6 +1,5 @@
 #![allow(clippy::option_map_unit_fn)]
 use async_channel::{Receiver, Sender};
-use bitcoin::{blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget};
 use codec_sv2::{self, StandardEitherFrame, StandardSv2Frame};
 use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess};
 use mining_sv2::*;
@@ -27,11 +26,16 @@ use std::{
     thread::available_parallelism,
     time::{Duration, Instant},
 };
-use stratum_apps::key_utils::Secp256k1PublicKey;
+use stratum_apps::{
+    key_utils::Secp256k1PublicKey,
+    stratum_core::bitcoin::{
+        blockdata::block::Header, hash_types::BlockHash, hashes::Hash, CompactTarget,
+    },
+};
 use tokio::net::TcpStream;
 use tracing::{debug, error, info};
 
-use bitcoin::consensus::encode::serialize as btc_serialize;
+use stratum_apps::stratum_core::bitcoin::consensus::encode::serialize as btc_serialize;
 
 // Fast SHA256d midstate hasher
 use sha2::{
@@ -151,9 +155,9 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
-use bitcoin::block::Version;
 use common_messages_sv2::Reconnect;
 use std::convert::TryInto;
+use stratum_apps::stratum_core::bitcoin::block::Version;
 
 impl SetupConnectionHandler {
     pub fn new() -> Self {

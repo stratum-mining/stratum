@@ -1,11 +1,13 @@
-use bitcoin::Target;
 use std::{
     cell::RefCell,
     sync::{atomic::AtomicBool, Arc},
 };
 use stratum_apps::{
     custom_mutex::Mutex,
-    stratum_core::sv1_api::{json_rpc, utils::HexU32Be},
+    stratum_core::{
+        bitcoin::Target,
+        sv1_api::{json_rpc, utils::HexU32Be},
+    },
 };
 use tracing::debug;
 

@@ -1,9 +1,8 @@
-use bitcoin::Target;
 use std::sync::atomic::Ordering;
 
 use stratum_apps::stratum_core::{
     binary_sv2::Str0255,
-    bitcoin::{consensus::Decodable, Amount, TxOut},
+    bitcoin::{consensus::Decodable, Amount, Target, TxOut},
     channels_sv2::{
         server::{
             error::{ExtendedChannelError, StandardChannelError},

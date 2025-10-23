@@ -3,11 +3,11 @@ use crate::{
     utils::ShutdownMessage,
 };
 use async_channel::Sender;
-use bitcoin::Target;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use stratum_apps::{
     custom_mutex::Mutex,
     stratum_core::{
+        bitcoin::Target,
         channels_sv2::{target::hash_rate_to_target, Vardiff},
         mining_sv2::{SetTarget, UpdateChannel},
         parsers_sv2::Mining,
