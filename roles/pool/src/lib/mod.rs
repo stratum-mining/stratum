@@ -21,7 +21,6 @@ pub mod channel_manager;
 pub mod config;
 pub mod downstream;
 pub mod error;
-pub mod share_persistence;
 pub mod status;
 pub mod task_manager;
 pub mod template_receiver;

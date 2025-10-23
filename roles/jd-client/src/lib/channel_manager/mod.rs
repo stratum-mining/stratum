@@ -12,11 +12,12 @@ use stratum_apps::{
     custom_mutex::Mutex,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
+    share_persistence::NoOpPersistence,
     stratum_core::{
         bitcoin::Target,
         channels_sv2::{
             client::extended::ExtendedChannel,
-            persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
+            persistence::Persistence,
             server::{
                 jobs::{
                     extended::ExtendedJob, factory::JobFactory, job_store::DefaultJobStore,
@@ -65,16 +66,6 @@ mod template_message_handler;
 mod upstream_message_handler;
 
 pub const JDC_SEARCH_SPACE_BYTES: usize = 4;
-
-/// Unit-like type for persistence when disabled
-#[derive(Debug, Clone)]
-pub(crate) struct NoOpPersistence;
-
-impl PersistenceHandler for NoOpPersistence {
-    fn persist_event(&self, _event: ShareAccountingEvent) {
-        // No-op - this should never be called when using Persistence::Disabled
-    }
-}
 
 /// Type alias for disabled persistence used in JD client
 pub(crate) type DisabledPersistence = Persistence<NoOpPersistence>;

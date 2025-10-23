@@ -11,6 +11,7 @@ use stratum_apps::{
     custom_mutex::Mutex,
     key_utils::{Secp256k1PublicKey, Secp256k1SecretKey},
     network_helpers::noise_stream::NoiseTcpStream,
+    share_persistence::{ShareFileHandler, ShareFilePersistence},
     stratum_core::{
         channels_sv2::{
             persistence::Persistence,
@@ -37,7 +38,6 @@ use crate::{
     config::PoolConfig,
     downstream::Downstream,
     error::PoolResult,
-    share_persistence::{ShareFileHandler, ShareFilePersistence},
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{Message, ShutdownMessage},

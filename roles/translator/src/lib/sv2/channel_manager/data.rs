@@ -4,24 +4,12 @@ use std::{
 };
 use stratum_apps::{
     custom_mutex::Mutex,
+    share_persistence::NoOpPersistence,
     stratum_core::{
-        channels_sv2::{
-            client::extended::ExtendedChannel,
-            persistence::{Persistence, PersistenceHandler, ShareAccountingEvent},
-        },
+        channels_sv2::{client::extended::ExtendedChannel, persistence::Persistence},
         mining_sv2::ExtendedExtranonce,
     },
 };
-
-/// Unit-like type for persistence when disabled in translator
-#[derive(Debug, Clone)]
-pub struct NoOpPersistence;
-
-impl PersistenceHandler for NoOpPersistence {
-    fn persist_event(&self, _event: ShareAccountingEvent) {
-        // No-op - this should never be called when using Persistence::Disabled
-    }
-}
 
 /// Type alias for disabled persistence used in translator
 pub type DisabledPersistence = Persistence<NoOpPersistence>;

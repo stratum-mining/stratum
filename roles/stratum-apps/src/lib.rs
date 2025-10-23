@@ -58,3 +58,11 @@ pub mod rpc;
 /// Provides Secp256k1 key management, serialization/deserialization, and signature services.
 /// Supports both standard and no_std environments.
 pub mod key_utils;
+
+/// Share persistence utilities
+///
+/// Persistence implementations for share accounting events.
+/// This module provides reusable handlers that can be used by any role (Pool, JD Client, etc.)
+/// to persist share accounting data without impacting mining performance.
+#[cfg(feature = "core")]
+pub mod share_persistence;
