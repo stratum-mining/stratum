@@ -824,7 +824,7 @@ mod tests {
 
         let res = channel.validate_share(share_valid_block);
 
-        assert!(matches!(res, Ok(ShareValidationResult::BlockFound)));
+        assert!(matches!(res, Ok(ShareValidationResult::BlockFound { .. })));
     }
 
     #[test]
@@ -1011,7 +1011,7 @@ mod tests {
 
         let res = channel.validate_share(valid_share);
 
-        assert!(matches!(res, Ok(ShareValidationResult::Valid)));
+        assert!(matches!(res, Ok(ShareValidationResult::Valid { .. })));
 
         // try to cheat by re-submitting the same share
         // with a different sequence number

@@ -1025,7 +1025,7 @@ mod tests {
 
         let res = standard_channel.validate_share(share_valid_block);
 
-        assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_, _))));
+        assert!(matches!(res, Ok(ShareValidationResult::BlockFound { .. })));
     }
 
     #[test]
@@ -1241,7 +1241,7 @@ mod tests {
         };
         let res = standard_channel.validate_share(valid_share);
 
-        assert!(matches!(res, Ok(ShareValidationResult::Valid)));
+        assert!(matches!(res, Ok(ShareValidationResult::Valid { .. })));
     }
 
     #[test]
