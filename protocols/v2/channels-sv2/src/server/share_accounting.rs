@@ -80,6 +80,8 @@ pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
     share_work_sum: f64,
+    last_batch_accepted: u32,
+    last_batch_work_sum: f64,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
@@ -94,6 +96,8 @@ impl ShareAccounting {
             last_share_sequence_number: 0,
             shares_accepted: 0,
             share_work_sum: 0.0,
+            last_batch_accepted: 0,
+            last_batch_work_sum: 0.0,
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
@@ -103,6 +107,7 @@ impl ShareAccounting {
     /// Updates internal accounting for a newly accepted share.
     ///
     /// - Increments total shares accepted and work sum.
+    /// - Increments last batch accepted and work sum if the share batch size is reached.
     /// - Updates last accepted sequence number.
     /// - Records the share hash to detect duplicates.
     pub fn update_share_accounting(
@@ -115,6 +120,13 @@ impl ShareAccounting {
         self.shares_accepted += 1;
         self.share_work_sum += share_work;
         self.seen_shares.insert(share_hash);
+
+        if self.should_acknowledge() {
+            let current_batch_accepted = self.shares_accepted - self.last_batch_accepted;
+            let current_batch_work_sum = self.share_work_sum - self.last_batch_work_sum;
+            self.last_batch_accepted = current_batch_accepted;
+            self.last_batch_work_sum = current_batch_work_sum;
+        }
     }
 
     /// Clears the set of seen share hashes.
@@ -130,12 +142,28 @@ impl ShareAccounting {
         self.last_share_sequence_number
     }
 
+    /// Returns the number of shares accepted in the last batch.
+    pub fn get_last_batch_accepted(&self) -> u32 {
+        self.last_batch_accepted
+    }
+
+    /// Returns the sum of work contributed by shares in the last batch.
+    pub fn get_last_batch_work_sum(&self) -> f64 {
+        self.last_batch_work_sum
+    }
+
     /// Returns the total number of shares accepted on this channel.
+    ///
+    /// Note: this is not what we use for `SubmitShares.Success` messages.
+    /// Instead, there we should use `get_last_batch_accepted()`.
     pub fn get_shares_accepted(&self) -> u32 {
         self.shares_accepted
     }
 
     /// Returns the sum of work contributed by all accepted shares.
+    ///
+    /// Note: this is not what we use for `SubmitShares.Success` messages.
+    /// Instead, there we should use `get_last_batch_work_sum()`.
     pub fn get_share_work_sum(&self) -> f64 {
         self.share_work_sum
     }
