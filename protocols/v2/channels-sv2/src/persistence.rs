@@ -34,6 +34,8 @@ pub enum ShareAccountingEvent {
         user_identity: String,
         /// Work value of the accepted share (difficulty as floating point)
         share_work: f64,
+        /// Sequence number of the share
+        share_sequence_number: u32,
         /// Hash of the accepted share (for duplicate detection)
         share_hash: Hash,
         /// Total shares accepted after this update

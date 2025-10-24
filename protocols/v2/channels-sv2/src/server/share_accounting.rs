@@ -136,6 +136,7 @@ where
             channel_id,
             user_identity: user_identity.to_string(),
             share_work,
+            share_sequence_number,
             share_hash,
             total_shares_accepted: self.shares_accepted,
             total_share_work_sum: self.share_work_sum,
