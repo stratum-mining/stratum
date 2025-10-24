@@ -143,7 +143,7 @@ impl ShareFileHandler {
                     )
                     .as_bytes(),
                 ).await;
-                
+
                 if let Err(e) = result {
                     error!(
                         target = "share_file_handler",
