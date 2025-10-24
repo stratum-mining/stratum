@@ -537,7 +537,7 @@ impl<'a> ExtendedChannel<'a> {
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
-            return Ok(ShareValidationResult::BlockFound);
+            return Ok(ShareValidationResult::BlockFound(hash.to_raw_hash()));
         }
 
         // check if the share hash meets the channel target
@@ -555,7 +555,7 @@ impl<'a> ExtendedChannel<'a> {
             // update the best diff
             self.share_accounting.update_best_diff(hash_as_diff);
 
-            return Ok(ShareValidationResult::Valid);
+            return Ok(ShareValidationResult::Valid(hash.to_raw_hash()));
         }
 
         Err(ShareValidationError::DoesNotMeetTarget)
@@ -815,7 +815,7 @@ mod tests {
 
         let res = channel.validate_share(share_valid_block);
 
-        assert!(matches!(res, Ok(ShareValidationResult::BlockFound)));
+        assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_))));
     }
 
     #[test]
@@ -1002,7 +1002,7 @@ mod tests {
 
         let res = channel.validate_share(valid_share);
 
-        assert!(matches!(res, Ok(ShareValidationResult::Valid)));
+        assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
 
         // try to cheat by re-submitting the same share
         // with a different sequence number

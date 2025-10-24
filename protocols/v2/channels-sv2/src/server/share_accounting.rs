@@ -38,18 +38,13 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub enum ShareValidationResult {
     /// The share is valid and accepted.
-    Valid,
-    /// The share is valid and triggers a batch acknowledgment.
-    /// Contains:
-    /// - `last_sequence_number`: The sequence number of the last accepted share in the batch.
-    /// - `new_submits_accepted_count`: The number of new shares accepted in this batch.
-    /// - `new_shares_sum`: The total work contributed by shares in this batch.
-    ValidWithAcknowledgement(u32, u32, u64),
+    Valid(Hash),
     /// The share solves a block.
     /// Contains:
+    /// - `share_hash`: The hash of the share that solved the block.
     /// - `template_id`: The template ID associated with the job, or `None` for custom jobs.
     /// - `coinbase`: The serialized coinbase transaction for the block.
-    BlockFound(Option<u64>, Vec<u8>),
+    BlockFound(Hash, Option<u64>, Vec<u8>),
 }
 
 /// The error variants that can occur during share validation.
