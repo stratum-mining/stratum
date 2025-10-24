@@ -38,18 +38,13 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub enum ShareValidationResult {
     /// The share is valid and accepted.
-    Valid,
-    /// The share is valid and triggers a batch acknowledgment.
-    /// Contains:
-    /// - `last_sequence_number`: The sequence number of the last accepted share in the batch.
-    /// - `new_submits_accepted_count`: The number of new shares accepted in this batch.
-    /// - `new_shares_sum`: The total work contributed by shares in this batch.
-    ValidWithAcknowledgement(u32, u32, u64),
+    Valid(Hash),
     /// The share solves a block.
     /// Contains:
+    /// - `share_hash`: The hash of the share that solved the block.
     /// - `template_id`: The template ID associated with the job, or `None` for custom jobs.
     /// - `coinbase`: The serialized coinbase transaction for the block.
-    BlockFound(Option<u64>, Vec<u8>),
+    BlockFound(Hash, Option<u64>, Vec<u8>),
 }
 
 /// The error variants that can occur during share validation.
@@ -84,7 +79,7 @@ pub enum ShareValidationError {
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
-    share_work_sum: u64,
+    share_work_sum: f64,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
@@ -98,7 +93,7 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
-            share_work_sum: 0,
+            share_work_sum: 0.0,
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
@@ -112,7 +107,7 @@ impl ShareAccounting {
     /// - Records the share hash to detect duplicates.
     pub fn update_share_accounting(
         &mut self,
-        share_work: u64,
+        share_work: f64,
         share_sequence_number: u32,
         share_hash: Hash,
     ) {
@@ -141,7 +136,7 @@ impl ShareAccounting {
     }
 
     /// Returns the sum of work contributed by all accepted shares.
-    pub fn get_share_work_sum(&self) -> u64 {
+    pub fn get_share_work_sum(&self) -> f64 {
         self.share_work_sum
     }
 

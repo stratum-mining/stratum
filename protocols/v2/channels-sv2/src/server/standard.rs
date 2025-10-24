@@ -594,7 +594,7 @@ where
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -628,6 +628,7 @@ where
                 .map_err(|_| ShareValidationError::InvalidCoinbase)?;
 
             return Ok(ShareValidationResult::BlockFound(
+                hash.to_raw_hash(),
                 Some(job.get_template().template_id),
                 serialized_coinbase,
             ));
@@ -640,7 +641,7 @@ where
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -648,21 +649,7 @@ where
             // update the best diff
             self.share_accounting.update_best_diff(hash_as_diff);
 
-            let last_sequence_number = self.share_accounting.get_last_share_sequence_number();
-            let new_submits_accepted_count = self.share_accounting.get_shares_accepted();
-            let new_shares_sum = self.share_accounting.get_share_work_sum();
-
-            // if sequence number is a multiple of share_batch_size
-            // it's time to send a SubmitShares.Success
-            if self.share_accounting.should_acknowledge() {
-                Ok(ShareValidationResult::ValidWithAcknowledgement(
-                    last_sequence_number,
-                    new_submits_accepted_count,
-                    new_shares_sum,
-                ))
-            } else {
-                Ok(ShareValidationResult::Valid)
-            }
+            Ok(ShareValidationResult::Valid(hash.to_raw_hash()))
         } else {
             Err(ShareValidationError::DoesNotMeetTarget)
         }
@@ -1022,7 +1009,10 @@ mod tests {
 
         let res = standard_channel.validate_share(share_valid_block);
 
-        assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_, _))));
+        assert!(matches!(
+            res,
+            Ok(ShareValidationResult::BlockFound(_, _, _))
+        ));
     }
 
     #[test]
@@ -1238,7 +1228,7 @@ mod tests {
         };
         let res = standard_channel.validate_share(valid_share);
 
-        assert!(matches!(res, Ok(ShareValidationResult::Valid)));
+        assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
     }
 
     #[test]

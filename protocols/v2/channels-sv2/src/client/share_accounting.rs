@@ -13,8 +13,8 @@ use bitcoin::hashes::sha256d::Hash;
 /// - `BlockFound`: The submitted share resulted in a new block being found.
 #[derive(Debug)]
 pub enum ShareValidationResult {
-    Valid,
-    BlockFound,
+    Valid(Hash),
+    BlockFound(Hash),
 }
 
 /// Possible errors encountered during share validation.
@@ -53,7 +53,7 @@ pub enum ShareValidationError {
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
-    share_work_sum: u64,
+    share_work_sum: f64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
 }
@@ -70,7 +70,7 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
-            share_work_sum: 0,
+            share_work_sum: 0.0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
         }
@@ -83,7 +83,7 @@ impl ShareAccounting {
     /// - Records share hash to detect duplicates.
     pub fn update_share_accounting(
         &mut self,
-        share_work: u64,
+        share_work: f64,
         share_sequence_number: u32,
         share_hash: Hash,
     ) {
@@ -112,7 +112,7 @@ impl ShareAccounting {
     }
 
     /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> u64 {
+    pub fn get_share_work_sum(&self) -> f64 {
         self.share_work_sum
     }
 
