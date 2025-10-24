@@ -541,9 +541,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             info!("SubmitSharesStandard: {} ✅", success);
                             messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                         } else {
+                            let share_work = standard_channel.get_target().difficulty_float();
                             info!(
-                                "SubmitSharesStandard: valid share | downstream_id: {}, channel_id: {}, sequence_number: {}, share_hash: {} ✅",
-                                downstream_id, channel_id, msg.sequence_number, share_hash
+                                "SubmitSharesStandard: valid share | downstream_id: {}, channel_id: {}, sequence_number: {}, share_hash: {}, share_work: {} ✅",
+                                downstream_id, channel_id, msg.sequence_number, share_hash, share_work
                             );
                         }
 
@@ -698,9 +699,10 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                             info!("SubmitSharesExtended: {} ✅", success);
                             messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
                         } else {
+                            let share_work = extended_channel.get_target().difficulty_float();
                             info!(
-                                "SubmitSharesExtended: valid share | downstream_id: {}, channel_id: {}, sequence_number: {}, share_hash: {} ✅",
-                                downstream_id, channel_id, msg.sequence_number, share_hash
+                                "SubmitSharesExtended: valid share | downstream_id: {}, channel_id: {}, sequence_number: {}, share_hash: {}, share_work: {} ✅",
+                                downstream_id, channel_id, msg.sequence_number, share_hash, share_work
                             );
                         }
                     }
