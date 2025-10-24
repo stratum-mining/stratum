@@ -533,7 +533,7 @@ impl<'a> ExtendedChannel<'a> {
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -547,7 +547,7 @@ impl<'a> ExtendedChannel<'a> {
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                self.target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
