@@ -527,29 +527,37 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 let res = standard_channel.validate_share(msg.clone());
                 vardiff.increment_shares_since_last_update();
 
-
                 match res {
-                    Ok(ShareValidationResult::Valid) => {
-                        info!(
-                            "SubmitSharesStandard: valid share | downstream_id: {}, channel_id: {}, sequence_number: {} ✅",
-                            downstream_id, channel_id, msg.sequence_number
-                        );
-                    }
-                    Ok(ShareValidationResult::ValidWithAcknowledgement(
+                    Ok(ShareValidationResult::Valid {
+                        share_work: _,
+                        share_hash: _,
+                        acknowledgement,
                         last_sequence_number,
                         new_submits_accepted_count,
                         new_shares_sum,
-                    )) => {
-                        let success = SubmitSharesSuccess {
-                            channel_id,
-                            last_sequence_number,
-                            new_submits_accepted_count,
-                            new_shares_sum,
-                        };
-                        info!("SubmitSharesStandard: {} ✅", success);
-                        messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                    }) => {
+                        if acknowledgement {
+                            let success = SubmitSharesSuccess {
+                                channel_id,
+                                last_sequence_number,
+                                new_submits_accepted_count,
+                                new_shares_sum,
+                            };
+                            info!("SubmitSharesStandard: {} ✅", success);
+                            messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                        } else {
+                            info!(
+                                "SubmitSharesStandard: valid share | downstream_id: {}, channel_id: {}, sequence_number: {} ✅",
+                                downstream_id, channel_id, msg.sequence_number
+                            );
+                        }
                     }
-                    Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
+                    Ok(ShareValidationResult::BlockFound {
+                        share_work: _,
+                        share_hash: _,
+                        template_id,
+                        coinbase,
+                    }) => {
                         info!("SubmitSharesStandard: 💰 Block Found!!! 💰");
                         // if we have a template id (i.e.: this was not a custom job)
                         // we can propagate the solution to the TP
@@ -687,27 +695,36 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                 vardiff.increment_shares_since_last_update();
 
                 match res {
-                    Ok(ShareValidationResult::Valid) => {
-                        info!(
-                            "SubmitSharesExtended: valid share | downstream_id: {}, channel_id: {}, sequence_number: {} ✅",
-                            downstream_id, channel_id, msg.sequence_number
-                        );
-                    }
-                    Ok(ShareValidationResult::ValidWithAcknowledgement(
+                    Ok(ShareValidationResult::Valid {
+                        share_work: _,
+                        share_hash: _,
+                        acknowledgement,
                         last_sequence_number,
                         new_submits_accepted_count,
                         new_shares_sum,
-                    )) => {
-                        let success = SubmitSharesSuccess {
-                            channel_id,
-                            last_sequence_number,
-                            new_submits_accepted_count,
-                            new_shares_sum,
-                        };
-                        info!("SubmitSharesExtended: {} ✅", success);
-                        messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                    }) => {
+                        if acknowledgement {
+                            let success = SubmitSharesSuccess {
+                                channel_id,
+                                last_sequence_number,
+                                new_submits_accepted_count,
+                                new_shares_sum,
+                            };
+                            info!("SubmitSharesExtended: {} ✅", success);
+                            messages.push((downstream_id, Mining::SubmitSharesSuccess(success)).into());
+                        } else {
+                            info!(
+                                "SubmitSharesExtended: valid share | downstream_id: {}, channel_id: {}, sequence_number: {} ✅",
+                                downstream_id, channel_id, msg.sequence_number
+                            );
+                        }
                     }
-                    Ok(ShareValidationResult::BlockFound(template_id, coinbase)) => {
+                    Ok(ShareValidationResult::BlockFound {
+                        share_work: _,
+                        share_hash: _,
+                        template_id,
+                        coinbase,
+                    }) => {
                         info!("SubmitSharesExtended: 💰 Block Found!!! 💰");
                         // if we have a template id (i.e.: this was not a custom job)
                         // we can propagate the solution to the TP

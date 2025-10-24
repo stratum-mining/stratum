@@ -670,12 +670,15 @@ where
             format!("{:x}", network_target)
         );
 
+        let share_work = self.target.difficulty_float();
+        let share_hash = hash.to_raw_hash();
+
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                share_work as u64,
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash,
             );
 
             let mut coinbase = vec![];
@@ -686,47 +689,52 @@ where
             match job.get_origin() {
                 JobOrigin::NewTemplate(template) => {
                     let template_id = template.template_id;
-                    return Ok(ShareValidationResult::BlockFound(
-                        Some(template_id),
+                    return Ok(ShareValidationResult::BlockFound {
+                        share_work,
+                        share_hash,
+                        template_id: Some(template_id),
                         coinbase,
-                    ));
+                    });
                 }
                 JobOrigin::SetCustomMiningJob(_set_custom_mining_job) => {
-                    return Ok(ShareValidationResult::BlockFound(None, coinbase));
+                    return Ok(ShareValidationResult::BlockFound {
+                        share_work,
+                        share_hash,
+                        template_id: None,
+                        coinbase,
+                    });
                 }
             }
         }
 
         // check if the share hash meets the channel target
         if block_hash_target <= self.target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+            if self.share_accounting.is_share_seen(share_hash) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                share_work as u64,
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash,
             );
 
             // update the best diff
             self.share_accounting.update_best_diff(hash_as_diff);
 
+            let acknowledgement = self.share_accounting.should_acknowledge();
             let last_sequence_number = self.share_accounting.get_last_share_sequence_number();
             let new_submits_accepted_count = self.share_accounting.get_shares_accepted();
             let new_shares_sum = self.share_accounting.get_share_work_sum();
 
-            // if sequence number is a multiple of share_batch_size
-            // it's time to send a SubmitShares.Success
-            if self.share_accounting.should_acknowledge() {
-                Ok(ShareValidationResult::ValidWithAcknowledgement(
-                    last_sequence_number,
-                    new_submits_accepted_count,
-                    new_shares_sum,
-                ))
-            } else {
-                Ok(ShareValidationResult::Valid)
-            }
+            Ok(ShareValidationResult::Valid {
+                share_work,
+                share_hash,
+                acknowledgement,
+                last_sequence_number,
+                new_submits_accepted_count,
+                new_shares_sum,
+            })
         } else {
             Err(ShareValidationError::DoesNotMeetTarget)
         }

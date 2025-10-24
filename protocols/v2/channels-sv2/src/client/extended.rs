@@ -530,32 +530,41 @@ impl<'a> ExtendedChannel<'a> {
             format!("{:x}", network_target)
         );
 
+        let share_work = self.target.difficulty_float();
+        let share_hash = hash.to_raw_hash();
+
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                share_work as u64,
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash,
             );
-            return Ok(ShareValidationResult::BlockFound);
+            return Ok(ShareValidationResult::BlockFound {
+                share_work,
+                share_hash,
+            });
         }
 
         // check if the share hash meets the channel target
         if block_hash_target < self.target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+            if self.share_accounting.is_share_seen(share_hash) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float() as u64,
+                share_work as u64,
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash,
             );
 
             // update the best diff
             self.share_accounting.update_best_diff(hash_as_diff);
 
-            return Ok(ShareValidationResult::Valid);
+            return Ok(ShareValidationResult::Valid {
+                share_work,
+                share_hash,
+            });
         }
 
         Err(ShareValidationError::DoesNotMeetTarget)

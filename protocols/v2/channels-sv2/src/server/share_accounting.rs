@@ -23,33 +23,51 @@ use std::collections::HashSet;
 
 /// The outcome of share validation, from the perspective of a Mining Server.
 ///
-/// The [`ShareValidationResult::ValidWithAcknowledgement`] variant carries:
-/// - `last_sequence_number` (as `u32`)
-/// - `new_submits_accepted_count` (as `u32`)
-/// - `new_shares_sum` (as `u64`)
+/// Both variants carry share metadata:
+/// - `share_work`: The difficulty of the share
+/// - `share_hash`: The hash of the share
 ///
-/// which are used to craft `SubmitShares.Success` Sv2 messages.
+/// The [`ShareValidationResult::Valid`] variant additionally carries:
+/// - `acknowledgement`: Whether this share triggers a batch acknowledgment
+/// - `last_sequence_number`: The sequence number of the last accepted share in the batch (for
+///   acknowledgements)
+/// - `new_submits_accepted_count`: The number of new shares accepted in this batch (for
+///   acknowledgements)
+/// - `new_shares_sum`: The total work contributed by shares in this batch (for acknowledgements)
 ///
-/// The [`ShareValidationResult::BlockFound`] variant carries:
-/// - `template_id` (as `Option<u64>`)
-/// - `coinbase` (as `Vec<u8>`)
-///
-/// where `template_id` is `None` if the share is for a custom job.
+/// The [`ShareValidationResult::BlockFound`] variant additionally carries:
+/// - `template_id`: The template ID associated with the job, or `None` for custom jobs
+/// - `coinbase`: The serialized coinbase transaction for the block
 #[derive(Debug)]
 pub enum ShareValidationResult {
     /// The share is valid and accepted.
-    Valid,
-    /// The share is valid and triggers a batch acknowledgment.
     /// Contains:
-    /// - `last_sequence_number`: The sequence number of the last accepted share in the batch.
-    /// - `new_submits_accepted_count`: The number of new shares accepted in this batch.
-    /// - `new_shares_sum`: The total work contributed by shares in this batch.
-    ValidWithAcknowledgement(u32, u32, u64),
+    /// - `share_work`: The difficulty of the share
+    /// - `share_hash`: The hash of the share
+    /// - `acknowledgement`: Whether this share triggers a batch acknowledgment
+    /// - `last_sequence_number`: The sequence number of the last accepted share in the batch
+    /// - `new_submits_accepted_count`: The number of new shares accepted in this batch
+    /// - `new_shares_sum`: The total work contributed by shares in this batch
+    Valid {
+        share_work: f64,
+        share_hash: Hash,
+        acknowledgement: bool,
+        last_sequence_number: u32,
+        new_submits_accepted_count: u32,
+        new_shares_sum: u64,
+    },
     /// The share solves a block.
     /// Contains:
-    /// - `template_id`: The template ID associated with the job, or `None` for custom jobs.
-    /// - `coinbase`: The serialized coinbase transaction for the block.
-    BlockFound(Option<u64>, Vec<u8>),
+    /// - `share_work`: The difficulty of the share (as f64 to preserve precision)
+    /// - `share_hash`: The hash of the share
+    /// - `template_id`: The template ID associated with the job, or `None` for custom jobs
+    /// - `coinbase`: The serialized coinbase transaction for the block
+    BlockFound {
+        share_work: f64,
+        share_hash: Hash,
+        template_id: Option<u64>,
+        coinbase: Vec<u8>,
+    },
 }
 
 /// The error variants that can occur during share validation.

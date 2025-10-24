@@ -9,12 +9,24 @@ use bitcoin::hashes::sha256d::Hash;
 
 /// The outcome of share validation, as seen by a Mining Client.
 ///
+/// Both variants carry share metadata:
+/// - `share_work`: The difficulty of the share (as f64 to preserve precision)
+/// - `share_hash`: The hash of the share
+///
 /// - `Valid`: The share is valid and accepted.
 /// - `BlockFound`: The submitted share resulted in a new block being found.
 #[derive(Debug)]
 pub enum ShareValidationResult {
-    Valid,
-    BlockFound,
+    /// The share is valid and accepted.
+    /// Contains:
+    /// - `share_work`: The difficulty of the share (as f64 to preserve precision)
+    /// - `share_hash`: The hash of the share
+    Valid { share_work: f64, share_hash: Hash },
+    /// The share solves a block.
+    /// Contains:
+    /// - `share_work`: The difficulty of the share (as f64 to preserve precision)
+    /// - `share_hash`: The hash of the share
+    BlockFound { share_work: f64, share_hash: Hash },
 }
 
 /// Possible errors encountered during share validation.
