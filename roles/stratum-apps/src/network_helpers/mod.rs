@@ -4,14 +4,12 @@
 //! for Stratum V2 applications. It includes support for:
 //!
 //! - Noise-encrypted connections ([`noise_connection`], [`noise_stream`])
-//! - Plain TCP connections ([`plain_connection`])
 //! - SV1 protocol connections ([`sv1_connection`]) - when `sv1` feature is enabled
 //!
 //! Originally from the `network_helpers_sv2` crate.
 
 pub mod noise_connection;
 pub mod noise_stream;
-pub mod plain_connection;
 
 #[cfg(feature = "sv1")]
 pub mod sv1_connection;
