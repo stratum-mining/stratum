@@ -76,7 +76,7 @@ pub enum PoolError {
     /// Downstream not found for the channel
     DownstreamNotFoundWithChannelId(u32),
     /// Downstream not found
-    DownstreamNotFound(u32),
+    DownstreamNotFound(usize),
     /// Downstream Id not found
     DownstreamIdNotFound,
     /// Future template not present

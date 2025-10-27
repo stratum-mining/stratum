@@ -52,7 +52,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Self::Error> {
         info!("Received Close Channel: {msg}");
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
                 let Some(downstream) = channel_manager_data.downstream.get_mut(&downstream_id)
@@ -78,7 +78,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let request_id = msg.get_request_id_as_u32();
         let user_identity = msg.user_identity.as_utf8_or_hex();
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
 
         info!("Received OpenStandardMiningChannel: {}", msg);
 
@@ -221,7 +221,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     group_channel.add_standard_channel_id(channel_id as u32);
                 }
                 let vardiff = VardiffState::new()?;
-                channel_manager_data.vardiff.insert((downstream_id, channel_id as u32), vardiff);
+                channel_manager_data.vardiff.insert((downstream_id, channel_id as u32).into(), vardiff);
 
                 Ok(messages)
             })
@@ -242,7 +242,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         let request_id = msg.get_request_id_as_u32();
         let user_identity = msg.user_identity.as_utf8_or_hex();
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
         info!("Received OpenExtendedMiningChannel: {}", msg);
 
         let nominal_hash_rate = msg.nominal_hash_rate;
@@ -476,7 +476,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         let vardiff = VardiffState::new()?;
                         channel_manager_data
                             .vardiff
-                            .insert((downstream_id, channel_id as u32), vardiff);
+                            .insert((downstream_id, channel_id as u32).into(), vardiff);
 
                         Ok(messages)
                     })
@@ -496,7 +496,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesStandard: {msg}");
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
 
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let channel_id = msg.channel_id;
@@ -520,7 +520,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     return Ok(vec![(downstream_id, Mining::SubmitSharesError(submit_shares_error)).into()]);
                 };
 
-                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id).into()) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
@@ -657,7 +657,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Self::Error> {
         info!("Received SubmitSharesExtended: {msg}");
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
         let messages = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let channel_id = msg.channel_id;
             let Some(downstream) = channel_manager_data.downstream.get(&downstream_id) else {
@@ -679,7 +679,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     return Ok(vec![(downstream_id, Mining::SubmitSharesError(error)).into()]);
                 };
 
-                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id).into()) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
@@ -826,7 +826,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         info!("Received: {}", msg);
 
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
 
         let messages: Vec<RouteMessageTo> = self.channel_manager_data.super_safe_lock(|channel_manager_data| {
             let Some(downstream) = channel_manager_data.downstream.get(&downstream_id) else {
@@ -953,7 +953,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
     ) -> Result<(), Self::Error> {
         info!("Received: {}", msg);
         let downstream_id =
-            client_id.expect("client_id must be present for downstream_id extraction") as u32;
+            client_id.expect("client_id must be present for downstream_id extraction");
 
         // this is a naive implementation, but ideally we should check the SetCustomMiningJob
         // message parameters, especially:

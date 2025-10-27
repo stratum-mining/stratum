@@ -63,7 +63,7 @@ pub enum ShutdownMessage {
     /// Shutdown all downstream connections
     DownstreamShutdownAll,
     /// Shutdown a specific downstream connection by ID
-    DownstreamShutdown(u32),
+    DownstreamShutdown(usize),
 }
 
 /// Constructs a `SetupConnection` message for the mining protocol.
@@ -336,5 +336,20 @@ pub fn protocol_message_type(message_type: u8) -> MessageType {
         MessageType::TemplateDistribution
     } else {
         MessageType::Unknown
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct VardiffKey {
+    pub downstream_id: usize,
+    pub channel_id: u32,
+}
+
+impl From<(usize, u32)> for VardiffKey {
+    fn from(value: (usize, u32)) -> Self {
+        VardiffKey {
+            downstream_id: value.0,
+            channel_id: value.1,
+        }
     }
 }
