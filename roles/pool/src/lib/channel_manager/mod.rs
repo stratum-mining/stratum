@@ -337,6 +337,9 @@ impl ChannelManager {
     fn remove_downstream(&self, downstream_id: usize) -> PoolResult<()> {
         self.channel_manager_data.super_safe_lock(|cm_data| {
             cm_data.downstream.remove(&downstream_id);
+            cm_data
+                .vardiff
+                .retain(|key, _| key.downstream_id != downstream_id);
         });
         Ok(())
     }

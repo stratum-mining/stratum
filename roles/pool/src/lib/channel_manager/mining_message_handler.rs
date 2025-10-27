@@ -66,6 +66,9 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         downstream_data.standard_channels.remove(&msg.channel_id);
                         downstream_data.extended_channels.remove(&msg.channel_id);
                     });
+                channel_manager_data
+                    .vardiff
+                    .remove(&(downstream_id, msg.channel_id).into());
                 Ok(())
             })
     }
