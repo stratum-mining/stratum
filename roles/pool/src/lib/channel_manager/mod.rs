@@ -20,6 +20,7 @@ use stratum_apps::{
             },
             Vardiff, VardiffState,
         },
+        codec_sv2::HandshakeRole,
         handlers_sv2::{
             HandleMiningMessagesFromClientAsync, HandleTemplateDistributionMessagesFromServerAsync,
         },
@@ -51,7 +52,7 @@ pub const FULL_EXTRANONCE_SIZE: usize = POOL_ALLOCATION_BYTES + CLIENT_SEARCH_SP
 pub struct ChannelManagerData {
     // Mapping of `downstream_id` → `Downstream` object,
     // used by the channel manager to locate and interact with downstream clients.
-    downstream: HashMap<u32, Downstream>,
+    downstream: HashMap<usize, Downstream>,
     // Extranonce prefix factory for **extended downstream channels**.
     // Each new extended downstream receives a unique extranonce prefix.
     extranonce_prefix_factory_extended: ExtendedExtranonce,
@@ -62,7 +63,7 @@ pub struct ChannelManagerData {
     downstream_id_factory: AtomicUsize,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
-    vardiff: HashMap<(u32, u32), VardiffState>,
+    vardiff: HashMap<(u32, usize), VardiffState>,
     // Coinbase outputs
     coinbase_outputs: Vec<u8>,
     // Last new prevhash
@@ -75,8 +76,8 @@ pub struct ChannelManagerData {
 pub struct ChannelManagerChannel {
     tp_sender: Sender<TemplateDistribution<'static>>,
     tp_receiver: Receiver<TemplateDistribution<'static>>,
-    downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
-    downstream_receiver: Receiver<(u32, Mining<'static>)>,
+    downstream_sender: broadcast::Sender<(usize, Mining<'static>)>,
+    downstream_receiver: Receiver<(usize, Mining<'static>)>,
 }
 
 /// Contains all the state of mutable and immutable data required
@@ -99,8 +100,8 @@ impl ChannelManager {
         config: PoolConfig,
         tp_sender: Sender<TemplateDistribution<'static>>,
         tp_receiver: Receiver<TemplateDistribution<'static>>,
-        downstream_sender: broadcast::Sender<(u32, Mining<'static>)>,
-        downstream_receiver: Receiver<(u32, Mining<'static>)>,
+        downstream_sender: broadcast::Sender<(usize, Mining<'static>)>,
+        downstream_receiver: Receiver<(usize, Mining<'static>)>,
         coinbase_outputs: Vec<u8>,
     ) -> PoolResult<Self> {
         let range_0 = 0..0;
@@ -166,8 +167,8 @@ impl ChannelManager {
         task_manager: Arc<TaskManager>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         status_sender: Sender<Status>,
-        channel_manager_sender: Sender<(u32, Mining<'static>)>,
-        channel_manager_receiver: broadcast::Sender<(u32, Mining<'static>)>,
+        channel_manager_sender: Sender<(usize, Mining<'static>)>,
+        channel_manager_receiver: broadcast::Sender<(usize, Mining<'static>)>,
     ) -> PoolResult<()> {
         info!("Starting downstream server at {listening_address}");
         let server = TcpListener::bind(listening_address).await.map_err(|e| {
@@ -187,7 +188,7 @@ impl ChannelManager {
                             Ok(ShutdownMessage::ShutdownAll) => {
                                 info!("Channel Manager: received shutdown signal");
                                 break;
-                            }
+                            },
                             Err(e) => {
                                 warn!(error = ?e, "shutdown channel closed unexpectedly");
                                 break;
@@ -212,7 +213,7 @@ impl ChannelManager {
                                 };
                                 let noise_stream = match NoiseTcpStream::<Message>::new(
                                     stream,
-                                    stratum_apps::stratum_core::codec_sv2::HandshakeRole::Responder(responder),
+                                    HandshakeRole::Responder(responder),
                                 )
                                 .await
                                 {
@@ -225,7 +226,7 @@ impl ChannelManager {
 
                                 let downstream_id = self
                                     .channel_manager_data
-                                    .super_safe_lock(|data| data.downstream_id_factory.fetch_add(1, Ordering::SeqCst) as u32);
+                                    .super_safe_lock(|data| data.downstream_id_factory.fetch_add(1, Ordering::SeqCst));
 
 
                                 let downstream = Downstream::new(
@@ -333,7 +334,7 @@ impl ChannelManager {
     // Given a `downstream_id`, this method:
     // 1. Removes the corresponding Downstream from the `downstream` map.
     #[allow(clippy::result_large_err)]
-    fn remove_downstream(&self, downstream_id: u32) -> PoolResult<()> {
+    fn remove_downstream(&self, downstream_id: usize) -> PoolResult<()> {
         self.channel_manager_data.super_safe_lock(|cm_data| {
             cm_data.downstream.remove(&downstream_id);
         });
@@ -361,7 +362,7 @@ impl ChannelManager {
             .recv()
             .await
         {
-            self.handle_mining_message_from_client(Some(downstream_id as usize), message)
+            self.handle_mining_message_from_client(Some(downstream_id), message)
                 .await?;
         }
 
@@ -370,7 +371,7 @@ impl ChannelManager {
 
     // Runs the vardiff on extended channel.
     fn run_vardiff_on_extended_channel(
-        downstream_id: u32,
+        downstream_id: usize,
         channel_id: u32,
         channel_state: &mut ExtendedChannel<'static, DefaultJobStore<ExtendedJob<'static>>>,
         vardiff_state: &mut VardiffState,
@@ -415,7 +416,7 @@ impl ChannelManager {
 
     // Runs the vardiff on the standard channel.
     fn run_vardiff_on_standard_channel(
-        downstream_id: u32,
+        downstream_id: usize,
         channel_id: u32,
         channel: &mut StandardChannel<'static, DefaultJobStore<StandardJob<'static>>>,
         vardiff_state: &mut VardiffState,
@@ -528,7 +529,7 @@ pub enum RouteMessageTo<'a> {
     /// Route to the template provider subsystem.
     TemplateProvider(TemplateDistribution<'a>),
     /// Route to a specific downstream client by ID, along with its mining message.
-    Downstream((u32, Mining<'a>)),
+    Downstream((usize, Mining<'a>)),
 }
 
 impl<'a> From<TemplateDistribution<'a>> for RouteMessageTo<'a> {
@@ -537,8 +538,8 @@ impl<'a> From<TemplateDistribution<'a>> for RouteMessageTo<'a> {
     }
 }
 
-impl<'a> From<(u32, Mining<'a>)> for RouteMessageTo<'a> {
-    fn from(value: (u32, Mining<'a>)) -> Self {
+impl<'a> From<(usize, Mining<'a>)> for RouteMessageTo<'a> {
+    fn from(value: (usize, Mining<'a>)) -> Self {
         Self::Downstream(value)
     }
 }

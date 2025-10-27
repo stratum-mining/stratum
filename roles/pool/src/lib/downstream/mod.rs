@@ -64,8 +64,8 @@ pub struct DownstreamData {
 /// - `downstream_receiver`: receives frames from the downstream.
 #[derive(Clone)]
 pub struct DownstreamChannel {
-    channel_manager_sender: Sender<(u32, Mining<'static>)>,
-    channel_manager_receiver: broadcast::Sender<(u32, Mining<'static>)>,
+    channel_manager_sender: Sender<(usize, Mining<'static>)>,
+    channel_manager_receiver: broadcast::Sender<(usize, Mining<'static>)>,
     downstream_sender: Sender<SV2Frame>,
     downstream_receiver: Receiver<SV2Frame>,
 }
@@ -75,7 +75,7 @@ pub struct DownstreamChannel {
 pub struct Downstream {
     pub downstream_data: Arc<Mutex<DownstreamData>>,
     downstream_channel: DownstreamChannel,
-    pub downstream_id: u32,
+    pub downstream_id: usize,
     pub requires_standard_jobs: Arc<AtomicBool>,
     pub requires_custom_work: Arc<AtomicBool>,
 }
@@ -83,9 +83,9 @@ pub struct Downstream {
 impl Downstream {
     /// Creates a new [`Downstream`] instance and spawns the necessary I/O tasks.
     pub fn new(
-        downstream_id: u32,
-        channel_manager_sender: Sender<(u32, Mining<'static>)>,
-        channel_manager_receiver: broadcast::Sender<(u32, Mining<'static>)>,
+        downstream_id: usize,
+        channel_manager_sender: Sender<(usize, Mining<'static>)>,
+        channel_manager_receiver: broadcast::Sender<(usize, Mining<'static>)>,
         noise_stream: NoiseTcpStream<Message>,
         notify_shutdown: broadcast::Sender<ShutdownMessage>,
         task_manager: Arc<TaskManager>,
@@ -217,7 +217,7 @@ impl Downstream {
     // Handles messages sent from the channel manager to this downstream.
     async fn handle_channel_manager_message(
         self,
-        receiver: &mut broadcast::Receiver<(u32, Mining<'static>)>,
+        receiver: &mut broadcast::Receiver<(usize, Mining<'static>)>,
     ) -> PoolResult<()> {
         let (downstream_id, msg) = match receiver.recv().await {
             Ok(msg) => msg,

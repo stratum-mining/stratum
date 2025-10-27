@@ -15,7 +15,7 @@ use crate::error::PoolError;
 pub enum StatusSender {
     /// Status updates from a specific downstream connection.
     Downstream {
-        downstream_id: u32,
+        downstream_id: usize,
         tx: async_channel::Sender<Status>,
     },
     /// Status updates from the template receiver.
@@ -28,7 +28,7 @@ pub enum StatusSender {
 #[derive(Debug, PartialEq, Eq)]
 pub enum StatusType {
     /// A downstream connection identified by its ID.
-    Downstream(u32),
+    Downstream(usize),
     /// The template receiver component.
     TemplateReceiver,
     /// The channel manager component.
@@ -76,7 +76,7 @@ impl StatusSender {
 pub enum State {
     /// A downstream connection has shut down with a reason.
     DownstreamShutdown {
-        downstream_id: u32,
+        downstream_id: usize,
         reason: PoolError,
     },
     /// Template receiver has shut down with a reason.

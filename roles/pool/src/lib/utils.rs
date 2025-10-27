@@ -63,7 +63,7 @@ pub enum ShutdownMessage {
     /// Shutdown all downstream connections
     DownstreamShutdownAll,
     /// Shutdown a specific downstream connection by ID
-    DownstreamShutdown(u32),
+    DownstreamShutdown(usize),
 }
 
 /// Constructs a `SetupConnection` message for the mining protocol.
