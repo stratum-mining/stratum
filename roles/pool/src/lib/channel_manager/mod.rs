@@ -39,7 +39,7 @@ use crate::{
     error::PoolResult,
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
-    utils::{Message, ShutdownMessage},
+    utils::{Message, ShutdownMessage, VardiffKey},
 };
 
 mod mining_message_handler;
@@ -63,7 +63,7 @@ pub struct ChannelManagerData {
     downstream_id_factory: AtomicUsize,
     // Mapping of `(downstream_id, channel_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
-    vardiff: HashMap<(u32, usize), VardiffState>,
+    vardiff: HashMap<VardiffKey, VardiffState>,
     // Coinbase outputs
     coinbase_outputs: Vec<u8>,
     // Last new prevhash
@@ -188,7 +188,7 @@ impl ChannelManager {
                             Ok(ShutdownMessage::ShutdownAll) => {
                                 info!("Channel Manager: received shutdown signal");
                                 break;
-                            },
+                            }
                             Err(e) => {
                                 warn!(error = ?e, "shutdown channel closed unexpectedly");
                                 break;
@@ -485,9 +485,10 @@ impl ChannelManager {
         let mut messages: Vec<RouteMessageTo> = vec![];
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
-                for ((channel_id, downstream_id), vardiff_state) in
-                    channel_manager_data.vardiff.iter_mut()
-                {
+                for (vardiff_key, vardiff_state) in channel_manager_data.vardiff.iter_mut() {
+                    let downstream_id = &vardiff_key.downstream_id;
+                    let channel_id = &vardiff_key.channel_id;
+
                     let Some(downstream) = channel_manager_data.downstream.get_mut(downstream_id)
                     else {
                         continue;

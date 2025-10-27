@@ -221,7 +221,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     group_channel.add_standard_channel_id(channel_id as u32);
                 }
                 let vardiff = VardiffState::new()?;
-                channel_manager_data.vardiff.insert((channel_id as u32, downstream_id), vardiff);
+                channel_manager_data.vardiff.insert((downstream_id, channel_id as u32).into(), vardiff);
 
                 Ok(messages)
             })
@@ -476,7 +476,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                         let vardiff = VardiffState::new()?;
                         channel_manager_data
                             .vardiff
-                            .insert((channel_id as u32, downstream_id), vardiff);
+                            .insert((downstream_id, channel_id as u32).into(), vardiff);
 
                         Ok(messages)
                     })
@@ -520,7 +520,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     return Ok(vec![(downstream_id, Mining::SubmitSharesError(submit_shares_error)).into()]);
                 };
 
-                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(channel_id, downstream_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id).into()) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
@@ -679,7 +679,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
                     return Ok(vec![(downstream_id, Mining::SubmitSharesError(error)).into()]);
                 };
 
-                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(channel_id, downstream_id)) else {
+                let Some(vardiff) = channel_manager_data.vardiff.get_mut(&(downstream_id, channel_id).into()) else {
                     return Err(PoolError::VardiffNotFound(channel_id));
                 };
 
