@@ -11,11 +11,13 @@ use crate::{error::JDCError, template_receiver::TemplateReceiver};
 impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
     type Error = JDCError;
 
+    type Output<'a> = ();
+
     async fn handle_setup_connection_success(
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         Ok(())
@@ -25,7 +27,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         _server_id: Option<usize>,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -34,7 +36,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         _server_id: Option<usize>,
         msg: Reconnect<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -43,7 +45,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         Err(JDCError::Shutdown)
     }

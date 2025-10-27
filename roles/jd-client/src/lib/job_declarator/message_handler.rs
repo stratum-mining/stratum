@@ -15,11 +15,13 @@ use crate::{
 impl HandleCommonMessagesFromServerAsync for JobDeclarator {
     type Error = JDCError;
 
+    type Output<'a> = ();
+
     async fn handle_setup_connection_success(
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let jd_mode = match msg.flags {
@@ -40,7 +42,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
         &mut self,
         _server_id: Option<usize>,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -49,7 +51,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
         &mut self,
         _server_id: Option<usize>,
         msg: Reconnect<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -58,7 +60,7 @@ impl HandleCommonMessagesFromServerAsync for JobDeclarator {
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         Err(JDCError::Shutdown)
     }

@@ -12,11 +12,13 @@ use tracing::info;
 impl HandleCommonMessagesFromClientAsync for Downstream {
     type Error = PoolError;
 
+    type Output<'a> = ();
+
     async fn handle_setup_connection(
         &mut self,
         _client_id: Option<usize>,
         msg: SetupConnection<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!(
             "Received `SetupConnection`: version={}, flags={:b}",
             msg.min_version, msg.flags

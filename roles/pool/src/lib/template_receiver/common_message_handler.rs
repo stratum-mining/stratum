@@ -11,11 +11,13 @@ use crate::{error::PoolError, template_receiver::TemplateReceiver};
 impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
     type Error = PoolError;
 
+    type Output<'a> = ();
+
     async fn handle_setup_connection_success(
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!(
             "Received `SetupConnectionSuccess` from TP: version={}, flags={:b}",
             msg.used_version, msg.flags
@@ -27,7 +29,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         _server_id: Option<usize>,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!(
             "Received ChannelEndpointChanged with channel id: {}",
             msg.channel_id
@@ -39,7 +41,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         _server_id: Option<usize>,
         msg: Reconnect<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -48,7 +50,7 @@ impl HandleCommonMessagesFromServerAsync for TemplateReceiver {
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         error!(
             "Received `SetupConnectionError` from TP with error code {}",
             std::str::from_utf8(msg.error_code.as_ref()).unwrap_or("unknown error code")
