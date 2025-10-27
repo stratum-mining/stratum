@@ -27,6 +27,8 @@ use crate::{
 impl HandleMiningMessagesFromServerAsync for ChannelManager {
     type Error = JDCError;
 
+    type Output<'a> = ();
+
     fn get_channel_type_for_server(&self, _server_id: Option<usize>) -> SupportedChannelTypes {
         SupportedChannelTypes::Extended
     }
@@ -46,7 +48,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: OpenStandardMiningChannelSuccess<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         info!(
             "⚠️ JDC can only open extended channels with the upstream server, preparing fallback."
@@ -76,7 +78,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: OpenExtendedMiningChannelSuccess<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let coinbase_outputs = self
@@ -275,7 +277,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: OpenMiningChannelError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ Cannot open extended channel with the upstream server, preparing fallback.");
 
@@ -294,7 +296,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: UpdateChannelError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         Ok(())
     }
@@ -307,7 +309,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: CloseChannel<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         self.channel_manager_data.super_safe_lock(|data| {
@@ -333,7 +335,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetExtranoncePrefix<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         let messages_results =
             self.channel_manager_data
@@ -477,7 +479,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SubmitSharesSuccess,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {} ✅", msg);
         Ok(())
     }
@@ -487,7 +489,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SubmitSharesError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {} ❌", msg);
         Ok(())
     }
@@ -497,7 +499,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: NewMiningJob<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect jobs from the upstream server — ignoring.");
         Ok(())
@@ -508,7 +510,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: NewExtendedMiningJob<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect jobs from the upstream server — ignoring.");
         Ok(())
@@ -519,7 +521,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetNewPrevHash<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect prevhash updates from the upstream server — ignoring.");
         Ok(())
@@ -535,7 +537,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetCustomMiningJobSuccess,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {} ✅", msg);
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(last_declare_job) = data.last_declare_job_store.remove(&msg.request_id) {
@@ -574,7 +576,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetCustomMiningJobError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("⚠️ Received: {} ❌", msg);
         warn!("⚠️ Starting fallback mechanism.");
         _ = self
@@ -594,7 +596,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetTarget<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         self.channel_manager_data.super_safe_lock(|data| {
             if let Some(ref mut upstream) = data.upstream_channel {
@@ -611,7 +613,7 @@ impl HandleMiningMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetGroupChannel<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDC does not expect group channel updates from the upstream server — ignoring.");
         Ok(())
