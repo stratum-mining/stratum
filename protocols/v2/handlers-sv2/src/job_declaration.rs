@@ -17,23 +17,28 @@ use crate::error::HandlerErrorType;
 /// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleJobDeclarationMessagesFromServerSync {
     type Error: HandlerErrorType;
-    fn handle_job_declaration_message_frame_from_server(
-        &mut self,
+
+    type Output<'a>
+    where
+        Self: 'a;
+
+    fn handle_job_declaration_message_frame_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
         self.handle_job_declaration_message_from_server(server_id, parsed)
     }
 
-    fn handle_job_declaration_message_from_server(
-        &mut self,
+    fn handle_job_declaration_message_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message: JobDeclaration<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         match message {
             JobDeclaration::AllocateMiningJobTokenSuccess(msg) => {
                 self.handle_allocate_mining_job_token_success(server_id, msg)
@@ -62,29 +67,29 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
         }
     }
 
-    fn handle_allocate_mining_job_token_success(
-        &mut self,
+    fn handle_allocate_mining_job_token_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: AllocateMiningJobTokenSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_declare_mining_job_success(
-        &mut self,
+    fn handle_declare_mining_job_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: DeclareMiningJobSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_declare_mining_job_error(
-        &mut self,
+    fn handle_declare_mining_job_error<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: DeclareMiningJobError,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_provide_missing_transactions(
-        &mut self,
+    fn handle_provide_missing_transactions<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: ProvideMissingTransactions,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Asynchronous handler trait for processing job declaration messages received from servers.
@@ -96,12 +101,17 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
 #[trait_variant::make(Send)]
 pub trait HandleJobDeclarationMessagesFromServerAsync {
     type Error: HandlerErrorType;
-    async fn handle_job_declaration_message_frame_from_server(
-        &mut self,
+
+    type Output<'a>
+    where
+        Self: 'a;
+
+    async fn handle_job_declaration_message_frame_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             let parsed: JobDeclaration<'_> = (message_type, payload)
                 .try_into()
@@ -111,11 +121,11 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
         }
     }
 
-    async fn handle_job_declaration_message_from_server(
-        &mut self,
+    async fn handle_job_declaration_message_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message: JobDeclaration<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             match message {
                 JobDeclaration::AllocateMiningJobTokenSuccess(msg) => {
@@ -150,29 +160,29 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
         }
     }
 
-    async fn handle_allocate_mining_job_token_success(
-        &mut self,
+    async fn handle_allocate_mining_job_token_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: AllocateMiningJobTokenSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_declare_mining_job_success(
-        &mut self,
+    async fn handle_declare_mining_job_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: DeclareMiningJobSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_declare_mining_job_error(
-        &mut self,
+    async fn handle_declare_mining_job_error<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: DeclareMiningJobError,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_provide_missing_transactions(
-        &mut self,
+    async fn handle_provide_missing_transactions<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: ProvideMissingTransactions,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Synchronous handler trait for processing job declaration messages received from clients.
@@ -184,23 +194,27 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
 pub trait HandleJobDeclarationMessagesFromClientSync {
     type Error: HandlerErrorType;
 
-    fn handle_job_declaration_message_frame_from_client(
-        &mut self,
+    type Output<'a>
+    where
+        Self: 'a;
+
+    fn handle_job_declaration_message_frame_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         let parsed: JobDeclaration<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
         self.handle_job_declaration_message_from_client(client_id, parsed)
     }
 
-    fn handle_job_declaration_message_from_client(
-        &mut self,
+    fn handle_job_declaration_message_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message: JobDeclaration<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         match message {
             JobDeclaration::AllocateMiningJobToken(msg) => {
                 self.handle_allocate_mining_job_token(client_id, msg)
@@ -226,29 +240,29 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
         }
     }
 
-    fn handle_allocate_mining_job_token(
-        &mut self,
+    fn handle_allocate_mining_job_token<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: AllocateMiningJobToken,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_declare_mining_job(
+    fn handle_declare_mining_job<'a>(
         &mut self,
         client_id: Option<usize>,
         msg: DeclareMiningJob,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_provide_missing_transactions_success(
-        &mut self,
+    fn handle_provide_missing_transactions_success<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: ProvideMissingTransactionsSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_push_solution(
-        &mut self,
+    fn handle_push_solution<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: PushSolution,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Asynchronous handler trait for processing job declaration messages received from clients.
@@ -261,12 +275,16 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
 pub trait HandleJobDeclarationMessagesFromClientAsync {
     type Error: HandlerErrorType;
 
-    async fn handle_job_declaration_message_frame_from_client(
-        &mut self,
+    type Output<'a>
+    where
+        Self: 'a;
+
+    async fn handle_job_declaration_message_frame_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             let parsed: JobDeclaration<'_> = (message_type, payload)
                 .try_into()
@@ -276,11 +294,11 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
         }
     }
 
-    async fn handle_job_declaration_message_from_client(
-        &mut self,
+    async fn handle_job_declaration_message_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message: JobDeclaration<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             match message {
                 JobDeclaration::AllocateMiningJobToken(msg) => {
@@ -313,27 +331,27 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
         }
     }
 
-    async fn handle_allocate_mining_job_token(
-        &mut self,
+    async fn handle_allocate_mining_job_token<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: AllocateMiningJobToken,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_declare_mining_job(
-        &mut self,
+    async fn handle_declare_mining_job<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: DeclareMiningJob,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_provide_missing_transactions_success(
-        &mut self,
+    async fn handle_provide_missing_transactions_success<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: ProvideMissingTransactionsSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_push_solution(
-        &mut self,
+    async fn handle_push_solution<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: PushSolution,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }

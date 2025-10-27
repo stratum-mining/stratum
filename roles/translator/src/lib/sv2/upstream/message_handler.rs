@@ -10,11 +10,13 @@ use tracing::{error, info};
 impl HandleCommonMessagesFromServerAsync for Upstream {
     type Error = TproxyError;
 
+    type Output<'a> = ();
+
     async fn handle_setup_connection_error(
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         error!("Received: {}", msg);
         todo!()
     }
@@ -23,7 +25,7 @@ impl HandleCommonMessagesFromServerAsync for Upstream {
         &mut self,
         _server_id: Option<usize>,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         Ok(())
     }
@@ -32,7 +34,7 @@ impl HandleCommonMessagesFromServerAsync for Upstream {
         &mut self,
         _server_id: Option<usize>,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         todo!()
     }
@@ -41,7 +43,7 @@ impl HandleCommonMessagesFromServerAsync for Upstream {
         &mut self,
         _server_id: Option<usize>,
         msg: Reconnect<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         todo!()
     }

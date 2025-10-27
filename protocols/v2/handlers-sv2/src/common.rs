@@ -14,23 +14,28 @@ use crate::error::HandlerErrorType;
 /// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleCommonMessagesFromServerSync {
     type Error: HandlerErrorType;
-    fn handle_common_message_frame_from_server(
-        &mut self,
+
+    type Output<'a>
+    where
+        Self: 'a;
+
+    fn handle_common_message_frame_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         let parsed: CommonMessages<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
         self.handle_common_message_from_server(server_id, parsed)
     }
 
-    fn handle_common_message_from_server(
-        &mut self,
+    fn handle_common_message_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message: CommonMessages<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         match message {
             CommonMessages::SetupConnectionSuccess(msg) => {
                 self.handle_setup_connection_success(server_id, msg)
@@ -49,29 +54,29 @@ pub trait HandleCommonMessagesFromServerSync {
         }
     }
 
-    fn handle_setup_connection_success(
-        &mut self,
+    fn handle_setup_connection_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_setup_connection_error(
-        &mut self,
+    fn handle_setup_connection_error<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: SetupConnectionError,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_channel_endpoint_changed(
-        &mut self,
+    fn handle_channel_endpoint_changed<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_reconnect(
-        &mut self,
+    fn handle_reconnect<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: Reconnect,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Asynchronous handler trait for processing common messages received from servers.
@@ -83,12 +88,17 @@ pub trait HandleCommonMessagesFromServerSync {
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromServerAsync {
     type Error: HandlerErrorType;
-    async fn handle_common_message_frame_from_server(
-        &mut self,
+
+    type Output<'a>
+    where
+        Self: 'a;
+
+    async fn handle_common_message_frame_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             let parsed: CommonMessages<'_> = (message_type, payload)
                 .try_into()
@@ -98,11 +108,11 @@ pub trait HandleCommonMessagesFromServerAsync {
         }
     }
 
-    async fn handle_common_message_from_server(
-        &mut self,
+    async fn handle_common_message_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message: CommonMessages<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             match message {
                 CommonMessages::SetupConnectionSuccess(msg) => {
@@ -123,29 +133,29 @@ pub trait HandleCommonMessagesFromServerAsync {
         }
     }
 
-    async fn handle_setup_connection_success(
-        &mut self,
+    async fn handle_setup_connection_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: SetupConnectionSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_setup_connection_error(
-        &mut self,
+    async fn handle_setup_connection_error<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: SetupConnectionError,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_channel_endpoint_changed(
-        &mut self,
+    async fn handle_channel_endpoint_changed<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: ChannelEndpointChanged,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_reconnect(
-        &mut self,
+    async fn handle_reconnect<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: Reconnect,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Synchronous handler trait for processing common messages received from clients.
@@ -156,23 +166,28 @@ pub trait HandleCommonMessagesFromServerAsync {
 /// irrelevant or can be inferred without the context, this should always be `None`.
 pub trait HandleCommonMessagesFromClientSync {
     type Error: HandlerErrorType;
-    fn handle_common_message_frame_from_client(
+
+    type Output<'a>
+    where
+        Self: 'a;
+
+    fn handle_common_message_frame_from_client<'a>(
         &mut self,
         client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         let parsed: CommonMessages<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
         self.handle_common_message_from_client(client_id, parsed)
     }
 
-    fn handle_common_message_from_client(
+    fn handle_common_message_from_client<'a>(
         &mut self,
         client_id: Option<usize>,
         message: CommonMessages<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         match message {
             CommonMessages::SetupConnectionSuccess(_) => Err(Self::Error::unexpected_message(
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
@@ -191,11 +206,11 @@ pub trait HandleCommonMessagesFromClientSync {
         }
     }
 
-    fn handle_setup_connection(
+    fn handle_setup_connection<'a>(
         &mut self,
         client_id: Option<usize>,
         msg: SetupConnection,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Asynchronous handler trait for processing common messages received from clients.
@@ -207,12 +222,17 @@ pub trait HandleCommonMessagesFromClientSync {
 #[trait_variant::make(Send)]
 pub trait HandleCommonMessagesFromClientAsync {
     type Error: HandlerErrorType;
-    async fn handle_common_message_frame_from_client(
-        &mut self,
+
+    type Output<'a>
+    where
+        Self: 'a;
+
+    async fn handle_common_message_frame_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             let parsed: CommonMessages<'_> = (message_type, payload)
                 .try_into()
@@ -222,11 +242,11 @@ pub trait HandleCommonMessagesFromClientAsync {
         }
     }
 
-    async fn handle_common_message_from_client(
-        &mut self,
+    async fn handle_common_message_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message: CommonMessages<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             match message {
                 CommonMessages::SetupConnectionSuccess(_) => Err(Self::Error::unexpected_message(
@@ -248,9 +268,9 @@ pub trait HandleCommonMessagesFromClientAsync {
         }
     }
 
-    async fn handle_setup_connection(
-        &mut self,
+    async fn handle_setup_connection<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: SetupConnection,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }

@@ -22,6 +22,8 @@ use crate::{
 impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
     type Error = JDCError;
 
+    type Output<'a> = ();
+
     // Handles a `NewTemplate` message from the Template Provider.
     //
     // Behavior depends on the JD mode:
@@ -38,7 +40,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: NewTemplate<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let coinbase_outputs = self.channel_manager_data.super_safe_lock(|data| {
@@ -250,7 +252,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: RequestTransactionDataError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         let error_code = msg.error_code.as_utf8_or_hex();
 
@@ -275,7 +277,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: RequestTransactionDataSuccess<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let transactions_data = msg.transaction_list;
@@ -405,7 +407,7 @@ impl HandleTemplateDistributionMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: SetNewPrevHash<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let coinbase_outputs = self

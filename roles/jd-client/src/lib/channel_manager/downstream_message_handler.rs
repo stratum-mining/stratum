@@ -125,6 +125,8 @@ impl RouteMessageTo<'_> {
 impl HandleMiningMessagesFromClientAsync for ChannelManager {
     type Error = JDCError;
 
+    type Output<'a> = ();
+
     fn get_channel_type_for_client(&self, _client_id: Option<usize>) -> SupportedChannelTypes {
         SupportedChannelTypes::GroupAndExtended
     }
@@ -147,7 +149,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: CloseChannel<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         self.channel_manager_data
             .super_safe_lock(|channel_manager_data| {
@@ -198,7 +200,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: OpenStandardMiningChannel<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         let request_id = msg.get_request_id_as_u32();
         let user_string = msg.user_identity.as_utf8_or_hex();
 
@@ -506,7 +508,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: OpenExtendedMiningChannel<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         let user_string = msg.user_identity.as_utf8_or_hex();
         let (user_identity, downstream_id) = match user_string.rsplit_once('#') {
             Some((user_identity, id)) => match id.parse::<u32>() {
@@ -726,7 +728,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: UpdateChannel<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
         let channel_id = msg.channel_id;
         let new_nominal_hash_rate = msg.nominal_hash_rate;
@@ -925,7 +927,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: SubmitSharesStandard,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received SubmitSharesStandard");
         let channel_id = msg.channel_id;
         let job_id = msg.job_id;
@@ -1121,7 +1123,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: SubmitSharesExtended<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received SubmitSharesExtended");
         let channel_id = msg.channel_id;
         let job_id = msg.job_id;
@@ -1308,7 +1310,7 @@ impl HandleMiningMessagesFromClientAsync for ChannelManager {
         &mut self,
         _client_id: Option<usize>,
         msg: SetCustomMiningJob<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         Err(Self::Error::UnexpectedMessage(
             MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,

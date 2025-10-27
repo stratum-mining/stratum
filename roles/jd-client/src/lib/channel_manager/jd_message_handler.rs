@@ -25,6 +25,8 @@ use crate::{
 impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
     type Error = JDCError;
 
+    type Output<'a> = ();
+
     // Handles a successful `AllocateMiningJobToken` response from the JDS.
     //
     // When the JDS confirms job token allocation:
@@ -38,7 +40,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: AllocateMiningJobTokenSuccess<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let coinbase_changed = self.channel_manager_data.super_safe_lock(|data| {
@@ -118,7 +120,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: DeclareMiningJobError<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         warn!("Received: {}", msg);
         warn!("⚠️ JDS refused the declared job with a DeclareMiningJobError ❌. Starting fallback mechanism.");
         self.channel_manager_channel
@@ -152,7 +154,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: DeclareMiningJobSuccess<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         let Some(last_declare_job) = self
@@ -233,7 +235,7 @@ impl HandleJobDeclarationMessagesFromServerAsync for ChannelManager {
         &mut self,
         _server_id: Option<usize>,
         msg: ProvideMissingTransactions<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         let request_id = msg.request_id;
 
         info!("Received: {}", msg);

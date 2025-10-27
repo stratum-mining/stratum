@@ -12,6 +12,9 @@ use tracing::info;
 
 impl HandleCommonMessagesFromClientAsync for Downstream {
     type Error = JDCError;
+
+    type Output<'a> = ();
+
     // Handles the initial [`SetupConnection`] message from a downstream client.
     //
     // This method validates that the connection request is compatible with the
@@ -37,7 +40,7 @@ impl HandleCommonMessagesFromClientAsync for Downstream {
         &mut self,
         _client_id: Option<usize>,
         msg: SetupConnection<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'_>, Self::Error> {
         info!("Received: {}", msg);
 
         if msg.protocol != Protocol::MiningProtocol {
