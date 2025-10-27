@@ -18,23 +18,27 @@ use crate::error::HandlerErrorType;
 pub trait HandleTemplateDistributionMessagesFromServerSync {
     type Error: HandlerErrorType;
 
-    fn handle_template_distribution_message_frame_from_server(
-        &mut self,
+    type Output<'a>
+    where
+        Self: 'a;
+
+    fn handle_template_distribution_message_frame_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         let parsed: TemplateDistribution<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
         self.handle_template_distribution_message_from_server(server_id, parsed)
     }
 
-    fn handle_template_distribution_message_from_server(
-        &mut self,
+    fn handle_template_distribution_message_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message: TemplateDistribution<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         match message {
             TemplateDistribution::NewTemplate(m) => self.handle_new_template(server_id, m),
             TemplateDistribution::SetNewPrevHash(m) => self.handle_set_new_prev_hash(server_id, m),
@@ -56,29 +60,29 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
             )),
         }
     }
-    fn handle_new_template(
-        &mut self,
+    fn handle_new_template<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: NewTemplate,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_set_new_prev_hash(
-        &mut self,
+    fn handle_set_new_prev_hash<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: SetNewPrevHash,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_request_tx_data_success(
-        &mut self,
+    fn handle_request_tx_data_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: RequestTransactionDataSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_request_tx_data_error(
-        &mut self,
+    fn handle_request_tx_data_error<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: RequestTransactionDataError,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Asynchronous handler trait for processing template distribution messages received from servers.
@@ -91,12 +95,16 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
 pub trait HandleTemplateDistributionMessagesFromServerAsync {
     type Error: HandlerErrorType;
 
-    async fn handle_template_distribution_message_frame_from_server(
-        &mut self,
+    type Output<'a>
+    where
+        Self: 'a;
+
+    async fn handle_template_distribution_message_frame_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             let parsed: TemplateDistribution<'_> = (message_type, payload)
                 .try_into()
@@ -106,11 +114,11 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
         }
     }
 
-    async fn handle_template_distribution_message_from_server(
-        &mut self,
+    async fn handle_template_distribution_message_from_server<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         message: TemplateDistribution<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             match message {
                 TemplateDistribution::NewTemplate(m) => {
@@ -138,29 +146,29 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
             }
         }
     }
-    async fn handle_new_template(
-        &mut self,
+    async fn handle_new_template<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: NewTemplate,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_set_new_prev_hash(
-        &mut self,
+    async fn handle_set_new_prev_hash<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: SetNewPrevHash,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_request_tx_data_success(
-        &mut self,
+    async fn handle_request_tx_data_success<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: RequestTransactionDataSuccess,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_request_tx_data_error(
-        &mut self,
+    async fn handle_request_tx_data_error<'a>(
+        &'a mut self,
         server_id: Option<usize>,
         msg: RequestTransactionDataError,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Synchronous handler trait for processing template distribution messages received from clients.
@@ -172,23 +180,27 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
 pub trait HandleTemplateDistributionMessagesFromClientSync {
     type Error: HandlerErrorType;
 
-    fn handle_template_distribution_message_frame_from_client(
-        &mut self,
+    type Output<'a>
+    where
+        Self: 'a;
+
+    fn handle_template_distribution_message_frame_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         let parsed: TemplateDistribution<'_> = (message_type, payload)
             .try_into()
             .map_err(Self::Error::parse_error)?;
         self.handle_template_distribution_message_from_client(client_id, parsed)
     }
 
-    fn handle_template_distribution_message_from_client(
-        &mut self,
+    fn handle_template_distribution_message_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message: TemplateDistribution<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         match message {
             TemplateDistribution::CoinbaseOutputConstraints(m) => {
                 self.handle_coinbase_output_constraints(client_id, m)
@@ -213,22 +225,23 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
         }
     }
 
-    fn handle_coinbase_output_constraints(
-        &mut self,
+    fn handle_coinbase_output_constraints<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: CoinbaseOutputConstraints,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    fn handle_request_tx_data(
-        &mut self,
+    fn handle_request_tx_data<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: RequestTransactionData,
-    ) -> Result<(), Self::Error>;
-    fn handle_submit_solution(
-        &mut self,
+    ) -> Result<Self::Output<'a>, Self::Error>;
+
+    fn handle_submit_solution<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: SubmitSolution,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
 
 /// Asynchronous handler trait for processing template distribution messages received from clients.
@@ -241,12 +254,16 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
 pub trait HandleTemplateDistributionMessagesFromClientAsync {
     type Error: HandlerErrorType;
 
-    async fn handle_template_distribution_message_frame_from_client(
-        &mut self,
+    type Output<'a>
+    where
+        Self: 'a;
+
+    async fn handle_template_distribution_message_frame_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             let parsed: TemplateDistribution<'_> = (message_type, payload)
                 .try_into()
@@ -256,11 +273,11 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
         }
     }
 
-    async fn handle_template_distribution_message_from_client(
-        &mut self,
+    async fn handle_template_distribution_message_from_client<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         message: TemplateDistribution<'_>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<Self::Output<'a>, Self::Error> {
         async move {
             match message {
                 TemplateDistribution::CoinbaseOutputConstraints(m) => {
@@ -289,20 +306,21 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
         }
     }
 
-    async fn handle_coinbase_output_constraints(
-        &mut self,
+    async fn handle_coinbase_output_constraints<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: CoinbaseOutputConstraints,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 
-    async fn handle_request_tx_data(
-        &mut self,
+    async fn handle_request_tx_data<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: RequestTransactionData,
-    ) -> Result<(), Self::Error>;
-    async fn handle_submit_solution(
-        &mut self,
+    ) -> Result<Self::Output<'a>, Self::Error>;
+
+    async fn handle_submit_solution<'a>(
+        &'a mut self,
         client_id: Option<usize>,
         msg: SubmitSolution,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Self::Output<'a>, Self::Error>;
 }
