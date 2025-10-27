@@ -24,6 +24,42 @@ pub enum StatusSender {
     ChannelManager(async_channel::Sender<Status>),
 }
 
+impl StatusSender {
+    pub fn into_downstream_sender(self, downstream_id: usize) -> StatusSender {
+        match self {
+            StatusSender::ChannelManager(tx) | StatusSender::TemplateReceiver(tx) => {
+                StatusSender::Downstream {
+                    downstream_id: downstream_id as u32,
+                    tx,
+                }
+            }
+            s @ StatusSender::Downstream { .. } => s,
+        }
+    }
+
+    pub fn into_channel_manager_sender(self) -> StatusSender {
+        match self {
+            StatusSender::Downstream {
+                downstream_id: _,
+                tx,
+            } => StatusSender::ChannelManager(tx),
+            StatusSender::TemplateReceiver(tx) => StatusSender::ChannelManager(tx),
+            s @ StatusSender::ChannelManager { .. } => s,
+        }
+    }
+
+    pub fn into_template_receiver_sender(self) -> StatusSender {
+        match self {
+            StatusSender::Downstream {
+                downstream_id: _,
+                tx,
+            } => StatusSender::TemplateReceiver(tx),
+            StatusSender::ChannelManager(tx) => StatusSender::TemplateReceiver(tx),
+            s @ StatusSender::TemplateReceiver { .. } => s,
+        }
+    }
+}
+
 /// High-level identifier of a component type that can send status updates.
 #[derive(Debug, PartialEq, Eq)]
 pub enum StatusType {
