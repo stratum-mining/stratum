@@ -46,7 +46,7 @@ mod mining_message_handler;
 mod template_distribution_message_handler;
 
 const POOL_ALLOCATION_BYTES: usize = 4;
-const CLIENT_SEARCH_SPACE_BYTES: usize = 8;
+const CLIENT_SEARCH_SPACE_BYTES: usize = 16;
 pub const FULL_EXTRANONCE_SIZE: usize = POOL_ALLOCATION_BYTES + CLIENT_SEARCH_SPACE_BYTES;
 
 pub struct ChannelManagerData {
