@@ -29,5 +29,9 @@ pub mod chain_tip;
 pub mod client;
 pub mod merkle_root;
 pub mod target;
+
+#[cfg(not(feature = "no_std"))]
 pub mod vardiff;
+
+#[cfg(not(feature = "no_std"))]
 pub use vardiff::{classic::VardiffState, Vardiff};

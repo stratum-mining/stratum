@@ -260,8 +260,7 @@ impl InnerMemory {
     fn get_front_capacity(&self, back_start: usize) -> usize {
         #[cfg(feature = "fuzz")]
         assert!(
-            back_start >= 1
-                && back_start < POOL_CAPACITY
+            (1..POOL_CAPACITY).contains(&back_start)
                 && self.slots[back_start].0 != 0_usize
                 && self.slots[back_start].1 != 0_usize
                 && self.slots[back_start].0 + self.slots[back_start].1 <= self.pool.len()

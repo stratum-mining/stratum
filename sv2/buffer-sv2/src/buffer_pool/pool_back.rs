@@ -123,10 +123,9 @@ impl PoolBack {
 
                 #[cfg(feature = "fuzz")]
                 assert!(
-                    self.len + self.back_start <= POOL_CAPACITY
-                        && self.len + element_to_drop + already_dropped + self.back_start
-                            == POOL_CAPACITY
-                        && self.len + self.back_start <= POOL_CAPACITY
+                    !(self.len + self.back_start > POOL_CAPACITY
+                        || self.len + element_to_drop + already_dropped + self.back_start
+                            != POOL_CAPACITY)
                 );
 
                 memory.try_change_len(self.len + self.back_start, len)

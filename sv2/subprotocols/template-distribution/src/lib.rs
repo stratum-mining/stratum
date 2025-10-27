@@ -94,8 +94,8 @@ impl NewTemplate<'static> {
 impl CoinbaseOutputConstraints {
     pub fn from_gen(g: &mut Gen) -> Self {
         CoinbaseOutputConstraints {
-            coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
-            coinbase_output_max_additional_sigops: u16::arbitrary(g).try_into().unwrap(),
+            coinbase_output_max_additional_size: u32::arbitrary(g),
+            coinbase_output_max_additional_sigops: u16::arbitrary(g),
         }
     }
 }
@@ -104,7 +104,7 @@ impl CoinbaseOutputConstraints {
 impl RequestTransactionData {
     pub fn from_gen(g: &mut Gen) -> Self {
         RequestTransactionData {
-            template_id: u64::arbitrary(g).try_into().unwrap(),
+            template_id: u64::arbitrary(g),
         }
     }
 }
@@ -118,7 +118,7 @@ impl RequestTransactionDataError<'static> {
         let error_code: binary_sv2::Str0255 = error_code.try_into().unwrap();
 
         RequestTransactionDataError {
-            template_id: u64::arbitrary(g).try_into().unwrap(),
+            template_id: u64::arbitrary(g),
             error_code,
         }
     }
@@ -133,7 +133,7 @@ impl RequestTransactionDataSuccess<'static> {
             vec![transaction_list_inner].into();
 
         RequestTransactionDataSuccess {
-            template_id: u64::arbitrary(g).try_into().unwrap(),
+            template_id: u64::arbitrary(g),
             excess_data,
             transaction_list,
         }
@@ -146,10 +146,10 @@ impl SetNewPrevHash<'static> {
         let prev_hash = binary_sv2::U256::from_gen(g);
         let target = binary_sv2::U256::from_gen(g);
         SetNewPrevHash {
-            template_id: u64::arbitrary(g).try_into().unwrap(),
+            template_id: u64::arbitrary(g),
             prev_hash,
-            header_timestamp: u32::arbitrary(g).try_into().unwrap(),
-            n_bits: u32::arbitrary(g).try_into().unwrap(),
+            header_timestamp: u32::arbitrary(g),
+            n_bits: u32::arbitrary(g),
             target,
         }
     }
@@ -160,10 +160,10 @@ impl SubmitSolution<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
         let coinbase_tx: binary_sv2::B064K = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
         SubmitSolution {
-            template_id: u64::arbitrary(g).try_into().unwrap(),
-            version: u32::arbitrary(g).try_into().unwrap(),
-            header_timestamp: u32::arbitrary(g).try_into().unwrap(),
-            header_nonce: u32::arbitrary(g).try_into().unwrap(),
+            template_id: u64::arbitrary(g),
+            version: u32::arbitrary(g),
+            header_timestamp: u32::arbitrary(g),
+            header_nonce: u32::arbitrary(g),
             coinbase_tx,
         }
     }
