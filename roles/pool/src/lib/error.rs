@@ -21,6 +21,7 @@ use stratum_apps::stratum_core::{
 };
 
 pub type PoolResult<T> = Result<T, PoolError>;
+pub type ContextualPoolResult<T> = Result<T, ContextualError>;
 
 #[derive(Debug)]
 pub enum ChannelSv2Error {
@@ -140,6 +141,47 @@ impl std::fmt::Display for PoolError {
                 write!(f, "Failed to create group channel: {e:?}")
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum ContextualError {
+    Downstream {
+        downstream_id: usize,
+        error: Box<PoolError>,
+    },
+    ChannelManager {
+        error: Box<PoolError>,
+    },
+    TemplateReceiver {
+        error: Box<PoolError>,
+    },
+}
+
+pub trait WithContext<T> {
+    fn with_downstream_context(self, downstream_id: usize) -> Result<T, ContextualError>;
+    fn with_template_receiver_context(self) -> Result<T, ContextualError>;
+    fn with_channel_manager_context(self) -> Result<T, ContextualError>;
+}
+
+impl<T> WithContext<T> for PoolResult<T> {
+    fn with_downstream_context(self, downstream_id: usize) -> Result<T, ContextualError> {
+        self.map_err(|error| ContextualError::Downstream {
+            downstream_id,
+            error: Box::new(error),
+        })
+    }
+
+    fn with_template_receiver_context(self) -> Result<T, ContextualError> {
+        self.map_err(|error| ContextualError::TemplateReceiver {
+            error: Box::new(error),
+        })
+    }
+
+    fn with_channel_manager_context(self) -> Result<T, ContextualError> {
+        self.map_err(|error| ContextualError::ChannelManager {
+            error: Box::new(error),
+        })
     }
 }
 
