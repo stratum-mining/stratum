@@ -28,10 +28,7 @@ impl StatusSender {
     pub fn into_downstream_sender(self, downstream_id: usize) -> StatusSender {
         match self {
             StatusSender::ChannelManager(tx) | StatusSender::TemplateReceiver(tx) => {
-                StatusSender::Downstream {
-                    downstream_id: downstream_id as u32,
-                    tx,
-                }
+                StatusSender::Downstream { downstream_id, tx }
             }
             s @ StatusSender::Downstream { .. } => s,
         }

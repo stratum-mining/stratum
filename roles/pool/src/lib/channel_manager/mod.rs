@@ -36,7 +36,7 @@ use tracing::{debug, error, info, warn};
 use crate::{
     config::PoolConfig,
     downstream::Downstream,
-    error::PoolResult,
+    error::{ContextualError, ContextualPoolResult, PoolResult, WithContext},
     status::{handle_error, Status, StatusSender},
     task_manager::TaskManager,
     utils::{Message, ShutdownMessage, VardiffKey},
@@ -276,7 +276,7 @@ impl ChannelManager {
         status_sender: Sender<Status>,
         task_manager: Arc<TaskManager>,
     ) -> PoolResult<()> {
-        let status_sender = StatusSender::ChannelManager(status_sender);
+        let mut status_sender = StatusSender::ChannelManager(status_sender);
         let mut shutdown_rx = notify_shutdown.subscribe();
 
         task_manager.spawn(async move {
@@ -310,16 +310,18 @@ impl ChannelManager {
                         info!("Vardiff loop completed with: {res:?}");
                     }
                     res = cm_template.handle_template_provider_message() => {
-                        if let Err(e) = res {
-                            error!(error = ?e, "Error handling Template Receiver message");
-                            handle_error(&status_sender, e).await;
+                        if let Err(ContextualError::TemplateReceiver { error }) = res {
+                            status_sender = status_sender.into_template_receiver_sender();
+                            error!(error = ?error, "Error handling Template Receiver message");
+                            handle_error(&status_sender, *error).await;
                             break;
                         }
                     }
                     res = cm_downstreams.handle_downstream_mining_message() => {
-                        if let Err(e) = res {
-                            error!(error = ?e, "Error handling Downstreams message");
-                            handle_error(&status_sender, e).await;
+                        if let Err(ContextualError::Downstream { downstream_id, error }) = res {
+                            status_sender = status_sender.into_downstream_sender(downstream_id);
+                            error!(error = ?error, "Error handling Downstreams message");
+                            handle_error(&status_sender, *error).await;
                             break;
                         }
                     }
@@ -347,15 +349,16 @@ impl ChannelManager {
     // - If the frame contains a TemplateDistribution message, it forwards it to the template
     //   distribution message handler.
     // - If the frame contains any unsupported message type, an error is returned.
-    async fn handle_template_provider_message(&mut self) -> PoolResult<()> {
+    async fn handle_template_provider_message(&mut self) -> ContextualPoolResult<()> {
         if let Ok(message) = self.channel_manager_channel.tp_receiver.recv().await {
             self.handle_template_distribution_message_from_server(None, message)
-                .await?;
+                .await
+                .with_template_receiver_context()?;
         }
         Ok(())
     }
 
-    async fn handle_downstream_mining_message(&mut self) -> PoolResult<()> {
+    async fn handle_downstream_mining_message(&mut self) -> ContextualPoolResult<()> {
         if let Ok((downstream_id, message)) = self
             .channel_manager_channel
             .downstream_receiver
@@ -363,7 +366,8 @@ impl ChannelManager {
             .await
         {
             self.handle_mining_message_from_client(Some(downstream_id), message)
-                .await?;
+                .await
+                .with_downstream_context(downstream_id)?;
         }
 
         Ok(())
