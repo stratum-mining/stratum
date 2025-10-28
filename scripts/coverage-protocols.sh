@@ -13,6 +13,7 @@ crates=(
   "sv1"
   "sv2/binary-sv2/derive_codec"
   "sv2/binary-sv2"
+  "sv2/buffer-sv2"
   "sv2/channels-sv2"
   "sv2/noise-sv2"
   "sv2/framing-sv2"
@@ -21,9 +22,9 @@ crates=(
   "sv2/subprotocols/template-distribution"
   "sv2/subprotocols/mining"
   "sv2/subprotocols/job-declaration"
-  "sv2/roles-logic-sv2"
   "sv2/parsers-sv2"
   "sv2/handlers-sv2"
+  "stratum-core/stratum-translation"
 )
 
 for crate in "${crates[@]}"; do
