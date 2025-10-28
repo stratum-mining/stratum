@@ -1,7 +1,0 @@
-[default]
-run-types = [ "Lib" ]
-timeout = "120s"
-fail-under = 0
-
-[report]
-out = ["Xml"]

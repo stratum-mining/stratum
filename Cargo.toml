@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "stratum-core",
+]
+
+exclude = [
+    "integration-test-framework"
+]
+
+[profile.dev]
+# Required by super_safe_lock
+opt-level = 1
+
+[profile.test]
+# Required by super_safe_lock
+opt-level = 1

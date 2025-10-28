@@ -1,18 +1,49 @@
+name: Rust CI
+
 on:
   pull_request:
     branches:
       - main
 
-name: Test, Prop Tests, Example Tests
-
 jobs:
-  ci:
+  test-core:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os:
-          - macos-latest
           - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: |
+          cargo test --verbose
+
+  run_examples:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
@@ -20,69 +51,36 @@ jobs:
             target: x86_64-unknown-linux-musl
 
     steps:
-      - name: Install stable toolchain & components
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
+          profile: minimal
           override: true
 
       - name: Build
         run: |
-          cargo build --manifest-path=stratum-core/Cargo.toml
-          cargo build --manifest-path=protocols/Cargo.toml
-          cargo build --manifest-path=roles/Cargo.toml
-          cargo build --manifest-path=utils/Cargo.toml
-          cargo build --manifest-path=roles/stratum-apps/Cargo.toml
+          cargo build --workspace
 
-      - name: Run sv1-client-and-server example
+      - name: Run examples
         run: |
-          cargo run --manifest-path=protocols/v1/Cargo.toml --example client_and_server 30
+          cargo run --manifest-path=sv1/Cargo.toml --example client_and_server 30
+          cargo run --manifest-path=sv2/framing-sv2/Cargo.toml --example sv2_frame
+          cargo run --manifest-path=sv2/codec-sv2/Cargo.toml --example unencrypted
+          cargo run --manifest-path=sv2/codec-sv2/Cargo.toml --example encrypted --features=noise_sv2
+          cargo run --manifest-path=sv2/binary-sv2/Cargo.toml --example encode_decode
+          cargo run --manifest-path=sv2/noise-sv2/Cargo.toml --example handshake
 
-      - name: Run framing-sv2 example
-        run: |
-          cargo run --manifest-path=protocols/v2/framing-sv2/Cargo.toml --example sv2_frame
-
-      - name: Run codec-sv2 examples
-        run: |
-          cargo run --manifest-path=protocols/v2/codec-sv2/Cargo.toml --example unencrypted
-          cargo run --manifest-path=protocols/v2/codec-sv2/Cargo.toml --example encrypted --features=noise_sv2
-
-      - name: Run binary-sv2 examples
-        run: |
-          cargo run --manifest-path=protocols/v2/binary-sv2/Cargo.toml --example encode_decode
-
-      - name: Run noise-sv2 examples
-        run: |
-          cargo run --manifest-path=protocols/v2/noise-sv2/Cargo.toml --example handshake
-
-      - name: fuzz tests
+      - name: Fuzz tests
         run: |
           if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
             ./run.sh 30
           else
             echo "Skipping fuzz test on ${{ matrix.os }} - not supported"
           fi
-        working-directory: utils/buffer/fuzz
+        working-directory: sv2/buffer-sv2/fuzz
 
-      - name: Test
-        run: |
-          cargo test --manifest-path=stratum-core/Cargo.toml
-          cargo test --manifest-path=protocols/Cargo.toml
-          cargo test --manifest-path=roles/Cargo.toml
-          cargo test --manifest-path=utils/Cargo.toml
-          cargo test --manifest-path=roles/stratum-apps/Cargo.toml --features config
-          cargo test --manifest-path=roles/stratum-apps/Cargo.toml sv1_connection::tests::test_sv1_connection --features sv1
-          cargo test --manifest-path=protocols/stratum-translation/Cargo.toml
-
-      - name: Property based testing
-        run: |
-          cargo test --manifest-path=protocols/Cargo.toml --features prop_test
-
-      - name: Run ping-pong-encrypted example
-        run: |
-          cargo run --manifest-path=examples/ping-pong-encrypted/Cargo.toml
-
-      - name: Run ping-pong example
-        run: |
-          cargo run --manifest-path=examples/ping-pong/Cargo.toml
+      - name: Property-based testing
+        run: cargo test --features prop_test
