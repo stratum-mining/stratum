@@ -29,6 +29,22 @@ jobs:
           flags: protocols
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Upload stratum_translation-coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./target/tarpaulin-reports/stratum_translation-coverage
+          file: ./target/tarpaulin-reports/stratum-translation-coverage/cobertura.xml
+          flags: stratum_translation-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload buffer_sv2-coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./target/tarpaulin-reports/buffer_sv2-coverage
+          file: ./target/tarpaulin-reports/buffer-sv2-coverage/cobertura.xml
+          flags: buffer_sv2-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload binary_codec_sv2-coverage to codecov.io
         uses: codecov/codecov-action@v4
         with:
