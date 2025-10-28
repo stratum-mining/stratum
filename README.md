@@ -18,22 +18,21 @@ SV2 Libraries
 # Stratum Repository
 
 This repository contains the low-level crates.
-If you’re looking to run Sv2 applications at the most recent changes, check out the [`sv2-apps` repository](https://github.com/stratum-mining/sv2-apps). Those crates are application-level, currently in **alpha** stage, and may contain bugs. They are intended primarily as examples of how to use the low-level crates as dependencies.
+If you’re looking to run Sv2 applications at the most recent changes, check out the [`sv2-apps` repository](https://github.com/stratum-mining/sv2-apps). Those crates are application-level, currently in **alpha** stage.
 
 ## Contents
 
 - `sv1/` - Stratum V1 protocol implementation and utilities
 - `sv2/` - Stratum V2 protocol implementations
-  - `buffer/` - Buffer management and pooling
   - `binary-sv2/` - Binary encoding/decoding for SV2 messages
+  - `buffer/` - Buffer management and pooling
+  - `channels-sv2/` - Channel management for SV2
   - `codec-sv2/` - SV2 message codec with encryption support
   - `framing-sv2/` - SV2 message framing utilities
+  - `handlers_sv2/` - SV2 message handler traits
   - `noise-sv2/` - Noise protocol implementation for SV2
-  - `subprotocols/` - SV2 subprotocol implementations
-  - `channels-sv2/` - Channel management for SV2
-  - `roles-logic-sv2/` - Common logic for SV2 roles
   - `parsers-sv2/` - Message parsing utilities
-  - `sv2-ffi/` - Foreign Function Interface for SV2
+  - `subprotocols/` - SV2 subprotocol implementations
 - `stratum-core/` - Entrypoint for all the low-level crates in `sv2/` and `sv1/`implementations
   - `stratum-translation` - Stratum V1 ↔ Stratum V2 translation utilities
 
@@ -55,11 +54,11 @@ This will:
 
 Our roadmap is publicly available as part of the broader SRI project, outlining current and future plans. Decisions are made through a consensus-driven approach via dev meetings, Discord, and GitHub.
 
-[View the SRI Roadmap](https://github.com/orgs/stratum-mining/projects/5)
+[View the SRI Roadmap](https://github.com/orgs/stratum-mining/projects/15)
 
 ## 💻 Contribute 
 
-We welcome contributions to improve these pool applications! Here's how you can help:
+We welcome contributions to improve these SV2 libraries! Here's how you can help:
 
 1. **Start small**: Check the [good first issue label](https://github.com/stratum-mining/stratum/labels/good%20first%20issue) in the main SRI repository
 2. **Join the community**: Connect with us on [Discord](https://discord.gg/fsEW23wFYs) before starting larger contributions
@@ -78,18 +77,16 @@ For detailed documentation and guides, visit:
 ## 🎁 Donate
 
 ### 👤 Individual Donations 
-Support the development of Stratum V2 and these pool applications through OpenSats:
+If you wish to support the development and maintenance of the Stratum V2 Reference Implementation, individual donations are greatly appreciated. You can donate through OpenSats, a 501(c)(3) public charity dedicated to supporting open-source Bitcoin projects.
 
 [Donate through OpenSats](https://opensats.org/projects/stratumv2)
 
 ### 🏢 Corporate Donations
-For corporate support and grants, contact us directly:
-
-Email: stratumv2@gmail.com
+For corporate entities interested in providing more substantial support, such as grants to SRI contributors, please get in touch with us directly. Your support can make a significant difference in accelerating development, research, and innovation.
 
 ## 🙏 Supporters
 
-SRI contributors are independently supported by these organizations:
+SRI contributors are independently, financially supported by following entities: 
 
 <p float="left">
   <a href="https://hrf.org"><img src="https://raw.githubusercontent.com/stratum-mining/stratumprotocol.org/refs/heads/main/public/assets/hrf-logo-boxed.svg" width="250" /></a>
@@ -109,4 +106,3 @@ Minimum Supported Rust Version: 1.75.0
 > Website [stratumprotocol.org](https://www.stratumprotocol.org) &nbsp;&middot;&nbsp;
 > Discord [SV2 Discord](https://discord.gg/fsEW23wFYs) &nbsp;&middot;&nbsp;
 > Twitter [@Stratumv2](https://twitter.com/StratumV2) &nbsp;&middot;&nbsp;
-> Main Repository [stratum-mining/stratum](https://github.com/stratum-mining/stratum)
