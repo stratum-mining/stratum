@@ -56,7 +56,7 @@ async fn jdc_tp_success_setup() {
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, jds_addr)], tp_jdc_sniffer_addr);
     // This is needed because jd-client waits for a downstream connection before it starts
     // exchanging messages with the Template Provider.
-    start_sv2_translator(jdc_addr).await;
+    start_sv2_translator(jdc_addr, false).await;
     tp_jdc_sniffer
         .wait_for_message_type(MessageDirection::ToUpstream, MESSAGE_TYPE_SETUP_CONNECTION)
         .await;
@@ -112,7 +112,7 @@ async fn jds_receive_solution_while_processing_declared_job_test() {
         None,
     );
     let (_jdc, jdc_addr) = start_jdc(&[(pool_addr, sniffer_a_addr)], tp_addr_2);
-    let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr).await;
+    let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr, false).await;
     let (_minerd_process, _minerd_addr) = start_minerd(tproxy_addr, None, None, false).await;
     assert!(tp_2.fund_wallet().is_ok());
     assert!(tp_2.create_mempool_transaction().is_ok());
@@ -197,7 +197,7 @@ async fn jds_wont_exit_upon_receiving_unexpected_txids_in_provide_missing_transa
     );
 
     let (_, jdc_addr_1) = start_jdc(&[(pool_addr, sniffer_addr)], tp_addr_2);
-    let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr_1).await;
+    let (_translator, tproxy_addr) = start_sv2_translator(jdc_addr_1, false).await;
     let (_minerd_process, _minerd_addr) = start_minerd(tproxy_addr, None, None, false).await;
 
     sniffer

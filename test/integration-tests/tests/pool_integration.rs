@@ -112,7 +112,7 @@ async fn header_timestamp_value_assertion_in_new_extended_mining_job() {
         ],
         None,
     );
-    let (_tproxy, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr).await;
+    let (_tproxy, tproxy_addr) = start_sv2_translator(pool_translator_sniffer_addr, false).await;
     let (_minerd_process, _minerd_addr) = start_minerd(tproxy_addr, None, None, false).await;
 
     tp_pool_sniffer

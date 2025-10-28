@@ -244,7 +244,10 @@ pub fn start_jds(tp_rpc_connection: &ConnectParams) -> (JobDeclaratorServer, Soc
     }
 }
 
-pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, SocketAddr) {
+pub async fn start_sv2_translator(
+    upstream: SocketAddr,
+    aggregate_channels: bool,
+) -> (TranslatorSv2, SocketAddr) {
     let upstream_address = upstream.ip().to_string();
     let upstream_port = upstream.port();
     let upstream_authority_pubkey = Secp256k1PublicKey::try_from(
@@ -280,7 +283,7 @@ pub async fn start_sv2_translator(upstream: SocketAddr) -> (TranslatorSv2, Socke
         2,
         downstream_extranonce2_size,
         "user_identity".to_string(),
-        false,
+        aggregate_channels,
     );
     let translator_v2 = translator_sv2::TranslatorSv2::new(config);
     let clone_translator_v2 = translator_v2.clone();
