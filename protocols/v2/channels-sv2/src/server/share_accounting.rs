@@ -149,6 +149,7 @@ impl ShareAccounting {
     }
 
     /// Returns true if the current count of accepted shares triggers an acknowledgment.
+    #[allow(clippy::manual_is_multiple_of)] // MSRV 1.75 doesn't support is_multiple_of()
     pub fn should_acknowledge(&self) -> bool {
         self.shares_accepted % self.share_batch_size as u32 == 0
     }

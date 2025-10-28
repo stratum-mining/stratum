@@ -43,7 +43,7 @@ impl<'a> From<Extranonce<'a>> for Value {
 /// fix for error on odd-length hex sequences
 /// FIXME: find a nicer solution
 fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
-    if s.len() % 2 != 0 {
+    if s.len() & 1 != 0 {
         Ok(hex::decode(format!("0{s}"))?)
     } else {
         Ok(hex::decode(s)?)

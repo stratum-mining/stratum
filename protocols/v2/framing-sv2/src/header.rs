@@ -115,12 +115,12 @@ impl Header {
     ///
     /// The calculated length includes the full payload length and any additional space required
     /// for the MACs.
+    #[allow(clippy::manual_div_ceil)] // MSRV 1.75 doesn't support div_ceil() from Rust 1.73
     pub fn encrypted_len(&self) -> usize {
         let len = self.len();
-        let mut chunks = len / (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN);
-        if len % (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN) != 0 {
-            chunks += 1;
-        }
+        let chunk_size = SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN;
+        // Calculate number of chunks needed with ceiling division
+        let chunks = (len + chunk_size - 1) / chunk_size;
         let mac_len = chunks * AEAD_MAC_LEN;
         len + mac_len
     }
