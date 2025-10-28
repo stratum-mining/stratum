@@ -143,7 +143,7 @@ pub struct ChannelManagerData {
     pending_downstream_requests: VecDeque<PendingChannelRequest>,
     // Factory for creating **custom mining jobs**, if available.
     job_factory: Option<JobFactory>,
-    // Mapping of `(downstream_id, channel_id)` → vardiff controller.
+    // Mapping of `(channel_id, downstream_id)` → vardiff controller.
     // Each entry manages variable difficulty for a specific downstream channel.
     vardiff: HashMap<(u32, u32), VardiffState>,
 }
@@ -567,6 +567,7 @@ impl ChannelManager {
                     }
                 });
             }
+            cm_data.vardiff.retain(|key, _| key.1 != downstream_id);
         });
         Ok(())
     }
