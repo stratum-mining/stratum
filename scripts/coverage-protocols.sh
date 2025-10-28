@@ -21,7 +21,6 @@ crates=(
   "sv2/subprotocols/template-distribution"
   "sv2/subprotocols/mining"
   "sv2/subprotocols/job-declaration"
-  "sv2/roles-logic-sv2"
   "sv2/parsers-sv2"
   "sv2/handlers-sv2"
 )
