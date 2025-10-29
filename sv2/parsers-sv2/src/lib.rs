@@ -37,6 +37,7 @@ use core::{
     fmt,
 };
 pub use error::ParserError;
+use extensions_sv2::*;
 use framing_sv2::framing::Sv2Frame;
 use job_declaration_sv2::*;
 use mining_sv2::*;
@@ -46,6 +47,7 @@ use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
     SetupConnectionSuccess,
 };
+use extensions_sv2::{RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess};
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
     DeclareMiningJobSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
@@ -412,6 +414,81 @@ impl JobDeclaration<'_> {
     }
 }
 
+/// Extensions Negotiation protocol messages (extension_type=0x0001).
+///
+/// These messages allow endpoints to negotiate which optional extensions are supported
+/// during connection setup.
+#[derive(Clone, Debug)]
+pub enum ExtensionsNegotiation<'a> {
+    RequestExtensions(RequestExtensions<'a>),
+    RequestExtensionsSuccess(RequestExtensionsSuccess<'a>),
+    RequestExtensionsError(RequestExtensionsError<'a>),
+}
+
+impl fmt::Display for ExtensionsNegotiation<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExtensionsNegotiation::RequestExtensions(m) => write!(f, "{m}"),
+            ExtensionsNegotiation::RequestExtensionsSuccess(m) => write!(f, "{m}"),
+            ExtensionsNegotiation::RequestExtensionsError(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+impl ExtensionsNegotiation<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> ExtensionsNegotiation<'static> {
+        match self {
+            ExtensionsNegotiation::RequestExtensions(m) => {
+                ExtensionsNegotiation::RequestExtensions(m.into_static())
+            }
+            ExtensionsNegotiation::RequestExtensionsSuccess(m) => {
+                ExtensionsNegotiation::RequestExtensionsSuccess(m.into_static())
+            }
+            ExtensionsNegotiation::RequestExtensionsError(m) => {
+                ExtensionsNegotiation::RequestExtensionsError(m.into_static())
+            }
+        }
+    }
+}
+
+/// Extensions protocol messages for negotiating optional protocol features.
+///
+/// This enum represents messages from the SV2 Extensions protocol (channel_msg=0x04),
+/// which provides a framework for extending the Stratum V2 protocol with optional features
+/// that can be negotiated between endpoints to enable additional functionality.
+///
+/// Each variant corresponds to a specific extension type, identified by its `extension_type` value.
+///
+/// ## Supported Extension Types
+/// - **Extensions Negotiation (0x0001)**: Basic extension negotiation protocol
+///
+/// Future extension types will be added as new variants (e.g., Worker Hashrate Tracking).
+#[derive(Clone, Debug)]
+pub enum Extensions<'a> {
+    /// Extensions Negotiation messages (extension_type=0x0001)
+    ExtensionsNegotiation(ExtensionsNegotiation<'a>),
+}
+
+impl fmt::Display for Extensions<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Extensions::ExtensionsNegotiation(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+impl Extensions<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> Extensions<'static> {
+        match self {
+            Extensions::ExtensionsNegotiation(m) => {
+                Extensions::ExtensionsNegotiation(m.into_static())
+            }
+        }
+    }
+}
+
 impl AnyMessage<'_> {
     /// converter into static lifetime
     pub fn into_static(self) -> AnyMessage<'static> {
@@ -422,8 +499,135 @@ impl AnyMessage<'_> {
             AnyMessage::TemplateDistribution(m) => {
                 AnyMessage::TemplateDistribution(m.into_static())
             }
+            AnyMessage::Extensions(m) => AnyMessage::Extensions(m.into_static()),
         }
     }
+}
+
+/// Parses an SV2 Common message from a frame payload and extracts any appended TLV fields.
+pub fn parse_common_message_with_tlvs(
+    message_type: u8,
+    payload: &mut [u8],
+    negotiated_extensions: &[u16],
+) -> Result<(CommonMessages<'static>, Option<Vec<Tlv>>), ParserError> {
+    let raw_payload = payload.to_vec();
+    let message = CommonMessages::try_from((message_type, payload))?;
+    let message_size = message.get_size();
+
+    let tlv_fields = if raw_payload.len() > message_size {
+        let remaining = &raw_payload[message_size..];
+        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        if !tlvs.is_empty() {
+            Some(tlvs)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok((message.into_static(), tlv_fields))
+}
+
+/// Parses an SV2 Mining message from a frame payload and extracts any appended TLV fields.
+pub fn parse_mining_message_with_tlvs(
+    message_type: u8,
+    payload: &mut [u8],
+    negotiated_extensions: &[u16],
+) -> Result<(Mining<'static>, Option<Vec<Tlv>>), ParserError> {
+    let raw_payload = payload.to_vec();
+    let message = Mining::try_from((message_type, payload))?;
+    let message_size = message.get_size();
+
+    let tlv_fields = if raw_payload.len() > message_size {
+        let remaining = &raw_payload[message_size..];
+        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        if !tlvs.is_empty() {
+            Some(tlvs)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok((message.into_static(), tlv_fields))
+}
+
+/// Parses an SV2 Job Declaration message from a frame payload and extracts any appended TLV fields.
+pub fn parse_job_declaration_message_with_tlvs(
+    message_type: u8,
+    payload: &mut [u8],
+    negotiated_extensions: &[u16],
+) -> Result<(JobDeclaration<'static>, Option<Vec<Tlv>>), ParserError> {
+    let raw_payload = payload.to_vec();
+    let message = JobDeclaration::try_from((message_type, payload))?;
+    let message_size = message.get_size();
+
+    let tlv_fields = if raw_payload.len() > message_size {
+        let remaining = &raw_payload[message_size..];
+        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        if !tlvs.is_empty() {
+            Some(tlvs)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok((message.into_static(), tlv_fields))
+}
+
+/// Parses an SV2 Template Distribution message from a frame payload and extracts any appended TLV fields.
+pub fn parse_template_distribution_message_with_tlvs(
+    message_type: u8,
+    payload: &mut [u8],
+    negotiated_extensions: &[u16],
+) -> Result<(TemplateDistribution<'static>, Option<Vec<Tlv>>), ParserError> {
+    let raw_payload = payload.to_vec();
+    let message = TemplateDistribution::try_from((message_type, payload))?;
+    let message_size = message.get_size();
+
+    let tlv_fields = if raw_payload.len() > message_size {
+        let remaining = &raw_payload[message_size..];
+        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        if !tlvs.is_empty() {
+            Some(tlvs)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok((message.into_static(), tlv_fields))
+}
+
+/// Parses an SV2 Extensions message from a frame payload and extracts any appended TLV fields.
+pub fn parse_extensions_message_with_tlvs(
+    extension_type: u16,
+    message_type: u8,
+    payload: &mut [u8],
+    negotiated_extensions: &[u16],
+) -> Result<(Extensions<'static>, Option<Vec<Tlv>>), ParserError> {
+    let raw_payload = payload.to_vec();
+    let message = Extensions::try_from((extension_type, message_type, payload))?;
+    let message_size = message.get_size();
+
+    let tlv_fields = if raw_payload.len() > message_size {
+        let remaining = &raw_payload[message_size..];
+        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        if !tlvs.is_empty() {
+            Some(tlvs)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok((message.into_static(), tlv_fields))
 }
 
 /// A trait that every Sv2 message parser must implement.
@@ -433,6 +637,8 @@ pub trait IsSv2Message {
     fn message_type(&self) -> u8;
     /// get channel bit
     fn channel_bit(&self) -> bool;
+    /// get extension type (0 for non-extension messages)
+    fn extension_type(&self) -> u16;
 }
 
 impl IsSv2Message for CommonMessages<'_> {
@@ -454,6 +660,10 @@ impl IsSv2Message for CommonMessages<'_> {
             Self::SetupConnectionError(_) => CHANNEL_BIT_SETUP_CONNECTION_ERROR,
             Self::SetupConnectionSuccess(_) => CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
         }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0 // Common messages are not extensions
     }
 }
 
@@ -479,6 +689,10 @@ impl IsSv2Message for TemplateDistribution<'_> {
             Self::SetNewPrevHash(_) => CHANNEL_BIT_SET_NEW_PREV_HASH,
             Self::SubmitSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION,
         }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0 // Template Distribution messages are not extensions
     }
 }
 impl IsSv2Message for JobDeclaration<'_> {
@@ -511,6 +725,10 @@ impl IsSv2Message for JobDeclaration<'_> {
             }
             Self::PushSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION_JD,
         }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0 // Job Declaration messages are not extensions
     }
 }
 impl IsSv2Message for Mining<'_> {
@@ -571,6 +789,46 @@ impl IsSv2Message for Mining<'_> {
             Self::SubmitSharesSuccess(_) => CHANNEL_BIT_SUBMIT_SHARES_SUCCESS,
             Self::UpdateChannel(_) => CHANNEL_BIT_UPDATE_CHANNEL,
             Self::UpdateChannelError(_) => CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0 // Mining messages are not extensions
+    }
+}
+
+impl IsSv2Message for Extensions<'_> {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::ExtensionsNegotiation(m) => match m {
+                ExtensionsNegotiation::RequestExtensions(_) => MESSAGE_TYPE_REQUEST_EXTENSIONS,
+                ExtensionsNegotiation::RequestExtensionsSuccess(_) => {
+                    MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS
+                }
+                ExtensionsNegotiation::RequestExtensionsError(_) => {
+                    MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR
+                }
+            },
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::ExtensionsNegotiation(m) => match m {
+                ExtensionsNegotiation::RequestExtensions(_) => CHANNEL_BIT_REQUEST_EXTENSIONS,
+                ExtensionsNegotiation::RequestExtensionsSuccess(_) => {
+                    CHANNEL_BIT_REQUEST_EXTENSIONS_SUCCESS
+                }
+                ExtensionsNegotiation::RequestExtensionsError(_) => {
+                    CHANNEL_BIT_REQUEST_EXTENSIONS_ERROR
+                }
+            },
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        match self {
+            Self::ExtensionsNegotiation(_) => EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
         }
     }
 }
@@ -708,6 +966,30 @@ impl GetSize for Mining<'_> {
     }
 }
 
+impl<'decoder> From<Extensions<'decoder>> for EncodableField<'decoder> {
+    fn from(m: Extensions<'decoder>) -> Self {
+        match m {
+            Extensions::ExtensionsNegotiation(ext) => match ext {
+                ExtensionsNegotiation::RequestExtensions(a) => a.into(),
+                ExtensionsNegotiation::RequestExtensionsSuccess(a) => a.into(),
+                ExtensionsNegotiation::RequestExtensionsError(a) => a.into(),
+            },
+        }
+    }
+}
+
+impl GetSize for Extensions<'_> {
+    fn get_size(&self) -> usize {
+        match self {
+            Extensions::ExtensionsNegotiation(m) => match m {
+                ExtensionsNegotiation::RequestExtensions(a) => a.get_size(),
+                ExtensionsNegotiation::RequestExtensionsSuccess(a) => a.get_size(),
+                ExtensionsNegotiation::RequestExtensionsError(a) => a.get_size(),
+            },
+        }
+    }
+}
+
 impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -739,6 +1021,17 @@ impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
     }
 }
 impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for Extensions<'decoder> {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
@@ -1150,17 +1443,83 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
     }
 }
 
+/// Extension message types enum for Extensions Negotiation (extension_type=0x0001)
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum ExtensionsNegotiationTypes {
+    RequestExtensions = MESSAGE_TYPE_REQUEST_EXTENSIONS,
+    RequestExtensionsSuccess = MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
+    RequestExtensionsError = MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR,
+}
+
+impl TryFrom<u8> for ExtensionsNegotiationTypes {
+    type Error = ParserError;
+
+    fn try_from(v: u8) -> Result<ExtensionsNegotiationTypes, ParserError> {
+        match v {
+            MESSAGE_TYPE_REQUEST_EXTENSIONS => Ok(ExtensionsNegotiationTypes::RequestExtensions),
+            MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS => {
+                Ok(ExtensionsNegotiationTypes::RequestExtensionsSuccess)
+            }
+            MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR => {
+                Ok(ExtensionsNegotiationTypes::RequestExtensionsError)
+            }
+            _ => Err(ParserError::UnexpectedMessage(v)),
+        }
+    }
+}
+
+/// TryFrom implementation for parsing Extensions from (extension_type, msg_type, payload)
+impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
+    type Error = ParserError;
+
+    fn try_from(v: (u16, u8, &'a mut [u8])) -> Result<Self, Self::Error> {
+        let extension_type = v.0;
+        let msg_type = v.1;
+        let payload = v.2;
+
+        match extension_type {
+            EXTENSION_TYPE_EXTENSIONS_NEGOTIATION => {
+                let msg_enum: ExtensionsNegotiationTypes = msg_type.try_into()?;
+                match msg_enum {
+                    ExtensionsNegotiationTypes::RequestExtensions => {
+                        let message: RequestExtensions = from_bytes(payload)?;
+                        Ok(Extensions::ExtensionsNegotiation(
+                            ExtensionsNegotiation::RequestExtensions(message),
+                        ))
+                    }
+                    ExtensionsNegotiationTypes::RequestExtensionsSuccess => {
+                        let message: RequestExtensionsSuccess = from_bytes(payload)?;
+                        Ok(Extensions::ExtensionsNegotiation(
+                            ExtensionsNegotiation::RequestExtensionsSuccess(message),
+                        ))
+                    }
+                    ExtensionsNegotiationTypes::RequestExtensionsError => {
+                        let message: RequestExtensionsError = from_bytes(payload)?;
+                        Ok(Extensions::ExtensionsNegotiation(
+                            ExtensionsNegotiation::RequestExtensionsError(message),
+                        ))
+                    }
+                }
+            }
+            _ => Err(ParserError::UnexpectedMessage(msg_type)),
+        }
+    }
+}
+
 /// A parser of messages that a Mining Device could send
 #[derive(Clone, Debug)]
 pub enum MiningDeviceMessages<'a> {
     Common(CommonMessages<'a>),
     Mining(Mining<'a>),
+    Extensions(Extensions<'a>),
 }
 impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: MiningDeviceMessages<'decoder>) -> Self {
         match m {
             MiningDeviceMessages::Common(a) => a.into(),
             MiningDeviceMessages::Mining(a) => a.into(),
+            MiningDeviceMessages::Extensions(a) => a.into(),
         }
     }
 }
@@ -1169,6 +1528,7 @@ impl GetSize for MiningDeviceMessages<'_> {
         match self {
             MiningDeviceMessages::Common(a) => a.get_size(),
             MiningDeviceMessages::Mining(a) => a.get_size(),
+            MiningDeviceMessages::Extensions(a) => a.get_size(),
         }
     }
 }
@@ -1182,7 +1542,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
             (Ok(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
             (Err(_), Ok(_)) => Ok(Self::Mining(v.try_into()?)),
             (Err(e), Err(_)) => Err(e),
-            // this is an impossible state is safe to panic here
+            // This is an impossible state is safe to panic here
             (Ok(_), Ok(_)) => panic!(),
         }
     }
@@ -1195,6 +1555,7 @@ pub enum AnyMessage<'a> {
     Mining(Mining<'a>),
     JobDeclaration(JobDeclaration<'a>),
     TemplateDistribution(TemplateDistribution<'a>),
+    Extensions(Extensions<'a>),
 }
 
 impl fmt::Display for AnyMessage<'_> {
@@ -1204,6 +1565,7 @@ impl fmt::Display for AnyMessage<'_> {
             AnyMessage::Mining(m) => write!(f, "MiningMessage: {m}"),
             AnyMessage::JobDeclaration(m) => write!(f, "JobDeclarationMessage: {m}"),
             AnyMessage::TemplateDistribution(m) => write!(f, "TemplateDistributionMessage: {m}"),
+            AnyMessage::Extensions(m) => write!(f, "ExtensionsMessage: {m}"),
         }
     }
 }
@@ -1215,6 +1577,7 @@ impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {
         match value {
             MiningDeviceMessages::Common(m) => Ok(AnyMessage::Common(m)),
             MiningDeviceMessages::Mining(m) => Ok(AnyMessage::Mining(m)),
+            MiningDeviceMessages::Extensions(m) => Ok(AnyMessage::Extensions(m)),
         }
     }
 }
@@ -1226,6 +1589,7 @@ impl<'decoder> From<AnyMessage<'decoder>> for EncodableField<'decoder> {
             AnyMessage::Mining(a) => a.into(),
             AnyMessage::JobDeclaration(a) => a.into(),
             AnyMessage::TemplateDistribution(a) => a.into(),
+            AnyMessage::Extensions(a) => a.into(),
         }
     }
 }
@@ -1236,6 +1600,7 @@ impl GetSize for AnyMessage<'_> {
             AnyMessage::Mining(a) => a.get_size(),
             AnyMessage::JobDeclaration(a) => a.get_size(),
             AnyMessage::TemplateDistribution(a) => a.get_size(),
+            AnyMessage::Extensions(a) => a.get_size(),
         }
     }
 }
@@ -1247,6 +1612,7 @@ impl IsSv2Message for AnyMessage<'_> {
             AnyMessage::Mining(a) => a.message_type(),
             AnyMessage::JobDeclaration(a) => a.message_type(),
             AnyMessage::TemplateDistribution(a) => a.message_type(),
+            AnyMessage::Extensions(a) => a.message_type(),
         }
     }
 
@@ -1256,6 +1622,17 @@ impl IsSv2Message for AnyMessage<'_> {
             AnyMessage::Mining(a) => a.channel_bit(),
             AnyMessage::JobDeclaration(a) => a.channel_bit(),
             AnyMessage::TemplateDistribution(a) => a.channel_bit(),
+            AnyMessage::Extensions(a) => a.channel_bit(),
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        match self {
+            AnyMessage::Common(a) => a.extension_type(),
+            AnyMessage::Mining(a) => a.extension_type(),
+            AnyMessage::JobDeclaration(a) => a.extension_type(),
+            AnyMessage::TemplateDistribution(a) => a.extension_type(),
+            AnyMessage::Extensions(a) => a.extension_type(),
         }
     }
 }
@@ -1265,6 +1642,7 @@ impl IsSv2Message for MiningDeviceMessages<'_> {
         match self {
             MiningDeviceMessages::Common(a) => a.message_type(),
             MiningDeviceMessages::Mining(a) => a.message_type(),
+            MiningDeviceMessages::Extensions(a) => a.message_type(),
         }
     }
 
@@ -1272,6 +1650,15 @@ impl IsSv2Message for MiningDeviceMessages<'_> {
         match self {
             MiningDeviceMessages::Common(a) => a.channel_bit(),
             MiningDeviceMessages::Mining(a) => a.channel_bit(),
+            MiningDeviceMessages::Extensions(a) => a.channel_bit(),
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        match self {
+            MiningDeviceMessages::Common(a) => a.extension_type(),
+            MiningDeviceMessages::Mining(a) => a.extension_type(),
+            MiningDeviceMessages::Extensions(a) => a.extension_type(),
         }
     }
 }
@@ -1320,6 +1707,24 @@ impl<'a> From<SetupConnectionError<'a>> for CommonMessages<'a> {
     }
 }
 
+impl<'a> From<RequestExtensions<'a>> for Extensions<'a> {
+    fn from(v: RequestExtensions<'a>) -> Self {
+        Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensions(v))
+    }
+}
+
+impl<'a> From<RequestExtensionsSuccess<'a>> for Extensions<'a> {
+    fn from(v: RequestExtensionsSuccess<'a>) -> Self {
+        Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensionsSuccess(v))
+    }
+}
+
+impl<'a> From<RequestExtensionsError<'a>> for Extensions<'a> {
+    fn from(v: RequestExtensionsError<'a>) -> Self {
+        Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensionsError(v))
+    }
+}
+
 impl<'a> From<OpenStandardMiningChannel<'a>> for Mining<'a> {
     fn from(v: OpenStandardMiningChannel<'a>) -> Self {
         Mining::OpenStandardMiningChannel(v)
@@ -1354,7 +1759,7 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage<'decoder>>
     type Error = ParserError;
 
     fn try_from(v: AnyMessage<'decoder>) -> Result<Self, ParserError> {
-        let extension_type = 0;
+        let extension_type = v.extension_type();
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
         Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
@@ -1368,7 +1773,7 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decod
     type Error = ParserError;
 
     fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, ParserError> {
-        let extension_type = 0;
+        let extension_type = v.extension_type();
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
         Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
@@ -1399,21 +1804,54 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
             AnyMessage::Mining(message) => Ok(Self::Mining(message)),
             AnyMessage::JobDeclaration(_) => Err(ParserError::UnexpectedPoolMessage),
             AnyMessage::TemplateDistribution(_) => Err(ParserError::UnexpectedPoolMessage),
+            AnyMessage::Extensions(message) => Ok(Self::Extensions(message)),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{AnyMessage, Mining};
+    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, Mining};
+    use alloc::vec;
     use alloc::vec::Vec;
-    use binary_sv2::{Sv2Option, U256};
+    use binary_sv2::{Seq064K, Sv2Option, U256};
     use codec_sv2::StandardSv2Frame;
     use core::convert::{TryFrom, TryInto};
+    use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
     use mining_sv2::NewMiningJob;
 
     pub type Message = AnyMessage<'static>;
     pub type StdFrame = StandardSv2Frame<Message>;
+
+    #[test]
+    fn request_extensions_serialization() {
+        // Test that Extensions messages have extension_type set to 1 (0x0001)
+        let request_extensions = RequestExtensions {
+            request_id: 0,
+            requested_extensions: Seq064K::new(vec![2]).unwrap(),
+        };
+        let extensions_message = AnyMessage::Extensions(Extensions::ExtensionsNegotiation(
+            ExtensionsNegotiation::RequestExtensions(request_extensions),
+        ));
+        let frame = StdFrame::try_from(extensions_message).unwrap();
+        let mut buffer = [0; 0xffff];
+        let encoded_length = frame.encoded_length();
+        frame.serialize(&mut buffer).unwrap();
+
+        // Verify extension_type is 1 (0x0001)
+        let extension_type = extract_extension_type(&buffer[..encoded_length]);
+        assert_eq!(
+            extension_type, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+            "Extension type should be 0x0001 for Extensions Negotiation messages"
+        );
+
+        // Verify message_type is 0 for RequestExtensions
+        let message_type = extract_message_type(&buffer[..encoded_length]);
+        assert_eq!(
+            message_type, 0,
+            "Message type should be 0 for RequestExtensions"
+        );
+    }
 
     #[test]
     fn new_mining_job_serialization() {

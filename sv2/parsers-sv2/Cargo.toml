@@ -18,6 +18,7 @@ common_messages_sv2 = { path = "../subprotocols/common-messages", version = "^6.
 mining_sv2 = { path = "../subprotocols/mining", version = "^6.0.0" }
 template_distribution_sv2 = { path = "../subprotocols/template-distribution", version = "^4.0.0" }
 job_declaration_sv2 = { path = "../subprotocols/job-declaration", version = "^5.0.0" }
+extensions_sv2 = { path = "../extensions-sv2", version = "^0.1.0" }
 
 [dev-dependencies]
 codec_sv2 = { path = "../codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
