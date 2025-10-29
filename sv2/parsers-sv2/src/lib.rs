@@ -37,6 +37,7 @@ use core::{
     fmt,
 };
 pub use error::ParserError;
+use extensions_sv2::*;
 use framing_sv2::framing::Sv2Frame;
 use job_declaration_sv2::*;
 use mining_sv2::*;
@@ -46,6 +47,7 @@ use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
     SetupConnectionSuccess,
 };
+use extensions_sv2::{RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess};
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
     DeclareMiningJobSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
@@ -412,6 +414,47 @@ impl JobDeclaration<'_> {
     }
 }
 
+/// Extensions protocol messages: extension negotiation.
+///
+/// Encapsulates extension-related Sv2 protocol messages. These are optional features
+/// that can be negotiated between endpoints to enable additional functionality.
+///
+/// ## Supported Extensions
+/// - **Extensions Negotiation (0x0001)**: Allows endpoints to negotiate which optional
+///   extensions are supported during connection setup.
+#[derive(Clone, Debug)]
+pub enum Extensions<'a> {
+    // Extensions Negotiation messages (extension_type=0x0001)
+    RequestExtensions(RequestExtensions<'a>),
+    RequestExtensionsSuccess(RequestExtensionsSuccess<'a>),
+    RequestExtensionsError(RequestExtensionsError<'a>),
+}
+
+impl fmt::Display for Extensions<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Extensions::RequestExtensions(m) => write!(f, "{m}"),
+            Extensions::RequestExtensionsSuccess(m) => write!(f, "{m}"),
+            Extensions::RequestExtensionsError(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+impl Extensions<'_> {
+    /// converter into static lifetime
+    pub fn into_static(self) -> Extensions<'static> {
+        match self {
+            Extensions::RequestExtensions(m) => Extensions::RequestExtensions(m.into_static()),
+            Extensions::RequestExtensionsSuccess(m) => {
+                Extensions::RequestExtensionsSuccess(m.into_static())
+            }
+            Extensions::RequestExtensionsError(m) => {
+                Extensions::RequestExtensionsError(m.into_static())
+            }
+        }
+    }
+}
+
 impl AnyMessage<'_> {
     /// converter into static lifetime
     pub fn into_static(self) -> AnyMessage<'static> {
@@ -575,6 +618,24 @@ impl IsSv2Message for Mining<'_> {
     }
 }
 
+impl IsSv2Message for Extensions<'_> {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::RequestExtensions(_) => MESSAGE_TYPE_REQUEST_EXTENSIONS,
+            Self::RequestExtensionsSuccess(_) => MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
+            Self::RequestExtensionsError(_) => MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR,
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::RequestExtensions(_) => CHANNEL_BIT_REQUEST_EXTENSIONS,
+            Self::RequestExtensionsSuccess(_) => CHANNEL_BIT_REQUEST_EXTENSIONS_SUCCESS,
+            Self::RequestExtensionsError(_) => CHANNEL_BIT_REQUEST_EXTENSIONS_ERROR,
+        }
+    }
+}
+
 impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: CommonMessages<'decoder>) -> Self {
         match m {
@@ -708,6 +769,26 @@ impl GetSize for Mining<'_> {
     }
 }
 
+impl<'decoder> From<Extensions<'decoder>> for EncodableField<'decoder> {
+    fn from(m: Extensions<'decoder>) -> Self {
+        match m {
+            Extensions::RequestExtensions(a) => a.into(),
+            Extensions::RequestExtensionsSuccess(a) => a.into(),
+            Extensions::RequestExtensionsError(a) => a.into(),
+        }
+    }
+}
+
+impl GetSize for Extensions<'_> {
+    fn get_size(&self) -> usize {
+        match self {
+            Extensions::RequestExtensions(a) => a.get_size(),
+            Extensions::RequestExtensionsSuccess(a) => a.get_size(),
+            Extensions::RequestExtensionsError(a) => a.get_size(),
+        }
+    }
+}
+
 impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -739,6 +820,17 @@ impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
     }
 }
 impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for Extensions<'decoder> {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
@@ -1146,6 +1238,64 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
                 let message: UpdateChannelError = from_bytes(v.1)?;
                 Ok(Mining::UpdateChannelError(message))
             }
+        }
+    }
+}
+
+/// Extension message types enum for Extensions Negotiation (extension_type=0x0001)
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum ExtensionsNegotiationTypes {
+    RequestExtensions = MESSAGE_TYPE_REQUEST_EXTENSIONS,
+    RequestExtensionsSuccess = MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
+    RequestExtensionsError = MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR,
+}
+
+impl TryFrom<u8> for ExtensionsNegotiationTypes {
+    type Error = ParserError;
+
+    fn try_from(v: u8) -> Result<ExtensionsNegotiationTypes, ParserError> {
+        match v {
+            MESSAGE_TYPE_REQUEST_EXTENSIONS => Ok(ExtensionsNegotiationTypes::RequestExtensions),
+            MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS => {
+                Ok(ExtensionsNegotiationTypes::RequestExtensionsSuccess)
+            }
+            MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR => {
+                Ok(ExtensionsNegotiationTypes::RequestExtensionsError)
+            }
+            _ => Err(ParserError::UnexpectedMessage(v)),
+        }
+    }
+}
+
+/// TryFrom implementation for parsing Extensions from (extension_type, msg_type, payload)
+impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
+    type Error = ParserError;
+
+    fn try_from(v: (u16, u8, &'a mut [u8])) -> Result<Self, Self::Error> {
+        let extension_type = v.0;
+        let msg_type = v.1;
+        let payload = v.2;
+
+        match extension_type {
+            EXTENSION_TYPE_EXTENSIONS_NEGOTIATION => {
+                let msg_enum: ExtensionsNegotiationTypes = msg_type.try_into()?;
+                match msg_enum {
+                    ExtensionsNegotiationTypes::RequestExtensions => {
+                        let message: RequestExtensions = from_bytes(payload)?;
+                        Ok(Extensions::RequestExtensions(message))
+                    }
+                    ExtensionsNegotiationTypes::RequestExtensionsSuccess => {
+                        let message: RequestExtensionsSuccess = from_bytes(payload)?;
+                        Ok(Extensions::RequestExtensionsSuccess(message))
+                    }
+                    ExtensionsNegotiationTypes::RequestExtensionsError => {
+                        let message: RequestExtensionsError = from_bytes(payload)?;
+                        Ok(Extensions::RequestExtensionsError(message))
+                    }
+                }
+            }
+            _ => Err(ParserError::UnexpectedMessage(msg_type)),
         }
     }
 }
