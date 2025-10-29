@@ -1,5 +1,6 @@
 mod common;
 mod error;
+mod extensions;
 mod job_declaration;
 mod mining;
 mod template_distribution;
@@ -26,4 +27,9 @@ pub use template_distribution::{
 pub use job_declaration::{
     HandleJobDeclarationMessagesFromClientAsync, HandleJobDeclarationMessagesFromClientSync,
     HandleJobDeclarationMessagesFromServerAsync, HandleJobDeclarationMessagesFromServerSync,
+};
+
+pub use extensions::{
+    HandleExtensionsFromClientAsync, HandleExtensionsFromClientSync,
+    HandleExtensionsFromServerAsync, HandleExtensionsFromServerSync,
 };
