@@ -92,6 +92,12 @@ jobs:
       - name: Publish crate stratum_translation
         run: |
           ./scripts/release-libs.sh stratum-core/stratum-translation
+
+      # extensions_sv2 (depends on binary_sv2, codec_sv2, framing_sv2, mining_sv2)
+      - name: Publish crate extensions_sv2
+        run: |
+          ./scripts/release-libs.sh sv2/extensions-sv2
+          
       # handlers_sv2 (depends on parsers_sv2, binary_sv2, common_messages_sv2, mining_sv2, template_distribution_sv2, job_declaration_sv2)
       - name: Publish crate handlers_sv2
         run: |

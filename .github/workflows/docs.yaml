@@ -69,6 +69,11 @@ jobs:
           cd sv2/codec-sv2
           cargo doc --features with_buffer_pool,noise_sv2
 
+      - name: Rust Docs crate extensions_sv2
+        run: |
+          cd sv2/extensions-sv2
+          cargo doc
+
       - name: Rust Docs crate handlers_sv2
         run: |
           cd sv2/handlers-sv2
