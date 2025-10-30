@@ -23,6 +23,12 @@
 //!   submission).
 
 pub mod error;
+mod tlv;
+mod tlv_extensions;
+
+pub use tlv::{Tlv, TlvError, TlvField, TlvList, TLV_HEADER_SIZE};
+pub use tlv_extensions::{ExtensionError, UserIdentityError};
+
 extern crate alloc;
 use alloc::vec::Vec;
 use binary_sv2::{
@@ -516,7 +522,7 @@ pub fn parse_common_message_with_tlvs(
 
     let tlv_fields = if raw_payload.len() > message_size {
         let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        let tlvs = TlvList::from_bytes(remaining).for_extensions(negotiated_extensions);
         if !tlvs.is_empty() {
             Some(tlvs)
         } else {
@@ -534,100 +540,10 @@ pub fn parse_mining_message_with_tlvs(
     message_type: u8,
     payload: &mut [u8],
     negotiated_extensions: &[u16],
-) -> Result<(Mining<'static>, Option<Vec<Tlv>>), ParserError> {
-    let raw_payload = payload.to_vec();
-    let message = Mining::try_from((message_type, payload))?;
-    let message_size = message.get_size();
-
-    let tlv_fields = if raw_payload.len() > message_size {
-        let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
-        if !tlvs.is_empty() {
-            Some(tlvs)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    Ok((message.into_static(), tlv_fields))
-}
-
-/// Parses an SV2 Job Declaration message from a frame payload and extracts any appended TLV fields.
-pub fn parse_job_declaration_message_with_tlvs(
-    message_type: u8,
-    payload: &mut [u8],
-    negotiated_extensions: &[u16],
-) -> Result<(JobDeclaration<'static>, Option<Vec<Tlv>>), ParserError> {
-    let raw_payload = payload.to_vec();
-    let message = JobDeclaration::try_from((message_type, payload))?;
-    let message_size = message.get_size();
-
-    let tlv_fields = if raw_payload.len() > message_size {
-        let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
-        if !tlvs.is_empty() {
-            Some(tlvs)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    Ok((message.into_static(), tlv_fields))
-}
-
-/// Parses an SV2 Template Distribution message from a frame payload and extracts any appended TLV fields.
-pub fn parse_template_distribution_message_with_tlvs(
-    message_type: u8,
-    payload: &mut [u8],
-    negotiated_extensions: &[u16],
-) -> Result<(TemplateDistribution<'static>, Option<Vec<Tlv>>), ParserError> {
-    let raw_payload = payload.to_vec();
-    let message = TemplateDistribution::try_from((message_type, payload))?;
-    let message_size = message.get_size();
-
-    let tlv_fields = if raw_payload.len() > message_size {
-        let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
-        if !tlvs.is_empty() {
-            Some(tlvs)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    Ok((message.into_static(), tlv_fields))
-}
-
-/// Parses an SV2 Extensions message from a frame payload and extracts any appended TLV fields.
-pub fn parse_extensions_message_with_tlvs(
-    extension_type: u16,
-    message_type: u8,
-    payload: &mut [u8],
-    negotiated_extensions: &[u16],
-) -> Result<(Extensions<'static>, Option<Vec<Tlv>>), ParserError> {
-    let raw_payload = payload.to_vec();
-    let message = Extensions::try_from((extension_type, message_type, payload))?;
-    let message_size = message.get_size();
-
-    let tlv_fields = if raw_payload.len() > message_size {
-        let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
-        if !tlvs.is_empty() {
-            Some(tlvs)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    Ok((message.into_static(), tlv_fields))
+) -> Option<Vec<Tlv>> {
+    let remainder = raw_payload.get(message_size..)?;
+    let tlvs = TlvList::from_bytes(remainder).for_extensions(negotiated_extensions);
+    (!tlvs.is_empty()).then_some(tlvs)
 }
 
 /// A trait that every Sv2 message parser must implement.

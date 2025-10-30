@@ -49,7 +49,4 @@ pub use worker_specific_hashrate_tracking::{
 };
 
 // Re-export TLV utilities
-pub use tlv::{
-    has_tlv_for_extension, has_valid_tlv_data, DecodingContext, EncodingContext, Tlv, TlvError,
-    Type, TLV_HEADER_SIZE,
-};
+pub use tlv::{find_tlv_field, Tlv, TlvError, TlvIter, TlvList, Type, TLV_HEADER_SIZE};
