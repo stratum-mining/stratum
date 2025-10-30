@@ -98,8 +98,8 @@ impl Header {
     ///
     /// A header can represent a channel message if the MSB(Most Significant Bit) is set.
     pub fn channel_msg(&self) -> bool {
-        const CHANNEL_MSG_MASK: u16 = 0b0000_0000_0000_0001;
-        self.extension_type & CHANNEL_MSG_MASK == self.extension_type
+        const CHANNEL_MSG_MASK: u16 = 0b1000_0000_0000_0000;
+        self.extension_type & CHANNEL_MSG_MASK != 0
     }
 
     /// Calculates the total length of a chunked message, accounting for MAC overhead.
