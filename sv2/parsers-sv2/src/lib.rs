@@ -23,6 +23,11 @@
 //!   submission).
 
 pub mod error;
+pub mod tlv;
+
+// Re-export TLV types for public API
+pub use tlv::{Tlv, TlvField, TlvList};
+
 extern crate alloc;
 use alloc::vec::Vec;
 use binary_sv2::{
@@ -516,7 +521,7 @@ pub fn parse_common_message_with_tlvs(
 
     let tlv_fields = if raw_payload.len() > message_size {
         let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::new(remaining).for_extensions(negotiated_extensions);
+        let tlvs = TlvList::from_bytes(remaining).for_extensions(negotiated_extensions);
         if !tlvs.is_empty() {
             Some(tlvs)
         } else {
