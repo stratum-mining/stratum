@@ -30,6 +30,9 @@ pub mod tlv;
 // Extensions Negotiation (0x0001) - has no TLV fields
 pub mod extensions_negotiation;
 
+// Worker-Specific Hashrate Tracking (0x0002) - uses TLV fields
+pub mod worker_specific_hashrate_tracking;
+
 // Re-export commonly used items from extensions_negotiation
 pub use extensions_negotiation::{
     RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess,
@@ -39,7 +42,17 @@ pub use extensions_negotiation::{
     MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR, MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
 };
 
-// Re-export TLV utilities
-pub use tlv::{
-    decode_tlv, encode_tlv, has_tlv_for_extension, has_valid_tlv_data, TlvError, TLV_HEADER_SIZE,
+// Re-export commonly used items from worker_specific_hashrate_tracking
+pub use worker_specific_hashrate_tracking::{
+    build_submit_shares_extended_with_user_identity_frame,
+    decode_user_identity_from_tlv_bytes,
+    encode_user_identity_as_tlv_bytes,
+    // extract_worker_identity_from_submit_shares, // Commented out - may be useful later
+    UserIdentity,
+    EXTENSION_TYPE as EXTENSION_TYPE_WORKER_HASHRATE_TRACKING,
+    FIELD_TYPE_USER_IDENTITY as TLV_FIELD_TYPE_USER_IDENTITY,
+    MAX_WORKER_ID_LENGTH,
 };
+
+// Re-export TLV utilities
+pub use tlv::{has_tlv_for_extension, has_valid_tlv_data, Tlv, TlvError, TLV_HEADER_SIZE};
