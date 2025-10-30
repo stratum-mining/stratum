@@ -38,3 +38,8 @@ pub use extensions_negotiation::{
     EXTENSION_TYPE as EXTENSION_TYPE_EXTENSIONS_NEGOTIATION, MESSAGE_TYPE_REQUEST_EXTENSIONS,
     MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR, MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
 };
+
+// Re-export TLV utilities
+pub use tlv::{
+    decode_tlv, encode_tlv, has_tlv_for_extension, has_valid_tlv_data, TlvError, TLV_HEADER_SIZE,
+};
