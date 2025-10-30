@@ -15,6 +15,7 @@ pub use buffer_sv2;
 pub use channels_sv2;
 pub use codec_sv2;
 pub use common_messages_sv2;
+pub use extensions_sv2;
 pub use framing_sv2;
 pub use handlers_sv2;
 pub use job_declaration_sv2;
