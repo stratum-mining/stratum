@@ -24,9 +24,11 @@
 
 pub mod error;
 pub mod tlv;
+pub mod tlv_extensions;
 
 // Re-export TLV types for public API
-pub use tlv::{Tlv, TlvField, TlvList};
+pub use tlv::{Tlv, TlvError, TlvField, TlvList};
+pub use tlv_extensions::{ExtensionError, UserIdentityError};
 
 extern crate alloc;
 use alloc::vec::Vec;

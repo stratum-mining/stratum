@@ -17,38 +17,40 @@ pub const TLV_HEADER_SIZE: usize = 5;
 /// This trait provides a common interface for all extension field types,
 /// encapsulating the extension-specific logic for encoding and decoding.
 ///
-/// # Type Parameters
-/// * `Error` - The error type specific to this extension field
+/// All TLV field implementations use `ParserError` for unified error handling,
+/// which can represent both generic TLV errors and extension-specific validation errors.
 ///
 /// # Example
 /// ```ignore
 /// impl TlvField for UserIdentity {
-///     type Error = UserIdentityError;
-///     
 ///     const EXTENSION_TYPE: u16 = 0x0002;
 ///     const FIELD_TYPE: u8 = 0x01;
 ///     
-///     fn from_bytes(bytes: &[u8]) -> Result<Tlv, Self::Error> {
-///         // Decode implementation
+///     fn from_bytes(bytes: &[u8]) -> Result<Tlv, ParserError> {
+///         // Decode implementation - TlvError auto-converts to ParserError
+///         Tlv::decode(bytes).map_err(Into::into)
 ///     }
 ///     
-///     fn to_bytes(&self) -> Result<Vec<u8>, Self::Error> {
+///     fn to_bytes(&self) -> Result<Vec<u8>, ParserError> {
 ///         // Encode implementation
+///         let tlv = self.to_tlv()?;
+///         tlv.encode().map_err(Into::into)
 ///     }
 ///     
-///     fn from_tlv(tlv: &Tlv) -> Result<Self, Self::Error> {
-///         // Convert from Tlv to Self
+///     fn from_tlv(tlv: &Tlv) -> Result<Self, ParserError> {
+///         // Extension-specific validation - ExtensionError auto-converts to ParserError
+///         if tlv.type_.extension_type != Self::EXTENSION_TYPE {
+///             return Err(UserIdentityError::InvalidExtensionType(tlv.type_.extension_type).into());
+///         }
+///         // ...
 ///     }
 ///     
-///     fn to_tlv(&self) -> Result<Tlv, Self::Error> {
+///     fn to_tlv(&self) -> Result<Tlv, ParserError> {
 ///         // Convert from Self to Tlv
 ///     }
 /// }
 /// ```
 pub trait TlvField: Sized {
-    /// The error type for this extension field.
-    type Error;
-
     /// The extension type this field belongs to.
     const EXTENSION_TYPE: u16;
 
@@ -58,23 +60,23 @@ pub trait TlvField: Sized {
     /// Decodes a TLV from raw bytes.
     ///
     /// This parses the TLV structure (Type-Length-Value) from the byte buffer.
-    fn from_bytes(bytes: &[u8]) -> Result<Tlv, Self::Error>;
+    fn from_bytes(bytes: &[u8]) -> Result<Tlv, crate::ParserError>;
 
     /// Encodes this field as raw TLV bytes.
     ///
     /// Returns the complete TLV bytes including Type, Length, and Value fields.
-    fn to_bytes(&self) -> Result<Vec<u8>, Self::Error>;
+    fn to_bytes(&self) -> Result<Vec<u8>, crate::ParserError>;
 
     /// Creates an instance of this field from a parsed TLV.
     ///
     /// This validates the TLV type matches this field's extension and field type,
     /// then extracts and parses the value.
-    fn from_tlv(tlv: &Tlv) -> Result<Self, Self::Error>;
+    fn from_tlv(tlv: &Tlv) -> Result<Self, crate::ParserError>;
 
     /// Converts this field into a TLV structure.
     ///
     /// This creates a TLV with the correct extension_type and field_type for this field.
-    fn to_tlv(&self) -> Result<Tlv, Self::Error>;
+    fn to_tlv(&self) -> Result<Tlv, crate::ParserError>;
 }
 
 /// TLV Type field (3 bytes total).

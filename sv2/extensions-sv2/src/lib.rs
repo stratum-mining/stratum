@@ -12,9 +12,10 @@
 //! ## Architecture
 //!
 //! The crate is organized into:
-//! - `tlv/`: Generic TLV encoding/decoding utilities for any extension
-//! - `extensions_negotiation/`: Extension negotiation protocol (no TLV)
-//! - `worker_specific_hashrate_tracking/`: Worker-Specific Hashrate Tracking extension (uses TLV)
+//! - `extensions_negotiation/`: Extension negotiation protocol
+//! - `worker_specific_hashrate_tracking/`: Worker-Specific Hashrate Tracking extension
+//!
+//! TLV encoding/decoding utilities are provided by the `parsers_sv2` crate.
 //!
 //! For further information about the extensions, please refer to:
 //! - [Extensions Negotiation Spec](https://github.com/stratum-mining/sv2-spec/blob/main/extensions/extensions-negotiation.md)
@@ -24,11 +25,11 @@
 
 extern crate alloc;
 
-// Generic TLV encoding/decoding utilities
-pub mod tlv;
-
-// Extensions Negotiation (0x0001) - has no TLV fields
+// Extensions Negotiation (0x0001)
 pub mod extensions_negotiation;
+
+// Worker-Specific Hashrate Tracking (0x0002)
+pub mod worker_specific_hashrate_tracking;
 
 // Re-export commonly used items from extensions_negotiation
 pub use extensions_negotiation::{
@@ -41,11 +42,6 @@ pub use extensions_negotiation::{
 
 // Re-export commonly used items from worker_specific_hashrate_tracking
 pub use worker_specific_hashrate_tracking::{
-    build_submit_shares_extended_with_user_identity_frame, decode_user_identity_from_tlv_bytes,
-    encode_user_identity_as_tlv_bytes, extract_user_identity_from_tlvs, UserIdentity,
-    EXTENSION_TYPE as EXTENSION_TYPE_WORKER_HASHRATE_TRACKING,
-    FIELD_TYPE_USER_IDENTITY as TLV_FIELD_TYPE_USER_IDENTITY, MAX_WORKER_ID_LENGTH,
+    UserIdentity, EXTENSION_TYPE as EXTENSION_TYPE_WORKER_HASHRATE_TRACKING,
+    FIELD_TYPE_USER_IDENTITY as TLV_FIELD_TYPE_USER_IDENTITY, MAX_USER_IDENTITY_LENGTH,
 };
-
-// Re-export TLV utilities
-pub use tlv::{find_tlv_field, Tlv, TlvError, TlvIter, TlvList, Type, TLV_HEADER_SIZE};
