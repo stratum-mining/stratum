@@ -57,6 +57,13 @@ fn main() {
     assert_eq!(deserialized_header.msg_type(), MSG_TYPE);
     assert_eq!(deserialized_header.ext_type(), EXT_TYPE);
 
+    // Assert that channel_msg() correctly identifies channel messages
+    // This tests the MSB bit check in the extension type (bit 15)
+    assert!(
+        !deserialized_header.channel_msg(),
+        "EXT_TYPE should not have MSB set"
+    );
+
     // Assert that deserialized message has the original content
     let deserialized_message: CustomMessage = binary_sv2::from_bytes(deserialized_frame.payload())
         .expect("Failed to extract the message from the payload");
