@@ -1406,7 +1406,7 @@ mod test {
     // copied from roles-logic-sv2::job_creator
     fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
         let encoded = consensus::serialize(coinbase);
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
+        // If script_prefix_len is not 0 we are not in a test environment and the coinbase have the
         // 0 witness
         let segwit_bytes = match script_prefix_len {
             0 => 0,
@@ -1430,7 +1430,7 @@ mod test {
         script_prefix_len: usize,
     ) -> B064K<'static> {
         let encoded = consensus::serialize(coinbase);
-        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the
+        // If script_prefix_len is not 0 we are not in a test environment and the coinbase have the
         // 0 witness
         let segwit_bytes = match script_prefix_len {
             0 => 0,

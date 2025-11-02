@@ -37,7 +37,7 @@ Stratum V2 Reference Implementation (SRI)
 
 Welcome to the official GitHub repository for the **SRI - Stratum V2 Reference Implementation**. 
 
-[Stratum V2](https://stratumprotocol.org) is a next-generation bitcoin mining protocol designed to enhance the efficiency, security, flexibility and decentralization. 
+[Stratum V2](https://stratumprotocol.org) is a next-generation bitcoin mining protocol designed to enhance the efficiency, security, flexibility, and decentralization. 
 SRI is fully open-source, community-developed, independent of any single entity, aiming to be fully compatible with [Stratum V2 Specification](https://github.com/stratum-mining/sv2-spec).
 
 ## ⛏️ Getting Started

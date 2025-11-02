@@ -12,7 +12,7 @@
 //! * parameters: list of parameters
 //!
 //! ## Standard requests
-//! Message ID must be an unique identifier of request during current transport session. It may be
+//! Message ID must be a unique identifier of request during current transport session. It may be
 //! integer or some unique string, like UUID. ID must be unique only from one side (it means, both
 //! server and clients can initiate request with id “1”). Client or server can choose string/UUID
 //! identifier for example in the case when standard “atomic” counter isn’t available.

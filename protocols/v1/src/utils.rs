@@ -198,7 +198,7 @@ impl From<PrevHash<'_>> for Value {
     }
 }
 
-/// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
+/// Helper Serializer that performs the reverse process of converting the prev hash into stratum V1
 /// ordering
 impl From<PrevHash<'_>> for String {
     fn from(v: PrevHash) -> Self {
@@ -214,7 +214,7 @@ impl From<PrevHash<'_>> for String {
     }
 }
 
-// / Referencing the internal part of hex bytes
+/// Referencing the internal part of hex bytes
 impl AsRef<[u8]> for PrevHash<'_> {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()

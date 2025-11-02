@@ -21,7 +21,7 @@ pub enum Error<'a> {
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
     InvalidReceiver(Box<Method<'a>>),
-    /// Errors if server receives and invalid `mining.submit` from the client.
+    /// Errors if server receives an invalid `mining.submit` from the client.
     InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
     Method(Box<MethodError<'a>>),
@@ -47,7 +47,7 @@ impl std::fmt::Display for Error<'_> {
             Error::IncorrectClientStatus(s) => {
                 write!(f, "Client status is incompatible with message: `{s}`")
             }
-            Error::Infallible(ref e) => write!(f, "Infallible error{e:?}"),
+            Error::Infallible(ref e) => write!(f, "Infallible error: {e:?}"),
             Error::InvalidJsonRpcMessageKind => write!(
                 f,
                 "Server received a `json_rpc` response when it should only receive requests"
