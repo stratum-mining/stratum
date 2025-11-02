@@ -27,13 +27,20 @@ use super::JobDeclaratorDownstream;
 impl JobDeclaratorDownstream {
     fn verify_job(&mut self, message: &DeclareMiningJob) -> bool {
         // Convert token from B0255 to u32
-        let four_byte_array: [u8; 4] = message
-            .mining_job_token
-            .clone()
-            .to_vec()
-            .as_slice()
-            .try_into()
-            .unwrap();
+        // B0255 can be 0-255 bytes, but we need exactly 4 bytes for a u32 token
+        let token_bytes = message.mining_job_token.clone().to_vec();
+        if token_bytes.len() != 4 {
+            // Invalid token length - return false instead of panicking
+            // This prevents server crashes from malicious or buggy clients
+            return false;
+        }
+        // Safe conversion after length check - use array indexing to avoid expect
+        let four_byte_array: [u8; 4] = [
+            token_bytes[0],
+            token_bytes[1],
+            token_bytes[2],
+            token_bytes[3],
+        ];
         let token_u32 = u32::from_le_bytes(four_byte_array);
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
