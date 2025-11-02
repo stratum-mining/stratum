@@ -289,7 +289,7 @@ macro_rules! impl_into_encodable_field_for_seq {
             fn from(v: Seq064K<'a, $a>) -> Self {
                 let inner_len = v.0.len() as u16;
                 let mut as_encodable: Vec<EncodableField> =
-                    Vec::with_capacity((inner_len + 2) as usize);
+                    Vec::with_capacity(inner_len as usize + 2);
                 as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
                     inner_len.to_le_bytes()[0],
                 )));
@@ -307,7 +307,7 @@ macro_rules! impl_into_encodable_field_for_seq {
             fn from(v: Seq0255<$a>) -> Self {
                 let inner_len = v.0.len() as u8;
                 let mut as_encodable: Vec<EncodableField> =
-                    Vec::with_capacity((inner_len + 1) as usize);
+                    Vec::with_capacity((inner_len as usize) + 1);
                 as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
                     inner_len,
                 )));
@@ -322,7 +322,7 @@ macro_rules! impl_into_encodable_field_for_seq {
             fn from(v: Sv2Option<$a>) -> Self {
                 let inner_len = v.0.len() as u8;
                 let mut as_encodable: Vec<EncodableField> =
-                    Vec::with_capacity((inner_len + 1) as usize);
+                    Vec::with_capacity((inner_len as usize) + 1);
                 as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
                     inner_len,
                 )));
