@@ -18,4 +18,4 @@ framing_sv2 = { path = "../framing-sv2", version = "^5.0.2" }
 mining_sv2 = { path = "../subprotocols/mining", version = "^6.0.0" }
 
 [dev-dependencies]
-parsers_sv2 = { path = "../parsers-sv2", version = "^1.0.0" }
+parsers_sv2 = { path = "../parsers-sv2", version = "^0.2.0" }

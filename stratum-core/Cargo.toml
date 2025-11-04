@@ -19,7 +19,7 @@ codec_sv2 = { path = "../sv2/codec-sv2", version = "^4.0.0", features = ["noise_
 extensions_sv2 = { path = "../sv2/extensions-sv2", version = "^0.1.0" }
 framing_sv2 = { path = "../sv2/framing-sv2", version = "^5.0.0" }
 noise_sv2 = { path = "../sv2/noise-sv2", version = "^1.0.0" }
-parsers_sv2 = { path = "../sv2/parsers-sv2", version = "^0.1.0" }
+parsers_sv2 = { path = "../sv2/parsers-sv2", version = "^0.2.0" }
 handlers_sv2 = { path = "../sv2/handlers-sv2", version = "^0.2.0" }
 channels_sv2 = { path = "../sv2/channels-sv2", version = "^2.0.0" }
 common_messages_sv2 = { path = "../sv2/subprotocols/common-messages", version = "^6.0.0" }
