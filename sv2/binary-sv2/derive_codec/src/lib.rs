@@ -577,23 +577,24 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     for f in parsed_struct.fields.clone() {
         let field = format!(
             "
-            let {}: Vec<FieldMarker> = {}{}::get_structure(& {}[{}..])?;
-            {} += {}.size_hint_(&{}, {})?;
-            let {} =  {}.try_into()?;
-            fields.push({});
+            if {offset} > {data}.len() {{
+                return Err(Error::OutOfBound);
+            }}
+
+            let {name}: Vec<FieldMarker> = {ty}{generics}::get_structure(& {data}[{offset}..])?;
+
+            let __size = {name}.size_hint_(&{data}, {offset})?;
+            {offset} = ({offset}.checked_add(__size)
+                .ok_or(Error::OutOfBound)?) ;
+
+            let {name} = {name}.try_into()?;
+            fields.push({name});
             ",
-            f.name,
-            f.type_,
-            f.get_generics(),
-            data_ident,
-            offset_ident,
-            offset_ident,
-            f.name,
-            data_ident,
-            offset_ident,
-            f.name,
-            f.name,
-            f.name
+            name = f.name,
+            ty = f.type_,
+            generics = f.get_generics(),
+            data = data_ident,
+            offset = offset_ident
         );
         derive_fields.push_str(&field)
     }
