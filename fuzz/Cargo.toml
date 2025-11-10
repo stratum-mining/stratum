@@ -1,0 +1,59 @@
+[package]
+name = "fuzz-tests"
+version = "1.0.1"
+edition = "2021"
+authors = ["Automatically generated"]
+publish = false
+documentation = "https://github.com/stratum-mining/stratum"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+homepage = "https://stratumprotocol.org"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.10"
+arbitrary = { version = "1.4.2", features = ["derive"] }
+binary_sv2 = { path = "../sv2/binary-sv2"}
+parsers_sv2 = { path = "../sv2/parsers-sv2" }
+framing_sv2 = { path = "../sv2/framing-sv2" }
+codec_sv2 = { path = "../sv2/codec-sv2", features = ["noise_sv2"]}
+common_messages_sv2 = { path = "../sv2/subprotocols/common-messages" }
+
+[[bin]]
+name = "deserialize_sv2frame"
+path = "fuzz_targets/deserialize_sv2frame.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "deserialize_seq0255"
+path = "fuzz_targets/deserialize_seq0255.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "deserialize_seq064k"
+path = "fuzz_targets/deserialize_seq064k.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "deserialize_setup_connection"
+path = "fuzz_targets/deserialize_setup_connection.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "deserialize_stdframe"
+path = "fuzz_targets/deserialize_stdframe.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "deserialize_datatypes"
+path = "fuzz_targets/deserialize_datatypes.rs"
+test = false
+doc = false
