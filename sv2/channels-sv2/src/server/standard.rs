@@ -39,6 +39,7 @@ use crate::{
         error::StandardChannelError,
         jobs::{
             extended::ExtendedJob, factory::JobFactory, job_store::JobStore, standard::StandardJob,
+            Job,
         },
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
@@ -582,9 +583,11 @@ where
         let hash_as_diff = block_hash_target.difficulty_float();
         let network_target = Target::from_compact(nbits);
 
+        let job_target = job.get_target().expect("standard job must have a target");
+
         // print hash_as_target and self.target as human readable hex
         let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
+        let target_bytes = job_target.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
@@ -596,7 +599,7 @@ where
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -636,8 +639,8 @@ where
             ));
         }
 
-        // check if the share hash meets the channel target
-        if block_hash_target <= self.target {
+        // check if the share hash meets the job target
+        if block_hash_target <= *job_target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }

@@ -321,14 +321,16 @@ impl<'a> StandardChannel<'a> {
         let hash_as_diff = block_hash_target.difficulty_float();
         let network_target = Target::from_compact(nbits);
 
+        let job_target = job.1;
+
         // print hash_as_target and self.target as human readable hex
         let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
+        let job_target_bytes = job_target.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
             bytes_to_hex(&block_hash_target_bytes),
-            bytes_to_hex(&target_bytes),
+            bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
@@ -342,8 +344,8 @@ impl<'a> StandardChannel<'a> {
             return Ok(ShareValidationResult::BlockFound(hash.to_raw_hash()));
         }
 
-        // check if the share hash meets the channel target
-        if block_hash_target < self.target {
+        // check if the share hash meets the job target
+        if block_hash_target < job_target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }
