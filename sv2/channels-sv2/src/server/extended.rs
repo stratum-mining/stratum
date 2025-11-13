@@ -92,7 +92,7 @@ where
     extranonce_prefix: Vec<u8>,
     rollable_extranonce_size: u16,
     requested_max_target: Target,
-    target: Target, // todo: try to use Target from rust-bitcoin
+    target: Target,
     nominal_hashrate: f32,
     job_store: J,
     job_factory: JobFactory,
