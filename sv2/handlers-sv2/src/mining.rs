@@ -66,7 +66,6 @@ pub trait HandleMiningMessagesFromServerSync {
                     MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
                 )),
             },
-
             OpenExtendedMiningChannelSuccess(m) => match channel_type {
                 SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
                     self.handle_open_extended_mining_channel_success(server_id, m)
@@ -75,7 +74,6 @@ pub trait HandleMiningMessagesFromServerSync {
                     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
                 )),
             },
-
             OpenMiningChannelError(m) => self.handle_open_mining_channel_error(server_id, m),
             UpdateChannelError(m) => self.handle_update_channel_error(server_id, m),
             CloseChannel(m) => self.handle_close_channel(server_id, m),
@@ -87,7 +85,6 @@ pub trait HandleMiningMessagesFromServerSync {
                 SupportedChannelTypes::Standard => self.handle_new_mining_job(server_id, m),
                 _ => Err(Self::Error::unexpected_message(MESSAGE_TYPE_NEW_MINING_JOB)),
             },
-
             NewExtendedMiningJob(m) => match channel_type {
                 SupportedChannelTypes::Extended
                 | SupportedChannelTypes::Group
@@ -98,9 +95,7 @@ pub trait HandleMiningMessagesFromServerSync {
                     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
                 )),
             },
-
             SetNewPrevHash(m) => self.handle_set_new_prev_hash(server_id, m),
-
             SetCustomMiningJobSuccess(m) => match (channel_type, work_selection) {
                 (SupportedChannelTypes::Extended, true)
                 | (SupportedChannelTypes::GroupAndExtended, true) => {
@@ -110,7 +105,6 @@ pub trait HandleMiningMessagesFromServerSync {
                     MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
                 )),
             },
-
             SetCustomMiningJobError(m) => match (channel_type, work_selection) {
                 (SupportedChannelTypes::Extended, true)
                 | (SupportedChannelTypes::Group, true)
@@ -121,9 +115,7 @@ pub trait HandleMiningMessagesFromServerSync {
                     MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
                 )),
             },
-
             SetTarget(m) => self.handle_set_target(server_id, m),
-
             SetGroupChannel(m) => match channel_type {
                 SupportedChannelTypes::Group | SupportedChannelTypes::GroupAndExtended => {
                     self.handle_set_group_channel(server_id, m)
@@ -132,8 +124,22 @@ pub trait HandleMiningMessagesFromServerSync {
                     MESSAGE_TYPE_SET_GROUP_CHANNEL,
                 )),
             },
-
-            _ => Err(Self::Error::unexpected_message(0)),
+            SubmitSharesExtended(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+            )),
+            SubmitSharesStandard(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+            )),
+            UpdateChannel(_) => Err(Self::Error::unexpected_message(MESSAGE_TYPE_UPDATE_CHANNEL)),
+            OpenExtendedMiningChannel(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+            )),
+            OpenStandardMiningChannel(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+            )),
+            SetCustomMiningJob(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+            )),
         }
     }
 
@@ -280,7 +286,6 @@ pub trait HandleMiningMessagesFromServerAsync {
                         MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
                     )),
                 },
-
                 OpenExtendedMiningChannelSuccess(m) => match channel_type {
                     SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
                         self.handle_open_extended_mining_channel_success(server_id, m)
@@ -290,7 +295,6 @@ pub trait HandleMiningMessagesFromServerAsync {
                         MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
                     )),
                 },
-
                 OpenMiningChannelError(m) => {
                     self.handle_open_mining_channel_error(server_id, m).await
                 }
@@ -299,14 +303,12 @@ pub trait HandleMiningMessagesFromServerAsync {
                 SetExtranoncePrefix(m) => self.handle_set_extranonce_prefix(server_id, m).await,
                 SubmitSharesSuccess(m) => self.handle_submit_shares_success(server_id, m).await,
                 SubmitSharesError(m) => self.handle_submit_shares_error(server_id, m).await,
-
                 NewMiningJob(m) => match channel_type {
                     SupportedChannelTypes::Standard => {
                         self.handle_new_mining_job(server_id, m).await
                     }
                     _ => Err(Self::Error::unexpected_message(MESSAGE_TYPE_NEW_MINING_JOB)),
                 },
-
                 NewExtendedMiningJob(m) => match channel_type {
                     SupportedChannelTypes::Extended
                     | SupportedChannelTypes::Group
@@ -317,9 +319,7 @@ pub trait HandleMiningMessagesFromServerAsync {
                         MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
                     )),
                 },
-
                 SetNewPrevHash(m) => self.handle_set_new_prev_hash(server_id, m).await,
-
                 SetCustomMiningJobSuccess(m) => match (channel_type, work_selection) {
                     (SupportedChannelTypes::Extended, true)
                     | (SupportedChannelTypes::GroupAndExtended, true) => {
@@ -330,7 +330,6 @@ pub trait HandleMiningMessagesFromServerAsync {
                         MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
                     )),
                 },
-
                 SetCustomMiningJobError(m) => match (channel_type, work_selection) {
                     (SupportedChannelTypes::Extended, true)
                     | (SupportedChannelTypes::Group, true)
@@ -341,9 +340,7 @@ pub trait HandleMiningMessagesFromServerAsync {
                         MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
                     )),
                 },
-
                 SetTarget(m) => self.handle_set_target(server_id, m).await,
-
                 SetGroupChannel(m) => match channel_type {
                     SupportedChannelTypes::Group | SupportedChannelTypes::GroupAndExtended => {
                         self.handle_set_group_channel(server_id, m).await
@@ -352,7 +349,24 @@ pub trait HandleMiningMessagesFromServerAsync {
                         MESSAGE_TYPE_SET_GROUP_CHANNEL,
                     )),
                 },
-                _ => Err(Self::Error::unexpected_message(0)),
+                SubmitSharesExtended(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+                )),
+                SubmitSharesStandard(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+                )),
+                UpdateChannel(_) => {
+                    Err(Self::Error::unexpected_message(MESSAGE_TYPE_UPDATE_CHANNEL))
+                }
+                OpenExtendedMiningChannel(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+                )),
+                OpenStandardMiningChannel(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+                )),
+                SetCustomMiningJob(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+                )),
             }
         }
     }
@@ -508,7 +522,6 @@ pub trait HandleMiningMessagesFromClientSync {
                 )),
             },
             UpdateChannel(m) => self.handle_update_channel(client_id, m),
-
             SubmitSharesStandard(m) => match channel_type {
                 SupportedChannelTypes::Standard
                 | SupportedChannelTypes::Group
@@ -519,7 +532,6 @@ pub trait HandleMiningMessagesFromClientSync {
                     MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
                 )),
             },
-
             SubmitSharesExtended(m) => match channel_type {
                 SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
                     self.handle_submit_shares_extended(client_id, m)
@@ -528,7 +540,6 @@ pub trait HandleMiningMessagesFromClientSync {
                     MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
                 )),
             },
-
             SetCustomMiningJob(m) => match (channel_type, work_selection) {
                 (SupportedChannelTypes::Extended, true)
                 | (SupportedChannelTypes::GroupAndExtended, true) => {
@@ -539,8 +550,44 @@ pub trait HandleMiningMessagesFromClientSync {
                 )),
             },
             CloseChannel(m) => self.handle_close_channel(client_id, m),
-
-            _ => Err(Self::Error::unexpected_message(0)),
+            NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
+            )),
+            NewMiningJob(_) => Err(Self::Error::unexpected_message(MESSAGE_TYPE_NEW_MINING_JOB)),
+            OpenExtendedMiningChannelSuccess(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
+            )),
+            OpenMiningChannelError(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR,
+            )),
+            OpenStandardMiningChannelSuccess(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+            )),
+            SetCustomMiningJobError(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
+            )),
+            SetCustomMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+            )),
+            SetExtranoncePrefix(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
+            )),
+            SetGroupChannel(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SET_GROUP_CHANNEL,
+            )),
+            SetNewPrevHash(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+            )),
+            SetTarget(_) => Err(Self::Error::unexpected_message(MESSAGE_TYPE_SET_TARGET)),
+            SubmitSharesError(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+            )),
+            SubmitSharesSuccess(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+            )),
+            UpdateChannelError(_) => Err(Self::Error::unexpected_message(
+                MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+            )),
         }
     }
 
@@ -652,7 +699,6 @@ pub trait HandleMiningMessagesFromClientAsync {
                     )),
                 },
                 UpdateChannel(m) => self.handle_update_channel(client_id, m).await,
-
                 SubmitSharesStandard(m) => match channel_type {
                     SupportedChannelTypes::Standard
                     | SupportedChannelTypes::Group
@@ -663,7 +709,6 @@ pub trait HandleMiningMessagesFromClientAsync {
                         MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
                     )),
                 },
-
                 SubmitSharesExtended(m) => match channel_type {
                     SupportedChannelTypes::Extended | SupportedChannelTypes::GroupAndExtended => {
                         self.handle_submit_shares_extended(client_id, m).await
@@ -672,7 +717,6 @@ pub trait HandleMiningMessagesFromClientAsync {
                         MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
                     )),
                 },
-
                 SetCustomMiningJob(m) => match (channel_type, work_selection) {
                     (SupportedChannelTypes::Extended, true)
                     | (SupportedChannelTypes::GroupAndExtended, true) => {
@@ -683,8 +727,46 @@ pub trait HandleMiningMessagesFromClientAsync {
                     )),
                 },
                 CloseChannel(m) => self.handle_close_channel(client_id, m).await,
-
-                _ => Err(Self::Error::unexpected_message(0)),
+                NewExtendedMiningJob(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
+                )),
+                NewMiningJob(_) => {
+                    Err(Self::Error::unexpected_message(MESSAGE_TYPE_NEW_MINING_JOB))
+                }
+                OpenExtendedMiningChannelSuccess(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS,
+                )),
+                OpenMiningChannelError(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR,
+                )),
+                OpenStandardMiningChannelSuccess(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
+                )),
+                SetCustomMiningJobError(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
+                )),
+                SetCustomMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+                )),
+                SetExtranoncePrefix(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
+                )),
+                SetGroupChannel(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SET_GROUP_CHANNEL,
+                )),
+                SetNewPrevHash(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+                )),
+                SetTarget(_) => Err(Self::Error::unexpected_message(MESSAGE_TYPE_SET_TARGET)),
+                SubmitSharesError(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+                )),
+                SubmitSharesSuccess(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+                )),
+                UpdateChannelError(_) => Err(Self::Error::unexpected_message(
+                    MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+                )),
             }
         }
     }
