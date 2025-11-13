@@ -5,7 +5,7 @@ use crate::{
     server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
 };
 use binary_sv2::{Seq0255, Sv2Option, U256};
-use bitcoin::transaction::TxOut;
+use bitcoin::{transaction::TxOut, Target};
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
@@ -32,6 +32,7 @@ pub struct ExtendedJob<'a> {
     coinbase_tx_prefix_with_bip141: Vec<u8>,
     coinbase_tx_suffix_with_bip141: Vec<u8>,
     job_message: NewExtendedMiningJob<'a>,
+    target: Option<Target>, // Group Channels don't have a target... however Extended Channels MUST have Some(target) here
 }
 
 impl Job for ExtendedJob<'_> {
@@ -42,12 +43,19 @@ impl Job for ExtendedJob<'_> {
     fn activate(&mut self, min_ntime: u32) {
         self.activate(min_ntime);
     }
+
+    fn get_target(&self) -> Option<&Target> {
+        self.target.as_ref()
+    }
 }
 
 impl<'a> ExtendedJob<'a> {
     /// Creates a new job from a template.
     ///
     /// `additional_coinbase_outputs` are added to the coinbase outputs coming from the template.
+    ///
+    /// When using for Group Channels, `target` MUST be `None`.
+    /// When using for Extended Channels, `target` MUST be `Some(target)`.
     pub fn from_template(
         template: NewTemplate<'a>,
         extranonce_prefix: Vec<u8>,
@@ -55,6 +63,7 @@ impl<'a> ExtendedJob<'a> {
         coinbase_tx_prefix: Vec<u8>,
         coinbase_tx_suffix: Vec<u8>,
         job_message: NewExtendedMiningJob<'a>,
+        target: Option<Target>,
     ) -> Result<Self, ExtendedJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
             template.coinbase_tx_outputs.to_vec(),
@@ -73,6 +82,7 @@ impl<'a> ExtendedJob<'a> {
             coinbase_tx_prefix_with_bip141: coinbase_tx_prefix,
             coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
+            target,
         })
     }
     /// Creates a new extended job from a custom mining job message.
@@ -85,6 +95,7 @@ impl<'a> ExtendedJob<'a> {
         coinbase_tx_prefix: Vec<u8>,
         coinbase_tx_suffix: Vec<u8>,
         job_message: NewExtendedMiningJob<'a>,
+        target: Target,
     ) -> Self {
         Self {
             origin: JobOrigin::SetCustomMiningJob(custom_job),
@@ -93,6 +104,7 @@ impl<'a> ExtendedJob<'a> {
             coinbase_tx_prefix_with_bip141: coinbase_tx_prefix,
             coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
+            target: Some(target),
         }
     }
 
@@ -104,6 +116,7 @@ impl<'a> ExtendedJob<'a> {
         self,
         channel_id: u32,
         extranonce_prefix: Vec<u8>,
+        target: Target,
     ) -> Result<StandardJob<'a>, ExtendedJobError> {
         // here we can only convert extended jobs that were created from a template
         let template = match self.get_origin() {
@@ -136,6 +149,7 @@ impl<'a> ExtendedJob<'a> {
             extranonce_prefix,
             self.get_coinbase_outputs().clone(),
             standard_job_message,
+            target,
         )
         .map_err(|_| ExtendedJobError::FailedToConvertToStandardJob)?;
 

@@ -418,6 +418,7 @@ where
                         self.extranonce_prefix.clone(),
                         template.clone(),
                         coinbase_reward_outputs,
+                        self.target,
                     )
                     .map_err(StandardChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
@@ -435,6 +436,7 @@ where
                                 self.extranonce_prefix.clone(),
                                 template.clone(),
                                 coinbase_reward_outputs,
+                                self.target,
                             )
                             .map_err(StandardChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);
@@ -456,7 +458,7 @@ where
         extended_job: ExtendedJob<'a>,
     ) -> Result<(), StandardChannelError> {
         let standard_job = extended_job
-            .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
+            .into_standard_job(self.channel_id, self.extranonce_prefix.clone(), self.target)
             .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
 
         match standard_job.is_future() {

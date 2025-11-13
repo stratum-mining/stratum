@@ -233,6 +233,7 @@ where
                         template.clone(),
                         coinbase_reward_outputs,
                         self.full_extranonce_size,
+                        None,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
@@ -253,6 +254,7 @@ where
                                 template.clone(),
                                 coinbase_reward_outputs,
                                 self.full_extranonce_size,
+                                None,
                             )
                             .map_err(GroupChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);

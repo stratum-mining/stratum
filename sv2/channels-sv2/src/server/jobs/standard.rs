@@ -24,7 +24,7 @@ use crate::{
     server::jobs::{error::StandardJobError, Job},
 };
 use binary_sv2::{Sv2Option, U256};
-use bitcoin::transaction::TxOut;
+use bitcoin::{transaction::TxOut, Target};
 use mining_sv2::NewMiningJob;
 use template_distribution_sv2::NewTemplate;
 
@@ -39,6 +39,7 @@ pub struct StandardJob<'a> {
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
     job_message: NewMiningJob<'a>,
+    target: Target,
 }
 
 impl Job for StandardJob<'_> {
@@ -50,6 +51,10 @@ impl Job for StandardJob<'_> {
     /// Activates the job by setting the minimum ntime field.
     fn activate(&mut self, min_ntime: u32) {
         self.activate(min_ntime);
+    }
+
+    fn get_target(&self) -> Option<&Target> {
+        Some(&self.target)
     }
 }
 
@@ -63,6 +68,7 @@ impl<'a> StandardJob<'a> {
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
         job_message: NewMiningJob<'a>,
+        target: Target,
     ) -> Result<Self, StandardJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
             template.coinbase_tx_outputs.to_vec(),
@@ -79,6 +85,7 @@ impl<'a> StandardJob<'a> {
             extranonce_prefix,
             coinbase_outputs,
             job_message,
+            target,
         })
     }
     /// Returns the job ID for this job.

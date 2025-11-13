@@ -445,6 +445,7 @@ where
                         template.clone(),
                         coinbase_reward_outputs,
                         self.get_full_extranonce_size(),
+                        Some(self.target),
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
                 self.job_store.add_future_job(template.template_id, new_job);
@@ -463,6 +464,7 @@ where
                                 template.clone(),
                                 coinbase_reward_outputs,
                                 self.get_full_extranonce_size(),
+                                Some(self.target),
                             )
                             .map_err(ExtendedChannelError::JobFactoryError)?;
                         self.job_store.add_active_job(new_job);
@@ -534,6 +536,7 @@ where
                 set_custom_mining_job.clone(),
                 self.extranonce_prefix.clone(),
                 self.get_full_extranonce_size(),
+                self.target,
             )
             .map_err(ExtendedChannelError::JobFactoryError)?;
 

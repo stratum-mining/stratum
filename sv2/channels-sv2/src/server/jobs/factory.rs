@@ -33,7 +33,7 @@ use bitcoin::{
     blockdata::witness::Witness,
     consensus::{serialize, Decodable},
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
-    Amount, Sequence,
+    Amount, Sequence, Target,
 };
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
 use std::convert::TryInto;
@@ -148,6 +148,7 @@ impl JobFactory {
         extranonce_prefix: Vec<u8>,
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
+        target: Target,
     ) -> Result<StandardJob<'a>, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
@@ -211,6 +212,7 @@ impl JobFactory {
             extranonce_prefix,
             additional_coinbase_outputs,
             job_message,
+            target,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
@@ -228,6 +230,7 @@ impl JobFactory {
     ///
     /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs` is equal to
     /// available template revenue. Returns an error otherwise.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_extended_job<'a>(
         &mut self,
         channel_id: u32,
@@ -236,6 +239,7 @@ impl JobFactory {
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
+        target: Option<Target>,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
@@ -312,6 +316,7 @@ impl JobFactory {
             coinbase_tx_prefix,
             coinbase_tx_suffix,
             job_message,
+            target,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
@@ -423,6 +428,7 @@ impl JobFactory {
         set_custom_mining_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
         full_extranonce_size: usize,
+        target: Target,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
         let serialized_outputs = set_custom_mining_job
             .coinbase_tx_outputs
@@ -473,6 +479,7 @@ impl JobFactory {
             coinbase_tx_prefix,
             coinbase_tx_suffix,
             job_message,
+            target,
         );
 
         Ok(job)
@@ -751,6 +758,7 @@ mod tests {
                 template,
                 coinbase_reward_outputs,
                 32,
+                None,
             )
             .unwrap();
 
@@ -859,7 +867,12 @@ mod tests {
             JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
 
         let custom_job = pool_job_factory
-            .new_extended_job_from_custom_job(set_custom_mining_job, extranonce_prefix, 32)
+            .new_extended_job_from_custom_job(
+                set_custom_mining_job,
+                extranonce_prefix,
+                32,
+                Target::from_be_bytes([0; 32]),
+            )
             .unwrap();
 
         let expected_job = NewExtendedMiningJob {

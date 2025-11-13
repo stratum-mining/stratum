@@ -24,6 +24,7 @@ pub mod factory;
 pub mod job_store;
 pub mod standard;
 
+use bitcoin::Target;
 use mining_sv2::SetCustomMiningJob;
 use template_distribution_sv2::NewTemplate;
 
@@ -37,10 +38,15 @@ pub enum JobOrigin<'a> {
 ///
 /// Types implementing `Job` must provide a unique job ID and support activation upon chain tip
 /// update.
+///
+/// Group Channels MUST return None for get_target(), while Standard and Extended Channels MUST return Some(Target).
 pub trait Job: Send + Sync {
     /// Returns the unique job ID for this job.
     fn get_job_id(&self) -> u32;
 
     /// Activates the job for a new chain tip or prev_hash header timestamp.
     fn activate(&mut self, prev_hash_header_timestamp: u32);
+
+    /// Returns the target for this job, if any.
+    fn get_target(&self) -> Option<&Target>;
 }

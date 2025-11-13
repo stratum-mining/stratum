@@ -38,7 +38,8 @@ use tracing::debug;
 /// Each job includes:
 /// - A [`NewExtendedMiningJob`] message
 /// - The `extranonce_prefix` in use when the job was created
-pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
+/// - The target for the job
+pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
 
 /// Mining Client abstraction for the state management of an Sv2 Extended Channel.
 ///
@@ -240,12 +241,20 @@ impl<'a> ExtendedChannel<'a> {
                 if let Some(active_job) = self.active_job.clone() {
                     self.past_jobs.insert(active_job.0.job_id, active_job);
                 }
-                self.active_job = Some((new_extended_mining_job, self.extranonce_prefix.clone()));
+                self.active_job = Some((
+                    new_extended_mining_job,
+                    self.extranonce_prefix.clone(),
+                    self.target,
+                ));
             }
             None => {
                 self.future_jobs.insert(
                     new_extended_mining_job.job_id,
-                    (new_extended_mining_job, self.extranonce_prefix.clone()),
+                    (
+                        new_extended_mining_job,
+                        self.extranonce_prefix.clone(),
+                        self.target,
+                    ),
                 );
             }
         }
@@ -354,7 +363,12 @@ impl<'a> ExtendedChannel<'a> {
         if let Some(active_job) = self.active_job.clone() {
             self.past_jobs.insert(active_job.0.job_id, active_job);
         }
-        self.active_job = Some((new_extended_mining_job, self.extranonce_prefix.clone()));
+
+        self.active_job = Some((
+            new_extended_mining_job,
+            self.extranonce_prefix.clone(),
+            self.target,
+        ));
 
         Ok(())
     }
@@ -653,7 +667,11 @@ mod tests {
 
         assert_eq!(
             channel.get_active_job(),
-            Some(&(previously_future_job, extranonce_prefix))
+            Some(&(
+                previously_future_job,
+                extranonce_prefix,
+                channel.get_target().clone()
+            ))
         );
     }
 
@@ -713,7 +731,11 @@ mod tests {
         assert_eq!(channel.get_future_jobs().len(), 0);
         assert_eq!(
             channel.get_active_job(),
-            Some(&(active_job.clone(), extranonce_prefix.clone()))
+            Some(&(
+                active_job.clone(),
+                extranonce_prefix.clone(),
+                channel.get_target().clone()
+            ))
         );
         assert_eq!(channel.get_past_jobs().len(), 0);
 
@@ -726,7 +748,11 @@ mod tests {
         assert_eq!(channel.get_future_jobs().len(), 0);
         assert_eq!(
             channel.get_active_job(),
-            Some(&(new_active_job, extranonce_prefix))
+            Some(&(
+                new_active_job,
+                extranonce_prefix,
+                channel.get_target().clone()
+            ))
         );
         assert_eq!(channel.get_past_jobs().len(), 1);
     }
