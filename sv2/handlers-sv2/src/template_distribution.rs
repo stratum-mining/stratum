@@ -1,4 +1,5 @@
-use parsers_sv2::{parse_template_distribution_message_with_tlvs, TemplateDistribution, Tlv};
+use framing_sv2::header::Header;
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, TemplateDistribution, Tlv};
 use template_distribution_sv2::*;
 use template_distribution_sv2::{
     CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
@@ -35,23 +36,32 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
     fn handle_template_distribution_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id);
-
-        let (parsed, tlv_fields) = parse_template_distribution_message_with_tlvs(
-            message_type,
-            payload,
-            &negotiated_extensions,
-        )
-        .map_err(Self::Error::parse_error)?;
-
-        self.handle_template_distribution_message_from_server(
-            server_id,
-            parsed,
-            tlv_fields.as_deref(),
-        )
+        if negotiated_extensions.is_empty() {
+            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+                .try_into()
+                .map_err(Self::Error::parse_error)?;
+            self.handle_template_distribution_message_from_server(server_id, parsed, None)
+        } else {
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::TemplateDistribution(parsed) => self
+                    .handle_template_distribution_message_from_server(
+                        server_id,
+                        parsed,
+                        tlv_fields.as_deref(),
+                    ),
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
     }
 
     /// Handles a parsed template distribution message from a server.
@@ -81,12 +91,13 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
             }
 
             TemplateDistribution::CoinbaseOutputConstraints(_) => Err(
-                Self::Error::unexpected_message(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
             ),
             TemplateDistribution::RequestTransactionData(_) => Err(
-                Self::Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA),
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA),
             ),
             TemplateDistribution::SubmitSolution(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_SUBMIT_SOLUTION,
             )),
         }
@@ -149,25 +160,36 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
     async fn handle_template_distribution_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id);
-
-            let (parsed, tlv_fields) = parse_template_distribution_message_with_tlvs(
-                message_type,
-                payload,
-                &negotiated_extensions,
-            )
-            .map_err(Self::Error::parse_error)?;
-
-            self.handle_template_distribution_message_from_server(
-                server_id,
-                parsed,
-                tlv_fields.as_deref(),
-            )
-            .await
+            if negotiated_extensions.is_empty() {
+                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+                    .try_into()
+                    .map_err(Self::Error::parse_error)?;
+                self.handle_template_distribution_message_from_server(server_id, parsed, None)
+                    .await
+            } else {
+                let (parsed, tlv_fields) =
+                    parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                        .map_err(Self::Error::parse_error)?;
+                match parsed {
+                    AnyMessage::TemplateDistribution(parsed) => {
+                        self.handle_template_distribution_message_from_server(
+                            server_id,
+                            parsed,
+                            tlv_fields.as_deref(),
+                        )
+                        .await
+                    }
+                    _ => Err(Self::Error::unexpected_message(
+                        header.ext_type_without_channel_msg(),
+                        header.msg_type(),
+                    )),
+                }
+            }
         }
     }
 
@@ -202,12 +224,13 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
                 }
 
                 TemplateDistribution::CoinbaseOutputConstraints(_) => Err(
-                    Self::Error::unexpected_message(MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS),
                 ),
                 TemplateDistribution::RequestTransactionData(_) => Err(
-                    Self::Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA),
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA),
                 ),
                 TemplateDistribution::SubmitSolution(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_SUBMIT_SOLUTION,
                 )),
             }
@@ -270,23 +293,32 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
     fn handle_template_distribution_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id);
-
-        let (parsed, tlv_fields) = parse_template_distribution_message_with_tlvs(
-            message_type,
-            payload,
-            &negotiated_extensions,
-        )
-        .map_err(Self::Error::parse_error)?;
-
-        self.handle_template_distribution_message_from_client(
-            client_id,
-            parsed,
-            tlv_fields.as_deref(),
-        )
+        if negotiated_extensions.is_empty() {
+            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+                .try_into()
+                .map_err(Self::Error::parse_error)?;
+            self.handle_template_distribution_message_from_client(client_id, parsed, None)
+        } else {
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::TemplateDistribution(parsed) => self
+                    .handle_template_distribution_message_from_client(
+                        client_id,
+                        parsed,
+                        tlv_fields.as_deref(),
+                    ),
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
     }
 
     /// Handles a parsed template distribution message from a client.
@@ -312,17 +344,19 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
                 self.handle_submit_solution(client_id, m, tlv_fields)
             }
 
-            TemplateDistribution::NewTemplate(_) => {
-                Err(Self::Error::unexpected_message(MESSAGE_TYPE_NEW_TEMPLATE))
-            }
+            TemplateDistribution::NewTemplate(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_NEW_TEMPLATE,
+            )),
             TemplateDistribution::SetNewPrevHash(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_SET_NEW_PREV_HASH,
             )),
             TemplateDistribution::RequestTransactionDataSuccess(_) => Err(
-                Self::Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
             ),
             TemplateDistribution::RequestTransactionDataError(_) => Err(
-                Self::Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
             ),
         }
     }
@@ -377,25 +411,36 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
     async fn handle_template_distribution_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id);
-
-            let (parsed, tlv_fields) = parse_template_distribution_message_with_tlvs(
-                message_type,
-                payload,
-                &negotiated_extensions,
-            )
-            .map_err(Self::Error::parse_error)?;
-
-            self.handle_template_distribution_message_from_client(
-                client_id,
-                parsed,
-                tlv_fields.as_deref(),
-            )
-            .await
+            if negotiated_extensions.is_empty() {
+                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+                    .try_into()
+                    .map_err(Self::Error::parse_error)?;
+                self.handle_template_distribution_message_from_client(client_id, parsed, None)
+                    .await
+            } else {
+                let (parsed, tlv_fields) =
+                    parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                        .map_err(Self::Error::parse_error)?;
+                match parsed {
+                    AnyMessage::TemplateDistribution(parsed) => {
+                        self.handle_template_distribution_message_from_client(
+                            client_id,
+                            parsed,
+                            tlv_fields.as_deref(),
+                        )
+                        .await
+                    }
+                    _ => Err(Self::Error::unexpected_message(
+                        header.ext_type_without_channel_msg(),
+                        header.msg_type(),
+                    )),
+                }
+            }
         }
     }
 
@@ -424,17 +469,22 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
                     self.handle_submit_solution(client_id, m, tlv_fields).await
                 }
 
-                TemplateDistribution::NewTemplate(_) => {
-                    Err(Self::Error::unexpected_message(MESSAGE_TYPE_NEW_TEMPLATE))
-                }
+                TemplateDistribution::NewTemplate(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_NEW_TEMPLATE,
+                )),
                 TemplateDistribution::SetNewPrevHash(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_SET_NEW_PREV_HASH,
                 )),
-                TemplateDistribution::RequestTransactionDataSuccess(_) => Err(
-                    Self::Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
-                ),
+                TemplateDistribution::RequestTransactionDataSuccess(_) => {
+                    Err(Self::Error::unexpected_message(
+                        0,
+                        MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
+                    ))
+                }
                 TemplateDistribution::RequestTransactionDataError(_) => Err(
-                    Self::Error::unexpected_message(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
                 ),
             }
         }

@@ -1,7 +1,8 @@
 use common_messages_sv2::{
     ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess, *,
 };
-use parsers_sv2::{parse_common_message_with_tlvs, CommonMessages, Tlv};
+use framing_sv2::header::Header;
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -33,16 +34,29 @@ pub trait HandleCommonMessagesFromServerSync {
     fn handle_common_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id);
-
-        let (parsed, tlv_fields) =
-            parse_common_message_with_tlvs(message_type, payload, &negotiated_extensions)
+        if negotiated_extensions.is_empty() {
+            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                .try_into()
                 .map_err(Self::Error::parse_error)?;
-
-        self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
+            self.handle_common_message_from_server(server_id, parsed, None)
+        } else {
+            let (message, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match message {
+                AnyMessage::Common(parsed) => {
+                    self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
+                }
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
     }
 
     /// Handles a parsed common message from a server.
@@ -70,6 +84,7 @@ pub trait HandleCommonMessagesFromServerSync {
             CommonMessages::Reconnect(msg) => self.handle_reconnect(server_id, msg, tlv_fields),
 
             CommonMessages::SetupConnection(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_SETUP_CONNECTION,
             )),
         }
@@ -133,18 +148,37 @@ pub trait HandleCommonMessagesFromServerAsync {
     async fn handle_common_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id);
-
-            let (parsed, tlv_fields) =
-                parse_common_message_with_tlvs(message_type, payload, &negotiated_extensions)
+            if negotiated_extensions.is_empty() {
+                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                    .try_into()
                     .map_err(Self::Error::parse_error)?;
+                self.handle_common_message_from_server(server_id, parsed, None)
+                    .await
+            } else {
+                let (parsed, tlv_fields) =
+                    parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                        .map_err(Self::Error::parse_error)?;
+                match parsed {
+                    AnyMessage::Common(parsed) => {
+                        self.handle_common_message_from_server(
+                            server_id,
+                            parsed,
+                            tlv_fields.as_deref(),
+                        )
+                        .await
+                    }
 
-            self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
-                .await
+                    _ => Err(Self::Error::unexpected_message(
+                        header.ext_type_without_channel_msg(),
+                        header.msg_type(),
+                    )),
+                }
+            }
         }
     }
 
@@ -179,6 +213,7 @@ pub trait HandleCommonMessagesFromServerAsync {
                 }
 
                 CommonMessages::SetupConnection(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_SETUP_CONNECTION,
                 )),
             }
@@ -242,16 +277,29 @@ pub trait HandleCommonMessagesFromClientSync {
     fn handle_common_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id);
-
-        let (parsed, tlv_fields) =
-            parse_common_message_with_tlvs(message_type, payload, &negotiated_extensions)
+        if negotiated_extensions.is_empty() {
+            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                .try_into()
                 .map_err(Self::Error::parse_error)?;
-
-        self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())
+            self.handle_common_message_from_client(client_id, parsed, None)
+        } else {
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::Common(parsed) => {
+                    self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())
+                }
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
     }
 
     /// Handles a parsed common message from a client.
@@ -268,16 +316,19 @@ pub trait HandleCommonMessagesFromClientSync {
     ) -> Result<(), Self::Error> {
         match message {
             CommonMessages::SetupConnectionSuccess(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
             )),
             CommonMessages::SetupConnectionError(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             )),
             CommonMessages::ChannelEndpointChanged(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             )),
             CommonMessages::Reconnect(_) => {
-                Err(Self::Error::unexpected_message(MESSAGE_TYPE_RECONNECT))
+                Err(Self::Error::unexpected_message(0, MESSAGE_TYPE_RECONNECT))
             }
 
             CommonMessages::SetupConnection(msg) => {
@@ -323,18 +374,36 @@ pub trait HandleCommonMessagesFromClientAsync {
     async fn handle_common_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id);
-
-            let (parsed, tlv_fields) =
-                parse_common_message_with_tlvs(message_type, payload, &negotiated_extensions)
+            if negotiated_extensions.is_empty() {
+                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                    .try_into()
                     .map_err(Self::Error::parse_error)?;
-
-            self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())
-                .await
+                self.handle_common_message_from_client(client_id, parsed, None)
+                    .await
+            } else {
+                let (parsed, tlv_fields) =
+                    parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                        .map_err(Self::Error::parse_error)?;
+                match parsed {
+                    AnyMessage::Common(parsed) => {
+                        self.handle_common_message_from_client(
+                            client_id,
+                            parsed,
+                            tlv_fields.as_deref(),
+                        )
+                        .await
+                    }
+                    _ => Err(Self::Error::unexpected_message(
+                        header.ext_type_without_channel_msg(),
+                        header.msg_type(),
+                    )),
+                }
+            }
         }
     }
 
@@ -353,16 +422,19 @@ pub trait HandleCommonMessagesFromClientAsync {
         async move {
             match message {
                 CommonMessages::SetupConnectionSuccess(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
                 )),
                 CommonMessages::SetupConnectionError(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
                 )),
                 CommonMessages::ChannelEndpointChanged(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
                 )),
                 CommonMessages::Reconnect(_) => {
-                    Err(Self::Error::unexpected_message(MESSAGE_TYPE_RECONNECT))
+                    Err(Self::Error::unexpected_message(0, MESSAGE_TYPE_RECONNECT))
                 }
                 CommonMessages::SetupConnection(msg) => {
                     self.handle_setup_connection(client_id, msg, tlv_fields)

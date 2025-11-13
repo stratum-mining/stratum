@@ -1,10 +1,11 @@
+use framing_sv2::header::Header;
 use job_declaration_sv2::{
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
 };
-use parsers_sv2::{parse_job_declaration_message_with_tlvs, JobDeclaration, Tlv};
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, Tlv};
 
 use crate::error::HandlerErrorType;
 
@@ -36,16 +37,32 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
     fn handle_job_declaration_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id);
-
-        let (parsed, tlv_fields) =
-            parse_job_declaration_message_with_tlvs(message_type, payload, &negotiated_extensions)
+        if negotiated_extensions.is_empty() {
+            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                .try_into()
                 .map_err(Self::Error::parse_error)?;
-
-        self.handle_job_declaration_message_from_server(server_id, parsed, tlv_fields.as_deref())
+            self.handle_job_declaration_message_from_server(server_id, parsed, None)
+        } else {
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::JobDeclaration(parsed) => self
+                    .handle_job_declaration_message_from_server(
+                        server_id,
+                        parsed,
+                        tlv_fields.as_deref(),
+                    ),
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
     }
 
     /// Handles a parsed job declaration message from a server.
@@ -74,17 +91,23 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
                 self.handle_provide_missing_transactions(server_id, msg, tlv_fields)
             }
             JobDeclaration::AllocateMiningJobToken(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
             )),
             JobDeclaration::DeclareMiningJob(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_DECLARE_MINING_JOB,
             )),
-            JobDeclaration::ProvideMissingTransactionsSuccess(_) => Err(
-                Self::Error::unexpected_message(MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS),
-            ),
-            JobDeclaration::PushSolution(_) => {
-                Err(Self::Error::unexpected_message(MESSAGE_TYPE_PUSH_SOLUTION))
+            JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
+                Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
+                ))
             }
+            JobDeclaration::PushSolution(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_PUSH_SOLUTION,
+            )),
         }
     }
 
@@ -146,25 +169,36 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     async fn handle_job_declaration_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id);
-
-            let (parsed, tlv_fields) = parse_job_declaration_message_with_tlvs(
-                message_type,
-                payload,
-                &negotiated_extensions,
-            )
-            .map_err(Self::Error::parse_error)?;
-
-            self.handle_job_declaration_message_from_server(
-                server_id,
-                parsed,
-                tlv_fields.as_deref(),
-            )
-            .await
+            if negotiated_extensions.is_empty() {
+                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                    .try_into()
+                    .map_err(Self::Error::parse_error)?;
+                self.handle_job_declaration_message_from_server(server_id, parsed, None)
+                    .await
+            } else {
+                let (parsed, tlv_fields) =
+                    parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                        .map_err(Self::Error::parse_error)?;
+                match parsed {
+                    AnyMessage::JobDeclaration(parsed) => {
+                        self.handle_job_declaration_message_from_server(
+                            server_id,
+                            parsed,
+                            tlv_fields.as_deref(),
+                        )
+                        .await
+                    }
+                    _ => Err(Self::Error::unexpected_message(
+                        header.ext_type_without_channel_msg(),
+                        header.msg_type(),
+                    )),
+                }
+            }
         }
     }
 
@@ -199,19 +233,23 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
                         .await
                 }
                 JobDeclaration::AllocateMiningJobToken(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
                 )),
                 JobDeclaration::DeclareMiningJob(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_DECLARE_MINING_JOB,
                 )),
                 JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
                     Err(Self::Error::unexpected_message(
+                        0,
                         MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
                     ))
                 }
-                JobDeclaration::PushSolution(_) => {
-                    Err(Self::Error::unexpected_message(MESSAGE_TYPE_PUSH_SOLUTION))
-                }
+                JobDeclaration::PushSolution(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_PUSH_SOLUTION,
+                )),
             }
         }
     }
@@ -273,16 +311,32 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
     fn handle_job_declaration_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id);
-
-        let (parsed, tlv_fields) =
-            parse_job_declaration_message_with_tlvs(message_type, payload, &negotiated_extensions)
+        if negotiated_extensions.is_empty() {
+            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                .try_into()
                 .map_err(Self::Error::parse_error)?;
-
-        self.handle_job_declaration_message_from_client(client_id, parsed, tlv_fields.as_deref())
+            self.handle_job_declaration_message_from_client(client_id, parsed, None)
+        } else {
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::JobDeclaration(parsed) => self
+                    .handle_job_declaration_message_from_client(
+                        client_id,
+                        parsed,
+                        tlv_fields.as_deref(),
+                    ),
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
     }
 
     /// Handles a parsed job declaration message from a client.
@@ -312,15 +366,18 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
             }
 
             JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(
-                Self::Error::unexpected_message(MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS),
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS),
             ),
             JobDeclaration::DeclareMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
             )),
             JobDeclaration::DeclareMiningJobError(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
             )),
             JobDeclaration::ProvideMissingTransactions(_) => Err(Self::Error::unexpected_message(
+                0,
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
             )),
         }
@@ -384,25 +441,36 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
     async fn handle_job_declaration_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
-        message_type: u8,
+        header: Header,
         payload: &mut [u8],
     ) -> Result<(), Self::Error> {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id);
-
-            let (parsed, tlv_fields) = parse_job_declaration_message_with_tlvs(
-                message_type,
-                payload,
-                &negotiated_extensions,
-            )
-            .map_err(Self::Error::parse_error)?;
-
-            self.handle_job_declaration_message_from_client(
-                client_id,
-                parsed,
-                tlv_fields.as_deref(),
-            )
-            .await
+            if negotiated_extensions.is_empty() {
+                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                    .try_into()
+                    .map_err(Self::Error::parse_error)?;
+                self.handle_job_declaration_message_from_client(client_id, parsed, None)
+                    .await
+            } else {
+                let (parsed, tlv_fields) =
+                    parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                        .map_err(Self::Error::parse_error)?;
+                match parsed {
+                    AnyMessage::JobDeclaration(parsed) => {
+                        self.handle_job_declaration_message_from_client(
+                            client_id,
+                            parsed,
+                            tlv_fields.as_deref(),
+                        )
+                        .await
+                    }
+                    _ => Err(Self::Error::unexpected_message(
+                        header.ext_type_without_channel_msg(),
+                        header.msg_type(),
+                    )),
+                }
+            }
         }
     }
 
@@ -436,17 +504,22 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
                     self.handle_push_solution(client_id, msg, tlv_fields).await
                 }
 
-                JobDeclaration::AllocateMiningJobTokenSuccess(_) => Err(
-                    Self::Error::unexpected_message(MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS),
-                ),
+                JobDeclaration::AllocateMiningJobTokenSuccess(_) => {
+                    Err(Self::Error::unexpected_message(
+                        0,
+                        MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+                    ))
+                }
                 JobDeclaration::DeclareMiningJobSuccess(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
                 )),
                 JobDeclaration::DeclareMiningJobError(_) => Err(Self::Error::unexpected_message(
+                    0,
                     MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
                 )),
                 JobDeclaration::ProvideMissingTransactions(_) => Err(
-                    Self::Error::unexpected_message(MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS),
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS),
                 ),
             }
         }
