@@ -44,7 +44,7 @@ use core::{
 };
 pub use error::ParserError;
 use extensions_sv2::*;
-use framing_sv2::framing::Sv2Frame;
+use framing_sv2::{framing::Sv2Frame, header::Header};
 use job_declaration_sv2::*;
 use mining_sv2::*;
 use template_distribution_sv2::*;
@@ -510,35 +510,23 @@ impl AnyMessage<'_> {
     }
 }
 
-/// Parses an SV2 Common message from a frame payload and extracts any appended TLV fields.
-pub fn parse_common_message_with_tlvs(
-    message_type: u8,
+/// Single entry point for parsing any SV2 protocol message frame with TLV support.
+pub fn parse_message_frame_with_tlvs(
+    header: Header,
     payload: &mut [u8],
     negotiated_extensions: &[u16],
-) -> Result<(CommonMessages<'static>, Option<Vec<Tlv>>), ParserError> {
+) -> Result<(AnyMessage<'static>, Option<Vec<Tlv>>), ParserError> {
     let raw_payload = payload.to_vec();
-    let message = CommonMessages::try_from((message_type, payload))?;
+    let message: AnyMessage<'_> = (header.msg_type(), payload).try_into()?;
     let message_size = message.get_size();
-
-    let tlv_fields = if raw_payload.len() > message_size {
-        let remaining = &raw_payload[message_size..];
-        let tlvs = TlvList::from_bytes(remaining).for_extensions(negotiated_extensions);
-        if !tlvs.is_empty() {
-            Some(tlvs)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    Ok((message.into_static(), tlv_fields))
+    let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
+    Ok((message.into_static(), tlvs))
 }
 
-/// Parses an SV2 Mining message from a frame payload and extracts any appended TLV fields.
-pub fn parse_mining_message_with_tlvs(
-    message_type: u8,
-    payload: &mut [u8],
+/// Internal helper to extract TLV fields from the remaining payload bytes.
+fn extract_tlv_fields(
+    raw_payload: &[u8],
+    message_size: usize,
     negotiated_extensions: &[u16],
 ) -> Option<Vec<Tlv>> {
     let remainder = raw_payload.get(message_size..)?;
@@ -1386,11 +1374,17 @@ impl TryFrom<u8> for ExtensionsNegotiationTypes {
 }
 
 /// TryFrom implementation for parsing Extensions from (extension_type, msg_type, payload)
+///
+/// Note: The channel_msg bit (bit 15) is automatically stripped from extension_type
+/// to ensure correct matching regardless of whether the caller passes the raw header
+/// value or a pre-processed one.
 impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
     type Error = ParserError;
 
     fn try_from(v: (u16, u8, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let extension_type = v.0;
+        // Remove the channel_msg bit (bit 15) from extension_type to ensure correct matching
+        const CHANNEL_MSG_MASK: u16 = 0b1000_0000_0000_0000;
+        let extension_type = v.0 & !CHANNEL_MSG_MASK;
         let msg_type = v.1;
         let payload = v.2;
 
