@@ -526,52 +526,55 @@ impl<'a> ExtendedChannel<'a> {
         };
 
         // convert the header hash to a target type for easy comparison
-        let hash = header.block_hash();
-        let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let block_hash_target = Target::from_le_bytes(raw_hash);
-        let hash_as_diff = block_hash_target.difficulty_float();
+        let share_hash = header.block_hash();
+        let share_raw_hash: [u8; 32] = *share_hash.to_raw_hash().as_ref();
+        let share_hash_target = Target::from_le_bytes(share_raw_hash);
+        let share_hash_as_diff = share_hash_target.difficulty_float();
 
         let network_target = Target::from_compact(nbits);
 
         let job_target = job.2;
 
         // print hash_as_target and self.target as human readable hex
-        let block_hash_target_bytes = block_hash_target.to_be_bytes();
+        let share_hash_target_bytes = share_hash_target.to_be_bytes();
         let job_target_bytes = job.2.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&block_hash_target_bytes),
+            bytes_to_hex(&share_hash_target_bytes),
             bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
         // check if a block was found
-        if network_target.is_met_by(hash) {
+        if network_target.is_met_by(share_hash) {
             self.share_accounting.update_share_accounting(
                 self.target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
-            return Ok(ShareValidationResult::BlockFound(hash.to_raw_hash()));
+            return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
 
         // check if the share hash meets the job target
-        if block_hash_target < job_target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+        if share_hash_target < job_target {
+            if self
+                .share_accounting
+                .is_share_seen(share_hash.to_raw_hash())
+            {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
                 self.target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(share_hash_as_diff);
 
-            return Ok(ShareValidationResult::Valid(hash.to_raw_hash()));
+            return Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()));
         }
 
         Err(ShareValidationError::DoesNotMeetTarget)
