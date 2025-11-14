@@ -28,6 +28,9 @@ use mining_sv2::{
 };
 use tracing::debug;
 
+/// A type alias representing a standard mining job tied to a specific `target`.
+pub type StandardJob<'a> = (NewMiningJob<'a>, Target);
+
 /// Mining Client abstraction over the state of a Sv2 Standard Channel.
 ///
 /// Tracks:
@@ -49,10 +52,10 @@ pub struct StandardChannel<'a> {
     extranonce_prefix: Vec<u8>,
     target: Target,
     nominal_hashrate: f32,
-    future_jobs: HashMap<u32, NewMiningJob<'a>>,
-    active_job: Option<NewMiningJob<'a>>,
-    past_jobs: HashMap<u32, NewMiningJob<'a>>,
-    stale_jobs: HashMap<u32, NewMiningJob<'a>>,
+    future_jobs: HashMap<u32, StandardJob<'a>>,
+    active_job: Option<StandardJob<'a>>,
+    past_jobs: HashMap<u32, StandardJob<'a>>,
+    stale_jobs: HashMap<u32, StandardJob<'a>>,
     share_accounting: ShareAccounting,
     chain_tip: Option<ChainTip>,
 }
@@ -141,22 +144,22 @@ impl<'a> StandardChannel<'a> {
     /// Returns all future jobs for this channel.
     ///
     /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, NewMiningJob<'a>> {
+    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         &self.future_jobs
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&NewMiningJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
         self.active_job.as_ref()
     }
 
     /// Returns all past jobs for the channel (active jobs under current chain tip).
-    pub fn get_past_jobs(&self) -> &HashMap<u32, NewMiningJob<'a>> {
+    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         &self.past_jobs
     }
 
     /// Returns all stale jobs for the channel (jobs from previous chain tip).
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, NewMiningJob<'a>> {
+    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
         &self.stale_jobs
     }
 
@@ -200,13 +203,14 @@ impl<'a> StandardChannel<'a> {
         match new_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
                 if let Some(active_job) = self.active_job.as_ref() {
-                    self.past_jobs.insert(active_job.job_id, active_job.clone());
+                    self.past_jobs
+                        .insert(active_job.0.job_id, active_job.clone());
                 }
-                self.active_job = Some(new_mining_job);
+                self.active_job = Some((new_mining_job, self.target));
             }
             None => {
                 self.future_jobs
-                    .insert(new_mining_job.job_id, new_mining_job);
+                    .insert(new_mining_job.job_id, (new_mining_job, self.target));
             }
         }
     }
@@ -225,7 +229,7 @@ impl<'a> StandardChannel<'a> {
     ) -> Result<(), StandardChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {
-                activated_job.min_ntime = Sv2Option::new(Some(set_new_prev_hash.min_ntime));
+                activated_job.0.min_ntime = Sv2Option::new(Some(set_new_prev_hash.min_ntime));
                 self.active_job = Some(activated_job);
             }
             None => return Err(StandardChannelError::JobIdNotFound),
@@ -265,7 +269,7 @@ impl<'a> StandardChannel<'a> {
         let is_active_job = self
             .active_job
             .as_ref()
-            .is_some_and(|job| job.job_id == job_id);
+            .is_some_and(|job| job.0.job_id == job_id);
 
         // check if job_id is past job
         let is_past_job = self.past_jobs.contains_key(&job_id);
@@ -286,6 +290,7 @@ impl<'a> StandardChannel<'a> {
         };
 
         let merkle_root: [u8; 32] = job
+            .0
             .merkle_root
             .inner_as_ref()
             .try_into()
@@ -316,35 +321,37 @@ impl<'a> StandardChannel<'a> {
         let hash_as_diff = block_hash_target.difficulty_float();
         let network_target = Target::from_compact(nbits);
 
+        let job_target = job.1;
+
         // print hash_as_target and self.target as human readable hex
         let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
+        let job_target_bytes = job_target.to_be_bytes();
 
         debug!(
-            "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
+            "share validation \nshare:\t\t{}\njob target:\t{}\nnetwork target:\t{}",
             bytes_to_hex(&block_hash_target_bytes),
-            bytes_to_hex(&target_bytes),
+            bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
             return Ok(ShareValidationResult::BlockFound(hash.to_raw_hash()));
         }
 
-        // check if the share hash meets the channel target
-        if block_hash_target < self.target {
+        // check if the share hash meets the job target
+        if block_hash_target < job_target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -426,7 +433,10 @@ mod tests {
         let mut previously_future_job = future_job.clone();
         previously_future_job.min_ntime = Sv2Option::new(Some(ntime));
 
-        assert_eq!(channel.get_active_job(), Some(&previously_future_job));
+        assert_eq!(
+            channel.get_active_job(),
+            Some(&(previously_future_job, channel.get_target().clone()))
+        );
     }
 
     #[test]
@@ -465,7 +475,10 @@ mod tests {
         channel.on_new_mining_job(active_job.clone());
 
         assert_eq!(channel.get_future_jobs().len(), 0);
-        assert_eq!(channel.get_active_job(), Some(&active_job));
+        assert_eq!(
+            channel.get_active_job(),
+            Some(&(active_job.clone(), channel.get_target().clone()))
+        );
         assert_eq!(channel.get_past_jobs().len(), 0);
 
         let mut new_active_job = active_job.clone();
@@ -473,7 +486,10 @@ mod tests {
         channel.on_new_mining_job(new_active_job.clone());
 
         assert_eq!(channel.get_future_jobs().len(), 0);
-        assert_eq!(channel.get_active_job(), Some(&new_active_job));
+        assert_eq!(
+            channel.get_active_job(),
+            Some(&(new_active_job, channel.get_target().clone()))
+        );
         assert_eq!(channel.get_past_jobs().len(), 1);
     }
 
