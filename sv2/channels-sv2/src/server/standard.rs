@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Sequence, Target,
 };
 use mining_sv2::SubmitSharesStandard;
-use std::{convert::TryInto, marker::PhantomData};
+use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -69,6 +69,7 @@ use tracing::debug;
 /// - the channel's unique `extranonce_prefix`
 /// - the channel's requested max target (limit established by the client)
 /// - the channel's current target
+/// - the channel's mapping between `job_id` and target
 /// - the channel's nominal hashrate
 /// - the channel's [`JobStore`]
 /// - the channel's share accounting state
@@ -85,6 +86,7 @@ where
     extranonce_prefix: Vec<u8>,
     requested_max_target: Target,
     target: Target,
+    job_id_to_target: HashMap<u32, Target>,
     nominal_hashrate: f32,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
@@ -221,6 +223,7 @@ where
             extranonce_prefix,
             requested_max_target,
             target,
+            job_id_to_target: HashMap::new(),
             nominal_hashrate,
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
@@ -261,22 +264,31 @@ where
 
         Ok(())
     }
+
     /// Updates the current target for this channel.
+    ///
+    /// Please note that this will NOT update the target associated with jobs that were already created.
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
     }
+
     /// Updates the nominal hashrate for this channel.
     pub fn set_nominal_hashrate(&mut self, nominal_hashrate: f32) {
         self.nominal_hashrate = nominal_hashrate;
     }
+
     /// Returns the requested maximum target for this channel.
     pub fn get_requested_max_target(&self) -> &Target {
         &self.requested_max_target
     }
+
     /// Returns the current target for this channel.
+    ///
+    /// Please note that this is the current target for the channel. Jobs created before the current target are associated with previously set targets, for which shares will be validated against.
     pub fn get_target(&self) -> &Target {
         &self.target
     }
+
     /// Returns the nominal hashrate for this channel.
     pub fn get_nominal_hashrate(&self) -> f32 {
         self.nominal_hashrate
@@ -439,6 +451,12 @@ where
                                 coinbase_reward_outputs,
                             )
                             .map_err(StandardChannelError::JobFactoryError)?;
+
+                        // associate the new active job with the current target
+                        self.job_id_to_target
+                            .insert(new_job.get_job_id(), self.target);
+
+                        // add the new active job to the job store
                         self.job_store.add_active_job(new_job);
                     }
                 }
@@ -467,6 +485,11 @@ where
                     .add_future_job(standard_job.get_template().template_id, standard_job);
             }
             false => {
+                // associate the new active job with the current target
+                self.job_id_to_target
+                    .insert(standard_job.get_job_id(), self.target);
+
+                // add the new active job to the job store
                 self.job_store.add_active_job(standard_job);
             }
         }
@@ -484,6 +507,9 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
     ) -> Result<(), StandardChannelError> {
+        // clear the job id to target mapping
+        self.job_id_to_target.clear();
+
         match self.job_store.has_future_jobs() {
             false => {
                 return Err(StandardChannelError::TemplateIdNotFound);
@@ -496,6 +522,14 @@ where
                 ) {
                     return Err(StandardChannelError::TemplateIdNotFound);
                 }
+
+                // associate the new active job with the current target
+                let job_id = self
+                    .job_store
+                    .get_active_job()
+                    .expect("active job must exist")
+                    .get_job_id();
+                self.job_id_to_target.insert(job_id, self.target);
             }
         }
 
@@ -553,6 +587,11 @@ where
                 .expect("stale job must exist")
         };
 
+        let job_target = self
+            .job_id_to_target
+            .get(&job_id)
+            .expect("job target must exist");
+
         let merkle_root: [u8; 32] = job
             .get_merkle_root()
             .inner_as_ref()
@@ -586,19 +625,19 @@ where
 
         // print hash_as_target and self.target as human readable hex
         let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
+        let job_target_bytes = job_target.to_be_bytes();
 
         debug!(
-            "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
+            "share validation \nshare:\t\t{}\njob target:\t{}\nnetwork target:\t{}",
             bytes_to_hex(&block_hash_target_bytes),
-            bytes_to_hex(&target_bytes),
+            bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
         // check if a block was found
         if network_target.is_met_by(hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
@@ -638,14 +677,14 @@ where
             ));
         }
 
-        // check if the share hash meets the channel target
-        if block_hash_target <= self.target {
+        // check if the share hash meets the job target
+        if block_hash_target <= *job_target {
             if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
                 hash.to_raw_hash(),
             );
