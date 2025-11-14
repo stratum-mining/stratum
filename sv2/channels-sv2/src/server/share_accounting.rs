@@ -23,18 +23,12 @@ use std::collections::HashSet;
 
 /// The outcome of share validation, from the perspective of a Mining Server.
 ///
-/// The [`ShareValidationResult::ValidWithAcknowledgement`] variant carries:
-/// - `last_sequence_number` (as `u32`)
-/// - `new_submits_accepted_count` (as `u32`)
-/// - `new_shares_sum` (as `u64`)
-///
-/// which are used to craft `SubmitShares.Success` Sv2 messages.
+/// The [`ShareValidationResult::Valid`] variant carries the hash of the accepted share.
 ///
 /// The [`ShareValidationResult::BlockFound`] variant carries:
-/// - `template_id` (as `Option<u64>`)
-/// - `coinbase` (as `Vec<u8>`)
-///
-/// where `template_id` is `None` if the share is for a custom job.
+/// - `share_hash`: The hash of the share that solved the block.
+/// - `template_id`: The template ID associated with the job (as `Option<u64>`), or `None` for custom jobs.
+/// - `coinbase`: The serialized coinbase transaction for the block (as `Vec<u8>`).
 #[derive(Debug)]
 pub enum ShareValidationResult {
     /// The share is valid and accepted.
