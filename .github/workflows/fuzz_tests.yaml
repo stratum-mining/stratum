@@ -1,0 +1,35 @@
+name: Fuzz Regression Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Checkout fuzzing corpus
+        uses: actions/checkout@v4
+        with:
+          repository: stratum-mining/stratum-fuzzing-corpus
+          path: fuzz/repo-corpus
+
+      - name: Run fuzz regressions
+        run: |
+          for TARGET in $(cargo fuzz list); do
+            echo "==> Running fuzz target: $TARGET"
+            cargo fuzz run $TARGET fuzz/repo-corpus/corpus/$TARGET -- -runs=0 -max_total_time=30
+          done
+
