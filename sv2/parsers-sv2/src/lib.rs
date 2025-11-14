@@ -517,7 +517,7 @@ pub fn parse_message_frame_with_tlvs(
     negotiated_extensions: &[u16],
 ) -> Result<(AnyMessage<'static>, Option<Vec<Tlv>>), ParserError> {
     let raw_payload = payload.to_vec();
-    let message: AnyMessage<'_> = (header.msg_type(), payload).try_into()?;
+    let message: AnyMessage<'_> = (header, payload).try_into()?;
     let message_size = message.get_size();
     let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
     Ok((message.into_static(), tlvs))
@@ -1573,25 +1573,52 @@ impl IsSv2Message for MiningDeviceMessages<'_> {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for AnyMessage<'a> {
+/// TryFrom implementation for AnyMessage that includes extension_type from Header.
+///
+/// This implementation handles all message types including Extensions messages which require
+/// both extension_type and message_type to be correctly parsed. Standard protocol messages
+/// (Common, Mining, etc.) have extension_type == 0 and only need the message_type.
+impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
     type Error = ParserError;
 
-    fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let is_common: Result<CommonMessageTypes, ParserError> = v.0.try_into();
-        let is_mining: Result<MiningTypes, ParserError> = v.0.try_into();
-        let is_job_declaration: Result<JobDeclarationTypes, ParserError> = v.0.try_into();
+    fn try_from(v: (Header, &'a mut [u8])) -> Result<Self, Self::Error> {
+        let header = v.0;
+        let payload = v.1;
+        let extension_type = header.ext_type_without_channel_msg();
+        let message_type = header.msg_type();
+
+        // Try to parse as Extensions message first (if extension_type != 0)
+        if extension_type != 0 {
+            return (extension_type, message_type, payload)
+                .try_into()
+                .map(Self::Extensions);
+        }
+
+        // Fall back to standard protocol message parsing (extension_type == 0)
+        let is_common: Result<CommonMessageTypes, ParserError> = message_type.try_into();
+        let is_mining: Result<MiningTypes, ParserError> = message_type.try_into();
+        let is_job_declaration: Result<JobDeclarationTypes, ParserError> = message_type.try_into();
         let is_template_distribution: Result<TemplateDistributionTypes, ParserError> =
-            v.0.try_into();
+            message_type.try_into();
+
         match (
             is_common,
             is_mining,
             is_job_declaration,
             is_template_distribution,
         ) {
-            (Ok(_), Err(_), Err(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
-            (Err(_), Ok(_), Err(_), Err(_)) => Ok(Self::Mining(v.try_into()?)),
-            (Err(_), Err(_), Ok(_), Err(_)) => Ok(Self::JobDeclaration(v.try_into()?)),
-            (Err(_), Err(_), Err(_), Ok(_)) => Ok(Self::TemplateDistribution(v.try_into()?)),
+            (Ok(_), Err(_), Err(_), Err(_)) => {
+                Ok(Self::Common((message_type, payload).try_into()?))
+            }
+            (Err(_), Ok(_), Err(_), Err(_)) => {
+                Ok(Self::Mining((message_type, payload).try_into()?))
+            }
+            (Err(_), Err(_), Ok(_), Err(_)) => {
+                Ok(Self::JobDeclaration((message_type, payload).try_into()?))
+            }
+            (Err(_), Err(_), Err(_), Ok(_)) => Ok(Self::TemplateDistribution(
+                (message_type, payload).try_into()?,
+            )),
             (Err(e), Err(_), Err(_), Err(_)) => Err(e),
             // This is an impossible state is safe to panic here
             _ => panic!(),
