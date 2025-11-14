@@ -496,7 +496,6 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
-
         // clear the job id to target mapping
         self.job_id_to_target.clear();
 
@@ -677,30 +676,30 @@ where
         };
 
         // convert the header hash to a target type for easy comparison
-        let hash = header.block_hash();
-        let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let block_hash_target = Target::from_le_bytes(raw_hash);
-        let hash_as_diff = block_hash_target.difficulty_float();
+        let share_hash = header.block_hash();
+        let raw_share_hash: [u8; 32] = *share_hash.to_raw_hash().as_ref();
+        let share_hash_target = Target::from_le_bytes(raw_share_hash);
+        let share_hash_as_diff = share_hash_target.difficulty_float();
 
         let network_target = Target::from_compact(nbits);
 
         // print hash_as_target and self.target as human readable hex
-        let block_hash_target_bytes = block_hash_target.to_be_bytes();
+        let share_hash_target_bytes = share_hash_target.to_be_bytes();
         let job_target_bytes = job_target.to_be_bytes();
 
         debug!(
             "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&block_hash_target_bytes),
+            bytes_to_hex(&share_hash_target_bytes),
             bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
         // check if a block was found
-        if network_target.is_met_by(hash) {
+        if network_target.is_met_by(share_hash) {
             self.share_accounting.update_share_accounting(
                 job_target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
 
             let mut coinbase = vec![];
@@ -712,14 +711,14 @@ where
                 JobOrigin::NewTemplate(template) => {
                     let template_id = template.template_id;
                     return Ok(ShareValidationResult::BlockFound(
-                        hash.to_raw_hash(),
+                        share_hash.to_raw_hash(),
                         Some(template_id),
                         coinbase,
                     ));
                 }
                 JobOrigin::SetCustomMiningJob(_set_custom_mining_job) => {
                     return Ok(ShareValidationResult::BlockFound(
-                        hash.to_raw_hash(),
+                        share_hash.to_raw_hash(),
                         None,
                         coinbase,
                     ));
@@ -728,21 +727,24 @@ where
         }
 
         // check if the share hash meets the job target
-        if block_hash_target <= *job_target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+        if share_hash_target <= *job_target {
+            if self
+                .share_accounting
+                .is_share_seen(share_hash.to_raw_hash())
+            {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
                 job_target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(share_hash_as_diff);
 
-            Ok(ShareValidationResult::Valid(hash.to_raw_hash()))
+            Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {
             Err(ShareValidationError::DoesNotMeetTarget)
         }
