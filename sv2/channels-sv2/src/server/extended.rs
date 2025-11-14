@@ -489,17 +489,13 @@ where
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
         // extended channels dedicated to custom work don't need to keep track of future jobs
-        match self.job_store.get_future_jobs().is_empty() {
-            true => {}
-            false => {
-                // the SetNewPrevHash message was addressed to a specific future template
-                if !self.job_store.activate_future_job(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
-                ) {
-                    return Err(ExtendedChannelError::TemplateIdNotFound);
-                }
-            }
+        if !self.job_store.get_future_jobs().is_empty()
+            && !self.job_store.activate_future_job(
+                set_new_prev_hash.template_id,
+                set_new_prev_hash.header_timestamp,
+            )
+        {
+            return Err(ExtendedChannelError::TemplateIdNotFound);
         }
 
         // mark past jobs as stale
