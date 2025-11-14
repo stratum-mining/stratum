@@ -496,6 +496,9 @@ where
             }
         }
 
+        // mark past jobs as stale
+        self.job_store.mark_past_jobs_as_stale();
+
         // update the chain tip
         self.chain_tip = Some(set_new_prev_hash.into());
 
