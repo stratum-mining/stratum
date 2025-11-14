@@ -68,15 +68,11 @@ use tracing::debug;
 /// - the channel's `user_identity`
 /// - the channel's unique `extranonce_prefix`
 /// - the channel's requested max target (limit established by the client)
-/// - the channel's target
+/// - the channel's current target
 /// - the channel's nominal hashrate
-/// - the channel's active job
-/// - the channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
-///   `SetNewPrevHash` message)
-/// - the channel's past jobs (which were active jobs under the current chain tip, indexed by
-///   `job_id`)
-/// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
-///   indexed by `job_id`)
+/// - the channel's [`JobStore`]
+/// - the channel's share accounting state
+/// - the channel's expected share per minute
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
