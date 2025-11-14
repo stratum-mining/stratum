@@ -328,7 +328,22 @@ impl GetSize for Protocol {
 mod test {
     use super::*;
     use crate::alloc::string::ToString;
+    use alloc::vec;
     use core::convert::TryInto;
+
+    #[test]
+    fn test_parsing_an_empty_bytes_vec() {
+        let mut data = vec![];
+        let result = SetupConnection::from_bytes(&mut data);
+
+        assert!(result.is_err());
+
+        match result {
+            Err(binary_sv2::Error::OutOfBound) => (),
+            Err(e) => panic!("Expected OutOfBounds error, got {:?}", e),
+            Ok(_) => panic!("Expected error, got Ok"),
+        }
+    }
 
     #[test]
     fn test_check_flag() {
