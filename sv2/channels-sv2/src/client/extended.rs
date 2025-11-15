@@ -116,6 +116,11 @@ impl<'a> ExtendedChannel<'a> {
         &self.user_identity
     }
 
+    /// Sets the `user_identity` for this channel.
+    pub fn set_user_identity(&mut self, user_identity: String) {
+        self.user_identity = user_identity;
+    }
+
     /// Returns the bytes representing the first part of the `extranonce`.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix

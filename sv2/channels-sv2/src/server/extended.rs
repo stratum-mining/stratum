@@ -261,6 +261,11 @@ where
         &self.user_identity
     }
 
+    /// Sets the user identity string for this channel.
+    pub fn set_user_identity(&mut self, user_identity: String) {
+        self.user_identity = user_identity;
+    }
+
     /// Returns the extranonce prefix bytes for this channel.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
