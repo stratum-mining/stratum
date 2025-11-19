@@ -2,12 +2,9 @@
 //!
 //! This module defines error types and utilities for handling errors in the `framing_sv2` module.
 
-// use crate::framing2::EitherFrame;
 use core::fmt;
 
 use crate::SV2_FRAME_HEADER_SIZE;
-
-// pub type FramingResult<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -15,6 +12,7 @@ pub enum Error {
     BinarySv2Error(binary_sv2::Error),
     ExpectedHandshakeFrame,
     ExpectedSv2Frame,
+    MissingHeader,
     UnexpectedHeaderLength(isize),
 }
 
@@ -30,6 +28,12 @@ impl fmt::Display for Error {
             }
             ExpectedSv2Frame => {
                 write!(f, "Expected `Sv2Frame`, received `HandshakeFrame`")
+            }
+            MissingHeader => {
+                write!(
+                    f,
+                    "Frame is missing a header. All frames (Handshake or Sv2) must have a header"
+                )
             }
             UnexpectedHeaderLength(actual_size) => {
                 write!(
