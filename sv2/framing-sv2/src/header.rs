@@ -49,6 +49,7 @@ pub struct Header {
 
 impl Header {
     pub const SIZE: usize = SV2_FRAME_HEADER_SIZE;
+    const CHANNEL_MSG_MASK: u16 = 0b1000_0000_0000_0000;
 
     /// Construct a [`Header`] from raw bytes
     #[inline]
@@ -89,17 +90,21 @@ impl Header {
         self.msg_type
     }
 
-    /// Get the [`Header`[ extension type.
+    /// Get the [`Header`] extension type.
     pub fn ext_type(&self) -> u16 {
         self.extension_type
+    }
+
+    /// Get the [`Header`] extension type without the channel message bit (i.e. bit 15).
+    pub fn ext_type_without_channel_msg(&self) -> u16 {
+        self.extension_type & !Self::CHANNEL_MSG_MASK
     }
 
     /// Check if [`Header`] represents a channel message.
     ///
     /// A header can represent a channel message if the MSB(Most Significant Bit) is set.
     pub fn channel_msg(&self) -> bool {
-        const CHANNEL_MSG_MASK: u16 = 0b1000_0000_0000_0000;
-        self.extension_type & CHANNEL_MSG_MASK != 0
+        self.extension_type & Self::CHANNEL_MSG_MASK != 0
     }
 
     /// Calculates the total length of a chunked message, accounting for MAC overhead.

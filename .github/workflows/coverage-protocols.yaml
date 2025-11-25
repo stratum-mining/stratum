@@ -148,3 +148,11 @@ jobs:
           file: ./target/tarpaulin-reports/handlers-sv2-coverage/cobertura.xml
           flags: handler_sv2-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload extensions_sv2-coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./target/tarpaulin-reports/extensions-sv2-coverage
+          file: ./target/tarpaulin-reports/extensions-sv2-coverage/cobertura.xml
+          flags: extensions_sv2-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}

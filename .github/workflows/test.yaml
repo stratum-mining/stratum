@@ -72,6 +72,8 @@ jobs:
           cargo run --manifest-path=sv2/codec-sv2/Cargo.toml --example encrypted --features=noise_sv2
           cargo run --manifest-path=sv2/binary-sv2/Cargo.toml --example encode_decode
           cargo run --manifest-path=sv2/noise-sv2/Cargo.toml --example handshake
+          cargo run --manifest-path=sv2/extensions-sv2/Cargo.toml --example extensions_negotiation
+          cargo run --manifest-path=sv2/extensions-sv2/Cargo.toml --example worker_specific_hashrate_tracking
 
       - name: Fuzz tests
         run: |

@@ -7,7 +7,7 @@
 [![license](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/stratum-mining/stratum/blob/main/LICENSE.md)
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg?flag=handlers_sv2-coverage)](https://codecov.io/gh/stratum-mining/stratum)
 
-The `handlers_sv2` crate defines traits for handling Sv2 messages, with separate variants for servers and clients. Implementors can choose which message types to support—such as `Mining`, `TemplateDistribution`, `Common`, or `JobDeclaration` based on their role in the system. Both synchronous and asynchronous versions are provided, making the crate adaptable to different execution environments.
+The `handlers_sv2` crate defines traits for handling Sv2 messages, with separate variants for servers and clients. Implementors can choose which message types to support—such as `Mining`, `TemplateDistribution`, `Common`, `JobDeclaration`, or `Extensions` based on their role in the system. Both synchronous and asynchronous versions are provided, making the crate adaptable to different execution environments.
 
 ## Usage
 To include this crate in your project, run:

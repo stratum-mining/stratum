@@ -1,12 +1,10 @@
-use common_messages_sv2::{
-    ChannelEndpointChanged, Reconnect, SetupConnectionError, SetupConnectionSuccess, *,
-};
+use extensions_sv2::{RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess};
 use framing_sv2::header::Header;
-use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, CommonMessages, Tlv};
+use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Extensions, Tlv};
 
 use crate::error::HandlerErrorType;
 
-/// Synchronous handler trait for processing common messages received from servers.
+/// Synchronous handler trait for processing extension messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
 /// Whether this is relevant or not depends on which object is implementing the trait, and whether
@@ -18,7 +16,7 @@ use crate::error::HandlerErrorType;
 /// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
-pub trait HandleCommonMessagesFromServerSync {
+pub trait HandleExtensionsFromServerSync {
     type Error: HandlerErrorType;
 
     /// Returns the list of negotiated extension_types with a server.
@@ -29,11 +27,11 @@ pub trait HandleCommonMessagesFromServerSync {
         server_id: Option<usize>,
     ) -> Result<Vec<u16>, Self::Error>;
 
-    /// Handles a raw Common protocol message frame from a server.
+    /// Handles a raw Extensions protocol message frame from a server.
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
-    /// to `handle_common_message_from_server` with the parsed message and TLV fields.
-    fn handle_common_message_frame_from_server(
+    /// to `handle_extensions_message_from_server` with the parsed message and TLV fields.
+    fn handle_extensions_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
         header: Header,
@@ -41,17 +39,17 @@ pub trait HandleCommonMessagesFromServerSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
-            return self.handle_common_message_from_server(server_id, parsed, None);
+            return self.handle_extensions_message_from_server(server_id, parsed, None);
         }
-        let (message, tlv_fields) =
+        let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
-        match message {
-            AnyMessage::Common(parsed) => {
-                self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
+        match parsed {
+            AnyMessage::Extensions(parsed) => {
+                self.handle_extensions_message_from_server(server_id, parsed, tlv_fields.as_deref())
             }
             _ => Err(Self::Error::unexpected_message(
                 header.ext_type_without_channel_msg(),
@@ -60,67 +58,53 @@ pub trait HandleCommonMessagesFromServerSync {
         }
     }
 
-    /// Handles a parsed common message from a server.
+    /// Handles a parsed extensions message from a server.
     ///
     /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
     /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
     /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
     /// `extension_type`, `field_type`, `length`, and `value`.
-    fn handle_common_message_from_server(
+    fn handle_extensions_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: Extensions<'_>,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
-            CommonMessages::SetupConnectionSuccess(msg) => {
-                self.handle_setup_connection_success(server_id, msg, tlv_fields)
-            }
-            CommonMessages::SetupConnectionError(msg) => {
-                self.handle_setup_connection_error(server_id, msg, tlv_fields)
-            }
-            CommonMessages::ChannelEndpointChanged(msg) => {
-                self.handle_channel_endpoint_changed(server_id, msg, tlv_fields)
-            }
-            CommonMessages::Reconnect(msg) => self.handle_reconnect(server_id, msg, tlv_fields),
-
-            CommonMessages::SetupConnection(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_SETUP_CONNECTION,
-            )),
+            Extensions::ExtensionsNegotiation(ext) => match ext {
+                parsers_sv2::ExtensionsNegotiation::RequestExtensionsSuccess(msg) => {
+                    self.handle_request_extensions_success(server_id, msg, tlv_fields)
+                }
+                parsers_sv2::ExtensionsNegotiation::RequestExtensionsError(msg) => {
+                    self.handle_request_extensions_error(server_id, msg, tlv_fields)
+                }
+                // RequestExtensions is sent by client, not server
+                parsers_sv2::ExtensionsNegotiation::RequestExtensions(_) => {
+                    Err(Self::Error::unexpected_message(
+                        extensions_sv2::EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+                        extensions_sv2::MESSAGE_TYPE_REQUEST_EXTENSIONS,
+                    ))
+                }
+            },
         }
     }
 
-    fn handle_setup_connection_success(
+    fn handle_request_extensions_success(
         &mut self,
         server_id: Option<usize>,
-        msg: SetupConnectionSuccess,
+        msg: RequestExtensionsSuccess,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
-    fn handle_setup_connection_error(
+    fn handle_request_extensions_error(
         &mut self,
         server_id: Option<usize>,
-        msg: SetupConnectionError,
-        tlv_fields: Option<&[Tlv]>,
-    ) -> Result<(), Self::Error>;
-
-    fn handle_channel_endpoint_changed(
-        &mut self,
-        server_id: Option<usize>,
-        msg: ChannelEndpointChanged,
-        tlv_fields: Option<&[Tlv]>,
-    ) -> Result<(), Self::Error>;
-
-    fn handle_reconnect(
-        &mut self,
-        server_id: Option<usize>,
-        msg: Reconnect,
+        msg: RequestExtensionsError,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 }
 
-/// Asynchronous handler trait for processing common messages received from servers.
+/// Asynchronous handler trait for processing extension messages received from servers.
 ///
 /// The server ID identifies which server a message originated from.
 /// Whether this is relevant or not depends on which object is implementing the trait, and whether
@@ -133,7 +117,7 @@ pub trait HandleCommonMessagesFromServerSync {
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_server()`.
 #[trait_variant::make(Send)]
-pub trait HandleCommonMessagesFromServerAsync {
+pub trait HandleExtensionsFromServerAsync {
     type Error: HandlerErrorType;
 
     /// Returns the list of negotiated extension_types with a server.
@@ -144,11 +128,11 @@ pub trait HandleCommonMessagesFromServerAsync {
         server_id: Option<usize>,
     ) -> Result<Vec<u16>, Self::Error>;
 
-    /// Handles a raw Common protocol message frame from a server.
+    /// Handles a raw Extensions protocol message frame from a server.
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
-    /// to `handle_common_message_from_server` with the parsed message and TLV fields.
-    async fn handle_common_message_frame_from_server(
+    /// to `handle_extensions_message_from_server` with the parsed message and TLV fields.
+    async fn handle_extensions_message_frame_from_server(
         &mut self,
         server_id: Option<usize>,
         header: Header,
@@ -157,22 +141,25 @@ pub trait HandleCommonMessagesFromServerAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
-                    .handle_common_message_from_server(server_id, parsed, None)
+                    .handle_extensions_message_from_server(server_id, parsed, None)
                     .await;
             }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
             match parsed {
-                AnyMessage::Common(parsed) => {
-                    self.handle_common_message_from_server(server_id, parsed, tlv_fields.as_deref())
-                        .await
+                AnyMessage::Extensions(parsed) => {
+                    self.handle_extensions_message_from_server(
+                        server_id,
+                        parsed,
+                        tlv_fields.as_deref(),
+                    )
+                    .await
                 }
-
                 _ => Err(Self::Error::unexpected_message(
                     header.ext_type_without_channel_msg(),
                     header.msg_type(),
@@ -181,74 +168,57 @@ pub trait HandleCommonMessagesFromServerAsync {
         }
     }
 
-    /// Handles a parsed common message from a server.
+    /// Handles a parsed extensions message from a server.
     ///
     /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
     /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
     /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
     /// `extension_type`, `field_type`, `length`, and `value`.
-    async fn handle_common_message_from_server(
+    async fn handle_extensions_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: Extensions<'_>,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {
             match message {
-                CommonMessages::SetupConnectionSuccess(msg) => {
-                    self.handle_setup_connection_success(server_id, msg, tlv_fields)
-                        .await
-                }
-                CommonMessages::SetupConnectionError(msg) => {
-                    self.handle_setup_connection_error(server_id, msg, tlv_fields)
-                        .await
-                }
-                CommonMessages::ChannelEndpointChanged(msg) => {
-                    self.handle_channel_endpoint_changed(server_id, msg, tlv_fields)
-                        .await
-                }
-                CommonMessages::Reconnect(msg) => {
-                    self.handle_reconnect(server_id, msg, tlv_fields).await
-                }
-
-                CommonMessages::SetupConnection(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SETUP_CONNECTION,
-                )),
+                Extensions::ExtensionsNegotiation(ext) => match ext {
+                    parsers_sv2::ExtensionsNegotiation::RequestExtensionsSuccess(msg) => {
+                        self.handle_request_extensions_success(server_id, msg, tlv_fields)
+                            .await
+                    }
+                    parsers_sv2::ExtensionsNegotiation::RequestExtensionsError(msg) => {
+                        self.handle_request_extensions_error(server_id, msg, tlv_fields)
+                            .await
+                    }
+                    // RequestExtensions is sent by client, not server
+                    parsers_sv2::ExtensionsNegotiation::RequestExtensions(_) => {
+                        Err(Self::Error::unexpected_message(
+                            extensions_sv2::EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+                            extensions_sv2::MESSAGE_TYPE_REQUEST_EXTENSIONS,
+                        ))
+                    }
+                },
             }
         }
     }
 
-    async fn handle_setup_connection_success(
+    async fn handle_request_extensions_success(
         &mut self,
         server_id: Option<usize>,
-        msg: SetupConnectionSuccess,
+        msg: RequestExtensionsSuccess,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 
-    async fn handle_setup_connection_error(
+    async fn handle_request_extensions_error(
         &mut self,
         server_id: Option<usize>,
-        msg: SetupConnectionError,
-        tlv_fields: Option<&[Tlv]>,
-    ) -> Result<(), Self::Error>;
-
-    async fn handle_channel_endpoint_changed(
-        &mut self,
-        server_id: Option<usize>,
-        msg: ChannelEndpointChanged,
-        tlv_fields: Option<&[Tlv]>,
-    ) -> Result<(), Self::Error>;
-
-    async fn handle_reconnect(
-        &mut self,
-        server_id: Option<usize>,
-        msg: Reconnect,
+        msg: RequestExtensionsError,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 }
 
-/// Synchronous handler trait for processing common messages received from clients.
+/// Synchronous handler trait for processing extension messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
 /// Whether this is relevant or not depends on which object is implementing the trait, and whether
@@ -260,7 +230,7 @@ pub trait HandleCommonMessagesFromServerAsync {
 /// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
-pub trait HandleCommonMessagesFromClientSync {
+pub trait HandleExtensionsFromClientSync {
     type Error: HandlerErrorType;
 
     /// Returns the list of negotiated extension_types with a client.
@@ -271,11 +241,11 @@ pub trait HandleCommonMessagesFromClientSync {
         client_id: Option<usize>,
     ) -> Result<Vec<u16>, Self::Error>;
 
-    /// Handles a raw Common protocol message frame from a client.
+    /// Handles a raw Extensions protocol message frame from a client.
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
-    /// to `handle_common_message_from_client` with the parsed message and TLV fields.
-    fn handle_common_message_frame_from_client(
+    /// to `handle_extensions_message_from_client` with the parsed message and TLV fields.
+    fn handle_extensions_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
         header: Header,
@@ -283,17 +253,17 @@ pub trait HandleCommonMessagesFromClientSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
-            return self.handle_common_message_from_client(client_id, parsed, None);
+            return self.handle_extensions_message_from_client(client_id, parsed, None);
         }
         let (parsed, tlv_fields) =
             parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                 .map_err(Self::Error::parse_error)?;
         match parsed {
-            AnyMessage::Common(parsed) => {
-                self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())
+            AnyMessage::Extensions(parsed) => {
+                self.handle_extensions_message_from_client(client_id, parsed, tlv_fields.as_deref())
             }
             _ => Err(Self::Error::unexpected_message(
                 header.ext_type_without_channel_msg(),
@@ -302,50 +272,49 @@ pub trait HandleCommonMessagesFromClientSync {
         }
     }
 
-    /// Handles a parsed common message from a client.
+    /// Handles a parsed extensions message from a client.
     ///
     /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
     /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
     /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
     /// `extension_type`, `field_type`, `length`, and `value`.
-    fn handle_common_message_from_client(
+    fn handle_extensions_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: Extensions<'_>,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
-            CommonMessages::SetupConnectionSuccess(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-            )),
-            CommonMessages::SetupConnectionError(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-            )),
-            CommonMessages::ChannelEndpointChanged(_) => Err(Self::Error::unexpected_message(
-                0,
-                MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
-            )),
-            CommonMessages::Reconnect(_) => {
-                Err(Self::Error::unexpected_message(0, MESSAGE_TYPE_RECONNECT))
-            }
-
-            CommonMessages::SetupConnection(msg) => {
-                self.handle_setup_connection(client_id, msg, tlv_fields)
-            }
+            Extensions::ExtensionsNegotiation(ext) => match ext {
+                parsers_sv2::ExtensionsNegotiation::RequestExtensions(msg) => {
+                    self.handle_request_extensions(client_id, msg, tlv_fields)
+                }
+                // Success/Error are sent by server, not client
+                parsers_sv2::ExtensionsNegotiation::RequestExtensionsSuccess(_) => {
+                    Err(Self::Error::unexpected_message(
+                        extensions_sv2::EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+                        extensions_sv2::MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
+                    ))
+                }
+                parsers_sv2::ExtensionsNegotiation::RequestExtensionsError(_) => {
+                    Err(Self::Error::unexpected_message(
+                        extensions_sv2::EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+                        extensions_sv2::MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR,
+                    ))
+                }
+            },
         }
     }
 
-    fn handle_setup_connection(
+    fn handle_request_extensions(
         &mut self,
         client_id: Option<usize>,
-        msg: SetupConnection,
+        msg: RequestExtensions,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 }
 
-/// Asynchronous handler trait for processing common messages received from clients.
+/// Asynchronous handler trait for processing extension messages received from clients.
 ///
 /// The client ID identifies which client a message originated from.
 /// Whether this is relevant or not depends on which object is implementing the trait, and whether
@@ -358,7 +327,7 @@ pub trait HandleCommonMessagesFromClientSync {
 /// extension data appended. TLV fields are only passed if they match negotiated extensions
 /// returned by `get_negotiated_extensions_with_client()`.
 #[trait_variant::make(Send)]
-pub trait HandleCommonMessagesFromClientAsync {
+pub trait HandleExtensionsFromClientAsync {
     type Error: HandlerErrorType;
 
     /// Returns the list of negotiated extension_types with a client.
@@ -369,11 +338,11 @@ pub trait HandleCommonMessagesFromClientAsync {
         client_id: Option<usize>,
     ) -> Result<Vec<u16>, Self::Error>;
 
-    /// Handles a raw Common protocol message frame from a client.
+    /// Handles a raw Extensions protocol message frame from a client.
     ///
     /// This method parses the raw frame, extracts any TLV extension data, and delegates
-    /// to `handle_common_message_from_client` with the parsed message and TLV fields.
-    async fn handle_common_message_frame_from_client(
+    /// to `handle_extensions_message_from_client` with the parsed message and TLV fields.
+    async fn handle_extensions_message_frame_from_client(
         &mut self,
         client_id: Option<usize>,
         header: Header,
@@ -382,20 +351,24 @@ pub trait HandleCommonMessagesFromClientAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
-                    .handle_common_message_from_client(client_id, parsed, None)
+                    .handle_extensions_message_from_client(client_id, parsed, None)
                     .await;
             }
             let (parsed, tlv_fields) =
                 parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
                     .map_err(Self::Error::parse_error)?;
             match parsed {
-                AnyMessage::Common(parsed) => {
-                    self.handle_common_message_from_client(client_id, parsed, tlv_fields.as_deref())
-                        .await
+                AnyMessage::Extensions(parsed) => {
+                    self.handle_extensions_message_from_client(
+                        client_id,
+                        parsed,
+                        tlv_fields.as_deref(),
+                    )
+                    .await
                 }
                 _ => Err(Self::Error::unexpected_message(
                     header.ext_type_without_channel_msg(),
@@ -405,47 +378,47 @@ pub trait HandleCommonMessagesFromClientAsync {
         }
     }
 
-    /// Handles a parsed common message from a client.
+    /// Handles a parsed extensions message from a client.
     ///
     /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
     /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
     /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
     /// `extension_type`, `field_type`, `length`, and `value`.
-    async fn handle_common_message_from_client(
+    async fn handle_extensions_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: Extensions<'_>,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {
             match message {
-                CommonMessages::SetupConnectionSuccess(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-                )),
-                CommonMessages::SetupConnectionError(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-                )),
-                CommonMessages::ChannelEndpointChanged(_) => Err(Self::Error::unexpected_message(
-                    0,
-                    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
-                )),
-                CommonMessages::Reconnect(_) => {
-                    Err(Self::Error::unexpected_message(0, MESSAGE_TYPE_RECONNECT))
-                }
-                CommonMessages::SetupConnection(msg) => {
-                    self.handle_setup_connection(client_id, msg, tlv_fields)
-                        .await
-                }
+                Extensions::ExtensionsNegotiation(ext) => match ext {
+                    parsers_sv2::ExtensionsNegotiation::RequestExtensions(msg) => {
+                        self.handle_request_extensions(client_id, msg, tlv_fields)
+                            .await
+                    }
+                    // Success/Error are sent by server, not client
+                    parsers_sv2::ExtensionsNegotiation::RequestExtensionsSuccess(_) => {
+                        Err(Self::Error::unexpected_message(
+                            extensions_sv2::EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+                            extensions_sv2::MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
+                        ))
+                    }
+                    parsers_sv2::ExtensionsNegotiation::RequestExtensionsError(_) => {
+                        Err(Self::Error::unexpected_message(
+                            extensions_sv2::EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+                            extensions_sv2::MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR,
+                        ))
+                    }
+                },
             }
         }
     }
 
-    async fn handle_setup_connection(
+    async fn handle_request_extensions(
         &mut self,
         client_id: Option<usize>,
-        msg: SetupConnection,
+        msg: RequestExtensions,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error>;
 }
