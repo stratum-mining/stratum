@@ -1,3 +1,10 @@
+// NOTE: This example is part of the workspace and relies on workspace dependencies.
+// To run: cargo run --example extensions_negotiation --package extensions_sv2 (from workspace root)
+//
+// This example demonstrates the Extensions Negotiation protocol (extension_type=0x0001)
+// which allows Stratum V2 endpoints to negotiate which optional extensions are supported
+// during connection setup.
+
 use binary_sv2::Seq064K;
 use extensions_sv2::{RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess};
 
