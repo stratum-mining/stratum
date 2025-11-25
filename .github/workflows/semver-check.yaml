@@ -89,10 +89,9 @@ jobs:
         working-directory: sv2/handlers-sv2
         run: cargo semver-checks
 
-      # TODO: Uncomment this when the extensions-sv2 crate is published to crates.io
-      # - name: Run semver checks for sv2/extensions-sv2
-      #   working-directory: sv2/extensions-sv2
-      #   run: cargo semver-checks
+      - name: Run semver checks for sv2/extensions-sv2
+        working-directory: sv2/extensions-sv2
+        run: cargo semver-checks
 
       - name: Run semver checks for protocols/v1
         working-directory: sv1
@@ -102,8 +101,7 @@ jobs:
         working-directory: stratum-core/stratum-translation
         run: cargo semver-checks
 
-      # TODO: Uncomment this when the stratum-core crate is published to crates.io
-      # - name: Run semver checks for stratum-core
-      #  working-directory: stratum-core
-      #  run: cargo semver-checks
+      - name: Run semver checks for stratum-core
+        working-directory: stratum-core
+        run: cargo semver-checks
 
