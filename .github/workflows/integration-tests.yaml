@@ -24,6 +24,10 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install capnproto
+        run: |
+          sudo apt-get update && sudo apt-get install -y capnproto libcapnp-dev
+
       - name: Run Integration Tests Script
         run: |
           ./scripts/run-integration-tests.sh
