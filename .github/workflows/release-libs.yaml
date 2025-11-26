@@ -106,5 +106,5 @@ jobs:
       # Stratum Core (re-exports all the protocol crates)
       - name: Publish crate stratum-core
         run: |
-          ./scripts/release-libs.sh stratum-core/stratum-core
+          ./scripts/release-libs.sh stratum-core
 
