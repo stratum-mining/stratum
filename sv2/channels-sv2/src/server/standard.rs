@@ -347,27 +347,32 @@ where
         self.requested_max_target = requested_max_target;
         Ok(())
     }
-    /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
+    /// Returns a clone of the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
-    /// Returns the mapping of future template IDs to job IDs.
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
+    /// Returns a clone of the mapping of future template IDs to job IDs.
+    pub fn get_future_template_to_job_id(&self) -> HashMap<u64, u32> {
+        // cloning happens inside the job store
         self.job_store.get_future_template_to_job_id()
     }
 
-    /// Returns all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+    /// Returns a clone of all future jobs for this channel.
+    pub fn get_future_jobs(&self) -> HashMap<u32, StandardJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_future_jobs()
     }
 
-    /// Returns all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+    /// Returns a clone of all past jobs for this channel.
+    pub fn get_past_jobs(&self) -> HashMap<u32, StandardJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_past_jobs()
     }
 
-    /// Returns all stale jobs for this channel.
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+    /// Returns a clone of all stale jobs for this channel.
+    pub fn get_stale_jobs(&self) -> HashMap<u32, StandardJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_stale_jobs()
     }
 
@@ -539,20 +544,19 @@ where
             return Err(ShareValidationError::InvalidJobId);
         }
 
+        // temporary variables to avoid borrowing issues
+        let (active_job, past_jobs, stale_jobs);
+
+        // get the appropriate job from the job store
         let job = if is_active_job {
-            self.job_store
-                .get_active_job()
-                .expect("active job must exist")
+            active_job = self.job_store.get_active_job();
+            active_job.as_ref().expect("active job must exist")
         } else if is_past_job {
-            self.job_store
-                .get_past_jobs()
-                .get(&job_id)
-                .expect("past job must exist")
+            past_jobs = self.job_store.get_past_jobs();
+            past_jobs.get(&job_id).expect("past job must exist")
         } else {
-            self.job_store
-                .get_stale_jobs()
-                .get(&job_id)
-                .expect("stale job must exist")
+            stale_jobs = self.job_store.get_stale_jobs();
+            stale_jobs.get(&job_id).expect("stale job must exist")
         };
 
         let merkle_root: [u8; 32] = job

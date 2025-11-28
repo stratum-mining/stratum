@@ -195,18 +195,21 @@ where
         self.chain_tip = Some(chain_tip);
     }
 
-    /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    /// Returns a clone of the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
 
-    /// Returns the mapping of future template IDs to job IDs.
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
+    /// Returns a clone of the mapping of future template IDs to job IDs.
+    pub fn get_future_template_to_job_id(&self) -> HashMap<u64, u32> {
+        // cloning happens inside the job store
         self.job_store.get_future_template_to_job_id()
     }
 
-    /// Returns all future jobs for this group channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
+    /// Returns a clone of all future jobs for this group channel.
+    pub fn get_future_jobs(&self) -> HashMap<u32, ExtendedJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_future_jobs()
     }
 
@@ -369,11 +372,12 @@ mod tests {
         let future_job_id = group_channel
             .get_future_template_to_job_id()
             .get(&template.template_id)
-            .unwrap();
+            .unwrap()
+            .clone();
 
         let future_job = group_channel
             .get_future_jobs()
-            .get(future_job_id)
+            .get(&future_job_id)
             .unwrap()
             .clone();
 
