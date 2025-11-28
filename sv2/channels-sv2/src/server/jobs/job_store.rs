@@ -24,7 +24,10 @@ use super::Job;
 ///
 /// Types implementing `JobStore` must support tracking and transitioning jobs through various
 /// states (future, active, past, stale), and provide access to job collections and mappings.
-pub trait JobStore<T: Job>: Send + Sync + Debug {
+///
+/// All getter methods return owned/cloned values to allow implementations to store jobs behind
+/// thread-safe types like `Arc<Mutex<T>>`.
+pub trait JobStore<T: Job + Clone>: Send + Sync + Debug {
     /// Adds a future job associated with a template ID.
     /// Returns the new job's ID.
     fn add_future_job(&mut self, template_id: u64, job: T) -> u32;
@@ -41,19 +44,19 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     fn mark_past_jobs_as_stale(&mut self);
 
     /// Returns the mapping from future template IDs to job IDs.
-    fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32>;
+    fn get_future_template_to_job_id(&self) -> HashMap<u64, u32>;
 
     /// Returns the currently active job, if any.
-    fn get_active_job(&self) -> Option<&T>;
+    fn get_active_job(&self) -> Option<T>;
 
     /// Returns all future jobs, indexed by job ID.
-    fn get_future_jobs(&self) -> &HashMap<u32, T>;
+    fn get_future_jobs(&self) -> HashMap<u32, T>;
 
     /// Returns all past jobs (previously active jobs), indexed by job ID.
-    fn get_past_jobs(&self) -> &HashMap<u32, T>;
+    fn get_past_jobs(&self) -> HashMap<u32, T>;
 
     /// Returns all stale jobs (jobs from previous chain tip), indexed by job ID.
-    fn get_stale_jobs(&self) -> &HashMap<u32, T>;
+    fn get_stale_jobs(&self) -> HashMap<u32, T>;
 }
 
 /// Default implementation of [`JobStore`] for tracking mining job states in SV2 channels.
@@ -146,23 +149,23 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.past_jobs.clear();
     }
 
-    fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.future_template_to_job_id
+    fn get_future_template_to_job_id(&self) -> HashMap<u64, u32> {
+        self.future_template_to_job_id.clone()
     }
 
-    fn get_active_job(&self) -> Option<&T> {
-        self.active_job.as_ref()
+    fn get_active_job(&self) -> Option<T> {
+        self.active_job.clone()
     }
 
-    fn get_future_jobs(&self) -> &HashMap<u32, T> {
-        &self.future_jobs
+    fn get_future_jobs(&self) -> HashMap<u32, T> {
+        self.future_jobs.clone()
     }
 
-    fn get_past_jobs(&self) -> &HashMap<u32, T> {
-        &self.past_jobs
+    fn get_past_jobs(&self) -> HashMap<u32, T> {
+        self.past_jobs.clone()
     }
 
-    fn get_stale_jobs(&self) -> &HashMap<u32, T> {
-        &self.stale_jobs
+    fn get_stale_jobs(&self) -> HashMap<u32, T> {
+        self.stale_jobs.clone()
     }
 }
