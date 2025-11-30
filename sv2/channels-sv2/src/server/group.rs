@@ -195,8 +195,9 @@ where
         self.chain_tip = Some(chain_tip);
     }
 
-    /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    /// Returns an owned copy of the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
 
