@@ -24,6 +24,9 @@ use super::Job;
 ///
 /// Types implementing `JobStore` must support tracking and transitioning jobs through various
 /// states (future, active, past, stale), and provide access to job collections and mappings.
+///
+///  All getter methods return owned/cloned values to allow implementations to store jobs behind
+/// thread-safe types like `Arc<Mutex<T>>`.
 pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Adds a future job associated with a template ID.
     /// Returns the new job's ID.
