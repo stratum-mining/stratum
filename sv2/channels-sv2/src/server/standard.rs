@@ -365,9 +365,10 @@ where
         self.job_store.get_future_job(job_id)
     }
 
-    /// Returns all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        self.job_store.get_past_jobs()
+    /// Returns an owned copy of a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_past_job(job_id)
     }
 
     /// Returns all stale jobs for this channel.
@@ -527,7 +528,7 @@ where
             .is_some_and(|job| job.get_job_id() == job_id);
 
         // check if job_id is past job
-        let is_past_job = self.job_store.get_past_jobs().contains_key(&job_id);
+        let is_past_job = self.job_store.get_past_job(job_id).is_some();
 
         // check if job_id is stale job
         let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
@@ -547,8 +548,7 @@ where
                 .expect("active job must exist")
         } else if is_past_job {
             self.job_store
-                .get_past_jobs()
-                .get(&job_id)
+                .get_past_job(job_id)
                 .expect("past job must exist")
                 .clone()
         } else {

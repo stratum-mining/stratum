@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Target,
 };
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -419,9 +419,10 @@ where
         self.job_store.get_future_job(job_id)
     }
 
-    /// Returns all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        self.job_store.get_past_jobs()
+    /// Returns an owned copy of a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_past_job(job_id)
     }
     /// Returns a reference to the share accounting state for this channel.
     pub fn get_share_accounting(&self) -> &ShareAccounting {
@@ -576,7 +577,7 @@ where
             .is_some_and(|job| job.get_job_id() == job_id);
 
         // check if job_id is past job
-        let is_past_job = self.job_store.get_past_jobs().contains_key(&job_id);
+        let is_past_job = self.job_store.get_past_job(job_id).is_some();
 
         // check if job_id is stale job
         let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
@@ -589,14 +590,14 @@ where
         if !is_active_job && !is_past_job && !is_stale_job {
             return Err(ShareValidationError::InvalidJobId);
         };
+
         let job = if is_active_job {
             self.job_store
                 .get_active_job()
                 .expect("active job must exist")
         } else if is_past_job {
             self.job_store
-                .get_past_jobs()
-                .get(&job_id)
+                .get_past_job(job_id)
                 .expect("past job must exist")
                 .clone()
         } else {
