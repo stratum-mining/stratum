@@ -580,7 +580,7 @@ where
         let is_past_job = self.job_store.get_past_job(job_id).is_some();
 
         // check if job_id is stale job
-        let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
+        let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
             return Err(ShareValidationError::Stale);
@@ -599,13 +599,10 @@ where
             self.job_store
                 .get_past_job(job_id)
                 .expect("past job must exist")
-                .clone()
         } else {
             self.job_store
-                .get_stale_jobs()
-                .get(&job_id)
+                .get_stale_job(job_id)
                 .expect("stale job must exist")
-                .clone()
         };
 
         let extranonce_size = share.extranonce.inner_as_ref().len();

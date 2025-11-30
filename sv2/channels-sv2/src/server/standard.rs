@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Sequence, Target,
 };
 use mining_sv2::SubmitSharesStandard;
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -371,9 +371,10 @@ where
         self.job_store.get_past_job(job_id)
     }
 
-    /// Returns all stale jobs for this channel.
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        self.job_store.get_stale_jobs()
+    /// Returns an owned copy of a stale job from its job ID, if any.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_stale_job(job_id)
     }
 
     /// Returns the expected number of shares per minute for this channel.
@@ -531,7 +532,7 @@ where
         let is_past_job = self.job_store.get_past_job(job_id).is_some();
 
         // check if job_id is stale job
-        let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
+        let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
             return Err(ShareValidationError::Stale);
@@ -550,13 +551,10 @@ where
             self.job_store
                 .get_past_job(job_id)
                 .expect("past job must exist")
-                .clone()
         } else {
             self.job_store
-                .get_stale_jobs()
-                .get(&job_id)
+                .get_stale_job(job_id)
                 .expect("stale job must exist")
-                .clone()
         };
 
         let merkle_root: [u8; 32] = job

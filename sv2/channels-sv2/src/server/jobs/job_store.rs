@@ -61,8 +61,11 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns an owned copy of a past job from its job ID, if any.
     fn get_past_job(&self, job_id: u32) -> Option<T>;
 
-    /// Returns all stale jobs (jobs from previous chain tip), indexed by job ID.
-    fn get_stale_jobs(&self) -> &HashMap<u32, T>;
+    /// Returns true if there are any stale jobs, false otherwise.
+    fn has_stale_jobs(&self) -> bool;
+
+    /// Returns an owned copy of a stale job from its job ID, if any.
+    fn get_stale_job(&self, job_id: u32) -> Option<T>;
 }
 
 /// Default implementation of [`JobStore`] for tracking mining job states in SV2 channels.
@@ -179,7 +182,11 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.past_jobs.get(&job_id).cloned()
     }
 
-    fn get_stale_jobs(&self) -> &HashMap<u32, T> {
-        &self.stale_jobs
+    fn has_stale_jobs(&self) -> bool {
+        !self.stale_jobs.is_empty()
+    }
+
+    fn get_stale_job(&self, job_id: u32) -> Option<T> {
+        self.stale_jobs.get(&job_id).cloned()
     }
 }
