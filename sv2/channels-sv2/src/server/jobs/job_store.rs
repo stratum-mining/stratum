@@ -49,8 +49,11 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns an owned copy of the currently active job, if any.
     fn get_active_job(&self) -> Option<T>;
 
-    /// Returns all future jobs, indexed by job ID.
-    fn get_future_jobs(&self) -> &HashMap<u32, T>;
+    /// Returns true if there are any future jobs, false otherwise.
+    fn has_future_jobs(&self) -> bool;
+
+    /// Returns an owned copy of a future job from its job ID, if any.
+    fn get_future_job(&self, job_id: u32) -> Option<T>;
 
     /// Returns all past jobs (previously active jobs), indexed by job ID.
     fn get_past_jobs(&self) -> &HashMap<u32, T>;
@@ -157,8 +160,12 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.active_job.clone()
     }
 
-    fn get_future_jobs(&self) -> &HashMap<u32, T> {
-        &self.future_jobs
+    fn has_future_jobs(&self) -> bool {
+        !self.future_jobs.is_empty()
+    }
+
+    fn get_future_job(&self, job_id: u32) -> Option<T> {
+        self.future_jobs.get(&job_id).cloned()
     }
 
     fn get_past_jobs(&self) -> &HashMap<u32, T> {
