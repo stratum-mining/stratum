@@ -40,8 +40,8 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// code
     fn mark_past_jobs_as_stale(&mut self);
 
-    /// Returns the mapping from future template IDs to job IDs.
-    fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32>;
+    /// Returns the job ID for a future job from a template ID, if any.
+    fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32>;
 
     /// Returns the currently active job, if any.
     fn get_active_job(&self) -> Option<&T>;
@@ -146,8 +146,8 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.past_jobs.clear();
     }
 
-    fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.future_template_to_job_id
+    fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.future_template_to_job_id.get(&template_id).cloned()
     }
 
     fn get_active_job(&self) -> Option<&T> {

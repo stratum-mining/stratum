@@ -351,9 +351,10 @@ where
     pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
         self.job_store.get_active_job()
     }
-    /// Returns the mapping of future template IDs to job IDs.
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        self.job_store.get_future_template_to_job_id()
+    /// Returns the job ID for a future job from a template ID, if any.
+    pub fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.job_store
+            .get_future_job_id_from_template_id(template_id)
     }
 
     /// Returns all future jobs for this channel.
