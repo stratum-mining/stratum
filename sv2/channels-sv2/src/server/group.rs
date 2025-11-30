@@ -200,9 +200,10 @@ where
         self.job_store.get_active_job()
     }
 
-    /// Returns the mapping of future template IDs to job IDs.
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        self.job_store.get_future_template_to_job_id()
+    /// Returns the job ID for a future job from a template ID, if any.
+    pub fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.job_store
+            .get_future_job_id_from_template_id(template_id)
     }
 
     /// Returns all future jobs for this group channel.
@@ -367,13 +368,12 @@ mod tests {
         assert!(group_channel.get_active_job().is_none());
 
         let future_job_id = group_channel
-            .get_future_template_to_job_id()
-            .get(&template.template_id)
+            .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
         let future_job = group_channel
             .get_future_jobs()
-            .get(future_job_id)
+            .get(&future_job_id)
             .unwrap()
             .clone();
 
