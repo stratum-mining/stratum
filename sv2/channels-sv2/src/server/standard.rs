@@ -347,8 +347,10 @@ where
         self.requested_max_target = requested_max_target;
         Ok(())
     }
+
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
     /// Returns the job ID for a future job from a template ID, if any.
@@ -547,11 +549,13 @@ where
                 .get_past_jobs()
                 .get(&job_id)
                 .expect("past job must exist")
+                .clone()
         } else {
             self.job_store
                 .get_stale_jobs()
                 .get(&job_id)
                 .expect("stale job must exist")
+                .clone()
         };
 
         let merkle_root: [u8; 32] = job

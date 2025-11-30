@@ -406,8 +406,10 @@ where
 
         Ok(())
     }
-    /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+
+    /// Returns an owned copy of the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
     /// Returns all future jobs for this channel.
@@ -583,8 +585,7 @@ where
         // if job_id is not active, past or stale, return error
         if !is_active_job && !is_past_job && !is_stale_job {
             return Err(ShareValidationError::InvalidJobId);
-        }
-
+        };
         let job = if is_active_job {
             self.job_store
                 .get_active_job()
@@ -594,11 +595,13 @@ where
                 .get_past_jobs()
                 .get(&job_id)
                 .expect("past job must exist")
+                .clone()
         } else {
             self.job_store
                 .get_stale_jobs()
                 .get(&job_id)
                 .expect("stale job must exist")
+                .clone()
         };
 
         let extranonce_size = share.extranonce.inner_as_ref().len();

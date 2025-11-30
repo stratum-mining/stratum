@@ -46,8 +46,8 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns the job ID for a future job from a template ID, if any.
     fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32>;
 
-    /// Returns the currently active job, if any.
-    fn get_active_job(&self) -> Option<&T>;
+    /// Returns an owned copy of the currently active job, if any.
+    fn get_active_job(&self) -> Option<T>;
 
     /// Returns all future jobs, indexed by job ID.
     fn get_future_jobs(&self) -> &HashMap<u32, T>;
@@ -153,8 +153,8 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.future_template_to_job_id.get(&template_id).cloned()
     }
 
-    fn get_active_job(&self) -> Option<&T> {
-        self.active_job.as_ref()
+    fn get_active_job(&self) -> Option<T> {
+        self.active_job.clone()
     }
 
     fn get_future_jobs(&self) -> &HashMap<u32, T> {
