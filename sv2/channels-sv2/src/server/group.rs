@@ -39,10 +39,7 @@ use crate::{
     },
 };
 use bitcoin::transaction::TxOut;
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-};
+use std::{collections::HashSet, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 
 /// Abstraction of a Group Channel.
@@ -207,9 +204,10 @@ where
             .get_future_job_id_from_template_id(template_id)
     }
 
-    /// Returns all future jobs for this group channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        self.job_store.get_future_jobs()
+    /// Returns an owned copy of a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_future_job(job_id)
     }
 
     /// Updates the group channel state with a new template.
@@ -277,11 +275,11 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), GroupChannelError> {
-        match self.job_store.get_future_jobs().is_empty() {
-            true => {
+        match self.job_store.has_future_jobs() {
+            false => {
                 return Err(GroupChannelError::TemplateIdNotFound);
             }
-            false => {
+            true => {
                 self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
@@ -300,7 +298,10 @@ where
 mod tests {
     use crate::{
         chain_tip::ChainTip,
-        server::{group::GroupChannel, jobs::job_store::DefaultJobStore},
+        server::{
+            group::GroupChannel,
+            jobs::job_store::{DefaultJobStore, JobStore},
+        },
     };
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
@@ -362,7 +363,7 @@ mod tests {
             script_pubkey: script,
         }];
 
-        assert!(group_channel.get_future_jobs().is_empty());
+        assert!(!group_channel.job_store.has_future_jobs());
         group_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
@@ -372,11 +373,7 @@ mod tests {
             .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
-        let future_job = group_channel
-            .get_future_jobs()
-            .get(&future_job_id)
-            .unwrap()
-            .clone();
+        let future_job = group_channel.get_future_job(future_job_id).unwrap();
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job
@@ -598,6 +595,6 @@ mod tests {
             .on_new_template(template.clone(), invalid_coinbase_reward_outputs)
             .is_err());
 
-        assert!(group_channel.get_future_jobs().is_empty());
+        assert!(!group_channel.job_store.has_future_jobs());
     }
 }

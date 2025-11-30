@@ -359,9 +359,10 @@ where
             .get_future_job_id_from_template_id(template_id)
     }
 
-    /// Returns all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        self.job_store.get_future_jobs()
+    /// Returns an owned copy of a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_future_job(job_id)
     }
 
     /// Returns all past jobs for this channel.
@@ -485,12 +486,12 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
     ) -> Result<(), StandardChannelError> {
-        match self.job_store.get_future_jobs().is_empty() {
-            true => {
+        match self.job_store.has_future_jobs() {
+            false => {
                 return Err(StandardChannelError::TemplateIdNotFound);
             }
-            false => {
-                // try to activate the future job, and also mark past jobs as stale
+            // try to activate the future job, and also mark past jobs as stale
+            true => {
                 if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
@@ -671,7 +672,10 @@ mod tests {
         chain_tip::ChainTip,
         server::{
             error::StandardChannelError,
-            jobs::{job_store::DefaultJobStore, standard::StandardJob},
+            jobs::{
+                job_store::{DefaultJobStore, JobStore},
+                standard::StandardJob,
+            },
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
@@ -753,7 +757,7 @@ mod tests {
             script_pubkey: script,
         }];
 
-        assert!(standard_channel.get_future_jobs().is_empty());
+        assert!(!standard_channel.job_store.has_future_jobs());
 
         standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
@@ -771,8 +775,7 @@ mod tests {
             min_ntime: Sv2Option::new(None),
         };
 
-        let future_standard_job_from_channel =
-            standard_channel.get_future_jobs().get(&1).unwrap().clone();
+        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap();
         assert_eq!(
             future_standard_job_from_channel.get_job_message(),
             &expected_future_standard_job
