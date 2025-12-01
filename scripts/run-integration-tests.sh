@@ -38,23 +38,22 @@ fi
 cd "$INTEGRATION_TESTS_DIR"
 
 # # Add patch section to override all git dependencies with local paths
-echo "🔧 Adding patch section to override git dependencies..."
+echo "🔧 Adding patch section to override dependencies..."
 
 # Remove any existing patch section first
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' '/^# Override git dependencies with local paths/,/^$/d' Cargo.toml
+    sed -i '' '/^# Override dependencies with local paths/,/^$/d' Cargo.toml
 else
-    sed -i '/^# Override git dependencies with local paths/,/^$/d' Cargo.toml
+    sed -i '/^# Override dependencies with local paths/,/^$/d' Cargo.toml
 fi
 
 
 # Add the patch section at the end of the file
 cat >> Cargo.toml << 'EOF'
 
-# Override git dependencies with local paths to avoid version conflicts
-# TODO: will need to replace to patch.crates-io as soons as they are available and updated on the sv2-apps repo
-[patch."https://github.com/stratum-mining/stratum"]
-stratum-core = {path = "../../../stratum-core"}
+# Override dependencies with local paths
+[patch.crates-io] 
+stratum-core = {path = "../../../stratum-core"} 
 EOF
 
 echo "✅ Updated Cargo.toml to use local dependencies"
