@@ -81,7 +81,8 @@ impl SignatureNoiseMessage {
         self.verify_with_now(pk, authority_pk, now)
     }
 
-    /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp.
+    /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp
+    /// with 10 seconds of tolerance.
     ///
     /// See [`Self::verify`] for more details.
     ///
@@ -94,8 +95,16 @@ impl SignatureNoiseMessage {
         authority_pk: &Option<XOnlyPublicKey>,
         now: u32,
     ) -> bool {
+        // Allow the local clock to drift up to 10 seconds ahead or behind.
+        // See https://github.com/stratum-mining/stratum/issues/2015
+        const TIME_LEEWAY: u32 = 10;
+
         if let Some(authority_pk) = authority_pk {
-            if self.valid_from <= now && self.not_valid_after >= now {
+            // Use saturating ops to cap edges (valid_from ≥ 0, not_valid_after ≤ u32::MAX),
+            // preventing wrap-around and subtle validation bugs with untrusted timestamps.
+            if self.valid_from.saturating_sub(TIME_LEEWAY) <= now
+                && self.not_valid_after.saturating_add(TIME_LEEWAY) >= now
+            {
                 let secp = Secp256k1::verification_only();
                 let (m, s) = self.split();
                 // m = SHA-256(version || valid_from || not_valid_after || server_static_key)
