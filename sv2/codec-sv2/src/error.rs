@@ -78,7 +78,14 @@ impl fmt::Display for Error {
             ),
             MissingBytes(u) => write!(f, "Missing `{u}` Noise bytes"),
             #[cfg(feature = "noise_sv2")]
-            NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{e:?}`"),
+            NoiseSv2Error(e) => match e {
+                NoiseError::InvalidCertificate(msg) => {
+                    write!(f, "Invalid Certificate: {}", msg)
+                }
+                other => {
+                    write!(f, "Noise SV2 Error: {:?}", other)
+                }
+            },
             #[cfg(feature = "noise_sv2")]
             NotInHandShakeState => write!(
                 f,

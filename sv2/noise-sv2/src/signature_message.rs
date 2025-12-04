@@ -22,6 +22,7 @@
 // validity period.
 
 use core::convert::TryInto;
+use core::fmt;
 
 use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1, XOnlyPublicKey};
 
@@ -32,6 +33,7 @@ use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1,
 ///
 /// This structure ensures that messages are authenticated and valid only within
 /// a specified time window, using Schnorr signatures over the `secp256k1` elliptic curve.
+#[derive(Debug, PartialEq, Eq)]
 pub struct SignatureNoiseMessage {
     // Version of the protocol being used.
     pub version: u16,
@@ -43,6 +45,23 @@ pub struct SignatureNoiseMessage {
     pub signature: [u8; 64],
 }
 
+impl fmt::Display for SignatureNoiseMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // write header
+        write!(
+            f,
+            "SignatureNoiseMessage {{ version: {}, valid_from: {}, not_valid_after: {}, signature: ",
+            self.version, self.valid_from, self.not_valid_after
+        )?;
+
+        // write signature as hex manually
+        for byte in &self.signature {
+            write!(f, "{:02x}", byte)?;
+        }
+
+        write!(f, " }}")
+    }
+}
 impl From<[u8; 74]> for SignatureNoiseMessage {
     // Converts a 74-byte array into a [`SignatureNoiseMessage`].
     //

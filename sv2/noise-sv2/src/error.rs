@@ -6,6 +6,8 @@ use alloc::vec::Vec;
 
 use aes_gcm::Error as AesGcm;
 
+use crate::signature_message::SignatureNoiseMessage;
+
 /// Noise protocol error handling.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -31,7 +33,7 @@ pub enum Error {
     InvalidCipherState,
 
     /// Provided certificate is invalid or cannot be verified.
-    InvalidCertificate([u8; 74]),
+    InvalidCertificate(SignatureNoiseMessage),
 
     /// A raw public key is invalid or cannot be parsed.
     InvalidRawPublicKey,
