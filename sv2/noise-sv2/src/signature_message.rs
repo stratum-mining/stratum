@@ -22,6 +22,7 @@
 // validity period.
 
 use core::convert::TryInto;
+use core::fmt;
 
 use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1, XOnlyPublicKey};
 
@@ -32,6 +33,7 @@ use secp256k1::{hashes::sha256, schnorr::Signature, Keypair, Message, Secp256k1,
 ///
 /// This structure ensures that messages are authenticated and valid only within
 /// a specified time window, using Schnorr signatures over the `secp256k1` elliptic curve.
+#[derive(Debug, PartialEq, Eq)]
 pub struct SignatureNoiseMessage {
     // Version of the protocol being used.
     pub version: u16,
@@ -43,6 +45,23 @@ pub struct SignatureNoiseMessage {
     pub signature: [u8; 64],
 }
 
+impl fmt::Display for SignatureNoiseMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // write header
+        write!(
+            f,
+            "SignatureNoiseMessage {{ version: {}, valid_from: {}, not_valid_after: {}, signature: ",
+            self.version, self.valid_from, self.not_valid_after
+        )?;
+
+        // write signature as hex manually
+        for byte in &self.signature {
+            write!(f, "{:02x}", byte)?;
+        }
+
+        write!(f, " }}")
+    }
+}
 impl From<[u8; 74]> for SignatureNoiseMessage {
     // Converts a 74-byte array into a [`SignatureNoiseMessage`].
     //
@@ -81,7 +100,8 @@ impl SignatureNoiseMessage {
         self.verify_with_now(pk, authority_pk, now)
     }
 
-    /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp.
+    /// Verifies the validity and authenticity of the `SignatureNoiseMessage` at a given timestamp
+    /// with 10 seconds of tolerance.
     ///
     /// See [`Self::verify`] for more details.
     ///
@@ -94,8 +114,16 @@ impl SignatureNoiseMessage {
         authority_pk: &Option<XOnlyPublicKey>,
         now: u32,
     ) -> bool {
+        // Allow the local clock to drift up to 10 seconds ahead or behind.
+        // See https://github.com/stratum-mining/stratum/issues/2015
+        const TIME_LEEWAY: u32 = 10;
+
         if let Some(authority_pk) = authority_pk {
-            if self.valid_from <= now && self.not_valid_after >= now {
+            // Use saturating ops to cap edges (valid_from ≥ 0, not_valid_after ≤ u32::MAX),
+            // preventing wrap-around and subtle validation bugs with untrusted timestamps.
+            if self.valid_from.saturating_sub(TIME_LEEWAY) <= now
+                && self.not_valid_after.saturating_add(TIME_LEEWAY) >= now
+            {
                 let secp = Secp256k1::verification_only();
                 let (m, s) = self.split();
                 // m = SHA-256(version || valid_from || not_valid_after || server_static_key)

@@ -396,7 +396,7 @@ impl Initiator {
             };
             Ok(codec)
         } else {
-            Err(Error::InvalidCertificate(plaintext))
+            Err(Error::InvalidCertificate(plaintext.into()))
         }
     }
 
