@@ -150,12 +150,8 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
     }
 
     fn mark_past_jobs_as_stale(&mut self) {
-        // Mark all past jobs as stale, so that shares can be rejected with the appropriate error
-        // code
-        self.stale_jobs = self.past_jobs.clone();
-
-        // Clear past jobs, as we're no longer going to validate shares for them
-        self.past_jobs.clear();
+        // Transfer past jobs to stale jobs collection and reset past jobs to empty
+        self.stale_jobs = std::mem::take(&mut self.past_jobs);
     }
 
     fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
