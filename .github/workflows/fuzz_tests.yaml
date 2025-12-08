@@ -29,7 +29,16 @@ jobs:
       - name: Run fuzz regressions
         run: |
           for TARGET in $(cargo fuzz list); do
+            CORPUS_DIR="fuzz/repo-corpus/corpus/$TARGET"
+
+            echo "==> Checking corpus for: $TARGET"
+
+            if [ ! -d "$CORPUS_DIR" ]; then
+              echo "==> Skipping $TARGET (no corpus found at $CORPUS_DIR)"
+              continue
+            fi
+
             echo "==> Running fuzz target: $TARGET"
-            cargo fuzz run $TARGET fuzz/repo-corpus/corpus/$TARGET -- -runs=0 -max_total_time=30
+            cargo fuzz run "$TARGET" "$CORPUS_DIR" -- -runs=0 -max_total_time=30
           done
 
