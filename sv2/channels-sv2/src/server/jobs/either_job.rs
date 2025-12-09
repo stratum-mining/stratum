@@ -9,7 +9,7 @@ use crate::{
 use binary_sv2::{Seq0255, Sv2Option, U256};
 use bitcoin::transaction::TxOut;
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
-use std::convert::TryInto;
+use std::{convert::TryInto, ops::Deref};
 use template_distribution_sv2::NewTemplate;
 
 #[derive(Debug, Clone, PartialEq)]

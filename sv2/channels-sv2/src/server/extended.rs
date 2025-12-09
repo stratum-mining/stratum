@@ -83,10 +83,11 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J, Store>
+pub struct ExtendedChannel<'a, JobIn, JobOut, Store>
 where
-    Store: JobStore<'a, J>,
-    J: From<EitherJob<'a>> + Clone,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     channel_id: u32,
     user_identity: String,
@@ -100,13 +101,14 @@ where
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
-    _phantom: PhantomData<&'a J>,
+    _phantom: PhantomData<(&'a JobIn, &'a JobOut)>,
 }
 
-impl<'a, J, Store> ExtendedChannel<'a, J, Store>
+impl<'a, JobIn, JobOut, Store> ExtendedChannel<'a, JobIn, JobOut, Store>
 where
-    Store: JobStore<'a, J>,
-    J: Job<'a> + From<EitherJob<'a>> + Clone,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -410,13 +412,13 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<J> {
+    pub fn get_active_job(&self) -> Option<JobOut> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob> {
+    pub fn peek_future_job(&self, job_id: u32) -> Option<&JobIn> {
         // cloning happens inside the job store
         self.job_store.peek_future_job(job_id)
     }
@@ -426,7 +428,7 @@ where
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<J> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<JobOut> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
@@ -460,7 +462,8 @@ where
                         self.get_full_extranonce_size(),
                     )
                     .map_err(ExtendedChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(template.template_id, JobIn::from(new_job));
             }
             false => {
                 match self.chain_tip.clone() {
@@ -478,7 +481,7 @@ where
                                 self.get_full_extranonce_size(),
                             )
                             .map_err(ExtendedChannelError::JobFactoryError)?;
-                        self.job_store.add_active_job(new_job);
+                        self.job_store.add_active_job(JobIn::from(new_job));
                     }
                 }
             }
@@ -554,7 +557,7 @@ where
 
         let job_id = new_job.get_job_id();
 
-        self.job_store.add_active_job(new_job);
+        self.job_store.add_active_job(JobIn::from(new_job));
 
         // update the chain tip
         let set_custom_mining_job_static = set_custom_mining_job.into_static();

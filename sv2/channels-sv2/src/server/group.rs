@@ -58,10 +58,11 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
 #[derive(Debug)]
-pub struct GroupChannel<'a, J, Store>
+pub struct GroupChannel<'a, JobIn, JobOut, Store>
 where
-    Store: JobStore<'a, J>,
-    J: Job<'a> + From<EitherJob<'a>> + Clone,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     group_channel_id: u32,
     standard_channel_ids: HashSet<u32>,
@@ -69,13 +70,14 @@ where
     job_store: Store,
     chain_tip: Option<ChainTip>,
     full_extranonce_size: usize,
-    phantom: PhantomData<&'a J>,
+    phantom: PhantomData<(&'a JobIn, &'a JobOut)>,
 }
 
-impl<'a, J, Store> GroupChannel<'a, J, Store>
+impl<'a, JobIn, JobOut, Store> GroupChannel<'a, JobIn, JobOut, Store>
 where
-    Store: JobStore<'a, J>,
-    J: Job<'a> + From<EitherJob<'a>> + Clone,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     /// Constructor of `GroupChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -195,7 +197,7 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<J> {
+    pub fn get_active_job(&self) -> Option<JobOut> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
@@ -237,7 +239,8 @@ where
                         self.full_extranonce_size,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(template.template_id, JobIn::from(new_job));
             }
             false => {
                 match self.chain_tip.clone() {
@@ -257,7 +260,7 @@ where
                                 self.full_extranonce_size,
                             )
                             .map_err(GroupChannelError::JobFactoryError)?;
-                        self.job_store.add_active_job(new_job);
+                        self.job_store.add_active_job(JobIn::from(new_job));
                     }
                 }
             }

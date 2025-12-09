@@ -55,7 +55,7 @@ use bitcoin::{
     CompactTarget, Sequence, Target,
 };
 use mining_sv2::SubmitSharesStandard;
-use std::{convert::TryInto, marker::PhantomData};
+use std::{convert::TryInto, marker::PhantomData, ops::Deref};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -78,10 +78,11 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a, J, Store>
+pub struct StandardChannel<'a, JobIn, JobOut, Store>
 where
-    Store: JobStore<'a, J>,
-    J: From<EitherJob<'a>> + Clone,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     pub channel_id: u32,
     user_identity: String,
@@ -94,13 +95,14 @@ where
     job_store: Store,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a J>,
+    phantom: PhantomData<(&'a JobIn, &'a JobOut)>,
 }
 
-impl<'a, J, Store> StandardChannel<'a, J, Store>
+impl<'a, JobIn, JobOut, Store> StandardChannel<'a, JobIn, JobOut, Store>
 where
-    Store: JobStore<'a, J>,
-    J: Job<'a> + From<EitherJob<'a>> + Clone,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -349,7 +351,7 @@ where
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<J> {
+    pub fn get_active_job(&self) -> Option<JobOut> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
@@ -365,13 +367,13 @@ where
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<J> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<JobOut> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
 
     /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<J> {
+    pub fn get_stale_job(&self, job_id: u32) -> Option<JobOut> {
         // cloning happens inside the job store
         self.job_store.get_stale_job(job_id)
     }
@@ -425,7 +427,8 @@ where
                         coinbase_reward_outputs,
                     )
                     .map_err(StandardChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                self.job_store
+                    .add_future_job(template.template_id, JobIn::from(new_job));
             }
             false => {
                 match self.chain_tip.clone() {
@@ -442,7 +445,7 @@ where
                                 coinbase_reward_outputs,
                             )
                             .map_err(StandardChannelError::JobFactoryError)?;
-                        self.job_store.add_active_job(new_job);
+                        self.job_store.add_active_job(JobIn::from(new_job));
                     }
                 }
             }
@@ -470,10 +473,11 @@ where
 
         match job.is_future() {
             true => {
-                self.job_store.add_future_job(job.get_template_id(), job);
+                self.job_store
+                    .add_future_job(job.get_template_id(), JobIn::from(job));
             }
             false => {
-                self.job_store.add_active_job(job);
+                self.job_store.add_active_job(JobIn::from(job));
             }
         }
 
@@ -680,6 +684,7 @@ mod tests {
         server::{
             error::StandardChannelError,
             jobs::{
+                either_job::EitherJob,
                 job_store::{DefaultJobStore, JobStore},
                 Job, JobMessage,
             },
@@ -715,7 +720,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let job_store = DefaultJobStore::new();
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<_, _, DefaultJobStore>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
