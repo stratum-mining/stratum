@@ -44,7 +44,7 @@ use crate::{
     merkle_root::merkle_root_from_path,
     server::{
         error::ExtendedChannelError,
-        jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
+        jobs::{either_job::EitherJob, factory::JobFactory, job_store::JobStore, Job, JobOrigin},
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
@@ -83,9 +83,10 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J>
+pub struct ExtendedChannel<'a, J, Store>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    Store: JobStore<'a, J>,
+    J: From<EitherJob<'a>> + Clone,
 {
     channel_id: u32,
     user_identity: String,
@@ -94,17 +95,18 @@ where
     requested_max_target: Target,
     target: Target, // todo: try to use Target from rust-bitcoin
     nominal_hashrate: f32,
-    job_store: J,
+    job_store: Store,
     job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
+    _phantom: PhantomData<&'a J>,
 }
 
-impl<'a, J> ExtendedChannel<'a, J>
+impl<'a, J, Store> ExtendedChannel<'a, J, Store>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    Store: JobStore<'a, J>,
+    J: Job<'a> + From<EitherJob<'a>> + Clone,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -127,7 +129,7 @@ where
         rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: String,
     ) -> Result<Self, ExtendedChannelError> {
         Self::new(
@@ -167,7 +169,7 @@ where
         rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, ExtendedChannelError> {
@@ -199,7 +201,7 @@ where
         rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
     ) -> Result<Self, ExtendedChannelError> {
@@ -247,7 +249,7 @@ where
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
-            phantom: PhantomData,
+            _phantom: PhantomData,
         })
     }
 
@@ -408,19 +410,23 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<J> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob> {
         // cloning happens inside the job store
-        self.job_store.get_future_job(job_id)
+        self.job_store.peek_future_job(job_id)
+    }
+
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+        self.job_store.remove_future_job(job_id)
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<J> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
@@ -685,10 +691,16 @@ where
                 hash.to_raw_hash(),
             );
 
-            let mut coinbase = vec![];
-            coinbase.extend(job.get_coinbase_tx_prefix_with_bip141());
+            let mut coinbase: Vec<u8> = vec![];
+            let coinbase_tx_prefix = job
+                .get_coinbase_tx_prefix_with_bip141()
+                .expect("coinbase tx prefix with bip141 must exist for ExtendedChannel");
+            let coinbase_tx_suffix = job
+                .get_coinbase_tx_suffix_with_bip141()
+                .expect("coinbase tx suffix with bip141 must exist for ExtendedChannel");
+            coinbase.extend(coinbase_tx_prefix);
             coinbase.extend(full_extranonce.clone());
-            coinbase.extend(job.get_coinbase_tx_suffix_with_bip141());
+            coinbase.extend(coinbase_tx_suffix);
 
             match job.get_origin() {
                 JobOrigin::NewTemplate(template) => {
@@ -733,19 +745,24 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::Job;
     use crate::{
         chain_tip::ChainTip,
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::job_store::{DefaultJobStore, JobStore},
+            jobs::{
+                either_job::EitherJob,
+                job_store::{DefaultJobStore, JobStore},
+                JobMessage,
+            },
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
     use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended};
-    use std::convert::TryInto;
+    use std::{convert::TryInto, rc::Rc, sync::Arc};
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
@@ -831,7 +848,7 @@ mod tests {
             .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
-        let future_job = channel.get_future_job(future_job_id).unwrap();
+        let future_job = channel.remove_future_job(future_job_id).unwrap();
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job
@@ -859,7 +876,10 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(future_job.get_job_message(), &expected_job);
+        assert_eq!(
+            future_job.get_job_message(),
+            &JobMessage::NewExtendedMiningJob(expected_job)
+        );
 
         let ntime = 1746839905;
         let set_new_prev_hash = SetNewPrevHash {
@@ -1012,7 +1032,10 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(active_job.get_job_message(), &expected_job);
+        assert_eq!(
+            active_job.get_job_message(),
+            &JobMessage::NewExtendedMiningJob(expected_job)
+        );
     }
 
     #[test]

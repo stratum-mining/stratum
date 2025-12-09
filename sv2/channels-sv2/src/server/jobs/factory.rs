@@ -25,7 +25,7 @@ use crate::{
     chain_tip::ChainTip,
     merkle_root::merkle_root_from_path,
     outputs::deserialize_template_outputs,
-    server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
+    server::jobs::{either_job::EitherJob, error::*, JobMessage},
 };
 use binary_sv2::{Sv2Option, B0255};
 use bitcoin::{
@@ -36,7 +36,7 @@ use bitcoin::{
     Amount, Sequence,
 };
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
-use std::convert::TryInto;
+use std::{alloc::GlobalAlloc, borrow::Borrow, convert::TryInto, ops::Deref, sync::Arc};
 use template_distribution_sv2::NewTemplate;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -64,6 +64,8 @@ impl JobIdFactory {
 /// Enables creation of new Extended Jobs from NewTemplate and SetCustomMiningJob messages.
 ///
 /// Enables creation of new Standard Jobs from NewTemplate messages.
+///
+/// The `JobContainer` generic parameter allows for smart pointers that wrap `<dyn Job<'a>>` (ie. `Box<dyn Job<'a>>`, `Arc<dyn Job<'a>>`, etc.)
 #[derive(Debug, Clone)]
 pub struct JobFactory {
     job_id_factory: JobIdFactory,
@@ -148,7 +150,7 @@ impl JobFactory {
         extranonce_prefix: Vec<u8>,
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
-    ) -> Result<StandardJob<'a>, JobFactoryError> {
+    ) -> Result<EitherJob<'a>, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -206,11 +208,11 @@ impl JobFactory {
             }
         };
 
-        let job = StandardJob::from_template(
+        let job = EitherJob::standard_from_template(
             template,
             extranonce_prefix,
             additional_coinbase_outputs,
-            job_message,
+            JobMessage::NewMiningJob(job_message),
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
@@ -236,7 +238,7 @@ impl JobFactory {
         template: NewTemplate<'a>,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
-    ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+    ) -> Result<EitherJob<'a>, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -305,7 +307,7 @@ impl JobFactory {
             }
         };
 
-        let job = ExtendedJob::from_template(
+        let job = EitherJob::extended_from_template(
             template,
             extranonce_prefix,
             additional_coinbase_outputs,
@@ -423,7 +425,7 @@ impl JobFactory {
         set_custom_mining_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
         full_extranonce_size: usize,
-    ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+    ) -> Result<EitherJob<'a>, JobFactoryError> {
         let serialized_outputs = set_custom_mining_job
             .coinbase_tx_outputs
             .inner_as_ref()
@@ -466,13 +468,13 @@ impl JobFactory {
             merkle_path,
         };
 
-        let job = ExtendedJob::from_custom_job(
+        let job = EitherJob::from_custom_job(
             set_custom_mining_job,
             extranonce_prefix,
             coinbase_outputs,
             coinbase_tx_prefix,
             coinbase_tx_suffix,
-            job_message,
+            JobMessage::NewExtendedMiningJob(job_message),
         );
 
         Ok(job)
@@ -689,6 +691,7 @@ impl JobFactory {
 
 #[cfg(test)]
 mod tests {
+    use super::super::Job;
     use super::*;
     use bitcoin::ScriptBuf;
     use template_distribution_sv2::NewTemplate;
@@ -697,7 +700,7 @@ mod tests {
     fn test_new_pool_job() {
         let mut job_factory = JobFactory::new(true, Some("Stratum V2 SRI Pool".to_string()), None);
 
-        // note:
+        // note:<_>
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
 
@@ -781,7 +784,10 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(job.get_job_message(), &expected_job);
+        assert_eq!(
+            job.get_job_message(),
+            &JobMessage::NewExtendedMiningJob(expected_job)
+        );
     }
 
     #[test]
@@ -889,6 +895,9 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(custom_job.get_job_message(), &expected_job);
+        assert_eq!(
+            custom_job.get_job_message(),
+            &JobMessage::NewExtendedMiningJob(expected_job)
+        );
     }
 }

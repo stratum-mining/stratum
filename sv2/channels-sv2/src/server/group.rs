@@ -35,7 +35,7 @@ use crate::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
-        jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore},
+        jobs::{either_job::EitherJob, factory::JobFactory, job_store::JobStore, Job},
     },
 };
 use bitcoin::transaction::TxOut;
@@ -58,22 +58,24 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
 #[derive(Debug)]
-pub struct GroupChannel<'a, J>
+pub struct GroupChannel<'a, J, Store>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    Store: JobStore<'a, J>,
+    J: Job<'a> + From<EitherJob<'a>> + Clone,
 {
     group_channel_id: u32,
     standard_channel_ids: HashSet<u32>,
     job_factory: JobFactory,
-    job_store: J,
+    job_store: Store,
     chain_tip: Option<ChainTip>,
     full_extranonce_size: usize,
-    phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<&'a J>,
 }
 
-impl<'a, J> GroupChannel<'a, J>
+impl<'a, J, Store> GroupChannel<'a, J, Store>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    Store: JobStore<'a, J>,
+    J: Job<'a> + From<EitherJob<'a>> + Clone,
 {
     /// Constructor of `GroupChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -85,7 +87,7 @@ where
     /// and `//` delimiters: `/pool_tag_string//`
     pub fn new_for_pool(
         group_channel_id: u32,
-        job_store: J,
+        job_store: Store,
         full_extranonce_size: usize,
         pool_tag_string: String,
     ) -> Result<Self, GroupChannelError> {
@@ -111,7 +113,7 @@ where
     /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
     pub fn new_for_job_declaration_client(
         group_channel_id: u32,
-        job_store: J,
+        job_store: Store,
         full_extranonce_size: usize,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
@@ -129,7 +131,7 @@ where
     // private constructor
     fn new(
         group_channel_id: u32,
-        job_store: J,
+        job_store: Store,
         full_extranonce_size: usize,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
@@ -193,7 +195,7 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<J> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
@@ -205,9 +207,9 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
         // cloning happens inside the job store
-        self.job_store.get_future_job(job_id)
+        self.job_store.remove_future_job(job_id)
     }
 
     /// Updates the group channel state with a new template.
@@ -296,11 +298,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::Job;
     use crate::{
         chain_tip::ChainTip,
         server::{
             group::GroupChannel,
-            jobs::job_store::{DefaultJobStore, JobStore},
+            jobs::{
+                job_store::{DefaultJobStore, JobStore},
+                JobMessage,
+            },
         },
     };
     use binary_sv2::Sv2Option;
@@ -373,7 +379,7 @@ mod tests {
             .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
-        let future_job = group_channel.get_future_job(future_job_id).unwrap();
+        let future_job = group_channel.remove_future_job(future_job_id).unwrap();
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job
@@ -401,7 +407,10 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(future_job.get_job_message(), &expected_job);
+        assert_eq!(
+            future_job.get_job_message(),
+            &JobMessage::NewExtendedMiningJob(expected_job)
+        );
 
         let ntime = 1746839905;
 
@@ -425,11 +434,11 @@ mod tests {
             .on_set_new_prev_hash(set_new_prev_hash)
             .unwrap();
 
-        // we just activated the only future job
-        assert!(group_channel.get_active_job().is_some());
-
         let mut previously_future_job = future_job.clone();
         previously_future_job.activate(ntime);
+
+        // we just activated the only future job
+        assert!(group_channel.get_active_job().is_some());
 
         let activated_job = group_channel.get_active_job().unwrap();
 
@@ -535,7 +544,10 @@ mod tests {
             merkle_path: vec![].try_into().unwrap(),
         };
 
-        assert_eq!(active_job.get_job_message(), &expected_job);
+        assert_eq!(
+            active_job.get_job_message(),
+            &JobMessage::NewExtendedMiningJob(expected_job)
+        );
     }
 
     #[test]

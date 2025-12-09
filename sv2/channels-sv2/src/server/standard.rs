@@ -37,9 +37,7 @@ use crate::{
     chain_tip::ChainTip,
     server::{
         error::StandardChannelError,
-        jobs::{
-            extended::ExtendedJob, factory::JobFactory, job_store::JobStore, standard::StandardJob,
-        },
+        jobs::{either_job::EitherJob, factory::JobFactory, job_store::JobStore, Job, JobOrigin},
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
@@ -80,9 +78,10 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a, J>
+pub struct StandardChannel<'a, J, Store>
 where
-    J: JobStore<StandardJob<'a>>,
+    Store: JobStore<'a, J>,
+    J: From<EitherJob<'a>> + Clone,
 {
     pub channel_id: u32,
     user_identity: String,
@@ -92,15 +91,16 @@ where
     nominal_hashrate: f32,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
-    job_store: J,
+    job_store: Store,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<&'a J>,
 }
 
-impl<'a, J> StandardChannel<'a, J>
+impl<'a, J, Store> StandardChannel<'a, J, Store>
 where
-    J: JobStore<StandardJob<'a>>,
+    Store: JobStore<'a, J>,
+    J: Job<'a> + From<EitherJob<'a>> + Clone,
 {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -121,7 +121,7 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
         Self::new(
@@ -157,7 +157,7 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
@@ -185,7 +185,7 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: Option<String>,
         miner_tag_string: Option<String>,
     ) -> Result<Self, StandardChannelError> {
@@ -349,7 +349,7 @@ where
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<J> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
@@ -360,19 +360,18 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
-        self.job_store.get_future_job(job_id)
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+        self.job_store.remove_future_job(job_id)
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<J> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
 
     /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+    pub fn get_stale_job(&self, job_id: u32) -> Option<J> {
         // cloning happens inside the job store
         self.job_store.get_stale_job(job_id)
     }
@@ -459,19 +458,22 @@ where
     /// was broadcasted to the group channel.
     pub fn on_group_channel_job(
         &mut self,
-        extended_job: ExtendedJob<'a>,
+        extended_job: EitherJob<'a>,
     ) -> Result<(), StandardChannelError> {
-        let standard_job = extended_job
+        debug_assert!(
+            extended_job.get_coinbase_tx_prefix_with_bip141().is_some(),
+            "Group channel must use extended jobs"
+        );
+        let job = extended_job
             .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
             .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
 
-        match standard_job.is_future() {
+        match job.is_future() {
             true => {
-                self.job_store
-                    .add_future_job(standard_job.get_template().template_id, standard_job);
+                self.job_store.add_future_job(job.get_template_id(), job);
             }
             false => {
-                self.job_store.add_active_job(standard_job);
+                self.job_store.add_active_job(job);
             }
         }
 
@@ -559,6 +561,7 @@ where
 
         let merkle_root: [u8; 32] = job
             .get_merkle_root()
+            .ok_or(ShareValidationError::InvalidJobId)?
             .inner_as_ref()
             .try_into()
             .expect("merkle root must be 32 bytes");
@@ -611,8 +614,14 @@ where
                 .job_factory
                 .op_pushbytes_pool_miner_tag()
                 .map_err(|_| ShareValidationError::InvalidCoinbase)?;
-
-            let mut script_sig = job.get_template().coinbase_prefix.to_vec();
+            let template = match job.get_origin() {
+                JobOrigin::NewTemplate(template) => template,
+                JobOrigin::SetCustomMiningJob(_) => {
+                    // SetCustomMiningJob is only valid for ExtendedChannels
+                    return Err(ShareValidationError::InvalidJobId);
+                }
+            };
+            let mut script_sig = template.coinbase_prefix.to_vec();
             script_sig.extend(op_pushbytes_pool_miner_tag);
             script_sig.push(self.extranonce_prefix.len() as u8); // OP_PUSHBYTES_X (for the extranonce)
             script_sig.extend(job.get_extranonce_prefix());
@@ -620,13 +629,13 @@ where
             let tx_in = TxIn {
                 previous_output: OutPoint::null(),
                 script_sig: script_sig.into(),
-                sequence: Sequence(job.get_template().coinbase_tx_input_sequence),
+                sequence: Sequence(template.coinbase_tx_input_sequence),
                 witness: Witness::from(vec![vec![0; 32]]),
             };
 
             let coinbase = Transaction {
-                version: TxVersion::non_standard(job.get_template().coinbase_tx_version as i32),
-                lock_time: LockTime::from_consensus(job.get_template().coinbase_tx_locktime),
+                version: TxVersion::non_standard(template.coinbase_tx_version as i32),
+                lock_time: LockTime::from_consensus(template.coinbase_tx_locktime),
                 input: vec![tx_in],
                 output: job.get_coinbase_outputs().to_vec(),
             };
@@ -637,7 +646,7 @@ where
 
             return Ok(ShareValidationResult::BlockFound(
                 hash.to_raw_hash(),
-                Some(job.get_template().template_id),
+                Some(template.template_id),
                 serialized_coinbase,
             ));
         }
@@ -672,7 +681,7 @@ mod tests {
             error::StandardChannelError,
             jobs::{
                 job_store::{DefaultJobStore, JobStore},
-                standard::StandardJob,
+                Job, JobMessage,
             },
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
@@ -704,7 +713,7 @@ mod tests {
         let nominal_hashrate = 10.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -773,10 +782,10 @@ mod tests {
             min_ntime: Sv2Option::new(None),
         };
 
-        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap();
+        let future_standard_job_from_channel = standard_channel.remove_future_job(1).unwrap();
         assert_eq!(
             future_standard_job_from_channel.get_job_message(),
-            &expected_future_standard_job
+            &JobMessage::NewMiningJob(expected_future_standard_job)
         );
 
         let ntime = 1747092633;
@@ -831,7 +840,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -912,7 +921,7 @@ mod tests {
 
         assert_eq!(
             active_standard_job_from_channel.get_job_message(),
-            &expected_active_standard_job
+            &JobMessage::NewMiningJob(expected_active_standard_job)
         );
     }
 
@@ -935,7 +944,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1044,7 +1053,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1153,7 +1162,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1253,7 +1262,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
         // this is the most permissive possible max_target
         let max_target = Target::from_le_bytes([0xff; 32]);
 
@@ -1343,7 +1352,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut channel = StandardChannel::new(
             channel_id,

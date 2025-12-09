@@ -21,7 +21,7 @@
 
 use crate::{
     outputs::deserialize_template_outputs,
-    server::jobs::{error::StandardJobError, Job},
+    server::jobs::{error::StandardJobError, JobMessage, JobOrigin},
 };
 use binary_sv2::{Sv2Option, U256};
 use bitcoin::transaction::TxOut;
@@ -33,24 +33,52 @@ use template_distribution_sv2::NewTemplate;
 /// - the extranonce prefix associated with the channel at the time of job creation
 /// - all coinbase outputs (spendable + unspendable) associated with the job
 /// - the `NewMiningJob` message to be sent across the wire
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StandardJob<'a> {
-    template: NewTemplate<'a>,
+    origin: JobOrigin<'a>,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
-    job_message: NewMiningJob<'a>,
+    job_message: JobMessage<'a>,
 }
 
-impl Job for StandardJob<'_> {
+impl<'a> StandardJob<'a> {
     /// Returns the job ID for this job.
-    fn get_job_id(&self) -> u32 {
-        self.job_message.job_id
+    // fn get_job_id(&self) -> u32 {
+    //     self.job_message.get_job_id()
+    // }
+
+    fn get_origin(&self) -> &JobOrigin<'a> {
+        &self.origin
     }
 
-    /// Activates the job by setting the minimum ntime field.
-    fn activate(&mut self, min_ntime: u32) {
-        self.activate(min_ntime);
+    // fn get_extranonce_prefix(&self) -> &Vec<u8> {
+    //     &self.extranonce_prefix
+    // }
+
+    // fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
+    //     &self.coinbase_outputs
+    // }
+
+    // fn get_job_message(&self) -> &JobMessage<'a> {
+    //     &self.job_message
+    // }
+
+    fn get_min_ntime(&self) -> Sv2Option<'a, u32> {
+        self.job_message.get_min_ntime()
     }
+
+    fn get_version(&self) -> u32 {
+        self.job_message.get_version()
+    }
+
+    fn version_rolling_allowed(&self) -> bool {
+        self.job_message.version_rolling_allowed()
+    }
+
+    // Activates the job by setting the minimum ntime field.
+    // fn activate(&mut self, min_ntime: u32) {
+    //     self.activate(min_ntime);
+    // }
 }
 
 impl<'a> StandardJob<'a> {
@@ -62,7 +90,7 @@ impl<'a> StandardJob<'a> {
         template: NewTemplate<'a>,
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
-        job_message: NewMiningJob<'a>,
+        job_message: JobMessage<'a>,
     ) -> Result<Self, StandardJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
             template.coinbase_tx_outputs.to_vec(),
@@ -75,7 +103,7 @@ impl<'a> StandardJob<'a> {
         coinbase_outputs.extend(template_coinbase_outputs);
 
         Ok(Self {
-            template,
+            origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
             job_message,
@@ -83,7 +111,7 @@ impl<'a> StandardJob<'a> {
     }
     /// Returns the job ID for this job.
     pub fn get_job_id(&self) -> u32 {
-        self.job_message.job_id
+        self.job_message.get_job_id()
     }
     /// Returns all coinbase outputs (spendable and unspendable) for this job.
     pub fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
@@ -94,25 +122,25 @@ impl<'a> StandardJob<'a> {
         &self.extranonce_prefix
     }
     /// Returns the `NewMiningJob` message for this job.
-    pub fn get_job_message(&self) -> &NewMiningJob<'a> {
+    pub fn get_job_message(&self) -> &JobMessage<'a> {
         &self.job_message
     }
     /// Returns the originating `NewTemplate` message for this job.
-    pub fn get_template(&self) -> &NewTemplate<'a> {
-        &self.template
+    pub fn get_template(&self) -> &JobOrigin<'a> {
+        &self.origin
     }
     /// Returns the merkle root for this job.
     pub fn get_merkle_root(&self) -> &U256<'a> {
-        &self.job_message.merkle_root
+        &self.job_message.get_merkle_root()
     }
     /// Returns true if the job is a future job (not yet activated).
     pub fn is_future(&self) -> bool {
-        self.job_message.min_ntime.clone().into_inner().is_none()
+        self.job_message.get_min_ntime().clone().into_inner().is_none()
     }
     /// Activates the job by setting the minimum ntime field.
     ///
     /// Should be called when activating future jobs.
     pub fn activate(&mut self, min_ntime: u32) {
-        self.job_message.min_ntime = Sv2Option::new(Some(min_ntime));
+        self.job_message.activate(min_ntime);
     }
 }

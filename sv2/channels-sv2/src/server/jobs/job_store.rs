@@ -16,9 +16,15 @@
 //! Use the [`JobStore`] trait for custom job store implementations, or the [`DefaultJobStore`]
 //! for standard job lifecycle management in mining channel abstractions.
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 use super::Job;
+use crate::server::jobs::either_job::EitherJob;
 
 /// Trait for job lifecycle management in mining channels.
 ///
@@ -27,13 +33,13 @@ use super::Job;
 ///
 ///  All getter methods return owned/cloned values to allow implementations to store jobs behind
 /// thread-safe types like `Arc<Mutex<T>>`.
-pub trait JobStore<T: Job>: Send + Sync + Debug {
+pub trait JobStore<'a, T> {
     /// Adds a future job associated with a template ID.
     /// Returns the new job's ID.
-    fn add_future_job(&mut self, template_id: u64, job: T) -> u32;
+    fn add_future_job(&mut self, template_id: u64, job: EitherJob<'a>) -> u32;
 
     /// Adds an active job, moving the previous active job (if any) to past jobs.
-    fn add_active_job(&mut self, job: T);
+    fn add_active_job(&mut self, job: EitherJob<'a>);
 
     /// Activates a future job given by template ID and header timestamp.
     /// Returns `true` if successful, `false` if not found.
@@ -52,8 +58,11 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns true if there are any future jobs, false otherwise.
     fn has_future_jobs(&self) -> bool;
 
-    /// Returns an owned copy of a future job from its job ID, if any.
-    fn get_future_job(&self, job_id: u32) -> Option<T>;
+    /// Returns a reference to a future job from its job ID, if any.
+    fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob<'a>>;
+
+    /// Removes an owned copy of a future job from its job ID, if any.
+    fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>>;
 
     /// Returns true if there are any past jobs, false otherwise.
     fn has_past_jobs(&self) -> bool;
@@ -72,39 +81,28 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
 ///
 /// Maintains collections for future, active, past, and stale jobs, and tracks template-to-job ID
 /// mappings for future job activation.
-#[derive(Debug)]
-pub struct DefaultJobStore<T: Job + Clone> {
+#[derive(Default, Debug)]
+pub struct DefaultJobStore<'a> {
     future_template_to_job_id: HashMap<u64, u32>,
     // Future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, T>,
-    active_job: Option<T>,
+    future_jobs: HashMap<u32, EitherJob<'a>>,
+    active_job: Option<EitherJob<'a>>,
     // Past jobs are indexed with job_id (u32)
-    past_jobs: HashMap<u32, T>,
+    past_jobs: HashMap<u32, EitherJob<'a>>,
     // Stale jobs are indexed with job_id (u32)
-    stale_jobs: HashMap<u32, T>,
+    stale_jobs: HashMap<u32, EitherJob<'a>>,
+    _phantom: std::marker::PhantomData<&'a EitherJob<'a>>,
 }
 
-impl<T: Job + Clone> DefaultJobStore<T> {
+impl<'a> DefaultJobStore<'a> {
     /// Creates a new empty job store.
     pub fn new() -> Self {
-        Self {
-            future_template_to_job_id: HashMap::new(),
-            future_jobs: HashMap::new(),
-            active_job: None,
-            past_jobs: HashMap::new(),
-            stale_jobs: HashMap::new(),
-        }
+        Self::default()
     }
 }
 
-impl<T: Job + Clone> Default for DefaultJobStore<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
-    fn add_future_job(&mut self, template_id: u64, new_job: T) -> u32 {
+impl<'a> JobStore<'a, EitherJob<'a>> for DefaultJobStore<'a> {
+    fn add_future_job(&mut self, template_id: u64, new_job: EitherJob<'a>) -> u32 {
         let new_job_id = new_job.get_job_id();
         self.future_jobs.insert(new_job_id, new_job);
         self.future_template_to_job_id
@@ -112,7 +110,7 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         new_job_id
     }
 
-    fn add_active_job(&mut self, job: T) {
+    fn add_active_job(&mut self, job: EitherJob<'a>) {
         // Move currently active job to past jobs (so it can be marked as stale)
         if let Some(active_job) = self.active_job.take() {
             self.past_jobs.insert(active_job.get_job_id(), active_job);
@@ -158,7 +156,7 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.future_template_to_job_id.get(&template_id).cloned()
     }
 
-    fn get_active_job(&self) -> Option<T> {
+    fn get_active_job(&self) -> Option<EitherJob<'a>> {
         self.active_job.clone()
     }
 
@@ -166,15 +164,19 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         !self.future_jobs.is_empty()
     }
 
-    fn get_future_job(&self, job_id: u32) -> Option<T> {
-        self.future_jobs.get(&job_id).cloned()
+    fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob<'a>> {
+        self.future_jobs.get(&job_id)
+    }
+
+    fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+        self.future_jobs.remove(&job_id)
     }
 
     fn has_past_jobs(&self) -> bool {
         !self.past_jobs.is_empty()
     }
 
-    fn get_past_job(&self, job_id: u32) -> Option<T> {
+    fn get_past_job(&self, job_id: u32) -> Option<EitherJob<'a>> {
         self.past_jobs.get(&job_id).cloned()
     }
 
@@ -182,7 +184,120 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         !self.stale_jobs.is_empty()
     }
 
-    fn get_stale_job(&self, job_id: u32) -> Option<T> {
+    fn get_stale_job(&self, job_id: u32) -> Option<EitherJob<'a>> {
+        self.stale_jobs.get(&job_id).cloned()
+    }
+}
+
+/// Shared implementation of [`JobStore`] used for tracking mining job states in SV2 channels.
+/// This implementation is thread-safe and holds jobs behind `Arc` pointers.
+///
+/// Maintains collections for future, active, past, and stale jobs, and tracks template-to-job ID
+/// mappings for future job activation.
+#[derive(Default, Debug)]
+pub struct SharedJobStore<'a> {
+    future_template_to_job_id: HashMap<u64, u32>,
+    // Future jobs are indexed with job_id (u32)
+    future_jobs: HashMap<u32, EitherJob<'a>>,
+    active_job: Option<Arc<EitherJob<'a>>>,
+    // Past jobs are indexed with job_id (u32)
+    past_jobs: HashMap<u32, Arc<EitherJob<'a>>>,
+    // Stale jobs are indexed with job_id (u32)
+    stale_jobs: HashMap<u32, Arc<EitherJob<'a>>>,
+    _phantom: std::marker::PhantomData<&'a EitherJob<'a>>,
+}
+
+impl<'a> SharedJobStore<'a> {
+    /// Creates a new empty job store.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<'a> JobStore<'a, Arc<EitherJob<'a>>> for SharedJobStore<'a> {
+    fn add_future_job(&mut self, template_id: u64, new_job: EitherJob<'a>) -> u32 {
+        let new_job_id = new_job.get_job_id();
+        self.future_jobs.insert(new_job_id, new_job);
+        self.future_template_to_job_id
+            .insert(template_id, new_job_id);
+        new_job_id
+    }
+
+    fn add_active_job(&mut self, job: EitherJob<'a>) {
+        // Move currently active job to past jobs (so it can be marked as stale)
+        if let Some(active_job) = self.active_job.take() {
+            self.past_jobs.insert(active_job.get_job_id(), active_job);
+        }
+        // Set the new active job
+        self.active_job = Some(Arc::new(job));
+    }
+
+    fn activate_future_job(&mut self, template_id: u64, prev_hash_header_timestamp: u32) -> bool {
+        let mut future_job =
+            if let Some(job_id) = self.future_template_to_job_id.remove(&template_id) {
+                if let Some(job) = self.future_jobs.remove(&job_id) {
+                    job
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            };
+
+        // Move currently active job to past jobs (so it can be marked as stale)
+        if let Some(active_job) = self.active_job.take() {
+            self.past_jobs.insert(active_job.get_job_id(), active_job);
+        }
+
+        // Activate the future job
+        future_job.activate(prev_hash_header_timestamp);
+        self.active_job = Some(Arc::new(future_job));
+        self.future_jobs.clear();
+        self.future_template_to_job_id.clear();
+
+        self.mark_past_jobs_as_stale();
+
+        true
+    }
+
+    fn mark_past_jobs_as_stale(&mut self) {
+        // Transfer past jobs to stale jobs collection and reset past jobs to empty
+        self.stale_jobs = std::mem::take(&mut self.past_jobs);
+    }
+
+    fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.future_template_to_job_id.get(&template_id).cloned()
+    }
+
+    fn get_active_job(&self) -> Option<Arc<EitherJob<'a>>> {
+        self.active_job.clone()
+    }
+
+    fn has_future_jobs(&self) -> bool {
+        !self.future_jobs.is_empty()
+    }
+
+    fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob<'a>> {
+        self.future_jobs.get(&job_id)
+    }
+
+    fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+        self.future_jobs.remove(&job_id)
+    }
+
+    fn has_past_jobs(&self) -> bool {
+        !self.past_jobs.is_empty()
+    }
+
+    fn get_past_job(&self, job_id: u32) -> Option<Arc<EitherJob<'a>>> {
+        self.past_jobs.get(&job_id).cloned()
+    }
+
+    fn has_stale_jobs(&self) -> bool {
+        !self.stale_jobs.is_empty()
+    }
+
+    fn get_stale_job(&self, job_id: u32) -> Option<Arc<EitherJob<'a>>> {
         self.stale_jobs.get(&job_id).cloned()
     }
 }
