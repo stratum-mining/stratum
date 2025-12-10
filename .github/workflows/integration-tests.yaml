@@ -1,33 +1,68 @@
+name: Integration Tests
+
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches:
       - main
-
-name: Integration Tests
+  workflow_dispatch:
 
 jobs:
   ci:
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Use stable toolchain
-        uses: actions/checkout@v4
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Install capnproto
+      - name: Detect companion line
+        id: detect
+        env:
+          BODY_NEW: ${{ github.event.pull_request.body }}
+          BODY_OLD: ${{ github.event.changes.body.from || '' }}
+          ACTION: ${{ github.event.action }}
         run: |
-          sudo apt-get update && sudo apt-get install -y capnproto libcapnp-dev
+          OLD_COMPANION=$(printf "%s" "$BODY_OLD" \
+            | grep -Eo 'companion https://github\.com/stratum-mining/sv2-apps/pull/[0-9]+' \
+            || true)
+
+          NEW_COMPANION=$(printf "%s" "$BODY_NEW" \
+            | grep -Eo 'companion https://github\.com/stratum-mining/sv2-apps/pull/[0-9]+' \
+            || true)
+
+          if [ "$ACTION" = "edited" ]; then
+            if [ "$OLD_COMPANION" != "$NEW_COMPANION" ]; then
+              echo "should_run_integration_test=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "should_run_integration_test=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "should_run_integration_test=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          COMPANION_NUM=$(printf "%s" "$NEW_COMPANION" | grep -Eo '[0-9]+$' || true)
+          echo "COMPANION_PR_NUMBER=${COMPANION_NUM:-}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.85
+
+      - name: Install capnproto (Ubuntu)
+        if: steps.detect.outputs.should_run_integration_test == 'true' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y capnproto libcapnp-dev
+
+      - name: Install capnproto (macOS)
+        if: steps.detect.outputs.should_run_integration_test == 'true' && matrix.os == 'macos-latest'
+        run: |
+          brew install capnp
+
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest --version 0.9.100 --locked
 
       - name: Run Integration Tests Script
-        run: |
-          ./scripts/run-integration-tests.sh
+        if: steps.detect.outputs.should_run_integration_test == 'true'
+        run: ./scripts/run-integration-tests.sh
+

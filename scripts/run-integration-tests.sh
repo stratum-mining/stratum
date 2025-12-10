@@ -1,6 +1,67 @@
 #!/bin/bash
 set -euo pipefail
 
+print_help() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  -p, --pr NUMBER       Specify a companion PR number.
+                        If your PR must be in sync with another PR in the
+                        sv2-apps repo, pass that PR number here.
+  -h, --help            Show this help message.
+
+Behavior:
+  If the PR number is not provided:
+    1. Tries to read COMPANION_PR_NUMBER from the environment.
+    2. If still not defined, defaults to "main".
+EOF
+}
+
+PR_NUMBER=""
+
+# ---- parse args ----
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -p|--pr)
+            if [[ -z "${2:-}" ]]; then
+                echo "❌ Error: Missing value for $1" >&2
+                exit 1
+            fi
+            PR_NUMBER="$2"
+            shift 2
+            ;;
+        -h|--help)
+            print_help
+            exit 0
+            ;;
+        *)
+            echo "❌ Unknown option: $1" >&2
+            print_help
+            exit 1
+            ;;
+    esac
+done
+
+# ---- fallback logic ----
+if [[ -n "$PR_NUMBER" ]]; then
+    # user passed --pr, validate it
+    if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+        echo "❌ Error: PR number must be numeric. Got: '$PR_NUMBER'" >&2
+        exit 1
+    fi
+elif [[ -n "${COMPANION_PR_NUMBER:-}" ]]; then
+    # env var exists - use it
+    if ! [[ "$COMPANION_PR_NUMBER" =~ ^[0-9]+$ ]]; then
+        echo "❌ Error: COMPANION_PR_NUMBER must be numeric. Got: '$COMPANION_PR_NUMBER'" >&2
+        exit 1
+    fi
+    PR_NUMBER="$COMPANION_PR_NUMBER"
+else
+    # fallback to main
+    PR_NUMBER="main"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SV2_APPS_DIR="$REPO_ROOT/integration-test-framework/sv2-apps"
@@ -17,11 +78,22 @@ if [ ! -d "$SV2_APPS_DIR" ]; then
     echo "📥 Cloning integration test framework..."
     cd "$(dirname "$SV2_APPS_DIR")"
     git clone $SV2_APPS_REPO_URL
+    cd $SV2_APPS_DIR
 else
-    echo "🔄 Updating integration test framework..."
     cd "$SV2_APPS_DIR"
-    git fetch origin
+fi
+
+# At this point, we're inside $SV2_APPS_DIR
+# Handle PR or main
+if [ "$PR_NUMBER" = "main" ]; then
+    echo "🌱 Using main branch"
+    git checkout main
     git reset --hard origin/main
+else
+    echo "🔍 Fetching PR #$PR_NUMBER"
+    git fetch origin pull/"$PR_NUMBER"/head:pr-"$PR_NUMBER" --force --update-head-ok
+    git checkout pr-"$PR_NUMBER"
+    git clean -fdx
 fi
 
 if cargo nextest --version &>/dev/null; then
