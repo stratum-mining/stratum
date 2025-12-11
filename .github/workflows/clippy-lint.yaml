@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+
+      - name: Install Rust (1.89) + Clippy
+        uses: dtolnay/rust-toolchain@1.89
         with:
-          profile: minimal
-          toolchain: 1.89
-          override: true
           components: clippy
+          
       - name: Run Clippy
         run: |
           cargo clippy --all-features -- -D warnings

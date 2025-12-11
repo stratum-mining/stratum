@@ -19,10 +19,9 @@ jobs:
         uses: actions/checkout@v4
 
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Rust Docs crate stratum-core
         run: |
