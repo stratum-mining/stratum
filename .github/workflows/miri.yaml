@@ -1,0 +1,26 @@
+name: Miri
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  miri-sv2:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly + Miri
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+
+      - name: Miri setup
+        run: cargo miri setup
+
+      - name: Run Miri for buffer-sv2 only
+        run: | 
+            cargo miri test -p buffer_sv2
+            cargo miri test -p noise_sv2
