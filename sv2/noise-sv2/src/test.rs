@@ -2,6 +2,7 @@ use crate::{handshake::HandshakeOp, initiator::Initiator, responder::Responder};
 
 #[test]
 #[cfg(feature = "std")]
+#[cfg_attr(miri, ignore)]
 fn test_1() {
     let key_pair = Responder::generate_key();
 
@@ -17,7 +18,9 @@ fn test_1() {
 
     assert!(message == "ciao".as_bytes().to_vec());
 }
+
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_1_with_rng() {
     let key_pair = Responder::generate_key_with_rng(&mut rand::thread_rng());
 
