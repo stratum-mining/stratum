@@ -20,7 +20,8 @@ jobs:
       - name: Miri setup
         run: cargo miri setup
 
-      - name: Run Miri for buffer-sv2 only
-        run: | 
-            cargo miri test -p buffer_sv2
-            cargo miri test -p noise_sv2
+      - name: Run Miri for buffer-sv2
+        run: cargo miri test -p buffer_sv2
+
+      - name: Run Miri for noise-sv2
+        run: cargo miri test -p noise_sv2
