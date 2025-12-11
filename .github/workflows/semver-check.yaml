@@ -13,11 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.85
-          override: true
+      - name: Install Rust (1.85)
+        uses: dtolnay/rust-toolchain@1.85
 
       - name: Cache Cargo registry
         uses: actions/cache@v4
