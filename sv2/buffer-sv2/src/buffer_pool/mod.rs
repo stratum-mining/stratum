@@ -423,7 +423,7 @@ impl InnerMemory {
         shared_state: &mut SharedState,
         #[cfg(feature = "debug")] mode: u8,
     ) -> Slice {
-        let slice = &mut self.pool[self.raw_offset..self.raw_offset + self.raw_len];
+        let offset = unsafe { self.pool.as_mut_ptr().add(self.raw_offset) };
 
         let mut index: u8 = crate::slice::INGORE_INDEX;
 
@@ -440,14 +440,14 @@ impl InnerMemory {
             shared_state.toogle(index);
         }
 
-        let offset = slice.as_mut_ptr();
+        let len = self.raw_len;
 
         self.raw_offset += self.raw_len;
         self.raw_len = 0;
 
         Slice {
             offset,
-            len: slice.len(),
+            len,
             index,
             shared_state: shared_state.clone(),
             owned: None,
