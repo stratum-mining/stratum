@@ -489,17 +489,22 @@ where
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
         // extended channels dedicated to custom work don't need to keep track of future jobs
-        if !self.job_store.get_future_jobs().is_empty()
-            && !self.job_store.activate_future_job(
-                set_new_prev_hash.template_id,
-                set_new_prev_hash.header_timestamp,
-            )
-        {
-            return Err(ExtendedChannelError::TemplateIdNotFound);
+        match self.job_store.get_future_jobs().is_empty() {
+            true => {
+                // explicitly mark past jobs as stale, because we're not going to
+                // do it implicitly via activate_future_job in case this extended channel is doing custom work
+                self.job_store.mark_past_jobs_as_stale();
+            }
+            false => {
+                // try to activate the future job, and also mark past jobs as stale
+                if !self.job_store.activate_future_job(
+                    set_new_prev_hash.template_id,
+                    set_new_prev_hash.header_timestamp,
+                ) {
+                    return Err(ExtendedChannelError::TemplateIdNotFound);
+                }
+            }
         }
-
-        // mark past jobs as stale
-        self.job_store.mark_past_jobs_as_stale();
 
         // clear seen shares, as shares for past chain tip will be rejected as stale
         self.share_accounting.flush_seen_shares();

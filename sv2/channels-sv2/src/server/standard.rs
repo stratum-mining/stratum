@@ -487,6 +487,7 @@ where
                 return Err(StandardChannelError::TemplateIdNotFound);
             }
             false => {
+                // try to activate the future job, and also mark past jobs as stale
                 if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
@@ -495,9 +496,6 @@ where
                 }
             }
         }
-
-        // mark past jobs as stale
-        self.job_store.mark_past_jobs_as_stale();
 
         // clear seen shares, as shares for past chain tip will be rejected as stale
         self.share_accounting.flush_seen_shares();
