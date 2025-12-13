@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Target,
 };
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -327,9 +327,10 @@ where
         self.target = target;
     }
 
-    /// Returns the mapping of future template IDs to job IDs.
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        self.job_store.get_future_template_to_job_id()
+    /// Returns the job ID for a future job from a template ID, if any.
+    pub fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.job_store
+            .get_future_job_id_from_template_id(template_id)
     }
 
     /// Returns the nominal hashrate for this channel.
@@ -405,17 +406,23 @@ where
 
         Ok(())
     }
-    /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+
+    /// Returns an owned copy of the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
-    /// Returns all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        self.job_store.get_future_jobs()
+
+    /// Returns an owned copy of a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_future_job(job_id)
     }
-    /// Returns all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        self.job_store.get_past_jobs()
+
+    /// Returns an owned copy of a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_past_job(job_id)
     }
     /// Returns a reference to the share accounting state for this channel.
     pub fn get_share_accounting(&self) -> &ShareAccounting {
@@ -489,13 +496,13 @@ where
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
         // extended channels dedicated to custom work don't need to keep track of future jobs
-        match self.job_store.get_future_jobs().is_empty() {
-            true => {
+        match self.job_store.has_future_jobs() {
+            false => {
                 // explicitly mark past jobs as stale, because we're not going to
                 // do it implicitly via activate_future_job in case this extended channel is doing custom work
                 self.job_store.mark_past_jobs_as_stale();
             }
-            false => {
+            true => {
                 // try to activate the future job, and also mark past jobs as stale
                 if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
@@ -570,10 +577,10 @@ where
             .is_some_and(|job| job.get_job_id() == job_id);
 
         // check if job_id is past job
-        let is_past_job = self.job_store.get_past_jobs().contains_key(&job_id);
+        let is_past_job = self.job_store.get_past_job(job_id).is_some();
 
         // check if job_id is stale job
-        let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
+        let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
             return Err(ShareValidationError::Stale);
@@ -582,7 +589,7 @@ where
         // if job_id is not active, past or stale, return error
         if !is_active_job && !is_past_job && !is_stale_job {
             return Err(ShareValidationError::InvalidJobId);
-        }
+        };
 
         let job = if is_active_job {
             self.job_store
@@ -590,13 +597,11 @@ where
                 .expect("active job must exist")
         } else if is_past_job {
             self.job_store
-                .get_past_jobs()
-                .get(&job_id)
+                .get_past_job(job_id)
                 .expect("past job must exist")
         } else {
             self.job_store
-                .get_stale_jobs()
-                .get(&job_id)
+                .get_stale_job(job_id)
                 .expect("stale job must exist")
         };
 
@@ -733,7 +738,7 @@ mod tests {
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::job_store::DefaultJobStore,
+            jobs::job_store::{DefaultJobStore, JobStore},
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
@@ -816,22 +821,17 @@ mod tests {
             script_pubkey: script,
         }];
 
-        assert!(channel.get_future_jobs().is_empty());
+        assert!(!channel.job_store.has_future_jobs());
         channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
         assert!(channel.get_active_job().is_none());
 
         let future_job_id = channel
-            .get_future_template_to_job_id()
-            .get(&template.template_id)
+            .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
-        let future_job = channel
-            .get_future_jobs()
-            .get(future_job_id)
-            .unwrap()
-            .clone();
+        let future_job = channel.get_future_job(future_job_id).unwrap();
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job
@@ -881,7 +881,7 @@ mod tests {
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
 
         // we just activated the only future job
-        assert!(channel.get_future_jobs().is_empty());
+        assert!(!channel.job_store.has_future_jobs());
 
         let mut previously_future_job = future_job.clone();
         previously_future_job.activate(ntime);
@@ -982,7 +982,7 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        assert!(channel.get_future_jobs().is_empty());
+        assert!(!channel.job_store.has_future_jobs());
 
         let active_job = channel.get_active_job().unwrap().clone();
 
@@ -1090,7 +1090,7 @@ mod tests {
         let res = channel.on_new_template(template.clone(), invalid_coinbase_reward_outputs);
 
         assert!(res.is_err());
-        assert!(channel.get_future_jobs().is_empty());
+        assert!(!channel.job_store.has_future_jobs());
     }
 
     #[test]

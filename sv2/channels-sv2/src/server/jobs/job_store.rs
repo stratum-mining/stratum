@@ -24,6 +24,9 @@ use super::Job;
 ///
 /// Types implementing `JobStore` must support tracking and transitioning jobs through various
 /// states (future, active, past, stale), and provide access to job collections and mappings.
+///
+///  All getter methods return owned/cloned values to allow implementations to store jobs behind
+/// thread-safe types like `Arc<Mutex<T>>`.
 pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Adds a future job associated with a template ID.
     /// Returns the new job's ID.
@@ -40,20 +43,29 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// code
     fn mark_past_jobs_as_stale(&mut self);
 
-    /// Returns the mapping from future template IDs to job IDs.
-    fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32>;
+    /// Returns the job ID for a future job from a template ID, if any.
+    fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32>;
 
-    /// Returns the currently active job, if any.
-    fn get_active_job(&self) -> Option<&T>;
+    /// Returns an owned copy of the currently active job, if any.
+    fn get_active_job(&self) -> Option<T>;
 
-    /// Returns all future jobs, indexed by job ID.
-    fn get_future_jobs(&self) -> &HashMap<u32, T>;
+    /// Returns true if there are any future jobs, false otherwise.
+    fn has_future_jobs(&self) -> bool;
 
-    /// Returns all past jobs (previously active jobs), indexed by job ID.
-    fn get_past_jobs(&self) -> &HashMap<u32, T>;
+    /// Returns an owned copy of a future job from its job ID, if any.
+    fn get_future_job(&self, job_id: u32) -> Option<T>;
 
-    /// Returns all stale jobs (jobs from previous chain tip), indexed by job ID.
-    fn get_stale_jobs(&self) -> &HashMap<u32, T>;
+    /// Returns true if there are any past jobs, false otherwise.
+    fn has_past_jobs(&self) -> bool;
+
+    /// Returns an owned copy of a past job from its job ID, if any.
+    fn get_past_job(&self, job_id: u32) -> Option<T>;
+
+    /// Returns true if there are any stale jobs, false otherwise.
+    fn has_stale_jobs(&self) -> bool;
+
+    /// Returns an owned copy of a stale job from its job ID, if any.
+    fn get_stale_job(&self, job_id: u32) -> Option<T>;
 }
 
 /// Default implementation of [`JobStore`] for tracking mining job states in SV2 channels.
@@ -138,31 +150,39 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
     }
 
     fn mark_past_jobs_as_stale(&mut self) {
-        // Mark all past jobs as stale, so that shares can be rejected with the appropriate error
-        // code
-        self.stale_jobs = self.past_jobs.clone();
-
-        // Clear past jobs, as we're no longer going to validate shares for them
-        self.past_jobs.clear();
+        // Transfer past jobs to stale jobs collection and reset past jobs to empty
+        self.stale_jobs = std::mem::take(&mut self.past_jobs);
     }
 
-    fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        &self.future_template_to_job_id
+    fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.future_template_to_job_id.get(&template_id).cloned()
     }
 
-    fn get_active_job(&self) -> Option<&T> {
-        self.active_job.as_ref()
+    fn get_active_job(&self) -> Option<T> {
+        self.active_job.clone()
     }
 
-    fn get_future_jobs(&self) -> &HashMap<u32, T> {
-        &self.future_jobs
+    fn has_future_jobs(&self) -> bool {
+        !self.future_jobs.is_empty()
     }
 
-    fn get_past_jobs(&self) -> &HashMap<u32, T> {
-        &self.past_jobs
+    fn get_future_job(&self, job_id: u32) -> Option<T> {
+        self.future_jobs.get(&job_id).cloned()
     }
 
-    fn get_stale_jobs(&self) -> &HashMap<u32, T> {
-        &self.stale_jobs
+    fn has_past_jobs(&self) -> bool {
+        !self.past_jobs.is_empty()
+    }
+
+    fn get_past_job(&self, job_id: u32) -> Option<T> {
+        self.past_jobs.get(&job_id).cloned()
+    }
+
+    fn has_stale_jobs(&self) -> bool {
+        !self.stale_jobs.is_empty()
+    }
+
+    fn get_stale_job(&self, job_id: u32) -> Option<T> {
+        self.stale_jobs.get(&job_id).cloned()
     }
 }

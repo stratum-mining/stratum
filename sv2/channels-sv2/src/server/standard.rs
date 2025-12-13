@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Sequence, Target,
 };
 use mining_sv2::SubmitSharesStandard;
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -347,28 +347,34 @@ where
         self.requested_max_target = requested_max_target;
         Ok(())
     }
+
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
         self.job_store.get_active_job()
     }
-    /// Returns the mapping of future template IDs to job IDs.
-    pub fn get_future_template_to_job_id(&self) -> &HashMap<u64, u32> {
-        self.job_store.get_future_template_to_job_id()
+    /// Returns the job ID for a future job from a template ID, if any.
+    pub fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
+        self.job_store
+            .get_future_job_id_from_template_id(template_id)
     }
 
-    /// Returns all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        self.job_store.get_future_jobs()
+    /// Returns an owned copy of a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_future_job(job_id)
     }
 
-    /// Returns all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        self.job_store.get_past_jobs()
+    /// Returns an owned copy of a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_past_job(job_id)
     }
 
-    /// Returns all stale jobs for this channel.
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        self.job_store.get_stale_jobs()
+    /// Returns an owned copy of a stale job from its job ID, if any.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+        // cloning happens inside the job store
+        self.job_store.get_stale_job(job_id)
     }
 
     /// Returns the expected number of shares per minute for this channel.
@@ -482,12 +488,12 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
     ) -> Result<(), StandardChannelError> {
-        match self.job_store.get_future_jobs().is_empty() {
-            true => {
+        match self.job_store.has_future_jobs() {
+            false => {
                 return Err(StandardChannelError::TemplateIdNotFound);
             }
-            false => {
-                // try to activate the future job, and also mark past jobs as stale
+            // try to activate the future job, and also mark past jobs as stale
+            true => {
                 if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
@@ -523,10 +529,10 @@ where
             .is_some_and(|job| job.get_job_id() == job_id);
 
         // check if job_id is past job
-        let is_past_job = self.job_store.get_past_jobs().contains_key(&job_id);
+        let is_past_job = self.job_store.get_past_job(job_id).is_some();
 
         // check if job_id is stale job
-        let is_stale_job = self.job_store.get_stale_jobs().contains_key(&job_id);
+        let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
             return Err(ShareValidationError::Stale);
@@ -543,13 +549,11 @@ where
                 .expect("active job must exist")
         } else if is_past_job {
             self.job_store
-                .get_past_jobs()
-                .get(&job_id)
+                .get_past_job(job_id)
                 .expect("past job must exist")
         } else {
             self.job_store
-                .get_stale_jobs()
-                .get(&job_id)
+                .get_stale_job(job_id)
                 .expect("stale job must exist")
         };
 
@@ -666,7 +670,10 @@ mod tests {
         chain_tip::ChainTip,
         server::{
             error::StandardChannelError,
-            jobs::{job_store::DefaultJobStore, standard::StandardJob},
+            jobs::{
+                job_store::{DefaultJobStore, JobStore},
+                standard::StandardJob,
+            },
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
@@ -748,7 +755,7 @@ mod tests {
             script_pubkey: script,
         }];
 
-        assert!(standard_channel.get_future_jobs().is_empty());
+        assert!(!standard_channel.job_store.has_future_jobs());
 
         standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
@@ -766,8 +773,7 @@ mod tests {
             min_ntime: Sv2Option::new(None),
         };
 
-        let future_standard_job_from_channel =
-            standard_channel.get_future_jobs().get(&1).unwrap().clone();
+        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap();
         assert_eq!(
             future_standard_job_from_channel.get_job_message(),
             &expected_future_standard_job
