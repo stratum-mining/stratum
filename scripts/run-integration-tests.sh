@@ -53,7 +53,10 @@ cat >> Cargo.toml << 'EOF'
 
 # Override dependencies with local paths
 [patch.crates-io] 
-stratum-core = {path = "../../../stratum-core"} 
+stratum-core = {path = "../../../stratum-core"}
+
+[patch."https://github.com/stratum-mining/stratum"]
+stratum-core = {path = "../../../stratum-core"}
 EOF
 
 echo "✅ Updated Cargo.toml to use local dependencies"
