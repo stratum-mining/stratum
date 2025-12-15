@@ -157,7 +157,7 @@ impl<'a> EitherJob<'a> {
             origin: JobOrigin::NewTemplate(template),
             extranonce_prefix,
             coinbase_outputs,
-            merkle_root: None,
+            merkle_root: Some(job_message.get_merkle_root().clone()),
             coinbase_tx_prefix_with_bip141: coinbase_tx_prefix,
             coinbase_tx_suffix_with_bip141: coinbase_tx_suffix,
             job_message,
