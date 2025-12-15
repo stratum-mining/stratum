@@ -36,7 +36,7 @@ use bitcoin::{
     Amount, Sequence,
 };
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
-use std::{alloc::GlobalAlloc, borrow::Borrow, convert::TryInto, ops::Deref, sync::Arc};
+use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -173,6 +173,7 @@ impl JobFactory {
             additional_coinbase_outputs.clone(),
             extranonce_prefix.len(),
         )?;
+
         let merkle_path = template.merkle_path.clone();
         let merkle_root = merkle_root_from_path(
             &coinbase_tx_prefix,
@@ -212,6 +213,8 @@ impl JobFactory {
             template,
             extranonce_prefix,
             additional_coinbase_outputs,
+            coinbase_tx_prefix,
+            coinbase_tx_suffix,
             JobMessage::NewMiningJob(job_message),
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;

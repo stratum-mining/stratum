@@ -35,7 +35,12 @@ use crate::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
-        jobs::{either_job::EitherJob, factory::JobFactory, job_store::JobStore, Job},
+        jobs::{
+            either_job::EitherJob,
+            factory::JobFactory,
+            job_store::{JobLifecycleState, JobStore},
+            Job,
+        },
     },
 };
 use bitcoin::transaction::TxOut;
@@ -196,12 +201,6 @@ where
         self.chain_tip = Some(chain_tip);
     }
 
-    /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<JobOut> {
-        // cloning happens inside the job store
-        self.job_store.get_active_job()
-    }
-
     /// Returns the job ID for a future job from a template ID, if any.
     pub fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
         self.job_store
@@ -223,7 +222,7 @@ where
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<(), GroupChannelError> {
+    ) -> Result<JobLifecycleState<JobOut>, GroupChannelError> {
         match template.future_template {
             true => {
                 let new_job = self
@@ -239,8 +238,10 @@ where
                         self.full_extranonce_size,
                     )
                     .map_err(GroupChannelError::JobFactoryError)?;
+                let job_id = new_job.get_job_id();
                 self.job_store
                     .add_future_job(template.template_id, JobIn::from(new_job));
+                return Ok(self.job_store.get_job(job_id));
             }
             false => {
                 match self.chain_tip.clone() {
@@ -260,12 +261,13 @@ where
                                 self.full_extranonce_size,
                             )
                             .map_err(GroupChannelError::JobFactoryError)?;
+                        let job_id = new_job.get_job_id();
                         self.job_store.add_active_job(JobIn::from(new_job));
+                        return Ok(self.job_store.get_job(job_id));
                     }
                 }
             }
         }
-        Ok(())
     }
 
     /// Updates the group channel state with a new [`SetNewPrevHash`](SetNewPrevHashTdp) message
@@ -279,23 +281,23 @@ where
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
-    ) -> Result<(), GroupChannelError> {
-        match self.job_store.has_future_jobs() {
-            false => {
-                return Err(GroupChannelError::TemplateIdNotFound);
-            }
-            true => {
-                self.job_store.activate_future_job(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
-                );
-            }
-        }
+    ) -> Result<JobLifecycleState<JobOut>, GroupChannelError> {
+        self.job_store.mark_past_jobs_as_stale();
+        let job_id = self
+            .job_store
+            .get_future_job_id_from_template_id(set_new_prev_hash.template_id)
+            .ok_or(GroupChannelError::TemplateIdNotFound)?;
 
+        // try to activate the future job, and also mark past jobs as stale
+        if !self.job_store.activate_future_job(
+            set_new_prev_hash.template_id,
+            set_new_prev_hash.header_timestamp,
+        ) {
+            return Err(GroupChannelError::TemplateIdNotFound);
+        }
         // update the chain tip
         self.chain_tip = Some(set_new_prev_hash.into());
-
-        Ok(())
+        Ok(self.job_store.get_job(job_id))
     }
 }
 
@@ -307,7 +309,7 @@ mod tests {
         server::{
             group::GroupChannel,
             jobs::{
-                job_store::{DefaultJobStore, JobStore},
+                job_store::{DefaultJobStore, JobLifecycleState, JobStore},
                 JobMessage,
             },
         },
@@ -373,10 +375,13 @@ mod tests {
         }];
 
         assert!(!group_channel.job_store.has_future_jobs());
-        group_channel
+        let job = group_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
-        assert!(group_channel.get_active_job().is_none());
+        match job {
+            JobLifecycleState::Future => {}
+            _ => panic!("expected future job"),
+        }
 
         let future_job_id = group_channel
             .get_future_job_id_from_template_id(template.template_id)
@@ -433,7 +438,7 @@ mod tests {
             .into(),
         };
 
-        group_channel
+        let job = group_channel
             .on_set_new_prev_hash(set_new_prev_hash)
             .unwrap();
 
@@ -441,9 +446,10 @@ mod tests {
         previously_future_job.activate(ntime);
 
         // we just activated the only future job
-        assert!(group_channel.get_active_job().is_some());
-
-        let activated_job = group_channel.get_active_job().unwrap();
+        let activated_job = match job {
+            JobLifecycleState::Active(job) => job,
+            _ => panic!("expected active job"),
+        };
 
         // assert that the activated job is the same as the previously future job
         assert_eq!(
@@ -515,11 +521,13 @@ mod tests {
         }];
 
         group_channel.set_chain_tip(chain_tip);
-        group_channel
+        let active_job = match group_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
-            .unwrap();
-
-        let active_job = group_channel.get_active_job().unwrap();
+            .unwrap()
+        {
+            JobLifecycleState::Active(job) => job,
+            _ => panic!("expected active job"),
+        };
 
         // we know that the provided template + coinbase_reward_outputs should generate this
         // non-future job

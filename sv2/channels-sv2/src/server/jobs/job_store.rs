@@ -16,18 +16,21 @@
 //! Use the [`JobStore`] trait for custom job store implementations, or the [`DefaultJobStore`]
 //! for standard job lifecycle management in mining channel abstractions.
 
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-    sync::Arc,
-};
-
-use bitcoin::TxOut;
+use std::{collections::HashMap, fmt::Debug};
 
 use super::Job;
-use crate::server::jobs::{either_job::EitherJob, JobOrigin};
+use crate::server::{
+    jobs::either_job::EitherJob,
+    share_accounting::{ShareValidationError, ShareValidationResult},
+};
+
+pub enum JobLifecycleState<T> {
+    Future,
+    Active(T),
+    Past(T),
+    Stale(T),
+    NotFound,
+}
 
 /// Trait for job lifecycle management in mining channels.
 ///
@@ -43,13 +46,16 @@ where
 {
     /// Adds a future job associated with a template ID.
     /// Returns the new job's ID.
+    /// KEEP
     fn add_future_job(&mut self, template_id: u64, job: JobIn) -> u32;
 
     /// Adds an active job, moving the previous active job (if any) to past jobs.
+    /// KEEP
     fn add_active_job(&mut self, job: JobIn);
 
     /// Activates a future job given by template ID and header timestamp.
     /// Returns `true` if successful, `false` if not found.
+    /// KEEP
     fn activate_future_job(&mut self, template_id: u64, prev_hash_header_timestamp: u32) -> bool;
 
     /// Marks all past jobs as stale, so that shares can be rejected with the appropriate error
@@ -60,28 +66,21 @@ where
     fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32>;
 
     /// Returns an owned copy of the currently active job, if any.
-    fn get_active_job(&self) -> Option<JobOut>;
+    fn get_job(&self, job_id: u32) -> JobLifecycleState<JobOut>;
 
     /// Returns true if there are any future jobs, false otherwise.
     fn has_future_jobs(&self) -> bool;
 
-    /// Returns a reference to a future job from its job ID, if any.
-    fn peek_future_job(&self, job_id: u32) -> Option<&JobIn>;
-
     /// Removes an owned copy of a future job from its job ID, if any.
     fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>>;
 
-    /// Returns true if there are any past jobs, false otherwise.
-    fn has_past_jobs(&self) -> bool;
-
-    /// Returns an owned copy of a past job from its job ID, if any.
-    fn get_past_job(&self, job_id: u32) -> Option<JobOut>;
-
-    /// Returns true if there are any stale jobs, false otherwise.
-    fn has_stale_jobs(&self) -> bool;
-
-    /// Returns an owned copy of a stale job from its job ID, if any.
-    fn get_stale_job(&self, job_id: u32) -> Option<JobOut>;
+    fn try_validate_job(
+        &self,
+        job_id: u32,
+        validation_func: impl FnMut(
+            JobLifecycleState<JobOut>,
+        ) -> Result<ShareValidationResult, ShareValidationError>,
+    ) -> Result<ShareValidationResult, ShareValidationError>;
 }
 
 /// Default implementation of [`JobStore`] for tracking mining job states in SV2 channels.
@@ -154,6 +153,28 @@ impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
         true
     }
 
+    fn get_job(&self, job_id: u32) -> JobLifecycleState<EitherJob<'a>> {
+        if let Some(active_job) = &self.active_job {
+            if active_job.get_job_id() == job_id {
+                return JobLifecycleState::Active(active_job.clone());
+            }
+        }
+
+        if let Some(_future_job) = self.future_jobs.get(&job_id) {
+            return JobLifecycleState::Future;
+        }
+
+        if let Some(past_job) = self.past_jobs.get(&job_id) {
+            return JobLifecycleState::Past(past_job.clone());
+        }
+
+        if let Some(stale_job) = self.stale_jobs.get(&job_id) {
+            return JobLifecycleState::Stale(stale_job.clone());
+        }
+
+        JobLifecycleState::NotFound
+    }
+
     fn mark_past_jobs_as_stale(&mut self) {
         // Transfer past jobs to stale jobs collection and reset past jobs to empty
         self.stale_jobs = std::mem::take(&mut self.past_jobs);
@@ -162,37 +183,22 @@ impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
     fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
         self.future_template_to_job_id.get(&template_id).cloned()
     }
-
-    fn get_active_job(&self) -> Option<EitherJob<'a>> {
-        self.active_job.clone()
-    }
-
     fn has_future_jobs(&self) -> bool {
         !self.future_jobs.is_empty()
-    }
-
-    fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob<'a>> {
-        self.future_jobs.get(&job_id)
     }
 
     fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
         self.future_jobs.remove(&job_id)
     }
 
-    fn has_past_jobs(&self) -> bool {
-        !self.past_jobs.is_empty()
-    }
-
-    fn get_past_job(&self, job_id: u32) -> Option<EitherJob<'a>> {
-        self.past_jobs.get(&job_id).cloned()
-    }
-
-    fn has_stale_jobs(&self) -> bool {
-        !self.stale_jobs.is_empty()
-    }
-
-    fn get_stale_job(&self, job_id: u32) -> Option<EitherJob<'a>> {
-        self.stale_jobs.get(&job_id).cloned()
+    fn try_validate_job(
+        &self,
+        job_id: u32,
+        mut validation_func: impl FnMut(
+            JobLifecycleState<EitherJob<'a>>,
+        ) -> Result<ShareValidationResult, ShareValidationError>,
+    ) -> Result<ShareValidationResult, ShareValidationError> {
+        validation_func(self.get_job(job_id))
     }
 }
 
@@ -234,16 +240,16 @@ mod test {
         fn version_rolling_allowed(&self) -> bool {
             self.0.version_rolling_allowed()
         }
-        fn get_merkle_root(&self) -> Option<&U256<'a>> {
-            self.0.get_merkle_root()
+        fn get_merkle_root(&self, full_extranonce: Option<&[u8]>) -> Option<U256<'a>> {
+            self.0.get_merkle_root(full_extranonce)
         }
         fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>> {
             self.0.get_merkle_path()
         }
-        fn get_coinbase_tx_prefix_with_bip141(&self) -> Option<Vec<u8>> {
+        fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8> {
             self.0.get_coinbase_tx_prefix_with_bip141()
         }
-        fn get_coinbase_tx_suffix_with_bip141(&self) -> Option<Vec<u8>> {
+        fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8> {
             self.0.get_coinbase_tx_suffix_with_bip141()
         }
         fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8> {
@@ -278,13 +284,6 @@ mod test {
         // Stale jobs are indexed with job_id (u32)
         stale_jobs: HashMap<u32, SharedJob<'a>>,
         _phantom: std::marker::PhantomData<&'a EitherJob<'a>>,
-    }
-
-    impl<'a> SharedJobStore<'a> {
-        /// Creates a new empty job store.
-        pub fn new() -> Self {
-            Self::default()
-        }
     }
 
     impl<'a> JobStore<'a, EitherJob<'a>, SharedJob<'a>> for SharedJobStore<'a> {
@@ -336,6 +335,27 @@ mod test {
 
             true
         }
+        fn get_job(&self, job_id: u32) -> super::JobLifecycleState<SharedJob<'a>> {
+            if let Some(active_job) = &self.active_job {
+                if active_job.get_job_id() == job_id {
+                    return super::JobLifecycleState::Active(active_job.clone());
+                }
+            }
+
+            if let Some(_future_job) = self.future_jobs.get(&job_id) {
+                return super::JobLifecycleState::Future;
+            }
+
+            if let Some(past_job) = self.past_jobs.get(&job_id) {
+                return super::JobLifecycleState::Past(past_job.clone());
+            }
+
+            if let Some(stale_job) = self.stale_jobs.get(&job_id) {
+                return super::JobLifecycleState::Stale(stale_job.clone());
+            }
+
+            super::JobLifecycleState::NotFound
+        }
 
         fn mark_past_jobs_as_stale(&mut self) {
             // Transfer past jobs to stale jobs collection and reset past jobs to empty
@@ -346,36 +366,28 @@ mod test {
             self.future_template_to_job_id.get(&template_id).cloned()
         }
 
-        fn get_active_job(&self) -> Option<SharedJob<'a>> {
-            self.active_job.clone()
-        }
-
         fn has_future_jobs(&self) -> bool {
             !self.future_jobs.is_empty()
-        }
-
-        fn peek_future_job(&self, job_id: u32) -> Option<&EitherJob<'a>> {
-            self.future_jobs.get(&job_id)
         }
 
         fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
             self.future_jobs.remove(&job_id)
         }
 
-        fn has_past_jobs(&self) -> bool {
-            !self.past_jobs.is_empty()
-        }
-
-        fn get_past_job(&self, job_id: u32) -> Option<SharedJob<'a>> {
-            self.past_jobs.get(&job_id).cloned()
-        }
-
-        fn has_stale_jobs(&self) -> bool {
-            !self.stale_jobs.is_empty()
-        }
-
-        fn get_stale_job(&self, job_id: u32) -> Option<SharedJob<'a>> {
-            self.stale_jobs.get(&job_id).cloned()
+        fn try_validate_job(
+            &self,
+            job_id: u32,
+            mut validation_func: impl FnMut(
+                super::JobLifecycleState<SharedJob<'a>>,
+            ) -> Result<
+                crate::server::share_accounting::ShareValidationResult,
+                crate::server::share_accounting::ShareValidationError,
+            >,
+        ) -> Result<
+            crate::server::share_accounting::ShareValidationResult,
+            crate::server::share_accounting::ShareValidationError,
+        > {
+            validation_func(self.get_job(job_id))
         }
     }
 }

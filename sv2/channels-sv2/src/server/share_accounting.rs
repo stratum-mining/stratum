@@ -18,7 +18,7 @@
 //! Intended for use within mining server implementations that process SV2 share submissions and
 //! issue `SubmitShares.Success` messages. Not intended for use by mining clients.
 
-use bitcoin::hashes::sha256d::Hash;
+use bitcoin::{hashes::sha256d::Hash, Target};
 use std::collections::HashSet;
 
 /// The outcome of share validation, from the perspective of a Mining Server.
@@ -77,7 +77,7 @@ pub struct ShareAccounting {
     last_batch_accepted: u32,
     last_batch_work_sum: f64,
     share_batch_size: usize,
-    seen_shares: HashSet<Hash>,
+    seen_shares: HashSet<Target>,
     best_diff: f64,
 }
 
@@ -106,14 +106,13 @@ impl ShareAccounting {
     /// - Records the share hash to detect duplicates.
     pub fn update_share_accounting(
         &mut self,
-        share_work: f64,
         share_sequence_number: u32,
-        share_hash: Hash,
+        share_hash_target: Target,
     ) {
         self.last_share_sequence_number = share_sequence_number;
         self.shares_accepted += 1;
-        self.share_work_sum += share_work;
-        self.seen_shares.insert(share_hash);
+        self.share_work_sum += share_hash_target.difficulty_float();
+        self.seen_shares.insert(share_hash_target);
 
         if self.should_acknowledge() {
             let current_batch_accepted = self.shares_accepted - self.last_batch_accepted;
@@ -173,8 +172,8 @@ impl ShareAccounting {
     }
 
     /// Checks if the share hash has already been accepted (duplicate detection).
-    pub fn is_share_seen(&self, share_hash: Hash) -> bool {
-        self.seen_shares.contains(&share_hash)
+    pub fn is_share_seen(&self, share_hash: &Target) -> bool {
+        self.seen_shares.contains(share_hash)
     }
 
     /// Returns the highest difficulty found among accepted shares.

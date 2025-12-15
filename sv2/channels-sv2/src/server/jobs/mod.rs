@@ -23,7 +23,6 @@ pub mod error;
 pub mod factory;
 pub mod job_store;
 
-use super::jobs::either_job::EitherJob;
 use binary_sv2::{Seq0255, Sv2Option, U256};
 use bitcoin::TxOut;
 use mining_sv2::SetCustomMiningJob;
@@ -68,7 +67,7 @@ impl<'a> JobMessage<'a> {
     }
     pub fn get_merkle_root(&self) -> &U256<'a> {
         match self {
-            JobMessage::NewExtendedMiningJob(msg) => {
+            JobMessage::NewExtendedMiningJob(_msg) => {
                 panic!("Merkle root is not directly available for NewExtendedMiningJob")
             }
             JobMessage::NewMiningJob(msg) => &msg.merkle_root,
@@ -87,7 +86,7 @@ impl<'a> JobMessage<'a> {
         match self {
             JobMessage::NewExtendedMiningJob(msg) => msg.coinbase_tx_prefix.inner_as_ref().to_vec(),
             JobMessage::NewMiningJob(_msg) => {
-                panic!("coinbase_tx_prefix is not available for NewMiningJob")
+                panic!("coinbase_tx_prefix_without_bip141 is not available for NewMiningJob")
             }
         }
     }
@@ -97,7 +96,7 @@ impl<'a> JobMessage<'a> {
         match self {
             JobMessage::NewExtendedMiningJob(msg) => msg.coinbase_tx_suffix.inner_as_ref().to_vec(),
             JobMessage::NewMiningJob(_msg) => {
-                panic!("coinbase_tx_suffix is not available for NewMiningJob")
+                panic!("coinbase_tx_suffix_without_bip141 is not available for NewMiningJob")
             }
         }
     }
@@ -128,11 +127,11 @@ pub trait Job<'a> {
     fn get_min_ntime(&self) -> Sv2Option<'a, u32>;
     fn get_version(&self) -> u32;
     fn version_rolling_allowed(&self) -> bool;
-    fn get_merkle_root(&self) -> Option<&U256<'a>>;
+    fn get_merkle_root(&self, full_extranonce: Option<&[u8]>) -> Option<U256<'a>>;
     /// Returns the merkle path for this job.
     fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>>;
-    fn get_coinbase_tx_prefix_with_bip141(&self) -> Option<Vec<u8>>;
-    fn get_coinbase_tx_suffix_with_bip141(&self) -> Option<Vec<u8>>;
+    fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8>;
+    fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8>;
     /// Returns the coinbase transaction without for this job without BIP141 data.
     fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8>;
     fn get_coinbase_tx_suffix_without_bip141(&self) -> Vec<u8>;
