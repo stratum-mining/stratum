@@ -1,6 +1,6 @@
 [package]
 name = "binary_sv2"
-version = "5.0.0"
+version = "5.1.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"
