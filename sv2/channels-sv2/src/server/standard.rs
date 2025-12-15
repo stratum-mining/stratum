@@ -352,7 +352,7 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<JobIn> {
         self.job_store.remove_future_job(job_id)
     }
 
@@ -392,7 +392,7 @@ where
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<JobLifecycleState<JobOut>, StandardChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, StandardChannelError> {
         match template.future_template {
             true => {
                 let new_job = self
@@ -442,7 +442,7 @@ where
     pub fn on_group_channel_job(
         &mut self,
         extended_job: EitherJob<'a>,
-    ) -> Result<JobLifecycleState<JobOut>, StandardChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, StandardChannelError> {
         let job = extended_job
             .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
             .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
@@ -469,7 +469,7 @@ where
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
-    ) -> Result<JobLifecycleState<JobOut>, StandardChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, StandardChannelError> {
         self.job_store.mark_past_jobs_as_stale();
         let job_id = self
             .job_store
@@ -508,7 +508,7 @@ where
                 JobLifecycleState::Stale(_job) => {
                     return Err(ShareValidationError::Stale);
                 }
-                JobLifecycleState::Future => {
+                JobLifecycleState::Future(_) => {
                     return Err(ShareValidationError::InvalidJobId);
                 }
                 JobLifecycleState::NotFound => {

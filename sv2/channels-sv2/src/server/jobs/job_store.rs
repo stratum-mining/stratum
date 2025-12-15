@@ -16,7 +16,7 @@
 //! Use the [`JobStore`] trait for custom job store implementations, or the [`DefaultJobStore`]
 //! for standard job lifecycle management in mining channel abstractions.
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, rc::Rc};
 
 use super::Job;
 use crate::server::{
@@ -24,11 +24,11 @@ use crate::server::{
     share_accounting::{ShareValidationError, ShareValidationResult},
 };
 
-pub enum JobLifecycleState<T> {
-    Future,
-    Active(T),
-    Past(T),
-    Stale(T),
+pub enum JobLifecycleState<'a, JobIn, JobOut> {
+    Future(&'a JobIn),
+    Active(JobOut),
+    Past(JobOut),
+    Stale(JobOut),
     NotFound,
 }
 
@@ -66,23 +66,25 @@ where
     fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32>;
 
     /// Returns an owned copy of the currently active job, if any.
-    fn get_job(&self, job_id: u32) -> JobLifecycleState<JobOut>;
+    fn get_job(&self, job_id: u32) -> JobLifecycleState<JobIn, JobOut>;
 
     /// Returns true if there are any future jobs, false otherwise.
     fn has_future_jobs(&self) -> bool;
 
     /// Removes an owned copy of a future job from its job ID, if any.
-    fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>>;
+    fn remove_future_job(&mut self, job_id: u32) -> Option<JobIn>;
 
     fn try_validate_job(
         &self,
         job_id: u32,
         validation_func: impl FnMut(
-            JobLifecycleState<JobOut>,
+            JobLifecycleState<JobIn, JobOut>,
         ) -> Result<ShareValidationResult, ShareValidationError>,
     ) -> Result<ShareValidationResult, ShareValidationError>;
 }
 
+type JobIn<'a> = EitherJob<'a>;
+type JobOut<'a> = EitherJob<'a>;
 /// Default implementation of [`JobStore`] for tracking mining job states in SV2 channels.
 ///
 /// Maintains collections for future, active, past, and stale jobs, and tracks template-to-job ID
@@ -91,13 +93,13 @@ where
 pub struct DefaultJobStore<'a> {
     future_template_to_job_id: HashMap<u64, u32>,
     // Future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, EitherJob<'a>>,
-    active_job: Option<EitherJob<'a>>,
+    future_jobs: HashMap<u32, JobIn<'a>>,
+    active_job: Option<JobOut<'a>>,
     // Past jobs are indexed with job_id (u32)
-    past_jobs: HashMap<u32, EitherJob<'a>>,
+    past_jobs: HashMap<u32, JobOut<'a>>,
     // Stale jobs are indexed with job_id (u32)
-    stale_jobs: HashMap<u32, EitherJob<'a>>,
-    _phantom: std::marker::PhantomData<&'a EitherJob<'a>>,
+    stale_jobs: HashMap<u32, JobOut<'a>>,
+    _phantom: std::marker::PhantomData<&'a JobOut<'a>>,
 }
 
 impl<'a> DefaultJobStore<'a> {
@@ -107,8 +109,8 @@ impl<'a> DefaultJobStore<'a> {
     }
 }
 
-impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
-    fn add_future_job(&mut self, template_id: u64, new_job: EitherJob<'a>) -> u32 {
+impl<'a> JobStore<'a, JobIn<'a>, JobOut<'a>> for DefaultJobStore<'a> {
+    fn add_future_job(&mut self, template_id: u64, new_job: JobIn<'a>) -> u32 {
         let new_job_id = new_job.get_job_id();
         self.future_jobs.insert(new_job_id, new_job);
         self.future_template_to_job_id
@@ -116,7 +118,7 @@ impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
         new_job_id
     }
 
-    fn add_active_job(&mut self, job: EitherJob<'a>) {
+    fn add_active_job(&mut self, job: JobIn<'a>) {
         // Move currently active job to past jobs (so it can be marked as stale)
         if let Some(active_job) = self.active_job.take() {
             self.past_jobs.insert(active_job.get_job_id(), active_job);
@@ -153,15 +155,15 @@ impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
         true
     }
 
-    fn get_job(&self, job_id: u32) -> JobLifecycleState<EitherJob<'a>> {
+    fn get_job(&self, job_id: u32) -> JobLifecycleState<JobIn<'a>, JobOut<'a>> {
         if let Some(active_job) = &self.active_job {
             if active_job.get_job_id() == job_id {
                 return JobLifecycleState::Active(active_job.clone());
             }
         }
 
-        if let Some(_future_job) = self.future_jobs.get(&job_id) {
-            return JobLifecycleState::Future;
+        if let Some(future_job) = self.future_jobs.get(&job_id) {
+            return JobLifecycleState::Future(future_job);
         }
 
         if let Some(past_job) = self.past_jobs.get(&job_id) {
@@ -187,7 +189,7 @@ impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
         !self.future_jobs.is_empty()
     }
 
-    fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+    fn remove_future_job(&mut self, job_id: u32) -> Option<JobIn<'a>> {
         self.future_jobs.remove(&job_id)
     }
 
@@ -195,7 +197,7 @@ impl<'a> JobStore<'a, EitherJob<'a>, EitherJob<'a>> for DefaultJobStore<'a> {
         &self,
         job_id: u32,
         mut validation_func: impl FnMut(
-            JobLifecycleState<EitherJob<'a>>,
+            JobLifecycleState<JobIn<'a>, JobOut<'a>>,
         ) -> Result<ShareValidationResult, ShareValidationError>,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         validation_func(self.get_job(job_id))
@@ -335,15 +337,15 @@ mod test {
 
             true
         }
-        fn get_job(&self, job_id: u32) -> super::JobLifecycleState<SharedJob<'a>> {
+        fn get_job(&self, job_id: u32) -> super::JobLifecycleState<EitherJob<'a>, SharedJob<'a>> {
             if let Some(active_job) = &self.active_job {
                 if active_job.get_job_id() == job_id {
                     return super::JobLifecycleState::Active(active_job.clone());
                 }
             }
 
-            if let Some(_future_job) = self.future_jobs.get(&job_id) {
-                return super::JobLifecycleState::Future;
+            if let Some(future_job) = self.future_jobs.get(&job_id) {
+                return super::JobLifecycleState::Future(future_job);
             }
 
             if let Some(past_job) = self.past_jobs.get(&job_id) {
@@ -378,7 +380,7 @@ mod test {
             &self,
             job_id: u32,
             mut validation_func: impl FnMut(
-                super::JobLifecycleState<SharedJob<'a>>,
+                super::JobLifecycleState<EitherJob<'a>, SharedJob<'a>>,
             ) -> Result<
                 crate::server::share_accounting::ShareValidationResult,
                 crate::server::share_accounting::ShareValidationError,

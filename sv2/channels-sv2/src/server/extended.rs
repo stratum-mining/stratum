@@ -410,7 +410,7 @@ where
         Ok(())
     }
 
-    pub fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<JobIn> {
         self.job_store.remove_future_job(job_id)
     }
 
@@ -430,7 +430,7 @@ where
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<JobLifecycleState<JobOut>, ExtendedChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, ExtendedChannelError> {
         match template.future_template {
             true => {
                 let new_job = self
@@ -487,7 +487,7 @@ where
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
-    ) -> Result<JobLifecycleState<JobOut>, ExtendedChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, ExtendedChannelError> {
         self.job_store.mark_past_jobs_as_stale();
         let job_id = self
             .job_store
@@ -564,7 +564,7 @@ where
                 JobLifecycleState::Stale(_job) => {
                     return Err(ShareValidationError::Stale);
                 }
-                JobLifecycleState::Future => {
+                JobLifecycleState::Future(_) => {
                     return Err(ShareValidationError::InvalidJobId);
                 }
                 JobLifecycleState::NotFound => {

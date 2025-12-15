@@ -208,7 +208,7 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn remove_future_job(&mut self, job_id: u32) -> Option<EitherJob<'a>> {
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<JobIn> {
         // cloning happens inside the job store
         self.job_store.remove_future_job(job_id)
     }
@@ -222,7 +222,7 @@ where
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<JobLifecycleState<JobOut>, GroupChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, GroupChannelError> {
         match template.future_template {
             true => {
                 let new_job = self
@@ -281,7 +281,7 @@ where
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
-    ) -> Result<JobLifecycleState<JobOut>, GroupChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, GroupChannelError> {
         self.job_store.mark_past_jobs_as_stale();
         let job_id = self
             .job_store
@@ -309,6 +309,7 @@ mod tests {
         server::{
             group::GroupChannel,
             jobs::{
+                either_job::EitherJob,
                 job_store::{DefaultJobStore, JobLifecycleState, JobStore},
                 JobMessage,
             },
@@ -378,16 +379,10 @@ mod tests {
         let job = group_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
-        match job {
-            JobLifecycleState::Future => {}
+        let future_job: EitherJob = match job {
+            JobLifecycleState::Future(job) => job.clone(),
             _ => panic!("expected future job"),
-        }
-
-        let future_job_id = group_channel
-            .get_future_job_id_from_template_id(template.template_id)
-            .unwrap();
-
-        let future_job = group_channel.remove_future_job(future_job_id).unwrap();
+        };
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job
