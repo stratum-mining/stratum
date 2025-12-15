@@ -163,6 +163,7 @@ impl JobFactory {
 
         let version = template.version;
 
+        // TODO: duplicate coinbase serialization here, refactor to only serialize once
         let coinbase_tx_prefix = self.coinbase_tx_prefix(
             template.clone(),
             additional_coinbase_outputs.clone(),
@@ -254,6 +255,7 @@ impl JobFactory {
 
         let version = template.version;
 
+        // TODO: duplicate coinbase serialization here, refactor to only serialize once
         let coinbase_tx_prefix = self.coinbase_tx_prefix(
             template.clone(),
             additional_coinbase_outputs.clone(),
@@ -441,6 +443,7 @@ impl JobFactory {
 
         let version = set_custom_mining_job.version;
 
+        // TODO: duplicate coinbase serialization here, refactor to only serialize once
         let coinbase_tx_prefix =
             self.custom_coinbase_tx_prefix(set_custom_mining_job.clone(), full_extranonce_size)?;
         let coinbase_tx_suffix =
