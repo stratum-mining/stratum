@@ -122,14 +122,20 @@ fi
 
 # Add the patch section at the end of the file
 cat >> Cargo.toml << 'EOF'
-
 # Override dependencies with local paths
 [patch.crates-io] 
 stratum-core = {path = "../../../stratum-core"}
-
 [patch."https://github.com/stratum-mining/stratum"]
 stratum-core = {path = "../../../stratum-core"}
 EOF
+
+# Force a refresh of Cargo.lock so the patched stratum-core is not ignored after
+# a crate version change. When stratum-core's version changes, the lockfile may still
+# pin an older version, causing Cargo to ignore the patch entirely
+# ("patch was not used in the crate graph"). Running `cargo update -p stratum-core`
+# updates the lockfile to match the patched crate, ensuring the local override
+# actually takes effect.
+cargo update -p stratum-core
 
 echo "✅ Updated Cargo.toml to use local dependencies"
 echo "🏃 Running integration tests..."
