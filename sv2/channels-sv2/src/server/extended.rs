@@ -44,7 +44,9 @@ use crate::{
     merkle_root::merkle_root_from_path,
     server::{
         error::ExtendedChannelError,
-        jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore, JobOrigin},
+        jobs::{
+            extended::ExtendedJob, factory::JobFactoryExtended, job_store::JobStore, JobOrigin,
+        },
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
@@ -83,9 +85,11 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J>
+pub struct ExtendedChannel<'a, J, E, F>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    E: ExtendedJob<'a>,
+    F: JobFactoryExtended<'a, E>,
+    J: JobStore<E>,
 {
     channel_id: u32,
     user_identity: String,
@@ -95,16 +99,18 @@ where
     target: Target, // todo: try to use Target from rust-bitcoin
     nominal_hashrate: f32,
     job_store: J,
-    job_factory: JobFactory,
+    job_factory: F,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<(E, &'a ())>,
 }
 
-impl<'a, J> ExtendedChannel<'a, J>
+impl<'a, J, E, F> ExtendedChannel<'a, J, E, F>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    E: ExtendedJob<'a>,
+    F: JobFactoryExtended<'a, E>,
+    J: JobStore<E>,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -243,7 +249,7 @@ where
             target,
             nominal_hashrate,
             job_store,
-            job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
+            job_factory: F::new_factory_extended(version_rolling_allowed, pool_tag, miner_tag),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
@@ -408,19 +414,19 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<E> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<E> {
         // cloning happens inside the job store
         self.job_store.get_future_job(job_id)
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<E> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
@@ -738,7 +744,12 @@ mod tests {
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::job_store::{DefaultJobStore, JobStore},
+            jobs::{
+                extended::{DefaultExtendedJob, ExtendedJob},
+                factory::DefaultJobFactory,
+                job_store::{DefaultJobStore, JobStore},
+                Job,
+            },
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
@@ -768,9 +779,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -914,9 +930,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1034,9 +1055,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1112,9 +1138,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1224,9 +1255,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1336,9 +1372,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1459,13 +1500,18 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
         // this is the most permissive possible max_target
         let max_target = Target::from_le_bytes([0xff; 32]);
 
         // Create a channel with initial hashrate
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix,
@@ -1550,9 +1596,14 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob> = DefaultJobStore::new();
 
-        let mut channel = ExtendedChannel::new(
+        let mut channel: ExtendedChannel<
+            '_,
+            DefaultJobStore<DefaultExtendedJob>,
+            DefaultExtendedJob,
+            DefaultJobFactory,
+        > = ExtendedChannel::new(
             channel_id,
             user_identity,
             extranonce_prefix.clone(),
