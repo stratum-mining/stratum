@@ -24,12 +24,12 @@ pub struct DeclareMiningJob<'decoder> {
     pub coinbase_tx_prefix: B064K<'decoder>,
     /// Serialized bytes representing the final part of the coinbase transaction (after extranonce)
     pub coinbase_tx_suffix: B064K<'decoder>,
-    /// List of the transaction ids contained in the template. JDS checks the list against its
+    /// List of wtxid contained in the template. JDS checks the list against its
     /// mempool and requests missing txs via [`crate::ProvideMissingTransactions`].
     ///
     /// This list Does not include the coinbase transaction (as there is no corresponding full data
     /// for it yet).
-    pub tx_ids_list: Seq064K<'decoder, U256<'decoder>>,
+    pub wtxid_list: Seq064K<'decoder, U256<'decoder>>,
     /// Extra data which the JDS may require to validate the work.
     pub excess_data: B064K<'decoder>,
 }
@@ -44,7 +44,7 @@ impl fmt::Display for DeclareMiningJob<'_> {
             self.version,
             self.coinbase_tx_prefix,
             self.coinbase_tx_suffix,
-            self.tx_ids_list,
+            self.wtxid_list,
             self.excess_data
         )
     }
