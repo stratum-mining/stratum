@@ -13,6 +13,7 @@ pub enum ExtendedChannelError {
     RequestedMinExtranonceSizeTooLarge,
     ExtranoncePrefixTooLarge,
     ScriptSigSizeTooLarge,
+    InvalidJobOrigin,
 }
 
 #[derive(Debug)]
