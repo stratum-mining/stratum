@@ -13,7 +13,7 @@ use parsers_sv2::{parse_message_frame_with_tlvs, AnyMessage, Mining, Tlv};
 
 use mining_sv2::*;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum SupportedChannelTypes {
     Standard,
     Extended,
