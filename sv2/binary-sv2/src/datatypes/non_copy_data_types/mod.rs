@@ -313,6 +313,15 @@ impl From<[u8; 32]> for U256<'_> {
     }
 }
 
+impl Into<[u8; 32]> for U256<'_> {
+    fn into(self) -> [u8; 32] {
+        let inner = self.inner_as_ref();
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(inner);
+        arr
+    }
+}
+
 #[cfg(feature = "prop_test")]
 impl<'a> U256<'a> {
     pub fn from_gen(g: &mut Gen) -> Self {

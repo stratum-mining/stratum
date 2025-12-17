@@ -38,26 +38,19 @@ use crate::{
     server::{
         error::StandardChannelError,
         jobs::{
-            extended::ExtendedJob, factory::JobFactory, job_store::JobStore, standard::StandardJob,
+            either_job::{validate_either_share, EitherJob, EitherShare},
+            factory::JobFactory,
+            job_store::{JobLifecycleState, JobStore},
+            Job,
         },
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
-    target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
+    target::{bytes_to_hex, hash_rate_to_target},
     MAX_EXTRANONCE_PREFIX_LEN,
 };
-use bitcoin::{
-    absolute::LockTime,
-    blockdata::{
-        block::{Header, Version},
-        witness::Witness,
-    },
-    consensus::Encodable,
-    hashes::sha256d::Hash,
-    transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
-    CompactTarget, Sequence, Target,
-};
+use bitcoin::{hashes::Hash, transaction::TxOut, Target};
 use mining_sv2::SubmitSharesStandard;
-use std::{convert::TryInto, marker::PhantomData};
+use std::marker::PhantomData;
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -80,9 +73,11 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a, J>
+pub struct StandardChannel<'a, JobIn, JobOut, Store>
 where
-    J: JobStore<StandardJob<'a>>,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     pub channel_id: u32,
     user_identity: String,
@@ -92,15 +87,17 @@ where
     nominal_hashrate: f32,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
-    job_store: J,
+    job_store: Store,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<(&'a JobIn, &'a JobOut)>,
 }
 
-impl<'a, J> StandardChannel<'a, J>
+impl<'a, JobIn, JobOut, Store> StandardChannel<'a, JobIn, JobOut, Store>
 where
-    J: JobStore<StandardJob<'a>>,
+    Store: JobStore<'a, JobIn, JobOut>,
+    JobIn: Job<'a> + From<EitherJob<'a>> + Clone,
+    JobOut: Job<'a> + Clone,
 {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -121,7 +118,7 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
         Self::new(
@@ -157,7 +154,7 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
@@ -185,7 +182,7 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
+        job_store: Store,
         pool_tag_string: Option<String>,
         miner_tag_string: Option<String>,
     ) -> Result<Self, StandardChannelError> {
@@ -348,11 +345,6 @@ where
         Ok(())
     }
 
-    /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
-        self.job_store.get_active_job()
-    }
     /// Returns the job ID for a future job from a template ID, if any.
     pub fn get_future_job_id_from_template_id(&self, template_id: u64) -> Option<u32> {
         self.job_store
@@ -360,21 +352,8 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
-        self.job_store.get_future_job(job_id)
-    }
-
-    /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
-        self.job_store.get_past_job(job_id)
-    }
-
-    /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
-        self.job_store.get_stale_job(job_id)
+    pub fn remove_future_job(&mut self, job_id: u32) -> Option<JobIn> {
+        self.job_store.remove_future_job(job_id)
     }
 
     /// Returns the expected number of shares per minute for this channel.
@@ -413,7 +392,7 @@ where
         &mut self,
         template: NewTemplate<'a>,
         coinbase_reward_outputs: Vec<TxOut>,
-    ) -> Result<(), StandardChannelError> {
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, StandardChannelError> {
         match template.future_template {
             true => {
                 let new_job = self
@@ -426,7 +405,10 @@ where
                         coinbase_reward_outputs,
                     )
                     .map_err(StandardChannelError::JobFactoryError)?;
-                self.job_store.add_future_job(template.template_id, new_job);
+                let job_id = new_job.get_job_id();
+                self.job_store
+                    .add_future_job(template.template_id, JobIn::from(new_job));
+                return Ok(self.job_store.get_job(job_id));
             }
             false => {
                 match self.chain_tip.clone() {
@@ -443,39 +425,39 @@ where
                                 coinbase_reward_outputs,
                             )
                             .map_err(StandardChannelError::JobFactoryError)?;
-                        self.job_store.add_active_job(new_job);
+                        let job_id = new_job.get_job_id();
+                        self.job_store.add_active_job(JobIn::from(new_job));
+                        return Ok(self.job_store.get_job(job_id));
                     }
                 }
             }
         }
-
-        Ok(())
     }
 
     /// Used as an alternative to `on_new_template` when an extended job is meant to be broadcast
-    /// to the group channel, instead of multiple standard jobs to diffferent standard channels.
+    /// to the group channel, instead of multiple standard jobs to different standard channels.
     ///
     /// We use this method to update the channel state, so it can validate share from the job that
     /// was broadcasted to the group channel.
     pub fn on_group_channel_job(
         &mut self,
-        extended_job: ExtendedJob<'a>,
-    ) -> Result<(), StandardChannelError> {
-        let standard_job = extended_job
+        extended_job: EitherJob<'a>,
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, StandardChannelError> {
+        let job = extended_job
             .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
             .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
-
-        match standard_job.is_future() {
+        let job_id = job.get_job_id();
+        match job.is_future() {
             true => {
                 self.job_store
-                    .add_future_job(standard_job.get_template().template_id, standard_job);
+                    .add_future_job(job.get_template_id(), JobIn::from(job));
             }
             false => {
-                self.job_store.add_active_job(standard_job);
+                self.job_store.add_active_job(JobIn::from(job));
             }
         }
 
-        Ok(())
+        Ok(self.job_store.get_job(job_id))
     }
 
     /// Updates the channel state with a new `SetNewPrevHash` message.
@@ -487,29 +469,26 @@ where
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
-    ) -> Result<(), StandardChannelError> {
-        match self.job_store.has_future_jobs() {
-            false => {
-                return Err(StandardChannelError::TemplateIdNotFound);
-            }
-            // try to activate the future job, and also mark past jobs as stale
-            true => {
-                if !self.job_store.activate_future_job(
-                    set_new_prev_hash.template_id,
-                    set_new_prev_hash.header_timestamp,
-                ) {
-                    return Err(StandardChannelError::TemplateIdNotFound);
-                }
-            }
-        }
+    ) -> Result<JobLifecycleState<JobIn, JobOut>, StandardChannelError> {
+        self.job_store.mark_past_jobs_as_stale();
+        let job_id = self
+            .job_store
+            .get_future_job_id_from_template_id(set_new_prev_hash.template_id)
+            .ok_or(StandardChannelError::TemplateIdNotFound)?;
 
+        // try to activate the future job, and also mark past jobs as stale
+        if !self.job_store.activate_future_job(
+            set_new_prev_hash.template_id,
+            set_new_prev_hash.header_timestamp,
+        ) {
+            return Err(StandardChannelError::TemplateIdNotFound);
+        }
         // clear seen shares, as shares for past chain tip will be rejected as stale
         self.share_accounting.flush_seen_shares();
 
         // update the chain tip
         self.chain_tip = Some(set_new_prev_hash.into());
-
-        Ok(())
+        Ok(self.job_store.get_job(job_id))
     }
 
     /// Validates a submitted share and updates accounting state.
@@ -520,147 +499,54 @@ where
         &mut self,
         share: SubmitSharesStandard,
     ) -> Result<ShareValidationResult, ShareValidationError> {
-        let job_id = share.job_id;
+        let either_share = EitherShare::from(share);
+        let job_id = either_share.job_id;
+        self.job_store.try_validate_job(job_id, |job| {
+            let job = match job {
+                JobLifecycleState::Active(job) => job,
+                JobLifecycleState::Past(job) => job,
+                JobLifecycleState::Stale(_job) => {
+                    return Err(ShareValidationError::Stale);
+                }
+                JobLifecycleState::Future(_) => {
+                    return Err(ShareValidationError::InvalidJobId);
+                }
+                JobLifecycleState::NotFound => {
+                    return Err(ShareValidationError::InvalidJobId);
+                }
+            };
 
-        // check if job_id is active job
-        let is_active_job = self
-            .job_store
-            .get_active_job()
-            .is_some_and(|job| job.get_job_id() == job_id);
-
-        // check if job_id is past job
-        let is_past_job = self.job_store.get_past_job(job_id).is_some();
-
-        // check if job_id is stale job
-        let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
-
-        if is_stale_job {
-            return Err(ShareValidationError::Stale);
-        }
-
-        // if job_id is not active, past or stale, return error
-        if !is_active_job && !is_past_job && !is_stale_job {
-            return Err(ShareValidationError::InvalidJobId);
-        }
-
-        let job = if is_active_job {
-            self.job_store
-                .get_active_job()
-                .expect("active job must exist")
-        } else if is_past_job {
-            self.job_store
-                .get_past_job(job_id)
-                .expect("past job must exist")
-        } else {
-            self.job_store
-                .get_stale_job(job_id)
-                .expect("stale job must exist")
-        };
-
-        let merkle_root: [u8; 32] = job
-            .get_merkle_root()
-            .inner_as_ref()
-            .try_into()
-            .expect("merkle root must be 32 bytes");
-
-        let chain_tip = self
-            .chain_tip
-            .as_ref()
-            .ok_or(ShareValidationError::NoChainTip)?;
-
-        let prev_hash = chain_tip.prev_hash();
-        let nbits = CompactTarget::from_consensus(chain_tip.nbits());
-
-        // create the header for validation
-        let header = Header {
-            version: Version::from_consensus(share.version as i32),
-            prev_blockhash: u256_to_block_hash(prev_hash.clone()),
-            merkle_root: (*Hash::from_bytes_ref(&merkle_root)).into(),
-            time: share.ntime,
-            bits: nbits,
-            nonce: share.nonce,
-        };
-
-        // convert the header hash to a target type for easy comparison
-        let hash = header.block_hash();
-        let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let block_hash_target = Target::from_le_bytes(raw_hash);
-        let hash_as_diff = block_hash_target.difficulty_float();
-        let network_target = Target::from_compact(nbits);
-
-        // print hash_as_target and self.target as human readable hex
-        let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
-
-        debug!(
-            "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&block_hash_target_bytes),
-            bytes_to_hex(&target_bytes),
-            format!("{:x}", network_target)
-        );
-
-        // check if a block was found
-        if network_target.is_met_by(hash) {
-            self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
-                share.sequence_number,
-                hash.to_raw_hash(),
+            let result = validate_either_share(
+                job,
+                &either_share,
+                self.chain_tip
+                    .as_ref()
+                    .ok_or(ShareValidationError::NoChainTip)?,
+                &self.target,
+                None,
             );
 
-            let op_pushbytes_pool_miner_tag = self
-                .job_factory
-                .op_pushbytes_pool_miner_tag()
-                .map_err(|_| ShareValidationError::InvalidCoinbase)?;
-
-            let mut script_sig = job.get_template().coinbase_prefix.to_vec();
-            script_sig.extend(op_pushbytes_pool_miner_tag);
-            script_sig.push(self.extranonce_prefix.len() as u8); // OP_PUSHBYTES_X (for the extranonce)
-            script_sig.extend(job.get_extranonce_prefix());
-
-            let tx_in = TxIn {
-                previous_output: OutPoint::null(),
-                script_sig: script_sig.into(),
-                sequence: Sequence(job.get_template().coinbase_tx_input_sequence),
-                witness: Witness::from(vec![vec![0; 32]]),
+            // extract hash from result or return result early
+            let hash = match result.as_ref() {
+                Ok(ShareValidationResult::Valid(hash)) => hash,
+                Ok(ShareValidationResult::BlockFound(hash, _template_id, _coinbase)) => hash,
+                Err(_validation_error) => return result,
             };
-
-            let coinbase = Transaction {
-                version: TxVersion::non_standard(job.get_template().coinbase_tx_version as i32),
-                lock_time: LockTime::from_consensus(job.get_template().coinbase_tx_locktime),
-                input: vec![tx_in],
-                output: job.get_coinbase_outputs().to_vec(),
-            };
-            let mut serialized_coinbase = Vec::new();
-            coinbase
-                .consensus_encode(&mut serialized_coinbase)
-                .map_err(|_| ShareValidationError::InvalidCoinbase)?;
-
-            return Ok(ShareValidationResult::BlockFound(
-                hash.to_raw_hash(),
-                Some(job.get_template().template_id),
-                serialized_coinbase,
-            ));
-        }
-
-        // check if the share hash meets the channel target
-        if block_hash_target <= self.target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+            let hash_as_target = Target::from_le_bytes(hash.to_byte_array());
+            // check for duplicate shares
+            if self.share_accounting.is_share_seen(&hash_as_target) {
                 return Err(ShareValidationError::DuplicateShare);
             }
+            // update share accounting
 
-            self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
-                share.sequence_number,
-                hash.to_raw_hash(),
-            );
+            self.share_accounting
+                .update_share_accounting(either_share.sequence_number, hash_as_target);
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
-
-            Ok(ShareValidationResult::Valid(hash.to_raw_hash()))
-        } else {
-            Err(ShareValidationError::DoesNotMeetTarget)
-        }
+            self.share_accounting
+                .update_best_diff(hash_as_target.difficulty_float());
+            result
+        })
     }
 }
 
@@ -671,8 +557,8 @@ mod tests {
         server::{
             error::StandardChannelError,
             jobs::{
-                job_store::{DefaultJobStore, JobStore},
-                standard::StandardJob,
+                job_store::{DefaultJobStore, JobLifecycleState, JobStore},
+                Job, JobMessage,
             },
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
@@ -704,9 +590,9 @@ mod tests {
         let nominal_hashrate = 10.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
-        let mut standard_channel = StandardChannel::new(
+        let mut standard_channel = StandardChannel::<_, _, DefaultJobStore>::new(
             standard_channel_id,
             user_identity,
             extranonce_prefix.clone(),
@@ -773,10 +659,10 @@ mod tests {
             min_ntime: Sv2Option::new(None),
         };
 
-        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap();
+        let future_standard_job_from_channel = standard_channel.remove_future_job(1).unwrap();
         assert_eq!(
             future_standard_job_from_channel.get_job_message(),
-            &expected_future_standard_job
+            &JobMessage::NewMiningJob(expected_future_standard_job)
         );
 
         let ntime = 1747092633;
@@ -796,13 +682,16 @@ mod tests {
             .into(),
         };
 
-        standard_channel
+        let job = standard_channel
             .on_set_new_prev_hash(set_new_prev_hash)
             .unwrap();
         let mut previously_future_job = future_standard_job_from_channel.clone();
         previously_future_job.activate(ntime);
 
-        let activated_job = standard_channel.get_active_job().unwrap();
+        let activated_job = match job {
+            JobLifecycleState::Active(job) => job,
+            _ => panic!("Expected active job"),
+        };
 
         // assert that the activated job is the same as the previously future job
         assert_eq!(
@@ -831,7 +720,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -892,7 +781,7 @@ mod tests {
         }];
 
         standard_channel.set_chain_tip(chain_tip);
-        standard_channel
+        let job = standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
@@ -908,11 +797,14 @@ mod tests {
             min_ntime: Sv2Option::new(Some(ntime)),
         };
 
-        let active_standard_job_from_channel = standard_channel.get_active_job().unwrap().clone();
+        let active_standard_job_from_channel = match job {
+            JobLifecycleState::Active(job) => job,
+            _ => panic!("Expected active job"),
+        };
 
         assert_eq!(
             active_standard_job_from_channel.get_job_message(),
-            &expected_active_standard_job
+            &JobMessage::NewMiningJob(expected_active_standard_job)
         );
     }
 
@@ -935,7 +827,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -999,12 +891,14 @@ mod tests {
 
         // prepare standard channel with non-future job
         standard_channel.set_chain_tip(chain_tip);
-        standard_channel
+        let job = standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        let active_standard_job = standard_channel.get_active_job().unwrap();
-
+        let active_standard_job = match job {
+            JobLifecycleState::Active(job) => job,
+            _ => panic!("Expected active job"),
+        };
         // this share has hash 3c34f63de61283c907b68e3127146d7d11f1fb14e50020a8317a292d11e2dab6
         // which satisfied the network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
@@ -1044,7 +938,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1108,12 +1002,14 @@ mod tests {
 
         // prepare standard channel with non-future job
         standard_channel.set_chain_tip(chain_tip);
-        standard_channel
+        let job = standard_channel
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        let active_standard_job = standard_channel.get_active_job().unwrap();
-
+        let active_standard_job = match job {
+            JobLifecycleState::Active(job) => job,
+            _ => panic!("Expected active job"),
+        };
         // this share has hash a5b65006d89dab9de2b23ececd3b0435f163607f7da1ba2f0bcde62b29e8cd44
         // which does not meet the channel target
         // 000aebbc990fff5144366f000aebbc990fff5144366f000aebbc990fff514435
@@ -1153,7 +1049,7 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
 
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
@@ -1253,7 +1149,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
         // this is the most permissive possible max_target
         let max_target = Target::from_le_bytes([0xff; 32]);
 
@@ -1343,7 +1239,7 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::<StandardJob>::new();
+        let job_store = DefaultJobStore::new();
 
         let mut channel = StandardChannel::new(
             channel_id,
