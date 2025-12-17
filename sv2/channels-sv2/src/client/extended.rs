@@ -32,13 +32,14 @@ use mining_sv2::{
 };
 use tracing::debug;
 
-/// A type alias representing an extended mining job tied to a specific `extranonce_prefix`.
+/// A type alias representing an extended mining job tied to a specific `extranonce_prefix` and target.
 ///
 /// Extended jobs allow Merkle root rolling, providing broader control over the search space.
 /// Each job includes:
 /// - A [`NewExtendedMiningJob`] message
 /// - The `extranonce_prefix` in use when the job was created
-pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>);
+/// - The target of the job
+pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
 
 /// Mining Client abstraction for the state management of an Sv2 Extended Channel.
 ///
@@ -240,12 +241,20 @@ impl<'a> ExtendedChannel<'a> {
                 if let Some(active_job) = self.active_job.clone() {
                     self.past_jobs.insert(active_job.0.job_id, active_job);
                 }
-                self.active_job = Some((new_extended_mining_job, self.extranonce_prefix.clone()));
+                self.active_job = Some((
+                    new_extended_mining_job,
+                    self.extranonce_prefix.clone(),
+                    self.target,
+                ));
             }
             None => {
                 self.future_jobs.insert(
                     new_extended_mining_job.job_id,
-                    (new_extended_mining_job, self.extranonce_prefix.clone()),
+                    (
+                        new_extended_mining_job,
+                        self.extranonce_prefix.clone(),
+                        self.target,
+                    ),
                 );
             }
         }
@@ -354,7 +363,11 @@ impl<'a> ExtendedChannel<'a> {
         if let Some(active_job) = self.active_job.clone() {
             self.past_jobs.insert(active_job.0.job_id, active_job);
         }
-        self.active_job = Some((new_extended_mining_job, self.extranonce_prefix.clone()));
+        self.active_job = Some((
+            new_extended_mining_job,
+            self.extranonce_prefix.clone(),
+            self.target,
+        ));
 
         Ok(())
     }
@@ -512,50 +525,54 @@ impl<'a> ExtendedChannel<'a> {
         };
 
         // convert the header hash to a target type for easy comparison
-        let hash = header.block_hash();
-        let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let block_hash_target = Target::from_le_bytes(raw_hash);
-        let hash_as_diff = block_hash_target.difficulty_float();
+        let share_hash = header.block_hash();
+        let raw_share_hash: [u8; 32] = *share_hash.to_raw_hash().as_ref();
+        let share_hash_target = Target::from_le_bytes(raw_share_hash);
+        let share_hash_as_diff = share_hash_target.difficulty_float();
 
         let network_target = Target::from_compact(nbits);
+        let job_target = job.2;
 
         // print hash_as_target and self.target as human readable hex
-        let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
+        let share_hash_target_bytes = share_hash_target.to_be_bytes();
+        let job_target_bytes = job_target.to_be_bytes();
 
         debug!(
-            "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&block_hash_target_bytes),
-            bytes_to_hex(&target_bytes),
+            "share validation \nshare:\t\t{}\njob target:\t{}\nnetwork target:\t{}",
+            bytes_to_hex(&share_hash_target_bytes),
+            bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
         // check if a block was found
-        if network_target.is_met_by(hash) {
+        if network_target.is_met_by(share_hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
-            return Ok(ShareValidationResult::BlockFound(hash.to_raw_hash()));
+            return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
 
-        // check if the share hash meets the channel target
-        if block_hash_target < self.target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+        // check if the share hash meets the job target
+        if share_hash_target < job_target {
+            if self
+                .share_accounting
+                .is_share_seen(share_hash.to_raw_hash())
+            {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(share_hash_as_diff);
 
-            return Ok(ShareValidationResult::Valid(hash.to_raw_hash()));
+            return Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()));
         }
 
         Err(ShareValidationError::DoesNotMeetTarget)
@@ -653,7 +670,11 @@ mod tests {
 
         assert_eq!(
             channel.get_active_job(),
-            Some(&(previously_future_job, extranonce_prefix))
+            Some(&(
+                previously_future_job,
+                extranonce_prefix,
+                channel.get_target().clone()
+            ))
         );
     }
 
@@ -713,7 +734,11 @@ mod tests {
         assert_eq!(channel.get_future_jobs().len(), 0);
         assert_eq!(
             channel.get_active_job(),
-            Some(&(active_job.clone(), extranonce_prefix.clone()))
+            Some(&(
+                active_job.clone(),
+                extranonce_prefix.clone(),
+                channel.get_target().clone()
+            ))
         );
         assert_eq!(channel.get_past_jobs().len(), 0);
 
@@ -726,7 +751,11 @@ mod tests {
         assert_eq!(channel.get_future_jobs().len(), 0);
         assert_eq!(
             channel.get_active_job(),
-            Some(&(new_active_job, extranonce_prefix))
+            Some(&(
+                new_active_job,
+                extranonce_prefix,
+                channel.get_target().clone()
+            ))
         );
         assert_eq!(channel.get_past_jobs().len(), 1);
     }

@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Target,
 };
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
-use std::{convert::TryInto, marker::PhantomData};
+use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -69,19 +69,15 @@ use tracing::debug;
 /// - the channel's unique `extranonce_prefix`
 /// - the channel's rollable extranonce size
 /// - the channel's requested max target (limit established by the client)
-/// - the channel's target
+/// - the channel's current target
+/// - the channel's mapping between `job_id` and target
 /// - the channel's nominal hashrate
-/// - the channels' mapping between `template_id`s and `job_id`s
-/// - the channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
-///   `SetNewPrevHash` message)
-/// - the channel's active job
-/// - the channel's past jobs (which were active jobs under the current chain tip, indexed by
-///   `job_id`)
-/// - the channel's stale jobs (which were past and active jobs under the previous chain tip,
-///   indexed by `job_id`)
-/// - the channel's share validation state
-/// - the channel's job factory
-/// - the channel's chain tip
+/// - the channel's [`JobStore`]
+/// - the channel's [`JobFactory`]
+/// - the channel's [`ShareAccounting`]
+/// - the channel's expected share per minute
+/// - the channel's [`JobFactory`]
+/// - the channel's [`ChainTip`]
 #[derive(Debug)]
 pub struct ExtendedChannel<'a, J>
 where
@@ -92,7 +88,8 @@ where
     extranonce_prefix: Vec<u8>,
     rollable_extranonce_size: u16,
     requested_max_target: Target,
-    target: Target, // todo: try to use Target from rust-bitcoin
+    target: Target,
+    job_id_to_target: HashMap<u32, Target>,
     nominal_hashrate: f32,
     job_store: J,
     job_factory: JobFactory,
@@ -241,6 +238,7 @@ where
             rollable_extranonce_size,
             requested_max_target: max_target,
             target,
+            job_id_to_target: HashMap::new(),
             nominal_hashrate,
             job_store,
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
@@ -318,11 +316,15 @@ where
     }
 
     /// Returns the current target for this channel.
+    ///
+    /// Please note that this is the current target for the channel. Jobs created before the current target was set are associated with previously set targets, for which shares will be validated against.
     pub fn get_target(&self) -> &Target {
         &self.target
     }
 
     /// Updates the current target for this channel.
+    ///
+    /// Please note that this will NOT update the target associated with jobs that were already created.
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
     }
@@ -472,6 +474,12 @@ where
                                 self.get_full_extranonce_size(),
                             )
                             .map_err(ExtendedChannelError::JobFactoryError)?;
+
+                        // associate the new active job with the current target
+                        self.job_id_to_target
+                            .insert(new_job.get_job_id(), self.target);
+
+                        // add the new active job to the job store
                         self.job_store.add_active_job(new_job);
                     }
                 }
@@ -495,6 +503,9 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp<'a>,
     ) -> Result<(), ExtendedChannelError> {
+        // clear the job id to target mapping
+        self.job_id_to_target.clear();
+
         // extended channels dedicated to custom work don't need to keep track of future jobs
         match self.job_store.has_future_jobs() {
             false => {
@@ -510,6 +521,14 @@ where
                 ) {
                     return Err(ExtendedChannelError::TemplateIdNotFound);
                 }
+
+                // associate the new active job with the current target
+                let job_id = self
+                    .job_store
+                    .get_active_job()
+                    .expect("active job must exist")
+                    .get_job_id();
+                self.job_id_to_target.insert(job_id, self.target);
             }
         }
 
@@ -558,6 +577,9 @@ where
         let new_chain_tip = ChainTip::new(prev_hash, nbits, min_ntime);
         self.chain_tip = Some(new_chain_tip);
 
+        // associate the new active job with the current target
+        self.job_id_to_target.insert(job_id, self.target);
+
         Ok(job_id)
     }
 
@@ -604,6 +626,11 @@ where
                 .get_stale_job(job_id)
                 .expect("stale job must exist")
         };
+
+        let job_target = self
+            .job_id_to_target
+            .get(&job_id)
+            .expect("job target must exist");
 
         let extranonce_size = share.extranonce.inner_as_ref().len();
         if extranonce_size != self.rollable_extranonce_size as usize {
@@ -659,30 +686,30 @@ where
         };
 
         // convert the header hash to a target type for easy comparison
-        let hash = header.block_hash();
-        let raw_hash: [u8; 32] = *hash.to_raw_hash().as_ref();
-        let block_hash_target = Target::from_le_bytes(raw_hash);
-        let hash_as_diff = block_hash_target.difficulty_float();
+        let share_hash = header.block_hash();
+        let raw_share_hash: [u8; 32] = *share_hash.to_raw_hash().as_ref();
+        let share_hash_target = Target::from_le_bytes(raw_share_hash);
+        let share_hash_as_diff = share_hash_target.difficulty_float();
 
         let network_target = Target::from_compact(nbits);
 
         // print hash_as_target and self.target as human readable hex
-        let block_hash_target_bytes = block_hash_target.to_be_bytes();
-        let target_bytes = self.target.to_be_bytes();
+        let share_hash_target_bytes = share_hash_target.to_be_bytes();
+        let job_target_bytes = job_target.to_be_bytes();
 
         debug!(
-            "share validation \nshare:\t\t{}\nchannel target:\t{}\nnetwork target:\t{}",
-            bytes_to_hex(&block_hash_target_bytes),
-            bytes_to_hex(&target_bytes),
+            "share validation \nshare:\t\t{}\njob target:\t{}\nnetwork target:\t{}",
+            bytes_to_hex(&share_hash_target_bytes),
+            bytes_to_hex(&job_target_bytes),
             format!("{:x}", network_target)
         );
 
         // check if a block was found
-        if network_target.is_met_by(hash) {
+        if network_target.is_met_by(share_hash) {
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
 
             let mut coinbase = vec![];
@@ -694,14 +721,14 @@ where
                 JobOrigin::NewTemplate(template) => {
                     let template_id = template.template_id;
                     return Ok(ShareValidationResult::BlockFound(
-                        hash.to_raw_hash(),
+                        share_hash.to_raw_hash(),
                         Some(template_id),
                         coinbase,
                     ));
                 }
                 JobOrigin::SetCustomMiningJob(_set_custom_mining_job) => {
                     return Ok(ShareValidationResult::BlockFound(
-                        hash.to_raw_hash(),
+                        share_hash.to_raw_hash(),
                         None,
                         coinbase,
                     ));
@@ -709,22 +736,25 @@ where
             }
         }
 
-        // check if the share hash meets the channel target
-        if block_hash_target <= self.target {
-            if self.share_accounting.is_share_seen(hash.to_raw_hash()) {
+        // check if the share hash meets the job target
+        if share_hash_target <= *job_target {
+            if self
+                .share_accounting
+                .is_share_seen(share_hash.to_raw_hash())
+            {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
             self.share_accounting.update_share_accounting(
-                self.target.difficulty_float(),
+                job_target.difficulty_float(),
                 share.sequence_number,
-                hash.to_raw_hash(),
+                share_hash.to_raw_hash(),
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(hash_as_diff);
+            self.share_accounting.update_best_diff(share_hash_as_diff);
 
-            Ok(ShareValidationResult::Valid(hash.to_raw_hash()))
+            Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {
             Err(ShareValidationError::DoesNotMeetTarget)
         }
