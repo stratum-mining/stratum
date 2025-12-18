@@ -23,7 +23,7 @@ parsers_sv2 = { path = "../sv2/parsers-sv2", version = "^0.2.0" }
 handlers_sv2 = { path = "../sv2/handlers-sv2", version = "^0.2.0" }
 channels_sv2 = { path = "../sv2/channels-sv2", version = "^3.0.0" }
 common_messages_sv2 = { path = "../sv2/subprotocols/common-messages", version = "^6.0.0" }
-mining_sv2 = { path = "../sv2/subprotocols/mining", version = "^6.0.0" }
+mining_sv2 = { path = "../sv2/subprotocols/mining", version = "^7.0.0" }
 template_distribution_sv2 = { path = "../sv2/subprotocols/template-distribution", version = "^4.0.0" }
 job_declaration_sv2 = { path = "../sv2/subprotocols/job-declaration", version = "^6.0.0" }
 sv1_api = { path = "../sv1", version = "^2.1.0", optional = true }

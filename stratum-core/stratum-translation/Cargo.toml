@@ -12,7 +12,7 @@ path = "src/lib.rs"
 [dependencies]
 bitcoin = { version = "0.32.5" }
 binary_sv2 = { path = "../../sv2/binary-sv2", version = "^5.0.0" }
-mining_sv2 = { path = "../../sv2/subprotocols/mining", version = "^6.0.0" }
+mining_sv2 = { path = "../../sv2/subprotocols/mining", version = "^7.0.0" }
 channels_sv2 = { path = "../../sv2/channels-sv2", version = "^3.0.0" }
 v1 = { path = "../../sv1", package = "sv1_api", version = "^2.0.0" }
 tracing = "0.1"
