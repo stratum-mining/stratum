@@ -476,6 +476,7 @@ mod test {
 
     #[test]
     #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
     fn test_ecdh() {
         let key_pair_1 = TestHandShake::generate_key();
         let key_pair_2 = TestHandShake::generate_key();
@@ -493,6 +494,7 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_ecdh_with_rng() {
         let key_pair_1 = TestHandShake::generate_key_with_rng(&mut rand::thread_rng());
         let key_pair_2 = TestHandShake::generate_key_with_rng(&mut rand::thread_rng());
@@ -534,6 +536,7 @@ mod test {
     }
 
     #[quickcheck_macros::quickcheck]
+    #[cfg_attr(miri, ignore)]
     fn test_ecdh_1(kp1: KeypairWrapper, kp2: KeypairWrapper) -> TestResult {
         let (kp1, kp2) = match (kp1.0, kp2.0) {
             (Some(kp1), Some(kp2)) => (kp1, kp2),
