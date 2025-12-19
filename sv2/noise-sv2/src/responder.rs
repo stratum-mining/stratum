@@ -466,7 +466,6 @@ mod test {
 
     fn make_responder() -> Responder {
         use rand::{rngs::StdRng, SeedableRng};
-        use secp256k1::{Keypair, Secp256k1};
 
         let secp = Secp256k1::new();
         let mut rng = StdRng::seed_from_u64(42);
