@@ -432,3 +432,40 @@ impl Drop for Initiator {
         self.erase();
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn initiator_step0_produces_elligator_message() {
+        let mut initiator = Initiator::without_pk().unwrap();
+
+        let msg = initiator.step_0().expect("step_0 must succeed");
+
+        assert_eq!(msg.len(), ELLSWIFT_ENCODING_SIZE);
+        assert!(msg.iter().any(|b| *b != 0));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
+    fn initiator_rejects_tampered_handshake() {
+        use crate::Responder;
+
+        let authority_kp = Responder::generate_key();
+        let mut responder = Responder::new(authority_kp, 60);
+        let mut initiator = Initiator::without_pk().unwrap();
+
+        let msg0 = initiator.step_0().unwrap();
+        let (mut msg1, _) = responder.step_1(msg0).unwrap();
+
+        let idx = INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE - 5;
+        msg1[idx] ^= 0x01;
+
+        let res = initiator.step_2(msg1);
+        assert!(res.is_err());
+    }
+}
