@@ -26,6 +26,7 @@ std = ["rand/std", "rand/std_rng", "rand_chacha/std", "secp256k1/rand-std"]
 [dev-dependencies]
 quickcheck = "1.0.3"
 quickcheck_macros = "1"
+criterion = { version = "0.8.1", features = ["html_reports"] }
 rand = {version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 
 [profile.dev]
@@ -36,3 +37,12 @@ panic = "abort"
 
 [package.metadata.docs.rs]
 features = ["std"]
+
+[[bench]]
+name = "handshake"
+harness = false
+
+
+[[bench]]
+name = "codec"
+harness = false
