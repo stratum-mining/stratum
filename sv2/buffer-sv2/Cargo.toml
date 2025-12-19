@@ -19,6 +19,7 @@ generic-array = "=0.14.7"
 rand = "0.8.3"
 iai = "0.1"
 criterion = "0.3"
+rayon-core = "=1.12.1"
 
 [[bench]]
 name = "pool_benchmark"
