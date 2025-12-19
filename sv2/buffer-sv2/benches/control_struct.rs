@@ -5,7 +5,7 @@ use core::{sync::atomic::Ordering, time::Duration};
 use rand::Rng;
 
 const FILE_LEN: usize = 5242880;
-pub const DATA: &[u8; FILE_LEN] = include_bytes!("../fuzz/random");
+pub const DATA: &[u8; FILE_LEN] = include_bytes!("random");
 
 #[inline(always)]
 pub fn add_random_bytes(message_len: usize, buffer: &mut impl Buffer, input: &[u8]) {
@@ -190,6 +190,18 @@ impl Buffer for PPool {
     fn len(&self) -> usize {
         todo!()
     }
+
+    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
+        todo!()
+    }
+
+    fn danger_set_start(&mut self, _index: usize) {
+        todo!()
+    }
+
+    fn is_droppable(&self) -> bool {
+        todo!()
+    }
 }
 
 unsafe impl Send for SSlice {}
@@ -255,6 +267,18 @@ impl Buffer for MaxEfficeincy {
     }
 
     fn len(&self) -> usize {
+        todo!()
+    }
+
+    fn get_data_by_ref_(&self, _len: usize) -> &[u8] {
+        todo!()
+    }
+
+    fn danger_set_start(&mut self, _index: usize) {
+        todo!()
+    }
+
+    fn is_droppable(&self) -> bool {
         todo!()
     }
 }

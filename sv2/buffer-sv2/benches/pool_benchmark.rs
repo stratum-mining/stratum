@@ -1,4 +1,3 @@
-use core::sync::atomic::Ordering;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use buffer_sv2::{Buffer, BufferFromSystemMemory as BufferFromMemory, BufferPool as Pool, Slice};
@@ -6,10 +5,7 @@ use core::time::Duration;
 use rand::Rng;
 
 mod control_struct;
-use control_struct::{
-    add_random_bytes, bench_no_thread, keep_slice, Load, MaxESlice, MaxEfficeincy, PPool, SSlice,
-    DATA,
-};
+use control_struct::{add_random_bytes, bench_no_thread, keep_slice, MaxEfficeincy, PPool, DATA};
 
 fn with_pool(data: &[u8]) {
     let capacity: usize = 2_usize.pow(16) * 5;
@@ -154,6 +150,7 @@ fn with_control_max_threaded_2(data: &[u8]) {
     }
 }
 
+#[allow(warnings)]
 #[inline(always)]
 fn keep_slice_test(mut slice: Slice, mut control: Vec<u8>) {
     std::thread::spawn(move || {
@@ -206,7 +203,7 @@ fn add_random_bytes_test(
 
 #[inline(always)]
 fn keep_slice_test_p(mut slice: Slice, mut control: Vec<u8>, ms: u64) {
-    let i = slice.index;
+    let _i = slice.index;
     std::thread::spawn(move || {
         std::thread::sleep(core::time::Duration::from_micros(ms));
         let control: &mut [u8] = control.as_mut();
@@ -265,12 +262,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut c = c.benchmark_group("sample-size-example");
 
     c.sample_size(500);
-    //c.bench_function("with pool threaded test", |b| {
-    //    b.iter(|| with_pool_trreaded_test_1(&input[..]))
-    //});
-    //c.bench_function("with pool threaded test 2", |b| {
-    //    b.iter(|| with_pool_trreaded_test_2(&input[..]))
-    //});
+    c.bench_function("with pool threaded test", |b| {
+        b.iter(|| with_pool_trreaded_test_1(&input[..]))
+    });
+    c.bench_function("with pool threaded test 2", |b| {
+        b.iter(|| with_pool_trreaded_test_2(&input[..]))
+    });
     c.bench_function("with pool", |b| b.iter(|| with_pool(&input[..])));
     c.bench_function("without pool", |b| b.iter(|| without_pool(&input[..])));
     c.bench_function("with control struct", |b| {
