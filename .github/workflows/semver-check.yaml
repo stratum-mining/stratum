@@ -15,6 +15,11 @@ jobs:
 
       - name: Install Rust (1.85)
         uses: dtolnay/rust-toolchain@1.85
+        id: toolchain
+
+      - name: Override toolchain
+        run: |
+          rustup override set ${{ steps.toolchain.outputs.name }}
 
       - name: Cache Cargo registry
         uses: actions/cache@v4
