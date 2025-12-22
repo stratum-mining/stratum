@@ -18,6 +18,9 @@ jobs:
         with:
           components: miri
       
+      # NOTE: A repo-local `rust-toolchain.toml` is still respected by rustup.
+      # `dtolnay/rust-toolchain` installs the requested toolchain but does not
+      # automatically override it.
       - name: Override toolchain
         run: |
           rustup override set ${{ steps.toolchain.outputs.name }}
