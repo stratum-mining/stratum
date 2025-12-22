@@ -24,9 +24,14 @@ jobs:
 
       - name: Install Rust (1.89) + Clippy
         uses: dtolnay/rust-toolchain@1.89
+        id: toolchain
         with:
           components: clippy
-          
+      
+      - name: Override toolchain
+        run: |
+          rustup override set ${{ steps.toolchain.outputs.name }}
+
       - name: Run Clippy
         run: |
           cargo clippy --all-features -- -D warnings
