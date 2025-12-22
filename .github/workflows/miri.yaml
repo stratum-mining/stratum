@@ -14,8 +14,13 @@ jobs:
 
       - name: Install Rust nightly + Miri
         uses: dtolnay/rust-toolchain@nightly
+        id: toolchain
         with:
           components: miri
+      
+      - name: Override toolchain
+        run: |
+          rustup override set ${{ steps.toolchain.outputs.name }}
 
       - name: Miri setup
         run: cargo miri setup
