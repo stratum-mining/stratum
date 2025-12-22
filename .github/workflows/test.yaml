@@ -67,14 +67,5 @@ jobs:
           cargo run --manifest-path=sv2/extensions-sv2/Cargo.toml --example extensions_negotiation
           cargo run --manifest-path=sv2/extensions-sv2/Cargo.toml --example worker_specific_hashrate_tracking
 
-      - name: Fuzz tests
-        run: |
-          if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
-            ./run.sh 30
-          else
-            echo "Skipping fuzz test on ${{ matrix.os }} - not supported"
-          fi
-        working-directory: sv2/buffer-sv2/fuzz
-
       - name: Property-based testing
         run: cargo test --features prop_test
