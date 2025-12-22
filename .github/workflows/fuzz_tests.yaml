@@ -16,6 +16,11 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@nightly
+        id: toolchain
+      
+      - name: Override toolchain
+        run: |
+          rustup override set ${{ steps.toolchain.outputs.name }}
 
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
