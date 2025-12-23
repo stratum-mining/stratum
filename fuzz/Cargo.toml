@@ -44,36 +44,6 @@ test = false
 doc = false
 
 [[bin]]
-name = "deserialize_setup_connection"
-path = "fuzz_targets/deserialize_setup_connection.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_setup_connection_success"
-path = "fuzz_targets/deserialize_setup_connection_success.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_setup_connection_error"
-path = "fuzz_targets/deserialize_setup_connection_error.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_reconnect"
-path = "fuzz_targets/deserialize_reconnect.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_channel_endpoint_changed"
-path = "fuzz_targets/deserialize_channel_endpoint_changed.rs"
-test = false
-doc = false
-
-[[bin]]
 name = "deserialize_stdframe"
 path = "fuzz_targets/deserialize_stdframe.rs"
 test = false
