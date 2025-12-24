@@ -106,16 +106,15 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     fn generate_key() -> Keypair {
         Self::generate_key_with_rng(&mut rand::thread_rng())
     }
+
     #[inline]
     fn generate_key_with_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Keypair {
         let secp = Secp256k1::new();
-        let (secret_key, _) = secp.generate_keypair(rng);
-        let kp = Keypair::from_secret_key(&secp, &secret_key);
-        if kp.x_only_public_key().1 == crate::PARITY {
-            kp
-        } else {
-            Self::generate_key_with_rng(rng)
+        let (mut secret_key, public_key) = secp.generate_keypair(rng);
+        if public_key.x_only_public_key().1 == secp256k1::Parity::Odd {
+            secret_key = secret_key.negate();
         }
+        Keypair::from_secret_key(&secp, &secret_key)
     }
 
     // Computes an HMAC-SHA256 (Hash-based Message Authentication Code) hash of the provided data
