@@ -193,6 +193,8 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     pub extranonce_size: u16,
     /// Bytes used as implicit first part of extranonce
     pub extranonce_prefix: B032<'decoder>,
+    /// Group channel into which the new channel belongs. See SetGroupChannel for details.
+    pub group_channel_id: u32,
 }
 
 impl fmt::Display for OpenExtendedMiningChannelSuccess<'_> {

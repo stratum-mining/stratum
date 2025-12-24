@@ -489,6 +489,36 @@ where
         Ok(())
     }
 
+    /// Used as an alternative to `on_new_template` when an extended job is meant to be broadcast to the group channel,
+    /// instead of multiple extended jobs to different extended channels.
+    ///
+    /// We use this method to update the channel state, so it can validate shares from the job that was broadcast to the group channel.
+    pub fn on_group_channel_job(
+        &mut self,
+        mut extended_job: ExtendedJob<'a>,
+    ) -> Result<(), ExtendedChannelError> {
+        // make sure the extranonce prefix is associated to the channel's extranonce prefix
+        extended_job.set_extranonce_prefix(self.extranonce_prefix.clone());
+
+        let template_id = match extended_job.get_origin() {
+            JobOrigin::NewTemplate(template) => template.template_id,
+            JobOrigin::SetCustomMiningJob(_) => {
+                return Err(ExtendedChannelError::InvalidJobOrigin);
+            }
+        };
+
+        match extended_job.is_future() {
+            true => {
+                self.job_store.add_future_job(template_id, extended_job);
+            }
+            false => {
+                self.job_store.add_active_job(extended_job);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Updates the channel state with a new `SetNewPrevHash` message (Template Distribution
     /// Protocol variant).
     ///
@@ -768,13 +798,16 @@ mod tests {
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::job_store::{DefaultJobStore, JobStore},
+            jobs::{
+                extended::ExtendedJob,
+                job_store::{DefaultJobStore, JobStore},
+            },
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
-    use binary_sv2::Sv2Option;
+    use binary_sv2::{Sv2Option, U256};
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
-    use mining_sv2::{NewExtendedMiningJob, SubmitSharesExtended};
+    use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, SubmitSharesExtended};
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
@@ -1621,6 +1654,291 @@ mod tests {
         assert!(matches!(
             result,
             Err(ExtendedChannelError::ExtranoncePrefixTooLarge)
+        ));
+    }
+
+    #[test]
+    fn test_on_group_channel_job_assigns_extranonce_prefix_to_future_job() {
+        // Test that on_group_channel_job assigns the channel's extranonce prefix
+        // to a future job that came from a group channel (with empty prefix)
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let channel_extranonce_prefix = vec![1, 2, 3, 4, 5, 6, 7];
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 4u16;
+        let share_batch_size = 100;
+        let job_store = DefaultJobStore::new();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            channel_extranonce_prefix.clone(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: true,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        // Create a job with empty extranonce prefix (as group channels do)
+        let group_job = ExtendedJob::from_template(
+            template.clone(),
+            vec![], // empty extranonce prefix from group channel
+            coinbase_reward_outputs,
+            vec![],
+            vec![],
+            NewExtendedMiningJob {
+                channel_id,
+                job_id: 1,
+                min_ntime: Sv2Option::new(None),
+                version: template.version,
+                version_rolling_allowed,
+                coinbase_tx_prefix: vec![].try_into().unwrap(),
+                coinbase_tx_suffix: vec![].try_into().unwrap(),
+                merkle_path: vec![].try_into().unwrap(),
+            },
+        )
+        .unwrap();
+
+        // Verify the job has empty extranonce prefix initially
+        assert_eq!(group_job.get_extranonce_prefix(), &vec![]);
+
+        assert!(!channel.job_store.has_future_jobs());
+
+        // Call on_group_channel_job to assign this channel's extranonce prefix
+        channel.on_group_channel_job(group_job).unwrap();
+
+        // Verify the job was added to future jobs
+        assert!(channel.job_store.has_future_jobs());
+
+        // Verify the job now has the channel's extranonce prefix assigned
+        let future_job_id = channel
+            .get_future_job_id_from_template_id(template.template_id)
+            .unwrap();
+        let stored_job = channel.get_future_job(future_job_id).unwrap();
+        assert_eq!(
+            stored_job.get_extranonce_prefix(),
+            &channel_extranonce_prefix
+        );
+    }
+
+    #[test]
+    fn test_on_group_channel_job_assigns_extranonce_prefix_to_active_job() {
+        // Test that on_group_channel_job assigns the channel's extranonce prefix
+        // to an active (non-future) job from a group channel
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let channel_extranonce_prefix = vec![10, 20, 30, 40, 50];
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 4u16;
+        let share_batch_size = 100;
+        let job_store = DefaultJobStore::new();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            channel_extranonce_prefix.clone(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false, // non-future/active job
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let ntime = 1746839905;
+        // Create a job with empty extranonce prefix (as group channels do)
+        let group_job = ExtendedJob::from_template(
+            template.clone(),
+            vec![], // empty extranonce prefix from group channel
+            coinbase_reward_outputs,
+            vec![],
+            vec![],
+            NewExtendedMiningJob {
+                channel_id,
+                job_id: 1,
+                min_ntime: Sv2Option::new(Some(ntime)),
+                version: template.version,
+                version_rolling_allowed,
+                coinbase_tx_prefix: vec![].try_into().unwrap(),
+                coinbase_tx_suffix: vec![].try_into().unwrap(),
+                merkle_path: vec![].try_into().unwrap(),
+            },
+        )
+        .unwrap();
+
+        // Set chain tip to enable active job storage
+        channel.set_chain_tip(ChainTip::new(U256::from([0; 32]), 0, ntime));
+
+        // Verify the job has empty extranonce prefix initially
+        assert_eq!(group_job.get_extranonce_prefix(), &vec![]);
+        assert!(channel.get_active_job().is_none());
+
+        // Call on_group_channel_job
+        channel.on_group_channel_job(group_job).unwrap();
+
+        // Verify the job was added as active job with the channel's extranonce prefix
+        let active_job = channel.get_active_job().unwrap();
+        assert_eq!(
+            active_job.get_extranonce_prefix(),
+            &channel_extranonce_prefix
+        );
+    }
+
+    #[test]
+    fn test_on_group_channel_job_rejects_custom_mining_job() {
+        // Test that on_group_channel_job returns InvalidJobOrigin error for SetCustomMiningJob
+        // because custom jobs don't come from group channels
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = vec![1, 2, 3, 4];
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 4u16;
+        let share_batch_size = 100;
+        let job_store = DefaultJobStore::new();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix.clone(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Create a job from SetCustomMiningJob (not from group channel)
+        let custom_job = SetCustomMiningJob {
+            channel_id,
+            request_id: 0,
+            token: vec![].try_into().unwrap(),
+            version: 536870912,
+            prev_hash: [0; 32].into(),
+            min_ntime: 1746839905,
+            nbits: 503543726,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![].try_into().unwrap(),
+            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_outputs: vec![].try_into().unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let extended_job = ExtendedJob::from_custom_job(
+            custom_job,
+            vec![], // empty extranonce prefix
+            vec![],
+            vec![],
+            vec![],
+            NewExtendedMiningJob {
+                channel_id,
+                job_id: 1,
+                min_ntime: Sv2Option::new(None),
+                version: 536870912,
+                version_rolling_allowed,
+                coinbase_tx_prefix: vec![].try_into().unwrap(),
+                coinbase_tx_suffix: vec![].try_into().unwrap(),
+                merkle_path: vec![].try_into().unwrap(),
+            },
+        );
+
+        // Call on_group_channel_job and expect InvalidJobOrigin error
+        // because custom jobs don't come from group channels
+        let result = channel.on_group_channel_job(extended_job);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ExtendedChannelError::InvalidJobOrigin
         ));
     }
 }

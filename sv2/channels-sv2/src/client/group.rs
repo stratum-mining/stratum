@@ -2,8 +2,8 @@
 //!
 //! This module provides the [`GroupChannel`] struct, which acts as a mining client's
 //! abstraction over the state of a Sv2 group channel. It tracks group-level job state
-//! and associated standard channels, but delegates share validation and job lifecycle
-//! to standard channels.
+//! and associated standard and extended channels, but delegates share validation and job lifecycle
+//! to channels the channels themselves.
 
 use super::{HashMap, HashSet};
 use crate::client::error::GroupChannelError;
@@ -13,20 +13,20 @@ use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
 ///
 /// Tracks:
 /// - the group channel's unique `group_channel_id`
-/// - associated `standard_channel_ids` (indexed by `channel_id`)
+/// - associated `channel_ids` (indexed by `channel_id`)
 /// - future jobs (indexed by `job_id`, to be activated upon receipt of a
 ///   [`SetNewPrevHash`](SetNewPrevHashMp) message)
 /// - active job
 ///
 /// Does **not** track:
 /// - past or stale jobs
-/// - share validation state (handled per-standard channel)
+/// - share validation state (handled per-channel)
 #[derive(Debug, Clone)]
 pub struct GroupChannel<'a> {
     /// Unique identifier for the group channel
     group_channel_id: u32,
     /// Set of channel IDs associated with this group channel
-    standard_channel_ids: HashSet<u32>,
+    channel_ids: HashSet<u32>,
     /// Future jobs, indexed by job_id, waiting to be activated
     future_jobs: HashMap<u32, NewExtendedMiningJob<'a>>,
     /// Currently active mining job for the group channel
@@ -38,22 +38,22 @@ impl<'a> GroupChannel<'a> {
     pub fn new(group_channel_id: u32) -> Self {
         Self {
             group_channel_id,
-            standard_channel_ids: HashSet::new(),
+            channel_ids: HashSet::new(),
             future_jobs: HashMap::new(),
             active_job: None,
         }
     }
 
-    /// Adds a [`StandardChannel`](crate::client::standard::StandardChannel) to the group channel
+    /// Adds a channel to the group channel
     /// by referencing its `channel_id`.
-    pub fn add_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.insert(standard_channel_id);
+    pub fn add_channel_id(&mut self, channel_id: u32) {
+        self.channel_ids.insert(channel_id);
     }
 
-    /// Removes a [`StandardChannel`](crate::client::standard::StandardChannel) from the group
+    /// Removes a channel from the group channel
     /// channel by its `channel_id`.
-    pub fn remove_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.remove(&standard_channel_id);
+    pub fn remove_channel_id(&mut self, channel_id: u32) {
+        self.channel_ids.remove(&channel_id);
     }
 
     /// Returns the group channel ID.
@@ -61,9 +61,9 @@ impl<'a> GroupChannel<'a> {
         self.group_channel_id
     }
 
-    /// Returns a reference to all standard channel IDs associated with this group channel.
-    pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
-        &self.standard_channel_ids
+    /// Returns a reference to all channel IDs associated with this group channel.
+    pub fn get_channel_ids(&self) -> &HashSet<u32> {
+        &self.channel_ids
     }
 
     /// Returns a reference to the current active job, if any.

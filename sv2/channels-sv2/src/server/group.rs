@@ -3,9 +3,9 @@
 //! This module defines the [`GroupChannel`] struct, which provides an abstraction of a Stratum V2
 //! (SV2) group channel as maintained by a mining server.
 //!
-//! A group channel represents a logical grouping of standard channels, allowing multiple mining
+//! A group channel represents a logical grouping of standard and extended channels, allowing multiple mining
 //! entities to share jobs. It manages job distribution and activation for all
-//! associated standard channels, but delegates share validation and accounting to those standard
+//! associated channels, but delegates share validation and accounting to those channels.
 //! channels.
 //!
 //! ## Responsibilities
@@ -14,7 +14,7 @@
 //! including:
 //!
 //! - **Group Channel ID**: Holds the unique `group_channel_id`.
-//! - **Standard Channel Management**: Tracks the set of associated standard channel IDs, allowing
+//! - **Channel Management**: Tracks the set of associated channel IDs, allowing
 //!   for dynamic addition and removal.
 //! - **Job Factory and Store**: Manages creation and storage of jobs (future and active) using the
 //!   job factory and job store abstractions.
@@ -26,10 +26,10 @@
 //!
 //! ## Notes
 //!
-//! - Share validation and accounting is handled at the standard channel level, not in the group
+//! - Share validation and accounting is handled at the channel level, not in the group
 //!   channel.
 //! - Past and stale jobs are not tracked in this abstraction.
-//! - Extranonce prefix management is deferred to standard channels; group jobs use an empty prefix.
+//! - Extranonce prefix management is deferred to channels; group jobs use an empty prefix.
 
 use crate::{
     chain_tip::ChainTip,
@@ -46,14 +46,15 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 ///
 /// It keeps track of:
 /// - the group channel's unique `group_channel_id`
-/// - the group channel's `standard_channels` (indexed by `channel_id`)
+/// - the group channel's `channels` (indexed by `channel_id`)
 /// - the group channel's job factory
 /// - the group channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
 ///   `SetNewPrevHash` message)
 /// - the group channel's active job
 /// - the group channel's chain tip
+/// - the group channel's full extranonce size
 ///
-/// Since share validation happens at the Standard Channel level, we don't really keep track of:
+/// Since share validation happens at the Channel level, we don't really keep track of:
 /// - the group channel's past jobs
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
@@ -63,7 +64,7 @@ where
     J: JobStore<ExtendedJob<'a>>,
 {
     group_channel_id: u32,
-    standard_channel_ids: HashSet<u32>,
+    channel_ids: HashSet<u32>,
     job_factory: JobFactory,
     job_store: J,
     chain_tip: Option<ChainTip>,
@@ -148,7 +149,7 @@ where
 
         Ok(Self {
             group_channel_id,
-            standard_channel_ids: HashSet::new(),
+            channel_ids: HashSet::new(),
             job_factory: JobFactory::new(true, pool_tag, miner_tag),
             job_store,
             chain_tip: None,
@@ -157,14 +158,14 @@ where
         })
     }
 
-    /// Adds a standard channel ID to this group channel.
-    pub fn add_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.insert(standard_channel_id);
+    /// Adds a channel ID to this group channel.
+    pub fn add_channel_id(&mut self, channel_id: u32) {
+        self.channel_ids.insert(channel_id);
     }
 
-    /// Removes a standard channel ID from this group channel.
-    pub fn remove_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.remove(&standard_channel_id);
+    /// Removes a channel ID from this group channel.
+    pub fn remove_channel_id(&mut self, channel_id: u32) {
+        self.channel_ids.remove(&channel_id);
     }
 
     /// Returns the unique group channel ID for this group channel.
@@ -176,9 +177,9 @@ where
         self.full_extranonce_size
     }
 
-    /// Returns a reference to the set of standard channel IDs associated with this group channel.
-    pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
-        &self.standard_channel_ids
+    /// Returns a reference to the set of channel IDs associated with this group channel.
+    pub fn get_channel_ids(&self) -> &HashSet<u32> {
+        &self.channel_ids
     }
 
     /// Returns the current chain tip, if set.
@@ -222,14 +223,13 @@ where
     ) -> Result<(), GroupChannelError> {
         match template.future_template {
             true => {
-                let new_job = self
+                let new_job: ExtendedJob<'_> = self
                     .job_factory
                     .new_extended_job(
                         self.group_channel_id,
                         None,
                         vec![], /* empty extranonce prefix, as it will be replaced by the
-                                 * standard channel's extranonce
-                                 * prefix */
+                                 * channel's extranonce prefix */
                         template.clone(),
                         coinbase_reward_outputs,
                         self.full_extranonce_size,
@@ -248,8 +248,7 @@ where
                                 self.group_channel_id,
                                 Some(chain_tip),
                                 vec![], /* empty extranonce prefix, as it will be replaced by
-                                         * the standard
-                                         * channel's extranonce prefix */
+                                         * the channel's extranonce prefix */
                                 template.clone(),
                                 coinbase_reward_outputs,
                                 self.full_extranonce_size,
