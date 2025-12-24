@@ -21,6 +21,9 @@ parsers_sv2 = { path = "../sv2/parsers-sv2" }
 framing_sv2 = { path = "../sv2/framing-sv2" }
 codec_sv2 = { path = "../sv2/codec-sv2", features = ["noise_sv2"]}
 common_messages_sv2 = { path = "../sv2/subprotocols/common-messages" }
+job_declaration_sv2 = { path = "../sv2/subprotocols/job-declaration" }
+mining_sv2 = {path = "../sv2/subprotocols/mining" }
+template_distribution_sv2 = { path = "../sv2/subprotocols/template-distribution" }
 
 [[bin]]
 name = "deserialize_sv2frame"
@@ -41,36 +44,6 @@ test = false
 doc = false
 
 [[bin]]
-name = "deserialize_setup_connection"
-path = "fuzz_targets/deserialize_setup_connection.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_setup_connection_success"
-path = "fuzz_targets/deserialize_setup_connection_success.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_setup_connection_error"
-path = "fuzz_targets/deserialize_setup_connection_error.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_reconnect"
-path = "fuzz_targets/deserialize_reconnect.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_channel_endpoint_changed"
-path = "fuzz_targets/deserialize_channel_endpoint_changed.rs"
-test = false
-doc = false
-
-[[bin]]
 name = "deserialize_stdframe"
 path = "fuzz_targets/deserialize_stdframe.rs"
 test = false
@@ -79,5 +52,29 @@ doc = false
 [[bin]]
 name = "deserialize_datatypes"
 path = "fuzz_targets/deserialize_datatypes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "end_to_end_serialization_for_common_messages"
+path = "fuzz_targets/end_to_end_serialization_for_common_messages.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "end_to_end_serialization_for_job_declaration_messages"
+path = "fuzz_targets/end_to_end_serialization_for_job_declaration_messages.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "end_to_end_serialization_for_mining_messages"
+path = "fuzz_targets/end_to_end_serialization_for_mining_messages.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "end_to_end_serialization_for_template_distribution_messages"
+path = "fuzz_targets/end_to_end_serialization_for_template_distribution_messages.rs"
 test = false
 doc = false
