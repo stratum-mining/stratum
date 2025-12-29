@@ -35,7 +35,7 @@ use crate::{
     chain_tip::ChainTip,
     server::{
         error::GroupChannelError,
-        jobs::{extended::ExtendedJob, factory::JobFactory, job_store::JobStore},
+        jobs::{extended::ExtendedJob, factory::JobFactoryExtended, job_store::JobStore},
     },
 };
 use bitcoin::transaction::TxOut;
@@ -58,22 +58,26 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
 #[derive(Debug)]
-pub struct GroupChannel<'a, J>
+pub struct GroupChannel<'a, J, E, F>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    J: JobStore<E>,
+    E: ExtendedJob<'a>,
+    F: JobFactoryExtended<'a, E>,
 {
     group_channel_id: u32,
     standard_channel_ids: HashSet<u32>,
-    job_factory: JobFactory,
+    job_factory: F,
     job_store: J,
     chain_tip: Option<ChainTip>,
     full_extranonce_size: usize,
-    phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<(E, &'a ())>,
 }
 
-impl<'a, J> GroupChannel<'a, J>
+impl<'a, J, E, F> GroupChannel<'a, J, E, F>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    J: JobStore<E>,
+    E: ExtendedJob<'a>,
+    F: JobFactoryExtended<'a, E>,
 {
     /// Constructor of `GroupChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -149,7 +153,7 @@ where
         Ok(Self {
             group_channel_id,
             standard_channel_ids: HashSet::new(),
-            job_factory: JobFactory::new(true, pool_tag, miner_tag),
+            job_factory: F::new_factory_extended(true, pool_tag, miner_tag),
             job_store,
             chain_tip: None,
             full_extranonce_size,
@@ -193,7 +197,7 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<E> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
@@ -205,7 +209,7 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<E> {
         // cloning happens inside the job store
         self.job_store.get_future_job(job_id)
     }
@@ -300,7 +304,12 @@ mod tests {
         chain_tip::ChainTip,
         server::{
             group::GroupChannel,
-            jobs::job_store::{DefaultJobStore, JobStore},
+            jobs::{
+                extended::{DefaultExtendedJob, ExtendedJob},
+                factory::DefaultJobFactory,
+                job_store::{DefaultJobStore, JobStore},
+                Job,
+            },
         },
     };
     use binary_sv2::Sv2Option;
@@ -317,9 +326,13 @@ mod tests {
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob<'_>> = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
+        let mut group_channel = GroupChannel::<
+            DefaultJobStore<DefaultExtendedJob<'_>>,
+            DefaultExtendedJob<'_>,
+            DefaultJobFactory,
+        >::new(
             group_channel_id,
             job_store,
             full_extranonce_size,
@@ -449,7 +462,11 @@ mod tests {
 
         let job_store = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
+        let mut group_channel = GroupChannel::<
+            DefaultJobStore<DefaultExtendedJob<'_>>,
+            DefaultExtendedJob<'_>,
+            DefaultJobFactory,
+        >::new(
             group_channel_id,
             job_store,
             full_extranonce_size,
@@ -507,7 +524,7 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        let active_job = group_channel.get_active_job().unwrap();
+        let active_job: DefaultExtendedJob<'_> = group_channel.get_active_job().unwrap();
 
         // we know that the provided template + coinbase_reward_outputs should generate this
         // non-future job
@@ -545,9 +562,13 @@ mod tests {
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
 
-        let job_store = DefaultJobStore::new();
+        let job_store: DefaultJobStore<DefaultExtendedJob<'_>> = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
+        let mut group_channel = GroupChannel::<
+            DefaultJobStore<DefaultExtendedJob<'_>>,
+            DefaultExtendedJob<'_>,
+            DefaultJobFactory,
+        >::new(
             group_channel_id,
             job_store,
             full_extranonce_size,
