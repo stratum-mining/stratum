@@ -263,6 +263,7 @@ pub trait IsClient<'a> {
     /// [b]:
     fn handle_message(
         &mut self,
+        server_id: usize,
         msg: json_rpc::Message,
     ) -> Result<Option<json_rpc::Message>, Error<'a>>
     where
@@ -273,12 +274,12 @@ pub trait IsClient<'a> {
         match method {
             Ok(m) => match m {
                 Method::Server2ClientResponse(response) => {
-                    let response = self.update_response(response)?;
-                    self.handle_response(response)
+                    let response = self.update_response(server_id, response)?;
+                    self.handle_response(server_id, response)
                 }
-                Method::Server2Client(request) => self.handle_request(request),
+                Method::Server2Client(request) => self.handle_request(server_id, request),
                 Method::Client2Server(_) => Err(Error::InvalidReceiver(m.into())),
-                Method::ErrorMessage(msg) => self.handle_error_message(msg),
+                Method::ErrorMessage(msg) => self.handle_error_message(server_id, msg),
             },
             Err(e) => Err(e.into()),
         }
@@ -286,12 +287,13 @@ pub trait IsClient<'a> {
 
     fn update_response(
         &mut self,
+        server_id: usize,
         response: methods::Server2ClientResponse<'a>,
     ) -> Result<methods::Server2ClientResponse<'a>, Error<'a>> {
         match &response {
             methods::Server2ClientResponse::GeneralResponse(general) => {
-                let is_authorize = self.id_is_authorize(&general.id);
-                let is_submit = self.id_is_submit(&general.id);
+                let is_authorize = self.id_is_authorize(server_id, &general.id);
+                let is_submit = self.id_is_submit(server_id, &general.id);
                 match (is_authorize, is_submit) {
                     (Some(prev_name), false) => {
                         let authorize = general.clone().into_authorize(prev_name);
@@ -310,6 +312,7 @@ pub trait IsClient<'a> {
     /// Call the right handler according with the called method
     fn handle_request(
         &mut self,
+        server_id: usize,
         request: methods::Server2Client<'a>,
     ) -> Result<Option<json_rpc::Message>, Error<'a>>
     where
@@ -317,19 +320,19 @@ pub trait IsClient<'a> {
     {
         match request {
             methods::Server2Client::Notify(notify) => {
-                self.handle_notify(notify)?;
+                self.handle_notify(server_id, notify)?;
                 Ok(None)
             }
             methods::Server2Client::SetDifficulty(mut set_diff) => {
-                self.handle_set_difficulty(&mut set_diff)?;
+                self.handle_set_difficulty(server_id, &mut set_diff)?;
                 Ok(None)
             }
             methods::Server2Client::SetExtranonce(mut set_extra_nonce) => {
-                self.handle_set_extranonce(&mut set_extra_nonce)?;
+                self.handle_set_extranonce(server_id, &mut set_extra_nonce)?;
                 Ok(None)
             }
             methods::Server2Client::SetVersionMask(mut set_version_mask) => {
-                self.handle_set_version_mask(&mut set_version_mask)?;
+                self.handle_set_version_mask(server_id, &mut set_version_mask)?;
                 Ok(None)
             }
         }
@@ -337,6 +340,7 @@ pub trait IsClient<'a> {
 
     fn handle_response(
         &mut self,
+        server_id: usize,
         response: methods::Server2ClientResponse<'a>,
     ) -> Result<Option<json_rpc::Message>, Error<'a>>
     where
@@ -344,10 +348,10 @@ pub trait IsClient<'a> {
     {
         match response {
             methods::Server2ClientResponse::Configure(mut configure) => {
-                self.handle_configure(&mut configure)?;
-                self.set_version_rolling_mask(configure.version_rolling_mask());
-                self.set_version_rolling_min_bit(configure.version_rolling_min_bit());
-                self.set_status(ClientStatus::Configured);
+                self.handle_configure(server_id, &mut configure)?;
+                self.set_version_rolling_mask(server_id, configure.version_rolling_mask());
+                self.set_version_rolling_min_bit(server_id, configure.version_rolling_min_bit());
+                self.set_status(server_id, ClientStatus::Configured);
 
                 //in sv1 the mining.configure message should be the first message to come in before
                 // the subscribe - the subscribe response is where the server hands out the
@@ -356,6 +360,7 @@ pub trait IsClient<'a> {
                 debug!("NOTICE: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
                     .subscribe(
+                        server_id,
                         configure.id,
                         Some(Extranonce::try_from(hex::decode("08000002")?)?),
                     )
@@ -363,15 +368,15 @@ pub trait IsClient<'a> {
                 Ok(subscribe)
             }
             methods::Server2ClientResponse::Subscribe(subscribe) => {
-                self.handle_subscribe(&subscribe)?;
-                self.set_extranonce1(subscribe.extra_nonce1);
-                self.set_extranonce2_size(subscribe.extra_nonce2_size);
-                self.set_status(ClientStatus::Subscribed);
+                self.handle_subscribe(server_id, &subscribe)?;
+                self.set_extranonce1(server_id, subscribe.extra_nonce1);
+                self.set_extranonce2_size(server_id, subscribe.extra_nonce2_size);
+                self.set_status(server_id, ClientStatus::Subscribed);
                 Ok(None)
             }
             methods::Server2ClientResponse::Authorize(authorize) => {
                 if authorize.is_ok() {
-                    self.authorize_user_name(authorize.user_name());
+                    self.authorize_user_name(server_id, authorize.user_name());
                 };
                 Ok(None)
             }
@@ -384,80 +389,94 @@ pub trait IsClient<'a> {
 
     fn handle_error_message(
         &mut self,
+        server_id: usize,
         message: Message,
     ) -> Result<Option<json_rpc::Message>, Error<'a>>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
-    fn id_is_authorize(&mut self, id: &u64) -> Option<String>;
+    fn id_is_authorize(&mut self, server_id: usize, id: &u64) -> Option<String>;
 
     /// Check if the client sent a Submit request with the given id
-    fn id_is_submit(&mut self, id: &u64) -> bool;
+    fn id_is_submit(&mut self, server_id: usize, id: &u64) -> bool;
 
-    fn handle_notify(&mut self, notify: server_to_client::Notify<'a>) -> Result<(), Error<'a>>;
+    fn handle_notify(
+        &mut self,
+        server_id: usize,
+        notify: server_to_client::Notify<'a>,
+    ) -> Result<(), Error<'a>>;
 
-    fn handle_configure(&mut self, conf: &mut server_to_client::Configure)
-        -> Result<(), Error<'a>>;
+    fn handle_configure(
+        &mut self,
+        server_id: usize,
+        conf: &mut server_to_client::Configure,
+    ) -> Result<(), Error<'a>>;
 
     fn handle_set_difficulty(
         &mut self,
+        server_id: usize,
         m: &mut server_to_client::SetDifficulty,
     ) -> Result<(), Error<'a>>;
 
     fn handle_set_extranonce(
         &mut self,
+        server_id: usize,
         m: &mut server_to_client::SetExtranonce,
     ) -> Result<(), Error<'a>>;
 
     fn handle_set_version_mask(
         &mut self,
+        server_id: usize,
         m: &mut server_to_client::SetVersionMask,
     ) -> Result<(), Error<'a>>;
 
     fn handle_subscribe(
         &mut self,
+        server_id: usize,
         subscribe: &server_to_client::Subscribe<'a>,
     ) -> Result<(), Error<'a>>;
 
-    fn set_extranonce1(&mut self, extranonce1: Extranonce<'a>);
+    fn set_extranonce1(&mut self, server_id: usize, extranonce1: Extranonce<'a>);
 
-    fn extranonce1(&self) -> Extranonce<'a>;
+    fn extranonce1(&self, server_id: usize) -> Extranonce<'a>;
 
-    fn set_extranonce2_size(&mut self, extra_nonce2_size: usize);
+    fn set_extranonce2_size(&mut self, server_id: usize, extra_nonce2_size: usize);
 
-    fn extranonce2_size(&self) -> usize;
+    fn extranonce2_size(&self, server_id: usize) -> usize;
 
-    fn version_rolling_mask(&self) -> Option<HexU32Be>;
+    fn version_rolling_mask(&self, server_id: usize) -> Option<HexU32Be>;
 
-    fn set_version_rolling_mask(&mut self, mask: Option<HexU32Be>);
+    fn set_version_rolling_mask(&mut self, server_id: usize, mask: Option<HexU32Be>);
 
-    fn set_version_rolling_min_bit(&mut self, min: Option<HexU32Be>);
+    fn set_version_rolling_min_bit(&mut self, server_id: usize, min: Option<HexU32Be>);
 
-    fn version_rolling_min_bit(&mut self) -> Option<HexU32Be>;
+    fn version_rolling_min_bit(&mut self, server_id: usize) -> Option<HexU32Be>;
 
-    fn set_status(&mut self, status: ClientStatus);
+    fn set_status(&mut self, server_id: usize, status: ClientStatus);
 
-    fn signature(&self) -> String;
+    fn signature(&self, server_id: usize) -> String;
 
-    fn status(&self) -> ClientStatus;
+    fn status(&self, server_id: usize) -> ClientStatus;
 
-    fn last_notify(&self) -> Option<server_to_client::Notify<'_>>;
+    fn last_notify(&self, server_id: usize) -> Option<server_to_client::Notify<'_>>;
 
     /// Check if the given user_name has been authorized by the server
     #[allow(clippy::ptr_arg)]
-    fn is_authorized(&self, name: &String) -> bool;
+    fn is_authorized(&self, server_id: usize, name: &String) -> bool;
 
     /// Register the given user_name has authorized by the server
-    fn authorize_user_name(&mut self, name: String);
+    fn authorize_user_name(&mut self, server_id: usize, name: String);
 
-    fn configure(&mut self, id: u64) -> json_rpc::Message {
-        if self.version_rolling_min_bit().is_none() && self.version_rolling_mask().is_none() {
+    fn configure(&mut self, server_id: usize, id: u64) -> json_rpc::Message {
+        if self.version_rolling_min_bit(server_id).is_none()
+            && self.version_rolling_mask(server_id).is_none()
+        {
             client_to_server::Configure::void(id).into()
         } else {
             client_to_server::Configure::new(
                 id,
-                self.version_rolling_mask(),
-                self.version_rolling_min_bit(),
+                self.version_rolling_mask(server_id),
+                self.version_rolling_min_bit(server_id),
             )
             .into()
         }
@@ -465,14 +484,15 @@ pub trait IsClient<'a> {
 
     fn subscribe(
         &mut self,
+        server_id: usize,
         id: u64,
         extranonce1: Option<Extranonce<'a>>,
     ) -> Result<json_rpc::Message, Error<'a>> {
-        match self.status() {
+        match self.status(server_id) {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
                 id,
-                agent_signature: self.signature(),
+                agent_signature: self.signature(server_id),
                 extranonce1,
             }
             .try_into()?),
@@ -481,18 +501,21 @@ pub trait IsClient<'a> {
 
     fn authorize(
         &mut self,
+        server_id: usize,
         id: u64,
         name: String,
         password: String,
     ) -> Result<json_rpc::Message, Error<'_>> {
-        match self.status() {
+        match self.status(server_id) {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn submit(
         &mut self,
+        server_id: usize,
         id: u64,
         user_name: String,
         extra_nonce2: Extranonce<'a>,
@@ -500,11 +523,11 @@ pub trait IsClient<'a> {
         nonce: i64,
         version_bits: Option<HexU32Be>,
     ) -> Result<json_rpc::Message, Error<'a>> {
-        match self.status() {
+        match self.status(server_id) {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
             _ => {
-                if let Some(notify) = self.last_notify() {
-                    if !self.is_authorized(&user_name) {
+                if let Some(notify) = self.last_notify(server_id) {
+                    if !self.is_authorized(server_id, &user_name) {
                         return Err(Error::UnauthorizedClient(user_name));
                     }
                     Ok(client_to_server::Submit {
