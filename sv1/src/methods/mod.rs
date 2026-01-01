@@ -24,12 +24,6 @@ pub enum MethodError<'a> {
     NotARequest,
 }
 
-//~:wimplimpl From<ParsingMethodError> for MethodError {
-//~:wimpl    fn from(pars_err: ParsingMethodError) -> Self {
-//~:wimpl        MethodError::ParsingMethodError(pars_err)
-//~:wimpl    }
-//~:wimpl}
-
 impl From<FromHexError> for ParsingMethodError {
     fn from(hex_err: FromHexError) -> Self {
         ParsingMethodError::HexError(Box::new(hex_err))
