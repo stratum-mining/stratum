@@ -563,6 +563,7 @@ mod tests {
     impl<'a> IsServer<'a> for TestServer<'a> {
         fn handle_configure(
             &mut self,
+            _client_id: usize,
             _request: &client_to_server::Configure,
         ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
             (None, None)
@@ -570,16 +571,21 @@ mod tests {
 
         fn handle_subscribe(
             &self,
+            _client_id: usize,
             _request: &client_to_server::Subscribe,
         ) -> Vec<(String, String)> {
             vec![("mining.notify".to_string(), "1".to_string())]
         }
 
-        fn handle_authorize(&self, _request: &client_to_server::Authorize) -> bool {
+        fn handle_authorize(
+            &self,
+            _client_id: usize,
+            _request: &client_to_server::Authorize,
+        ) -> bool {
             true
         }
 
-        fn notify(&mut self) -> Result<json_rpc::Message, Error<'_>> {
+        fn notify(&mut self, _client_id: usize) -> Result<json_rpc::Message, Error<'_>> {
             Ok(json_rpc::Message::StandardRequest(
                 json_rpc::StandardRequest {
                     id: 1,
@@ -589,51 +595,63 @@ mod tests {
             ))
         }
 
-        fn handle_submit(&self, _request: &client_to_server::Submit<'a>) -> bool {
+        fn handle_submit(
+            &self,
+            _client_id: usize,
+            _request: &client_to_server::Submit<'a>,
+        ) -> bool {
             true
         }
 
         fn handle_extranonce_subscribe(&self) {}
 
-        fn is_authorized(&self, name: &str) -> bool {
+        fn is_authorized(&self, _client_id: usize, name: &str) -> bool {
             self.authorized_users.contains(name)
         }
 
-        fn authorize(&mut self, name: &str) {
+        fn authorize(&mut self, _client_id: usize, name: &str) {
             self.authorized_users.insert(name.to_string());
         }
 
-        fn set_extranonce1(&mut self, extranonce1: Option<Extranonce<'a>>) -> Extranonce<'a> {
+        fn set_extranonce1(
+            &mut self,
+            _client_id: usize,
+            extranonce1: Option<Extranonce<'a>>,
+        ) -> Extranonce<'a> {
             if let Some(extranonce1) = extranonce1 {
                 self.extranonce1 = extranonce1;
             }
             self.extranonce1.clone()
         }
 
-        fn extranonce1(&self) -> Extranonce<'a> {
+        fn extranonce1(&self, _client_id: usize) -> Extranonce<'a> {
             self.extranonce1.clone()
         }
 
-        fn set_extranonce2_size(&mut self, extra_nonce2_size: Option<usize>) -> usize {
+        fn set_extranonce2_size(
+            &mut self,
+            _client_id: usize,
+            extra_nonce2_size: Option<usize>,
+        ) -> usize {
             if let Some(extra_nonce2_size) = extra_nonce2_size {
                 self.extranonce2_size = extra_nonce2_size;
             }
             self.extranonce2_size
         }
 
-        fn extranonce2_size(&self) -> usize {
+        fn extranonce2_size(&self, _client_id: usize) -> usize {
             self.extranonce2_size
         }
 
-        fn version_rolling_mask(&self) -> Option<HexU32Be> {
+        fn version_rolling_mask(&self, _client_id: usize) -> Option<HexU32Be> {
             None
         }
 
-        fn set_version_rolling_mask(&mut self, mask: Option<HexU32Be>) {
+        fn set_version_rolling_mask(&mut self, _client_id: usize, mask: Option<HexU32Be>) {
             self.version_rolling_mask = mask;
         }
 
-        fn set_version_rolling_min_bit(&mut self, mask: Option<HexU32Be>) {
+        fn set_version_rolling_min_bit(&mut self, _client_id: usize, mask: Option<HexU32Be>) {
             self.version_rolling_min_bit = mask;
         }
     }
@@ -650,7 +668,7 @@ mod tests {
             params: serde_json::json!([]),
         });
 
-        let result = server.handle_message(request_message);
+        let result = server.handle_message(1, request_message);
 
         assert!(result.is_err());
         match result.unwrap_err() {
