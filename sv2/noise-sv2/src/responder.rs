@@ -458,3 +458,64 @@ impl Drop for Responder {
         self.erase();
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    fn make_responder() -> Responder {
+        use rand::{rngs::StdRng, SeedableRng};
+
+        let secp = Secp256k1::new();
+        let mut rng = StdRng::seed_from_u64(42);
+        let authority = Keypair::new(&secp, &mut rng);
+
+        *Responder::new_with_rng(authority, 60, &mut rng)
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
+    fn responder_step_1_returns_valid_message_and_codec() {
+        use rand::{rngs::StdRng, SeedableRng};
+        use secp256k1::ellswift::ElligatorSwift;
+
+        let mut rng = StdRng::seed_from_u64(1);
+        let mut responder = make_responder();
+
+        let fake_initiator_ephemeral =
+            ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
+
+        let (msg, _) = responder
+            .step_1_with_now_rng(fake_initiator_ephemeral, 100, &mut rng)
+            .unwrap();
+
+        assert_eq!(msg.len(), INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg_attr(miri, ignore)]
+    fn responder_cipher_detects_tampering() {
+        use rand::{rngs::StdRng, SeedableRng};
+        use secp256k1::ellswift::ElligatorSwift;
+
+        let mut rng = StdRng::seed_from_u64(2);
+        let mut responder = make_responder();
+
+        let fake_initiator_ephemeral =
+            ElligatorSwift::from_pubkey(responder.e.public_key()).to_array();
+
+        let (_msg, mut codec) = responder
+            .step_1_with_now_rng(fake_initiator_ephemeral, 100, &mut rng)
+            .unwrap();
+
+        let mut data = vec![10, 20, 30];
+        codec.encrypt(&mut data).unwrap();
+
+        data[0] ^= 0x01;
+
+        assert!(codec.decrypt(&mut data).is_err());
+    }
+}
