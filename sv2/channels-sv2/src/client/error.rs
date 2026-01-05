@@ -46,4 +46,6 @@ pub enum StandardChannelError {
 pub enum GroupChannelError {
     /// The specified job ID was not found in the group channel.
     JobIdNotFound,
+    /// The full extranonce size for the group channel does not match the full extranonce size for the channel.
+    FullExtranonceSizeMismatch,
 }
