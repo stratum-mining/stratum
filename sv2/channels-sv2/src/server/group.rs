@@ -157,9 +157,21 @@ where
         })
     }
 
-    /// Adds a channel ID to this group channel.
-    pub fn add_channel_id(&mut self, channel_id: u32) {
+    /// Adds a channel ID to this group channel. Also takes the `full_extranonce_size` of the channel to be added.
+    ///
+    /// Returns an error if the provided `full_extranonce_size` doesn't match the group channel's `full_extranonce_size`.
+    pub fn add_channel_id(
+        &mut self,
+        channel_id: u32,
+        full_extranonce_size: usize,
+    ) -> Result<(), GroupChannelError> {
         self.channel_ids.insert(channel_id);
+
+        if self.full_extranonce_size != full_extranonce_size {
+            return Err(GroupChannelError::FullExtranonceSizeMismatch);
+        }
+
+        Ok(())
     }
 
     /// Removes a channel ID from this group channel.
@@ -173,7 +185,12 @@ where
     }
 
     /// Set the full extranonce size for this group channel.
+    /// Also clears all channel IDs, as no channels can belong to the same group while having different `full_extranonce_size`s.
     pub fn set_full_extranonce_size(&mut self, full_extranonce_size: usize) {
+        if self.full_extranonce_size != full_extranonce_size {
+            self.channel_ids.clear();
+        }
+
         self.full_extranonce_size = full_extranonce_size;
     }
 
@@ -309,7 +326,7 @@ mod tests {
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use mining_sv2::NewExtendedMiningJob;
-    use std::convert::TryInto;
+    use std::{collections::HashSet, convert::TryInto};
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
@@ -599,5 +616,66 @@ mod tests {
             .is_err());
 
         assert!(!group_channel.job_store.has_future_jobs());
+    }
+
+    #[test]
+    fn test_add_channel_id() {
+        let group_channel_id = 1;
+        let job_store = DefaultJobStore::new();
+        let full_extranonce_size = 32;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            job_store,
+            full_extranonce_size,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // add a first channel with the correct full extranonce size
+        group_channel
+            .add_channel_id(1, full_extranonce_size)
+            .unwrap();
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([1]));
+        assert_eq!(
+            group_channel.get_full_extranonce_size(),
+            full_extranonce_size
+        );
+
+        // add a second channel with the correct full extranonce size
+        group_channel
+            .add_channel_id(2, full_extranonce_size)
+            .unwrap();
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([1, 2]));
+        assert_eq!(
+            group_channel.get_full_extranonce_size(),
+            full_extranonce_size
+        );
+
+        // add a third channel with a different full extranonce size
+        // this should return an error
+        let new_full_extranonce_size = 24;
+        assert!(group_channel
+            .add_channel_id(3, new_full_extranonce_size)
+            .is_err());
+
+        // set the full extranonce size to a new value
+        group_channel.set_full_extranonce_size(new_full_extranonce_size);
+        assert_eq!(
+            group_channel.get_full_extranonce_size(),
+            new_full_extranonce_size
+        );
+        // all channel IDs should be cleared
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::new());
+
+        // add a fourth channel with the correct full extranonce size
+        group_channel
+            .add_channel_id(4, new_full_extranonce_size)
+            .unwrap();
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([4]));
+
+        // add a fifth channel with the old full extranonce size
+        // this should return an error because the full extranonce size is now set to 24
+        assert!(group_channel.add_channel_id(5, 32).is_err());
     }
 }

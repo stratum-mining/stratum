@@ -18,6 +18,7 @@ pub enum ExtendedChannelError {
 
 #[derive(Debug)]
 pub enum GroupChannelError {
+    FullExtranonceSizeMismatch,
     ChainTipNotSet,
     TemplateIdNotFound,
     JobFactoryError(JobFactoryError),
