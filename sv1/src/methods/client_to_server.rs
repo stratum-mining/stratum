@@ -4,6 +4,7 @@ use serde_json::{
     Value::{Array as JArrary, Null, Number as JNumber, String as JString},
 };
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 
 use crate::{
     error::Error,
@@ -27,6 +28,16 @@ pub struct Authorize {
     pub id: u64,
     pub name: String,
     pub password: String,
+}
+
+impl fmt::Display for Authorize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Authorize {{ id: {}, name: {}, password: <redacted> }}",
+            self.id, self.name
+        )
+    }
 }
 
 impl Authorize {
@@ -126,6 +137,22 @@ pub struct Submit<'a> {
 }
 //"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"],
 //"{"params": "id": 2196, "method": "mining.submit"}"
+
+impl fmt::Display for Submit<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Submit {{ user_name: {}, job_id: {}, extra_nonce2: {}, time: {}, nonce: {}, version_bits: {:?}, id: {} }}",
+            self.user_name,
+            self.job_id,
+            self.extra_nonce2,
+            self.time,
+            self.nonce,
+            self.version_bits,
+            self.id
+        )
+    }
+}
 
 impl Submit<'_> {
     pub fn respond(self, is_ok: bool) -> Response {
@@ -272,6 +299,16 @@ pub struct Subscribe<'a> {
     pub extranonce1: Option<Extranonce<'a>>,
 }
 
+impl fmt::Display for Subscribe<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Subscribe {{ id: {}, agent_signature: {}, extranonce1: {:?} }}",
+            self.id, self.agent_signature, self.extranonce1
+        )
+    }
+}
+
 impl<'a> Subscribe<'a> {
     pub fn respond(
         self,
@@ -341,6 +378,21 @@ impl TryFrom<StandardRequest> for Subscribe<'_> {
 pub struct Configure {
     extensions: Vec<ConfigureExtension>,
     id: u64,
+}
+
+impl fmt::Display for Configure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Configure {{ id: {}, extensions: [", self.id)?;
+        let mut first = true;
+        for val in &self.extensions {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            write!(f, "{}", val)?;
+        }
+        write!(f, "] }}")
+    }
 }
 
 impl Configure {
@@ -438,6 +490,24 @@ pub enum ConfigureExtension {
     Info(InfoParams),
 }
 
+impl fmt::Display for ConfigureExtension {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConfigureExtension::VersionRolling(p) => {
+                write!(f, "VersionRolling({:?})", p)
+            }
+            ConfigureExtension::MinimumDifficulty(d) => {
+                write!(f, "MinimumDifficulty({})", d)
+            }
+            ConfigureExtension::SubcribeExtraNonce => {
+                write!(f, "SubscribeExtraNonce")
+            }
+            ConfigureExtension::Info(info) => {
+                write!(f, "Info({:?})", info)
+            }
+        }
+    }
+}
 #[allow(clippy::unnecessary_unwrap)]
 impl ConfigureExtension {
     pub fn from_value(val: &Value) -> Result<Vec<ConfigureExtension>, ParsingMethodError> {

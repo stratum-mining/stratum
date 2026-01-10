@@ -3,6 +3,7 @@ use serde_json::{
     Value::{Array as JArrary, Bool as JBool, Number as JNumber, String as JString},
 };
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 
 use crate::{
     error::Error,
@@ -46,6 +47,38 @@ pub struct Notify<'a> {
     pub bits: HexU32Be,
     pub time: HexU32Be,
     pub clean_jobs: bool,
+}
+
+impl<'a> fmt::Display for Notify<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Notify {{ job_id: {}, prev_hash: {}, coin_base1: {}, coin_base2: {}, merkle_branch: ",
+            self.job_id, self.prev_hash, self.coin_base1, self.coin_base2,
+        )?;
+
+        match self.merkle_branch.len() {
+            0 => write!(f, "[]")?,
+            1 => write!(f, "[{}]", self.merkle_branch[0])?,
+            2 => write!(f, "[{}, {}]", self.merkle_branch[0], self.merkle_branch[1])?,
+            _ => write!(
+                f,
+                "[{}, ..., {}]",
+                self.merkle_branch.first().unwrap(),
+                self.merkle_branch.last().unwrap()
+            )?,
+        }
+
+        write!(
+            f,
+            " ({} nodes), version: {}, bits: {}, time: {}, clean_jobs: {} }}",
+            self.merkle_branch.len(),
+            self.version,
+            self.bits,
+            self.time,
+            self.clean_jobs,
+        )
+    }
 }
 
 impl From<Notify<'_>> for Message {
@@ -154,6 +187,12 @@ pub struct SetDifficulty {
     pub value: f64,
 }
 
+impl fmt::Display for SetDifficulty {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 impl From<SetDifficulty> for Message {
     fn from(sd: SetDifficulty) -> Self {
         let value: Value = sd.value.into();
@@ -197,6 +236,16 @@ pub struct SetExtranonce<'a> {
     pub extra_nonce2_size: usize,
 }
 
+impl fmt::Display for SetExtranonce<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetExtranonce {{ extra_nonce1: {}, extra_nonce2_size: {} }}",
+            self.extra_nonce1, self.extra_nonce2_size
+        )
+    }
+}
+
 impl From<SetExtranonce<'_>> for Message {
     fn from(se: SetExtranonce) -> Self {
         let extra_nonce1: Value = se.extra_nonce1.into();
@@ -238,6 +287,16 @@ pub struct SetVersionMask {
     version_mask: HexU32Be,
 }
 
+impl fmt::Display for SetVersionMask {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetVersionMask {{ version_mask: {} }}",
+            self.version_mask
+        )
+    }
+}
+
 impl From<SetVersionMask> for Message {
     fn from(sv: SetVersionMask) -> Self {
         let version_mask: Value = sv.version_mask.into();
@@ -271,6 +330,16 @@ impl TryFrom<Notification> for SetVersionMask {
 pub struct GeneralResponse {
     pub id: u64,
     result: bool,
+}
+
+impl fmt::Display for GeneralResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "GeneralResponse {{ id: {}, result: {} }}",
+            self.id, self.result
+        )
+    }
 }
 
 impl GeneralResponse {
@@ -308,6 +377,16 @@ pub struct Authorize {
     pub prev_request_name: String,
 }
 
+impl fmt::Display for Authorize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Authorize {{ id: {}, authorized: {}, prev_request_name: {} }}",
+            self.id, self.authorized, self.prev_request_name
+        )
+    }
+}
+
 impl Authorize {
     pub fn is_ok(&self) -> bool {
         self.authorized
@@ -322,6 +401,12 @@ impl Authorize {
 pub struct Submit {
     pub id: u64,
     is_ok: bool,
+}
+
+impl fmt::Display for Submit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Submit {{ id: {}, is_ok: {} }}", self.id, self.is_ok)
+    }
 }
 
 impl Submit {
@@ -354,6 +439,16 @@ pub struct Subscribe<'a> {
     pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
+}
+
+impl fmt::Display for Subscribe<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Subscribe {{ id: {}, extra_nonce1: {}, extra_nonce2_size: {}, subscriptions: {:?} }}",
+            self.id, self.extra_nonce1, self.extra_nonce2_size, self.subscriptions
+        )
+    }
 }
 
 impl From<Subscribe<'_>> for Message {
@@ -424,6 +519,16 @@ pub struct Configure {
     pub id: u64,
     pub version_rolling: Option<VersionRollingParams>,
     pub minimum_difficulty: Option<bool>,
+}
+
+impl fmt::Display for Configure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Configure {{ id: {}, version_rolling: {:?}, minimum_difficulty: {:?} }}",
+            self.id, self.version_rolling, self.minimum_difficulty
+        )
+    }
 }
 
 impl Configure {
@@ -549,6 +654,18 @@ pub struct VersionRollingParams {
     pub version_rolling: bool,
     pub version_rolling_mask: HexU32Be,
     pub version_rolling_min_bit_count: HexU32Be,
+}
+
+impl fmt::Display for VersionRollingParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "VersionRollingParams {{ version_rolling: {}, version_rolling_mask: {}, version_rolling_min_bit_count: {} }}",
+            self.version_rolling,
+            self.version_rolling_mask,
+            self.version_rolling_min_bit_count
+        )
+    }
 }
 
 #[test]

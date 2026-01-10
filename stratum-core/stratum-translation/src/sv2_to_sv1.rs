@@ -87,7 +87,7 @@ pub fn build_sv1_notify_from_sv2(
         time,
         clean_jobs,
     };
-    debug!("\nNextMiningNotify: {:?}\n", notify_response);
+    debug!("\nNextMiningNotify: {}\n", notify_response);
     Ok(notify_response)
 }
 
