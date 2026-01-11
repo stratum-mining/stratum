@@ -4,6 +4,7 @@ use bitcoin_hashes::hex::{FromHex, ToHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt;
 use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 
 /// Helper type that allows simple serialization and deserialization of byte vectors
@@ -11,6 +12,12 @@ use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 /// Extranonce must be less than or equal to 32 bytes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Extranonce<'a>(pub B032<'a>);
+
+impl fmt::Display for Extranonce<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&hex::encode(self.0.inner_as_ref()))
+    }
+}
 
 impl Extranonce<'_> {
     pub fn len(&self) -> usize {
@@ -81,6 +88,12 @@ impl<'a> From<B032<'a>> for Extranonce<'a> {
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexU32Be(pub u32);
+
+impl fmt::Display for HexU32Be {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:08x}", self.0)
+    }
+}
 
 impl HexU32Be {
     pub fn check_mask(&self, mask: &HexU32Be) -> bool {
@@ -153,6 +166,14 @@ impl<'de> Deserialize<'de> for HexU32Be {
 /// into big endian. Therefore, we need a special type for it
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrevHash<'a>(pub U256<'a>);
+
+impl fmt::Display for PrevHash<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Reuse the Stratum V1 serialization logic
+        let s = String::from(self.clone());
+        f.write_str(&s)
+    }
+}
 
 impl<'a> From<PrevHash<'a>> for Vec<u8> {
     fn from(p_hash: PrevHash<'a>) -> Self {
@@ -238,6 +259,12 @@ impl AsRef<[u8]> for Extranonce<'_> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleNode<'a>(pub U256<'a>);
 
+impl fmt::Display for MerkleNode<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(&self.0))
+    }
+}
+
 impl MerkleNode<'_> {
     pub fn is_empty(&self) -> bool {
         self.0.inner_as_ref().is_empty()
@@ -292,6 +319,12 @@ impl<'a> From<MerkleNode<'a>> for String {
 /// HexBytes must be less than or equal to 32 bytes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexBytes(Vec<u8>);
+
+impl fmt::Display for HexBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(&self.0))
+    }
+}
 
 impl HexBytes {
     pub fn len(&self) -> usize {
