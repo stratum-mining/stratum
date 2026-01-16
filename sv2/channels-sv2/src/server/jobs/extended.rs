@@ -2,13 +2,65 @@ use super::Job;
 use crate::{
     merkle_root::merkle_root_from_path,
     outputs::deserialize_template_outputs,
-    server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
+    server::jobs::{
+        error::ExtendedJobError,
+        standard::{DefaultStandardJob, StandardJob},
+        JobOrigin,
+    },
 };
 use binary_sv2::{Seq0255, Sv2Option, U256};
 use bitcoin::transaction::TxOut;
 use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplate;
+
+pub trait ExtendedJob<'a>: Job {
+    // the standard job type that this extended job could be potentially converted to
+    type StandardJob: StandardJob<'a>;
+
+    fn from_template(
+        template: NewTemplate<'a>,
+        extranonce_prefix: Vec<u8>,
+        additional_coinbase_outputs: Vec<TxOut>,
+        coinbase_tx_prefix: Vec<u8>,
+        coinbase_tx_suffix: Vec<u8>,
+        job_message: NewExtendedMiningJob<'a>,
+    ) -> Result<Self, ExtendedJobError>
+    where
+        Self: Sized;
+
+    fn from_custom_job(
+        custom_job: SetCustomMiningJob<'a>,
+        extranonce_prefix: Vec<u8>,
+        coinbase_outputs: Vec<TxOut>,
+        coinbase_tx_prefix: Vec<u8>,
+        coinbase_tx_suffix: Vec<u8>,
+        job_message: NewExtendedMiningJob<'a>,
+    ) -> Self
+    where
+        Self: Sized;
+
+    fn into_standard_job(
+        self,
+        channel_id: u32,
+        extranonce_prefix: Vec<u8>,
+    ) -> Result<Self::StandardJob, ExtendedJobError>
+    where
+        Self: Sized;
+
+    fn get_origin(&self) -> &JobOrigin<'a>;
+    fn get_coinbase_outputs(&self) -> &Vec<TxOut>;
+    fn get_job_message(&self) -> &NewExtendedMiningJob<'a>;
+    fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>>;
+    fn get_min_ntime(&self) -> Sv2Option<'a, u32>;
+    fn get_version(&self) -> u32;
+    fn version_rolling_allowed(&self) -> bool;
+    fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8>;
+    fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8>;
+    fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8>;
+    fn get_coinbase_tx_suffix_without_bip141(&self) -> Vec<u8>;
+    fn get_extranonce_prefix(&self) -> &Vec<u8>;
+}
 
 /// Abstraction of an extended mining job with:
 /// - the `NewTemplate` OR `SetCustomMiningJob` message that originated it
@@ -25,7 +77,7 @@ use template_distribution_sv2::NewTemplate;
 /// That makes it easy to calculate the coinbase `txid` (instead of `wtxid`) for merkle root
 /// calculation.
 #[derive(Debug, Clone)]
-pub struct ExtendedJob<'a> {
+pub struct DefaultExtendedJob<'a> {
     origin: JobOrigin<'a>,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
@@ -34,21 +86,23 @@ pub struct ExtendedJob<'a> {
     job_message: NewExtendedMiningJob<'a>,
 }
 
-impl Job for ExtendedJob<'_> {
+impl Job for DefaultExtendedJob<'_> {
     fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }
 
     fn activate(&mut self, min_ntime: u32) {
-        self.activate(min_ntime);
+        self.job_message.min_ntime = Sv2Option::new(Some(min_ntime));
     }
 }
 
-impl<'a> ExtendedJob<'a> {
+impl<'a> ExtendedJob<'a> for DefaultExtendedJob<'a> {
+    type StandardJob = DefaultStandardJob<'a>;
+
     /// Creates a new job from a template.
     ///
     /// `additional_coinbase_outputs` are added to the coinbase outputs coming from the template.
-    pub fn from_template(
+    fn from_template(
         template: NewTemplate<'a>,
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
@@ -75,10 +129,11 @@ impl<'a> ExtendedJob<'a> {
             job_message,
         })
     }
+
     /// Creates a new extended job from a custom mining job message.
     ///
     /// Used for jobs originating from [`SetCustomMiningJob`] messages.
-    pub fn from_custom_job(
+    fn from_custom_job(
         custom_job: SetCustomMiningJob<'a>,
         extranonce_prefix: Vec<u8>,
         coinbase_outputs: Vec<TxOut>,
@@ -100,11 +155,11 @@ impl<'a> ExtendedJob<'a> {
     ///
     /// Only possible if the job was created from a `NewTemplate`.
     /// Jobs created from `SetCustomMiningJob` cannot be converted
-    pub fn into_standard_job(
+    fn into_standard_job(
         self,
         channel_id: u32,
         extranonce_prefix: Vec<u8>,
-    ) -> Result<StandardJob<'a>, ExtendedJobError> {
+    ) -> Result<Self::StandardJob, ExtendedJobError> {
         // here we can only convert extended jobs that were created from a template
         let template = match self.get_origin() {
             JobOrigin::NewTemplate(template) => template,
@@ -131,7 +186,7 @@ impl<'a> ExtendedJob<'a> {
             min_ntime: self.get_min_ntime(),
         };
 
-        let standard_job = StandardJob::from_template(
+        let standard_job = DefaultStandardJob::from_template(
             template.clone(),
             extranonce_prefix,
             self.get_coinbase_outputs().clone(),
@@ -142,67 +197,61 @@ impl<'a> ExtendedJob<'a> {
         Ok(standard_job)
     }
 
-    /// Returns the job ID for this job.
-    pub fn get_job_id(&self) -> u32 {
-        self.job_message.job_id
-    }
-
     /// Returns the origin message for this job (template or custom job).
-    pub fn get_origin(&self) -> &JobOrigin<'a> {
+    fn get_origin(&self) -> &JobOrigin<'a> {
         &self.origin
     }
 
-    /// Returns the coinbase transaction without for this job without BIP141 data.
-    pub fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8> {
+    /// Returns all coinbase outputs for this job.
+    fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
+        &self.coinbase_outputs
+    }
+
+    /// Returns the [`NewExtendedMiningJob`] message for this job.
+    fn get_job_message(&self) -> &NewExtendedMiningJob<'a> {
+        &self.job_message
+    }
+
+    /// Returns the merkle path for this job.
+    fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>> {
+        &self.job_message.merkle_path
+    }
+
+    /// Returns the minimum ntime for this job (if set).
+    fn get_min_ntime(&self) -> Sv2Option<'a, u32> {
+        self.job_message.min_ntime.clone()
+    }
+
+    /// Returns the block version for this job.
+    fn get_version(&self) -> u32 {
+        self.job_message.version
+    }
+
+    /// Returns true if version rolling is allowed for this job.
+    fn version_rolling_allowed(&self) -> bool {
+        self.job_message.version_rolling_allowed
+    }
+
+    fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8> {
+        self.coinbase_tx_prefix_with_bip141.clone()
+    }
+
+    fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8> {
+        self.coinbase_tx_suffix_with_bip141.clone()
+    }
+
+    /// Returns the coinbase transaction prefix for this job without BIP141 data.
+    fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8> {
         self.job_message.coinbase_tx_prefix.inner_as_ref().to_vec()
     }
 
     /// Returns the coinbase transaction suffix for this job without BIP141 data.
-    pub fn get_coinbase_tx_suffix_without_bip141(&self) -> Vec<u8> {
+    fn get_coinbase_tx_suffix_without_bip141(&self) -> Vec<u8> {
         self.job_message.coinbase_tx_suffix.inner_as_ref().to_vec()
     }
 
     /// Returns the extranonce prefix used for this job.
-    pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
+    fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
-    }
-    /// Returns all coinbase outputs for this job.
-    pub fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
-        &self.coinbase_outputs
-    }
-    /// Returns the [`NewExtendedMiningJob`] message for this job.
-    pub fn get_job_message(&self) -> &NewExtendedMiningJob<'a> {
-        &self.job_message
-    }
-    /// Returns the merkle path for this job.
-    pub fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>> {
-        &self.job_message.merkle_path
-    }
-    /// Returns the minimum ntime for this job (if set).
-    pub fn get_min_ntime(&self) -> Sv2Option<'a, u32> {
-        self.job_message.min_ntime.clone()
-    }
-    /// Returns the block version for this job.
-    pub fn get_version(&self) -> u32 {
-        self.job_message.version
-    }
-    /// Returns true if version rolling is allowed for this job.
-    pub fn version_rolling_allowed(&self) -> bool {
-        self.job_message.version_rolling_allowed
-    }
-
-    pub fn get_coinbase_tx_prefix_with_bip141(&self) -> Vec<u8> {
-        self.coinbase_tx_prefix_with_bip141.clone()
-    }
-
-    pub fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8> {
-        self.coinbase_tx_suffix_with_bip141.clone()
-    }
-
-    /// Activates the job, setting the `min_ntime` field of the `NewExtendedMiningJob` message.
-    ///
-    /// To be used while activating future jobs upon updating channel `ChainTip` state.
-    pub fn activate(&mut self, min_ntime: u32) {
-        self.job_message.min_ntime = Sv2Option::new(Some(min_ntime));
     }
 }
