@@ -45,5 +45,5 @@ harness = false
 
 
 [[bench]]
-name = "codec"
+name = "roundtrip"
 harness = false

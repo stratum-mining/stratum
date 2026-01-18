@@ -1,29 +1,68 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use noise_sv2::{Initiator, Responder};
-use rand::{rngs::StdRng, SeedableRng};
 
-pub fn rng() -> StdRng {
-    StdRng::seed_from_u64(0xdead_beef)
-}
-
-pub fn payload(len: usize) -> Vec<u8> {
-    vec![0u8; len]
-}
+use crate::common::{generate_key_with_rng, rng};
+mod common;
 
 fn bench_nx_handshake(c: &mut Criterion) {
     let mut group = c.benchmark_group("handshake");
 
+    group.bench_function("step_0_initiator", |b| {
+        b.iter_batched(
+            || Initiator::new(None),
+            |mut initiator| {
+                let _msg_0 = initiator.step_0().unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("step_1_responder", |b| {
+        b.iter_batched(
+            || {
+                let responder_key = generate_key_with_rng(&mut rng());
+                let mut initiator = Initiator::new(None);
+                let responder = Responder::new(responder_key, 60);
+
+                let msg_0 = initiator.step_0().unwrap();
+                (responder, msg_0)
+            },
+            |(mut responder, msg_0)| {
+                let _ = responder
+                    .step_1_with_now_rng(msg_0, 10, &mut rng())
+                    .unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("step_2_initiator", |b| {
+        b.iter_batched(
+            || {
+                let responder_key = generate_key_with_rng(&mut rng());
+                let mut initiator = Initiator::new(None);
+                let mut responder = Responder::new(responder_key, 60);
+
+                let msg_0 = initiator.step_0().unwrap();
+                let (msg_2, _) = responder
+                    .step_1_with_now_rng(msg_0, 10, &mut rng())
+                    .unwrap();
+
+                (initiator, msg_2)
+            },
+            |(mut initiator, msg_2)| {
+                let _ = initiator.step_2_with_now(msg_2, 10).unwrap();
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
     group.bench_function("handshake", |b| {
         b.iter_batched(
             || {
-                let initiator = Initiator::without_pk().unwrap();
-                let responder = Responder::new(
-                    secp256k1::Keypair::from_secret_key(
-                        &secp256k1::Secp256k1::new(),
-                        &secp256k1::SecretKey::from_slice(&[1u8; 32]).unwrap(),
-                    ),
-                    60,
-                );
+                let responder_key = generate_key_with_rng(&mut rng());
+                let initiator = Initiator::new(None);
+                let responder = Responder::new(responder_key, 60);
                 (initiator, responder)
             },
             |(mut initiator, mut responder)| {
@@ -33,7 +72,7 @@ fn bench_nx_handshake(c: &mut Criterion) {
                     .unwrap();
                 let _ = initiator.step_2_with_now(msg_2, 10).unwrap();
             },
-            criterion::BatchSize::SmallInput,
+            BatchSize::SmallInput,
         );
     });
     group.finish();
