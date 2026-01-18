@@ -3,7 +3,7 @@ use core::time::Duration;
 use rand::Rng;
 
 mod control_struct;
-use control_struct::{add_random_bytes, bench_no_thread, keep_slice, MaxEfficeincy, PPool, DATA};
+use control_struct::{add_random_bytes, bench_no_thread, keep_slice, MaxEfficiency, PPool, DATA};
 
 fn with_pool() {
     let data = DATA;
@@ -28,7 +28,7 @@ fn with_contro_struct() {
 fn with_contro_struct_max_e() {
     let data = DATA;
     let capacity: usize = 2_usize.pow(16) * 5;
-    let pool = MaxEfficeincy::new(capacity);
+    let pool = MaxEfficiency::new(capacity);
     bench_no_thread(pool, &data[..]);
 }
 
@@ -132,7 +132,7 @@ fn with_control_threaded_2() {
 fn with_control_max_threaded() {
     let data = DATA;
     let capacity: usize = 2_usize.pow(16) * 5;
-    let mut pool = MaxEfficeincy::new(capacity);
+    let mut pool = MaxEfficiency::new(capacity);
     let mut rng = rand::thread_rng();
     let d = Duration::from_micros(10);
     for i in 0..1000 {
@@ -147,7 +147,7 @@ fn with_control_max_threaded() {
 fn with_control_max_threaded_2() {
     let data = DATA;
     let capacity: usize = 2_usize.pow(16) * 5;
-    let mut pool = MaxEfficeincy::new(capacity);
+    let mut pool = MaxEfficiency::new(capacity);
     let mut rng = rand::thread_rng();
     let d = Duration::from_nanos(10);
     for i in 0..1000 {

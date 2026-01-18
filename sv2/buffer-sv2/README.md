@@ -202,12 +202,12 @@ cargo bench --features criterion
 ## Benchmarks Comparisons
 
 `BufferPool` is benchmarked against `BufferFromSystemMemory` and two additional structure for
-reference: `PPool` (a hashmap-based pool) and `MaxEfficeincy` (a highly optimized but unrealistic
+reference: `PPool` (a hashmap-based pool) and `MaxEfficiency` (a highly optimized but unrealistic
 control implementation written such that the benchmarks do not panic and the compiler does not
 complain). `BufferPool` generally provides better performance and lower latency than `PPool` and
 `BufferFromSystemMemory`.
 
-**Note**: Both `PPool` and `MaxEfficeincy` are completely broken and are only useful as references
+**Note**: Both `PPool` and `MaxEfficiency` are completely broken and are only useful as references
 for the benchmarks.
 
 ### `BENCHES.md` Benchmarks
@@ -220,15 +220,15 @@ Executed for 2,000 samples:
 * single thread with  `BufferPool`: ---------------------------------- 7.5006 ms
 * single thread with  `BufferFromSystemMemory`: ---------------------- 10.274 ms
 * single thread with  `PPoll`: --------------------------------------- 32.593 ms
-* single thread with  `MaxEfficeincy`: ------------------------------- 1.2618 ms
+* single thread with  `MaxEfficiency`: ------------------------------- 1.2618 ms
 * multi-thread with   `BufferPool`: ---------------------------------- 34.660 ms
 * multi-thread with   `BufferFromSystemMemory`: ---------------------- 142.23 ms
 * multi-thread with   `PPoll`: --------------------------------------- 49.790 ms
-* multi-thread with   `MaxEfficeincy`: ------------------------------- 18.201 ms
+* multi-thread with   `MaxEfficiency`: ------------------------------- 18.201 ms
 * multi-thread 2 with `BufferPool`: ---------------------------------- 80.869 ms
 * multi-thread 2 with `BufferFromSystemMemory`: ---------------------- 192.24 ms
 * multi-thread 2 with `PPoll`: --------------------------------------- 101.75 ms
-* multi-thread 2 with `MaxEfficeincy`: ------------------------------- 66.972 ms
+* multi-thread 2 with `MaxEfficiency`: ------------------------------- 66.972 ms
 ```
 
 ### Single Thread Benchmarks

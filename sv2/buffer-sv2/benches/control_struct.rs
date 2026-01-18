@@ -206,11 +206,11 @@ impl Buffer for PPool {
 
 unsafe impl Send for SSlice {}
 
-pub struct MaxEfficeincy {
+pub struct MaxEfficiency {
     inner: Vec<u8>,
 }
 
-impl MaxEfficeincy {
+impl MaxEfficiency {
     pub fn new(capacity: usize) -> Self {
         let inner = vec![0; capacity];
         Self { inner }
@@ -244,7 +244,7 @@ impl AsRef<[u8]> for MaxESlice {
 
 unsafe impl Send for MaxESlice {}
 
-impl Buffer for MaxEfficeincy {
+impl Buffer for MaxEfficiency {
     type Slice = MaxESlice;
 
     #[inline(always)]
