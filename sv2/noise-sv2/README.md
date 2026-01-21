@@ -35,3 +35,20 @@ This crate provides example on establishing a secure line:
 1. **[Noise Handshake Example](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/noise-sv2/examples/handshake.rs)**:
    Establish a secure line of communication between an Initiator and Responder via the Noise
    protocol, allowing for the encryption and decryption of a secret message.
+
+### Benches
+
+This crate includes Criterion benchmarks under `benches/` covering:
+
+* Noise handshake performance (`handshake.rs`)
+* Encrypted message roundtrips after handshake (`roundtrip.rs`)
+
+Benchmarks are intended for regression tracking and relative comparison, not absolute performance claims.
+
+Example benchmark output and methodology are documented in [BENCHES.md](./BENCHES.md).
+
+Run them with:
+
+```bash
+cargo bench
+```
