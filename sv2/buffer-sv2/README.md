@@ -196,18 +196,18 @@ a93456bc  BACK MODE (buffer is now full)
 To run benchmarks, execute:
 
 ```
-cargo bench --features criterion
+cargo bench
 ```
 
 ## Benchmarks Comparisons
 
 `BufferPool` is benchmarked against `BufferFromSystemMemory` and two additional structure for
-reference: `PPool` (a hashmap-based pool) and `MaxEfficeincy` (a highly optimized but unrealistic
+reference: `PPool` (a hashmap-based pool) and `MaxEfficiency` (a highly optimized but unrealistic
 control implementation written such that the benchmarks do not panic and the compiler does not
 complain). `BufferPool` generally provides better performance and lower latency than `PPool` and
 `BufferFromSystemMemory`.
 
-**Note**: Both `PPool` and `MaxEfficeincy` are completely broken and are only useful as references
+**Note**: Both `PPool` and `MaxEfficiency` are completely broken and are only useful as references
 for the benchmarks.
 
 ### `BENCHES.md` Benchmarks
@@ -220,15 +220,15 @@ Executed for 2,000 samples:
 * single thread with  `BufferPool`: ---------------------------------- 7.5006 ms
 * single thread with  `BufferFromSystemMemory`: ---------------------- 10.274 ms
 * single thread with  `PPoll`: --------------------------------------- 32.593 ms
-* single thread with  `MaxEfficeincy`: ------------------------------- 1.2618 ms
+* single thread with  `MaxEfficiency`: ------------------------------- 1.2618 ms
 * multi-thread with   `BufferPool`: ---------------------------------- 34.660 ms
 * multi-thread with   `BufferFromSystemMemory`: ---------------------- 142.23 ms
 * multi-thread with   `PPoll`: --------------------------------------- 49.790 ms
-* multi-thread with   `MaxEfficeincy`: ------------------------------- 18.201 ms
+* multi-thread with   `MaxEfficiency`: ------------------------------- 18.201 ms
 * multi-thread 2 with `BufferPool`: ---------------------------------- 80.869 ms
 * multi-thread 2 with `BufferFromSystemMemory`: ---------------------- 192.24 ms
 * multi-thread 2 with `PPoll`: --------------------------------------- 101.75 ms
-* multi-thread 2 with `MaxEfficeincy`: ------------------------------- 66.972 ms
+* multi-thread 2 with `MaxEfficiency`: ------------------------------- 66.972 ms
 ```
 
 ### Single Thread Benchmarks
@@ -283,34 +283,3 @@ for 0..1000:
   send the buffer to another thread   -> wait 1 ms and then drop it
   wait for the 2 buffer to be dropped
 ```
-
-## Fuzz Testing
-Install `cargo-fuzz` with:
-
-```bash
-cargo install cargo-fuzz
-```
-
-Run the fuzz tests:
-
-```bash
-cd ./fuzz
-cargo fuzz run slower -- -rss_limit_mb=5000000000
-cargo fuzz run faster -- -rss_limit_mb=5000000000
-```
-The test must be run with `-rss_limit_mb=5000000000` as this flag checks `BufferPool` with
-capacities from `0` to `2^32`.
-
-`BufferPool` is fuzz-tested to ensure memory reliability across different scenarios, including
-delayed memory release and cross-thread access. The tests checks if slices created by `BufferPool`
-still contain the same bytes contained at creation time after a random amount of time and after it
-has been sent to other threads.
-
-There are 2 fuzzy test, the first (faster) it map a smaller input space to
-Two main fuzz tests are provided:
-
-1. Faster: Maps a smaller input space to test the most likely inputs
-2. Slower: Has a bigger input space to explore "all" the edge case. It forces the buffer to be sent
-   to different cores.
-
-Both tests have been run for several hours without crashes.
