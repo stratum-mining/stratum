@@ -219,7 +219,7 @@ fn keep_slice_test_p(mut slice: Slice, mut control: Vec<u8>, ms: u64) {
 
 const MESSAGE_LENGTH: usize = 2_usize.pow(14);
 
-fn with_pool_trreaded_test_1(data: &[u8]) {
+fn with_pool_threaded_test_1(data: &[u8]) {
     let w_lens = vec![10];
     let micros = vec![64511, 9471];
 
@@ -237,7 +237,7 @@ fn with_pool_trreaded_test_1(data: &[u8]) {
     }
 }
 
-fn with_pool_trreaded_test_2(data: &[u8]) {
+fn with_pool_threaded_test_2(data: &[u8]) {
     let capacity: usize = 2_usize.pow(16) * 10;
     let w_lens = vec![10];
     let micros = vec![1];
@@ -263,10 +263,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.sample_size(500);
     c.bench_function("with pool threaded test", |b| {
-        b.iter(|| with_pool_trreaded_test_1(&input[..]))
+        b.iter(|| with_pool_threaded_test_1(&input[..]))
     });
     c.bench_function("with pool threaded test 2", |b| {
-        b.iter(|| with_pool_trreaded_test_2(&input[..]))
+        b.iter(|| with_pool_threaded_test_2(&input[..]))
     });
     c.bench_function("with pool", |b| b.iter(|| with_pool(&input[..])));
     c.bench_function("without pool", |b| b.iter(|| without_pool(&input[..])));
