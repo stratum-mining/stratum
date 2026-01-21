@@ -196,7 +196,7 @@ a93456bc  BACK MODE (buffer is now full)
 To run benchmarks, execute:
 
 ```
-cargo bench --features criterion
+cargo bench
 ```
 
 ## Benchmarks Comparisons
@@ -283,34 +283,3 @@ for 0..1000:
   send the buffer to another thread   -> wait 1 ms and then drop it
   wait for the 2 buffer to be dropped
 ```
-
-## Fuzz Testing
-Install `cargo-fuzz` with:
-
-```bash
-cargo install cargo-fuzz
-```
-
-Run the fuzz tests:
-
-```bash
-cd ./fuzz
-cargo fuzz run slower -- -rss_limit_mb=5000000000
-cargo fuzz run faster -- -rss_limit_mb=5000000000
-```
-The test must be run with `-rss_limit_mb=5000000000` as this flag checks `BufferPool` with
-capacities from `0` to `2^32`.
-
-`BufferPool` is fuzz-tested to ensure memory reliability across different scenarios, including
-delayed memory release and cross-thread access. The tests checks if slices created by `BufferPool`
-still contain the same bytes contained at creation time after a random amount of time and after it
-has been sent to other threads.
-
-There are 2 fuzzy test, the first (faster) it map a smaller input space to
-Two main fuzz tests are provided:
-
-1. Faster: Maps a smaller input space to test the most likely inputs
-2. Slower: Has a bigger input space to explore "all" the edge case. It forces the buffer to be sent
-   to different cores.
-
-Both tests have been run for several hours without crashes.

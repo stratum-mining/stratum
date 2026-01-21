@@ -1,6 +1,22 @@
 Benchmark for 2000 samples with criterion:
 
 ```
+Benchmarking sample-size-example/with pool threaded test: Warming up for 3.0000 s
+Warning: Unable to complete 500 samples in 5.0s. You may wish to increase target time to 32.5s, or reduce sample count to 70.
+sample-size-example/with pool threaded test                                                                            
+                        time:   [72.104 ms 72.790 ms 73.505 ms]
+Found 16 outliers among 500 measurements (3.20%)
+  9 (1.80%) high mild
+  7 (1.40%) high severe
+Benchmarking sample-size-example/with pool threaded test 2: Warming up for 3.0000 s
+Warning: Unable to complete 500 samples in 5.0s. You may wish to increase target time to 31.2s, or reduce sample count to 80.
+sample-size-example/with pool threaded test 2                                                                            
+                        time:   [63.839 ms 64.913 ms 66.038 ms]
+Found 11 outliers among 500 measurements (2.20%)
+  7 (1.40%) high mild
+  4 (0.80%) high severe
+Benchmarking sample-size-example/with pool: Warming up for 3.0000 s
+Warning: Unable to complete 500 samples in 5.0s. You may wish to increase target time to 6.8s, or reduce sample count to 360.
 sample-size-example/with pool
                         time:   [7.4963 ms 7.5006 ms 7.5051 ms]
                         change: [+6.1229% +6.3176% +6.5036%] (p = 0.00 < 0.05)
