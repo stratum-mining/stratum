@@ -209,6 +209,8 @@ impl<'a> ExtendedChannel<'a> {
 
     /// Handles a [`NewExtendedMiningJob`] message received from upstream.
     ///
+    /// The message could be either directed at this channel, or at a group channel it belongs to.
+    ///
     /// - If [`NewExtendedMiningJob::min_ntime`] is empty, the job is considered a future job and
     ///   added to the future jobs list (see [`get_future_jobs`](ExtendedChannel::get_future_jobs)).
     /// - Otherwise, the job is activated and previous active job moves to the past jobs list.
@@ -399,6 +401,8 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Handles a [`SetNewPrevHash`](SetNewPrevHashMp) message from upstream.
+    ///
+    /// The message could be either directed at this channel, or at a group channel it belongs to.
     ///
     /// - If the referenced `job_id` is not a future job, returns an error.
     /// - If it is a future job, activates it as the current job.

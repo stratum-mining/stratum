@@ -162,6 +162,13 @@ impl<'a> ExtendedJob<'a> {
         self.job_message.coinbase_tx_suffix.inner_as_ref().to_vec()
     }
 
+    /// Sets the extranonce prefix for this job.
+    ///
+    /// Meant to be used when a job was originally created for a group channel, but then is assigned to a specific extended channel.
+    pub fn set_extranonce_prefix(&mut self, extranonce_prefix: Vec<u8>) {
+        self.extranonce_prefix = extranonce_prefix;
+    }
+
     /// Returns the extranonce prefix used for this job.
     pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
         &self.extranonce_prefix
@@ -197,6 +204,10 @@ impl<'a> ExtendedJob<'a> {
 
     pub fn get_coinbase_tx_suffix_with_bip141(&self) -> Vec<u8> {
         self.coinbase_tx_suffix_with_bip141.clone()
+    }
+
+    pub fn is_future(&self) -> bool {
+        self.job_message.is_future()
     }
 
     /// Activates the job, setting the `min_ntime` field of the `NewExtendedMiningJob` message.

@@ -3,10 +3,9 @@
 //! This module defines the [`GroupChannel`] struct, which provides an abstraction of a Stratum V2
 //! (SV2) group channel as maintained by a mining server.
 //!
-//! A group channel represents a logical grouping of standard channels, allowing multiple mining
+//! A group channel represents a logical grouping of standard and extended channels, allowing multiple mining
 //! entities to share jobs. It manages job distribution and activation for all
-//! associated standard channels, but delegates share validation and accounting to those standard
-//! channels.
+//! associated channels, but delegates share validation and accounting to those channels.
 //!
 //! ## Responsibilities
 //!
@@ -14,7 +13,7 @@
 //! including:
 //!
 //! - **Group Channel ID**: Holds the unique `group_channel_id`.
-//! - **Standard Channel Management**: Tracks the set of associated standard channel IDs, allowing
+//! - **Channel Management**: Tracks the set of associated channel IDs, allowing
 //!   for dynamic addition and removal.
 //! - **Job Factory and Store**: Manages creation and storage of jobs (future and active) using the
 //!   job factory and job store abstractions.
@@ -26,10 +25,10 @@
 //!
 //! ## Notes
 //!
-//! - Share validation and accounting is handled at the standard channel level, not in the group
+//! - Share validation and accounting is handled at the channel level, not in the group
 //!   channel.
 //! - Past and stale jobs are not tracked in this abstraction.
-//! - Extranonce prefix management is deferred to standard channels; group jobs use an empty prefix.
+//! - Extranonce prefix management is deferred to channels; group jobs use an empty prefix.
 
 use crate::{
     chain_tip::ChainTip,
@@ -46,14 +45,15 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 ///
 /// It keeps track of:
 /// - the group channel's unique `group_channel_id`
-/// - the group channel's `standard_channels` (indexed by `channel_id`)
+/// - the group channel's `channels` (indexed by `channel_id`)
 /// - the group channel's job factory
 /// - the group channel's future jobs (indexed by `template_id`, to be activated upon receipt of a
 ///   `SetNewPrevHash` message)
 /// - the group channel's active job
 /// - the group channel's chain tip
+/// - the group channel's full extranonce size
 ///
-/// Since share validation happens at the Standard Channel level, we don't really keep track of:
+/// Since share validation happens at the Channel level, we don't really keep track of:
 /// - the group channel's past jobs
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
@@ -63,7 +63,7 @@ where
     J: JobStore<ExtendedJob<'a>>,
 {
     group_channel_id: u32,
-    standard_channel_ids: HashSet<u32>,
+    channel_ids: HashSet<u32>,
     job_factory: JobFactory,
     job_store: J,
     chain_tip: Option<ChainTip>,
@@ -148,7 +148,7 @@ where
 
         Ok(Self {
             group_channel_id,
-            standard_channel_ids: HashSet::new(),
+            channel_ids: HashSet::new(),
             job_factory: JobFactory::new(true, pool_tag, miner_tag),
             job_store,
             chain_tip: None,
@@ -157,14 +157,26 @@ where
         })
     }
 
-    /// Adds a standard channel ID to this group channel.
-    pub fn add_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.insert(standard_channel_id);
+    /// Adds a channel ID to this group channel. Also takes the `full_extranonce_size` of the channel to be added.
+    ///
+    /// Returns an error if the provided `full_extranonce_size` doesn't match the group channel's `full_extranonce_size`.
+    pub fn add_channel_id(
+        &mut self,
+        channel_id: u32,
+        full_extranonce_size: usize,
+    ) -> Result<(), GroupChannelError> {
+        self.channel_ids.insert(channel_id);
+
+        if self.full_extranonce_size != full_extranonce_size {
+            return Err(GroupChannelError::FullExtranonceSizeMismatch);
+        }
+
+        Ok(())
     }
 
-    /// Removes a standard channel ID from this group channel.
-    pub fn remove_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.remove(&standard_channel_id);
+    /// Removes a channel ID from this group channel.
+    pub fn remove_channel_id(&mut self, channel_id: u32) {
+        self.channel_ids.remove(&channel_id);
     }
 
     /// Returns the unique group channel ID for this group channel.
@@ -172,13 +184,23 @@ where
         self.group_channel_id
     }
 
+    /// Set the full extranonce size for this group channel.
+    /// Also clears all channel IDs, as no channels can belong to the same group while having different `full_extranonce_size`s.
+    pub fn set_full_extranonce_size(&mut self, full_extranonce_size: usize) {
+        if self.full_extranonce_size != full_extranonce_size {
+            self.channel_ids.clear();
+        }
+
+        self.full_extranonce_size = full_extranonce_size;
+    }
+
     pub fn get_full_extranonce_size(&self) -> usize {
         self.full_extranonce_size
     }
 
-    /// Returns a reference to the set of standard channel IDs associated with this group channel.
-    pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
-        &self.standard_channel_ids
+    /// Returns a reference to the set of channel IDs associated with this group channel.
+    pub fn get_channel_ids(&self) -> &HashSet<u32> {
+        &self.channel_ids
     }
 
     /// Returns the current chain tip, if set.
@@ -228,8 +250,7 @@ where
                         self.group_channel_id,
                         None,
                         vec![], /* empty extranonce prefix, as it will be replaced by the
-                                 * standard channel's extranonce
-                                 * prefix */
+                                 * channel's extranonce prefix */
                         template.clone(),
                         coinbase_reward_outputs,
                         self.full_extranonce_size,
@@ -248,8 +269,7 @@ where
                                 self.group_channel_id,
                                 Some(chain_tip),
                                 vec![], /* empty extranonce prefix, as it will be replaced by
-                                         * the standard
-                                         * channel's extranonce prefix */
+                                         * the channel's extranonce prefix */
                                 template.clone(),
                                 coinbase_reward_outputs,
                                 self.full_extranonce_size,
@@ -306,7 +326,7 @@ mod tests {
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use mining_sv2::NewExtendedMiningJob;
-    use std::convert::TryInto;
+    use std::{collections::HashSet, convert::TryInto};
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
@@ -596,5 +616,66 @@ mod tests {
             .is_err());
 
         assert!(!group_channel.job_store.has_future_jobs());
+    }
+
+    #[test]
+    fn test_add_channel_id() {
+        let group_channel_id = 1;
+        let job_store = DefaultJobStore::new();
+        let full_extranonce_size = 32;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            job_store,
+            full_extranonce_size,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // add a first channel with the correct full extranonce size
+        group_channel
+            .add_channel_id(1, full_extranonce_size)
+            .unwrap();
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([1]));
+        assert_eq!(
+            group_channel.get_full_extranonce_size(),
+            full_extranonce_size
+        );
+
+        // add a second channel with the correct full extranonce size
+        group_channel
+            .add_channel_id(2, full_extranonce_size)
+            .unwrap();
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([1, 2]));
+        assert_eq!(
+            group_channel.get_full_extranonce_size(),
+            full_extranonce_size
+        );
+
+        // add a third channel with a different full extranonce size
+        // this should return an error
+        let new_full_extranonce_size = 24;
+        assert!(group_channel
+            .add_channel_id(3, new_full_extranonce_size)
+            .is_err());
+
+        // set the full extranonce size to a new value
+        group_channel.set_full_extranonce_size(new_full_extranonce_size);
+        assert_eq!(
+            group_channel.get_full_extranonce_size(),
+            new_full_extranonce_size
+        );
+        // all channel IDs should be cleared
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::new());
+
+        // add a fourth channel with the correct full extranonce size
+        group_channel
+            .add_channel_id(4, new_full_extranonce_size)
+            .unwrap();
+        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([4]));
+
+        // add a fifth channel with the old full extranonce size
+        // this should return an error because the full extranonce size is now set to 24
+        assert!(group_channel.add_channel_id(5, 32).is_err());
     }
 }

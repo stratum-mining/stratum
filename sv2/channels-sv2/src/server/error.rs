@@ -13,10 +13,12 @@ pub enum ExtendedChannelError {
     RequestedMinExtranonceSizeTooLarge,
     ExtranoncePrefixTooLarge,
     ScriptSigSizeTooLarge,
+    InvalidJobOrigin,
 }
 
 #[derive(Debug)]
 pub enum GroupChannelError {
+    FullExtranonceSizeMismatch,
     ChainTipNotSet,
     TemplateIdNotFound,
     JobFactoryError(JobFactoryError),

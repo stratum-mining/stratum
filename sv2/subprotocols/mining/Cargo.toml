@@ -1,6 +1,6 @@
 [package]
 name = "mining_sv2"
-version = "6.0.0"
+version = "7.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"

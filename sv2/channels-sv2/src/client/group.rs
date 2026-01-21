@@ -2,8 +2,8 @@
 //!
 //! This module provides the [`GroupChannel`] struct, which acts as a mining client's
 //! abstraction over the state of a Sv2 group channel. It tracks group-level job state
-//! and associated standard channels, but delegates share validation and job lifecycle
-//! to standard channels.
+//! and associated standard and extended channels, but delegates share validation and job lifecycle
+//! to the channels themselves.
 
 use super::{HashMap, HashSet};
 use crate::client::error::GroupChannelError;
@@ -13,24 +13,28 @@ use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
 ///
 /// Tracks:
 /// - the group channel's unique `group_channel_id`
-/// - associated `standard_channel_ids` (indexed by `channel_id`)
+/// - associated `channel_ids` (indexed by `channel_id`)
 /// - future jobs (indexed by `job_id`, to be activated upon receipt of a
 ///   [`SetNewPrevHash`](SetNewPrevHashMp) message)
 /// - active job
 ///
 /// Does **not** track:
 /// - past or stale jobs
-/// - share validation state (handled per-standard channel)
+/// - share validation state (handled per-channel)
 #[derive(Debug, Clone)]
 pub struct GroupChannel<'a> {
     /// Unique identifier for the group channel
     group_channel_id: u32,
     /// Set of channel IDs associated with this group channel
-    standard_channel_ids: HashSet<u32>,
+    channel_ids: HashSet<u32>,
     /// Future jobs, indexed by job_id, waiting to be activated
     future_jobs: HashMap<u32, NewExtendedMiningJob<'a>>,
     /// Currently active mining job for the group channel
     active_job: Option<NewExtendedMiningJob<'a>>,
+    /// Full extranonce size for jobs associated with this group channel.
+    /// The constructor initializes this as None, but as new channels are added, we keep this updated.
+    /// At no point in time, two channels can belong to the same group while having different full extranonce sizes.
+    full_extranonce_size: Option<usize>,
 }
 
 impl<'a> GroupChannel<'a> {
@@ -38,22 +42,48 @@ impl<'a> GroupChannel<'a> {
     pub fn new(group_channel_id: u32) -> Self {
         Self {
             group_channel_id,
-            standard_channel_ids: HashSet::new(),
+            channel_ids: HashSet::new(),
             future_jobs: HashMap::new(),
             active_job: None,
+            full_extranonce_size: None,
         }
     }
 
-    /// Adds a [`StandardChannel`](crate::client::standard::StandardChannel) to the group channel
-    /// by referencing its `channel_id`.
-    pub fn add_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.insert(standard_channel_id);
+    /// Adds a channel to the group by its `channel_id` with the specified `full_extranonce_size`.
+    /// For extended channels, the `full_extranonce_size` is the sum of its `extranonce_prefix` size and its `rollable_extranonce_size`.
+    /// For standard channels, the `full_extranonce_size` is the size of its `extranonce_prefix`.
+    ///
+    /// If this is the first channel ever added to the group, sets the group's `full_extranonce_size`.
+    /// If other channels already exist, validates that the `full_extranonce_size` matches.
+    ///
+    /// Returns an error if the provided `full_extranonce_size` doesn't match the existing value.
+    pub fn add_channel_id(
+        &mut self,
+        channel_id: u32,
+        full_extranonce_size: usize,
+    ) -> Result<(), GroupChannelError> {
+        self.channel_ids.insert(channel_id);
+
+        match self.full_extranonce_size {
+            // if the full extranonce size is already set, check if it matches the new full extranonce size
+            Some(existing_size) => {
+                if existing_size != full_extranonce_size {
+                    return Err(GroupChannelError::FullExtranonceSizeMismatch);
+                }
+            }
+            // if the full extranonce size is not yet set, set it
+            None => {
+                self.full_extranonce_size = Some(full_extranonce_size);
+            }
+        }
+
+        Ok(())
     }
 
-    /// Removes a [`StandardChannel`](crate::client::standard::StandardChannel) from the group
+    /// Removes a channel from the group channel
     /// channel by its `channel_id`.
-    pub fn remove_standard_channel_id(&mut self, standard_channel_id: u32) {
-        self.standard_channel_ids.remove(&standard_channel_id);
+    pub fn remove_channel_id(&mut self, channel_id: u32) {
+        self.channel_ids.remove(&channel_id);
     }
 
     /// Returns the group channel ID.
@@ -61,9 +91,9 @@ impl<'a> GroupChannel<'a> {
         self.group_channel_id
     }
 
-    /// Returns a reference to all standard channel IDs associated with this group channel.
-    pub fn get_standard_channel_ids(&self) -> &HashSet<u32> {
-        &self.standard_channel_ids
+    /// Returns a reference to all channel IDs associated with this group channel.
+    pub fn get_channel_ids(&self) -> &HashSet<u32> {
+        &self.channel_ids
     }
 
     /// Returns a reference to the current active job, if any.
@@ -74,6 +104,11 @@ impl<'a> GroupChannel<'a> {
     /// Returns a reference to all future jobs indexed by job_id.
     pub fn get_future_jobs(&self) -> &HashMap<u32, NewExtendedMiningJob<'a>> {
         &self.future_jobs
+    }
+
+    /// Returns the full extranonce size for jobs associated with this group channel.
+    pub fn get_full_extranonce_size(&self) -> Option<usize> {
+        self.full_extranonce_size
     }
 
     /// Handles a newly received [`NewExtendedMiningJob`] message from upstream.
@@ -115,5 +150,25 @@ impl<'a> GroupChannel<'a> {
         // all other future jobs are now useless
         self.future_jobs.clear();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_channel_id() {
+        let mut group_channel = GroupChannel::new(1);
+        group_channel.add_channel_id(1, 10).unwrap();
+        assert_eq!(group_channel.get_full_extranonce_size(), Some(10));
+
+        // add a second channel with the same full extranonce size
+        group_channel.add_channel_id(2, 10).unwrap();
+        assert_eq!(group_channel.get_full_extranonce_size(), Some(10));
+
+        // add a third channel with a different full extranonce size
+        // this should return an error
+        assert!(group_channel.add_channel_id(3, 12).is_err());
     }
 }
