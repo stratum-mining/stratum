@@ -1,4 +1,4 @@
-use bitcoin_hashes::hex::ToHex;
+use bitcoin_hashes::hex::{FromHex, ToHex};
 use serde_json::{
     Value,
     Value::{Array as JArrary, Null, Number as JNumber, String as JString},
@@ -200,7 +200,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -208,7 +208,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -216,7 +216,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -224,7 +224,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
