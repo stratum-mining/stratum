@@ -15,7 +15,7 @@ pub struct Extranonce<'a>(pub B032<'a>);
 
 impl fmt::Display for Extranonce<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&hex::encode(self.0.inner_as_ref()))
+        f.write_str(&self.0.inner_as_ref().to_hex())
     }
 }
 
@@ -51,9 +51,9 @@ impl<'a> From<Extranonce<'a>> for Value {
 /// FIXME: find a nicer solution
 fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
     if s.len() % 2 != 0 {
-        Ok(hex::decode(format!("0{s}"))?)
+        Vec::<u8>::from_hex(&format!("0{s}")).map_err(Error::HexError)
     } else {
-        Ok(hex::decode(s)?)
+        Vec::<u8>::from_hex(s).map_err(Error::HexError)
     }
 }
 
@@ -67,7 +67,7 @@ impl<'a> TryFrom<&str> for Extranonce<'a> {
 
 impl<'a> From<Extranonce<'a>> for String {
     fn from(bytes: Extranonce<'a>) -> String {
-        hex::encode(bytes.0)
+        bytes.0.inner_as_ref().to_hex()
     }
 }
 
@@ -231,7 +231,7 @@ impl From<PrevHash<'_>> for String {
                 .write_u32::<BigEndian>(prev_hash_word)
                 .expect("Internal error: Could not write buffer");
         }
-        hex::encode(prev_hash_stratum_cursor.into_inner())
+        prev_hash_stratum_cursor.into_inner().to_hex()
     }
 }
 
@@ -261,7 +261,7 @@ pub struct MerkleNode<'a>(pub U256<'a>);
 
 impl fmt::Display for MerkleNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(&self.0))
+        write!(f, "{}", self.0.inner_as_ref().to_hex())
     }
 }
 
@@ -310,7 +310,7 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
 
 impl<'a> From<MerkleNode<'a>> for String {
     fn from(bytes: MerkleNode<'a>) -> String {
-        hex::encode(bytes.0)
+        bytes.0.inner_as_ref().to_hex()
     }
 }
 
@@ -322,7 +322,7 @@ pub struct HexBytes(Vec<u8>);
 
 impl fmt::Display for HexBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(&self.0))
+        write!(f, "{}", self.0.to_hex())
     }
 }
 
@@ -370,7 +370,7 @@ impl TryFrom<&str> for HexBytes {
 
 impl From<HexBytes> for String {
     fn from(bytes: HexBytes) -> String {
-        hex::encode(bytes.0)
+        bytes.0.to_hex()
     }
 }
 

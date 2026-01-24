@@ -9,7 +9,7 @@ pub enum Error<'a> {
     BadBytesConvert(binary_sv2::Error),
     BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
-    HexError(hex::FromHexError),
+    HexError(bitcoin_hashes::Error),
     /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
     /// if a `mining.subscribed` is received when the `ClientStatus` is in the `Init` state.
     IncorrectClientStatus(String),
@@ -80,12 +80,6 @@ impl std::fmt::Display for Error<'_> {
 impl From<bitcoin_hashes::Error> for Error<'_> {
     fn from(e: bitcoin_hashes::Error) -> Self {
         Error::BTCHashError(e)
-    }
-}
-
-impl From<hex::FromHexError> for Error<'_> {
-    fn from(e: hex::FromHexError) -> Self {
-        Error::HexError(e)
     }
 }
 

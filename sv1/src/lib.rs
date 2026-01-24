@@ -42,6 +42,7 @@ pub mod json_rpc;
 pub mod methods;
 pub mod utils;
 
+use bitcoin_hashes::hex::FromHex;
 use std::convert::{TryFrom, TryInto};
 use tracing::debug;
 
@@ -373,7 +374,9 @@ pub trait IsClient<'a> {
                     .subscribe(
                         server_id,
                         configure.id,
-                        Some(Extranonce::try_from(hex::decode("08000002")?)?),
+                        Some(Extranonce::try_from(
+                            Vec::<u8>::from_hex("08000002").map_err(Error::HexError)?,
+                        )?),
                     )
                     .ok();
                 Ok(subscribe)
@@ -696,7 +699,7 @@ mod tests {
 
     #[test]
     fn test_server_handle_invalid_message() {
-        let extranonce1 = Extranonce::try_from(hex::decode("08000002").unwrap()).unwrap();
+        let extranonce1 = Extranonce::try_from(Vec::<u8>::from_hex("08000002").unwrap()).unwrap();
         let mut server = TestServer::new(extranonce1, 4);
 
         // Create an invalid message (response)

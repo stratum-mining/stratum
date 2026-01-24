@@ -1,6 +1,5 @@
 use crate::error::Error;
 use bitcoin_hashes::Error as BTCHashError;
-use hex::FromHexError;
 use std::convert::{TryFrom, TryInto};
 
 pub mod client_to_server;
@@ -24,12 +23,6 @@ pub enum MethodError<'a> {
     NotARequest,
 }
 
-impl From<FromHexError> for ParsingMethodError {
-    fn from(hex_err: FromHexError) -> Self {
-        ParsingMethodError::HexError(Box::new(hex_err))
-    }
-}
-
 impl From<BTCHashError> for ParsingMethodError {
     fn from(btc_err: BTCHashError) -> Self {
         ParsingMethodError::BTCHashError(Box::new(btc_err))
@@ -45,7 +38,7 @@ impl From<binary_sv2::Error> for ParsingMethodError {
 #[derive(Debug, Clone)]
 pub enum ParsingMethodError {
     BadU256Convert(Box<binary_sv2::Error>),
-    HexError(Box<FromHexError>),
+    HexError(Box<BTCHashError>),
     #[allow(clippy::upper_case_acronyms)]
     BTCHashError(Box<BTCHashError>),
     ValueNotAnArray(Box<serde_json::Value>),

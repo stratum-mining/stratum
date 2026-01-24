@@ -1,3 +1,4 @@
+use bitcoin_hashes::hex::FromHex;
 use serde_json::{
     Value,
     Value::{Array as JArrary, Bool as JBool, Number as JNumber, String as JString},
@@ -267,7 +268,7 @@ impl TryFrom<Notification> for SetExtranonce<'_> {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                Extranonce::try_from(hex::decode(a)?)?,
+                Extranonce::try_from(Vec::<u8>::from_hex(a)?)?,
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
