@@ -122,12 +122,10 @@ impl Header {
     /// for the MACs.
     pub fn encrypted_len(&self) -> usize {
         let len = self.len();
-        let mut chunks = len / (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN);
-        if len % (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN) != 0 {
-            chunks += 1;
-        }
-        let mac_len = chunks * AEAD_MAC_LEN;
-        len + mac_len
+        let payload_per_chunk = SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN;
+
+        let chunks = (len + payload_per_chunk - 1) / payload_per_chunk;
+        len + chunks * AEAD_MAC_LEN
     }
 }
 

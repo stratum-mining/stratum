@@ -1,6 +1,6 @@
 use binary_sv2::{self, Serialize};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use framing_sv2::framing::Sv2Frame;
+use framing_sv2::{framing::Sv2Frame, header::Header};
 
 #[cfg(not(feature = "with_buffer_pool"))]
 type Slice = Vec<u8>;
@@ -17,10 +17,7 @@ const BACKEND: &str = "vec";
 const PAYLOAD_SIZES: &[usize] = &[64, 1024, 16 * 1024, 60 * 1024];
 
 fn payload(size: usize) -> Vec<u8> {
-    assert!(size <= 0xFF_FFFF, "payload too large for U24");
-
     let len = size as u32;
-
     let mut ve = Vec::with_capacity(6 + size);
 
     ve.push(0);
@@ -72,7 +69,7 @@ fn bench_serialize_fresh(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                frame.clone().serialize(black_box(&mut buf)).unwrap();
+                frame.clone().serialize(&mut buf).unwrap();
             })
         });
     }
@@ -123,6 +120,19 @@ fn bench_size_hint(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_encrypted_len(c: &mut Criterion) {
+    let mut group = c.benchmark_group(format!("sv2frame::size_hint::{BACKEND}"));
+
+    for &size in PAYLOAD_SIZES {
+        let header = Header::from_bytes(&payload(size)).unwrap();
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
+            b.iter(|| black_box(header.encrypted_len()))
+        });
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     framing,
     bench_from_message,
@@ -130,6 +140,7 @@ criterion_group!(
     bench_serialize_fast,
     bench_from_bytes,
     bench_size_hint,
+    bench_encrypted_len
 );
 
 criterion_main!(framing);
