@@ -121,7 +121,7 @@ fn bench_size_hint(c: &mut Criterion) {
 }
 
 fn bench_encrypted_len(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("sv2frame::size_hint::{BACKEND}"));
+    let mut group = c.benchmark_group(format!("sv2frame::encrypted_len::{BACKEND}"));
 
     for &size in PAYLOAD_SIZES {
         let header = Header::from_bytes(&payload(size)).unwrap();

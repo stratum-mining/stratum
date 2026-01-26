@@ -120,6 +120,7 @@ impl Header {
     ///
     /// The calculated length includes the full payload length and any additional space required
     /// for the MACs.
+    #[allow(clippy::manual_div_ceil)]
     pub fn encrypted_len(&self) -> usize {
         let len = self.len();
         let payload_per_chunk = SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN;
