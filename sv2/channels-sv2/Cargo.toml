@@ -22,6 +22,7 @@ tracing = { version = "0.1"}
 bitcoin = { version = "0.32.5" }
 primitive-types = "0.13.1"
 hashbrown = { version = "0.15.5", optional = true }
+bitvec = "1.0.1"
 
 
 [features]
