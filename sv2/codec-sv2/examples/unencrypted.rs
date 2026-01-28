@@ -111,7 +111,7 @@ fn sender_side(
 
     // Send the encoded frame
     stream_sender
-        .write_all(encoded_frame)
+        .write_all(encoded_frame.as_ref())
         .expect("Failed to send the encoded frame");
 }
 
