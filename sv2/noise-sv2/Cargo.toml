@@ -1,6 +1,6 @@
 [package]
 name = "noise_sv2"
-version = "1.4.1"
+version = "1.4.2"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"
