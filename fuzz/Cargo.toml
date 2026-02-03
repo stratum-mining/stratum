@@ -32,26 +32,8 @@ test = false
 doc = false
 
 [[bin]]
-name = "deserialize_seq0255"
-path = "fuzz_targets/deserialize_seq0255.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_seq064k"
-path = "fuzz_targets/deserialize_seq064k.rs"
-test = false
-doc = false
-
-[[bin]]
 name = "deserialize_stdframe"
 path = "fuzz_targets/deserialize_stdframe.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_datatypes"
-path = "fuzz_targets/deserialize_datatypes.rs"
 test = false
 doc = false
 
