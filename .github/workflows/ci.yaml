@@ -1,0 +1,60 @@
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  clippy-check:
+    name: clippy lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (1.89) + Clippy
+        uses: dtolnay/rust-toolchain@1.89
+        id: toolchain
+        with:
+          components: clippy
+
+      # NOTE: A repo-local `rust-toolchain.toml` is still respected by rustup.
+      - name: Override toolchain
+        run: rustup override set ${{ steps.toolchain.outputs.name }}
+
+      - name: Run Clippy
+        run: cargo clippy --all-features -- -D warnings
+
+  fmt:
+    name: fmt
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly Rust + rustfmt
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check --verbose
