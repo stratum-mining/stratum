@@ -78,3 +78,10 @@ name = "end_to_end_serialization_for_template_distribution_messages"
 path = "fuzz_targets/end_to_end_serialization_for_template_distribution_messages.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "end_to_end_serialization_for_datatypes"
+path = "fuzz_targets/end_to_end_serialization_for_datatypes.rs"
+test = false
+doc = false
+
