@@ -58,3 +58,20 @@ jobs:
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check --verbose
+
+  machete:
+    name: Cargo Machete
+    runs-on: ubuntu-latest
+        
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-machete
+        uses: taiki-e/install-action@cargo-machete
+
+      - name: Run cargo-machete
+        run:  cargo machete
