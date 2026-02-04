@@ -1,6 +1,6 @@
 [package]
 name = "buffer_sv2"
-version = "3.0.0"
+version = "3.0.1"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 description = "buffer"
@@ -13,7 +13,6 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 aes-gcm = { version = "0.10.2", features = ["alloc", "aes"], default-features = false }
-generic-array = "=0.14.7"
 
 [dev-dependencies]
 rand = "0.8.3"
