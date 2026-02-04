@@ -6,17 +6,7 @@ on:
 jobs:
   clippy-check:
     name: clippy lint
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-        include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -36,17 +26,7 @@ jobs:
 
   fmt:
     name: fmt
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-        include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -70,8 +50,5 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-machete
-        uses: taiki-e/install-action@cargo-machete
-
       - name: Run cargo-machete
-        run:  cargo machete
+        uses: bnjbvr/cargo-machete@main
