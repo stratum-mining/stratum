@@ -182,6 +182,11 @@ impl<'a> ExtendedChannel<'a> {
         self.nominal_hashrate
     }
 
+    /// Sets the nominal hashrate for the channel, in h/s.
+    pub fn set_nominal_hashrate(&mut self, hashrate: f32) {
+        self.nominal_hashrate = hashrate;
+    }
+
     /// Returns a reference to the currently active job, if any.
     pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
         self.active_job.as_ref()
