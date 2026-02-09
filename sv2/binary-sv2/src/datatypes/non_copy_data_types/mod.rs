@@ -313,6 +313,20 @@ impl From<[u8; 32]> for U256<'_> {
     }
 }
 
+impl<'a> U256<'a> {
+    /// Returns bytes in little-endian order (wire format for Stratum v2)
+    pub fn to_le_bytes(&self) -> [u8; 32] {
+        self.inner_as_ref().try_into().expect("U256 is 32 bytes")
+    }
+
+    /// Returns bytes in big-endian order
+    pub fn to_be_bytes(&self) -> [u8; 32] {
+        let mut ret = self.to_le_bytes();
+        ret.reverse();
+        ret
+    }
+}
+
 #[cfg(feature = "prop_test")]
 impl<'a> U256<'a> {
     pub fn from_gen(g: &mut Gen) -> Self {
@@ -365,5 +379,30 @@ impl<'a> From<&'a U32AsRef<'a>> for u32 {
     fn from(v: &'a U32AsRef<'a>) -> Self {
         let b = v.inner_as_ref();
         u32::from_le_bytes([b[0], b[1], b[2], b[3]])
+    }
+}
+
+#[cfg(test)]
+mod test_bytes_conversion {
+    use super::*;
+
+    #[test]
+    fn test_u256_endianness() {
+        // Create a 32-byte array pattern
+        let bytes_le: [u8; 32] = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+            0x1D, 0x1E, 0x1F, 0x20,
+        ];
+
+        let val: U256 = bytes_le.into();
+
+        // 1. Test Little Endian (Should match input exactly)
+        assert_eq!(val.to_le_bytes(), bytes_le);
+
+        // 2. Test Big Endian (Should be reversed)
+        let mut expected_be = bytes_le;
+        expected_be.reverse();
+        assert_eq!(val.to_be_bytes(), expected_be);
     }
 }
