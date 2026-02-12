@@ -62,13 +62,13 @@ type Buffer = BufferPool<BufferFromSystemMemory>;
 
 /// Standard Sv2 encoder with Noise protocol support.
 ///
-/// Used for decoding generic message types (`T`) encoded in Sv2 frames.
+/// Used for encoding generic message types (`T`) in Sv2 frames.
 #[cfg(feature = "noise_sv2")]
 pub type NoiseEncoder<T> = WithNoise<Buffer, T>;
 
 /// Standard Sv2 encoder without Noise protocol support.
 ///
-/// Used for decoding generic message types (`T`) encoded in Sv2 frames.
+/// Used for encoding generic message types (`T`) in Sv2 frames.
 pub type Encoder<T> = WithoutNoise<Buffer, T>;
 
 /// Encoder for Sv2 frames with Noise protocol encryption.
