@@ -21,12 +21,14 @@
 // - If the feature is not enabled, a system memory buffer [`binary_sv2::BufferFromSystemMemory`] is
 //   used for simpler applications where memory efficiency is less critical.
 
-use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
-#[cfg(feature = "noise_sv2")]
-use core::convert::TryInto;
 use core::marker::PhantomData;
 use framing_sv2::framing::Sv2Frame;
+
+#[cfg(feature = "noise_sv2")]
+use buffer_sv2::AeadBuffer;
+#[cfg(feature = "noise_sv2")]
+use core::convert::TryInto;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::{Frame, HandShakeFrame};
 #[cfg(feature = "noise_sv2")]
@@ -40,11 +42,9 @@ use tracing::error;
 #[cfg(feature = "noise_sv2")]
 use crate::{Error, Result, State};
 
-#[cfg(feature = "noise_sv2")]
 #[cfg(not(feature = "with_buffer_pool"))]
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
 
-#[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 
@@ -57,27 +57,19 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 //
 // `Buffer` is utilized for storing both serialized Sv2 frames and encrypted Noise data during the
 // encoding process, ensuring that all frames are correctly handled before transmission.
-#[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
 
-// A simple buffer slice for holding serialized Sv2 frame data before transmission.
-//
-// When the `with_buffer_pool` feature is disabled, [`Slice`] defaults to a `Vec<u8>`, which serves
-// as a dynamically allocated array to hold the serialized bytes of Sv2 frames. This provides
-// flexibility in managing the encoded data during transmission or further processing, though it
-// may not offer the same memory efficiency as the pool-allocated version [`BufferPool`].
-#[cfg(not(feature = "with_buffer_pool"))]
-type Slice = Vec<u8>;
+/// Standard Sv2 encoder with Noise protocol support.
+///
+/// Used for encoding generic message types (`T`) in Sv2 frames.
+#[cfg(feature = "noise_sv2")]
+pub type NoiseEncoder<T> = WithNoise<Buffer, T>;
 
-// A buffer slice used for holding serialized Sv2 frame data before transmission.
-//
-// When the `with_buffer_pool` feature is enabled, [`Slice`] defaults to a `buffer_sv2::Slice`,
-// which serves as a slice of the `Buffer` that stores the encoded data. It holds the frame's
-// serialized bytes temporarily, ensuring the data is ready for transmission or encryption,
-// depending on whether Noise protocol support is enabled.
-#[cfg(feature = "with_buffer_pool")]
-type Slice = buffer_sv2::Slice;
+/// Standard Sv2 encoder without Noise protocol support.
+///
+/// Used for encoding generic message types (`T`) in Sv2 frames.
+pub type Encoder<T> = WithoutNoise<Buffer, T>;
 
 /// Encoder for Sv2 frames with Noise protocol encryption.
 ///
@@ -85,20 +77,20 @@ type Slice = buffer_sv2::Slice;
 /// protocol, storing it into another dedicated buffer. Encodes the serialized and encrypted data,
 /// such that it is ready for transmission.
 #[cfg(feature = "noise_sv2")]
-pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
+pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     // Buffer for holding encrypted Noise data to be transmitted.
     //
     // Stores the encrypted data after the Sv2 frame has been processed by the Noise protocol
     // and is ready for transmission. This buffer holds the outgoing encrypted data, ensuring
     // that the full frame is correctly prepared before being sent.
-    noise_buffer: Buffer,
+    noise_buffer: B,
 
     // Buffer for holding serialized Sv2 data before encryption.
     //
     // Stores the data after it has been serialized into an Sv2 frame but before it is encrypted
     // by the Noise protocol. The buffer accumulates the frame's serialized bytes before they are
     // encrypted and then encoded for transmission.
-    sv2_buffer: Buffer,
+    sv2_buffer: B,
 
     // Marker for the type of frame being encoded.
     //
@@ -117,10 +109,10 @@ pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
 // which either processes it for normal transmission or applies Noise encryption, depending on the
 // codec's state.
 #[cfg(feature = "noise_sv2")]
-type Item<T> = Frame<T, Slice>;
+type Item<T, B> = Frame<T, <B as IsBuffer>::Slice>;
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + GetSize> NoiseEncoder<T> {
+impl<B: IsBuffer + AeadBuffer, T: Serialize + GetSize> WithNoise<B, T> {
     /// Encodes an Sv2 frame and encrypts it using the Noise protocol.
     ///
     /// Takes an `item`, which is an Sv2 frame containing a payload of type `T`, and encodes it for
@@ -136,14 +128,14 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
     /// On success, the method returns an encrypted (`Slice`) (buffer) ready for transmission.
     /// Otherwise, errors on an encryption or serialization failure.
     #[inline]
-    pub fn encode(&mut self, item: Item<T>, state: &mut State) -> Result<Slice> {
+    pub fn encode(&mut self, item: Item<T, B>, state: &mut State) -> Result<B::Slice> {
         match state {
             State::Transport(noise_codec) => {
                 let len = item.encoded_length();
                 let writable = self.sv2_buffer.get_writable(len);
 
                 // ENCODE THE SV2 FRAME
-                let i: Sv2Frame<T, Slice> = item.try_into().map_err(|e| {
+                let i: Sv2Frame<T, B::Slice> = item.try_into().map_err(|e| {
                     #[cfg(feature = "tracing")]
                     error!("Error while encoding 1 frame: {:?}", e);
                     Error::FramingError(e)
@@ -196,7 +188,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
     // and set up the Noise encryption state before transitioning to the transport phase, where
     // full frames are encrypted and transmitted.
     #[inline(never)]
-    fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
+    fn while_handshaking(&mut self, item: Item<T, B>) -> Result<()> {
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|e| {
             #[cfg(feature = "tracing")]
@@ -218,7 +210,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + binary_sv2::GetSize> NoiseEncoder<T> {
+impl<T: Serialize + binary_sv2::GetSize> WithNoise<Buffer, T> {
     /// Creates a new `NoiseEncoder` with default buffer sizes.
     pub fn new() -> Self {
         #[cfg(not(feature = "with_buffer_pool"))]
@@ -234,7 +226,7 @@ impl<T: Serialize + binary_sv2::GetSize> NoiseEncoder<T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + GetSize> Default for NoiseEncoder<T> {
+impl<T: Serialize + GetSize> Default for WithNoise<Buffer, T> {
     fn default() -> Self {
         Self::new()
     }
@@ -245,13 +237,13 @@ impl<T: Serialize + GetSize> Default for NoiseEncoder<T> {
 /// Serializes the Sv2 frame into a dedicated buffer then encodes it, such that it is ready for
 /// transmission.
 #[derive(Debug)]
-pub struct Encoder<T> {
+pub struct WithoutNoise<B: IsBuffer, T> {
     // Buffer for holding serialized Sv2 data.
     //
     // Stores the serialized bytes of the Sv2 frame after it has been encoded. Once the frame is
     // serialized, the resulting bytes are stored in this buffer to be transmitted. The buffer is
     // dynamically resized to accommodate the size of the encoded frame.
-    buffer: Vec<u8>,
+    buffer: B,
 
     // Marker for the type of frame being encoded.
     //
@@ -263,7 +255,7 @@ pub struct Encoder<T> {
     frame: PhantomData<T>,
 }
 
-impl<T: Serialize + GetSize> Encoder<T> {
+impl<B: IsBuffer, T: Serialize + GetSize> WithoutNoise<B, T> {
     /// Encodes a standard Sv2 frame for transmission.
     ///
     /// Takes a standard Sv2 frame containing a payload of type `T` and serializes it into a byte
@@ -272,28 +264,29 @@ impl<T: Serialize + GetSize> Encoder<T> {
     /// stored in the internal buffer. Otherwise, errors on a serialization failure.
     pub fn encode(
         &mut self,
-        item: Sv2Frame<T, Slice>,
-    ) -> core::result::Result<&[u8], crate::Error> {
+        item: Sv2Frame<T, B::Slice>,
+    ) -> core::result::Result<B::Slice, crate::Error> {
         let len = item.encoded_length();
+        let writable = self.buffer.get_writable(len);
 
-        self.buffer.resize(len, 0);
+        item.serialize(writable)?;
 
-        item.serialize(&mut self.buffer)?;
-
-        Ok(&self.buffer[..])
-    }
-
-    /// Creates a new `Encoder` with a buffer of default size.
-    pub fn new() -> Self {
-        Self {
-            buffer: Vec::with_capacity(512),
-            frame: core::marker::PhantomData,
-        }
+        Ok(self.buffer.get_data_owned())
     }
 }
 
-impl<T: Serialize + GetSize> Default for Encoder<T> {
+impl<T: Serialize + GetSize> Default for WithoutNoise<Buffer, T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T: Serialize + GetSize> WithoutNoise<Buffer, T> {
+    /// Creates a new `Encoder` with a buffer of default size.
+    pub fn new() -> Self {
+        Self {
+            buffer: Buffer::new(512),
+            frame: core::marker::PhantomData,
+        }
     }
 }

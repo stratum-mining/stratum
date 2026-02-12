@@ -14,7 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [dependencies]
 buffer_sv2 = { path = "../sv2/buffer-sv2", version = "^3.0.0" }
 binary_sv2 = { path = "../sv2/binary-sv2", version = "^5.0.0" }
-codec_sv2 = { path = "../sv2/codec-sv2", version = "^4.0.0", features = ["noise_sv2"]}
+codec_sv2 = { path = "../sv2/codec-sv2", version = "^5.0.0", features = ["noise_sv2"]}
 extensions_sv2 = { path = "../sv2/extensions-sv2", version = "^0.1.0" }
 framing_sv2 = { path = "../sv2/framing-sv2", version = "^6.0.0" }
 noise_sv2 = { path = "../sv2/noise-sv2", version = "^1.0.0" }
