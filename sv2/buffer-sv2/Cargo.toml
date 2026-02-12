@@ -12,13 +12,13 @@ license = "MIT OR Apache-2.0"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
-aes-gcm = { version = "0.10.2", features = ["alloc", "aes"], default-features = false }
+aes-gcm = { workspace = true }
 
 [dev-dependencies]
-rand = "0.8.3"
-iai = "0.1"
-criterion = "0.3"
-rayon-core = "=1.12.1"
+rand = { workspace = true, default-features = true }
+iai = { workspace = true }
+criterion = { workspace = true }
+rayon-core = { workspace = true }
 
 [[bench]]
 name = "pool_benchmark"

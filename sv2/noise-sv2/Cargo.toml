@@ -12,10 +12,10 @@ homepage = "https://stratumprotocol.org"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
-secp256k1 = { version = "0.28.2", default-features = false, features = ["hashes", "alloc", "rand"] }
-rand = {version = "0.8.5", default-features = false }
-aes-gcm = { version = "0.10.2", features = ["alloc", "aes"], default-features = false }
-chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"]}
+secp256k1 = { workspace = true, features = ["hashes", "alloc", "rand"] }
+rand = { workspace = true, default-features = false }
+aes-gcm = { workspace = true }
+chacha20poly1305 = { workspace = true }
 
 [features]
 default = ["std"]
@@ -24,9 +24,9 @@ std = ["rand/std", "rand/std_rng", "secp256k1/rand-std"]
 [dev-dependencies]
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
-criterion = { version = "0.3.0", features = ["html_reports"] }
-rayon-core = "=1.12.1"
-rand = {version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
+criterion = { workspace = true, features = ["html_reports"] }
+rayon-core = { workspace = true }
+rand = { workspace = true, default-features = false, features = ["std", "std_rng"] }
 
 [profile.dev]
 panic = "unwind"

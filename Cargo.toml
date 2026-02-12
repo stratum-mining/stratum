@@ -11,6 +11,23 @@ exclude = [
 ]
 
 [workspace.dependencies]
+aes-gcm = { version = "0.10.2", default-features = false, features = ["alloc", "aes"] }
+bitcoin = "0.32.5"
+bitcoin_hashes = "0.3.2"
+byteorder = "1.2.7"
+chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
+criterion = "0.3"
+hashbrown = "0.15.5"
+iai = "0.1"
+key-utils = "1.2.0"
+primitive-types = "0.13.1"
+rand = { version = "0.8.5", default-features = false }
+rayon-core = "=1.12.1"
+secp256k1 = { version = "0.28.2", default-features = false }
+serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
+tracing = "0.1"
+trait-variant = "0.1.2"
 # Pinned because newer versions pull in a transitive dependency that
 # requires the Rust 2024 edition, which is not supported by the 1.75 toolchain.
 quickcheck = ">= 1.0.3, < 1.1"
