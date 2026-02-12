@@ -9,3 +9,9 @@ exclude = [
     "integration-test-framework",
     "fuzz"
 ]
+
+[workspace.dependencies]
+# Pinned because newer versions pull in a transitive dependency that
+# requires the Rust 2024 edition, which is not supported by the 1.75 toolchain.
+quickcheck = ">= 1.0.3, < 1.1"
+quickcheck_macros = ">= 1.0.0, < 1.1"
