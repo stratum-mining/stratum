@@ -18,6 +18,6 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 binary_sv2 = { path = "../../binary-sv2", version = "^5.0.0" }
 
 [dev-dependencies]
-quickcheck = "1.0.3"
-quickcheck_macros = "1"
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }
 
