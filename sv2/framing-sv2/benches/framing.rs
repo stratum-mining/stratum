@@ -70,7 +70,8 @@ fn bench_serialize(c: &mut Criterion) {
     let mut group = c.benchmark_group(format!("sv2frame::serialize_fresh::{BACKEND}"));
 
     for &size in PAYLOAD_SIZES {
-        let frame = Sv2Frame::<Vec<u8>, Slice>::from_bytes(frame_from_payload_size(size).into()).unwrap();
+        let frame =
+            Sv2Frame::<Vec<u8>, Slice>::from_bytes(frame_from_payload_size(size).into()).unwrap();
 
         let mut buf = vec![0u8; frame.encoded_length()];
 
