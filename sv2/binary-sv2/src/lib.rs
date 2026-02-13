@@ -301,10 +301,9 @@ impl GetSize for Vec<u8> {
     }
 }
 
-// Only needed for implement encodable for Frame never called
 impl From<Vec<u8>> for EncodableField<'_> {
-    fn from(_v: Vec<u8>) -> Self {
-        unreachable!()
+    fn from(v: Vec<u8>) -> Self {
+        EncodableField::Struct(v.into_iter().map(Into::into).collect())
     }
 }
 

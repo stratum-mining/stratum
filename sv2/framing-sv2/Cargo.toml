@@ -19,12 +19,18 @@ buffer_sv2 = { path = "../buffer-sv2", optional=true, version = "^3.0.0" }
 noise_sv2 = { path = "../noise-sv2", version = "^1.0.0" }
 
 [dev-dependencies]
-noise_sv2 = { path = "../noise-sv2", version = "^1.0.0" }
+criterion = { workspace = true, features = ["html_reports"] }
 rand = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["alloc", "rand", "rand-std"] }
+rayon-core = { workspace = true }
 
 [features]
 with_buffer_pool = ["binary_sv2/with_buffer_pool", "buffer_sv2"]
 
 [package.metadata.docs.rs]
 features = ["with_buffer_pool"]
+
+
+[[bench]]
+name = "framing"
+harness = false
