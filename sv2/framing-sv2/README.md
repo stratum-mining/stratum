@@ -64,3 +64,20 @@ This crate provides an example demonstrating how to serialize and deserialize Sv
 
 1. **[Sv2 Frame](https://github.com/stratum-mining/stratum/blob/main/protocols/v2/framing-sv2/examples/sv2_frame.rs)**:
    Constructs, serializes, and deserialize a regular Sv2 message frame (`Sv2Frame`).
+
+### Benches
+
+This crate includes Criterion benchmarks under `benches/` covering:
+
+* Framing performance (`framing.rs`)
+
+Benchmarks are intended for regression tracking and relative comparison, not absolute performance claims.
+
+Example benchmark output and methodology are documented in [BENCHES.md](./BENCHES.md).
+
+Run them with:
+
+```bash
+cargo bench
+cargo bench --features with_buffer_pool
+```
