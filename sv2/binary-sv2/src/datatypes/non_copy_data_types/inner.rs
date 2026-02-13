@@ -445,3 +445,583 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::codec::GetSize;
+    use crate::datatypes::{PubKey, Signature, Str0255, U32AsRef, B016M, B0255, B032, B064K, U256};
+    use alloc::boxed::Box;
+    use quickcheck::{Arbitrary, Gen, TestResult};
+    use quickcheck_macros::quickcheck;
+
+    #[derive(Debug, Clone)]
+    struct BytesUpTo32(Vec<u8>);
+
+    impl Arbitrary for BytesUpTo32 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = (u8::arbitrary(g) as usize) % 33;
+            BytesUpTo32((0..len).map(|_| u8::arbitrary(g)).collect())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct BytesUpTo255(Vec<u8>);
+
+    impl Arbitrary for BytesUpTo255 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = u8::arbitrary(g) as usize;
+            BytesUpTo255((0..len).map(|_| u8::arbitrary(g)).collect())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct BytesUpTo64K(Vec<u8>);
+
+    impl Arbitrary for BytesUpTo64K {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let len = (u16::arbitrary(g) as usize).min(g.size());
+            BytesUpTo64K((0..len).map(|_| u8::arbitrary(g)).collect())
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct BytesUpTo16M(Vec<u8>);
+
+    impl Arbitrary for BytesUpTo16M {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let max_len = (1 << 20).min(g.size());
+            let len = (u32::arbitrary(g) as usize % max_len).min(0xFFFFFF);
+            BytesUpTo16M((0..len).map(|_| u8::arbitrary(g)).collect())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    struct Bytes32([u8; 32]);
+
+    impl Arbitrary for Bytes32 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut arr = [0u8; 32];
+            for byte in arr.iter_mut() {
+                *byte = u8::arbitrary(g);
+            }
+            Bytes32(arr)
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct Bytes64([u8; 64]);
+
+    impl Arbitrary for Bytes64 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut arr = [0u8; 64];
+            for i in 0..64 {
+                arr[i] = u8::arbitrary(g);
+            }
+            Bytes64(arr)
+        }
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            Box::new(core::iter::empty())
+        }
+    }
+
+    #[quickcheck]
+    fn prop_b032_accepts_valid_size(data: BytesUpTo32) {
+        assert!(B032::try_from(data.0.clone()).is_ok());
+    }
+
+    #[quickcheck]
+    fn prop_b032_rejects_oversized(data: Vec<u8>) -> TestResult {
+        if data.len() > 32 {
+            TestResult::from_bool(B032::try_from(data).is_err())
+        } else {
+            TestResult::discard()
+        }
+    }
+
+    #[quickcheck]
+    fn prop_b032_roundtrip(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b032.get_size()];
+        b032.to_slice_unchecked(&mut buf);
+        let decoded = B032::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b032_header_is_length(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b032.get_size()];
+        b032.to_slice_unchecked(&mut buf);
+        assert_eq!(buf[0], data.0.len() as u8);
+    }
+
+    #[quickcheck]
+    fn prop_b032_get_size_accurate(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        assert_eq!(b032.get_size(), data.0.len() + 1);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_accepts_valid_size(data: BytesUpTo255) {
+        assert!(B0255::try_from(data.0.clone()).is_ok());
+    }
+
+    #[quickcheck]
+    fn prop_b0255_rejects_oversized(data: Vec<u8>) -> TestResult {
+        if data.len() > 255 {
+            TestResult::from_bool(B0255::try_from(data).is_err())
+        } else {
+            TestResult::discard()
+        }
+    }
+
+    #[quickcheck]
+    fn prop_b0255_roundtrip(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b0255.get_size()];
+        b0255.to_slice_unchecked(&mut buf);
+        let decoded = B0255::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_header_is_length(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b0255.get_size()];
+        b0255.to_slice_unchecked(&mut buf);
+        assert_eq!(buf[0], data.0.len() as u8);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_get_size_accurate(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        assert_eq!(b0255.get_size(), data.0.len() + 1);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_empty_handled_correctly() {
+        let empty: Vec<u8> = vec![];
+        let b0255 = B0255::try_from(empty).unwrap();
+        let mut buf = vec![0u8; b0255.get_size()];
+        b0255.to_slice_unchecked(&mut buf);
+        assert_eq!(buf.len(), 1);
+        assert_eq!(buf[0], 0);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_max_size_handled(data: BytesUpTo255) -> TestResult {
+        if data.0.len() != 255 {
+            return TestResult::discard();
+        }
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b0255.get_size()];
+        b0255.to_slice_unchecked(&mut buf);
+        TestResult::from_bool(buf[0] == 255 && buf.len() == 256)
+    }
+
+    #[quickcheck]
+    fn prop_b064k_accepts_valid_size(data: BytesUpTo64K) {
+        assert!(B064K::try_from(data.0.clone()).is_ok())
+    }
+
+    #[quickcheck]
+    fn prop_b064k_roundtrip(data: BytesUpTo64K) {
+        let b064k = B064K::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b064k.get_size()];
+        b064k.to_slice_unchecked(&mut buf);
+        let decoded = B064K::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b064k_header_little_endian(data: BytesUpTo64K) {
+        let b064k = B064K::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b064k.get_size()];
+        b064k.to_slice_unchecked(&mut buf);
+        let header_len = u16::from_le_bytes([buf[0], buf[1]]) as usize;
+        assert_eq!(header_len, data.0.len());
+    }
+
+    #[quickcheck]
+    fn prop_b064k_get_size_accurate(data: BytesUpTo64K) {
+        let b064k = B064K::try_from(data.0.clone()).unwrap();
+        assert_eq!(b064k.get_size(), data.0.len() + 2);
+    }
+
+    #[quickcheck]
+    fn prop_b016m_accepts_valid_size(data: BytesUpTo16M) {
+        assert!(B016M::try_from(data.0.clone()).is_ok());
+    }
+
+    #[quickcheck]
+    fn prop_b016m_roundtrip(data: BytesUpTo16M) {
+        let b016m = B016M::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b016m.get_size()];
+        b016m.to_slice_unchecked(&mut buf);
+        let decoded = B016M::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b016m_header_little_endian(data: BytesUpTo16M) {
+        let b016m = B016M::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b016m.get_size()];
+        b016m.to_slice_unchecked(&mut buf);
+        let header_len = u32::from_le_bytes([buf[0], buf[1], buf[2], 0]) as usize;
+        assert_eq!(header_len, data.0.len());
+    }
+
+    #[quickcheck]
+    fn prop_b016m_get_size_accurate(data: BytesUpTo16M) {
+        let b016m = B016M::try_from(data.0.clone()).unwrap();
+        assert_eq!(b016m.get_size(), data.0.len() + 3);
+    }
+
+    #[quickcheck]
+    fn prop_u256_size_always_32(data: Bytes32) {
+        let mut data_mut = data.0;
+        let u256 = U256::try_from(&mut data_mut[..]).unwrap();
+        assert_eq!(u256.get_size(), 32);
+    }
+
+    #[quickcheck]
+    fn prop_u256_roundtrip(data: Bytes32) {
+        let mut input = data.0;
+        let u256 = U256::try_from(&mut input[..]).unwrap();
+        let mut buf = vec![0u8; 32];
+        u256.to_slice_unchecked(&mut buf);
+        let decoded = U256::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_u256_rejects_wrong_size(size: u8) -> TestResult {
+        if size == 32 {
+            return TestResult::discard();
+        }
+        let data = vec![0u8; size as usize];
+        let mut data_mut = data.clone();
+        let result = U256::try_from(&mut data_mut[..]);
+        TestResult::from_bool(result.is_err())
+    }
+
+    #[quickcheck]
+    fn prop_u256_preserves_bytes_exactly(data: Bytes32) {
+        let mut input = data.0;
+        let u256 = U256::try_from(&mut input[..]).unwrap();
+        assert_eq!(u256.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_pubkey_size_always_32(data: Bytes32) {
+        let mut input = data.0;
+        let pubkey = PubKey::try_from(&mut input[..]).unwrap();
+        assert_eq!(pubkey.get_size(), 32);
+    }
+
+    #[quickcheck]
+    fn prop_pubkey_roundtrip(data: Bytes32) {
+        let original = data.0;
+        let mut input = data.0;
+        let pubkey = PubKey::try_from(&mut input[..]).unwrap();
+        let mut buf = vec![0u8; pubkey.get_size()];
+        pubkey.to_slice_unchecked(&mut buf);
+        let decoded = PubKey::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &original[..]);
+    }
+
+    #[quickcheck]
+    fn prop_pubkey_rejects_wrong_size(len: u8) -> TestResult {
+        if len == 32 {
+            return TestResult::discard();
+        }
+        let mut data = vec![0u8; len as usize];
+        TestResult::from_bool(PubKey::try_from(&mut data[..]).is_err())
+    }
+
+    #[quickcheck]
+    fn prop_pubkey_preserves_bytes_exactly(data: Bytes32) {
+        let mut input = data.0;
+        let pubkey = PubKey::try_from(&mut input[..]).unwrap();
+        assert_eq!(pubkey.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_signature_size_always_64(data: Bytes64) {
+        let mut input = data.0;
+        let sig = Signature::try_from(&mut input[..]).unwrap();
+        assert_eq!(sig.get_size(), 64);
+    }
+
+    #[quickcheck]
+    fn prop_signature_roundtrip(data: Bytes64) {
+        let original = data.0;
+        let mut input = data.0;
+        let sig = Signature::try_from(&mut input[..]).unwrap();
+        let mut buf = vec![0u8; sig.get_size()];
+        sig.to_slice_unchecked(&mut buf);
+        let decoded = Signature::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &original[..]);
+    }
+
+    #[quickcheck]
+    fn prop_signature_rejects_wrong_size(len: u8) -> TestResult {
+        if len == 64 {
+            return TestResult::discard();
+        }
+        let mut data = vec![0u8; len as usize];
+        TestResult::from_bool(Signature::try_from(&mut data[..]).is_err())
+    }
+
+    #[quickcheck]
+    fn prop_signature_preserves_bytes_exactly(data: Bytes64) {
+        let mut input = data.0;
+        let sig = Signature::try_from(&mut input[..]).unwrap();
+        assert_eq!(sig.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_str0255_accepts_valid_size(data: BytesUpTo255) {
+        assert!(Str0255::try_from(data.0).is_ok());
+    }
+
+    #[quickcheck]
+    fn prop_str0255_roundtrip(data: BytesUpTo255) {
+        let str0255 = Str0255::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; str0255.get_size()];
+        str0255.to_slice_unchecked(&mut buf);
+        let decoded = Str0255::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_str0255_header_is_length(data: BytesUpTo255) {
+        let str0255 = Str0255::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; str0255.get_size()];
+        str0255.to_slice_unchecked(&mut buf);
+        assert_eq!(buf[0], data.0.len() as u8);
+    }
+
+    #[quickcheck]
+    fn prop_str0255_get_size_accurate(data: BytesUpTo255) {
+        let str0255 = Str0255::try_from(data.0.clone()).unwrap();
+        assert_eq!(str0255.get_size(), 1 + data.0.len());
+    }
+
+    #[quickcheck]
+    fn prop_str0255_rejects_oversized(data: Vec<u8>) -> TestResult {
+        if data.len() <= 255 {
+            return TestResult::discard();
+        }
+        TestResult::from_bool(Str0255::try_from(data).is_err())
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_size_always_4(value: u32) {
+        let u32ref = U32AsRef::from(value);
+        assert_eq!(u32ref.get_size(), 4);
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_roundtrip(value: u32) {
+        let u32ref = U32AsRef::from(value);
+        let mut buf = vec![0u8; u32ref.get_size()];
+        u32ref.to_slice_unchecked(&mut buf);
+        let decoded = U32AsRef::from_bytes_unchecked(&mut buf);
+        assert_eq!(decoded.as_u32(), value);
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_little_endian(value: u32) {
+        let u32ref = U32AsRef::from(value);
+        let mut buf = vec![0u8; u32ref.get_size()];
+        u32ref.to_slice_unchecked(&mut buf);
+        let bytes = value.to_le_bytes();
+        assert_eq!(buf, bytes);
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_as_u32_conversion(value: u32) {
+        let u32ref = U32AsRef::from(value);
+        assert_eq!(u32ref.as_u32(), value);
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_rejects_wrong_size(len: u8) -> TestResult {
+        if len == 4 {
+            return TestResult::discard();
+        }
+        let mut data = vec![0u8; len as usize];
+        TestResult::from_bool(U32AsRef::try_from(&mut data[..]).is_err())
+    }
+
+    #[quickcheck]
+    fn prop_b032_to_vec_matches_original(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        assert_eq!(b032.to_vec(), data.0);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_to_vec_matches_original(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        assert_eq!(b0255.to_vec(), data.0);
+    }
+
+    #[quickcheck]
+    fn prop_b032_inner_as_ref_matches_original(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        assert_eq!(b032.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_inner_as_ref_matches_original(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        assert_eq!(b0255.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_inner_as_ref_is_stable(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        let ref1 = b0255.inner_as_ref();
+        let ref2 = b0255.inner_as_ref();
+        assert_eq!(ref1, ref2);
+    }
+
+    #[quickcheck]
+    fn prop_b0255_from_vec_roundtrip(data: BytesUpTo255) {
+        let original = data.0.clone();
+        let b0255 = B0255::try_from(data.0).unwrap();
+        let vec_back = b0255.to_vec();
+        assert_eq!(vec_back, original);
+    }
+
+    #[quickcheck]
+    fn prop_str0255_from_utf8_string(text: alloc::string::String) -> TestResult {
+        if text.len() > 255 {
+            return TestResult::discard();
+        }
+        let str0255 = Str0255::try_from(text.clone()).unwrap();
+        let decoded = str0255.as_utf8_or_hex();
+        TestResult::from_bool(decoded == text)
+    }
+
+    #[quickcheck]
+    fn prop_str0255_preserves_utf8(text: alloc::string::String) -> TestResult {
+        if text.len() > 255 {
+            return TestResult::discard();
+        }
+        let bytes = text.as_bytes().to_vec();
+        let str0255 = Str0255::try_from(bytes).unwrap();
+        let inner = str0255.inner_as_ref();
+        TestResult::from_bool(
+            core::str::from_utf8(inner)
+                .map(|s| s == text)
+                .unwrap_or(false),
+        )
+    }
+
+    #[quickcheck]
+    fn prop_u256_from_array(data: Bytes32) {
+        let u256: U256 = data.0.into();
+        assert_eq!(u256.inner_as_ref(), &data.0[..]);
+    }
+
+    #[quickcheck]
+    fn prop_b032_rejects_oversized_(size: u8) -> TestResult {
+        if size <= 32 {
+            return TestResult::discard();
+        }
+        let data = vec![0u8; size as usize];
+        TestResult::from_bool(B032::try_from(data).is_err())
+    }
+
+    #[quickcheck]
+    fn prop_b0255_rejects_oversized_gracefully(size: u16) -> TestResult {
+        if size <= 255 {
+            return TestResult::discard();
+        }
+        let data = vec![0u8; size as usize];
+        TestResult::from_bool(B0255::try_from(data).is_err())
+    }
+
+    #[quickcheck]
+    fn prop_b0255_clone_equals_original(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0).unwrap();
+        let cloned = b0255.clone();
+        assert_eq!(b0255, cloned);
+    }
+
+    #[quickcheck]
+    fn prop_b032_clone_equals_original(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0).unwrap();
+        let cloned = b032.clone();
+        assert_eq!(b032, cloned);
+    }
+
+    #[quickcheck]
+    fn prop_u256_clone_equals_original(data: Bytes32) {
+        let u256: U256 = data.0.into();
+        let cloned = u256.clone();
+        assert_eq!(u256, cloned);
+    }
+
+    #[quickcheck]
+    fn prop_b032_size_matches_encoding(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        let size = b032.get_size();
+        let mut buf = vec![0u8; size];
+        b032.to_slice_unchecked(&mut buf);
+        assert_eq!(size, 1 + data.0.len());
+    }
+
+    #[quickcheck]
+    fn prop_b0255_size_matches_encoding(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        let size = b0255.get_size();
+        let mut buf = vec![0u8; size];
+        b0255.to_slice_unchecked(&mut buf);
+        assert_eq!(size, 1 + data.0.len());
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_from_u32(value: u32) {
+        let u32ref = U32AsRef::from(value);
+        assert_eq!(u32ref.as_u32(), value);
+    }
+
+    #[quickcheck]
+    fn prop_u32asref_bidirectional_conversion(value: u32) {
+        let u32ref = U32AsRef::from(value);
+        let back: u32 = (&u32ref).into();
+        assert_eq!(back, value);
+    }
+
+    #[quickcheck]
+    fn prop_b032_header_matches_length(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        let mut buf = vec![0u8; b032.get_size()];
+        b032.to_slice_unchecked(&mut buf);
+        assert_eq!(buf[0], data.0.len() as u8);
+    }
+
+    #[quickcheck]
+    fn prop_b032_size_is_length_plus_one(data: BytesUpTo32) {
+        let b032 = B032::try_from(data.0.clone()).unwrap();
+        assert_eq!(b032.get_size(), 1 + data.0.len());
+    }
+
+    #[quickcheck]
+    fn prop_b0255_preserves_all_byte_values(value: u8) {
+        let data = vec![value; 100];
+        let b0255 = B0255::try_from(data.clone()).unwrap();
+        assert_eq!(b0255.inner_as_ref(), &data[..]);
+    }
+
+    #[quickcheck]
+    fn prop_inner_as_ref_trait(data: BytesUpTo255) {
+        let b0255 = B0255::try_from(data.0.clone()).unwrap();
+        let as_ref_result: &[u8] = b0255.as_ref();
+        assert_eq!(as_ref_result, &data.0[..]);
+    }
+}
