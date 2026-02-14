@@ -275,8 +275,8 @@ impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
-        //TODO handle error
-        Ok(MerkleNode(U256::try_from(value).unwrap()))
+        let merkle = U256::try_from(value).map_err(error::Error::from)?;
+        Ok(MerkleNode(merkle))
     }
 }
 
@@ -303,8 +303,8 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: &str) -> Result<Self, Error<'a>> {
-        //TODO handle error
-        Ok(MerkleNode(U256::try_from(hex_decode(value)?).unwrap()))
+        let merkle = U256::try_from(hex_decode(value)?).map_err(error::Error::from)?;
+        Ok(MerkleNode(merkle))
     }
 }
 
@@ -426,5 +426,16 @@ mod tests {
         }
 
         be_hex == back_to_hex && be_hex == value_to_string
+    }
+
+    #[test]
+    fn merkle_node_try_from_vec_invalid_len_returns_err() {
+        assert!(MerkleNode::try_from(vec![0_u8; 31]).is_err());
+    }
+
+    #[test]
+    fn merkle_node_try_from_str_invalid_len_returns_err() {
+        let invalid_hex = "00".repeat(31);
+        assert!(MerkleNode::try_from(invalid_hex.as_str()).is_err());
     }
 }
