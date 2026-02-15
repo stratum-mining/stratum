@@ -290,3 +290,188 @@ impl<T: Serialize + GetSize> WithoutNoise<Buffer, T> {
         }
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    #[cfg(feature = "noise_sv2")]
+    use crate::{HandshakeRole, State};
+    use binary_sv2::{self, Serialize};
+    #[cfg(feature = "noise_sv2")]
+    use framing_sv2::framing::Frame;
+    use framing_sv2::framing::Sv2Frame;
+    #[cfg(feature = "noise_sv2")]
+    use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+    #[cfg(feature = "noise_sv2")]
+    use noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
+    use quickcheck::{Arbitrary, Gen, TestResult};
+    use quickcheck_macros::quickcheck;
+    #[cfg(feature = "noise_sv2")]
+    use std::convert::TryInto;
+    #[cfg(feature = "noise_sv2")]
+    use std::time::Duration;
+
+    #[cfg(feature = "noise_sv2")]
+    const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72";
+    #[cfg(feature = "noise_sv2")]
+    const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";
+
+    type Slice = <Buffer as IsBuffer>::Slice;
+
+    #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+    struct TestMessage {
+        value: u16,
+    }
+
+    impl Arbitrary for TestMessage {
+        fn arbitrary(g: &mut Gen) -> Self {
+            TestMessage {
+                value: u16::arbitrary(g),
+            }
+        }
+    }
+
+    /// Verifies that encoding any valid Sv2 frame produces non-empty bytes within the
+    /// frame's declared encoded length.
+    #[quickcheck]
+    fn prop_encoder_encode(
+        msg: TestMessage,
+        msg_type: u8,
+        ext_type: u16,
+        channel_msg: bool,
+    ) -> TestResult {
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(
+            msg,
+            msg_type,
+            ext_type,
+            channel_msg,
+        ) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        match encoder.encode(frame.clone()) {
+            Ok(data) => {
+                let bytes: &[u8] = data.as_ref();
+                TestResult::from_bool(!bytes.is_empty() && bytes.len() <= frame.encoded_length())
+            }
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    /// Verifies that the encoder can encode multiple messages sequentially without errors.
+    #[quickcheck]
+    fn prop_encoder_reusable(msg1: TestMessage, msg2: TestMessage, msg_type: u8) -> TestResult {
+        let frame1 = match Sv2Frame::<TestMessage, Slice>::from_message(msg1, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+        let frame2 = match Sv2Frame::<TestMessage, Slice>::from_message(msg2, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        // Use .is_ok() to immediately drop each encoded slice before the encoder goes out of
+        // scope. With the buffer pool feature, the pool's Drop spins until all live slices are
+        // released, so slices must not outlive the encoder.
+        let ok1 = encoder.encode(frame1).is_ok();
+        let ok2 = encoder.encode(frame2).is_ok();
+        TestResult::from_bool(ok1 && ok2)
+    }
+
+    #[cfg(feature = "noise_sv2")]
+    fn make_transport_state_pair() -> (State, State) {
+        let pub_k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let pub_k_bytes = pub_k.into_bytes();
+        let priv_k: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
+        let priv_k_bytes = priv_k.into_bytes();
+
+        let initiator = noise_sv2::Initiator::from_raw_k(pub_k_bytes).unwrap();
+        let responder = noise_sv2::Responder::from_authority_kp(
+            &pub_k_bytes,
+            &priv_k_bytes,
+            Duration::from_secs(3600),
+        )
+        .unwrap();
+
+        let mut sender_state = State::initialized(HandshakeRole::Initiator(initiator));
+        let mut receiver_state = State::initialized(HandshakeRole::Responder(responder));
+
+        let msg0 = sender_state.step_0().unwrap();
+        let msg0: [u8; ELLSWIFT_ENCODING_SIZE] =
+            msg0.get_payload_when_handshaking().try_into().unwrap();
+
+        let (msg1, receiver_transport) = receiver_state.step_1(msg0).unwrap();
+        let msg1: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE] =
+            msg1.get_payload_when_handshaking().try_into().unwrap();
+
+        let sender_transport = sender_state.step_2(msg1).unwrap();
+        let sender_state = match sender_transport {
+            State::Transport(c) => State::with_transport_mode(c),
+            _ => unreachable!(),
+        };
+        let receiver_state = match receiver_transport {
+            State::Transport(c) => State::with_transport_mode(c),
+            _ => unreachable!(),
+        };
+        (sender_state, receiver_state)
+    }
+
+    /// Verifies that encrypting any valid frame with `NoiseEncoder`
+    /// in transport mode produces non-empty output.
+    #[cfg(feature = "noise_sv2")]
+    #[quickcheck]
+    fn prop_noise_encoder_encode(
+        msg: TestMessage,
+        msg_type: u8,
+        ext_type: u16,
+        channel_msg: bool,
+    ) -> TestResult {
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(
+            msg,
+            msg_type,
+            ext_type,
+            channel_msg,
+        ) {
+            Some(f) => Frame::Sv2(f),
+            None => return TestResult::discard(),
+        };
+
+        let (mut sender_state, _) = make_transport_state_pair();
+        let mut encoder = NoiseEncoder::<TestMessage>::new();
+        match encoder.encode(frame, &mut sender_state) {
+            Ok(data) => {
+                let bytes: &[u8] = data.as_ref();
+                TestResult::from_bool(!bytes.is_empty())
+            }
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    /// Verifies that `NoiseEncoder` can encrypt multiple frames
+    /// sequentially with the same transport state without errors.
+    #[cfg(feature = "noise_sv2")]
+    #[quickcheck]
+    fn prop_noise_encoder_reusable(
+        msg1: TestMessage,
+        msg2: TestMessage,
+        msg_type: u8,
+    ) -> TestResult {
+        let frame1 = match Sv2Frame::<TestMessage, Slice>::from_message(msg1, msg_type, 0, false) {
+            Some(f) => Frame::Sv2(f),
+            None => return TestResult::discard(),
+        };
+        let frame2 = match Sv2Frame::<TestMessage, Slice>::from_message(msg2, msg_type, 0, false) {
+            Some(f) => Frame::Sv2(f),
+            None => return TestResult::discard(),
+        };
+
+        let (mut sender_state, _) = make_transport_state_pair();
+        let mut encoder = NoiseEncoder::<TestMessage>::new();
+        let ok1 = encoder.encode(frame1, &mut sender_state).is_ok();
+        let ok2 = encoder.encode(frame2, &mut sender_state).is_ok();
+        TestResult::from_bool(ok1 && ok2)
+    }
+}
