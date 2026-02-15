@@ -23,6 +23,8 @@ criterion = { workspace = true, features = ["html_reports"] }
 rand = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["alloc", "rand", "rand-std"] }
 rayon-core = { workspace = true }
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }
 
 [features]
 with_buffer_pool = ["binary_sv2/with_buffer_pool", "buffer_sv2"]
