@@ -436,3 +436,372 @@ mod tests {
         assert_eq!(actual, expect);
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use crate::{decoder::Buffer, encoder::Encoder, StandardDecoder};
+    use binary_sv2::{self, Deserialize, Serialize};
+    use buffer_sv2::Buffer as IsBuffer;
+    use framing_sv2::framing::Sv2Frame;
+    use quickcheck::{Arbitrary, Gen, TestResult};
+    use quickcheck_macros::quickcheck;
+
+    type Slice = <Buffer as IsBuffer>::Slice;
+
+    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+    struct TestMessage {
+        value: u16,
+    }
+
+    impl Arbitrary for TestMessage {
+        fn arbitrary(g: &mut Gen) -> Self {
+            TestMessage {
+                value: u16::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encode_decode_roundtrip(msg: TestMessage, msg_type: u8) -> TestResult {
+        let original_msg = msg.clone();
+
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = match encoder.encode(frame) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+        let encoded_bytes: &[u8] = encoded.as_ref();
+
+        let mut offset = 0;
+        while offset < encoded_bytes.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(writable.len(), encoded_bytes.len() - offset);
+            writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(mut decoded_frame) => {
+                    let decoded_msg: TestMessage =
+                        match binary_sv2::from_bytes(decoded_frame.payload()) {
+                            Ok(m) => m,
+                            Err(_) => return TestResult::failed(),
+                        };
+                    return TestResult::from_bool(decoded_msg == original_msg);
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::failed()
+    }
+
+    #[quickcheck]
+    fn prop_decoder_handles_partial_data(
+        msg: TestMessage,
+        msg_type: u8,
+        chunk_size: u8,
+    ) -> TestResult {
+        if chunk_size == 0 {
+            return TestResult::discard();
+        }
+
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = match encoder.encode(frame) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+        let encoded_bytes: &[u8] = encoded.as_ref();
+        let chunk_size = (chunk_size as usize % 256).max(1);
+
+        let mut offset = 0;
+        let mut missing_bytes_count = 0;
+
+        while offset < encoded_bytes.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(
+                core::cmp::min(writable.len(), chunk_size),
+                encoded_bytes.len() - offset,
+            );
+            writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(_) => return TestResult::passed(),
+                Err(crate::Error::MissingBytes(n)) => {
+                    missing_bytes_count += 1;
+                    assert!(n > 0);
+                }
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::from_bool(missing_bytes_count > 0)
+    }
+
+    #[quickcheck]
+    fn prop_decoder_zero_values_message(msg_type: u8) -> TestResult {
+        let msg = TestMessage { value: 0 };
+
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg.clone(), msg_type, 0, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = match encoder.encode(frame) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+        let encoded_bytes: &[u8] = encoded.as_ref();
+
+        let mut offset = 0;
+        while offset < encoded_bytes.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(writable.len(), encoded_bytes.len() - offset);
+            writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(mut decoded_frame) => {
+                    let decoded_msg: TestMessage =
+                        match binary_sv2::from_bytes(decoded_frame.payload()) {
+                            Ok(m) => m,
+                            Err(_) => return TestResult::failed(),
+                        };
+                    return TestResult::from_bool(decoded_msg == msg);
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::failed()
+    }
+
+    #[quickcheck]
+    fn prop_decoder_max_values_message(msg_type: u8) -> TestResult {
+        let msg = TestMessage { value: u16::MAX };
+
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg.clone(), msg_type, 0, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = match encoder.encode(frame) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+        let encoded_bytes: &[u8] = encoded.as_ref();
+
+        let mut offset = 0;
+        while offset < encoded_bytes.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(writable.len(), encoded_bytes.len() - offset);
+            writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(mut decoded_frame) => {
+                    let decoded_msg: TestMessage =
+                        match binary_sv2::from_bytes(decoded_frame.payload()) {
+                            Ok(m) => m,
+                            Err(_) => return TestResult::failed(),
+                        };
+                    return TestResult::from_bool(decoded_msg == msg);
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::failed()
+    }
+
+    #[quickcheck]
+    fn prop_decoder_preserves_msg_type(msg: TestMessage, msg_type: u8) -> TestResult {
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = match encoder.encode(frame) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+        let encoded_bytes: &[u8] = encoded.as_ref();
+
+        let mut offset = 0;
+        while offset < encoded_bytes.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(writable.len(), encoded_bytes.len() - offset);
+            writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(decoded_frame) => {
+                    let header = match decoded_frame.get_header() {
+                        Some(h) => h,
+                        None => return TestResult::failed(),
+                    };
+                    return TestResult::from_bool(header.msg_type() == msg_type);
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::failed()
+    }
+
+    #[quickcheck]
+    fn prop_decoder_preserves_extension_type(
+        msg: TestMessage,
+        msg_type: u8,
+        ext_type: u16,
+    ) -> TestResult {
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, ext_type, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let ext_type = frame.get_header().unwrap().ext_type();
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = match encoder.encode(frame) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+        let encoded_bytes: &[u8] = encoded.as_ref();
+
+        let mut offset = 0;
+        while offset < encoded_bytes.len() {
+            let writable = decoder.writable();
+            let to_copy = writable.len();
+            writable[..to_copy].copy_from_slice(&encoded_bytes[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(decoded_frame) => {
+                    let header = match decoded_frame.get_header() {
+                        Some(h) => h,
+                        None => return TestResult::failed(),
+                    };
+                    return TestResult::from_bool(header.ext_type() == ext_type);
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::failed()
+    }
+
+    #[quickcheck]
+    fn prop_decoder_multiple_frames(
+        msg1: TestMessage,
+        msg2: TestMessage,
+        msg_type: u8,
+    ) -> TestResult {
+        let frame1 =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg1.clone(), msg_type, 0, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let frame2 =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg2.clone(), msg_type, 0, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded1 = match encoder.encode(frame1) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let encoded2 = match encoder.encode(frame2) {
+            Ok(e) => e,
+            Err(_) => return TestResult::failed(),
+        };
+
+        let mut decoder = StandardDecoder::<TestMessage>::new();
+
+        let mut offset = 0;
+        let bytes1: &[u8] = encoded1.as_ref();
+        while offset < bytes1.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(writable.len(), bytes1.len() - offset);
+            writable[..to_copy].copy_from_slice(&bytes1[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(mut decoded_frame) => {
+                    let decoded_msg: TestMessage =
+                        match binary_sv2::from_bytes(decoded_frame.payload()) {
+                            Ok(m) => m,
+                            Err(_) => return TestResult::failed(),
+                        };
+                    if decoded_msg != msg1 {
+                        return TestResult::failed();
+                    }
+                    break;
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        let mut offset = 0;
+        let bytes2: &[u8] = encoded2.as_ref();
+        while offset < bytes2.len() {
+            let writable = decoder.writable();
+            let to_copy = core::cmp::min(writable.len(), bytes2.len() - offset);
+            writable[..to_copy].copy_from_slice(&bytes2[offset..offset + to_copy]);
+            offset += to_copy;
+
+            match decoder.next_frame() {
+                Ok(mut decoded_frame) => {
+                    let decoded_msg: TestMessage =
+                        match binary_sv2::from_bytes(decoded_frame.payload()) {
+                            Ok(m) => m,
+                            Err(_) => return TestResult::failed(),
+                        };
+                    return TestResult::from_bool(decoded_msg == msg2);
+                }
+                Err(crate::Error::MissingBytes(_)) => continue,
+                Err(_) => return TestResult::failed(),
+            }
+        }
+
+        TestResult::failed()
+    }
+}
