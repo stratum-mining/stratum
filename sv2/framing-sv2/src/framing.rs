@@ -605,4 +605,99 @@ mod tests {
             extension_type, lower_bits, result
         );
     }
+
+    #[quickcheck]
+    fn prop_size_hint_truncated_payload(msg_length: ValidU24, cut: u16) {
+        let msg_type = 0x01u8;
+        let ext = 0u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, ext).unwrap();
+
+        let payload_len = msg_length.0 as usize;
+        if payload_len == 0 {
+            return;
+        }
+
+        let missing = (cut as usize % payload_len) + 1;
+        let actual_payload = payload_len - missing;
+
+        let mut bytes = vec![0u8; Header::SIZE + actual_payload];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+
+        assert!(
+            hint < 0,
+            "size_hint should be negative when payload is truncated"
+        );
+
+        assert_eq!(
+            hint,
+            -(missing as isize),
+            "size_hint should equal missing bytes"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_extra_bytes(msg_length: ValidU24, extra: u16) {
+        let msg_type = 0x01u8;
+        let ext = 0u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, ext).unwrap();
+
+        let extra = (extra % 64 + 1) as usize;
+
+        let mut bytes = vec![0u8; Header::SIZE + msg_length.0 as usize + extra];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+
+        assert!(hint > 0, "size_hint should be positive when extra bytes exist");
+
+        assert_eq!(
+            hint,
+            extra as isize,
+            "size_hint should equal number of extra bytes"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_matches_delta(msg_length: ValidU24, delta: i16) {
+        let msg_type = 0x01u8;
+        let ext = 0u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, ext).unwrap();
+
+        let expected = msg_length.0 as isize;
+        let actual = (expected + delta as isize).max(0) as usize;
+
+        let mut bytes = vec![0u8; Header::SIZE + actual];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+
+        assert_eq!(
+            hint,
+            actual as isize - expected,
+            "size_hint must equal actual - expected payload size"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_monotonic_growth(msg_length: ValidU24) {
+        let header = Header::from_len(msg_length.0, 1, 0).unwrap();
+        let total = Header::SIZE + msg_length.0 as usize;
+
+        let mut full = vec![0u8; total];
+        binary_sv2::to_writer(header, &mut full[..Header::SIZE]).unwrap();
+
+        let mut prev = isize::MIN;
+
+        for i in 0..=total {
+            let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&full[..i]);
+            assert!(hint >= prev, "hint should increase as more bytes arrive");
+            prev = hint;
+        }
+    }
+
 }
