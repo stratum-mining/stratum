@@ -677,8 +677,8 @@ where
 
         let extranonce_prefix = job.get_extranonce_prefix();
         let mut full_extranonce = vec![];
-        full_extranonce.extend(extranonce_prefix.clone());
-        full_extranonce.extend(share.extranonce.inner_as_ref());
+        full_extranonce.extend_from_slice(extranonce_prefix);
+        full_extranonce.extend_from_slice(share.extranonce.as_ref());
 
         // calculate the merkle root from:
         // - job coinbase_tx_prefix
