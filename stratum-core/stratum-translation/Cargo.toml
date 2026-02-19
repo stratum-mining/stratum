@@ -1,6 +1,6 @@
 [package]
 name = "stratum_translation"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Stratum V1 ↔ Stratum V2 translation utilities for reuse across proxies, apps, and firmware"
