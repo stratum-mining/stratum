@@ -168,6 +168,17 @@ impl<'a> StandardChannel<'a> {
         &self.share_accounting
     }
 
+    /// Updates share accounting based on a [`SubmitSharesSuccess`] message from the
+    /// upstream server. Delegates to [`ShareAccounting::on_share_acknowledgement`].
+    pub fn on_share_acknowledgement(
+        &mut self,
+        new_submits_accepted_count: u32,
+        new_shares_sum: f64,
+    ) {
+        self.share_accounting
+            .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
+    }
+
     /// Handles a new group channel job by converting it into a standard job
     /// and activating it in this channel's context.
     ///
@@ -336,11 +347,8 @@ impl<'a> StandardChannel<'a> {
 
         // check if a block was found
         if network_target.is_met_by(share_hash) {
-            self.share_accounting.update_share_accounting(
-                job_target.difficulty_float(),
-                share.sequence_number,
-                share_hash.to_raw_hash(),
-            );
+            self.share_accounting
+                .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
             return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
 
@@ -353,11 +361,8 @@ impl<'a> StandardChannel<'a> {
                 return Err(ShareValidationError::DuplicateShare);
             }
 
-            self.share_accounting.update_share_accounting(
-                job_target.difficulty_float(),
-                share.sequence_number,
-                share_hash.to_raw_hash(),
-            );
+            self.share_accounting
+                .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
 
             // update the best diff
             self.share_accounting.update_best_diff(share_hash_as_diff);
