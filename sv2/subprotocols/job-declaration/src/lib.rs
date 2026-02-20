@@ -45,4 +45,4 @@ pub const CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS: bool = false;
 pub const CHANNEL_BIT_DECLARE_MINING_JOB_ERROR: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: bool = false;
-pub const CHANNEL_BIT_SUBMIT_SOLUTION_JD: bool = true;
+pub const CHANNEL_BIT_PUSH_SOLUTION: bool = true;

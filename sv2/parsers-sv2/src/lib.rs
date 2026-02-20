@@ -80,6 +80,7 @@ pub fn message_type_to_name(msg_type: u8) -> &'static str {
         0x01 => "SetupConnectionSuccess",
         0x02 => "SetupConnectionError",
         0x03 => "ChannelEndpointChanged",
+        0x04 => "Reconnect",
 
         // Mining messages (0x10-0x2F)
         0x10 => "OpenStandardMiningChannel",
@@ -97,13 +98,12 @@ pub fn message_type_to_name(msg_type: u8) -> &'static str {
         0x1c => "SubmitSharesSuccess",
         0x1d => "SubmitSharesError",
         0x1f => "NewExtendedMiningJob",
-        0x20 => "SetNewPrevHash",
+        0x20 => "SetNewPrevHashMiningProtocol",
         0x21 => "SetTarget",
         0x22 => "SetCustomMiningJob",
         0x23 => "SetCustomMiningJobSuccess",
         0x24 => "SetCustomMiningJobError",
-        0x25 => "Reconnect", // todo: fix this like listed on `const_sv2`
-        0x26 => "SetGroupChannel",
+        0x25 => "SetGroupChannel",
 
         // Job Declaration messages (0x50-0x6F)
         0x50 => "AllocateMiningJobToken",
@@ -116,9 +116,9 @@ pub fn message_type_to_name(msg_type: u8) -> &'static str {
         0x60 => "PushSolution",
 
         // Template Distribution messages (0x70-0x7F)
-        0x70 => "CoinbaseOutputDataSize",
+        0x70 => "CoinbaseOutputConstraints",
         0x71 => "NewTemplate",
-        0x72 => "SetNewPrevHash",
+        0x72 => "SetNewPrevHashTemplateDistributionProtocol",
         0x73 => "RequestTransactionData",
         0x74 => "RequestTransactionDataSuccess",
         0x75 => "RequestTransactionDataError",
@@ -627,7 +627,7 @@ impl IsSv2Message for JobDeclaration<'_> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
-            Self::PushSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION_JD,
+            Self::PushSolution(_) => CHANNEL_BIT_PUSH_SOLUTION,
         }
     }
 
