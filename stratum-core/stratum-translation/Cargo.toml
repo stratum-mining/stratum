@@ -11,7 +11,7 @@ path = "src/lib.rs"
 
 [dependencies]
 binary_sv2 = { path = "../../sv2/binary-sv2", version = "^5.0.0" }
-mining_sv2 = { path = "../../sv2/subprotocols/mining", version = "^7.0.0" }
+mining_sv2 = { path = "../../sv2/subprotocols/mining", version = "^8.0.0" }
 channels_sv2 = { path = "../../sv2/channels-sv2", version = "^4.0.0" }
 v1 = { path = "../../sv1", package = "sv1_api", version = "^2.0.0" }
 tracing = { workspace = true }

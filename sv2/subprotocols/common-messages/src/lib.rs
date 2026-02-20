@@ -58,6 +58,7 @@ pub const CHANNEL_BIT_SETUP_CONNECTION: bool = false;
 pub const CHANNEL_BIT_SETUP_CONNECTION_SUCCESS: bool = false;
 pub const CHANNEL_BIT_SETUP_CONNECTION_ERROR: bool = false;
 pub const CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED: bool = true;
+pub const CHANNEL_BIT_RECONNECT: bool = false;
 
 #[cfg(feature = "prop_test")]
 impl ChannelEndpointChanged {
