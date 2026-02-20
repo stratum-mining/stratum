@@ -14,7 +14,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [dependencies]
 framing_sv2 = { path = "../framing-sv2", version = "^6.0.0" }
 noise_sv2 = { path = "../noise-sv2", default-features = false, optional = true, version = "^1.0.0" }
-binary_sv2 = { path = "../binary-sv2", version = "^5.0.0" }
+binary_sv2 = { path = "../binary-sv2", version = "^6.0.0" }
 buffer_sv2 = { path = "../buffer-sv2", version = "^3.0.0" }
 rand = { workspace = true, default-features = false }
 tracing = { workspace = true, optional = true }
