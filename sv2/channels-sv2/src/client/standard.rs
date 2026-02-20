@@ -349,6 +349,7 @@ impl<'a> StandardChannel<'a> {
         if network_target.is_met_by(share_hash) {
             self.share_accounting
                 .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
+            self.share_accounting.increment_blocks_found();
             return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
 
@@ -567,6 +568,7 @@ mod tests {
         let res = channel.validate_share(share_valid_block);
 
         assert!(matches!(res, Ok(ShareValidationResult::BlockFound(_))));
+        assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
     }
 
     #[test]

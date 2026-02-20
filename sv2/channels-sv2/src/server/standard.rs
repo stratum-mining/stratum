@@ -641,6 +641,7 @@ where
                 share.sequence_number,
                 share_hash.to_raw_hash(),
             );
+            self.share_accounting.increment_blocks_found();
 
             let op_pushbytes_pool_miner_tag = self
                 .job_factory
@@ -1061,6 +1062,10 @@ mod tests {
             res,
             Ok(ShareValidationResult::BlockFound(_, _, _))
         ));
+        assert_eq!(
+            standard_channel.get_share_accounting().get_blocks_found(),
+            1
+        );
     }
 
     #[test]

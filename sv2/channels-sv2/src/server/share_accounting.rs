@@ -79,6 +79,7 @@ pub struct ShareAccounting {
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
+    blocks_found: u32,
 }
 
 impl ShareAccounting {
@@ -95,6 +96,7 @@ impl ShareAccounting {
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
+            blocks_found: 0,
         }
     }
 
@@ -187,5 +189,15 @@ impl ShareAccounting {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
+    }
+
+    /// Increments the blocks found counter.
+    pub fn increment_blocks_found(&mut self) {
+        self.blocks_found += 1;
+    }
+
+    /// Returns the total number of blocks found on this channel.
+    pub fn get_blocks_found(&self) -> u32 {
+        self.blocks_found
     }
 }

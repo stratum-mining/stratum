@@ -749,6 +749,7 @@ where
                 share.sequence_number,
                 share_hash.to_raw_hash(),
             );
+            self.share_accounting.increment_blocks_found();
 
             let mut coinbase = vec![];
             coinbase.extend(job.get_coinbase_tx_prefix_with_bip141());
@@ -1274,6 +1275,7 @@ mod tests {
             res,
             Ok(ShareValidationResult::BlockFound(_, _, _))
         ));
+        assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
     }
 
     #[test]
