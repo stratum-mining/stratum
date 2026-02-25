@@ -298,11 +298,406 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
 }
 
 #[cfg(test)]
-#[derive(Serialize)]
-struct T {}
+mod tests {
+    use super::*;
+    use alloc::vec;
+    use binary_sv2::{self, Serialize};
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
 
-#[test]
-fn test_size_hint() {
-    let h = Sv2Frame::<T, Vec<u8>>::size_hint(&[0, 128, 30, 46, 0, 0][..]);
-    assert!(h == 46);
+    #[derive(Serialize)]
+    struct T {}
+
+    #[test]
+    fn test_size_hint() {
+        let h = Sv2Frame::<T, Vec<u8>>::size_hint(&[0, 128, 30, 46, 0, 0][..]);
+        assert!(h == 46);
+    }
+
+    #[derive(Debug, Clone)]
+    struct ValidU24(u32);
+
+    impl Arbitrary for ValidU24 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            ValidU24(u32::arbitrary(g) % 16_777_216)
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize)]
+    struct TestMessage {
+        data: Vec<u8>,
+    }
+
+    impl Arbitrary for TestMessage {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let size = usize::arbitrary(g) % 256;
+            let data: Vec<u8> = (0..size).map(|_| u8::arbitrary(g)).collect();
+            TestMessage {
+                data: data.try_into().unwrap(),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_from_message_size_limit(msg: TestMessage) {
+        let msg_type = 0x01u8;
+        let extension_type = 0x0000u16;
+
+        let frame = Sv2Frame::<TestMessage, Vec<u8>>::from_message(
+            msg.clone(),
+            msg_type,
+            extension_type,
+            false,
+        );
+
+        if msg.get_size() < 16_777_216 {
+            assert!(
+                frame.is_some(),
+                "Frame creation should succeed for message size {} < U24_MAX",
+                msg.get_size()
+            );
+        } else {
+            assert!(
+                frame.is_none(),
+                "Frame creation should fail for message size {} >= U24_MAX",
+                msg.get_size()
+            );
+        }
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_encoded_length_consistency(msg: TestMessage) {
+        let msg_type = 0x01u8;
+        let extension_type = 0x0000u16;
+
+        let frame = Sv2Frame::<TestMessage, Vec<u8>>::from_message(
+            msg.clone(),
+            msg_type,
+            extension_type,
+            false,
+        )
+        .unwrap();
+
+        let encoded_len = frame.encoded_length();
+        let expected_len = msg.get_size() + Header::SIZE;
+
+        assert_eq!(
+            encoded_len,
+            expected_len,
+            "Frame encoded_length() should be msg_size({}) + header_size({}), got {}",
+            msg.get_size(),
+            Header::SIZE,
+            encoded_len
+        );
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_serialization_roundtrip_small(data: Vec<u8>) {
+        let data: Vec<u8> = data.iter().take(1000).copied().collect();
+        let msg = TestMessage { data };
+        let msg_type = 0x01u8;
+        let extension_type = 0x0000u16;
+
+        let frame = Sv2Frame::<TestMessage, Vec<u8>>::from_message(
+            msg.clone(),
+            msg_type,
+            extension_type,
+            false,
+        )
+        .unwrap();
+
+        let mut buffer = vec![0u8; frame.encoded_length()];
+        frame
+            .serialize(&mut buffer)
+            .expect("Serialization should succeed");
+
+        let deserialized = Sv2Frame::<TestMessage, Vec<u8>>::from_bytes(buffer)
+            .expect("Deserialization should succeed");
+
+        let header = deserialized
+            .get_header()
+            .expect("Sv2Frame should always have header");
+        assert_eq!(
+            header.msg_type(),
+            msg_type,
+            "Message type should match after roundtrip"
+        );
+        assert_eq!(
+            header.ext_type_without_channel_msg(),
+            extension_type,
+            "Extension type should match after roundtrip"
+        );
+        assert_eq!(
+            header.len(),
+            msg.get_size(),
+            "Payload length should match after roundtrip"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_size_hint_exact_match(msg_length: ValidU24) {
+        let msg_type = 0x01u8;
+        let extension_type = 0x0000u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, extension_type).unwrap();
+
+        let mut bytes = vec![0u8; Header::SIZE + msg_length.0 as usize];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+        assert_eq!(
+            hint, 0,
+            "size_hint should return 0 when bytes match expected frame size exactly"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_size_hint_insufficient_header(bytes: Vec<u8>) {
+        let bytes: Vec<u8> = bytes.iter().take(Header::SIZE - 1).copied().collect();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+        let expected = (Header::SIZE - bytes.len()) as isize;
+        assert!(
+            hint > 0,
+            "size_hint should be positive when header is incomplete"
+        );
+        assert_eq!(
+            hint, expected,
+            "size_hint should return missing bytes count: expected {}, got {}",
+            expected, hint
+        );
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_channel_msg_flag(msg: TestMessage, channel_msg: bool) {
+        let msg_type = 0x01u8;
+        let extension_type = 0x0ABCu16;
+
+        // Only test with messages that fit in U24
+        if msg.get_size() >= 16_777_216 {
+            return;
+        }
+
+        let frame = Sv2Frame::<TestMessage, Vec<u8>>::from_message(
+            msg,
+            msg_type,
+            extension_type,
+            channel_msg,
+        )
+        .unwrap();
+
+        let header = frame
+            .get_header()
+            .expect("Sv2Frame should always have header");
+        assert_eq!(
+            header.channel_msg(),
+            channel_msg,
+            "Frame channel_msg flag should be {} as specified in from_message",
+            channel_msg
+        );
+    }
+
+    #[quickcheck]
+    fn prop_sv2frame_get_header_always_some(msg: TestMessage) {
+        let msg_type = 0x01u8;
+        let extension_type = 0x0000u16;
+
+        let frame =
+            Sv2Frame::<TestMessage, Vec<u8>>::from_message(msg, msg_type, extension_type, false)
+                .unwrap();
+
+        assert!(
+            frame.get_header().is_some(),
+            "Sv2Frame::get_header() should always return Some"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_handshake_frame_roundtrip(payload: Vec<u8>) {
+        let payload: Vec<u8> = payload.iter().take(1000).copied().collect();
+
+        let frame = handshake_message_to_frame(&payload);
+        let recovered = frame.get_payload_when_handshaking();
+
+        assert_eq!(
+            recovered,
+            payload,
+            "HandShakeFrame roundtrip should preserve payload exactly (size: {})",
+            payload.len()
+        );
+    }
+
+    #[quickcheck]
+    fn prop_handshake_frame_encoded_length(payload: Vec<u8>) {
+        let payload: Vec<u8> = payload.iter().take(1000).copied().collect();
+        let expected_len = payload.len();
+
+        let frame = handshake_message_to_frame(&payload);
+
+        assert_eq!(
+            frame.encoded_length(),
+            expected_len,
+            "HandShakeFrame encoded_length should equal payload length"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_handshake_frame_from_bytes(payload: Vec<u8>) {
+        let payload: Vec<u8> = payload.iter().take(1000).copied().collect();
+
+        let frame = HandShakeFrame::from_bytes(payload.clone().into())
+            .expect("HandShakeFrame::from_bytes should succeed for any valid payload");
+
+        let recovered = frame.get_payload_when_handshaking();
+        assert_eq!(
+            recovered,
+            payload,
+            "Payload should be preserved through from_bytes (size: {})",
+            payload.len()
+        );
+    }
+
+    #[quickcheck]
+    fn prop_update_extension_type_channel_msg_set(extension_type: u16) {
+        let result = update_extension_type(extension_type, true);
+        assert_ne!(
+            result & 0b1000_0000_0000_0000,
+            0,
+            "update_extension_type with channel_msg=true should set MSB: input=0x{:04X}, output=0x{:04X}",
+            extension_type,
+            result
+        );
+    }
+
+    #[quickcheck]
+    fn prop_update_extension_type_channel_msg_unset(extension_type: u16) {
+        let result = update_extension_type(extension_type, false);
+        assert_eq!(
+            result & 0b1000_0000_0000_0000,
+            0,
+            "update_extension_type with channel_msg=false should clear MSB: input=0x{:04X}, output=0x{:04X}",
+            extension_type,
+            result
+        );
+    }
+
+    #[quickcheck]
+    fn prop_update_extension_type_preserves_lower_bits_when_set(extension_type: u16) {
+        let result = update_extension_type(extension_type, true);
+        let lower_bits = extension_type & 0b0111_1111_1111_1111;
+        let result_lower_bits = result & 0b0111_1111_1111_1111;
+
+        assert_eq!(
+            lower_bits, result_lower_bits,
+            "update_extension_type should preserve lower 15 bits when setting MSB: input=0x{:04X}, expected_lower=0x{:04X}, got_lower=0x{:04X}",
+            extension_type, lower_bits, result_lower_bits
+        );
+    }
+
+    #[quickcheck]
+    fn prop_update_extension_type_preserves_lower_bits_when_unset(extension_type: u16) {
+        let result = update_extension_type(extension_type, false);
+        let lower_bits = extension_type & 0b0111_1111_1111_1111;
+
+        assert_eq!(
+            result, lower_bits,
+            "update_extension_type with channel_msg=false should return only lower 15 bits: input=0x{:04X}, expected=0x{:04X}, got=0x{:04X}",
+            extension_type, lower_bits, result
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_truncated_payload(msg_length: ValidU24, cut: u16) {
+        let msg_type = 0x01u8;
+        let ext = 0u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, ext).unwrap();
+
+        let payload_len = msg_length.0 as usize;
+        if payload_len == 0 {
+            return;
+        }
+
+        let missing = (cut as usize % payload_len) + 1;
+        let actual_payload = payload_len - missing;
+
+        let mut bytes = vec![0u8; Header::SIZE + actual_payload];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+
+        assert!(
+            hint < 0,
+            "size_hint should be negative when payload is truncated"
+        );
+
+        assert_eq!(
+            hint,
+            -(missing as isize),
+            "size_hint should equal missing bytes"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_extra_bytes(msg_length: ValidU24, extra: u16) {
+        let msg_type = 0x01u8;
+        let ext = 0u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, ext).unwrap();
+
+        let extra = (extra % 64 + 1) as usize;
+
+        let mut bytes = vec![0u8; Header::SIZE + msg_length.0 as usize + extra];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+
+        assert!(hint > 0, "size_hint should be positive when extra bytes exist");
+
+        assert_eq!(
+            hint,
+            extra as isize,
+            "size_hint should equal number of extra bytes"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_matches_delta(msg_length: ValidU24, delta: i16) {
+        let msg_type = 0x01u8;
+        let ext = 0u16;
+
+        let header = Header::from_len(msg_length.0, msg_type, ext).unwrap();
+
+        let expected = msg_length.0 as isize;
+        let actual = (expected + delta as isize).max(0) as usize;
+
+        let mut bytes = vec![0u8; Header::SIZE + actual];
+        binary_sv2::to_writer(header, &mut bytes[..Header::SIZE]).unwrap();
+
+        let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&bytes);
+
+        assert_eq!(
+            hint,
+            actual as isize - expected,
+            "size_hint must equal actual - expected payload size"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_size_hint_monotonic_growth(msg_length: ValidU24) {
+        let header = Header::from_len(msg_length.0, 1, 0).unwrap();
+        let total = Header::SIZE + msg_length.0 as usize;
+
+        let mut full = vec![0u8; total];
+        binary_sv2::to_writer(header, &mut full[..Header::SIZE]).unwrap();
+
+        let mut prev = isize::MIN;
+
+        for i in 0..=total {
+            let hint = Sv2Frame::<TestMessage, Vec<u8>>::size_hint(&full[..i]);
+            assert!(hint >= prev, "hint should increase as more bytes arrive");
+            prev = hint;
+        }
+    }
+
 }
