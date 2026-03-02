@@ -1062,11 +1062,22 @@ mod tests {
             version: 536870912,
         };
 
-        let res = standard_channel.validate_share(share_valid_block);
+        let res = standard_channel.validate_share(share_valid_block.clone());
 
         assert!(matches!(
             res,
             Ok(ShareValidationResult::BlockFound(_, _, _))
+        ));
+        assert_eq!(
+            standard_channel.get_share_accounting().get_blocks_found(),
+            1
+        );
+
+        // re-submitting the same valid block must be rejected as duplicate
+        let res = standard_channel.validate_share(share_valid_block);
+        assert!(matches!(
+            res.unwrap_err(),
+            ShareValidationError::DuplicateShare
         ));
         assert_eq!(
             standard_channel.get_share_accounting().get_blocks_found(),
