@@ -269,9 +269,16 @@ impl OpenMiningChannelError<'_> {
 mod tests {
 
     use super::*;
-    use crate::tests::from_arbitrary_vec_to_array;
     use alloc::{string::String, vec::Vec};
     use core::convert::TryFrom;
+
+    fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
+        let mut result = [0_u8; 32];
+        let start = 32_usize.saturating_sub(vec.len());
+        let copy_len = vec.len().min(32);
+        result[start..start + copy_len].copy_from_slice(&vec[..copy_len]);
+        result
+    }
 
     // *** OPEN STANDARD MINING CHANNEL ***
     #[quickcheck_macros::quickcheck]
