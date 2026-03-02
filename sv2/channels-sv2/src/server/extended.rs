@@ -48,7 +48,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
-    MAX_EXTRANONCE_PREFIX_LEN,
+    MAX_EXTRANONCE_LEN,
 };
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -214,7 +214,7 @@ where
             return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
         }
 
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
@@ -291,7 +291,7 @@ where
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), ExtendedChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
