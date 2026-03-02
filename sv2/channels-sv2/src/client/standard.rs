@@ -347,6 +347,12 @@ impl<'a> StandardChannel<'a> {
 
         // check if a block was found
         if network_target.is_met_by(share_hash) {
+            if self
+                .share_accounting
+                .is_share_seen(share_hash.to_raw_hash())
+            {
+                return Err(ShareValidationError::DuplicateShare);
+            }
             self.share_accounting
                 .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
             self.share_accounting.increment_blocks_found();

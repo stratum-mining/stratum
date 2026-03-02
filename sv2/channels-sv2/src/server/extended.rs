@@ -744,6 +744,12 @@ where
 
         // check if a block was found
         if network_target.is_met_by(share_hash) {
+            if self
+                .share_accounting
+                .is_share_seen(share_hash.to_raw_hash())
+            {
+                return Err(ShareValidationError::DuplicateShare);
+            }
             self.share_accounting.update_share_accounting(
                 job_target.difficulty_float(),
                 share.sequence_number,
