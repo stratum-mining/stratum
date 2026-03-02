@@ -12,11 +12,12 @@ use crate::{
         error::StandardChannelError,
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
+    extranonce_manager::ExtranoncePrefix,
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, u256_to_block_hash},
-    MAX_EXTRANONCE_PREFIX_LEN,
+    MAX_EXTRANONCE_LEN,
 };
-use alloc::{format, string::String, vec::Vec};
+use alloc::{format, string::String};
 use binary_sv2::{self, Sv2Option};
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -45,11 +46,11 @@ pub type StandardJob<'a> = (NewMiningJob<'a>, Target);
 /// - stale jobs (jobs from previous chain tip, indexed by job_id)
 /// - share accounting state
 /// - chain tip state
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StandardChannel<'a> {
     channel_id: u32,
     user_identity: String,
-    extranonce_prefix: Vec<u8>,
+    extranonce_prefix: ExtranoncePrefix,
     target: Target,
     nominal_hashrate: f32,
     future_jobs: HashMap<u32, StandardJob<'a>>,
@@ -65,7 +66,7 @@ impl<'a> StandardChannel<'a> {
     pub fn new(
         channel_id: u32,
         user_identity: String,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: ExtranoncePrefix,
         target: Target,
         nominal_hashrate: f32,
     ) -> Self {
@@ -111,9 +112,9 @@ impl<'a> StandardChannel<'a> {
     /// Returns an error if the prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: ExtranoncePrefix,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
             return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
         }
 
@@ -122,8 +123,22 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the bytes representing the first part of the extranonce.
-    pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
-        &self.extranonce_prefix
+    pub fn get_extranonce_prefix(&self) -> &[u8] {
+        self.extranonce_prefix.as_bytes()
+    }
+
+    /// Returns the length of the `upstream_prefix` region of this channel's
+    /// extranonce prefix, if known.
+    ///
+    /// See [`ExtranoncePrefix::upstream_prefix_len`](crate::extranonce_manager::ExtranoncePrefix::upstream_prefix_len)
+    /// for the full semantics. In particular, this is `None` for channels
+    /// opened from a wire-sourced prefix (the common case on a client),
+    /// and `Some(n)` when the application minted the prefix locally from
+    /// an [`ExtranonceAllocator`](crate::extranonce_manager::ExtranonceAllocator) — e.g. a proxy that
+    /// sub-allocates an upstream-assigned extranonce space and hands one
+    /// slot to each downstream channel.
+    pub fn upstream_prefix_len(&self) -> Option<u8> {
+        self.extranonce_prefix.upstream_prefix_len()
     }
 
     /// Returns the current target for the channel.
@@ -193,7 +208,7 @@ impl<'a> StandardChannel<'a> {
         let merkle_root = merkle_root_from_path(
             new_extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
             new_extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
-            &self.extranonce_prefix,
+            self.extranonce_prefix.as_bytes(),
             &new_extended_mining_job.merkle_path.inner_as_ref(),
         )
         .expect("merkle root must be valid")
@@ -389,9 +404,12 @@ impl<'a> StandardChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{
-        share_accounting::{ShareValidationError, ShareValidationResult},
-        standard::StandardChannel,
+    use crate::{
+        client::{
+            share_accounting::{ShareValidationError, ShareValidationResult},
+            standard::StandardChannel,
+        },
+        extranonce_manager::ExtranoncePrefix,
     };
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
@@ -412,7 +430,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             target,
             nominal_hashrate,
         );
@@ -475,7 +493,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             target,
             nominal_hashrate,
         );
@@ -529,7 +547,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             target,
             nominal_hashrate,
         );
@@ -611,7 +629,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             target,
             nominal_hashrate,
         );
@@ -687,7 +705,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             target,
             nominal_hashrate,
         );

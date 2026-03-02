@@ -35,6 +35,7 @@
 //! - Job lifecycle and share accounting are managed on a per-channel basis.
 use crate::{
     chain_tip::ChainTip,
+    extranonce_manager::{AllocatedExtranoncePrefix, ExtranoncePrefix},
     server::{
         error::StandardChannelError,
         jobs::{
@@ -43,7 +44,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
-    MAX_EXTRANONCE_PREFIX_LEN,
+    MAX_EXTRANONCE_LEN,
 };
 use bitcoin::{
     absolute::LockTime,
@@ -83,7 +84,7 @@ where
 {
     pub channel_id: u32,
     user_identity: String,
-    extranonce_prefix: Vec<u8>,
+    extranonce_prefix: ExtranoncePrefix,
     requested_max_target: Target,
     target: Target,
     job_id_to_target: HashMap<u32, Target>,
@@ -114,7 +115,7 @@ where
     pub fn new_for_pool(
         channel_id: u32,
         user_identity: String,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: AllocatedExtranoncePrefix,
         requested_max_target: Target,
         nominal_hashrate: f32,
         share_batch_size: usize,
@@ -125,7 +126,7 @@ where
         Self::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.into(),
             requested_max_target,
             nominal_hashrate,
             share_batch_size,
@@ -150,7 +151,7 @@ where
     pub fn new_for_job_declaration_client(
         channel_id: u32,
         user_identity: String,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: AllocatedExtranoncePrefix,
         requested_max_target: Target,
         nominal_hashrate: f32,
         share_batch_size: usize,
@@ -162,7 +163,7 @@ where
         Self::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            extranonce_prefix.into(),
             requested_max_target,
             nominal_hashrate,
             share_batch_size,
@@ -178,7 +179,7 @@ where
     fn new(
         channel_id: u32,
         user_identity: String,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: ExtranoncePrefix,
         requested_max_target: Target,
         nominal_hashrate: f32,
         share_batch_size: usize,
@@ -200,7 +201,7 @@ where
         // otherwise exceed it is always valid.
         let target = calculated_target.min(requested_max_target);
 
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
@@ -244,8 +245,8 @@ where
     }
 
     /// Returns the extranonce prefix bytes.
-    pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
-        &self.extranonce_prefix
+    pub fn get_extranonce_prefix(&self) -> &[u8] {
+        self.extranonce_prefix.as_bytes()
     }
 
     /// Sets a new extranonce prefix for this channel.
@@ -253,13 +254,13 @@ where
     /// Returns an error if the new prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: AllocatedExtranoncePrefix,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
         }
 
-        self.extranonce_prefix = extranonce_prefix;
+        self.extranonce_prefix = extranonce_prefix.into();
 
         Ok(())
     }
@@ -432,7 +433,7 @@ where
                     .new_standard_job(
                         self.channel_id,
                         None,
-                        self.extranonce_prefix.clone(),
+                        self.extranonce_prefix.as_bytes().to_vec(),
                         template.clone(),
                         coinbase_reward_outputs,
                     )
@@ -449,7 +450,7 @@ where
                             .new_standard_job(
                                 self.channel_id,
                                 Some(chain_tip),
-                                self.extranonce_prefix.clone(),
+                                self.extranonce_prefix.as_bytes().to_vec(),
                                 template.clone(),
                                 coinbase_reward_outputs,
                             )
@@ -479,7 +480,7 @@ where
         extended_job: ExtendedJob<'a>,
     ) -> Result<(), StandardChannelError> {
         let standard_job = extended_job
-            .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
+            .into_standard_job(self.channel_id, self.extranonce_prefix.as_bytes().to_vec())
             .map_err(|_| StandardChannelError::FailedToConvertToStandardJob)?;
 
         match standard_job.is_future() {
@@ -717,6 +718,7 @@ where
 mod tests {
     use crate::{
         chain_tip::ChainTip,
+        extranonce_manager::{AllocatedExtranoncePrefix, ExtranoncePrefix, ExtranoncePrefixError},
         server::{
             error::StandardChannelError,
             jobs::{
@@ -758,7 +760,7 @@ mod tests {
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             max_target,
             nominal_hashrate,
             share_batch_size,
@@ -885,7 +887,7 @@ mod tests {
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             max_target,
             nominal_hashrate,
             share_batch_size,
@@ -989,7 +991,7 @@ mod tests {
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             max_target,
             nominal_hashrate,
             share_batch_size,
@@ -1113,7 +1115,7 @@ mod tests {
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             max_target,
             nominal_hashrate,
             share_batch_size,
@@ -1222,7 +1224,7 @@ mod tests {
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             max_target,
             nominal_hashrate,
             share_batch_size,
@@ -1325,7 +1327,7 @@ mod tests {
         let channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             not_so_permissive_max_target,
             very_small_hashrate,
             share_batch_size,
@@ -1363,7 +1365,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
             max_target,
             initial_hashrate,
             share_batch_size,
@@ -1448,7 +1450,7 @@ mod tests {
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             max_target,
             nominal_hashrate,
             share_batch_size,
@@ -1460,7 +1462,7 @@ mod tests {
         .unwrap();
 
         let current_extranonce_prefix = channel.get_extranonce_prefix();
-        assert_eq!(current_extranonce_prefix, &extranonce_prefix);
+        assert_eq!(current_extranonce_prefix, extranonce_prefix.as_slice());
 
         let new_extranonce_prefix = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
@@ -1469,18 +1471,21 @@ mod tests {
         .to_vec();
 
         channel
-            .set_extranonce_prefix(new_extranonce_prefix.clone())
+            .set_extranonce_prefix(
+                AllocatedExtranoncePrefix::for_test(new_extranonce_prefix.clone()).unwrap(),
+            )
             .unwrap();
         let current_extranonce_prefix = channel.get_extranonce_prefix();
-        assert_eq!(current_extranonce_prefix, &new_extranonce_prefix);
+        assert_eq!(current_extranonce_prefix, new_extranonce_prefix.as_slice());
 
         let new_extranonce_prefix_too_long = [
             83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1,
         ]
         .to_vec();
-        assert!(channel
-            .set_extranonce_prefix(new_extranonce_prefix_too_long)
-            .is_err());
+        assert!(matches!(
+            ExtranoncePrefix::from_wire(new_extranonce_prefix_too_long),
+            Err(ExtranoncePrefixError::ExceedsMaxLength)
+        ));
     }
 }
