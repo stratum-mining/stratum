@@ -14,7 +14,7 @@ use crate::{
     },
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, u256_to_block_hash},
-    MAX_EXTRANONCE_PREFIX_LEN,
+    MAX_EXTRANONCE_LEN,
 };
 use alloc::{format, string::String, vec::Vec};
 use binary_sv2::{self, Sv2Option};
@@ -113,7 +113,7 @@ impl<'a> StandardChannel<'a> {
         &mut self,
         extranonce_prefix: Vec<u8>,
     ) -> Result<(), StandardChannelError> {
-        if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if extranonce_prefix.len() > MAX_EXTRANONCE_LEN {
             return Err(StandardChannelError::NewExtranoncePrefixTooLarge);
         }
 
