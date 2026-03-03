@@ -17,6 +17,8 @@ pub enum Error<'a> {
     /// Errors if server receives a `json_rpc` request as the server should only receive responses.
     /// TODO: Should update to accommodate miner requesting a difficulty change
     InvalidJsonRpcMessageKind,
+    /// Errors when a hex string has invalid length (input too short or too long).
+    InvalidHexLen(String),
     /// Errors if the client receives an invalid message that was intended to be sent from the
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
@@ -44,6 +46,7 @@ impl std::fmt::Display for Error<'_> {
             ),
             Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{e:?}`"),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e:?}`"),
+            Error::InvalidHexLen(ref val) => write!(f, "Hex string length is invalid: `{val}`"),
             Error::IncorrectClientStatus(s) => {
                 write!(f, "Client status is incompatible with message: `{s}`")
             }

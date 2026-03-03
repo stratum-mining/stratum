@@ -112,6 +112,10 @@ impl TryFrom<&str> for HexU32Be {
 
     fn try_from(value: &str) -> Result<Self, Error<'static>> {
         let expected_len = 8;
+        if value.len() > expected_len {
+            return Err(Error::InvalidHexLen(value.to_string()));
+        }
+
         let delta_len = expected_len - value.len();
         let mut prefix = "".to_string();
         for _ in 0..delta_len {
