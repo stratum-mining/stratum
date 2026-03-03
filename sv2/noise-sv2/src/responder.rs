@@ -357,7 +357,7 @@ impl Responder {
 
         // 7. appends `EncryptAndHash(SIGNATURE_NOISE_MESSAGE)` to the buffer
         let valid_from = now;
-        let not_valid_after = now + self.cert_validity;
+        let not_valid_after = now.saturating_add(self.cert_validity);
         let signature_noise_message = self.get_signature(VERSION, valid_from, not_valid_after, rng);
         let mut signature_part = Vec::with_capacity(ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE);
         signature_part.extend_from_slice(&signature_noise_message[..]);
