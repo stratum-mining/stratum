@@ -134,6 +134,8 @@ impl Header {
 mod tests {
     use super::*;
     use alloc::vec;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
 
     #[test]
     fn test_header_from_bytes() {
@@ -158,5 +160,141 @@ mod tests {
         assert_eq!(header.extension_type, 0);
         assert_eq!(header.msg_type, 0x1);
         assert_eq!(header.msg_length, 0x1234_u32.try_into().unwrap());
+    }
+
+    #[derive(Debug, Clone)]
+    struct ValidU24(u32);
+
+    impl Arbitrary for ValidU24 {
+        fn arbitrary(g: &mut Gen) -> Self {
+            ValidU24(u32::arbitrary(g) % 16_777_216)
+        }
+    }
+
+    #[quickcheck]
+    fn prop_header_serialization_roundtrip(
+        msg_length: ValidU24,
+        msg_type: u8,
+        extension_type: u16,
+    ) {
+        let header = Header::from_len(msg_length.0, msg_type, extension_type).unwrap();
+        let mut bytes = vec![0u8; SV2_FRAME_HEADER_SIZE];
+        if binary_sv2::to_writer(header, &mut bytes[..]).is_err() {
+            return;
+        }
+
+        let deserialized = Header::from_bytes(&bytes).expect("Failed to deserialize header");
+        assert_eq!(
+            deserialized.msg_type(),
+            msg_type,
+            "Message type mismatch after roundtrip"
+        );
+        assert_eq!(
+            deserialized.ext_type(),
+            extension_type,
+            "Extension type mismatch after roundtrip"
+        );
+
+        let len: u32 = deserialized.msg_length.into();
+        assert_eq!(len, msg_length.0, "Message length mismatch after roundtrip");
+    }
+
+    #[quickcheck]
+    fn prop_header_from_bytes_size_requirement(bytes: Vec<u8>) {
+        let result = Header::from_bytes(&bytes);
+
+        if bytes.len() < SV2_FRAME_HEADER_SIZE {
+            assert!(
+                matches!(result, Err(Error::UnexpectedHeaderLength(_))),
+                "Expected UnexpectedHeaderLength error for buffer with {} bytes, got {:?}",
+                bytes.len(),
+                result
+            );
+        } else {
+            assert!(
+                result.is_ok() || !matches!(result, Err(Error::UnexpectedHeaderLength(_))),
+                "Got unexpected UnexpectedHeaderLength error for sufficient buffer size"
+            );
+        }
+    }
+
+    #[quickcheck]
+    fn prop_header_channel_msg_bit(extension_type: u16, channel_msg: bool) {
+        let msg_length = 100u32;
+        let msg_type = 0x01u8;
+
+        let adjusted_extension_type = if channel_msg {
+            extension_type | 0b1000_0000_0000_0000
+        } else {
+            extension_type & 0b0111_1111_1111_1111
+        };
+
+        let header = Header::from_len(msg_length, msg_type, adjusted_extension_type).unwrap();
+
+        assert_eq!(
+            header.channel_msg(),
+            channel_msg,
+            "channel_msg() should return {} for extension_type 0x{:04X} with MSB {}",
+            channel_msg,
+            adjusted_extension_type,
+            if channel_msg { "set" } else { "unset" }
+        );
+    }
+
+    #[quickcheck]
+    fn prop_header_ext_type_without_channel_msg(extension_type: u16) {
+        let msg_length = 100u32;
+        let msg_type = 0x01u8;
+
+        let header = Header::from_len(msg_length, msg_type, extension_type).unwrap();
+
+        let without_channel = header.ext_type_without_channel_msg();
+        let expected = extension_type & 0b0111_1111_1111_1111;
+        assert_eq!(
+            without_channel, expected,
+            "ext_type_without_channel_msg() should clear MSB: got 0x{:04X}, expected 0x{:04X}",
+            without_channel, expected
+        );
+    }
+
+    #[quickcheck]
+    fn prop_header_encrypted_len_calculation(msg_length: ValidU24) {
+        let header = Header::from_len(msg_length.0, 0x01, 0x0000).unwrap();
+
+        let encrypted_len = header.encrypted_len();
+        let aead_mac_len = AEAD_MAC_LEN;
+        let payload_per_chunk = SV2_FRAME_CHUNK_SIZE - aead_mac_len;
+        let chunks = (msg_length.0 as usize + payload_per_chunk - 1) / payload_per_chunk;
+        let expected_len = msg_length.0 as usize + chunks * aead_mac_len;
+
+        assert_eq!(
+            encrypted_len, expected_len,
+            "encrypted_len() mismatch for msg_length={}: {} chunks, expected {} bytes, got {} bytes",
+            msg_length.0, chunks, expected_len, encrypted_len
+        );
+    }
+
+    #[quickcheck]
+    fn prop_header_len_consistency(msg_length: ValidU24) {
+        let header = Header::from_len(msg_length.0, 0x01, 0x0000).unwrap();
+
+        assert_eq!(
+            header.len(),
+            msg_length.0 as usize,
+            "Header len() should match the msg_length used to create it"
+        );
+    }
+
+    #[quickcheck]
+    fn prop_header_size_is_constant() {
+        assert_eq!(
+            Header::SIZE,
+            SV2_FRAME_HEADER_SIZE,
+            "Header::SIZE should equal SV2_FRAME_HEADER_SIZE"
+        );
+        assert_eq!(
+            SV2_FRAME_HEADER_SIZE, 6,
+            "SV2_FRAME_HEADER_SIZE should be 6 bytes"
+        );
     }
 }
