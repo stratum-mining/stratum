@@ -756,6 +756,7 @@ where
                 share_hash.to_raw_hash(),
             );
             self.share_accounting.increment_blocks_found();
+            self.share_accounting.mark_batch_acknowledged();
 
             let mut coinbase = vec![];
             coinbase.extend(job.get_coinbase_tx_prefix_with_bip141());

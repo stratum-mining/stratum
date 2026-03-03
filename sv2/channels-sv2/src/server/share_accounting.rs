@@ -76,6 +76,7 @@ pub struct ShareAccounting {
     share_work_sum: f64,
     last_batch_accepted: u32,
     last_batch_work_sum: f64,
+    batch_acknowledged: bool,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
@@ -93,6 +94,7 @@ impl ShareAccounting {
             share_work_sum: 0.0,
             last_batch_accepted: 0,
             last_batch_work_sum: 0.0,
+            batch_acknowledged: false,
             share_batch_size,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
@@ -117,9 +119,10 @@ impl ShareAccounting {
         self.share_work_sum += share_work;
         self.seen_shares.insert(share_hash);
 
-        if self.should_acknowledge() {
+        if self.batch_acknowledged || self.should_acknowledge() {
             self.last_batch_accepted = 1;
             self.last_batch_work_sum = share_work;
+            self.batch_acknowledged = false;
         } else {
             self.last_batch_accepted += 1;
             self.last_batch_work_sum += share_work;
@@ -195,6 +198,15 @@ impl ShareAccounting {
     /// Increments the blocks found counter.
     pub fn increment_blocks_found(&mut self) {
         self.blocks_found += 1;
+    }
+
+    /// Marks the current batch as acknowledged so the next accepted share starts a fresh batch.
+    ///
+    /// Call this after a mid-batch `SubmitShares.Success` is guaranteed to be sent (e.g. on
+    /// block-found events) to avoid double-counting shares in the next batch boundary
+    /// acknowledgment.
+    pub fn mark_batch_acknowledged(&mut self) {
+        self.batch_acknowledged = true;
     }
 
     /// Returns the total number of blocks found on this channel.
