@@ -720,4 +720,26 @@ mod tests {
             other => panic!("Expected Error::Method, got {:?}", other),
         }
     }
+
+    #[test]
+    fn version_mask_invalid_len() {
+        let raw = serde_json::json!([
+            "mining.set_version_mask",
+            ["123456789"] // len > 8 bytes
+        ]);
+
+        let msg: Result<Message, _> = serde_json::from_value(raw);
+
+        if let Ok(msg) = msg {
+            let result = Method::try_from(msg);
+            assert!(result.is_err(), "Expected error for invalid hex length");
+
+            match result.unwrap_err() {
+                MethodError::ParsingMethodError((ParsingMethodError::InvalidHexLen(_), _)) => {}
+                other => panic!("Expected InvalidHexLen, got {:?}", other),
+            }
+        } else {
+            panic!("Message parsing failed unexpectedly");
+        }
+    }
 }
