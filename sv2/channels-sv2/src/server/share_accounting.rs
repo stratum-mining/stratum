@@ -103,7 +103,7 @@ impl ShareAccounting {
     /// Updates internal accounting for a newly accepted share.
     ///
     /// - Increments total shares accepted and work sum.
-    /// - Increments last batch accepted and work sum if the share batch size is reached.
+    /// - Increments last batch accepted and work sum, resetting when a new batch starts.
     /// - Updates last accepted sequence number.
     /// - Records the share hash to detect duplicates.
     pub fn update_share_accounting(
@@ -118,10 +118,11 @@ impl ShareAccounting {
         self.seen_shares.insert(share_hash);
 
         if self.should_acknowledge() {
-            let current_batch_accepted = self.shares_accepted - self.last_batch_accepted;
-            let current_batch_work_sum = self.share_work_sum - self.last_batch_work_sum;
-            self.last_batch_accepted = current_batch_accepted;
-            self.last_batch_work_sum = current_batch_work_sum;
+            self.last_batch_accepted = 1;
+            self.last_batch_work_sum = share_work;
+        } else {
+            self.last_batch_accepted += 1;
+            self.last_batch_work_sum += share_work;
         }
     }
 
@@ -169,9 +170,9 @@ impl ShareAccounting {
         self.share_batch_size
     }
 
-    /// Returns true if the current count of accepted shares triggers an acknowledgment.
+    /// Returns true if the current batch is full and ready for acknowledgment.
     pub fn should_acknowledge(&self) -> bool {
-        self.shares_accepted % self.share_batch_size as u32 == 0
+        self.last_batch_accepted == self.share_batch_size as u32
     }
 
     /// Checks if the share hash has already been accepted (duplicate detection).
