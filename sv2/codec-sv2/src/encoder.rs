@@ -290,3 +290,161 @@ impl<T: Serialize + GetSize> WithoutNoise<Buffer, T> {
         }
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use binary_sv2::{self, Serialize};
+    use framing_sv2::framing::Sv2Frame;
+    use quickcheck::{Arbitrary, Gen, TestResult};
+    use quickcheck_macros::quickcheck;
+
+    type Slice = <Buffer as IsBuffer>::Slice;
+
+    #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+    struct TestMessage {
+        value: u16,
+    }
+
+    impl Arbitrary for TestMessage {
+        fn arbitrary(g: &mut Gen) -> Self {
+            TestMessage {
+                value: u16::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_produces_non_empty_output(msg: TestMessage, msg_type: u8) -> TestResult {
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg.clone(), msg_type, 0, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = encoder.encode(frame);
+
+        match encoded {
+            Ok(data) => TestResult::from_bool(!data.is_empty()),
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_output_size_bounded(msg: TestMessage, msg_type: u8) -> TestResult {
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg.clone(), msg_type, 0, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = encoder.encode(frame.clone());
+
+        match encoded {
+            Ok(data) => {
+                let expected_max_len = frame.encoded_length() + 100;
+                TestResult::from_bool(data.len() <= expected_max_len)
+            }
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_zero_values_handling(msg_type: u8) -> TestResult {
+        let msg = TestMessage { value: 0 };
+
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = encoder.encode(frame);
+
+        match encoded {
+            Ok(data) => TestResult::from_bool(!data.is_empty()),
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_max_values_handling(msg_type: u8) -> TestResult {
+        let msg = TestMessage { value: u16::MAX };
+
+        let frame = match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = encoder.encode(frame);
+
+        match encoded {
+            Ok(data) => TestResult::from_bool(!data.is_empty()),
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_channel_msg_flag(
+        msg: TestMessage,
+        msg_type: u8,
+        channel_msg: bool,
+    ) -> TestResult {
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, 0, channel_msg) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = encoder.encode(frame);
+
+        match encoded {
+            Ok(_) => TestResult::passed(),
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_extension_type(msg: TestMessage, msg_type: u8, ext_type: u16) -> TestResult {
+        let frame =
+            match Sv2Frame::<TestMessage, Slice>::from_message(msg, msg_type, ext_type, false) {
+                Some(f) => f,
+                None => return TestResult::discard(),
+            };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+        let encoded = encoder.encode(frame);
+
+        match encoded {
+            Ok(_) => TestResult::passed(),
+            Err(_) => TestResult::failed(),
+        }
+    }
+
+    #[quickcheck]
+    fn prop_encoder_reusable(msg1: TestMessage, msg2: TestMessage, msg_type: u8) -> TestResult {
+        let frame1 = match Sv2Frame::<TestMessage, Slice>::from_message(msg1, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let frame2 = match Sv2Frame::<TestMessage, Slice>::from_message(msg2, msg_type, 0, false) {
+            Some(f) => f,
+            None => return TestResult::discard(),
+        };
+
+        let mut encoder = Encoder::<TestMessage>::new();
+
+        let encoded1 = encoder.encode(frame1);
+        let encoded2 = encoder.encode(frame2);
+
+        match (encoded1, encoded2) {
+            (Ok(_), Ok(_)) => TestResult::passed(),
+            _ => TestResult::failed(),
+        }
+    }
+}
