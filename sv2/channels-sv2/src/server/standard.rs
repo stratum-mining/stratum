@@ -648,6 +648,7 @@ where
                 share_hash.to_raw_hash(),
             );
             self.share_accounting.increment_blocks_found();
+            self.share_accounting.mark_batch_acknowledged();
 
             let op_pushbytes_pool_miner_tag = self
                 .job_factory
