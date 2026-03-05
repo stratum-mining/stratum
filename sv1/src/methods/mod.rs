@@ -53,6 +53,7 @@ pub enum ParsingMethodError {
     UnexpectedArrayParams(Vec<serde_json::Value>),
     UnexpectedObjectParams(serde_json::Map<String, serde_json::Value>),
     MultipleError(Vec<ParsingMethodError>),
+    InvalidHexLen(Box<serde_json::Value>),
     Todo,
 }
 
@@ -61,6 +62,9 @@ impl From<Error<'_>> for ParsingMethodError {
         match inner {
             Error::HexError(e) => ParsingMethodError::HexError(Box::new(e)),
             Error::BTCHashError(e) => ParsingMethodError::BTCHashError(Box::new(e)),
+            Error::InvalidHexLen(s) => {
+                ParsingMethodError::InvalidHexLen(Box::new(serde_json::Value::String(s)))
+            }
             _ => panic!("v1 Error does not implement this ParsingMethodError, but probably should"),
         }
     }
