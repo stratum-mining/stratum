@@ -17,6 +17,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4.10"
 arbitrary = { version = "1.4.2", features = ["derive"] }
 binary_sv2 = { path = "../sv2/binary-sv2"}
+noise_sv2 = { path = "../sv2/noise-sv2" }
 parsers_sv2 = { path = "../sv2/parsers-sv2" }
 framing_sv2 = { path = "../sv2/framing-sv2" }
 codec_sv2 = { path = "../sv2/codec-sv2", features = ["noise_sv2"]}
@@ -24,6 +25,8 @@ common_messages_sv2 = { path = "../sv2/subprotocols/common-messages" }
 job_declaration_sv2 = { path = "../sv2/subprotocols/job-declaration" }
 mining_sv2 = {path = "../sv2/subprotocols/mining" }
 template_distribution_sv2 = { path = "../sv2/subprotocols/template-distribution" }
+secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "rand"] }
+rand = { version = "0.8.5", default-features = false }
 
 [[bin]]
 name = "deserialize_sv2frame"
@@ -76,5 +79,11 @@ doc = false
 [[bin]]
 name = "end_to_end_serialization_for_template_distribution_messages"
 path = "fuzz_targets/end_to_end_serialization_for_template_distribution_messages.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_noise_handshake_and_roundtrip_encryption"
+path = "fuzz_targets/fuzz_noise_handshake_and_roundtrip_encryption.rs"
 test = false
 doc = false
