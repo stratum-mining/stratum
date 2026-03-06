@@ -32,26 +32,8 @@ test = false
 doc = false
 
 [[bin]]
-name = "deserialize_seq0255"
-path = "fuzz_targets/deserialize_seq0255.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_seq064k"
-path = "fuzz_targets/deserialize_seq064k.rs"
-test = false
-doc = false
-
-[[bin]]
 name = "deserialize_stdframe"
 path = "fuzz_targets/deserialize_stdframe.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "deserialize_datatypes"
-path = "fuzz_targets/deserialize_datatypes.rs"
 test = false
 doc = false
 
@@ -78,3 +60,10 @@ name = "end_to_end_serialization_for_template_distribution_messages"
 path = "fuzz_targets/end_to_end_serialization_for_template_distribution_messages.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "end_to_end_serialization_for_datatypes"
+path = "fuzz_targets/end_to_end_serialization_for_datatypes.rs"
+test = false
+doc = false
+
