@@ -11,15 +11,15 @@ use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 /// that are represented as hex strings in JSON.
 /// Extranonce must be less than or equal to 32 bytes.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Extranonce<'a>(pub B032<'a>);
+pub struct Extranonce(pub B032);
 
-impl fmt::Display for Extranonce<'_> {
+impl fmt::Display for Extranonce {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0.inner_as_ref().to_hex())
     }
 }
 
-impl Extranonce<'_> {
+impl Extranonce {
     pub fn len(&self) -> usize {
         self.0.inner_as_ref().len()
     }
@@ -28,28 +28,28 @@ impl Extranonce<'_> {
     }
 }
 
-impl<'a> TryFrom<Vec<u8>> for Extranonce<'a> {
-    type Error = Error<'a>;
-    fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
+impl TryFrom<Vec<u8>> for Extranonce {
+    type Error = Error;
+    fn try_from(value: Vec<u8>) -> Result<Self, Error> {
         Ok(Extranonce(B032::try_from(value)?))
     }
 }
 
-impl<'a> From<Extranonce<'a>> for Vec<u8> {
-    fn from(v: Extranonce<'a>) -> Self {
+impl From<Extranonce> for Vec<u8> {
+    fn from(v: Extranonce) -> Self {
         v.0.to_vec()
     }
 }
 
-impl<'a> From<Extranonce<'a>> for Value {
-    fn from(eb: Extranonce<'a>) -> Self {
+impl From<Extranonce> for Value {
+    fn from(eb: Extranonce) -> Self {
         Into::<String>::into(eb).into()
     }
 }
 
 /// fix for error on odd-length hex sequences
 /// FIXME: find a nicer solution
-fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
+fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
     if s.len() % 2 != 0 {
         Vec::<u8>::from_hex(&format!("0{s}")).map_err(Error::HexError)
     } else {
@@ -57,16 +57,16 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
     }
 }
 
-impl<'a> TryFrom<&str> for Extranonce<'a> {
-    type Error = error::Error<'a>;
+impl TryFrom<&str> for Extranonce {
+    type Error = error::Error;
 
-    fn try_from(value: &str) -> Result<Self, Error<'a>> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         Ok(Extranonce(B032::try_from(hex_decode(value)?)?))
     }
 }
 
-impl<'a> From<Extranonce<'a>> for String {
-    fn from(bytes: Extranonce<'a>) -> String {
+impl From<Extranonce> for String {
+    fn from(bytes: Extranonce) -> String {
         bytes.0.inner_as_ref().to_hex()
     }
 }
@@ -79,8 +79,8 @@ impl BitAnd<u32> for HexU32Be {
     }
 }
 
-impl<'a> From<B032<'a>> for Extranonce<'a> {
-    fn from(b: B032<'a>) -> Self {
+impl From<B032> for Extranonce {
+    fn from(b: B032) -> Self {
         Extranonce(b)
     }
 }
@@ -108,9 +108,9 @@ impl From<HexU32Be> for Value {
 }
 
 impl TryFrom<&str> for HexU32Be {
-    type Error = Error<'static>;
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Error<'static>> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         let expected_len = 8;
         if value.len() > expected_len {
             return Err(Error::InvalidHexLen(value.to_string()));
@@ -169,9 +169,9 @@ impl<'de> Deserialize<'de> for HexU32Be {
 /// PrevHash in Stratum V1 has brain-damaged serialization as it swaps bytes of every u32 word
 /// into big endian. Therefore, we need a special type for it
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PrevHash<'a>(pub U256<'a>);
+pub struct PrevHash(pub U256);
 
-impl fmt::Display for PrevHash<'_> {
+impl fmt::Display for PrevHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Reuse the Stratum V1 serialization logic
         let s = String::from(self.clone());
@@ -179,16 +179,16 @@ impl fmt::Display for PrevHash<'_> {
     }
 }
 
-impl<'a> From<PrevHash<'a>> for Vec<u8> {
-    fn from(p_hash: PrevHash<'a>) -> Self {
+impl From<PrevHash> for Vec<u8> {
+    fn from(p_hash: PrevHash) -> Self {
         p_hash.0.to_vec()
     }
 }
 
-impl<'a> TryFrom<&str> for PrevHash<'a> {
-    type Error = Error<'a>;
+impl TryFrom<&str> for PrevHash {
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Error<'a>> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         // Reorder PrevHash will be stored via this cursor
         // let mut prev_hash_cursor = std::io::Cursor::new([0_u8; 32]);
         let mut prev_hash_arr = [0_u8; 32];
@@ -217,7 +217,7 @@ impl<'a> TryFrom<&str> for PrevHash<'a> {
     }
 }
 
-impl From<PrevHash<'_>> for Value {
+impl From<PrevHash> for Value {
     fn from(ph: PrevHash) -> Self {
         Into::<String>::into(ph).into()
     }
@@ -225,7 +225,7 @@ impl From<PrevHash<'_>> for Value {
 
 /// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
 /// ordering
-impl From<PrevHash<'_>> for String {
+impl From<PrevHash> for String {
     fn from(v: PrevHash) -> Self {
         let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());
         // swap every u32 from little endian to big endian
@@ -240,80 +240,80 @@ impl From<PrevHash<'_>> for String {
 }
 
 // / Referencing the internal part of hex bytes
-impl AsRef<[u8]> for PrevHash<'_> {
+impl AsRef<[u8]> for PrevHash {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }
 }
 
 /// Referencing the internal part of hex bytes
-impl<'a> AsRef<U256<'a>> for PrevHash<'a> {
-    fn as_ref(&self) -> &U256<'a> {
+impl AsRef<U256> for PrevHash {
+    fn as_ref(&self) -> &U256 {
         &self.0
     }
 }
 
 /// Referencing the internal part of hex bytes
-impl AsRef<[u8]> for Extranonce<'_> {
+impl AsRef<[u8]> for Extranonce {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MerkleNode<'a>(pub U256<'a>);
+pub struct MerkleNode(pub U256);
 
-impl fmt::Display for MerkleNode<'_> {
+impl fmt::Display for MerkleNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.inner_as_ref().to_hex())
     }
 }
 
-impl MerkleNode<'_> {
+impl MerkleNode {
     pub fn is_empty(&self) -> bool {
         self.0.inner_as_ref().is_empty()
     }
 }
 
-impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
-    type Error = Error<'a>;
+impl TryFrom<Vec<u8>> for MerkleNode {
+    type Error = Error;
 
-    fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
+    fn try_from(value: Vec<u8>) -> Result<Self, Error> {
         let merkle = U256::try_from(value).map_err(error::Error::from)?;
         Ok(MerkleNode(merkle))
     }
 }
 
-impl<'a> From<MerkleNode<'a>> for Vec<u8> {
-    fn from(v: MerkleNode<'a>) -> Self {
+impl From<MerkleNode> for Vec<u8> {
+    fn from(v: MerkleNode) -> Self {
         v.0.to_vec()
     }
 }
 
-impl<'a> From<MerkleNode<'a>> for Value {
-    fn from(eb: MerkleNode<'a>) -> Self {
+impl From<MerkleNode> for Value {
+    fn from(eb: MerkleNode) -> Self {
         Into::<String>::into(eb).into()
     }
 }
 
 /// Referencing the internal part of hex bytes
-impl AsRef<[u8]> for MerkleNode<'_> {
+impl AsRef<[u8]> for MerkleNode {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }
 }
 
-impl<'a> TryFrom<&str> for MerkleNode<'a> {
-    type Error = Error<'a>;
+impl TryFrom<&str> for MerkleNode {
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Error<'a>> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         let merkle = U256::try_from(hex_decode(value)?).map_err(error::Error::from)?;
         Ok(MerkleNode(merkle))
     }
 }
 
-impl<'a> From<MerkleNode<'a>> for String {
-    fn from(bytes: MerkleNode<'a>) -> String {
+impl From<MerkleNode> for String {
+    fn from(bytes: MerkleNode) -> String {
         bytes.0.inner_as_ref().to_hex()
     }
 }
@@ -365,9 +365,9 @@ impl AsRef<Vec<u8>> for HexBytes {
 }
 
 impl TryFrom<&str> for HexBytes {
-    type Error = Error<'static>;
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Error<'static>> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         Ok(HexBytes(hex_decode(value)?))
     }
 }

@@ -127,15 +127,15 @@ pub struct Extranonce {
 }
 
 // this function converts a U256 type in little endian to Extranonce type
-impl<'a> From<U256<'a>> for Extranonce {
-    fn from(v: U256<'a>) -> Self {
+impl From<U256> for Extranonce {
+    fn from(v: U256) -> Self {
         let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
         Self { extranonce }
     }
 }
 
 // This function converts an Extranonce type to U256n little endian
-impl From<Extranonce> for U256<'_> {
+impl From<Extranonce> for U256 {
     fn from(v: Extranonce) -> Self {
         let inner = v.extranonce;
         debug_assert!(inner.len() <= 32);
@@ -145,15 +145,15 @@ impl From<Extranonce> for U256<'_> {
 }
 
 // this function converts an extranonce to the type B032
-impl<'a> From<B032<'a>> for Extranonce {
-    fn from(v: B032<'a>) -> Self {
+impl From<B032> for Extranonce {
+    fn from(v: B032) -> Self {
         let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
         Self { extranonce }
     }
 }
 
 // this function converts an Extranonce type in B032 in little endian
-impl From<Extranonce> for B032<'_> {
+impl From<Extranonce> for B032 {
     fn from(v: Extranonce) -> Self {
         let inner = v.extranonce.to_vec();
         // below unwraps never panics
@@ -197,13 +197,13 @@ impl Extranonce {
         Self { extranonce }
     }
 
-    pub fn into_b032(self) -> B032<'static> {
+    pub fn into_b032(self) -> B032 {
         self.into()
     }
     // B032 type is more used, this is why the output signature is not ExtendedExtranoncee the B032
     // type is more used, this is why the output signature is not ExtendedExtranoncee
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Option<B032<'_>> {
+    pub fn next(&mut self) -> Option<B032> {
         increment_bytes_be(&mut self.extranonce).ok()?;
         // below unwraps never panics
         Some(self.extranonce.clone().try_into().unwrap())
@@ -843,7 +843,7 @@ pub mod tests {
         input.resize(MAX_EXTRANONCE_LEN, 0);
 
         let extranonce_start = Extranonce::try_from(input.clone()).unwrap();
-        let u256 = U256::<'static>::from(extranonce_start.clone());
+        let u256 = U256::from(extranonce_start.clone());
         let extranonce_final = Extranonce::from(u256);
         extranonce_start == extranonce_final
     }
@@ -853,7 +853,7 @@ pub mod tests {
     fn test_extranonce_from_b032(mut input: Vec<u8>) -> bool {
         input.resize(MAX_EXTRANONCE_LEN, 0);
         let extranonce_start = Extranonce::try_from(input.clone()).unwrap();
-        let b032 = B032::<'static>::from(extranonce_start.clone());
+        let b032 = B032::from(extranonce_start.clone());
         let extranonce_final = Extranonce::from(b032);
         extranonce_start == extranonce_final
     }

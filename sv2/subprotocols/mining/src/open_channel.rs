@@ -7,13 +7,13 @@ use core::{convert::TryInto, fmt};
 /// connection within a reasonable period, otherwise the upstream should close the connection for
 /// inactivity.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct OpenStandardMiningChannel<'decoder> {
+pub struct OpenStandardMiningChannel {
     /// Specified by downstream role.
     ///
     /// Used for matching responses from upstream.
     ///
     /// The value must be connection-wide unique and is not interpreted by the upstream.
-    pub request_id: U32AsRef<'decoder>,
+    pub request_id: U32AsRef,
     /// Unconstrained sequence of bytes.
     ///
     /// Whatever is needed by upstream role to identify/authenticate the downstream, e.g.
@@ -21,7 +21,7 @@ pub struct OpenStandardMiningChannel<'decoder> {
     ///
     /// Additional restrictions can be imposed by the upstream role (e.g. a pool). It is highly
     /// recommended to use UTF-8 encoding.
-    pub user_identity: Str0255<'decoder>,
+    pub user_identity: Str0255,
     /// Expected hash rate of the device (or cumulative hashrate on the channel if multiple devices
     /// are connected downstream) in h/s.
     ///
@@ -33,10 +33,10 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Maximum target which can be accepted by the connected device(s).
     ///
     /// Upstream must accept the target or respond by sending [`OpenMiningChannelError`] message.
-    pub max_target: U256<'decoder>,
+    pub max_target: U256,
 }
 
-impl fmt::Display for OpenStandardMiningChannel<'_> {
+impl fmt::Display for OpenStandardMiningChannel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -49,7 +49,7 @@ impl fmt::Display for OpenStandardMiningChannel<'_> {
     }
 }
 
-impl OpenStandardMiningChannel<'_> {
+impl OpenStandardMiningChannel {
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
@@ -67,26 +67,26 @@ impl OpenStandardMiningChannel<'_> {
 /// Message used by upstream to accept [`OpenStandardMiningChannel`] request from downstream.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct OpenStandardMiningChannelSuccess<'decoder> {
+pub struct OpenStandardMiningChannelSuccess {
     /// Used for matching requests/responses.
     ///
     /// Specified by downstream role and should be extracted from the corresponding
     /// [`OpenStandardMiningChannel`] message.
-    pub request_id: U32AsRef<'decoder>,
+    pub request_id: U32AsRef,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection.
     ///
     /// This will also be used for broadcasting new jobs by [`crate::NewMiningJob`].
     pub channel_id: u32,
     /// Initial target for the mining channel.
-    pub target: U256<'decoder>,
+    pub target: U256,
     /// Bytes used as implicit first part of extranonce for the scenario when the job is served by
     /// the downstream role for a set of standard channels that belong to the same group.
-    pub extranonce_prefix: B032<'decoder>,
+    pub extranonce_prefix: B032,
     /// Group channel into which the new channel belongs. See SetGroupChannel for details.
     pub group_channel_id: u32,
 }
 
-impl fmt::Display for OpenStandardMiningChannelSuccess<'_> {
+impl fmt::Display for OpenStandardMiningChannelSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -100,7 +100,7 @@ impl fmt::Display for OpenStandardMiningChannelSuccess<'_> {
     }
 }
 
-impl OpenStandardMiningChannelSuccess<'_> {
+impl OpenStandardMiningChannelSuccess {
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
@@ -124,7 +124,7 @@ impl OpenStandardMiningChannelSuccess<'_> {
 /// by the upstream role based on the [`OpenExtendedMiningChannel::min_extranonce_size`] requested
 /// by the downstream.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct OpenExtendedMiningChannel<'decoder> {
+pub struct OpenExtendedMiningChannel {
     /// Specified by downstream role.
     ///
     /// Used for matching responses from upstream.
@@ -138,7 +138,7 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     ///
     /// Additional restrictions can be imposed by the upstream role (e.g. a pool). It is highly
     /// recommended to use UTF-8 encoding.
-    pub user_identity: Str0255<'decoder>,
+    pub user_identity: Str0255,
     /// Expected hash rate of the device (or cumulative hashrate on the channel if multiple devices
     /// are connected downstream) in h/s.
     ///
@@ -150,12 +150,12 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     /// Maximum target which can be accepted by the connected device or devices.
     ///
     /// Upstream must accept the target or respond by sending [`OpenMiningChannelError`] message.
-    pub max_target: U256<'decoder>,
+    pub max_target: U256,
     /// Minimum size of extranonce needed by the downstream device/role.
     pub min_extranonce_size: u16,
 }
 
-impl fmt::Display for OpenExtendedMiningChannel<'_> {
+impl fmt::Display for OpenExtendedMiningChannel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -169,7 +169,7 @@ impl fmt::Display for OpenExtendedMiningChannel<'_> {
     }
 }
 
-impl OpenExtendedMiningChannel<'_> {
+impl OpenExtendedMiningChannel {
     pub fn get_request_id_as_u32(&self) -> u32 {
         self.request_id
     }
@@ -177,7 +177,7 @@ impl OpenExtendedMiningChannel<'_> {
 
 /// Message used by upstream to accept [`OpenExtendedMiningChannel` request from downstream.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct OpenExtendedMiningChannelSuccess<'decoder> {
+pub struct OpenExtendedMiningChannelSuccess {
     /// Used for matching requests/responses.
     ///
     /// Specified by downstream role and should be extracted from the corresponding
@@ -188,16 +188,16 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     /// This will also be used for broadcasting new jobs by [`crate::NewExtendedMiningJob`].
     pub channel_id: u32,
     /// Initial target for the mining channel.
-    pub target: U256<'decoder>,
+    pub target: U256,
     /// Extranonce size (in bytes) set for the channel.
     pub extranonce_size: u16,
     /// Bytes used as implicit first part of extranonce
-    pub extranonce_prefix: B032<'decoder>,
+    pub extranonce_prefix: B032,
     /// Group channel into which the new channel belongs. See SetGroupChannel for details.
     pub group_channel_id: u32,
 }
 
-impl fmt::Display for OpenExtendedMiningChannelSuccess<'_> {
+impl fmt::Display for OpenExtendedMiningChannelSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -215,7 +215,7 @@ impl fmt::Display for OpenExtendedMiningChannelSuccess<'_> {
 /// Message used by upstream to reject [`OpenExtendedMiningChannel`] or
 /// [`OpenStandardMiningchannel`] request from downstream.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct OpenMiningChannelError<'decoder> {
+pub struct OpenMiningChannelError {
     /// Used for matching requests/responses.
     ///
     /// Specified by downstream role and should be extracted from the corresponding
@@ -227,10 +227,10 @@ pub struct OpenMiningChannelError<'decoder> {
     ///
     /// - ‘unknown-user’
     /// - ‘max-target-out-of-range’
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
 }
 
-impl fmt::Display for OpenMiningChannelError<'_> {
+impl fmt::Display for OpenMiningChannelError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -241,7 +241,7 @@ impl fmt::Display for OpenMiningChannelError<'_> {
     }
 }
 
-impl OpenMiningChannelError<'_> {
+impl OpenMiningChannelError {
     pub fn new_max_target_out_of_range(request_id: u32) -> Self {
         Self {
             request_id,

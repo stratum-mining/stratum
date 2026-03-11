@@ -43,7 +43,7 @@ impl fmt::Display for SubmitSharesStandard {
 ///
 /// Only relevant for Extended Channels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SubmitSharesExtended<'decoder> {
+pub struct SubmitSharesExtended {
     /// Channel identification.
     pub channel_id: u32,
     /// Unique sequential identifier of the submit within the channel.
@@ -69,10 +69,10 @@ pub struct SubmitSharesExtended<'decoder> {
     ///
     /// The size of the provided extranonce must be equal to the negotiated extranonce size from
     /// channel opening flow.
-    pub extranonce: B032<'decoder>,
+    pub extranonce: B032,
 }
 
-impl fmt::Display for SubmitSharesExtended<'_> {
+impl fmt::Display for SubmitSharesExtended {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -118,7 +118,7 @@ impl fmt::Display for SubmitSharesSuccess {
 /// soon as the result is known. This delayed validation can occur when a miner gets faster
 /// updates about a new `prevhash` than the upstream does.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SubmitSharesError<'decoder> {
+pub struct SubmitSharesError {
     /// Channel identification.
     pub channel_id: u32,
     /// Unique sequential identifier of the submit within the channel.
@@ -131,10 +131,10 @@ pub struct SubmitSharesError<'decoder> {
     /// - stale-share
     /// - difficulty-too-low
     /// - invalid-job-id
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
 }
 
-impl fmt::Display for SubmitSharesError<'_> {
+impl fmt::Display for SubmitSharesError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -146,7 +146,7 @@ impl fmt::Display for SubmitSharesError<'_> {
     }
 }
 
-impl SubmitSharesError<'_> {
+impl SubmitSharesError {
     pub fn invalid_channel_error_code() -> &'static str {
         "invalid-channel-id"
     }

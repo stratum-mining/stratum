@@ -10,31 +10,31 @@ use core::convert::TryInto;
 /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct DeclareMiningJob<'decoder> {
+pub struct DeclareMiningJob {
     /// A unique identifier for this request.
     ///
     /// Used for pairing request/response.
     pub request_id: u32,
     /// Token received previously through [`crate::AllocateMiningJobTokenSuccess`] message.
-    pub mining_job_token: B0255<'decoder>,
+    pub mining_job_token: B0255,
     /// Header version field.
     pub version: u32,
     /// Serialized bytes representing the initial part of the coinbase transaction (not including
     /// extranonce)
-    pub coinbase_tx_prefix: B064K<'decoder>,
+    pub coinbase_tx_prefix: B064K,
     /// Serialized bytes representing the final part of the coinbase transaction (after extranonce)
-    pub coinbase_tx_suffix: B064K<'decoder>,
+    pub coinbase_tx_suffix: B064K,
     /// List of wtxid contained in the template. JDS checks the list against its
     /// mempool and requests missing txs via [`crate::ProvideMissingTransactions`].
     ///
     /// This list Does not include the coinbase transaction (as there is no corresponding full data
     /// for it yet).
-    pub wtxid_list: Seq064K<'decoder, U256<'decoder>>,
+    pub wtxid_list: Seq064K<U256>,
     /// Extra data which the JDS may require to validate the work.
-    pub excess_data: B064K<'decoder>,
+    pub excess_data: B064K,
 }
 
-impl fmt::Display for DeclareMiningJob<'_> {
+impl fmt::Display for DeclareMiningJob {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -58,7 +58,7 @@ impl fmt::Display for DeclareMiningJob<'_> {
 /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct DeclareMiningJobSuccess<'decoder> {
+pub struct DeclareMiningJobSuccess {
     /// A unique identifier for this request.
     ///
     /// Must be the same as the received [`DeclareMiningJob::request_id`].
@@ -67,10 +67,10 @@ pub struct DeclareMiningJobSuccess<'decoder> {
     /// to start mining on a non declared job. If the token is different (irrespective of if the
     /// downstream is already mining using it), the downstream **must** send a `SetCustomMiningJob`
     /// message on each connection which wishes to mine using the declared job.
-    pub new_mining_job_token: B0255<'decoder>,
+    pub new_mining_job_token: B0255,
 }
 
-impl fmt::Display for DeclareMiningJobSuccess<'_> {
+impl fmt::Display for DeclareMiningJobSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -87,7 +87,7 @@ impl fmt::Display for DeclareMiningJobSuccess<'_> {
 /// mining.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct DeclareMiningJobError<'decoder> {
+pub struct DeclareMiningJobError {
     /// The unique identifier of the request.
     ///
     /// Must be the same as the received [`DeclareMiningJob::request_id`].
@@ -96,12 +96,12 @@ pub struct DeclareMiningJobError<'decoder> {
     ///
     /// - invalid-mining-job-token
     /// - invalid-job-param-value-{DeclareMiningJob::field}
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
     /// Optional details about the error.
-    pub error_details: B064K<'decoder>,
+    pub error_details: B064K,
 }
 
-impl fmt::Display for DeclareMiningJobError<'_> {
+impl fmt::Display for DeclareMiningJobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

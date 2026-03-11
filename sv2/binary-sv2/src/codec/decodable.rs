@@ -12,7 +12,7 @@ use std::io::{Cursor, Read};
 ///
 /// Defines the process of reconstructing a type from a sequence of bytes. It handles both simple
 /// and nested or complex data structures.
-pub trait Decodable<'a>: Sized {
+pub trait Decodable: Sized {
     /// Defines the expected structure of a type based on binary data.
     ///
     /// Returns a vector of [`FieldMarker`]s, each representing a component of the structure.
@@ -23,14 +23,14 @@ pub trait Decodable<'a>: Sized {
     ///
     /// After the data has been split into fields, this method combines those fields
     /// back into the original type, handling nested structures or composite fields.
-    fn from_decoded_fields(data: Vec<DecodableField<'a>>) -> Result<Self, Error>;
+    fn from_decoded_fields(data: Vec<DecodableField>) -> Result<Self, Error>;
 
     /// Decodes the type from raw bytes.
     ///
     /// Orchestrates the decoding process, calling `get_structure` to break down
     /// the raw data, decoding each field, and then using `from_decoded_fields` to reassemble
     /// the fields into the original type.
-    fn from_bytes(data: &'a mut [u8]) -> Result<Self, Error> {
+    fn from_bytes(data: &mut [u8]) -> Result<Self, Error> {
         let structure = Self::get_structure(data)?;
         let mut fields = Vec::new();
         let mut tail = data;
@@ -116,21 +116,21 @@ pub trait GetMarker {
 // Represents a list of decode-able primitive data types.
 //
 #[derive(Debug)]
-pub enum DecodablePrimitive<'a> {
+pub enum DecodablePrimitive {
     U8(u8),
     U16(u16),
     Bool(bool),
     U24(U24),
-    U256(U256<'a>),
-    Signature(Signature<'a>),
+    U256(U256),
+    Signature(Signature),
     U32(u32),
-    U32AsRef(U32AsRef<'a>),
+    U32AsRef(U32AsRef),
     F32(f32),
     U64(u64),
-    B032(B032<'a>),
-    B0255(B0255<'a>),
-    B064K(B064K<'a>),
-    B016M(B016M<'a>),
+    B032(B032),
+    B0255(B0255),
+    B064K(B064K),
+    B016M(B016M),
 }
 
 /// Recursive enum representing a Decode-able field.
@@ -141,12 +141,12 @@ pub enum DecodablePrimitive<'a> {
 /// or a struct, which may itself contain multiple decoded fields. This type encapsulates that
 /// distinction.
 #[derive(Debug)]
-pub enum DecodableField<'a> {
+pub enum DecodableField {
     /// Primitive field.
-    Primitive(DecodablePrimitive<'a>),
+    Primitive(DecodablePrimitive),
 
     /// Structured field, allowing for nested data structures.
-    Struct(Vec<DecodableField<'a>>),
+    Struct(Vec<DecodableField>),
 }
 
 impl SizeHint for PrimitiveMarker {
@@ -233,8 +233,8 @@ impl TryFrom<Vec<FieldMarker>> for FieldMarker {
     }
 }
 
-impl<'a> From<DecodableField<'a>> for Vec<DecodableField<'a>> {
-    fn from(v: DecodableField<'a>) -> Self {
+impl From<DecodableField> for Vec<DecodableField> {
+    fn from(v: DecodableField) -> Self {
         match v {
             DecodableField::Primitive(p) => vec![DecodableField::Primitive(p)],
             DecodableField::Struct(ps) => ps,
@@ -246,7 +246,7 @@ impl PrimitiveMarker {
     // Decodes a primitive value from a byte slice at the given offset, returning the corresponding
     // `DecodablePrimitive`. The specific decoding logic depends on the type of the primitive (e.g.,
     // `u8`, `u16`, etc.).
-    fn decode<'a>(&self, data: &'a mut [u8], offset: usize) -> DecodablePrimitive<'a> {
+    fn decode(&self, data: &mut [u8], offset: usize) -> DecodablePrimitive {
         match self {
             Self::U8 => DecodablePrimitive::U8(u8::from_bytes_unchecked(&mut data[offset..])),
             Self::U16 => DecodablePrimitive::U16(u16::from_bytes_unchecked(&mut data[offset..])),
@@ -280,7 +280,7 @@ impl PrimitiveMarker {
     // where the data is not immediately available as a slice but must be read incrementally.
     #[allow(clippy::wrong_self_convention)]
     #[cfg(not(feature = "no_std"))]
-    fn from_reader<'a>(&self, reader: &mut impl Read) -> Result<DecodablePrimitive<'a>, Error> {
+    fn from_reader(&self, reader: &mut impl Read) -> Result<DecodablePrimitive, Error> {
         match self {
             Self::U8 => Ok(DecodablePrimitive::U8(u8::from_reader_(reader)?)),
             Self::U16 => Ok(DecodablePrimitive::U16(u16::from_reader_(reader)?)),
@@ -304,7 +304,7 @@ impl PrimitiveMarker {
     }
 }
 
-impl GetSize for DecodablePrimitive<'_> {
+impl GetSize for DecodablePrimitive {
     fn get_size(&self) -> usize {
         match self {
             DecodablePrimitive::U8(v) => v.get_size(),
@@ -330,7 +330,7 @@ impl FieldMarker {
     // Depending on whether the field is primitive or structured, this method decodes the
     // corresponding data. If the field is a structure, it recursively decodes each nested field
     // and returns the resulting `DecodableField`.
-    pub(crate) fn decode<'a>(&self, data: &'a mut [u8]) -> Result<DecodableField<'a>, Error> {
+    pub(crate) fn decode(&self, data: &mut [u8]) -> Result<DecodableField, Error> {
         match self {
             Self::Primitive(p) => Ok(DecodableField::Primitive(p.decode(data, 0))),
             Self::Struct(ps) => {
@@ -350,10 +350,10 @@ impl FieldMarker {
     #[allow(clippy::wrong_self_convention)]
     #[cfg(not(feature = "no_std"))]
     #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn from_reader<'a>(
+    pub(crate) fn from_reader(
         &self,
         reader: &mut impl Read,
-    ) -> Result<DecodableField<'a>, Error> {
+    ) -> Result<DecodableField, Error> {
         match self {
             Self::Primitive(p) => Ok(DecodableField::Primitive(p.from_reader(reader)?)),
             Self::Struct(ps) => {

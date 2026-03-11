@@ -9,7 +9,7 @@ use core::convert::TryInto;
 ///
 /// Only relevant for Extended Channels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct UpdateChannel<'decoder> {
+pub struct UpdateChannel {
     /// Channel identification.
     pub channel_id: u32,
     /// Expected hash rate of the device (or cumulative hashrate on the channel if multiple devices
@@ -31,10 +31,10 @@ pub struct UpdateChannel<'decoder> {
     /// Upstream can change maximum target by sending [`SetTarget`] message.
     ///
     /// [`SetTarget`]: crate::SetTarget
-    pub maximum_target: U256<'decoder>,
+    pub maximum_target: U256,
 }
 
-impl fmt::Display for UpdateChannel<'_> {
+impl fmt::Display for UpdateChannel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -46,7 +46,7 @@ impl fmt::Display for UpdateChannel<'_> {
 
 /// Message used by upstream to notify downstream about an error in the [`UpdateChannel`] message.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct UpdateChannelError<'decoder> {
+pub struct UpdateChannelError {
     /// Channel identification.
     pub channel_id: u32,
     /// Reason for channel update error.
@@ -54,10 +54,10 @@ pub struct UpdateChannelError<'decoder> {
     /// Possible error codes:
     /// - max-target-out-of-range
     /// - invalid-channel-id
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
 }
 
-impl fmt::Display for UpdateChannelError<'_> {
+impl fmt::Display for UpdateChannelError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

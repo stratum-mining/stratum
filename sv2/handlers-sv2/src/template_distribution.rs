@@ -43,7 +43,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+            let parsed: TemplateDistribution = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_template_distribution_message_from_server(server_id, parsed, None);
@@ -74,7 +74,7 @@ pub trait HandleTemplateDistributionMessagesFromServerSync {
     fn handle_template_distribution_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: TemplateDistribution<'_>,
+        message: TemplateDistribution,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -169,7 +169,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+                let parsed: TemplateDistribution = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -205,7 +205,7 @@ pub trait HandleTemplateDistributionMessagesFromServerAsync {
     async fn handle_template_distribution_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: TemplateDistribution<'_>,
+        message: TemplateDistribution,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -303,7 +303,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+            let parsed: TemplateDistribution = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_template_distribution_message_from_client(client_id, parsed, None);
@@ -334,7 +334,7 @@ pub trait HandleTemplateDistributionMessagesFromClientSync {
     fn handle_template_distribution_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: TemplateDistribution<'_>,
+        message: TemplateDistribution,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -423,7 +423,7 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: TemplateDistribution<'_> = (header.msg_type(), payload)
+                let parsed: TemplateDistribution = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -459,7 +459,7 @@ pub trait HandleTemplateDistributionMessagesFromClientAsync {
     async fn handle_template_distribution_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: TemplateDistribution<'_>,
+        message: TemplateDistribution,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {

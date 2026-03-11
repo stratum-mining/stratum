@@ -60,16 +60,16 @@ impl fmt::Display for RequestTransactionData {
 /// code-release to activation and there being in protocol(Template Declaration) signaling of
 /// support for the new fork (e.g. for soft-forks activated using [BIP 9]).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct RequestTransactionDataSuccess<'decoder> {
+pub struct RequestTransactionDataSuccess {
     /// The template_id corresponding to a NewTemplate/RequestTransactionData message.
     pub template_id: u64,
     /// Extra data which the Pool may require to validate the work.
-    pub excess_data: B064K<'decoder>,
+    pub excess_data: B064K,
     /// The transaction data, serialized as a series of B0_16M byte arrays.
-    pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
+    pub transaction_list: Seq064K<B016M>,
 }
 
-impl fmt::Display for RequestTransactionDataSuccess<'_> {
+impl fmt::Display for RequestTransactionDataSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -82,17 +82,17 @@ impl fmt::Display for RequestTransactionDataSuccess<'_> {
 /// Message used by an upstream(Template Provider) to respond with an error to a
 /// [`RequestTransactionData`] message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct RequestTransactionDataError<'decoder> {
+pub struct RequestTransactionDataError {
     /// Identifier of the template that the downstream node is requesting transaction data for.
     pub template_id: u64,
     /// Reason why no transaction data has been provided.
     ///
     /// Possible error codes:
     /// - template-id-not-found
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
 }
 
-impl fmt::Display for RequestTransactionDataError<'_> {
+impl fmt::Display for RequestTransactionDataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

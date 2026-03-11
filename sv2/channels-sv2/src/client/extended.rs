@@ -39,7 +39,7 @@ use tracing::debug;
 /// - A [`NewExtendedMiningJob`] message
 /// - The `extranonce_prefix` in use when the job was created
 /// - The target of the job
-pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
+pub type ExtendedJob = (NewExtendedMiningJob, Vec<u8>, Target);
 
 /// Mining Client abstraction for the state management of an Sv2 Extended Channel.
 ///
@@ -60,7 +60,7 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
 /// - Share accounting for the channel (as tracked by the client).
 /// - The channel's current chain tip.
 #[derive(Clone, Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
@@ -69,17 +69,17 @@ pub struct ExtendedChannel<'a> {
     nominal_hashrate: f32,
     version_rolling: bool,
     // future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, ExtendedJob<'a>>,
-    active_job: Option<ExtendedJob<'a>>,
+    future_jobs: HashMap<u32, ExtendedJob>,
+    active_job: Option<ExtendedJob>,
     // past jobs are indexed with job_id (u32)
-    past_jobs: HashMap<u32, ExtendedJob<'a>>,
+    past_jobs: HashMap<u32, ExtendedJob>,
     // stale jobs are indexed with job_id (u32)
-    stale_jobs: HashMap<u32, ExtendedJob<'a>>,
+    stale_jobs: HashMap<u32, ExtendedJob>,
     share_accounting: ShareAccounting,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl ExtendedChannel {
     /// Constructs a new [`ExtendedChannel`].
     pub fn new(
         channel_id: u32,
@@ -188,22 +188,22 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns a reference to the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&ExtendedJob> {
         self.active_job.as_ref()
     }
 
     /// Returns a reference to all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
+    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob> {
         &self.future_jobs
     }
 
     /// Returns a reference to all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
+    pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob> {
         &self.past_jobs
     }
 
     /// Returns a reference to all stale jobs for this channel.
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
+    pub fn get_stale_jobs(&self) -> &HashMap<u32, ExtendedJob> {
         &self.stale_jobs
     }
 
@@ -232,7 +232,7 @@ impl<'a> ExtendedChannel<'a> {
     /// - Otherwise, the job is activated and previous active job moves to the past jobs list.
     pub fn on_new_extended_mining_job(
         &mut self,
-        mut new_extended_mining_job: NewExtendedMiningJob<'a>,
+        mut new_extended_mining_job: NewExtendedMiningJob,
     ) -> Result<(), ExtendedChannelError> {
         // try to strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix, if they are
         // present
@@ -286,7 +286,7 @@ impl<'a> ExtendedChannel<'a> {
     /// To be used by a Sv2 Job Declarator Client
     pub fn on_set_custom_mining_job_success(
         &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job: SetCustomMiningJob,
         set_custom_mining_job_success: SetCustomMiningJobSuccess,
     ) -> Result<(), ExtendedChannelError> {
         if set_custom_mining_job.channel_id != set_custom_mining_job_success.channel_id
@@ -427,7 +427,7 @@ impl<'a> ExtendedChannel<'a> {
     /// - Updates the chain tip for the channel.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashMp<'a>,
+        set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), ExtendedChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {

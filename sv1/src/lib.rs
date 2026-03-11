@@ -57,14 +57,14 @@ use utils::{Extranonce, HexU32Be};
 /// TODO: Should update to accommodate miner requesting a difficulty change
 ///
 /// A stratum v1 server represent a single connection with a client
-pub trait IsServer<'a> {
+pub trait IsServer {
     /// handle the received message and return a response if the message is a request or
     /// notification.
     fn handle_message(
         &mut self,
         client_id: Option<usize>,
         msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error<'a>>
+    ) -> Result<Option<json_rpc::Response>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -89,7 +89,7 @@ pub trait IsServer<'a> {
         &mut self,
         client_id: Option<usize>,
         msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error<'a>>
+    ) -> Result<Option<json_rpc::Response>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -203,7 +203,7 @@ pub trait IsServer<'a> {
     fn handle_submit(
         &self,
         client_id: Option<usize>,
-        request: &client_to_server::Submit<'a>,
+        request: &client_to_server::Submit,
     ) -> bool;
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
@@ -217,10 +217,10 @@ pub trait IsServer<'a> {
     fn set_extranonce1(
         &mut self,
         client_id: Option<usize>,
-        extranonce1: Option<Extranonce<'a>>,
-    ) -> Extranonce<'a>;
+        extranonce1: Option<Extranonce>,
+    ) -> Extranonce;
 
-    fn extranonce1(&self, client_id: Option<usize>) -> Extranonce<'a>;
+    fn extranonce1(&self, client_id: Option<usize>) -> Extranonce;
 
     /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
     fn set_extranonce2_size(
@@ -240,9 +240,9 @@ pub trait IsServer<'a> {
     fn update_extranonce(
         &mut self,
         client_id: Option<usize>,
-        extra_nonce1: Extranonce<'a>,
+        extra_nonce1: Extranonce,
         extra_nonce2_size: usize,
-    ) -> Result<json_rpc::Message, Error<'a>> {
+    ) -> Result<json_rpc::Message, Error> {
         self.set_extranonce1(client_id, Some(extra_nonce1.clone()));
         self.set_extranonce2_size(client_id, Some(extra_nonce2_size));
 
@@ -255,19 +255,19 @@ pub trait IsServer<'a> {
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
 
-    fn notify(&mut self, client_id: Option<usize>) -> Result<json_rpc::Message, Error<'_>>;
+    fn notify(&mut self, client_id: Option<usize>) -> Result<json_rpc::Message, Error>;
 
     fn handle_set_difficulty(
         &mut self,
         _client_id: Option<usize>,
         value: f64,
-    ) -> Result<json_rpc::Message, Error<'_>> {
+    ) -> Result<json_rpc::Message, Error> {
         let set_difficulty = server_to_client::SetDifficulty { value };
         Ok(set_difficulty.into())
     }
 }
 
-pub trait IsClient<'a> {
+pub trait IsClient {
     /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
     /// result.
     ///
@@ -277,11 +277,11 @@ pub trait IsClient<'a> {
         &mut self,
         server_id: Option<usize>,
         msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Message>, Error<'a>>
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
-        let method: Result<Method<'a>, MethodError<'a>> = msg.try_into();
+        let method: Result<Method, MethodError> = msg.try_into();
 
         match method {
             Ok(m) => match m {
@@ -300,8 +300,8 @@ pub trait IsClient<'a> {
     fn update_response(
         &mut self,
         server_id: Option<usize>,
-        response: methods::Server2ClientResponse<'a>,
-    ) -> Result<methods::Server2ClientResponse<'a>, Error<'a>> {
+        response: methods::Server2ClientResponse,
+    ) -> Result<methods::Server2ClientResponse, Error> {
         match &response {
             methods::Server2ClientResponse::GeneralResponse(general) => {
                 let is_authorize = self.id_is_authorize(server_id, &general.id);
@@ -325,8 +325,8 @@ pub trait IsClient<'a> {
     fn handle_request(
         &mut self,
         server_id: Option<usize>,
-        request: methods::Server2Client<'a>,
-    ) -> Result<Option<json_rpc::Message>, Error<'a>>
+        request: methods::Server2Client,
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -353,8 +353,8 @@ pub trait IsClient<'a> {
     fn handle_response(
         &mut self,
         server_id: Option<usize>,
-        response: methods::Server2ClientResponse<'a>,
-    ) -> Result<Option<json_rpc::Message>, Error<'a>>
+        response: methods::Server2ClientResponse,
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -405,7 +405,7 @@ pub trait IsClient<'a> {
         &mut self,
         server_id: Option<usize>,
         message: Message,
-    ) -> Result<Option<json_rpc::Message>, Error<'a>>;
+    ) -> Result<Option<json_rpc::Message>, Error>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
@@ -417,42 +417,42 @@ pub trait IsClient<'a> {
     fn handle_notify(
         &mut self,
         server_id: Option<usize>,
-        notify: server_to_client::Notify<'a>,
-    ) -> Result<(), Error<'a>>;
+        notify: server_to_client::Notify,
+    ) -> Result<(), Error>;
 
     fn handle_configure(
         &mut self,
         server_id: Option<usize>,
         conf: &mut server_to_client::Configure,
-    ) -> Result<(), Error<'a>>;
+    ) -> Result<(), Error>;
 
     fn handle_set_difficulty(
         &mut self,
         server_id: Option<usize>,
         m: &mut server_to_client::SetDifficulty,
-    ) -> Result<(), Error<'a>>;
+    ) -> Result<(), Error>;
 
     fn handle_set_extranonce(
         &mut self,
         server_id: Option<usize>,
         m: &mut server_to_client::SetExtranonce,
-    ) -> Result<(), Error<'a>>;
+    ) -> Result<(), Error>;
 
     fn handle_set_version_mask(
         &mut self,
         server_id: Option<usize>,
         m: &mut server_to_client::SetVersionMask,
-    ) -> Result<(), Error<'a>>;
+    ) -> Result<(), Error>;
 
     fn handle_subscribe(
         &mut self,
         server_id: Option<usize>,
-        subscribe: &server_to_client::Subscribe<'a>,
-    ) -> Result<(), Error<'a>>;
+        subscribe: &server_to_client::Subscribe,
+    ) -> Result<(), Error>;
 
-    fn set_extranonce1(&mut self, server_id: Option<usize>, extranonce1: Extranonce<'a>);
+    fn set_extranonce1(&mut self, server_id: Option<usize>, extranonce1: Extranonce);
 
-    fn extranonce1(&self, server_id: Option<usize>) -> Extranonce<'a>;
+    fn extranonce1(&self, server_id: Option<usize>) -> Extranonce;
 
     fn set_extranonce2_size(&mut self, server_id: Option<usize>, extra_nonce2_size: usize);
 
@@ -472,7 +472,7 @@ pub trait IsClient<'a> {
 
     fn status(&self, server_id: Option<usize>) -> ClientStatus;
 
-    fn last_notify(&self, server_id: Option<usize>) -> Option<server_to_client::Notify<'_>>;
+    fn last_notify(&self, server_id: Option<usize>) -> Option<server_to_client::Notify>;
 
     /// Check if the given user_name has been authorized by the server
     #[allow(clippy::ptr_arg)]
@@ -500,8 +500,8 @@ pub trait IsClient<'a> {
         &mut self,
         server_id: Option<usize>,
         id: u64,
-        extranonce1: Option<Extranonce<'a>>,
-    ) -> Result<json_rpc::Message, Error<'a>> {
+        extranonce1: Option<Extranonce>,
+    ) -> Result<json_rpc::Message, Error> {
         match self.status(server_id) {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
@@ -519,7 +519,7 @@ pub trait IsClient<'a> {
         id: u64,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error<'_>> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status(server_id) {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
@@ -532,11 +532,11 @@ pub trait IsClient<'a> {
         server_id: Option<usize>,
         id: u64,
         user_name: String,
-        extra_nonce2: Extranonce<'a>,
+        extra_nonce2: Extranonce,
         time: i64,
         nonce: i64,
         version_bits: Option<HexU32Be>,
-    ) -> Result<json_rpc::Message, Error<'a>> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status(server_id) {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
             _ => {
@@ -577,16 +577,16 @@ mod tests {
     use std::collections::HashSet;
 
     // A minimal implementation of IsServer trait for testing
-    struct TestServer<'a> {
+    struct TestServer {
         authorized_users: HashSet<String>,
-        extranonce1: Extranonce<'a>,
+        extranonce1: Extranonce,
         extranonce2_size: usize,
         version_rolling_mask: Option<HexU32Be>,
         version_rolling_min_bit: Option<HexU32Be>,
     }
 
-    impl<'a> TestServer<'a> {
-        fn new(extranonce1: Extranonce<'a>, extranonce2_size: usize) -> Self {
+    impl TestServer {
+        fn new(extranonce1: Extranonce, extranonce2_size: usize) -> Self {
             Self {
                 authorized_users: HashSet::new(),
                 extranonce1,
@@ -597,7 +597,7 @@ mod tests {
         }
     }
 
-    impl<'a> IsServer<'a> for TestServer<'a> {
+    impl IsServer for TestServer {
         fn handle_configure(
             &mut self,
             _client_id: Option<usize>,
@@ -622,7 +622,7 @@ mod tests {
             true
         }
 
-        fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error<'_>> {
+        fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error> {
             Ok(json_rpc::Message::StandardRequest(
                 json_rpc::StandardRequest {
                     id: 1,
@@ -635,7 +635,7 @@ mod tests {
         fn handle_submit(
             &self,
             _client_id: Option<usize>,
-            _request: &client_to_server::Submit<'a>,
+            _request: &client_to_server::Submit,
         ) -> bool {
             true
         }
@@ -653,15 +653,15 @@ mod tests {
         fn set_extranonce1(
             &mut self,
             _client_id: Option<usize>,
-            extranonce1: Option<Extranonce<'a>>,
-        ) -> Extranonce<'a> {
+            extranonce1: Option<Extranonce>,
+        ) -> Extranonce {
             if let Some(extranonce1) = extranonce1 {
                 self.extranonce1 = extranonce1;
             }
             self.extranonce1.clone()
         }
 
-        fn extranonce1(&self, _client_id: Option<usize>) -> Extranonce<'a> {
+        fn extranonce1(&self, _client_id: Option<usize>) -> Extranonce {
             self.extranonce1.clone()
         }
 

@@ -10,7 +10,7 @@ use core::{convert::TryInto, fmt};
 /// and the only rollable bits are `version`, `nonce`, and `nTime` fields of the block header.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct NewMiningJob<'decoder> {
+pub struct NewMiningJob {
     /// Channel identifier for the channel that this job is valid for.
     ///
     /// This must be a Standard Channel.
@@ -30,7 +30,7 @@ pub struct NewMiningJob<'decoder> {
     /// received [`SetNewPrevHash`] message.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
-    pub min_ntime: Sv2Option<'decoder, u32>,
+    pub min_ntime: Sv2Option<u32>,
     /// Version field that reflects the current network consensus.
     ///
     /// As specified in [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki),
@@ -43,10 +43,10 @@ pub struct NewMiningJob<'decoder> {
     /// Merkle root field as used in the bitcoin block header.
     ///
     /// Note that this field is fixed and cannot be modified by the downstream node.
-    pub merkle_root: U256<'decoder>,
+    pub merkle_root: U256,
 }
 
-impl fmt::Display for NewMiningJob<'_> {
+impl fmt::Display for NewMiningJob {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -56,7 +56,7 @@ impl fmt::Display for NewMiningJob<'_> {
     }
 }
 
-impl NewMiningJob<'_> {
+impl NewMiningJob {
     pub fn is_future(&self) -> bool {
         self.min_ntime.clone().into_inner().is_none()
     }
@@ -75,7 +75,7 @@ impl NewMiningJob<'_> {
 /// that they can implement various advanced use cases such as: translation between Stratum V1 and
 /// V2 protocols, difficulty aggregation and search space splitting.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct NewExtendedMiningJob<'decoder> {
+pub struct NewExtendedMiningJob {
     /// Identifier of the Extended Mining Channel that this job is valid for.
     ///
     /// For a Group Channel, the message is broadcasted to all standard channels belonging to the
@@ -97,7 +97,7 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// received [`SetNewPrevHash`] message.
     ///
     /// [`SetNewPrevHash`]: crate::SetNewPrevHash
-    pub min_ntime: Sv2Option<'decoder, u32>,
+    pub min_ntime: Sv2Option<u32>,
     /// Version field that reflects the current network consensus.
     ///
     /// As specified in [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki),
@@ -114,14 +114,14 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// defined by this message.
     pub version_rolling_allowed: bool,
     /// Merkle path hashes ordered from deepest.
-    pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
+    pub merkle_path: Seq0255<U256>,
     /// Prefix part of the coinbase transaction.
-    pub coinbase_tx_prefix: B064K<'decoder>,
+    pub coinbase_tx_prefix: B064K,
     /// Suffix part of the coinbase transaction.
-    pub coinbase_tx_suffix: B064K<'decoder>,
+    pub coinbase_tx_suffix: B064K,
 }
 
-impl fmt::Display for NewExtendedMiningJob<'_> {
+impl fmt::Display for NewExtendedMiningJob {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -138,7 +138,7 @@ impl fmt::Display for NewExtendedMiningJob<'_> {
     }
 }
 
-impl NewExtendedMiningJob<'_> {
+impl NewExtendedMiningJob {
     pub fn is_future(&self) -> bool {
         self.min_ntime.clone().into_inner().is_none()
     }

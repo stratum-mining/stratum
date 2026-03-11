@@ -126,10 +126,10 @@ pub struct ExtranonceSubscribe();
 /// Server response is result: true for accepted, false for rejected (or you may get an error with
 /// more details).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Submit<'a> {
+pub struct Submit {
     pub user_name: String,            // root
     pub job_id: String,               // 6
-    pub extra_nonce2: Extranonce<'a>, // "8a.."
+    pub extra_nonce2: Extranonce, // "8a.."
     pub time: HexU32Be,               //string
     pub nonce: HexU32Be,
     pub version_bits: Option<HexU32Be>,
@@ -138,7 +138,7 @@ pub struct Submit<'a> {
 //"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"],
 //"{"params": "id": 2196, "method": "mining.submit"}"
 
-impl fmt::Display for Submit<'_> {
+impl fmt::Display for Submit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -154,7 +154,7 @@ impl fmt::Display for Submit<'_> {
     }
 }
 
-impl Submit<'_> {
+impl Submit {
     pub fn respond(self, is_ok: bool) -> Response {
         // infallibel
         let result = serde_json::to_value(is_ok).unwrap();
@@ -166,7 +166,7 @@ impl Submit<'_> {
     }
 }
 
-impl From<Submit<'_>> for Message {
+impl From<Submit> for Message {
     fn from(submit: Submit) -> Self {
         let ex: String = submit.extra_nonce2.0.inner_as_ref().to_hex();
         let mut params: Vec<Value> = vec![
@@ -188,7 +188,7 @@ impl From<Submit<'_>> for Message {
     }
 }
 
-impl TryFrom<StandardRequest> for Submit<'_> {
+impl TryFrom<StandardRequest> for Submit {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -249,7 +249,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
 }
 
 #[cfg(test)]
-impl Arbitrary for Submit<'static> {
+impl Arbitrary for Submit {
     fn arbitrary(g: &mut Gen) -> Self {
         let mut extra = Vec::<u8>::arbitrary(g);
         extra.resize(32, 0);
@@ -273,7 +273,7 @@ impl Arbitrary for Submit<'static> {
 
 #[cfg(test)]
 #[quickcheck_macros::quickcheck]
-fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
+fn submit_from_to_json_rpc(submit: Submit) -> bool {
     let message = Into::<Message>::into(submit.clone());
     println!("\nMESSAGE: {message:?}\n");
     let request = match message {
@@ -293,13 +293,13 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 ///
 /// [a]: crate::methods::server_to_client::Notify
 #[derive(Debug, Clone)]
-pub struct Subscribe<'a> {
+pub struct Subscribe {
     pub id: u64,
     pub agent_signature: String,
-    pub extranonce1: Option<Extranonce<'a>>,
+    pub extranonce1: Option<Extranonce>,
 }
 
-impl fmt::Display for Subscribe<'_> {
+impl fmt::Display for Subscribe {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -309,11 +309,11 @@ impl fmt::Display for Subscribe<'_> {
     }
 }
 
-impl<'a> Subscribe<'a> {
+impl Subscribe {
     pub fn respond(
         self,
         subscriptions: Vec<(String, String)>,
-        extra_nonce1: Extranonce<'a>,
+        extra_nonce1: Extranonce,
         extra_nonce2_size: usize,
     ) -> Response {
         let response = crate::server_to_client::Subscribe {
@@ -329,8 +329,8 @@ impl<'a> Subscribe<'a> {
     }
 }
 
-impl<'a> TryFrom<Subscribe<'a>> for Message {
-    type Error = Error<'a>;
+impl TryFrom<Subscribe> for Message {
+    type Error = Error;
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
@@ -345,7 +345,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
     }
 }
 
-impl TryFrom<StandardRequest> for Subscribe<'_> {
+impl TryFrom<StandardRequest> for Subscribe {
     type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {

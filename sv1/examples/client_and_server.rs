@@ -22,16 +22,16 @@ use sv1_api::{
     ClientStatus, IsClient, IsServer, Message,
 };
 
-fn new_extranonce<'a>() -> Extranonce<'a> {
+fn new_extranonce() -> Extranonce {
     extranonce_from_hex("08000002")
 }
 
-fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
+fn extranonce_from_hex(hex: &str) -> Extranonce {
     let data = utils::decode_hex(hex).unwrap();
     Extranonce::try_from(data).expect("Failed to convert hex to U256")
 }
 
-fn merklenode_from_hex<'a>(hex: &str) -> MerkleNode<'a> {
+fn merklenode_from_hex(hex: &str) -> MerkleNode {
     let data = utils::decode_hex(hex).unwrap();
     let len = data.len();
     if hex.len() >= 64 {
@@ -46,7 +46,7 @@ fn merklenode_from_hex<'a>(hex: &str) -> MerkleNode<'a> {
     }
 }
 
-fn prevhash_from_hex<'a>(hex: &str) -> PrevHash<'a> {
+fn prevhash_from_hex(hex: &str) -> PrevHash {
     let data = utils::decode_hex(hex).unwrap();
     let len = data.len();
     if hex.len() >= 64 {
@@ -72,9 +72,9 @@ fn new_version_rolling_min() -> HexU32Be {
     HexU32Be(0x00000000)
 }
 
-struct Server<'a> {
+struct Server {
     authorized_names: Vec<String>,
-    extranonce1: Extranonce<'a>,
+    extranonce1: Extranonce,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
@@ -98,8 +98,8 @@ fn server_pool_listen(listener: TcpListener) {
     }
 }
 
-impl Server<'_> {
-    pub fn new(stream: TcpStream) -> Arc<Mutex<Server<'static>>> {
+impl Server {
+    pub fn new(stream: TcpStream) -> Arc<Mutex<Server>> {
         let (sender_incoming, receiver_incoming) = mpsc::channel::<String>();
         let (sender_outgoing, receiver_outgoing) = mpsc::channel::<String>();
 
@@ -184,7 +184,7 @@ impl Server<'_> {
     fn handle_message(
         &mut self,
         _message: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error<'static>> {
+    ) -> Result<Option<json_rpc::Response>, Error> {
         Ok(None)
     }
 
@@ -194,7 +194,7 @@ impl Server<'_> {
     }
 }
 
-impl<'a> IsServer<'a> for Server<'a> {
+impl IsServer for Server {
     fn handle_configure(
         &mut self,
         _client_id: Option<usize>,
@@ -253,13 +253,13 @@ impl<'a> IsServer<'a> for Server<'a> {
     fn set_extranonce1(
         &mut self,
         _client_id: Option<usize>,
-        extranonce1: Option<Extranonce<'a>>,
-    ) -> Extranonce<'a> {
+        extranonce1: Option<Extranonce>,
+    ) -> Extranonce {
         self.extranonce1 = extranonce1.unwrap_or_else(new_extranonce);
         self.extranonce1.clone()
     }
 
-    fn extranonce1(&self, _client_id: Option<usize>) -> Extranonce<'a> {
+    fn extranonce1(&self, _client_id: Option<usize>) -> Extranonce {
         self.extranonce1.clone()
     }
 
@@ -289,7 +289,7 @@ impl<'a> IsServer<'a> for Server<'a> {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error<'a>> {
+    fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error> {
         let hex = "ffff";
         Ok(server_to_client::Notify {
             job_id: "ciao".to_string(),
@@ -306,22 +306,22 @@ impl<'a> IsServer<'a> for Server<'a> {
     }
 }
 
-struct Client<'a> {
+struct Client {
     client_id: u32,
-    extranonce1: Extranonce<'a>,
+    extranonce1: Extranonce,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     status: ClientStatus,
-    last_notify: Option<server_to_client::Notify<'a>>,
+    last_notify: Option<server_to_client::Notify>,
     sented_authorize_request: Vec<(u64, String)>, // (id, user_name)
     authorized: Vec<String>,
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
 }
 
-impl Client<'static> {
-    pub fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client<'static>>> {
+impl Client {
+    pub fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client>> {
         loop {
             thread::sleep(Duration::from_secs(1));
             match TcpStream::connect(socket) {
@@ -450,12 +450,12 @@ impl Client<'static> {
     }
 }
 
-impl<'a> IsClient<'a> for Client<'a> {
+impl IsClient for Client {
     fn handle_set_difficulty(
         &mut self,
         _server_id: Option<usize>,
         _conf: &mut server_to_client::SetDifficulty,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -463,7 +463,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         &mut self,
         _server_id: Option<usize>,
         _conf: &mut server_to_client::SetExtranonce,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -471,15 +471,15 @@ impl<'a> IsClient<'a> for Client<'a> {
         &mut self,
         _server_id: Option<usize>,
         _conf: &mut server_to_client::SetVersionMask,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Error> {
         Ok(())
     }
 
     fn handle_notify(
         &mut self,
         _server_id: Option<usize>,
-        notify: server_to_client::Notify<'a>,
-    ) -> Result<(), Error<'a>> {
+        notify: server_to_client::Notify,
+    ) -> Result<(), Error> {
         self.last_notify = Some(notify);
         Ok(())
     }
@@ -488,23 +488,23 @@ impl<'a> IsClient<'a> for Client<'a> {
         &mut self,
         _server_id: Option<usize>,
         _conf: &mut server_to_client::Configure,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Error> {
         Ok(())
     }
 
     fn handle_subscribe(
         &mut self,
         _server_id: Option<usize>,
-        _subscribe: &server_to_client::Subscribe<'a>,
-    ) -> Result<(), Error<'a>> {
+        _subscribe: &server_to_client::Subscribe,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn set_extranonce1(&mut self, _server_id: Option<usize>, extranonce1: Extranonce<'a>) {
+    fn set_extranonce1(&mut self, _server_id: Option<usize>, extranonce1: Extranonce) {
         self.extranonce1 = extranonce1;
     }
 
-    fn extranonce1(&self, _server_id: Option<usize>) -> Extranonce<'a> {
+    fn extranonce1(&self, _server_id: Option<usize>) -> Extranonce {
         self.extranonce1.clone()
     }
 
@@ -592,13 +592,13 @@ impl<'a> IsClient<'a> for Client<'a> {
         &mut self,
         _server_id: Option<usize>,
         message: Message,
-    ) -> Result<Option<json_rpc::Message>, Error<'a>> {
+    ) -> Result<Option<json_rpc::Message>, Error> {
         println!("{message:?}");
         Ok(None)
     }
 }
 
-fn initialize_client(client: Arc<Mutex<Client<'static>>>) {
+fn initialize_client(client: Arc<Mutex<Client>>) {
     loop {
         {
             let mut client_ = client.lock().unwrap();

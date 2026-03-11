@@ -17,7 +17,7 @@ use core::convert::TryInto;
 /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct ProvideMissingTransactions<'decoder> {
+pub struct ProvideMissingTransactions {
     /// Unique Identifier.
     ///
     /// Must be the same as the received [`crate::DeclareMiningJob::request_id`].
@@ -25,10 +25,10 @@ pub struct ProvideMissingTransactions<'decoder> {
     /// A list of unrecognized transactions that need to be supplied by the JDC in full. They are
     /// specified by their position in the original [`crate::DeclareMiningJob`] message, 0-indexed
     /// not including the coinbase transaction transaction.
-    pub unknown_tx_position_list: Seq064K<'decoder, u16>,
+    pub unknown_tx_position_list: Seq064K<u16>,
 }
 
-impl fmt::Display for ProvideMissingTransactions<'_> {
+impl fmt::Display for ProvideMissingTransactions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -42,15 +42,15 @@ impl fmt::Display for ProvideMissingTransactions<'_> {
 /// list of transactions in the order they were requested by [`ProvideMissingTransactions`].
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct ProvideMissingTransactionsSuccess<'decoder> {
+pub struct ProvideMissingTransactionsSuccess {
     /// Unique Identifier.
     ///
     /// Must be the same as the received [`ProvideMissingTransactions::request_id`].
     pub request_id: u32,
     /// List of full transactions as requested by [`ProvideMissingTransactions`].
-    pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
+    pub transaction_list: Seq064K<B016M>,
 }
-impl fmt::Display for ProvideMissingTransactionsSuccess<'_> {
+impl fmt::Display for ProvideMissingTransactionsSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

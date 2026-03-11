@@ -13,7 +13,7 @@ use core::convert::TryInto;
 /// Previously exchanged `SetupConnection::flags` must contain `REQUIRES_WORK_SELECTION` flag i.e.,
 /// work selection feature was successfully negotiated.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SetCustomMiningJob<'decoder> {
+pub struct SetCustomMiningJob {
     /// Extended mining channel identifier.
     pub channel_id: u32,
     /// Specified by downstream role.
@@ -24,7 +24,7 @@ pub struct SetCustomMiningJob<'decoder> {
     pub request_id: u32,
     /// Provide the information for the upstream to authorize the custom job that has been or will
     /// be negotiated between the Job Declarator Client and Job Declarator Server.
-    pub token: B0255<'decoder>,
+    pub token: B0255,
     /// Version field that reflects the current network consensus.
     ///
     /// The general purpose bits (as specified in BIP320) can be freely manipulated by the
@@ -32,7 +32,7 @@ pub struct SetCustomMiningJob<'decoder> {
     /// bits to any particular value.
     pub version: u32,
     /// Previous block’s hash.
-    pub prev_hash: U256<'decoder>,
+    pub prev_hash: U256,
     /// Smallest `nTime` value available for hashing.
     pub min_ntime: u32,
     /// Block header field.
@@ -41,18 +41,18 @@ pub struct SetCustomMiningJob<'decoder> {
     pub coinbase_tx_version: u32,
     /// Up to 8 bytes (not including the length byte) which are to be placed at the beginning of
     /// the coinbase field in the coinbase transaction.
-    pub coinbase_prefix: B0255<'decoder>,
+    pub coinbase_prefix: B0255,
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_n_sequence: u32,
     /// All the outputs that will be included in the coinbase txs
-    pub coinbase_tx_outputs: B064K<'decoder>,
+    pub coinbase_tx_outputs: B064K,
     /// The `locktime` field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
-    pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
+    pub merkle_path: Seq0255<U256>,
 }
 
-impl fmt::Display for SetCustomMiningJob<'_> {
+impl fmt::Display for SetCustomMiningJob {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, min_ntime={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
             self.channel_id,
@@ -98,7 +98,7 @@ impl fmt::Display for SetCustomMiningJobSuccess {
 
 /// Message used by upstream to reject [`SetCustomMiningJob`] request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetCustomMiningJobError<'decoder> {
+pub struct SetCustomMiningJobError {
     /// Extended mining channel identifier.
     pub channel_id: u32,
     /// Request identifier set by the downstream role.
@@ -109,10 +109,10 @@ pub struct SetCustomMiningJobError<'decoder> {
     /// - invalid-channel-id
     /// - invalid-mining-job-token
     /// - invalid-job-param-value-{field_name}
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
 }
 
-impl fmt::Display for SetCustomMiningJobError<'_> {
+impl fmt::Display for SetCustomMiningJobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

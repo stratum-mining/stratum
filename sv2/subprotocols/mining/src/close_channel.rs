@@ -9,14 +9,14 @@ use core::convert::TryInto;
 ///
 /// Upon receiving this message, upstream **must** stop sending messages for the channel.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CloseChannel<'decoder> {
+pub struct CloseChannel {
     /// Channel id of the channel to be closed.
     pub channel_id: u32,
     /// Reason for closing the channel.
-    pub reason_code: Str0255<'decoder>,
+    pub reason_code: Str0255,
 }
 
-impl fmt::Display for CloseChannel<'_> {
+impl fmt::Display for CloseChannel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

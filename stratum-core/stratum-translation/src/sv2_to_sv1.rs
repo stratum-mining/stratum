@@ -31,17 +31,17 @@ use v1::{
 ///   block is found).
 ///
 /// # Returns
-/// * `Ok(server_to_client::Notify<'static>)` - The constructed SV1 mining.notify message.
+/// * `Ok(server_to_client::Notify)` - The constructed SV1 mining.notify message.
 /// * `Err(StratumTranslationError)` - If BIP141 stripping or serialization fails.
 ///
 /// # Errors
 /// * `FailedToTryToStripBip141` - When BIP141 data stripping fails
 /// * `FailedToSerializeToB064K` - When serializing stripped data to B064K format fails
 pub fn build_sv1_notify_from_sv2(
-    new_prev_hash: SetNewPrevHash<'static>,
-    new_job: NewExtendedMiningJob<'static>,
+    new_prev_hash: SetNewPrevHash,
+    new_job: NewExtendedMiningJob,
     clean_jobs: bool,
-) -> Result<server_to_client::Notify<'static>> {
+) -> Result<server_to_client::Notify> {
     let new_job = match try_strip_bip141(
         new_job.coinbase_tx_prefix.inner_as_ref(),
         new_job.coinbase_tx_suffix.inner_as_ref(),
@@ -99,7 +99,7 @@ pub fn build_sv1_notify_from_sv2(
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
 pub fn build_sv1_set_difficulty_from_sv2_set_target(
-    set_target: SetTarget<'_>,
+    set_target: SetTarget,
 ) -> Result<json_rpc::Message> {
     build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(
         set_target

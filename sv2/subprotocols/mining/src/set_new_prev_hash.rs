@@ -11,7 +11,7 @@ use core::{convert::TryInto, fmt};
 /// When a downstream receives this message, only the job referenced by [`SetNewPrevHash::job_id`]
 /// is valid. Remaining jobs have to be dropped.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetNewPrevHash<'decoder> {
+pub struct SetNewPrevHash {
     /// Group channel or channel that this prevhash is valid for.
     pub channel_id: u32,
     /// Job identfier that is to be used for mining.
@@ -21,14 +21,14 @@ pub struct SetNewPrevHash<'decoder> {
     /// current block template).
     pub job_id: u32,
     /// Latest block hash observed by the Template Provider.
-    pub prev_hash: U256<'decoder>,
+    pub prev_hash: U256,
     /// Smallest `nTime` value available for hashing.
     pub min_ntime: u32,
     /// Block header field.
     pub nbits: u32,
 }
 
-impl fmt::Display for SetNewPrevHash<'_> {
+impl fmt::Display for SetNewPrevHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

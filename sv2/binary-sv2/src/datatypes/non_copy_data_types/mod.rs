@@ -1,8 +1,8 @@
 // Provides a flexible, low-level interface for representing fixed-size and variable-size byte
 // arrays, simplifying serialization and deserialization of cryptographic and protocol data.
 //
-// The core component is the [`Inner`] type, a wrapper for managing both fixed and variable-length
-// data slices or owned values. It offers aliases for commonly used data types like 32-byte hashes
+// The core component is the [`Inner`] type, a wrapper for managing fixed and variable-length
+// owned data. It offers aliases for commonly used data types like 32-byte hashes
 // (`U256`), public keys (`PubKey`), cryptographic signatures (`Signature`), and dynamically-sized
 // arrays (`B0255`, `B064K`).
 
@@ -12,7 +12,7 @@
 // - **Variable-size Aliases**: Types like [`B032`], [`B0255`], [`Str0255`], [`B064K`], and
 //   [`B016M`] handle data with bounded sizes, providing flexibility for dynamic data.
 // - **Traits and Conversions**: Implements traits like `From`, `TryFrom`, and [`IntoOwned`] for
-//   seamless transformations between owned and reference-based values.
+//   seamless transformations between owned values.
 // - **Property Testing** (optional, requires the `prop_test` feature): Supports generating
 //   arbitrary test data for property-based testing.
 
@@ -48,33 +48,33 @@ pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
 
 /// Type alias for a 4-byte slice or owned data represented using the `Inner`
 /// type with fixed-size configuration.
-pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
+pub type U32AsRef = Inner<true, 4, 0, 0>;
 /// Type alias for a 32-byte slice or owned data (commonly used for cryptographic
 /// hashes or IDs) represented using the `Inner` type with fixed-size configuration.
-pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
+pub type U256 = Inner<true, 32, 0, 0>;
 /// Type alias for a 32-byte public key represented using the `Inner` type
 /// with fixed-size configuration.
-pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;
+pub type PubKey = Inner<true, 32, 0, 0>;
 /// Type alias for a 64-byte cryptographic signature represented using the
 /// `Inner` type with fixed-size configuration.
-pub type Signature<'a> = Inner<'a, true, 64, 0, 0>;
+pub type Signature = Inner<true, 64, 0, 0>;
 /// Type alias for a variable-sized byte array with a maximum size of 32 bytes,
 /// represented using the `Inner` type with a 1-byte header.
-pub type B032<'a> = Inner<'a, false, 1, 1, 32>;
+pub type B032 = Inner<false, 1, 1, 32>;
 /// Type alias for a variable-sized byte array with a maximum size of 255 bytes,
 /// represented using the `Inner` type with a 1-byte header.
-pub type B0255<'a> = Inner<'a, false, 1, 1, 255>;
+pub type B0255 = Inner<false, 1, 1, 255>;
 /// Type alias for a variable-sized string with a maximum size of 255 bytes,
 /// represented using the `Inner` type with a 1-byte header.
-pub type Str0255<'a> = Inner<'a, false, 1, 1, 255>;
+pub type Str0255 = Inner<false, 1, 1, 255>;
 /// Type alias for a variable-sized byte array with a maximum size of 64 KB,
 /// represented using the `Inner` type with a 2-byte header.
-pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
+pub type B064K = Inner<false, 1, 2, { u16::MAX as usize }>;
 /// Type alias for a variable-sized byte array with a maximum size of ~16 MB,
 /// represented using the `Inner` type with a 3-byte header.
-pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
+pub type B016M = Inner<false, 1, 3, { 2_usize.pow(24) - 1 }>;
 
-impl fmt::Display for U32AsRef<'_> {
+impl fmt::Display for U32AsRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.inner_as_ref();
         write!(
@@ -85,8 +85,8 @@ impl fmt::Display for U32AsRef<'_> {
     }
 }
 
-impl fmt::Display for Sv2Option<'_, u32> {
-    // internally Sv2Option is pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
+impl fmt::Display for Sv2Option<u32> {
+    // internally Sv2Option is pub struct Sv2Option<T>(pub Vec<T>);
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.to_owned().into_inner();
         match inner {
@@ -96,7 +96,7 @@ impl fmt::Display for Sv2Option<'_, u32> {
     }
 }
 
-impl B0255<'_> {
+impl B0255 {
     pub fn as_hex(&self) -> String {
         let inner = self
             .inner_as_ref()
@@ -107,7 +107,7 @@ impl B0255<'_> {
     }
 }
 
-impl Str0255<'_> {
+impl Str0255 {
     /// Returns the value as a UTF-8 string if possible, otherwise as a hex string prefixed with 0x.
     pub fn as_utf8_or_hex(&self) -> String {
         match core::str::from_utf8(self.inner_as_ref()) {
@@ -123,7 +123,7 @@ impl Str0255<'_> {
     }
 }
 
-impl fmt::Display for B064K<'_> {
+impl fmt::Display for B064K {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self
             .inner_as_ref()
@@ -134,7 +134,7 @@ impl fmt::Display for B064K<'_> {
     }
 }
 
-impl fmt::Display for U256<'_> {
+impl fmt::Display for U256 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self
             .inner_as_ref()
@@ -146,10 +146,10 @@ impl fmt::Display for U256<'_> {
     }
 }
 
-impl fmt::Display for Seq0255<'_, U256<'_>> {
+impl fmt::Display for Seq0255<U256> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
-        let as_hex = |item: &U256<'_>| {
+        let as_hex = |item: &U256| {
             item.inner_as_ref()
                 .iter()
                 .rev()
@@ -180,11 +180,11 @@ impl fmt::Display for Seq0255<'_, U256<'_>> {
     }
 }
 
-impl fmt::Display for Seq064K<'_, B016M<'_>> {
+impl fmt::Display for Seq064K<B016M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
 
-        let as_hex = |item: &B016M<'_>| {
+        let as_hex = |item: &B016M| {
             let hex: String = item
                 .inner_as_ref()
                 .iter()
@@ -222,10 +222,10 @@ impl fmt::Display for Seq064K<'_, B016M<'_>> {
     }
 }
 
-impl fmt::Display for Seq064K<'_, U256<'_>> {
+impl fmt::Display for Seq064K<U256> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
-        let as_hex = |item: &U256<'_>| {
+        let as_hex = |item: &U256| {
             item.inner_as_ref()
                 .iter()
                 .map(|byte| format!("{byte:02x}"))
@@ -255,7 +255,7 @@ impl fmt::Display for Seq064K<'_, U256<'_>> {
     }
 }
 
-impl fmt::Display for Seq064K<'_, u16> {
+impl fmt::Display for Seq064K<u16> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
         write!(f, "Seq064K<len={len}: ")?;
@@ -275,7 +275,7 @@ impl fmt::Display for Seq064K<'_, u16> {
         }
     }
 }
-impl fmt::Display for Seq064K<'_, u32> {
+impl fmt::Display for Seq064K<u32> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
         write!(f, "Seq064K<len={len}: ")?;
@@ -296,7 +296,7 @@ impl fmt::Display for Seq064K<'_, u32> {
     }
 }
 
-impl fmt::Display for B032<'_> {
+impl fmt::Display for B032 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let item = self
             .inner_as_ref()
@@ -307,14 +307,14 @@ impl fmt::Display for B032<'_> {
     }
 }
 
-impl From<[u8; 32]> for U256<'_> {
+impl From<[u8; 32]> for U256 {
     fn from(v: [u8; 32]) -> Self {
         Inner::Owned(v.into())
     }
 }
 
 #[cfg(feature = "prop_test")]
-impl<'a> U256<'a> {
+impl U256 {
     pub fn from_gen(g: &mut Gen) -> Self {
         let mut inner = Vec::<u8>::arbitrary(g);
         inner.resize(32, 0);
@@ -325,7 +325,7 @@ impl<'a> U256<'a> {
 }
 
 #[cfg(feature = "prop_test")]
-impl<'a> B016M<'a> {
+impl B016M {
     pub fn from_gen(g: &mut Gen) -> Self {
         // This can fail but is used only for tests purposes
         Vec::<u8>::arbitrary(g).try_into().unwrap()
@@ -334,8 +334,8 @@ impl<'a> B016M<'a> {
 
 use core::convert::{TryFrom, TryInto};
 
-// Attempts to convert a `String` into a `Str0255<'a>`.
-impl TryFrom<String> for Str0255<'_> {
+// Attempts to convert a `String` into a `Str0255`.
+impl TryFrom<String> for Str0255 {
     type Error = crate::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -345,7 +345,7 @@ impl TryFrom<String> for Str0255<'_> {
 
 /// Represents a reference to a 32-bit unsigned integer (`u32`),
 /// providing methods for convenient conversions.
-impl U32AsRef<'_> {
+impl U32AsRef {
     /// Returns the `u32` value represented by this reference.
     pub fn as_u32(&self) -> u32 {
         let inner = self.inner_as_ref();
@@ -353,7 +353,7 @@ impl U32AsRef<'_> {
     }
 }
 
-impl From<u32> for U32AsRef<'_> {
+impl From<u32> for U32AsRef {
     fn from(v: u32) -> Self {
         let bytes = v.to_le_bytes();
         let inner = vec![bytes[0], bytes[1], bytes[2], bytes[3]];
@@ -361,8 +361,8 @@ impl From<u32> for U32AsRef<'_> {
     }
 }
 
-impl<'a> From<&'a U32AsRef<'a>> for u32 {
-    fn from(v: &'a U32AsRef<'a>) -> Self {
+impl From<&U32AsRef> for u32 {
+    fn from(v: &U32AsRef) -> Self {
         let b = v.inner_as_ref();
         u32::from_le_bytes([b[0], b[1], b[2], b[3]])
     }

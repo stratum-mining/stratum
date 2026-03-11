@@ -5,7 +5,7 @@ use core::convert::TryInto;
 /// Message used by an upstream(Template Provider) to provide a new template for downstream to mine
 /// on.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct NewTemplate<'decoder> {
+pub struct NewTemplate {
     /// Upstream’s identification of the template.
     ///
     /// Should be strictly increasing.
@@ -30,7 +30,7 @@ pub struct NewTemplate<'decoder> {
     pub coinbase_tx_version: u32,
     /// Up to 8 bytes (not including the length byte) which are to be placed at the beginning of
     /// the coinbase field in the coinbase transaction.
-    pub coinbase_prefix: B0255<'decoder>,
+    pub coinbase_prefix: B0255,
     /// The coinbase transaction input’s `nSequence` field.
     pub coinbase_tx_input_sequence: u32,
     /// The value, in satoshis, available for spending in coinbase outputs added by the downstream.
@@ -42,14 +42,14 @@ pub struct NewTemplate<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs in the coinbase transaction.
     ///
     /// Note that those bytes will appear as is at the end of the coinbase transaction.
-    pub coinbase_tx_outputs: B064K<'decoder>,
+    pub coinbase_tx_outputs: B064K,
     /// The `locktime` field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
-    pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
+    pub merkle_path: Seq0255<U256>,
 }
 
-impl fmt::Display for NewTemplate<'_> {
+impl fmt::Display for NewTemplate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -79,8 +79,8 @@ use quickcheck::{Arbitrary, Gen};
 use alloc::vec;
 
 #[cfg(feature = "prop_test")]
-impl Arbitrary for NewTemplate<'static> {
-    fn arbitrary(g: &mut Gen) -> NewTemplate<'static> {
+impl Arbitrary for NewTemplate {
+    fn arbitrary(g: &mut Gen) -> NewTemplate {
         let coinbase_tx_version = (u32::arbitrary(g) % 2) + 1;
         let mut coinbase_prefix = vec::Vec::new();
         let coinbase_prefix_len = match coinbase_tx_version {

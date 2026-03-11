@@ -5,7 +5,7 @@ use crate::{
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Error<'a> {
+pub enum Error {
     BadBytesConvert(binary_sv2::Error),
     BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
@@ -22,11 +22,11 @@ pub enum Error<'a> {
     /// Errors if the client receives an invalid message that was intended to be sent from the
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
-    InvalidReceiver(Box<Method<'a>>),
+    InvalidReceiver(Box<Method>),
     /// Errors if server receives and invalid `mining.submit` from the client.
     InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
-    Method(Box<MethodError<'a>>),
+    Method(Box<MethodError>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
     /// unauthorized. The client username is given in the error message.
     UnauthorizedClient(String),
@@ -37,7 +37,7 @@ pub enum Error<'a> {
     UnexpectedMessage(String),
 }
 
-impl std::fmt::Display for Error<'_> {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Error::BadBytesConvert(ref e) => write!(
@@ -80,25 +80,25 @@ impl std::fmt::Display for Error<'_> {
     }
 }
 
-impl From<bitcoin_hashes::Error> for Error<'_> {
+impl From<bitcoin_hashes::Error> for Error {
     fn from(e: bitcoin_hashes::Error) -> Self {
         Error::BTCHashError(e)
     }
 }
 
-impl From<std::convert::Infallible> for Error<'_> {
+impl From<std::convert::Infallible> for Error {
     fn from(e: std::convert::Infallible) -> Self {
         Error::Infallible(e)
     }
 }
 
-impl<'a> From<MethodError<'a>> for Error<'a> {
-    fn from(inner: MethodError<'a>) -> Self {
+impl From<MethodError> for Error {
+    fn from(inner: MethodError) -> Self {
         Error::Method(Box::new(inner))
     }
 }
 
-impl From<binary_sv2::Error> for Error<'_> {
+impl From<binary_sv2::Error> for Error {
     fn from(inner: binary_sv2::Error) -> Self {
         Error::BadBytesConvert(inner)
     }

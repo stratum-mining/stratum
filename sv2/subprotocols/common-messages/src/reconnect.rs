@@ -13,14 +13,14 @@ use core::convert::TryInto;
 /// not be able to redirect hashrate to an arbitrary server in case the pool server get compromised
 /// and instructed to send reconnects to a new location.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Reconnect<'decoder> {
+pub struct Reconnect {
     /// When empty, downstream node should attempt to reconnect to current pool host.
-    pub new_host: Str0255<'decoder>,
+    pub new_host: Str0255,
     /// When 0, downstream node should attempt to reconnect to current pool host.
     pub new_port: u16,
 }
 
-impl fmt::Display for Reconnect<'_> {
+impl fmt::Display for Reconnect {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -31,7 +31,7 @@ impl fmt::Display for Reconnect<'_> {
     }
 }
 
-impl PartialEq for Reconnect<'_> {
+impl PartialEq for Reconnect {
     fn eq(&self, other: &Self) -> bool {
         self.new_host.as_ref() == other.new_host.as_ref() && self.new_port == other.new_port
     }

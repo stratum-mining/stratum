@@ -8,7 +8,7 @@ use core::{cmp::max, fmt::Write, ops::Div};
 use primitive_types::U256 as U256Primitive;
 
 /// Converts a `u256` to a [`BlockHash`] type.
-pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
+pub fn u256_to_block_hash(v: U256) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
     let hash = Hash::from_slice(&hash).unwrap();
     BlockHash::from_raw_hash(hash)
@@ -161,7 +161,7 @@ pub enum InputError {
 /// - `h`: Mining device hashrate (H/s).
 /// - `t`: Target threshold.
 /// - `s`: Shares per minute.
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Result<f64, InputError> {
+pub fn hash_rate_from_target(target: U256, share_per_min: f64) -> Result<f64, InputError> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(InputError::DivisionByZero);

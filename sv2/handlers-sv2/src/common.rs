@@ -41,7 +41,7 @@ pub trait HandleCommonMessagesFromServerSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+            let parsed: CommonMessages = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_common_message_from_server(server_id, parsed, None);
@@ -69,7 +69,7 @@ pub trait HandleCommonMessagesFromServerSync {
     fn handle_common_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: CommonMessages,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -157,7 +157,7 @@ pub trait HandleCommonMessagesFromServerAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                let parsed: CommonMessages = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -190,7 +190,7 @@ pub trait HandleCommonMessagesFromServerAsync {
     async fn handle_common_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: CommonMessages,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -283,7 +283,7 @@ pub trait HandleCommonMessagesFromClientSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+            let parsed: CommonMessages = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_common_message_from_client(client_id, parsed, None);
@@ -311,7 +311,7 @@ pub trait HandleCommonMessagesFromClientSync {
     fn handle_common_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: CommonMessages,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -382,7 +382,7 @@ pub trait HandleCommonMessagesFromClientAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: CommonMessages<'_> = (header.msg_type(), payload)
+                let parsed: CommonMessages = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -414,7 +414,7 @@ pub trait HandleCommonMessagesFromClientAsync {
     async fn handle_common_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: CommonMessages<'_>,
+        message: CommonMessages,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {

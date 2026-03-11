@@ -46,7 +46,7 @@ pub trait Encodable {
     fn to_writer(self, dst: &mut impl Write) -> Result<(), E>;
 }
 
-impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
+impl<T: Into<EncodableField>> Encodable for T {
     #[allow(clippy::wrong_self_convention)]
     fn to_bytes(self, dst: &mut [u8]) -> Result<usize, Error> {
         let encoded_field = self.into();
@@ -67,7 +67,7 @@ impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
 /// that can be encoded into a byte representation. Each variant holds a specific
 /// type, and encoding logic is provided through the `encode` method.
 #[derive(Debug)]
-pub enum EncodablePrimitive<'a> {
+pub enum EncodablePrimitive {
     /// U8 Primitive, representing a byte
     U8(u8),
     /// Owned U8 Primitive, representing an owned byte
@@ -79,28 +79,28 @@ pub enum EncodablePrimitive<'a> {
     /// U24 Primitive, representing a U24 type
     U24(U24),
     /// U256 Primitive, representing a U256 type
-    U256(U256<'a>),
+    U256(U256),
     /// Signature Primitive, representing a Signature type
-    Signature(Signature<'a>),
+    Signature(Signature),
     /// U32 Primitive, representing a u32 type
     U32(u32),
     /// U32AsRef Primitive, representing a U32AsRef type
-    U32AsRef(U32AsRef<'a>),
+    U32AsRef(U32AsRef),
     /// F32 Primitive, representing a f32 type
     F32(f32),
     /// U64 Primitive, representing a u64 type
     U64(u64),
     /// B032 Primitive, representing a B032 type
-    B032(B032<'a>),
+    B032(B032),
     /// B0255 Primitive, representing a B0255 type
-    B0255(B0255<'a>),
+    B0255(B0255),
     /// B064K Primitive, representing a B064K type
-    B064K(B064K<'a>),
+    B064K(B064K),
     /// B016M Primitive, representing a B016M type
-    B016M(B016M<'a>),
+    B016M(B016M),
 }
 
-impl EncodablePrimitive<'_> {
+impl EncodablePrimitive {
     // Provides the encoding logic for each primitive type.
     //
     // The `encode` method takes the `EncodablePrimitive` variant and serializes it
@@ -154,7 +154,7 @@ impl EncodablePrimitive<'_> {
 }
 
 // Provides the logic for calculating the size of the encodable field.
-impl GetSize for EncodablePrimitive<'_> {
+impl GetSize for EncodablePrimitive {
     fn get_size(&self) -> usize {
         match self {
             Self::U8(v) => v.get_size(),
@@ -182,18 +182,18 @@ impl GetSize for EncodablePrimitive<'_> {
 /// (a struct). The encoding process for [`EncodableField`] supports nesting, allowing
 /// for complex hierarchical data structures to be serialized.
 #[derive(Debug)]
-pub enum EncodableField<'a> {
+pub enum EncodableField {
     /// Represents a primitive value
     ///
     /// For the full supported list please see [`EncodablePrimitive`]
-    Primitive(EncodablePrimitive<'a>),
+    Primitive(EncodablePrimitive),
     /// Represents a struct like field structure.
     ///
     /// Note that this is a recursive enum type.
-    Struct(Vec<EncodableField<'a>>),
+    Struct(Vec<EncodableField>),
 }
 
-impl EncodableField<'_> {
+impl EncodableField {
     /// The `encode` method serializes a field into the destination buffer `dst`, starting
     /// at the provided `offset`. If the field is a structure, it recursively encodes
     /// each contained field. If the buffer is too small or encoding fails, the method
@@ -228,7 +228,7 @@ impl EncodableField<'_> {
     }
 }
 
-impl GetSize for EncodableField<'_> {
+impl GetSize for EncodableField {
     fn get_size(&self) -> usize {
         match self {
             Self::Primitive(p) => p.get_size(),

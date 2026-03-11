@@ -39,7 +39,7 @@ pub trait HandleExtensionsFromServerSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
+            let parsed: Extensions = (header.ext_type(), header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_extensions_message_from_server(server_id, parsed, None);
@@ -67,7 +67,7 @@ pub trait HandleExtensionsFromServerSync {
     fn handle_extensions_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: Extensions<'_>,
+        message: Extensions,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -141,7 +141,7 @@ pub trait HandleExtensionsFromServerAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
+                let parsed: Extensions = (header.ext_type(), header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -177,7 +177,7 @@ pub trait HandleExtensionsFromServerAsync {
     async fn handle_extensions_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: Extensions<'_>,
+        message: Extensions,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -253,7 +253,7 @@ pub trait HandleExtensionsFromClientSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
+            let parsed: Extensions = (header.ext_type(), header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_extensions_message_from_client(client_id, parsed, None);
@@ -281,7 +281,7 @@ pub trait HandleExtensionsFromClientSync {
     fn handle_extensions_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: Extensions<'_>,
+        message: Extensions,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -351,7 +351,7 @@ pub trait HandleExtensionsFromClientAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: Extensions<'_> = (header.ext_type(), header.msg_type(), payload)
+                let parsed: Extensions = (header.ext_type(), header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -387,7 +387,7 @@ pub trait HandleExtensionsFromClientAsync {
     async fn handle_extensions_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: Extensions<'_>,
+        message: Extensions,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {

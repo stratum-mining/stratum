@@ -44,7 +44,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+            let parsed: JobDeclaration = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_job_declaration_message_from_server(server_id, parsed, None);
@@ -74,7 +74,7 @@ pub trait HandleJobDeclarationMessagesFromServerSync {
     fn handle_job_declaration_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: JobDeclaration<'_>,
+        message: JobDeclaration,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -177,7 +177,7 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                let parsed: JobDeclaration = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -213,7 +213,7 @@ pub trait HandleJobDeclarationMessagesFromServerAsync {
     async fn handle_job_declaration_message_from_server(
         &mut self,
         server_id: Option<usize>,
-        message: JobDeclaration<'_>,
+        message: JobDeclaration,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {
@@ -320,7 +320,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+            let parsed: JobDeclaration = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_job_declaration_message_from_client(client_id, parsed, None);
@@ -350,7 +350,7 @@ pub trait HandleJobDeclarationMessagesFromClientSync {
     fn handle_job_declaration_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: JobDeclaration<'_>,
+        message: JobDeclaration,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         match message {
@@ -451,7 +451,7 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                let parsed: JobDeclaration = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -487,7 +487,7 @@ pub trait HandleJobDeclarationMessagesFromClientAsync {
     async fn handle_job_declaration_message_from_client(
         &mut self,
         client_id: Option<usize>,
-        message: JobDeclaration<'_>,
+        message: JobDeclaration,
         tlv_fields: Option<&[Tlv]>,
     ) -> Result<(), Self::Error> {
         async move {

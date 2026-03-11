@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Sequence, Target,
 };
 use mining_sv2::SubmitSharesStandard;
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -77,9 +77,9 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a, J>
+pub struct StandardChannel<J>
 where
-    J: JobStore<StandardJob<'a>>,
+    J: JobStore<StandardJob>,
 {
     pub channel_id: u32,
     user_identity: String,
@@ -93,12 +93,11 @@ where
     job_store: J,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> StandardChannel<'a, J>
+impl<J> StandardChannel<J>
 where
-    J: JobStore<StandardJob<'a>>,
+    J: JobStore<StandardJob>,
 {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -230,7 +229,6 @@ where
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
             job_store,
-            phantom: PhantomData,
         })
     }
 
@@ -357,7 +355,7 @@ where
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<StandardJob> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
@@ -368,19 +366,19 @@ where
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob> {
         // cloning happens inside the job store
         self.job_store.get_future_job(job_id)
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
 
     /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
+    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob> {
         // cloning happens inside the job store
         self.job_store.get_stale_job(job_id)
     }
@@ -419,7 +417,7 @@ where
     /// instead.
     pub fn on_new_template(
         &mut self,
-        template: NewTemplate<'a>,
+        template: NewTemplate,
         coinbase_reward_outputs: Vec<TxOut>,
     ) -> Result<(), StandardChannelError> {
         match template.future_template {
@@ -473,7 +471,7 @@ where
     /// was broadcasted to the group channel.
     pub fn on_group_channel_job(
         &mut self,
-        extended_job: ExtendedJob<'a>,
+        extended_job: ExtendedJob,
     ) -> Result<(), StandardChannelError> {
         let standard_job = extended_job
             .into_standard_job(self.channel_id, self.extranonce_prefix.clone())
@@ -505,7 +503,7 @@ where
     /// All past jobs are cleared.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHash<'a>,
+        set_new_prev_hash: SetNewPrevHash,
     ) -> Result<(), StandardChannelError> {
         // clear the job id to target mapping
         self.job_id_to_target.clear();

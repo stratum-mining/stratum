@@ -14,11 +14,11 @@ use core::{convert::TryInto, fmt};
 /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct PushSolution<'decoder> {
+pub struct PushSolution {
     /// Full extranonce that forms a valid submission.
-    pub extranonce: B032<'decoder>,
+    pub extranonce: B032,
     /// Previous block hash.
-    pub prev_hash: U256<'decoder>,
+    pub prev_hash: U256,
     /// Contains the time the block was constructed as a Unix timestamp.
     pub ntime: u32,
     /// Nonce of the block.
@@ -36,7 +36,7 @@ pub struct PushSolution<'decoder> {
     pub version: u32,
 }
 
-impl fmt::Display for PushSolution<'_> {
+impl fmt::Display for PushSolution {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

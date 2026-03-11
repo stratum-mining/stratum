@@ -57,18 +57,18 @@ use std::io::{Error as E, Read, Write};
 ///
 /// This trait includes functions for both checked and unchecked conversions, providing flexibility
 /// in situations where error handling can be safely ignored.
-pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
+pub trait Sv2DataType: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     /// Creates an instance of the type from a mutable byte slice, checking for size constraints.
     ///
     /// This function verifies that the provided byte slice has the correct size according to the
     /// type's size hint.
-    fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+    fn from_bytes_(data: &mut [u8]) -> Result<Self, Error> {
         Self::size_hint(data, 0)?;
         Ok(Self::from_bytes_unchecked(data))
     }
 
     /// Constructs an instance from a mutable byte slice without verifying size constraints.
-    fn from_bytes_unchecked(data: &'a mut [u8]) -> Self;
+    fn from_bytes_unchecked(data: &mut [u8]) -> Self;
 
     /// Constructs an instance from a vector, checking for the correct size.
     fn from_vec_(data: Vec<u8>) -> Result<Self, Error>;
@@ -81,7 +81,7 @@ pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     fn from_reader_(reader: &mut impl Read) -> Result<Self, Error>;
 
     /// Serializes the instance to a mutable slice, checking the destination size.
-    fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
+    fn to_slice(&self, dst: &mut [u8]) -> Result<usize, Error> {
         if dst.len() >= self.get_size() {
             self.to_slice_unchecked(dst);
             Ok(self.get_size())
@@ -91,7 +91,7 @@ pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     }
 
     /// Serializes the instance to a mutable slice without checking the destination size.
-    fn to_slice_unchecked(&'a self, dst: &mut [u8]);
+    fn to_slice_unchecked(&self, dst: &mut [u8]);
 
     // Serializes the instance to a writer destination, checking for I/O errors.
     #[cfg(not(feature = "no_std"))]

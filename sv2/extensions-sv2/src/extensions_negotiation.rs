@@ -31,7 +31,7 @@ pub const CHANNEL_BIT_REQUEST_EXTENSIONS_ERROR: bool = false;
 /// Clients MUST NOT use any features from extensions that are not confirmed as
 /// supported by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct RequestExtensions<'decoder> {
+pub struct RequestExtensions {
     /// Unique identifier for pairing request/response.
     ///
     /// The server will echo this value in its response to allow the client
@@ -42,10 +42,10 @@ pub struct RequestExtensions<'decoder> {
     ///
     /// Each u16 value corresponds to a specific extension identifier.
     /// For example: 0x0001 for Extensions Negotiation (this extension itself)
-    pub requested_extensions: Seq064K<'decoder, u16>,
+    pub requested_extensions: Seq064K<u16>,
 }
 
-impl fmt::Display for RequestExtensions<'_> {
+impl fmt::Display for RequestExtensions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -61,7 +61,7 @@ impl fmt::Display for RequestExtensions<'_> {
 /// which of the requested extensions the server supports and will enable for
 /// this connection.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct RequestExtensionsSuccess<'decoder> {
+pub struct RequestExtensionsSuccess {
     /// Unique identifier for pairing request/response.
     ///
     /// This MUST match the request_id from the corresponding RequestExtensions message.
@@ -72,10 +72,10 @@ pub struct RequestExtensionsSuccess<'decoder> {
     /// This must be a subset of the extensions requested in the RequestExtensions
     /// message. Extensions not listed here are not supported and MUST NOT be used
     /// by the client.
-    pub supported_extensions: Seq064K<'decoder, u16>,
+    pub supported_extensions: Seq064K<u16>,
 }
 
-impl fmt::Display for RequestExtensionsSuccess<'_> {
+impl fmt::Display for RequestExtensionsSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -91,7 +91,7 @@ impl fmt::Display for RequestExtensionsSuccess<'_> {
 /// cannot support some or all of the requested extensions, or when the server requires
 /// extensions that were not requested by the client.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct RequestExtensionsError<'decoder> {
+pub struct RequestExtensionsError {
     /// Unique identifier for pairing request/response.
     ///
     /// This MUST match the request_id from the corresponding RequestExtensions message.
@@ -101,17 +101,17 @@ pub struct RequestExtensionsError<'decoder> {
     ///
     /// Contains the extension identifiers from the client's request that the server
     /// does not support.
-    pub unsupported_extensions: Seq064K<'decoder, u16>,
+    pub unsupported_extensions: Seq064K<u16>,
 
     /// List of extension identifiers required by the server.
     ///
     /// Contains extension identifiers that the server requires but were not included
     /// in the client's request. If the client does not retry with these required
     /// extensions, the server MUST disconnect the client.
-    pub required_extensions: Seq064K<'decoder, u16>,
+    pub required_extensions: Seq064K<u16>,
 }
 
-impl fmt::Display for RequestExtensionsError<'_> {
+impl fmt::Display for RequestExtensionsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

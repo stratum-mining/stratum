@@ -41,8 +41,8 @@ impl Fixed for bool {
     const SIZE: usize = 1;
 }
 
-impl<'a> Sv2DataType<'a> for bool {
-    fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
+impl Sv2DataType for bool {
+    fn from_bytes_unchecked(data: &mut [u8]) -> Self {
         match data
             .first()
             .map(|x: &u8| x << 7)
@@ -72,7 +72,7 @@ impl<'a> Sv2DataType<'a> for bool {
         Self::from_bytes_(&mut dst)
     }
 
-    fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+    fn to_slice_unchecked(&self, dst: &mut [u8]) {
         match self {
             true => dst[0] = 1,
             false => dst[0] = 0,
@@ -113,8 +113,8 @@ impl Fixed for u64 {
 /// serialization and deserialization, ensuring consistency across platforms.
 macro_rules! impl_sv2_for_unsigned {
     ($a:ty) => {
-        impl<'a> Sv2DataType<'a> for $a {
-            fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
+        impl Sv2DataType for $a {
+            fn from_bytes_unchecked(data: &mut [u8]) -> Self {
                 // unchecked function is fine to panic
                 let a: &[u8; Self::SIZE] = data[0..Self::SIZE].try_into().expect(
                     "Try to decode a copy data type from a buffer that do not have enough bytes",
@@ -137,7 +137,7 @@ macro_rules! impl_sv2_for_unsigned {
                 Ok(Self::from_bytes_unchecked(&mut dst))
             }
 
-            fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+            fn to_slice_unchecked(&self, dst: &mut [u8]) {
                 let dst = &mut dst[0..Self::SIZE];
                 let src = self.to_le_bytes();
                 dst.copy_from_slice(&src);

@@ -141,14 +141,14 @@ impl JobFactory {
     ///
     /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs` is equal to
     /// available template revenue. Returns an error otherwise.
-    pub fn new_standard_job<'a>(
+    pub fn new_standard_job(
         &mut self,
         channel_id: u32,
         chain_tip: Option<ChainTip>,
         extranonce_prefix: Vec<u8>,
-        template: NewTemplate<'a>,
+        template: NewTemplate,
         additional_coinbase_outputs: Vec<TxOut>,
-    ) -> Result<StandardJob<'a>, JobFactoryError> {
+    ) -> Result<StandardJob, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -233,10 +233,10 @@ impl JobFactory {
         channel_id: u32,
         chain_tip: Option<ChainTip>,
         extranonce_prefix: Vec<u8>,
-        template: NewTemplate<'a>,
+        template: NewTemplate,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
-    ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+    ) -> Result<ExtendedJob, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -326,7 +326,7 @@ impl JobFactory {
     /// is equal to available template revenue. Returns an error otherwise.
     pub fn new_coinbase_tx_prefix_and_suffix(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplate,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<(Vec<u8>, Vec<u8>), JobFactoryError> {
@@ -355,16 +355,16 @@ impl JobFactory {
     /// It's up to the caller to ensure that the sum of the additional coinbase outputs is equal to
     /// available template revenue.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_custom_job<'a>(
+    pub fn new_custom_job(
         &self,
         channel_id: u32,
         request_id: u32,
-        token: B0255<'a>,
+        token: B0255,
         chain_tip: ChainTip,
-        template: NewTemplate<'a>,
+        template: NewTemplate,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
-    ) -> Result<SetCustomMiningJob<'a>, JobFactoryError> {
+    ) -> Result<SetCustomMiningJob, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -418,12 +418,12 @@ impl JobFactory {
     /// Assumes that the SetCustomMiningJob message has already been validated.
     ///
     /// To be used by Extended Channels on a Sv2 Pool Server.
-    pub fn new_extended_job_from_custom_job<'a>(
+    pub fn new_extended_job_from_custom_job(
         &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job: SetCustomMiningJob,
         extranonce_prefix: Vec<u8>,
         full_extranonce_size: usize,
-    ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+    ) -> Result<ExtendedJob, JobFactoryError> {
         let serialized_outputs = set_custom_mining_job
             .coinbase_tx_outputs
             .inner_as_ref()
@@ -486,7 +486,7 @@ impl JobFactory {
     // coinbase
     fn custom_coinbase(
         &self,
-        m: SetCustomMiningJob<'_>,
+        m: SetCustomMiningJob,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
         let deserialized_outputs = Vec::<TxOut>::consensus_decode(
@@ -518,7 +518,7 @@ impl JobFactory {
 
     fn custom_coinbase_tx_prefix(
         &self,
-        m: SetCustomMiningJob<'_>,
+        m: SetCustomMiningJob,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
@@ -539,7 +539,7 @@ impl JobFactory {
 
     fn custom_coinbase_tx_suffix(
         &self,
-        m: SetCustomMiningJob<'_>,
+        m: SetCustomMiningJob,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
@@ -562,7 +562,7 @@ impl JobFactory {
     // build a coinbase transaction from some template in the JobFactory
     fn coinbase(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplate,
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
@@ -620,7 +620,7 @@ impl JobFactory {
 
     fn coinbase_tx_prefix(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplate,
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
@@ -654,7 +654,7 @@ impl JobFactory {
 
     fn coinbase_tx_suffix(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplate,
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {

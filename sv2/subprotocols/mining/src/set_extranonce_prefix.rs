@@ -12,14 +12,14 @@ use core::convert::TryInto;
 /// Note that this message is applicable only for opened Standard or Extended Channels, not Group
 /// Channels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetExtranoncePrefix<'decoder> {
+pub struct SetExtranoncePrefix {
     /// Extended or Standard Channel identifier.
     pub channel_id: u32,
     /// New extranonce prefix.
-    pub extranonce_prefix: B032<'decoder>,
+    pub extranonce_prefix: B032,
 }
 
-impl fmt::Display for SetExtranoncePrefix<'_> {
+impl fmt::Display for SetExtranoncePrefix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

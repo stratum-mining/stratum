@@ -38,19 +38,19 @@ use crate::{
 ///   If false, they can still use the current job, but should move to the new one after exhausting
 ///   the current nonce range.
 #[derive(Debug, Clone)]
-pub struct Notify<'a> {
+pub struct Notify {
     pub job_id: String,
-    pub prev_hash: PrevHash<'a>,
+    pub prev_hash: PrevHash,
     pub coin_base1: HexBytes,
     pub coin_base2: HexBytes,
-    pub merkle_branch: Vec<MerkleNode<'a>>,
+    pub merkle_branch: Vec<MerkleNode>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
     pub time: HexU32Be,
     pub clean_jobs: bool,
 }
 
-impl<'a> fmt::Display for Notify<'a> {
+impl fmt::Display for Notify {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -82,7 +82,7 @@ impl<'a> fmt::Display for Notify<'a> {
     }
 }
 
-impl From<Notify<'_>> for Message {
+impl From<Notify> for Message {
     fn from(notify: Notify) -> Self {
         let prev_hash: Value = notify.prev_hash.into();
         let coin_base1: Value = notify.coin_base1.into();
@@ -114,7 +114,7 @@ impl From<Notify<'_>> for Message {
     }
 }
 
-impl TryFrom<Notification> for Notify<'_> {
+impl TryFrom<Notification> for Notify {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -232,12 +232,12 @@ impl TryFrom<Notification> for SetDifficulty {
 /// check if it is a Notification or a StandardRequest this implementation assume that it is a
 /// Notification
 #[derive(Debug, Clone)]
-pub struct SetExtranonce<'a> {
-    pub extra_nonce1: Extranonce<'a>,
+pub struct SetExtranonce {
+    pub extra_nonce1: Extranonce,
     pub extra_nonce2_size: usize,
 }
 
-impl fmt::Display for SetExtranonce<'_> {
+impl fmt::Display for SetExtranonce {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -247,7 +247,7 @@ impl fmt::Display for SetExtranonce<'_> {
     }
 }
 
-impl From<SetExtranonce<'_>> for Message {
+impl From<SetExtranonce> for Message {
     fn from(se: SetExtranonce) -> Self {
         let extra_nonce1: Value = se.extra_nonce1.into();
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
@@ -258,7 +258,7 @@ impl From<SetExtranonce<'_>> for Message {
     }
 }
 
-impl TryFrom<Notification> for SetExtranonce<'_> {
+impl TryFrom<Notification> for SetExtranonce {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
@@ -435,14 +435,14 @@ impl Submit {
 ///
 ///    ExtraNonce2_size. - The number of bytes that the miner users for its ExtraNonce2 counter.
 #[derive(Debug, Clone)]
-pub struct Subscribe<'a> {
+pub struct Subscribe {
     pub id: u64,
-    pub extra_nonce1: Extranonce<'a>,
+    pub extra_nonce1: Extranonce,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
 }
 
-impl fmt::Display for Subscribe<'_> {
+impl fmt::Display for Subscribe {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -452,7 +452,7 @@ impl fmt::Display for Subscribe<'_> {
     }
 }
 
-impl From<Subscribe<'_>> for Message {
+impl From<Subscribe> for Message {
     fn from(su: Subscribe) -> Self {
         let extra_nonce1: Value = su.extra_nonce1.into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
@@ -470,7 +470,7 @@ impl From<Subscribe<'_>> for Message {
     }
 }
 
-impl TryFrom<&Response> for Subscribe<'_> {
+impl TryFrom<&Response> for Subscribe {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
@@ -716,7 +716,7 @@ impl VersionRollingParams {
     pub fn new(
         version_rolling_mask: HexU32Be,
         version_rolling_min_bit_count: HexU32Be,
-    ) -> Result<Self, Error<'static>> {
+    ) -> Result<Self, Error> {
         // 0x1FFFE000 should be configured
         let negotiated_mask = HexU32Be(version_rolling_mask.clone() & 0x1FFFE000);
 

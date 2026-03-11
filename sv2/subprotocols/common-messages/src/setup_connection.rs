@@ -24,7 +24,7 @@ use core::convert::{TryFrom, TryInto};
 /// A valid response to this message from the upstream role can either be [`SetupConnectionSuccess`]
 /// or [`SetupConnectionError`] message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SetupConnection<'decoder> {
+pub struct SetupConnection {
     /// Protocol to be used for the connection.
     pub protocol: Protocol,
     /// The minimum protocol version supported.
@@ -40,20 +40,20 @@ pub struct SetupConnection<'decoder> {
     /// Each [`SetupConnection::protocol`] value has it's own flags.
     pub flags: u32,
     /// ASCII representation of the connection hostname or IP address.
-    pub endpoint_host: Str0255<'decoder>,
+    pub endpoint_host: Str0255,
     /// Connection port value.
     pub endpoint_port: u16,
     /// Device vendor name.
-    pub vendor: Str0255<'decoder>,
+    pub vendor: Str0255,
     /// Device hardware version.
-    pub hardware_version: Str0255<'decoder>,
+    pub hardware_version: Str0255,
     /// Device firmware version.
-    pub firmware: Str0255<'decoder>,
+    pub firmware: Str0255,
     /// Device identifier.
-    pub device_id: Str0255<'decoder>,
+    pub device_id: Str0255,
 }
 
-impl fmt::Display for SetupConnection<'_> {
+impl fmt::Display for SetupConnection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -72,7 +72,7 @@ impl fmt::Display for SetupConnection<'_> {
     }
 }
 
-impl SetupConnection<'_> {
+impl SetupConnection {
     /// Set the flag to indicate that the downstream requires a standard job
     pub fn set_requires_standard_job(&mut self) {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
@@ -240,7 +240,7 @@ impl fmt::Display for SetupConnectionSuccess {
 /// [`SetupConnectionError`] message and must consistently support the same set of flags across all
 /// servers on the same hostname and port number.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SetupConnectionError<'decoder> {
+pub struct SetupConnectionError {
     /// Unsupported feature flags.
     ///
     /// In case `error_code` is `unsupported-feature-flags`, this field is used to indicate which
@@ -252,10 +252,10 @@ pub struct SetupConnectionError<'decoder> {
     /// - unsupported-feature-flags
     /// - unsupported-protocol
     /// - protocol-version-mismatch
-    pub error_code: Str0255<'decoder>,
+    pub error_code: Str0255,
 }
 
-impl fmt::Display for SetupConnectionError<'_> {
+impl fmt::Display for SetupConnectionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -279,14 +279,14 @@ pub enum Protocol {
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTRIBUTION_PROTOCOL_DISCRIMINANT,
 }
 
-impl From<Protocol> for binary_sv2::encodable::EncodableField<'_> {
+impl From<Protocol> for binary_sv2::encodable::EncodableField {
     fn from(v: Protocol) -> Self {
         let val = v as u8;
         val.into()
     }
 }
 
-impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
+impl binary_sv2::Decodable for Protocol {
     fn get_structure(
         _: &[u8],
     ) -> core::result::Result<alloc::vec::Vec<FieldMarker>, binary_sv2::Error> {
@@ -294,7 +294,7 @@ impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
         Ok(alloc::vec![field])
     }
     fn from_decoded_fields(
-        mut v: alloc::vec::Vec<DecodableField<'decoder>>,
+        mut v: alloc::vec::Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         let val = v.pop().ok_or(binary_sv2::Error::NoDecodableFieldPassed)?;
         let val: u8 = val.try_into()?;
@@ -391,7 +391,7 @@ mod test {
         assert!(!has_work_selection(flags));
     }
 
-    fn create_setup_connection() -> SetupConnection<'static> {
+    fn create_setup_connection() -> SetupConnection {
         SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version: 1,

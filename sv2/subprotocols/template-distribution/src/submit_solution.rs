@@ -11,7 +11,7 @@ use core::convert::TryInto;
 /// Upon receiving this message, upstream(Template Provider) **must** immediately construct the
 /// corresponding full block and attempt to propagate it to the Bitcoin network.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SubmitSolution<'decoder> {
+pub struct SubmitSolution {
     /// Identifies the template to which this solution corresponds.
     ///
     /// This is acquired from the [`crate::NewTemplate`] message.
@@ -33,10 +33,10 @@ pub struct SubmitSolution<'decoder> {
     pub header_nonce: u32,
     /// Full serialized coinbase transaction, meeting all the requirements of the `NewMiningJob` or
     /// `NewExtendedMiningJob` message.
-    pub coinbase_tx: B064K<'decoder>,
+    pub coinbase_tx: B064K,
 }
 
-impl fmt::Display for SubmitSolution<'_> {
+impl fmt::Display for SubmitSolution {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

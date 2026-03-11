@@ -5,16 +5,16 @@ use core::convert::TryInto;
 /// Message used by JDC to request an identifier for a future mining job from JDS.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct AllocateMiningJobToken<'decoder> {
+pub struct AllocateMiningJobToken {
     /// Unconstrained sequence of bytes. Whatever is needed by the JDS to
     /// identify/authenticate the client. Additional restrictions can be imposed by the
     /// JDS. It is highly recommended that UTF-8 encoding is used.
-    pub user_identifier: Str0255<'decoder>,
+    pub user_identifier: Str0255,
     /// A unique identifier for pairing the response/request.
     pub request_id: u32,
 }
 
-impl fmt::Display for AllocateMiningJobToken<'_> {
+impl fmt::Display for AllocateMiningJobToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -28,19 +28,19 @@ impl fmt::Display for AllocateMiningJobToken<'_> {
 /// Message used by JDS to accept [`AllocateMiningJobToken`] message.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct AllocateMiningJobTokenSuccess<'decoder> {
+pub struct AllocateMiningJobTokenSuccess {
     /// A unique identifier for pairing the response/request.
     ///
     /// This **must** be the same as the received [`AllocateMiningJobToken::request_id`].
     pub request_id: u32,
     /// A token that makes the JDC eligible for committing a mining job for approval/transactions
     /// declaration or for identifying custom mining job on mining connection.
-    pub mining_job_token: B0255<'decoder>,
+    pub mining_job_token: B0255,
     /// Bitcoin transaction outputs added by JDS.
-    pub coinbase_outputs: B064K<'decoder>,
+    pub coinbase_outputs: B064K,
 }
 
-impl fmt::Display for AllocateMiningJobTokenSuccess<'_> {
+impl fmt::Display for AllocateMiningJobTokenSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

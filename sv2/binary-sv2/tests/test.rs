@@ -59,8 +59,8 @@ mod test_b0255 {
     use core::convert::TryInto;
 
     #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
-    struct Test<'decoder> {
-        a: B0255<'decoder>,
+    struct Test {
+        a: B0255,
     }
 
     #[test]
@@ -97,8 +97,8 @@ mod test_u256 {
     use core::convert::TryInto;
 
     #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
-    struct Test<'decoder> {
-        a: U256<'decoder>,
+    struct Test {
+        a: U256,
     }
 
     #[test]
@@ -121,8 +121,8 @@ mod test_signature {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Signature<'decoder>,
+    struct Test {
+        a: Signature,
     }
 
     #[test]
@@ -145,9 +145,9 @@ mod test_b016m {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
+    struct Test {
         b: bool,
-        a: B016M<'decoder>,
+        a: B016M,
     }
 
     #[test]
@@ -186,9 +186,9 @@ mod test_b064k {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
+    struct Test {
         b: bool,
-        a: B064K<'decoder>,
+        a: B064K,
     }
 
     #[test]
@@ -213,8 +213,8 @@ mod test_seq0255_u256 {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq0255<'decoder, U256<'decoder>>,
+    struct Test {
+        a: Seq0255<U256>,
     }
 
     #[test]
@@ -245,8 +245,8 @@ mod test_0255_bool {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq0255<'decoder, bool>,
+    struct Test {
+        a: Seq0255<bool>,
     }
 
     #[test]
@@ -267,8 +267,8 @@ mod test_seq0255_u16 {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq0255<'decoder, u16>,
+    struct Test {
+        a: Seq0255<u16>,
     }
 
     #[test]
@@ -290,8 +290,8 @@ mod test_seq_0255_u24 {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq0255<'decoder, U24>,
+    struct Test {
+        a: Seq0255<U24>,
     }
 
     #[test]
@@ -317,8 +317,8 @@ mod test_seqo255_u32 {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq0255<'decoder, u32>,
+    struct Test {
+        a: Seq0255<u32>,
     }
 
     #[test]
@@ -340,8 +340,8 @@ mod test_seq0255_signature {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq0255<'decoder, Signature<'decoder>>,
+    struct Test {
+        a: Seq0255<Signature>,
     }
 
     #[test]
@@ -371,8 +371,8 @@ mod test_seq_064_u256 {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, U256<'decoder>>,
+    struct Test {
+        a: Seq064K<U256>,
     }
 
     #[test]
@@ -403,8 +403,8 @@ mod test_064_bool {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, bool>,
+    struct Test {
+        a: Seq064K<bool>,
     }
 
     #[test]
@@ -430,8 +430,8 @@ mod test_se1o64k_u16 {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, u16>,
+    struct Test {
+        a: Seq064K<u16>,
     }
 
     #[test]
@@ -453,8 +453,8 @@ mod test_seq064k_u24 {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, U24>,
+    struct Test {
+        a: Seq064K<U24>,
     }
 
     #[test]
@@ -480,8 +480,8 @@ mod test_seq064k_u32 {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, u32>,
+    struct Test {
+        a: Seq064K<u32>,
     }
 
     #[test]
@@ -502,8 +502,8 @@ mod test_seq064k_signature {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, Signature<'decoder>>,
+    struct Test {
+        a: Seq064K<Signature>,
     }
 
     #[test]
@@ -532,8 +532,8 @@ mod test_seq064k_b016m {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Seq064K<'decoder, B016M<'decoder>>,
+    struct Test {
+        a: Seq064K<B016M>,
     }
 
     #[test]
@@ -561,9 +561,9 @@ mod test_seq_0255_in_struct {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
+    struct Test {
         a: u8,
-        b: Seq0255<'decoder, u8>,
+        b: Seq0255<u8>,
         c: u32,
     }
 
@@ -586,8 +586,8 @@ mod test_sv2_option_u256 {
     use core::convert::TryInto;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Sv2Option<'decoder, U256<'decoder>>,
+    struct Test {
+        a: Sv2Option<U256>,
     }
 
     #[test]
@@ -613,8 +613,8 @@ mod test_sv2_option_none {
     use super::*;
 
     #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-    struct Test<'decoder> {
-        a: Sv2Option<'decoder, U256<'decoder>>,
+    struct Test {
+        a: Sv2Option<U256>,
     }
 
     #[test]

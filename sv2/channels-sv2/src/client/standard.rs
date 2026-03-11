@@ -29,7 +29,7 @@ use mining_sv2::{
 use tracing::debug;
 
 /// A type alias representing a standard mining job tied to a specific `target`.
-pub type StandardJob<'a> = (NewMiningJob<'a>, Target);
+pub type StandardJob = (NewMiningJob, Target);
 
 /// Mining Client abstraction over the state of a Sv2 Standard Channel.
 ///
@@ -46,21 +46,21 @@ pub type StandardJob<'a> = (NewMiningJob<'a>, Target);
 /// - share accounting state
 /// - chain tip state
 #[derive(Debug, Clone)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: Vec<u8>,
     target: Target,
     nominal_hashrate: f32,
-    future_jobs: HashMap<u32, StandardJob<'a>>,
-    active_job: Option<StandardJob<'a>>,
-    past_jobs: HashMap<u32, StandardJob<'a>>,
-    stale_jobs: HashMap<u32, StandardJob<'a>>,
+    future_jobs: HashMap<u32, StandardJob>,
+    active_job: Option<StandardJob>,
+    past_jobs: HashMap<u32, StandardJob>,
+    stale_jobs: HashMap<u32, StandardJob>,
     share_accounting: ShareAccounting,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl StandardChannel {
     /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(
         channel_id: u32,
@@ -144,22 +144,22 @@ impl<'a> StandardChannel<'a> {
     /// Returns all future jobs for this channel.
     ///
     /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob> {
         &self.future_jobs
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&StandardJob> {
         self.active_job.as_ref()
     }
 
     /// Returns all past jobs for the channel (active jobs under current chain tip).
-    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob> {
         &self.past_jobs
     }
 
     /// Returns all stale jobs for the channel (jobs from previous chain tip).
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
+    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob> {
         &self.stale_jobs
     }
 
@@ -183,7 +183,7 @@ impl<'a> StandardChannel<'a> {
     /// and activating it in this channel's context.
     ///
     /// The new job is constructed using the current extranonce prefix.
-    pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJob<'a>) {
+    pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJob) {
         let merkle_root = merkle_root_from_path(
             new_extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
             new_extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
@@ -210,7 +210,7 @@ impl<'a> StandardChannel<'a> {
     /// - If `min_ntime` is present, the job is activated and replaces the current active job.
     /// - If `min_ntime` is empty, the job is added to future jobs.
     /// - If an active job exists, it is moved to past jobs on activation.
-    pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJob<'a>) {
+    pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJob) {
         match new_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
                 if let Some(active_job) = self.active_job.as_ref() {
@@ -236,7 +236,7 @@ impl<'a> StandardChannel<'a> {
     /// - Updates chain tip information. Returns error if no matching future job found.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashMp<'a>,
+        set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), StandardChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {

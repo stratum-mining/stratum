@@ -15,14 +15,14 @@ use core::convert::TryInto;
 /// When this message is sent to a group channel, the maximum target is applicable to all channels
 /// in the group.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetTarget<'decoder> {
+pub struct SetTarget {
     /// Channel identifier.
     pub channel_id: u32,
     /// Maximum value of produced hash that will be accepted by a upstream to accept shares.
-    pub maximum_target: U256<'decoder>,
+    pub maximum_target: U256,
 }
 
-impl fmt::Display for SetTarget<'_> {
+impl fmt::Display for SetTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

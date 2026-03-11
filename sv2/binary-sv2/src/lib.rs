@@ -99,7 +99,7 @@ pub fn to_writer<T: Encodable>(src: T, dst: &mut [u8]) -> Result<(), Error> {
 }
 
 /// Decodes an SV2-encoded byte slice into the specified data type.
-pub fn from_bytes<'a, T: Decodable<'a>>(data: &'a mut [u8]) -> Result<T, Error> {
+pub fn from_bytes<T: Decodable>(data: &mut [u8]) -> Result<T, Error> {
     T::from_bytes(data)
 }
 
@@ -301,21 +301,21 @@ impl GetSize for Vec<u8> {
     }
 }
 
-impl From<Vec<u8>> for EncodableField<'_> {
+impl From<Vec<u8>> for EncodableField {
     fn from(v: Vec<u8>) -> Self {
         EncodableField::Struct(v.into_iter().map(Into::into).collect())
     }
 }
 
 #[cfg(feature = "with_buffer_pool")]
-impl From<buffer_sv2::Slice> for EncodableField<'_> {
+impl From<buffer_sv2::Slice> for EncodableField {
     fn from(_v: buffer_sv2::Slice) -> Self {
         unreachable!()
     }
 }
 
 /// Converts a value implementing the `Into<u64>` trait into a custom `U256` type.
-pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
+pub fn u256_from_int<V: Into<u64>>(value: V) -> U256 {
     // initialize u256 as a bytes vec of len 24
     let mut u256 = vec![0_u8; 24];
     let val: u64 = value.into();

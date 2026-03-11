@@ -57,7 +57,7 @@ use bitcoin::{
     CompactTarget, Target,
 };
 use mining_sv2::{SetCustomMiningJob, SubmitSharesExtended};
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 use tracing::debug;
 
@@ -79,9 +79,9 @@ use tracing::debug;
 /// - the channel's [`JobFactory`]
 /// - the channel's [`ChainTip`]
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J>
+pub struct ExtendedChannel<J>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    J: JobStore<ExtendedJob>,
 {
     channel_id: u32,
     user_identity: String,
@@ -96,12 +96,11 @@ where
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> ExtendedChannel<'a, J>
+impl<J> ExtendedChannel<J>
 where
-    J: JobStore<ExtendedJob<'a>>,
+    J: JobStore<ExtendedJob>,
 {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
@@ -245,7 +244,6 @@ where
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
-            phantom: PhantomData,
         })
     }
 
@@ -410,19 +408,19 @@ where
     }
 
     /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<ExtendedJob> {
         // cloning happens inside the job store
         self.job_store.get_active_job()
     }
 
     /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob> {
         // cloning happens inside the job store
         self.job_store.get_future_job(job_id)
     }
 
     /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob> {
         // cloning happens inside the job store
         self.job_store.get_past_job(job_id)
     }
@@ -443,7 +441,7 @@ where
     /// If this flag is set, on_set_custom_mining_job should be used instead.
     pub fn on_new_template(
         &mut self,
-        template: NewTemplate<'a>,
+        template: NewTemplate,
         coinbase_reward_outputs: Vec<TxOut>,
     ) -> Result<(), ExtendedChannelError> {
         match template.future_template {
@@ -501,7 +499,7 @@ where
     /// If this flag is set, on_set_custom_mining_job should be used instead.
     pub fn on_group_channel_job(
         &mut self,
-        mut extended_job: ExtendedJob<'a>,
+        mut extended_job: ExtendedJob,
     ) -> Result<(), ExtendedChannelError> {
         // make sure the extranonce prefix is associated to the channel's extranonce prefix
         extended_job.set_extranonce_prefix(self.extranonce_prefix.clone());
@@ -539,7 +537,7 @@ where
     /// All past jobs are cleared.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashTdp<'a>,
+        set_new_prev_hash: SetNewPrevHashTdp,
     ) -> Result<(), ExtendedChannelError> {
         // clear the job id to target mapping
         self.job_id_to_target.clear();
@@ -592,7 +590,7 @@ where
     /// To be used by a Sv2 Pool Server upon receiving a `SetCustomMiningJob` message.
     pub fn on_set_custom_mining_job(
         &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job: SetCustomMiningJob,
     ) -> Result<u32, ExtendedChannelError> {
         let new_job = self
             .job_factory

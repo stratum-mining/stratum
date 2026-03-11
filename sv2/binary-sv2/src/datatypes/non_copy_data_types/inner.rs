@@ -1,13 +1,12 @@
-// Provides a flexible container for managing either owned or mutable references to byte arrays.
+// Provides a flexible container for managing owned byte arrays.
 //
 // # Overview
-// Defines the `Inner` enum to manage both mutable references to byte slices and owned vectors
-// (`Vec<u8>`). Accommodates both fixed-size and variable-size data using const generics, offering
-// control over size and header length constraints.
+// Defines the `Inner` enum to manage owned vectors (`Vec<u8>`). Accommodates both fixed-size and
+// variable-size data using const generics, offering control over size and header length
+// constraints.
 //
 // # `Inner` Enum
-// The `Inner` enum has two variants for data management:
-// - `Ref(&'a mut [u8])`: A mutable reference to a byte slice, allowing in-place data modification.
+// The `Inner` enum has one variant for data management:
 // - `Owned(Vec<u8>)`: An owned byte vector, providing full control over data and supporting move
 //   semantics.
 //
@@ -21,7 +20,7 @@
 //
 // # Usage
 // `Inner` offers several methods for data manipulation, including:
-// - `to_vec()`: Returns a `Vec<u8>`, cloning the slice or owned data.
+// - `to_vec()`: Returns a `Vec<u8>`, cloning the owned data.
 // - `inner_as_ref()` and `inner_as_mut()`: Provide immutable or mutable access to the data.
 // - `expected_length(data: &[u8])`: Computes the expected length, validating it against
 //   constraints.
@@ -46,13 +45,11 @@ use core::convert::{TryFrom, TryInto};
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
 
-// The `Inner` enum represents a flexible container for managing both reference to mutable
-// slices and owned bytes arrays (`Vec<u8>`). This design allows the container to either own
-// its data or simply reference existing mutable data. It uses const generics to differentiate
-// between fixed-size and variable-size data, as well as to specify key size-related parameters.
+// The `Inner` enum represents a flexible container for managing owned bytes arrays (`Vec<u8>`).
+// It uses const generics to differentiate between fixed-size and variable-size data, as well as
+// to specify key size-related parameters.
 //
-// It has two variants:
-// - `Ref(&'a mut [u8])`: A mutable reference to an external byte slice.
+// It has one variant:
 // - `Owned (Vec<u8>)`: A vector that owns its data, enabling dynamic ownership.
 //
 // The const parameters that govern the behavior of this enum are:
@@ -64,87 +61,71 @@ use std::io::{Error as E, Read, Write};
 
 #[derive(Debug)]
 pub enum Inner<
-    'a,
     const ISFIXED: bool,
     const SIZE: usize,
     const HEADERSIZE: usize,
     const MAXSIZE: usize,
 > {
-    Ref(&'a mut [u8]),
     Owned(Vec<u8>),
 }
 
-impl<const SIZE: usize> Inner<'_, true, SIZE, 0, 0> {
-    // Converts the inner data to a vector, either by cloning the referenced slice or
-    // returning a clone of the owned vector.
+impl<const SIZE: usize> Inner<true, SIZE, 0, 0> {
+    // Converts the inner data to a vector by cloning the owned vector.
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Inner::Ref(ref_) => ref_.to_vec(),
             Inner::Owned(v) => v.clone(),
         }
     }
-    // Returns an immutable reference to the inner data, whether it's a reference or
-    // an owned vector.
+    // Returns an immutable reference to the inner data.
     pub fn inner_as_ref(&self) -> &[u8] {
         match self {
-            Inner::Ref(ref_) => ref_,
             Inner::Owned(v) => v,
         }
     }
-    // Provides a mutable reference to the inner data, allowing modification if the
-    // data is being referenced.
+    // Provides a mutable reference to the inner data.
     pub fn inner_as_mut(&mut self) -> &mut [u8] {
         match self {
-            Inner::Ref(ref_) => ref_,
             Inner::Owned(v) => v,
         }
     }
 }
 
 impl<const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'_, false, SIZE, HEADERSIZE, MAXSIZE>
+    Inner<false, SIZE, HEADERSIZE, MAXSIZE>
 {
     // Similar to the fixed-size variant, this method converts the inner data into a vector.
-    // The data is either cloned from the referenced slice or returned as a clone of the
-    // owned vector.
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Inner::Ref(ref_) => ref_[..].to_vec(),
             Inner::Owned(v) => v[..].to_vec(),
         }
     }
-    // Returns an immutable reference to the inner data for variable-size types, either
-    // referencing a slice or an owned vector.
+    // Returns an immutable reference to the inner data for variable-size types.
     pub fn inner_as_ref(&self) -> &[u8] {
         match self {
-            Inner::Ref(ref_) => &ref_[..],
             Inner::Owned(v) => &v[..],
         }
     }
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    PartialEq for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    PartialEq for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     // Provides equality comparison between two `Inner` instances by checking the equality
-    // of their data, regardless of whether they are references or owned vectors.
+    // of their data.
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Inner::Ref(b), Inner::Owned(a)) => *b == &a[..],
-            (Inner::Owned(b), Inner::Ref(a)) => *a == &b[..],
             (Inner::Owned(b), Inner::Owned(a)) => b == a,
-            (Inner::Ref(b), Inner::Ref(a)) => b == a,
         }
     }
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> Eq
-    for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     // Calculates the expected length of the data based on the type's parameters (fixed-size
     // or variable-size). It checks if the length conforms to the specified constraints like
@@ -213,11 +194,10 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
         }
     }
 
-    /// Returns the length of the data, either from the reference or the owned vector,
+    /// Returns the length of the data, either from the owned vector,
     /// or the fixed size if `ISFIXED` is true.
     pub fn len(&self) -> usize {
         match (self, ISFIXED) {
-            (Inner::Ref(data), false) => data.len(),
             (Inner::Owned(data), false) => data.len(),
             (_, true) => 1,
         }
@@ -235,14 +215,14 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     }
 }
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    TryFrom<&'a mut [u8]> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    TryFrom<&mut [u8]> for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     type Error = Error;
 
-    fn try_from(value: &'a mut [u8]) -> Result<Self, Self::Error> {
+    fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
         if ISFIXED && value.len() == SIZE {
-            Ok(Self::Ref(value))
+            Ok(Self::Owned(value.to_vec()))
         } else if ISFIXED {
             Err(Error::ValueExceedsMaxSize(
                 ISFIXED,
@@ -253,7 +233,7 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
                 value.len(),
             ))
         } else if value.len() <= MAXSIZE {
-            Ok(Self::Ref(value))
+            Ok(Self::Owned(value.to_vec()))
         } else {
             Err(Error::ValueExceedsMaxSize(
                 ISFIXED,
@@ -268,7 +248,7 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    TryFrom<Vec<u8>> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    TryFrom<Vec<u8>> for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     type Error = Error;
 
@@ -300,18 +280,17 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> GetSize
-    for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn get_size(&self) -> usize {
         match self {
-            Inner::Ref(data) => data.len() + HEADERSIZE,
             Inner::Owned(data) => data.len() + HEADERSIZE,
         }
     }
 }
 
 impl<const ISFIXED: bool, const HEADERSIZE: usize, const SIZE: usize, const MAXSIZE: usize> SizeHint
-    for Inner<'_, ISFIXED, HEADERSIZE, SIZE, MAXSIZE>
+    for Inner<ISFIXED, HEADERSIZE, SIZE, MAXSIZE>
 {
     fn size_hint(data: &[u8], offset: usize) -> Result<usize, Error> {
         if offset >= data.len() {
@@ -329,16 +308,16 @@ impl<const ISFIXED: bool, const HEADERSIZE: usize, const SIZE: usize, const MAXS
 }
 use crate::codec::decodable::FieldMarker;
 
-impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Sv2DataType<'a> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Sv2DataType for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 where
     Self: TryInto<FieldMarker>,
 {
-    fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
+    fn from_bytes_unchecked(data: &mut [u8]) -> Self {
         if ISFIXED {
-            Self::Ref(data)
+            Self::Owned(data[..SIZE].to_vec())
         } else {
-            Self::Ref(&mut data[HEADERSIZE..])
+            Self::Owned(data[HEADERSIZE..].to_vec())
         }
     }
 
@@ -361,15 +340,11 @@ where
         Ok(Self::from_vec_unchecked(dst))
     }
 
-    fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+    fn to_slice_unchecked(&self, dst: &mut [u8]) {
         let size = self.get_size();
         let header = self.get_header();
         dst[0..HEADERSIZE].copy_from_slice(&header[..HEADERSIZE]);
         match self {
-            Inner::Ref(data) => {
-                let dst = &mut dst[0..size];
-                dst[HEADERSIZE..].copy_from_slice(data);
-            }
             Inner::Owned(data) => {
                 let dst = &mut dst[0..size];
                 dst[HEADERSIZE..].copy_from_slice(data);
@@ -380,9 +355,6 @@ where
     #[cfg(not(feature = "no_std"))]
     fn to_writer_(&self, writer: &mut impl Write) -> Result<(), E> {
         match self {
-            Inner::Ref(data) => {
-                writer.write_all(data)?;
-            }
             Inner::Owned(data) => {
                 writer.write_all(data)?;
             }
@@ -392,55 +364,36 @@ where
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    IntoOwned for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    IntoOwned for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn into_owned(self) -> Self {
-        match self {
-            Inner::Ref(data) => {
-                let v: Vec<u8> = data.into();
-                Self::Owned(v)
-            }
-            Inner::Owned(_) => self,
-        }
+        self
     }
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
-    pub fn into_static(self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
-        match self {
-            Inner::Ref(data) => {
-                let mut v = Vec::with_capacity(data.len());
-                v.extend_from_slice(data);
-                Inner::Owned(v)
-            }
-            Inner::Owned(data) => Inner::Owned(data),
-        }
+    pub fn into_static(self) -> Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
+        self
     }
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> Clone
-    for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
-    fn clone(&self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
+    fn clone(&self) -> Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
         match self {
-            Inner::Ref(data) => {
-                let mut v = Vec::with_capacity(data.len());
-                v.extend_from_slice(data);
-                Inner::Owned(v)
-            }
             Inner::Owned(data) => Inner::Owned(data.clone()),
         }
     }
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    AsRef<[u8]> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    AsRef<[u8]> for Inner<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn as_ref(&self) -> &[u8] {
         match self {
-            Inner::Ref(r) => &r[..],
             Inner::Owned(r) => &r[..],
         }
     }

@@ -127,7 +127,7 @@ pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> WithNoise<B, T> {
+impl<T: Serialize + GetSize + Deserialize, B: IsBuffer + AeadBuffer> WithNoise<B, T> {
     /// Attempts to decode the next Noise encrypted frame.
     ///
     /// On success, the decoded and decrypted frame is returned. Otherwise, an error indicating the

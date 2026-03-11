@@ -136,21 +136,21 @@ pub fn message_type_to_name(msg_type: u8) -> &'static str {
 /// A parser of messages that are common to all Sv2 subprotocols, to be used for parsing raw
 /// messages
 #[derive(Clone, Debug, PartialEq)]
-pub enum CommonMessages<'a> {
+pub enum CommonMessages {
     /// Notifies about changes in channel endpoint configuration.
     ChannelEndpointChanged(ChannelEndpointChanged),
     /// Reconnects a client to a new server
-    Reconnect(Reconnect<'a>),
+    Reconnect(Reconnect),
     /// Initiates a connection between a client and server.
-    SetupConnection(SetupConnection<'a>),
+    SetupConnection(SetupConnection),
     /// Indicates an error during connection setup.
-    SetupConnectionError(SetupConnectionError<'a>),
+    SetupConnectionError(SetupConnectionError),
     /// Acknowledges successful connection setup.
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
-impl fmt::Display for CommonMessages<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for CommonMessages {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CommonMessages::ChannelEndpointChanged(m) => write!(f, "{m}"),
             CommonMessages::Reconnect(m) => write!(f, "{m}"),
@@ -163,18 +163,18 @@ impl fmt::Display for CommonMessages<'_> {
 
 /// A parser of messages of Template Distribution subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
-pub enum TemplateDistribution<'a> {
+pub enum TemplateDistribution {
     CoinbaseOutputConstraints(CoinbaseOutputConstraints),
-    NewTemplate(NewTemplate<'a>),
+    NewTemplate(NewTemplate),
     RequestTransactionData(RequestTransactionData),
-    RequestTransactionDataError(RequestTransactionDataError<'a>),
-    RequestTransactionDataSuccess(RequestTransactionDataSuccess<'a>),
-    SetNewPrevHash(SetNewPrevHash<'a>),
-    SubmitSolution(SubmitSolution<'a>),
+    RequestTransactionDataError(RequestTransactionDataError),
+    RequestTransactionDataSuccess(RequestTransactionDataSuccess),
+    SetNewPrevHash(SetNewPrevHash),
+    SubmitSolution(SubmitSolution),
 }
 
-impl fmt::Display for TemplateDistribution<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for TemplateDistribution {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TemplateDistribution::CoinbaseOutputConstraints(m) => {
                 write!(f, "CoinbaseOutputConstraints: {m}")
@@ -197,19 +197,19 @@ impl fmt::Display for TemplateDistribution<'_> {
 
 /// A parser of messages of Job Declaration subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
-pub enum JobDeclaration<'a> {
-    AllocateMiningJobToken(AllocateMiningJobToken<'a>),
-    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
-    DeclareMiningJob(DeclareMiningJob<'a>),
-    DeclareMiningJobError(DeclareMiningJobError<'a>),
-    DeclareMiningJobSuccess(DeclareMiningJobSuccess<'a>),
-    ProvideMissingTransactions(ProvideMissingTransactions<'a>),
-    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
-    PushSolution(PushSolution<'a>),
+pub enum JobDeclaration {
+    AllocateMiningJobToken(AllocateMiningJobToken),
+    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess),
+    DeclareMiningJob(DeclareMiningJob),
+    DeclareMiningJobError(DeclareMiningJobError),
+    DeclareMiningJobSuccess(DeclareMiningJobSuccess),
+    ProvideMissingTransactions(ProvideMissingTransactions),
+    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess),
+    PushSolution(PushSolution),
 }
 
-impl fmt::Display for JobDeclaration<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for JobDeclaration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             JobDeclaration::AllocateMiningJobToken(m) => write!(f, "AllocateMiningJobToken: {m}"),
             JobDeclaration::AllocateMiningJobTokenSuccess(m) => {
@@ -255,32 +255,32 @@ impl fmt::Display for JobDeclaration<'_> {
 ///     unified interface for handling mining-related communication. This reduces complexity and
 ///     ensures consistency across roles.
 #[derive(Clone, Debug)]
-pub enum Mining<'a> {
-    CloseChannel(CloseChannel<'a>),
-    NewExtendedMiningJob(NewExtendedMiningJob<'a>),
-    NewMiningJob(NewMiningJob<'a>),
-    OpenExtendedMiningChannel(OpenExtendedMiningChannel<'a>),
-    OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess<'a>),
-    OpenMiningChannelError(OpenMiningChannelError<'a>),
-    OpenStandardMiningChannel(OpenStandardMiningChannel<'a>),
-    OpenStandardMiningChannelSuccess(OpenStandardMiningChannelSuccess<'a>),
-    SetCustomMiningJob(SetCustomMiningJob<'a>),
-    SetCustomMiningJobError(SetCustomMiningJobError<'a>),
+pub enum Mining {
+    CloseChannel(CloseChannel),
+    NewExtendedMiningJob(NewExtendedMiningJob),
+    NewMiningJob(NewMiningJob),
+    OpenExtendedMiningChannel(OpenExtendedMiningChannel),
+    OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess),
+    OpenMiningChannelError(OpenMiningChannelError),
+    OpenStandardMiningChannel(OpenStandardMiningChannel),
+    OpenStandardMiningChannelSuccess(OpenStandardMiningChannelSuccess),
+    SetCustomMiningJob(SetCustomMiningJob),
+    SetCustomMiningJobError(SetCustomMiningJobError),
     SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
-    SetExtranoncePrefix(SetExtranoncePrefix<'a>),
-    SetGroupChannel(SetGroupChannel<'a>),
-    SetNewPrevHash(MiningSetNewPrevHash<'a>),
-    SetTarget(SetTarget<'a>),
-    SubmitSharesError(SubmitSharesError<'a>),
-    SubmitSharesExtended(SubmitSharesExtended<'a>),
+    SetExtranoncePrefix(SetExtranoncePrefix),
+    SetGroupChannel(SetGroupChannel),
+    SetNewPrevHash(MiningSetNewPrevHash),
+    SetTarget(SetTarget),
+    SubmitSharesError(SubmitSharesError),
+    SubmitSharesExtended(SubmitSharesExtended),
     SubmitSharesStandard(SubmitSharesStandard),
     SubmitSharesSuccess(SubmitSharesSuccess),
-    UpdateChannel(UpdateChannel<'a>),
-    UpdateChannelError(UpdateChannelError<'a>),
+    UpdateChannel(UpdateChannel),
+    UpdateChannelError(UpdateChannelError),
 }
 
-impl fmt::Display for Mining<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Mining {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Mining::CloseChannel(m) => write!(f, "{m}"),
             Mining::NewExtendedMiningJob(m) => write!(f, "{m}"),
@@ -307,9 +307,9 @@ impl fmt::Display for Mining<'_> {
     }
 }
 
-impl Mining<'_> {
+impl Mining {
     /// converter into static lifetime
-    pub fn into_static(self) -> Mining<'static> {
+    pub fn into_static(self) -> Mining {
         match self {
             Mining::CloseChannel(m) => Mining::CloseChannel(m.into_static()),
             Mining::NewExtendedMiningJob(m) => Mining::NewExtendedMiningJob(m.into_static()),
@@ -346,9 +346,9 @@ impl Mining<'_> {
     }
 }
 
-impl CommonMessages<'_> {
+impl CommonMessages {
     /// converter into static lifetime
-    pub fn into_static(self) -> CommonMessages<'static> {
+    pub fn into_static(self) -> CommonMessages {
         match self {
             CommonMessages::ChannelEndpointChanged(m) => CommonMessages::ChannelEndpointChanged(m),
             CommonMessages::Reconnect(m) => CommonMessages::Reconnect(m.into_static()),
@@ -361,9 +361,9 @@ impl CommonMessages<'_> {
     }
 }
 
-impl TemplateDistribution<'_> {
+impl TemplateDistribution {
     /// converter into static lifetime
-    pub fn into_static(self) -> TemplateDistribution<'static> {
+    pub fn into_static(self) -> TemplateDistribution {
         match self {
             TemplateDistribution::CoinbaseOutputConstraints(m) => {
                 TemplateDistribution::CoinbaseOutputConstraints(m)
@@ -390,9 +390,9 @@ impl TemplateDistribution<'_> {
     }
 }
 
-impl JobDeclaration<'_> {
+impl JobDeclaration {
     /// converter into static lifetime
-    pub fn into_static(self) -> JobDeclaration<'static> {
+    pub fn into_static(self) -> JobDeclaration {
         match self {
             JobDeclaration::AllocateMiningJobToken(m) => {
                 JobDeclaration::AllocateMiningJobToken(m.into_static())
@@ -425,14 +425,14 @@ impl JobDeclaration<'_> {
 /// These messages allow endpoints to negotiate which optional extensions are supported
 /// during connection setup.
 #[derive(Clone, Debug)]
-pub enum ExtensionsNegotiation<'a> {
-    RequestExtensions(RequestExtensions<'a>),
-    RequestExtensionsSuccess(RequestExtensionsSuccess<'a>),
-    RequestExtensionsError(RequestExtensionsError<'a>),
+pub enum ExtensionsNegotiation {
+    RequestExtensions(RequestExtensions),
+    RequestExtensionsSuccess(RequestExtensionsSuccess),
+    RequestExtensionsError(RequestExtensionsError),
 }
 
-impl fmt::Display for ExtensionsNegotiation<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for ExtensionsNegotiation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ExtensionsNegotiation::RequestExtensions(m) => write!(f, "{m}"),
             ExtensionsNegotiation::RequestExtensionsSuccess(m) => write!(f, "{m}"),
@@ -441,9 +441,9 @@ impl fmt::Display for ExtensionsNegotiation<'_> {
     }
 }
 
-impl ExtensionsNegotiation<'_> {
+impl ExtensionsNegotiation {
     /// converter into static lifetime
-    pub fn into_static(self) -> ExtensionsNegotiation<'static> {
+    pub fn into_static(self) -> ExtensionsNegotiation {
         match self {
             ExtensionsNegotiation::RequestExtensions(m) => {
                 ExtensionsNegotiation::RequestExtensions(m.into_static())
@@ -471,22 +471,22 @@ impl ExtensionsNegotiation<'_> {
 ///
 /// Future extension types will be added as new variants (e.g., Worker Hashrate Tracking).
 #[derive(Clone, Debug)]
-pub enum Extensions<'a> {
+pub enum Extensions {
     /// Extensions Negotiation messages (extension_type=0x0001)
-    ExtensionsNegotiation(ExtensionsNegotiation<'a>),
+    ExtensionsNegotiation(ExtensionsNegotiation),
 }
 
-impl fmt::Display for Extensions<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Extensions {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Extensions::ExtensionsNegotiation(m) => write!(f, "{m}"),
         }
     }
 }
 
-impl Extensions<'_> {
+impl Extensions {
     /// converter into static lifetime
-    pub fn into_static(self) -> Extensions<'static> {
+    pub fn into_static(self) -> Extensions {
         match self {
             Extensions::ExtensionsNegotiation(m) => {
                 Extensions::ExtensionsNegotiation(m.into_static())
@@ -495,9 +495,9 @@ impl Extensions<'_> {
     }
 }
 
-impl AnyMessage<'_> {
+impl AnyMessage {
     /// converter into static lifetime
-    pub fn into_static(self) -> AnyMessage<'static> {
+    pub fn into_static(self) -> AnyMessage {
         match self {
             AnyMessage::Common(m) => AnyMessage::Common(m.into_static()),
             AnyMessage::Mining(m) => AnyMessage::Mining(m.into_static()),
@@ -515,9 +515,9 @@ pub fn parse_message_frame_with_tlvs(
     header: Header,
     payload: &mut [u8],
     negotiated_extensions: &[u16],
-) -> Result<(AnyMessage<'static>, Option<Vec<Tlv>>), ParserError> {
+) -> Result<(AnyMessage, Option<Vec<Tlv>>), ParserError> {
     let raw_payload = payload.to_vec();
-    let message: AnyMessage<'_> = (header, payload).try_into()?;
+    let message: AnyMessage = (header, payload).try_into()?;
     let message_size = message.get_size();
     let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
     Ok((message.into_static(), tlvs))
@@ -545,7 +545,7 @@ pub trait IsSv2Message {
     fn extension_type(&self) -> u16;
 }
 
-impl IsSv2Message for CommonMessages<'_> {
+impl IsSv2Message for CommonMessages {
     fn message_type(&self) -> u8 {
         match self {
             Self::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
@@ -571,7 +571,7 @@ impl IsSv2Message for CommonMessages<'_> {
     }
 }
 
-impl IsSv2Message for TemplateDistribution<'_> {
+impl IsSv2Message for TemplateDistribution {
     fn message_type(&self) -> u8 {
         match self {
             Self::CoinbaseOutputConstraints(_) => MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
@@ -599,7 +599,7 @@ impl IsSv2Message for TemplateDistribution<'_> {
         0 // Template Distribution messages are not extensions
     }
 }
-impl IsSv2Message for JobDeclaration<'_> {
+impl IsSv2Message for JobDeclaration {
     fn message_type(&self) -> u8 {
         match self {
             Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
@@ -635,7 +635,7 @@ impl IsSv2Message for JobDeclaration<'_> {
         0 // Job Declaration messages are not extensions
     }
 }
-impl IsSv2Message for Mining<'_> {
+impl IsSv2Message for Mining {
     fn message_type(&self) -> u8 {
         match self {
             Self::CloseChannel(_) => MESSAGE_TYPE_CLOSE_CHANNEL,
@@ -701,7 +701,7 @@ impl IsSv2Message for Mining<'_> {
     }
 }
 
-impl IsSv2Message for Extensions<'_> {
+impl IsSv2Message for Extensions {
     fn message_type(&self) -> u8 {
         match self {
             Self::ExtensionsNegotiation(m) => match m {
@@ -737,8 +737,8 @@ impl IsSv2Message for Extensions<'_> {
     }
 }
 
-impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
-    fn from(m: CommonMessages<'decoder>) -> Self {
+impl From<CommonMessages> for EncodableField {
+    fn from(m: CommonMessages) -> Self {
         match m {
             CommonMessages::ChannelEndpointChanged(a) => a.into(),
             CommonMessages::Reconnect(a) => a.into(),
@@ -748,8 +748,8 @@ impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
-impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder> {
-    fn from(m: TemplateDistribution<'decoder>) -> Self {
+impl From<TemplateDistribution> for EncodableField {
+    fn from(m: TemplateDistribution) -> Self {
         match m {
             TemplateDistribution::CoinbaseOutputConstraints(a) => a.into(),
             TemplateDistribution::NewTemplate(a) => a.into(),
@@ -761,8 +761,8 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
         }
     }
 }
-impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
-    fn from(m: JobDeclaration<'decoder>) -> Self {
+impl From<JobDeclaration> for EncodableField {
+    fn from(m: JobDeclaration) -> Self {
         match m {
             JobDeclaration::AllocateMiningJobToken(a) => a.into(),
             JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.into(),
@@ -776,8 +776,8 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
-    fn from(m: Mining<'decoder>) -> Self {
+impl From<Mining> for EncodableField {
+    fn from(m: Mining) -> Self {
         match m {
             Mining::CloseChannel(a) => a.into(),
             Mining::NewExtendedMiningJob(a) => a.into(),
@@ -804,7 +804,7 @@ impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-impl GetSize for CommonMessages<'_> {
+impl GetSize for CommonMessages {
     fn get_size(&self) -> usize {
         match self {
             CommonMessages::ChannelEndpointChanged(a) => a.get_size(),
@@ -815,7 +815,7 @@ impl GetSize for CommonMessages<'_> {
         }
     }
 }
-impl GetSize for TemplateDistribution<'_> {
+impl GetSize for TemplateDistribution {
     fn get_size(&self) -> usize {
         match self {
             TemplateDistribution::CoinbaseOutputConstraints(a) => a.get_size(),
@@ -828,7 +828,7 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-impl GetSize for JobDeclaration<'_> {
+impl GetSize for JobDeclaration {
     fn get_size(&self) -> usize {
         match self {
             JobDeclaration::AllocateMiningJobToken(a) => a.get_size(),
@@ -842,7 +842,7 @@ impl GetSize for JobDeclaration<'_> {
         }
     }
 }
-impl GetSize for Mining<'_> {
+impl GetSize for Mining {
     fn get_size(&self) -> usize {
         match self {
             Mining::CloseChannel(a) => a.get_size(),
@@ -870,8 +870,8 @@ impl GetSize for Mining<'_> {
     }
 }
 
-impl<'decoder> From<Extensions<'decoder>> for EncodableField<'decoder> {
-    fn from(m: Extensions<'decoder>) -> Self {
+impl From<Extensions> for EncodableField {
+    fn from(m: Extensions) -> Self {
         match m {
             Extensions::ExtensionsNegotiation(ext) => match ext {
                 ExtensionsNegotiation::RequestExtensions(a) => a.into(),
@@ -882,7 +882,7 @@ impl<'decoder> From<Extensions<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-impl GetSize for Extensions<'_> {
+impl GetSize for Extensions {
     fn get_size(&self) -> usize {
         match self {
             Extensions::ExtensionsNegotiation(m) => match m {
@@ -894,75 +894,75 @@ impl GetSize for Extensions<'_> {
     }
 }
 
-impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
+impl Deserialize for CommonMessages {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
+        _v: Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
-impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
+impl Deserialize for TemplateDistribution {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
+        _v: Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
-impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
+impl Deserialize for JobDeclaration {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
+        _v: Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
-impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
+impl Deserialize for Mining {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-
-impl<'decoder> Deserialize<'decoder> for Extensions<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
+        _v: Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 
-impl<'decoder> Deserialize<'decoder> for AnyMessage<'decoder> {
+impl Deserialize for Extensions {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
+        _v: Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
 }
 
-impl<'decoder> Deserialize<'decoder> for MiningDeviceMessages<'decoder> {
+impl Deserialize for AnyMessage {
     fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
     fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
+        _v: Vec<DecodableField>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl Deserialize for MiningDeviceMessages {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+    fn from_decoded_fields(
+        _v: Vec<DecodableField>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
         unimplemented!()
     }
@@ -995,14 +995,14 @@ impl TryFrom<u8> for CommonMessageTypes {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages {
     type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: CommonMessageTypes = v.0.try_into()?;
         match msg_type {
             CommonMessageTypes::SetupConnection => {
-                let message: SetupConnection<'a> = from_bytes(v.1)?;
+                let message: SetupConnection = from_bytes(v.1)?;
                 Ok(CommonMessages::SetupConnection(message))
             }
             CommonMessageTypes::SetupConnectionSuccess => {
@@ -1010,7 +1010,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for CommonMessages<'a> {
                 Ok(CommonMessages::SetupConnectionSuccess(message))
             }
             CommonMessageTypes::SetupConnectionError => {
-                let message: SetupConnectionError<'a> = from_bytes(v.1)?;
+                let message: SetupConnectionError = from_bytes(v.1)?;
                 Ok(CommonMessages::SetupConnectionError(message))
             }
             CommonMessageTypes::ChannelEndpointChanged => {
@@ -1064,7 +1064,7 @@ impl TryFrom<u8> for TemplateDistributionTypes {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution {
     type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1075,11 +1075,11 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
                 Ok(TemplateDistribution::CoinbaseOutputConstraints(message))
             }
             TemplateDistributionTypes::NewTemplate => {
-                let message: NewTemplate<'a> = from_bytes(v.1)?;
+                let message: NewTemplate = from_bytes(v.1)?;
                 Ok(TemplateDistribution::NewTemplate(message))
             }
             TemplateDistributionTypes::SetNewPrevHash => {
-                let message: SetNewPrevHash<'a> = from_bytes(v.1)?;
+                let message: SetNewPrevHash = from_bytes(v.1)?;
                 Ok(TemplateDistribution::SetNewPrevHash(message))
             }
             TemplateDistributionTypes::RequestTransactionData => {
@@ -1145,7 +1145,7 @@ impl TryFrom<u8> for JobDeclarationTypes {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration {
     type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1253,7 +1253,7 @@ impl TryFrom<u8> for MiningTypes {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining {
     type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1378,7 +1378,7 @@ impl TryFrom<u8> for ExtensionsNegotiationTypes {
 /// Note: The channel_msg bit (bit 15) is automatically stripped from extension_type
 /// to ensure correct matching regardless of whether the caller passes the raw header
 /// value or a pre-processed one.
-impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
+impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions {
     type Error = ParserError;
 
     fn try_from(v: (u16, u8, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1419,13 +1419,13 @@ impl<'a> TryFrom<(u16, u8, &'a mut [u8])> for Extensions<'a> {
 
 /// A parser of messages that a Mining Device could send
 #[derive(Clone, Debug)]
-pub enum MiningDeviceMessages<'a> {
-    Common(CommonMessages<'a>),
-    Mining(Mining<'a>),
-    Extensions(Extensions<'a>),
+pub enum MiningDeviceMessages {
+    Common(CommonMessages),
+    Mining(Mining),
+    Extensions(Extensions),
 }
-impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder> {
-    fn from(m: MiningDeviceMessages<'decoder>) -> Self {
+impl From<MiningDeviceMessages> for EncodableField {
+    fn from(m: MiningDeviceMessages) -> Self {
         match m {
             MiningDeviceMessages::Common(a) => a.into(),
             MiningDeviceMessages::Mining(a) => a.into(),
@@ -1433,7 +1433,7 @@ impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder>
         }
     }
 }
-impl GetSize for MiningDeviceMessages<'_> {
+impl GetSize for MiningDeviceMessages {
     fn get_size(&self) -> usize {
         match self {
             MiningDeviceMessages::Common(a) => a.get_size(),
@@ -1442,7 +1442,7 @@ impl GetSize for MiningDeviceMessages<'_> {
         }
     }
 }
-impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages {
     type Error = ParserError;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1460,16 +1460,16 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
 
 /// A parser of all possible SV2 messages
 #[derive(Clone, Debug)]
-pub enum AnyMessage<'a> {
-    Common(CommonMessages<'a>),
-    Mining(Mining<'a>),
-    JobDeclaration(JobDeclaration<'a>),
-    TemplateDistribution(TemplateDistribution<'a>),
-    Extensions(Extensions<'a>),
+pub enum AnyMessage {
+    Common(CommonMessages),
+    Mining(Mining),
+    JobDeclaration(JobDeclaration),
+    TemplateDistribution(TemplateDistribution),
+    Extensions(Extensions),
 }
 
-impl fmt::Display for AnyMessage<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for AnyMessage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AnyMessage::Common(m) => write!(f, "CommonMessage: {m}"),
             AnyMessage::Mining(m) => write!(f, "MiningMessage: {m}"),
@@ -1480,10 +1480,10 @@ impl fmt::Display for AnyMessage<'_> {
     }
 }
 
-impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {
+impl TryFrom<MiningDeviceMessages> for AnyMessage {
     type Error = ParserError;
 
-    fn try_from(value: MiningDeviceMessages<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: MiningDeviceMessages) -> Result<Self, Self::Error> {
         match value {
             MiningDeviceMessages::Common(m) => Ok(AnyMessage::Common(m)),
             MiningDeviceMessages::Mining(m) => Ok(AnyMessage::Mining(m)),
@@ -1492,8 +1492,8 @@ impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {
     }
 }
 
-impl<'decoder> From<AnyMessage<'decoder>> for EncodableField<'decoder> {
-    fn from(m: AnyMessage<'decoder>) -> Self {
+impl From<AnyMessage> for EncodableField {
+    fn from(m: AnyMessage) -> Self {
         match m {
             AnyMessage::Common(a) => a.into(),
             AnyMessage::Mining(a) => a.into(),
@@ -1503,7 +1503,7 @@ impl<'decoder> From<AnyMessage<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
-impl GetSize for AnyMessage<'_> {
+impl GetSize for AnyMessage {
     fn get_size(&self) -> usize {
         match self {
             AnyMessage::Common(a) => a.get_size(),
@@ -1515,7 +1515,7 @@ impl GetSize for AnyMessage<'_> {
     }
 }
 
-impl IsSv2Message for AnyMessage<'_> {
+impl IsSv2Message for AnyMessage {
     fn message_type(&self) -> u8 {
         match self {
             AnyMessage::Common(a) => a.message_type(),
@@ -1547,7 +1547,7 @@ impl IsSv2Message for AnyMessage<'_> {
     }
 }
 
-impl IsSv2Message for MiningDeviceMessages<'_> {
+impl IsSv2Message for MiningDeviceMessages {
     fn message_type(&self) -> u8 {
         match self {
             MiningDeviceMessages::Common(a) => a.message_type(),
@@ -1578,7 +1578,7 @@ impl IsSv2Message for MiningDeviceMessages<'_> {
 /// This implementation handles all message types including Extensions messages which require
 /// both extension_type and message_type to be correctly parsed. Standard protocol messages
 /// (Common, Mining, etc.) have extension_type == 0 and only need the message_type.
-impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
+impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage {
     type Error = ParserError;
 
     fn try_from(v: (Header, &'a mut [u8])) -> Result<Self, Self::Error> {
@@ -1626,76 +1626,76 @@ impl<'a> TryFrom<(Header, &'a mut [u8])> for AnyMessage<'a> {
     }
 }
 
-impl<'a> From<SetupConnection<'a>> for CommonMessages<'a> {
-    fn from(v: SetupConnection<'a>) -> Self {
+impl From<SetupConnection> for CommonMessages {
+    fn from(v: SetupConnection) -> Self {
         CommonMessages::SetupConnection(v)
     }
 }
 
-impl From<SetupConnectionSuccess> for CommonMessages<'_> {
+impl From<SetupConnectionSuccess> for CommonMessages {
     fn from(v: SetupConnectionSuccess) -> Self {
         CommonMessages::SetupConnectionSuccess(v)
     }
 }
 
-impl<'a> From<SetupConnectionError<'a>> for CommonMessages<'a> {
-    fn from(v: SetupConnectionError<'a>) -> Self {
+impl From<SetupConnectionError> for CommonMessages {
+    fn from(v: SetupConnectionError) -> Self {
         CommonMessages::SetupConnectionError(v)
     }
 }
 
-impl<'a> From<RequestExtensions<'a>> for Extensions<'a> {
-    fn from(v: RequestExtensions<'a>) -> Self {
+impl From<RequestExtensions> for Extensions {
+    fn from(v: RequestExtensions) -> Self {
         Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensions(v))
     }
 }
 
-impl<'a> From<RequestExtensionsSuccess<'a>> for Extensions<'a> {
-    fn from(v: RequestExtensionsSuccess<'a>) -> Self {
+impl From<RequestExtensionsSuccess> for Extensions {
+    fn from(v: RequestExtensionsSuccess) -> Self {
         Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensionsSuccess(v))
     }
 }
 
-impl<'a> From<RequestExtensionsError<'a>> for Extensions<'a> {
-    fn from(v: RequestExtensionsError<'a>) -> Self {
+impl From<RequestExtensionsError> for Extensions {
+    fn from(v: RequestExtensionsError) -> Self {
         Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensionsError(v))
     }
 }
 
-impl<'a> From<OpenStandardMiningChannel<'a>> for Mining<'a> {
-    fn from(v: OpenStandardMiningChannel<'a>) -> Self {
+impl From<OpenStandardMiningChannel> for Mining {
+    fn from(v: OpenStandardMiningChannel) -> Self {
         Mining::OpenStandardMiningChannel(v)
     }
 }
-impl<'a> From<UpdateChannel<'a>> for Mining<'a> {
-    fn from(v: UpdateChannel<'a>) -> Self {
+impl From<UpdateChannel> for Mining {
+    fn from(v: UpdateChannel) -> Self {
         Mining::UpdateChannel(v)
     }
 }
-impl<'a> From<OpenStandardMiningChannelSuccess<'a>> for Mining<'a> {
-    fn from(v: OpenStandardMiningChannelSuccess<'a>) -> Self {
+impl From<OpenStandardMiningChannelSuccess> for Mining {
+    fn from(v: OpenStandardMiningChannelSuccess) -> Self {
         Mining::OpenStandardMiningChannelSuccess(v)
     }
 }
 
-impl<'a, T: Into<CommonMessages<'a>>> From<T> for AnyMessage<'a> {
+impl<'a, T: Into<CommonMessages>> From<T> for AnyMessage {
     fn from(v: T) -> Self {
         AnyMessage::Common(v.into())
     }
 }
 
-impl<'a, T: Into<CommonMessages<'a>>> From<T> for MiningDeviceMessages<'a> {
+impl<'a, T: Into<CommonMessages>> From<T> for MiningDeviceMessages {
     fn from(v: T) -> Self {
         MiningDeviceMessages::Common(v.into())
     }
 }
 
-impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage<'decoder>>
-    for Sv2Frame<AnyMessage<'decoder>, B>
+impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage>
+    for Sv2Frame<AnyMessage, B>
 {
     type Error = ParserError;
 
-    fn try_from(v: AnyMessage<'decoder>) -> Result<Self, ParserError> {
+    fn try_from(v: AnyMessage) -> Result<Self, ParserError> {
         let extension_type = v.extension_type();
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
@@ -1704,12 +1704,12 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage<'decoder>>
     }
 }
 
-impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decoder>>
-    for Sv2Frame<MiningDeviceMessages<'decoder>, B>
+impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages>
+    for Sv2Frame<MiningDeviceMessages, B>
 {
     type Error = ParserError;
 
-    fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, ParserError> {
+    fn try_from(v: MiningDeviceMessages) -> Result<Self, ParserError> {
         let extension_type = v.extension_type();
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
@@ -1718,12 +1718,12 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decod
     }
 }
 
-impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decoder>>
-    for Sv2Frame<TemplateDistribution<'decoder>, B>
+impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution>
+    for Sv2Frame<TemplateDistribution, B>
 {
     type Error = ParserError;
 
-    fn try_from(v: TemplateDistribution<'decoder>) -> Result<Self, ParserError> {
+    fn try_from(v: TemplateDistribution) -> Result<Self, ParserError> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
@@ -1732,10 +1732,10 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decod
     }
 }
 
-impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
+impl TryFrom<AnyMessage> for MiningDeviceMessages {
     type Error = ParserError;
 
-    fn try_from(value: AnyMessage<'a>) -> Result<Self, ParserError> {
+    fn try_from(value: AnyMessage) -> Result<Self, ParserError> {
         match value {
             AnyMessage::Common(message) => Ok(Self::Common(message)),
             AnyMessage::Mining(message) => Ok(Self::Mining(message)),
@@ -1757,7 +1757,7 @@ mod test {
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
     use mining_sv2::NewMiningJob;
 
-    pub type Message = AnyMessage<'static>;
+    pub type Message = AnyMessage;
     pub type StdFrame = StandardSv2Frame<Message>;
 
     #[test]
@@ -1807,7 +1807,7 @@ mod test {
         message_serialization_check(mining_message, CORRECTLY_SERIALIZED_MSG);
     }
 
-    fn message_serialization_check(message: AnyMessage<'static>, expected_result: &[u8]) {
+    fn message_serialization_check(message: AnyMessage, expected_result: &[u8]) {
         let frame = StdFrame::try_from(message).unwrap();
         let encoded_frame_length = frame.encoded_length();
 

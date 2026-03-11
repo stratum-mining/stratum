@@ -56,7 +56,7 @@ pub trait HandleMiningMessagesFromServerSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: Mining<'_> = (header.msg_type(), payload)
+            let parsed: Mining = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_mining_message_from_server(server_id, parsed, None);
@@ -351,7 +351,7 @@ pub trait HandleMiningMessagesFromServerAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: Mining<'_> = (header.msg_type(), payload)
+                let parsed: Mining = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self
@@ -676,7 +676,7 @@ pub trait HandleMiningMessagesFromClientSync {
     ) -> Result<(), Self::Error> {
         let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
         if negotiated_extensions.is_empty() {
-            let parsed: Mining<'_> = (header.msg_type(), payload)
+            let parsed: Mining = (header.msg_type(), payload)
                 .try_into()
                 .map_err(Self::Error::parse_error)?;
             return self.handle_mining_message_from_client(client_id, parsed, None);
@@ -916,7 +916,7 @@ pub trait HandleMiningMessagesFromClientAsync {
         async move {
             let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
             if negotiated_extensions.is_empty() {
-                let parsed: Mining<'_> = (header.msg_type(), payload)
+                let parsed: Mining = (header.msg_type(), payload)
                     .try_into()
                     .map_err(Self::Error::parse_error)?;
                 return self

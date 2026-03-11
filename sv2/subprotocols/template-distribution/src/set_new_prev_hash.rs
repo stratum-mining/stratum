@@ -11,13 +11,13 @@ use core::{convert::TryInto, fmt};
 /// [`crate::NewTemplate::future_template`] flag set, the [`SetNewPrevHash::template_id`] field
 /// **should** be set to the [`crate::NewTemplate::template_id`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct SetNewPrevHash<'decoder> {
+pub struct SetNewPrevHash {
     /// Identifier of the template to mine on.
     ///
     /// This must be identical to previously sent [`crate::NewTemplate`] message.
     pub template_id: u64,
     /// Previous block’s hash, as it must appear in the next block’s header.
-    pub prev_hash: U256<'decoder>,
+    pub prev_hash: U256,
     /// `nTime` field in the block header at which the client should start (usually current time).
     ///
     /// This is **not** the minimum valid `nTime` value.
@@ -27,10 +27,10 @@ pub struct SetNewPrevHash<'decoder> {
     /// The maximum double-SHA256 hash value which would represent a valid block. Note that this
     /// may be lower than the target implied by nBits in several cases, including weak-block based
     /// block propagation.
-    pub target: U256<'decoder>,
+    pub target: U256,
 }
 
-impl fmt::Display for SetNewPrevHash<'_> {
+impl fmt::Display for SetNewPrevHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

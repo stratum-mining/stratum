@@ -34,14 +34,14 @@ use template_distribution_sv2::NewTemplate;
 /// - all coinbase outputs (spendable + unspendable) associated with the job
 /// - the `NewMiningJob` message to be sent across the wire
 #[derive(Debug, Clone)]
-pub struct StandardJob<'a> {
-    template: NewTemplate<'a>,
+pub struct StandardJob {
+    template: NewTemplate,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
-    job_message: NewMiningJob<'a>,
+    job_message: NewMiningJob,
 }
 
-impl Job for StandardJob<'_> {
+impl Job for StandardJob {
     /// Returns the job ID for this job.
     fn get_job_id(&self) -> u32 {
         self.job_message.job_id
@@ -53,16 +53,16 @@ impl Job for StandardJob<'_> {
     }
 }
 
-impl<'a> StandardJob<'a> {
+impl StandardJob {
     /// Creates a new standard job from a template.
     ///
     /// Combines coinbase outputs from the template and any additional outputs.
     /// Returns an error if coinbase outputs cannot be deserialized.
     pub fn from_template(
-        template: NewTemplate<'a>,
+        template: NewTemplate,
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
-        job_message: NewMiningJob<'a>,
+        job_message: NewMiningJob,
     ) -> Result<Self, StandardJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
             template.coinbase_tx_outputs.to_vec(),
@@ -94,15 +94,15 @@ impl<'a> StandardJob<'a> {
         &self.extranonce_prefix
     }
     /// Returns the `NewMiningJob` message for this job.
-    pub fn get_job_message(&self) -> &NewMiningJob<'a> {
+    pub fn get_job_message(&self) -> &NewMiningJob {
         &self.job_message
     }
     /// Returns the originating `NewTemplate` message for this job.
-    pub fn get_template(&self) -> &NewTemplate<'a> {
+    pub fn get_template(&self) -> &NewTemplate {
         &self.template
     }
     /// Returns the merkle root for this job.
-    pub fn get_merkle_root(&self) -> &U256<'a> {
+    pub fn get_merkle_root(&self) -> &U256 {
         &self.job_message.merkle_root
     }
     /// Returns true if the job is a future job (not yet activated).

@@ -18,14 +18,14 @@ use core::convert::TryInto;
 /// This message can be sent only to connections that didnt set `REQUIRES_STANDARD_JOBS` flag in
 /// `SetupConnection` message.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetGroupChannel<'decoder> {
+pub struct SetGroupChannel {
     /// Identifier of the group where the standard channel belongs.
     pub group_channel_id: u32,
     /// A sequence of opened standard channel IDs, for which the group channel is being redefined.
-    pub channel_ids: Seq064K<'decoder, u32>,
+    pub channel_ids: Seq064K<u32>,
 }
 
-impl fmt::Display for SetGroupChannel<'_> {
+impl fmt::Display for SetGroupChannel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

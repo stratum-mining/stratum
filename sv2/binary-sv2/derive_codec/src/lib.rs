@@ -636,7 +636,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     let impl_generics = if !parsed_struct.generics.is_empty() {
         parsed_struct.clone().generics
     } else {
-        "<'decoder>".to_string()
+        "".to_string()
     };
 
     let result = format!(
@@ -645,7 +645,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     use super::binary_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
     use super::*;
 
-    impl{} Decodable<'decoder> for {}{} {{
+    impl{} Decodable for {}{} {{
         fn get_structure({}: &[u8]) -> Result<Vec<FieldMarker>, Error> {{
             let mut fields = Vec::new();
             let mut {} = 0;
@@ -653,7 +653,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
             Ok(fields)
         }}
 
-        fn from_decoded_fields(mut {}: Vec<DecodableField<'decoder>>) -> Result<Self, Error> {{
+        fn from_decoded_fields(mut {}: Vec<DecodableField>) -> Result<Self, Error> {{
             Ok(Self {{
                 {}
             }})
@@ -710,11 +710,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
 }
 
 fn get_static_generics(gen: &str) -> &str {
-    if gen.is_empty() {
-        gen
-    } else {
-        "<'static>"
-    }
+    gen
 }
 
 /// Derives the `Encodable` trait, generating implementations for serializing a struct into an
@@ -820,7 +816,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let impl_generics = if !parsed_struct.generics.is_empty() {
         parsed_struct.clone().generics
     } else {
-        "<'decoder>".to_string()
+        "".to_string()
     };
 
     let get_size = if is_already_sized {
@@ -848,7 +844,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     extern crate alloc;
     use alloc::vec::Vec;
 
-    impl{} From<{}{}> for super::binary_sv2::EncodableField<'decoder> {{
+    impl{} From<{}{}> for super::binary_sv2::EncodableField {{
         fn from(v: {}{}) -> Self {{
             let mut fields: Vec<EncodableField> = Vec::new();
             {}
