@@ -62,9 +62,9 @@ pub enum ShareValidationError {
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
-    share_work_sum: f64,
+    share_work_sum: u64,
     seen_shares: HashSet<Hash>,
-    best_diff: f64,
+    best_diff: u64,
     blocks_found: u32,
 }
 
@@ -80,9 +80,9 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
-            share_work_sum: 0.0,
+            share_work_sum: 0,
             seen_shares: HashSet::new(),
-            best_diff: 0.0,
+            best_diff: 0,
             blocks_found: 0,
         }
     }
@@ -97,7 +97,7 @@ impl ShareAccounting {
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.shares_accepted += new_submits_accepted_count;
         self.share_work_sum += new_shares_sum;
@@ -133,7 +133,7 @@ impl ShareAccounting {
     }
 
     /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> f64 {
+    pub fn get_share_work_sum(&self) -> u64 {
         self.share_work_sum
     }
 
@@ -143,12 +143,12 @@ impl ShareAccounting {
     }
 
     /// Returns the highest difficulty among all accepted shares.
-    pub fn get_best_diff(&self) -> f64 {
+    pub fn get_best_diff(&self) -> u64 {
         self.best_diff
     }
 
     /// Updates the best difficulty if the new difficulty is higher than the current best.
-    pub fn update_best_diff(&mut self, diff: f64) {
+    pub fn update_best_diff(&mut self, diff: u64) {
         if diff > self.best_diff {
             self.best_diff = diff;
         }

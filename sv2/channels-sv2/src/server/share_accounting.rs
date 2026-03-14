@@ -73,13 +73,13 @@ pub enum ShareValidationError {
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
-    share_work_sum: f64,
+    share_work_sum: u64,
     last_batch_accepted: u32,
-    last_batch_work_sum: f64,
+    last_batch_work_sum: u64,
     batch_acknowledged: bool,
     share_batch_size: usize,
     seen_shares: HashSet<Hash>,
-    best_diff: f64,
+    best_diff: u64,
     blocks_found: u32,
 }
 
@@ -91,13 +91,13 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
-            share_work_sum: 0.0,
+            share_work_sum: 0,
             last_batch_accepted: 0,
-            last_batch_work_sum: 0.0,
+            last_batch_work_sum: 0,
             batch_acknowledged: false,
             share_batch_size,
             seen_shares: HashSet::new(),
-            best_diff: 0.0,
+            best_diff: 0,
             blocks_found: 0,
         }
     }
@@ -110,7 +110,7 @@ impl ShareAccounting {
     /// - Records the share hash to detect duplicates.
     pub fn update_share_accounting(
         &mut self,
-        share_work: f64,
+        share_work: u64,
         share_sequence_number: u32,
         share_hash: Hash,
     ) {
@@ -148,7 +148,7 @@ impl ShareAccounting {
     }
 
     /// Returns the sum of work contributed by shares in the last batch.
-    pub fn get_last_batch_work_sum(&self) -> f64 {
+    pub fn get_last_batch_work_sum(&self) -> u64 {
         self.last_batch_work_sum
     }
 
@@ -164,7 +164,7 @@ impl ShareAccounting {
     ///
     /// Note: this is not what we use for `SubmitShares.Success` messages.
     /// Instead, there we should use `get_last_batch_work_sum()`.
-    pub fn get_share_work_sum(&self) -> f64 {
+    pub fn get_share_work_sum(&self) -> u64 {
         self.share_work_sum
     }
 
@@ -184,12 +184,12 @@ impl ShareAccounting {
     }
 
     /// Returns the highest difficulty found among accepted shares.
-    pub fn get_best_diff(&self) -> f64 {
+    pub fn get_best_diff(&self) -> u64 {
         self.best_diff
     }
 
     /// Updates the best difficulty if the new value is higher.
-    pub fn update_best_diff(&mut self, diff: f64) {
+    pub fn update_best_diff(&mut self, diff: u64) {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
