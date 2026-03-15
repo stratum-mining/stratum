@@ -591,7 +591,8 @@ impl<'a> ExtendedChannel<'a> {
                 .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
 
             // update the best diff
-            self.share_accounting.update_best_diff(share_hash_as_diff as u64);
+            self.share_accounting
+                .update_best_diff(share_hash_as_diff as u64);
 
             return Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()));
         }

@@ -701,7 +701,8 @@ where
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(share_hash_as_diff as u64);
+            self.share_accounting
+                .update_best_diff(share_hash_as_diff as u64);
 
             Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {
