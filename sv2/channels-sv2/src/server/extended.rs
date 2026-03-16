@@ -208,11 +208,10 @@ where
                 }
             };
 
-        if target > max_target {
-            println!("target: {:?}", target.to_be_bytes());
-            println!("max_target: {:?}", max_target.to_be_bytes());
-            return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
-        }
+        // Clamp to max_target rather than error. The client declared max_target as
+        // an acceptable difficulty floor, so using it when the initial target would
+        // otherwise exceed it is always valid.
+        let target = target.min(max_target);
 
         if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
@@ -396,11 +395,10 @@ where
             bytes_to_hex(&max_target_bytes)
         );
 
-        let new_target: Target = target;
-
-        if new_target > *requested_max_target {
-            return Err(ExtendedChannelError::RequestedMaxTargetOutOfRange);
-        }
+        // Clamp to max_target rather than error. The client declared max_target as
+        // an acceptable difficulty floor, so using it when vardiff would otherwise
+        // exceed it is always valid.
+        let new_target = target.min(*requested_max_target);
 
         self.nominal_hashrate = new_nominal_hashrate;
         self.target = new_target;
@@ -1604,17 +1602,15 @@ mod tests {
             0xff, 0xff, 0xff, 0x00,
         ]);
 
-        // Try to update with a hashrate that would result in a target exceeding the max_target
-        // new target: 2492492492492492492492492492492492492492492492492492492492492491
-        // max target: 00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        // Update with a hashrate that would compute a target exceeding max_target.
+        // The channel should clamp to not_so_permissive_max_target instead of erroring.
+        // calculated target: 2492492492492492492492492492492492492492492492492492492492492491
+        // max target:        00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         let very_small_hashrate = 0.1;
         let result =
             channel.update_channel(very_small_hashrate, Some(not_so_permissive_max_target));
-        assert!(result.is_err());
-        assert!(matches!(
-            result,
-            Err(ExtendedChannelError::RequestedMaxTargetOutOfRange)
-        ));
+        assert!(result.is_ok());
+        assert_eq!(channel.get_target(), &not_so_permissive_max_target);
 
         // Test successful update with not_so_permissive_max_target
         // new target: 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
