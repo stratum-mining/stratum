@@ -21,6 +21,8 @@ tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
 key-utils = { workspace = true }
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }
 
 [features]
 default = ["std"]
