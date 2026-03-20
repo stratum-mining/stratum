@@ -179,6 +179,12 @@ impl<'a> StandardChannel<'a> {
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
+    /// Handles a share rejection from the upstream server.
+    /// Delegates to [`ShareAccounting::increment_shares_rejected`].
+    pub fn on_share_rejection(&mut self) {
+        self.share_accounting.increment_shares_rejected();
+    }
+
     /// Handles a new group channel job by converting it into a standard job
     /// and activating it in this channel's context.
     ///
