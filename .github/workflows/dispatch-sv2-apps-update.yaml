@@ -1,0 +1,20 @@
+name: Dispatch sv2-apps update
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch stratum main update to sv2-apps
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          repository: stratum-mining/sv2-apps
+          event-type: stratum-main-updated
+          client-payload: >-
+            {"ref":"${{ github.ref }}","sha":"${{ github.sha }}","source_repository":"${{ github.repository }}","source_workflow":"dispatch-sv2-apps-update"}
