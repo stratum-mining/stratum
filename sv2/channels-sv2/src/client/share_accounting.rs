@@ -62,10 +62,14 @@ pub enum ShareValidationError {
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
+    shares_rejected: u32,
     share_work_sum: u64,
     seen_shares: HashSet<Hash>,
     best_diff: u64,
     blocks_found: u32,
+    last_batch_accepted: u32,
+    last_batch_work_sum: u64,
+    share_batch_size: u32,
 }
 
 impl Default for ShareAccounting {
@@ -80,10 +84,14 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
+            shares_rejected: 0,
             share_work_sum: 0,
             seen_shares: HashSet::new(),
             best_diff: 0,
             blocks_found: 0,
+            last_batch_accepted: 0,
+            last_batch_work_sum: 0,
+            share_batch_size: 0,
         }
     }
 
@@ -101,6 +109,8 @@ impl ShareAccounting {
     ) {
         self.shares_accepted += new_submits_accepted_count;
         self.share_work_sum += new_shares_sum;
+        self.last_batch_accepted = new_submits_accepted_count;
+        self.last_batch_work_sum = new_shares_sum;
     }
 
     /// Records a share that passed local validation.
@@ -132,8 +142,28 @@ impl ShareAccounting {
         self.shares_accepted
     }
 
+    /// Returns the total number of shares acknowledged (alias for shares_accepted).
+    pub fn get_acknowledged_shares(&self) -> u32 {
+        self.shares_accepted
+    }
+
+    /// Returns the number of shares that passed local validation.
+    pub fn get_validated_shares(&self) -> u32 {
+        self.seen_shares.len() as u32
+    }
+
+    /// Returns the number of rejected shares.
+    pub fn get_rejected_shares(&self) -> u32 {
+        self.shares_rejected
+    }
+
     /// Returns the cumulative work of all accepted shares.
     pub fn get_share_work_sum(&self) -> u64 {
+        self.share_work_sum
+    }
+
+    /// Returns the total work (alias for share_work_sum).
+    pub fn get_total_work(&self) -> u64 {
         self.share_work_sum
     }
 
@@ -162,5 +192,30 @@ impl ShareAccounting {
     /// Returns the total number of blocks found on this channel.
     pub fn get_blocks_found(&self) -> u32 {
         self.blocks_found
+    }
+
+    /// Returns the number of shares accepted in the last batch.
+    pub fn get_last_batch_accepted(&self) -> u32 {
+        self.last_batch_accepted
+    }
+
+    /// Returns the cumulative work of the last batch of accepted shares.
+    pub fn get_last_batch_work_sum(&self) -> u64 {
+        self.last_batch_work_sum
+    }
+
+    /// Returns the configured share batch size.
+    pub fn get_share_batch_size(&self) -> u32 {
+        self.share_batch_size
+    }
+
+    /// Sets the share batch size.
+    pub fn set_share_batch_size(&mut self, size: u32) {
+        self.share_batch_size = size;
+    }
+
+    /// Record a rejected share.
+    pub fn increment_shares_rejected(&mut self) {
+        self.shares_rejected += 1;
     }
 }
