@@ -161,6 +161,11 @@ impl ShareAccounting {
         self.validated_shares
     }
 
+    /// Alias for [`get_acknowledged_shares`].
+    pub fn get_shares_accepted(&self) -> u32 {
+        self.acknowledged_shares
+    }
+
     /// Returns the total number of shares rejected by upstream.
     pub fn get_rejected_shares(&self) -> u32 {
         self.rejected_shares
