@@ -223,10 +223,10 @@ impl<'a> ExtendedChannel<'a> {
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
-    /// Handles a share rejection from the upstream server.
-    /// Delegates to [`ShareAccounting::increment_shares_rejected`].
+    /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
+    /// server. Delegates to [`ShareAccounting::on_share_rejection`].
     pub fn on_share_rejection(&mut self) {
-        self.share_accounting.increment_shares_rejected();
+        self.share_accounting.on_share_rejection();
     }
 
     /// Handles a [`NewExtendedMiningJob`] message received from upstream.

@@ -45,12 +45,14 @@ pub enum ShareValidationError {
 /// Used only on Mining Clients. Share accounting is split into two phases:
 ///
 /// **Validation phase** (updated by [`validate_share`] via [`track_validated_share`]):
+/// - total validated shares (shares that passed local validation)
 /// - hashes of seen shares (for duplicate detection)
 /// - last received share's sequence number
 /// - highest difficulty seen in validated shares
 ///
 /// **Acceptance phase** (updated by the application layer via [`on_share_acknowledgement`]):
-/// - total accepted shares (confirmed by upstream [`SubmitSharesSuccess`])
+/// - total acknowledged shares (confirmed by upstream [`SubmitSharesSuccess`])
+/// - total rejected shares (reported by upstream [`SubmitSharesError`])
 /// - cumulative work from accepted shares
 /// - number of blocks found
 ///
@@ -58,11 +60,13 @@ pub enum ShareValidationError {
 /// [`track_validated_share`]: ShareAccounting::track_validated_share
 /// [`on_share_acknowledgement`]: ShareAccounting::on_share_acknowledgement
 /// [`SubmitSharesSuccess`]: mining_sv2::SubmitSharesSuccess
+/// [`SubmitSharesError`]: mining_sv2::SubmitSharesError
 #[derive(Clone, Debug)]
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
-    shares_accepted: u32,
-    shares_rejected: u32,
+    acknowledged_shares: u32,
+    validated_shares: u32,
+    rejected_shares: u32,
     share_work_sum: u64,
     seen_shares: HashSet<Hash>,
     best_diff: u64,
@@ -83,8 +87,9 @@ impl ShareAccounting {
     pub fn new() -> Self {
         Self {
             last_share_sequence_number: 0,
-            shares_accepted: 0,
-            shares_rejected: 0,
+            acknowledged_shares: 0,
+            validated_shares: 0,
+            rejected_shares: 0,
             share_work_sum: 0,
             seen_shares: HashSet::new(),
             best_diff: 0,
@@ -107,10 +112,18 @@ impl ShareAccounting {
         new_submits_accepted_count: u32,
         new_shares_sum: u64,
     ) {
-        self.shares_accepted += new_submits_accepted_count;
+        self.acknowledged_shares += new_submits_accepted_count;
         self.share_work_sum += new_shares_sum;
         self.last_batch_accepted = new_submits_accepted_count;
         self.last_batch_work_sum = new_shares_sum;
+    }
+
+    /// Updates rejection accounting based on a [`SubmitSharesError`] message from the upstream
+    /// server.
+    ///
+    /// One call corresponds to one rejected share.
+    pub fn on_share_rejection(&mut self) {
+        self.rejected_shares += 1;
     }
 
     /// Records a share that passed local validation.
@@ -121,6 +134,7 @@ impl ShareAccounting {
     /// called when the upstream server confirms via [`SubmitSharesSuccess`].
     pub fn track_validated_share(&mut self, share_sequence_number: u32, share_hash: Hash) {
         self.last_share_sequence_number = share_sequence_number;
+        self.validated_shares += 1;
         self.seen_shares.insert(share_hash);
     }
 
@@ -137,24 +151,19 @@ impl ShareAccounting {
         self.last_share_sequence_number
     }
 
-    /// Returns the total number of shares accepted.
-    pub fn get_shares_accepted(&self) -> u32 {
-        self.shares_accepted
-    }
-
-    /// Returns the total number of shares acknowledged (alias for shares_accepted).
+    /// Returns the total number of shares acknowledged by upstream.
     pub fn get_acknowledged_shares(&self) -> u32 {
-        self.shares_accepted
+        self.acknowledged_shares
     }
 
-    /// Returns the number of shares that passed local validation.
+    /// Returns the total number of locally validated shares.
     pub fn get_validated_shares(&self) -> u32 {
-        self.seen_shares.len() as u32
+        self.validated_shares
     }
 
-    /// Returns the number of rejected shares.
+    /// Returns the total number of shares rejected by upstream.
     pub fn get_rejected_shares(&self) -> u32 {
-        self.shares_rejected
+        self.rejected_shares
     }
 
     /// Returns the cumulative work of all accepted shares.
@@ -216,6 +225,6 @@ impl ShareAccounting {
 
     /// Record a rejected share.
     pub fn increment_shares_rejected(&mut self) {
-        self.shares_rejected += 1;
+        self.rejected_shares += 1;
     }
 }
