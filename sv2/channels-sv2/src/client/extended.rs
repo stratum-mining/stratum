@@ -610,18 +610,18 @@ impl<'a> ExtendedChannel<'a> {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use alloc::string::ToString;
-    use alloc::vec;
     use crate::client::{
         extended::ExtendedChannel,
         share_accounting::{ShareValidationError, ShareValidationResult},
     };
+    use alloc::string::ToString;
+    use alloc::vec;
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
+    use core::convert::TryInto;
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
     };
-    use core::convert::TryInto;
 
     #[test]
     fn test_future_job_activation_flow() {

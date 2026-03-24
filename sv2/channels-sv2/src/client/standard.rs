@@ -391,11 +391,11 @@ impl<'a> StandardChannel<'a> {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use alloc::string::ToString;
     use crate::client::{
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,
     };
+    use alloc::string::ToString;
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
     use mining_sv2::{NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard};
