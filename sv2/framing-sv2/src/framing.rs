@@ -108,9 +108,12 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// [`Sv2Frame`] always returns `Some(self.header)`.
-    pub fn get_header(&self) -> Option<crate::header::Header> {
-        Some(self.header)
+    /// Returns the frame's [`Header`].
+    ///
+    /// Every `Sv2Frame` always has a header, so this returns `Header` directly
+    /// instead of `Option<Header>`.
+    pub fn get_header(&self) -> crate::header::Header {
+        self.header
     }
 
     /// Tries to build a [`Sv2Frame`] from raw bytes.
@@ -245,8 +248,8 @@ impl HandShakeFrame {
 
     /// Builds a [`HandShakeFrame`] from raw bytes. Nothing is assumed or checked about the
     /// correctness of the payload.
-    pub fn from_bytes(bytes: Slice) -> Result<Self, isize> {
-        Ok(Self::from_bytes_unchecked(bytes))
+    pub fn from_bytes(bytes: Slice) -> Self {
+        Self::from_bytes_unchecked(bytes)
     }
 
     #[inline]
