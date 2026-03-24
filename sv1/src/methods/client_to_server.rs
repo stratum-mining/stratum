@@ -106,7 +106,7 @@ fn from_to_json_rpc(auth: Authorize) -> bool {
 
 /// _mining.extranonce.subscribe()_
 /// Indicates to the server that the client supports the mining.set_extranonce method.
-/// https://en.bitcoin.it/wiki/BIP_0310
+/// <https://en.bitcoin.it/wiki/BIP_0310>
 #[derive(Debug, Clone, Copy)]
 pub struct ExtranonceSubscribe();
 
