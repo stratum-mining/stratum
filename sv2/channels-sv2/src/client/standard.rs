@@ -168,7 +168,7 @@ impl<'a> StandardChannel<'a> {
         &self.share_accounting
     }
 
-    /// Updates share accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates share accounting based on a `SubmitSharesSuccess` message from the
     /// upstream server. Delegates to [`ShareAccounting::on_share_acknowledgement`].
     pub fn on_share_acknowledgement(
         &mut self,
@@ -179,7 +179,7 @@ impl<'a> StandardChannel<'a> {
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
-    /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates share accounting based on a `SubmitSharesError` message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
     pub fn on_share_rejection(&mut self) {
         self.share_accounting.on_share_rejection();
@@ -390,6 +390,8 @@ impl<'a> StandardChannel<'a> {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+    use alloc::string::ToString;
     use crate::client::{
         share_accounting::{ShareValidationError, ShareValidationResult},
         standard::StandardChannel,

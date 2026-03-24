@@ -100,13 +100,13 @@ impl ShareAccounting {
         }
     }
 
-    /// Updates acceptance accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates acceptance accounting based on a `SubmitSharesSuccess` message from the
     /// upstream server.
     ///
     /// This should be called by the application layer when it receives upstream confirmation
-    /// that shares were accepted. It is intentionally **not** called from [`validate_share`] —
+    /// that shares were accepted. It is intentionally **not** called from `validate_share` —
     /// local validation only tracks the share for duplicate detection (via
-    /// [`track_validated_share`]).
+    /// `track_validated_share`).
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
@@ -118,7 +118,7 @@ impl ShareAccounting {
         self.last_batch_work_sum = new_shares_sum;
     }
 
-    /// Updates rejection accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates rejection accounting based on a `SubmitSharesError` message from the upstream
     /// server.
     ///
     /// One call corresponds to one rejected share.
@@ -129,9 +129,9 @@ impl ShareAccounting {
     /// Records a share that passed local validation.
     ///
     /// Adds the hash to the seen set for duplicate detection and updates the last sequence
-    /// number. Called from [`validate_share`] — does **not** count the share as accepted.
-    /// Acceptance accounting is deferred to [`on_share_acknowledgement`], which should be
-    /// called when the upstream server confirms via [`SubmitSharesSuccess`].
+    /// number. Called from `validate_share` — does **not** count the share as accepted.
+    /// Acceptance accounting is deferred to [`Self::on_share_acknowledgement`], which should be
+    /// called when the upstream server confirms via `SubmitSharesSuccess`.
     pub fn track_validated_share(&mut self, share_sequence_number: u32, share_hash: Hash) {
         self.last_share_sequence_number = share_sequence_number;
         self.validated_shares += 1;
@@ -161,7 +161,7 @@ impl ShareAccounting {
         self.validated_shares
     }
 
-    /// Alias for [`get_acknowledged_shares`].
+    /// Alias for [`Self::get_acknowledged_shares`].
     pub fn get_shares_accepted(&self) -> u32 {
         self.acknowledged_shares
     }

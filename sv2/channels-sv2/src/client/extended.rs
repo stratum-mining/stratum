@@ -212,7 +212,7 @@ impl<'a> ExtendedChannel<'a> {
         &self.share_accounting
     }
 
-    /// Updates share accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates share accounting based on a `SubmitSharesSuccess` message from the
     /// upstream server. Delegates to [`ShareAccounting::on_share_acknowledgement`].
     pub fn on_share_acknowledgement(
         &mut self,
@@ -223,7 +223,7 @@ impl<'a> ExtendedChannel<'a> {
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
-    /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates share accounting based on a `SubmitSharesError` message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
     pub fn on_share_rejection(&mut self) {
         self.share_accounting.on_share_rejection();
@@ -609,6 +609,9 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+    use alloc::string::ToString;
+    use alloc::vec;
     use crate::client::{
         extended::ExtendedChannel,
         share_accounting::{ShareValidationError, ShareValidationResult},
@@ -618,7 +621,7 @@ mod tests {
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
     };
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     #[test]
     fn test_future_job_activation_flow() {
