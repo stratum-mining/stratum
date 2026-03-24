@@ -4,11 +4,11 @@ use core::{convert::TryInto, fmt};
 
 /// Message used by upstream to share or distribute the latest block hash.
 ///
-/// This message may be shared by all downstream nodes (sent only once to each channel group).
+/// This message may be shared by all downstream nodes (sent only once/// Job declaration and telemetry purposes).
 ///
-/// Downstream must immediately start to mine on the provided [`SetNewPrevHash::prevhash`].
+/// Downstream must immediately start to mine on the provided `prevhash`.
 ///
-/// When a downstream receives this message, only the job referenced by [`SetNewPrevHash::job_id`]
+/// This message is sent from the Pool to the Upstream Node or from the Proxyb referenced by [`SetNewPrevHash::job_id`]
 /// is valid. Remaining jobs have to be dropped.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetNewPrevHash<'decoder> {

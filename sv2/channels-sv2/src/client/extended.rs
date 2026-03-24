@@ -212,18 +212,18 @@ impl<'a> ExtendedChannel<'a> {
         &self.share_accounting
     }
 
-    /// Updates share accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates share accounting based on a `SubmitSharesSuccess` message from the
     /// upstream server. Delegates to [`ShareAccounting::on_share_acknowledgement`].
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.share_accounting
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
-    /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates share accounting based on a `SubmitSharesError` message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
     pub fn on_share_rejection(&mut self) {
         self.share_accounting.on_share_rejection();
@@ -597,7 +597,8 @@ impl<'a> ExtendedChannel<'a> {
                 .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
 
             // update the best diff
-            self.share_accounting.update_best_diff(share_hash_as_diff);
+            self.share_accounting
+                .update_best_diff(share_hash_as_diff as u64);
 
             return Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()));
         }
@@ -608,16 +609,19 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
     use crate::client::{
         extended::ExtendedChannel,
         share_accounting::{ShareValidationError, ShareValidationResult},
     };
+    use alloc::string::ToString;
+    use alloc::vec;
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
+    use core::convert::TryInto;
     use mining_sv2::{
         NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
     };
-    use std::convert::TryInto;
 
     #[test]
     fn test_future_job_activation_flow() {

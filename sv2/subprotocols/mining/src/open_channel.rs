@@ -213,13 +213,13 @@ impl fmt::Display for OpenExtendedMiningChannelSuccess<'_> {
 }
 
 /// Message used by upstream to reject [`OpenExtendedMiningChannel`] or
-/// [`OpenStandardMiningchannel`] request from downstream.
+/// [`OpenStandardMiningChannel`] request from downstream.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OpenMiningChannelError<'decoder> {
     /// Used for matching requests/responses.
     ///
     /// Specified by downstream role and should be extracted from the corresponding
-    /// [`OpenExtendedMiningChannel`] or [`OpenStandardMiningchannel`] message.
+    /// [`OpenExtendedMiningChannel`] or [`OpenStandardMiningChannel`] message.
     pub request_id: u32,
     /// Human-readable error code(s).
     ///

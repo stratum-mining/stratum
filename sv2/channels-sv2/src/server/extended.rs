@@ -751,7 +751,7 @@ where
                 return Err(ShareValidationError::DuplicateShare);
             }
             self.share_accounting.update_share_accounting(
-                job_target.difficulty_float(),
+                job_target.difficulty_float() as u64,
                 share.sequence_number,
                 share_hash.to_raw_hash(),
             );
@@ -792,13 +792,14 @@ where
             }
 
             self.share_accounting.update_share_accounting(
-                job_target.difficulty_float(),
+                job_target.difficulty_float() as u64,
                 share.sequence_number,
                 share_hash.to_raw_hash(),
             );
 
             // update the best diff
-            self.share_accounting.update_best_diff(share_hash_as_diff);
+            self.share_accounting
+                .update_best_diff(share_hash_as_diff as u64);
 
             Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {

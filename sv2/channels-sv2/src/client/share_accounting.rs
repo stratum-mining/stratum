@@ -67,10 +67,13 @@ pub struct ShareAccounting {
     acknowledged_shares: u32,
     validated_shares: u32,
     rejected_shares: u32,
-    share_work_sum: f64,
+    share_work_sum: u64,
     seen_shares: HashSet<Hash>,
-    best_diff: f64,
+    best_diff: u64,
     blocks_found: u32,
+    last_batch_accepted: u32,
+    last_batch_work_sum: u64,
+    share_batch_size: u32,
 }
 
 impl Default for ShareAccounting {
@@ -87,30 +90,35 @@ impl ShareAccounting {
             acknowledged_shares: 0,
             validated_shares: 0,
             rejected_shares: 0,
-            share_work_sum: 0.0,
+            share_work_sum: 0,
             seen_shares: HashSet::new(),
-            best_diff: 0.0,
+            best_diff: 0,
             blocks_found: 0,
+            last_batch_accepted: 0,
+            last_batch_work_sum: 0,
+            share_batch_size: 0,
         }
     }
 
-    /// Updates acceptance accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates acceptance accounting based on a `SubmitSharesSuccess` message from the
     /// upstream server.
     ///
     /// This should be called by the application layer when it receives upstream confirmation
-    /// that shares were accepted. It is intentionally **not** called from [`validate_share`] —
+    /// that shares were accepted. It is intentionally **not** called from `validate_share` —
     /// local validation only tracks the share for duplicate detection (via
-    /// [`track_validated_share`]).
+    /// `track_validated_share`).
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.acknowledged_shares += new_submits_accepted_count;
         self.share_work_sum += new_shares_sum;
+        self.last_batch_accepted = new_submits_accepted_count;
+        self.last_batch_work_sum = new_shares_sum;
     }
 
-    /// Updates rejection accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates rejection accounting based on a `SubmitSharesError` message from the upstream
     /// server.
     ///
     /// One call corresponds to one rejected share.
@@ -121,9 +129,9 @@ impl ShareAccounting {
     /// Records a share that passed local validation.
     ///
     /// Adds the hash to the seen set for duplicate detection and updates the last sequence
-    /// number. Called from [`validate_share`] — does **not** count the share as accepted.
-    /// Acceptance accounting is deferred to [`on_share_acknowledgement`], which should be
-    /// called when the upstream server confirms via [`SubmitSharesSuccess`].
+    /// number. Called from `validate_share` — does **not** count the share as accepted.
+    /// Acceptance accounting is deferred to [`Self::on_share_acknowledgement`], which should be
+    /// called when the upstream server confirms via `SubmitSharesSuccess`.
     pub fn track_validated_share(&mut self, share_sequence_number: u32, share_hash: Hash) {
         self.last_share_sequence_number = share_sequence_number;
         self.validated_shares += 1;
@@ -153,13 +161,23 @@ impl ShareAccounting {
         self.validated_shares
     }
 
+    /// Alias for [`Self::get_acknowledged_shares`].
+    pub fn get_shares_accepted(&self) -> u32 {
+        self.acknowledged_shares
+    }
+
     /// Returns the total number of shares rejected by upstream.
     pub fn get_rejected_shares(&self) -> u32 {
         self.rejected_shares
     }
 
     /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> f64 {
+    pub fn get_share_work_sum(&self) -> u64 {
+        self.share_work_sum
+    }
+
+    /// Returns the total work (alias for share_work_sum).
+    pub fn get_total_work(&self) -> u64 {
         self.share_work_sum
     }
 
@@ -169,12 +187,12 @@ impl ShareAccounting {
     }
 
     /// Returns the highest difficulty among all accepted shares.
-    pub fn get_best_diff(&self) -> f64 {
+    pub fn get_best_diff(&self) -> u64 {
         self.best_diff
     }
 
     /// Updates the best difficulty if the new difficulty is higher than the current best.
-    pub fn update_best_diff(&mut self, diff: f64) {
+    pub fn update_best_diff(&mut self, diff: u64) {
         if diff > self.best_diff {
             self.best_diff = diff;
         }
@@ -188,5 +206,30 @@ impl ShareAccounting {
     /// Returns the total number of blocks found on this channel.
     pub fn get_blocks_found(&self) -> u32 {
         self.blocks_found
+    }
+
+    /// Returns the number of shares accepted in the last batch.
+    pub fn get_last_batch_accepted(&self) -> u32 {
+        self.last_batch_accepted
+    }
+
+    /// Returns the cumulative work of the last batch of accepted shares.
+    pub fn get_last_batch_work_sum(&self) -> u64 {
+        self.last_batch_work_sum
+    }
+
+    /// Returns the configured share batch size.
+    pub fn get_share_batch_size(&self) -> u32 {
+        self.share_batch_size
+    }
+
+    /// Sets the share batch size.
+    pub fn set_share_batch_size(&mut self, size: u32) {
+        self.share_batch_size = size;
+    }
+
+    /// Record a rejected share.
+    pub fn increment_shares_rejected(&mut self) {
+        self.rejected_shares += 1;
     }
 }

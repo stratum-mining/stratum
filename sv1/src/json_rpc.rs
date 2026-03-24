@@ -1,4 +1,4 @@
-//! https://www.jsonrpc.org/specification#response_object
+//! <https://www.jsonrpc.org/specification#response_object>
 use serde::{Deserialize, Serialize};
 use std::{fmt, fmt::Display};
 
