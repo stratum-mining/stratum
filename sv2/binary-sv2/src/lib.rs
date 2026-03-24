@@ -115,10 +115,10 @@ pub fn from_bytes<'a, T: Decodable<'a>>(data: &'a mut [u8]) -> Result<T, Error> 
 /// # Key Concepts and Types
 /// - **[`Decodable`] Trait**: Defines methods to decode types from byte data, process individual
 ///   fields, and construct complete types.
-/// - **[`FieldMarker`] and `PrimitiveMarker`**: Enums that represent data types or structures,
-///   guiding the decoding process by defining field structures and types.
-/// - **[`DecodableField`] and `DecodablePrimitive`**: Represent decoded fields as either primitives
-///   or nested structures, forming the building blocks for complex data types.
+/// - **`FieldMarker` and `PrimitiveMarker`**: Enums that represent data types or structures,
+///   serving as definitions or blueprints for fields.
+/// - **`DecodableField` and `DecodablePrimitive`**: Represent decoded fields as either primitives
+///   (with actual values) or structured fields (which contain inner data).he building blocks for complex data types.
 ///
 /// # Error Handling
 /// Custom error types manage issues during decoding, such as insufficient data or unsupported
@@ -135,7 +135,7 @@ pub mod decodable {
 
 /// Provides an encoding framework for serializing various data types into bytes.
 ///
-/// The [`Encodable`] trait is the core of this framework, enabling types to define
+/// The ``Encodable`` trait is the core of this framework, enabling types to define
 /// how they serialize data into bytes. This is essential for transmitting data
 /// between components or systems in a consistent, byte-oriented format.
 ///
@@ -143,16 +143,16 @@ pub mod decodable {
 ///
 /// Supports a wide variety of data types, including basic types (e.g., integers,
 /// booleans, and byte arrays) and complex structures. Each type’s encoding logic is
-/// encapsulated in enums like [`EncodablePrimitive`] and [`EncodableField`], enabling
+/// encapsulated in enums like ``EncodablePrimitive`` and ``EncodableField``, enabling
 /// structured and hierarchical data serialization.
 ///
 /// ### Key Types
 ///
-/// - **[`Encodable`]**: Defines methods for converting an object into a byte array or writing it
+/// - **``Encodable``**: Defines methods for converting an object into a byte array or writing it
 ///   directly to an output stream. It supports both primitive types and complex structures.
-/// - **[`EncodablePrimitive`]**: Represents basic types that can be serialized directly. Includes
+/// - **``EncodablePrimitive``**: Represents basic types that can be serialized directly. Includes
 ///   data types like integers, booleans, and byte arrays.
-/// - **[`EncodableField`]**: Extends [`EncodablePrimitive`] to support structured and nested data,
+/// - **``EncodableField``**: Extends ``EncodablePrimitive`` to support structured and nested data,
 ///   enabling recursive encoding of complex structures.
 ///
 /// ### `no_std` Compatibility
@@ -172,15 +172,13 @@ pub mod decodable {
 /// ### [`Encodable`]
 /// - **`to_bytes`**: Encodes the instance into a byte slice, returning the number of bytes written
 ///   or an error if encoding fails.
-/// - **`to_writer`** (requires `std`): Encodes the instance into any [`Write`] implementor, such as
-///   a file or network stream.
+/// - **`to_writer`** (requires `std`): Encodes the instance into any `Write` implementor, such as
+///   a network socket or a file. This method is crucial when direct byte array allocation is not
+///   desirable or plausible, allowing for streaming serialization.
 ///
-/// ### Additional Enums and Methods
+/// **Important Enums**:
 ///
-/// Includes utility types and methods for calculating sizes, encoding hierarchical data,
-/// and supporting both owned and reference-based data variants.
-///
-/// - **[`EncodablePrimitive`]**: Handles encoding logic for primitive types, addressing
+/// - **`EncodablePrimitive`**: Handles encoding logic for primitive types, addressing
 ///   serialization requirements specific to each type.
 /// - **[`EncodableField`]**: Extends encoding to support composite types and structured data,
 ///   enabling recursive encoding of nested structures.
@@ -294,7 +292,12 @@ impl From<E> for Error {
     }
 }
 
-/// Vec<u8> is used as the Sv2 type Bytes
+/// Sv2 defines a sequence of element composed by a 3 byte length `L` followed by `L` items.
+///
+/// `Vec<u8>` is used as the Sv2 type Bytes
+///
+/// `Vec<T>` is used as Sv2 seq0_64k\<T\> and Sv2 seq0_255\<T\> depending on the macro use to derive
+/// the frame. If the framing macro uses `seq0_64k[T]`, T implements `SerializeByte`.
 impl GetSize for Vec<u8> {
     fn get_size(&self) -> usize {
         self.len()

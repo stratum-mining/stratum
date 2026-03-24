@@ -36,12 +36,12 @@ impl fmt::Display for SubmitSharesStandard {
     }
 }
 
-/// Message used by downstream to send result of its hashing work to an upstream.
+/// A `SubmitSharesExtended` message is sent by a downstream node to an upstream node to submit
+/// shares for an `ExtendedChannel`.
 ///
-/// The message is the same as [`SubmitShares`], but with an additional field,
-/// [`SubmitSharesExtended::extranonce`].
-///
-/// Only relevant for Extended Channels.
+/// The message is the same as `SubmitSharesStandard`, but with an additional field,
+/// `extranonce`, which specifies the bytes that need to be appended to the
+/// `CoinbaseTxPrefix` to make it valid.ed Channels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SubmitSharesExtended<'decoder> {
     /// Channel identification.
@@ -84,8 +84,8 @@ impl fmt::Display for SubmitSharesExtended<'_> {
 
 /// Message used by upstream to accept [`SubmitSharesStandard`] or [`SubmitSharesExtended`].
 ///
-/// Because it is a common case that shares submission is successful, this response can be provided
-/// for multiple [`SubmitShare`] messages aggregated together.
+/// The proxy will receive a unique [`SubmitSharesSuccess`] and/or [`SubmitSharesError`]
+/// for multiple [`SubmitSharesStandard`] or [`SubmitSharesExtended`] messages aggregated together.
 ///
 /// The upstream doesn’t have to double check that the sequence numbers sent by a downstream are
 /// actually increasing. It can use the last one received when sending a response. It is the
