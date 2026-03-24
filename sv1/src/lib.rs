@@ -31,7 +31,7 @@
 //! * error: null or list (error code, error message)
 //!
 //! References:
-//! [https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#]
+//! [<https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#>]
 //! [<https://braiins.com/stratum-v1/docs>]
 //! [<https://en.bitcoin.it/wiki/Stratum_mining_protocol>]
 //! [<https://en.bitcoin.it/wiki/BIP_0310>]
@@ -179,7 +179,7 @@ pub trait IsServer<'a> {
     /// Almost instantly after the subscription server start to send `jobs`
     ///
     /// This function return the first item of the result (2 tuple with name of subscibed ...)
-    pub fn handle_subscribe(
+    fn handle_subscribe(
         &self,
         client_id: Option<usize>,
         request: &client_to_server::Subscribe,
