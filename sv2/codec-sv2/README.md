@@ -46,3 +46,24 @@ This crate provides two examples demonstrating how to encode and decode Sv2 fram
    Encode and decode Sv2 frames with Noise protocol encryption, detailing the entire encryption
    handshake and transport phase and serialization and transmission process for encrypted
    communications.
+
+## Benchmarks
+
+Performance benchmarks are provided for all major code paths: plain encoding/decoding,
+Noise protocol encryption, serialization, and buffer pool exhaustion behavior.
+
+See **[BENCHES.md](BENCHES.md)** for the full benchmark suite documentation, including:
+- How to run each suite and which feature flags are needed
+- Descriptions of every benchmark target
+- Measured results with and without `with_buffer_pool` / `noise_sv2`
+- Analysis of buffer pool exhaustion thresholds and Alloc-mode overhead
+
+Quick start:
+
+```bash
+# Run all benchmarks with all features
+cargo bench --all-features
+
+# Run only the pool exhaustion benchmarks
+cargo bench --bench buffer_exhaustion
+```
