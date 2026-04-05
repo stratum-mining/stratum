@@ -28,8 +28,8 @@ use quickcheck::{Arbitrary, Gen};
 pub use channel_endpoint_changed::ChannelEndpointChanged;
 pub use reconnect::Reconnect;
 pub use setup_connection::{
-    has_requires_std_job, has_version_rolling, has_work_selection, Protocol, SetupConnection,
-    SetupConnectionError, SetupConnectionSuccess,
+    has_declare_tx_data, has_requires_std_job, has_version_rolling, has_work_selection, Protocol,
+    SetupConnection, SetupConnectionError, SetupConnectionSuccess,
 };
 
 // Discriminants for Stratum V2 (sub)protocols
