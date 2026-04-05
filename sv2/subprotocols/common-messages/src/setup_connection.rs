@@ -197,6 +197,39 @@ pub fn has_work_selection(flags: u32) -> bool {
     flag != 0
 }
 
+/// Helper function to check if `DECLARE_TX_DATA` bit flag present.
+///
+/// This flag is used in the Job Declaration Protocol to indicate that JDC
+/// (Job Declarator Client) agrees to reveal the template's txdata via
+/// `DeclareMiningJob` and `ProvideMissingTransactions`.
+///
+/// The `DECLARE_TX_DATA` flag is located at bit 0 (the least significant bit).
+///
+/// # Arguments
+///
+/// * `flags` - A `u32` representing the flags field from a `SetupConnection` message.
+///
+/// # Returns
+///
+/// Returns `true` if the `DECLARE_TX_DATA` flag (bit 0) is set, `false` otherwise.
+///
+/// # Example
+///
+/// ```
+/// use common_messages_sv2::has_declare_tx_data;
+///
+/// // Bit 0 is set
+/// assert!(has_declare_tx_data(0b_0000_0000_0000_0000_0000_0000_0000_0001));
+///
+/// // Bit 0 is not set
+/// assert!(!has_declare_tx_data(0b_0000_0000_0000_0000_0000_0010));
+/// ```
+pub fn has_declare_tx_data(flags: u32) -> bool {
+    let flags = flags.reverse_bits();
+    let flag = flags >> 31;
+    flag != 0
+}
+
 /// Message used by an upstream role to accept a connection setup request from a downstream role.
 ///
 /// This message is sent in response to a [`SetupConnection`] message.
@@ -389,6 +422,21 @@ mod test {
         assert!(has_work_selection(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         assert!(!has_work_selection(flags));
+    }
+
+    #[test]
+    fn test_has_declare_tx_data() {
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        assert!(has_declare_tx_data(flags));
+
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0010;
+        assert!(!has_declare_tx_data(flags));
+
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_1111;
+        assert!(has_declare_tx_data(flags));
+
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+        assert!(!has_declare_tx_data(flags));
     }
 
     fn create_setup_connection() -> SetupConnection<'static> {
