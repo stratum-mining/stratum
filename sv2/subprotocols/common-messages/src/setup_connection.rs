@@ -225,9 +225,7 @@ pub fn has_work_selection(flags: u32) -> bool {
 /// assert!(!has_declare_tx_data(0b_0000_0000_0000_0000_0000_0010));
 /// ```
 pub fn has_declare_tx_data(flags: u32) -> bool {
-    let flags = flags.reverse_bits();
-    let flag = flags >> 31;
-    flag != 0
+    flags & 0b1 != 0
 }
 
 /// Message used by an upstream role to accept a connection setup request from a downstream role.
