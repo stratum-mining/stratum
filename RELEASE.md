@@ -29,17 +29,12 @@ Usually the release process is as follows:
 
 ## Versioning
 
-Crates under `protocols` and `utils` workspaces follow SemVer 2.0.0. The version number is stored in
-the `Cargo.toml` file of each crate. If a breaking change is introduced to one
-of the crates, the version number must be updated accordingly, otherwise a
-SemVer CI check would fail. Note that this does not apply to the `roles` and
-other crates in the repository.
+Crates follow SemVer 2.0.0. Whenever the repository goes through a global release, all crates are published to crates.io.
 
 The global repository releases follow `X.Y.Z`, which is changed under some subjective criteria:
-- Changes in `roles` are not taken into account. `roles` crates are still in Proof of Concept phase and not production ready. 
-- If a release includes only bug fixes in `protocols` and/or `utils`, then `Z` is bumped.
-- If a release includes breaking and/or non-breaking changes to `protocols` and/or `utils`, then `Y` is bumped.
-- If a release marks a milestone i.e., `protocols` is reaching a new maturity level, then `X` is bumped.
+- If a release includes only bug fixes`, then `Z` is bumped.
+- If a release includes breaking and/or non-breaking changes, then `Y` is bumped.
+- If a release marks a milestone i.e., crates are reaching a new maturity level, then `X` is bumped.
 
 ## Tags and Branches
 

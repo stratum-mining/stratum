@@ -21,6 +21,7 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 - [I Want To Contribute](#i-want-to-contribute)
   - [Project Structure](#project-structure)
   - [Contribution workflow](#contribution-workflow)
+  - [Versioning and public dependencies](#versioning-and-public-dependencies)
   - [Your First Code Contribution](#your-first-code-contribution)
   
 
@@ -99,6 +100,34 @@ The SRI project follows an open contributor model, where anyone is welcome to co
 6. **Review and Iterate** 
 
 7. **Merge and Close:** Once your pull request has been approved and all discussions have been resolved, a project maintainer will merge your changes into the `main` branch. Your contribution will then be officially part of the project. The pull request will be closed, marking the completion of your contribution.
+
+### Versioning and public dependencies
+
+Whenever submitting a PR that modifies some crate, it's up to the contributor to make sure the versioning of this crate remains sane. The main factors to take into account are:
+
+1. According to SemVer 2.0.0 and the modifications on this PR, what kind of version bump does this crate deserve?
+2. Avoiding redundant version bumps:
+   - Has the version of crate already been bumped on this repo since it was last published to crates.io?
+   - If yes, do the changes introduced by this PR require a larger bump than the one already made?
+3. Keeping sanity across dependency chains:
+   - Which other crates on this repo depend on this crate?
+   - Amongst them, are there types from this crate exposed on their public APIs?
+
+Factors 1 and 2 are partially enforced via CI (but enforcement via PR review is still encouraged). Factor 3 must be fully enforced via PR reviews.
+
+Factor 2 is about avoiding redundant version bumps. Since crates are only published to crates.io periodically (during global release), maybe other PRs already bumped this crate version.
+
+Factor 3 is about keeping sanity across dependency chains. If a crate only uses a dependency internally, updating that dependency does not automatically require an incompatible version bump for the dependent crate. However, if a dependency appears in the dependent crate's public API, then changing that dependency to an incompatible version also changes the dependent crate's public API.
+
+Public API exposure includes, but is not limited to:
+- re-exports;
+- public function or method arguments and return types;
+- public trait method signatures;
+- public enum variant payloads;
+- public struct fields;
+- public type aliases and associated types.
+
+For crates that are already `1.0.0` or above, an incompatible version bump means a MAJOR bump. For `0.x.y` crates, an incompatible version bump usually means a MINOR bump, for example `0.2.3 -> 0.3.0`. A PATCH bump on a `0.x.y` crate is still treated as compatible within the same minor line, for example `0.2.3 -> 0.2.4`.
 
 ### Your First Code Contribution
 >In order to contribute, a basic learning about git and github is needed. If you're not familiar with them, have a look at https://docs.github.com/en/get-started/start-your-journey/git-and-github-learning-resources to dig into and learn how to use them.
