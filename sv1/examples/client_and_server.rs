@@ -199,7 +199,7 @@ impl<'a> IsServer<'a> for Server<'a> {
         &mut self,
         _client_id: Option<usize>,
         _request: &client_to_server::Configure,
-    ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
+    ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Error<'a>> {
         self.version_rolling_mask
             .get_or_insert_with(new_version_rolling_mask);
         self.version_rolling_min_bit
@@ -208,45 +208,48 @@ impl<'a> IsServer<'a> for Server<'a> {
         let mask = self.version_rolling_mask.as_ref().unwrap().clone();
         let min_bit = self.version_rolling_min_bit.as_ref().unwrap().clone();
 
-        (
+        Ok((
             Some(server_to_client::VersionRollingParams::new(mask, min_bit).unwrap()),
             Some(false),
-        )
+        ))
     }
 
     fn handle_subscribe(
         &self,
         _client_id: Option<usize>,
         _request: &client_to_server::Subscribe,
-    ) -> Vec<(String, String)> {
-        vec![]
+    ) -> Result<Vec<(String, String)>, Error<'a>> {
+        Ok(vec![])
     }
 
     fn handle_authorize(
         &self,
         _client_id: Option<usize>,
         _request: &client_to_server::Authorize,
-    ) -> bool {
-        true
+    ) -> Result<bool, Error<'a>> {
+        Ok(true)
     }
 
     fn handle_submit(
         &self,
         _client_id: Option<usize>,
         _request: &client_to_server::Submit,
-    ) -> bool {
-        true
+    ) -> Result<bool, Error<'a>> {
+        Ok(true)
     }
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
-    fn handle_extranonce_subscribe(&self) {}
-
-    fn is_authorized(&self, _client_id: Option<usize>, _name: &str) -> bool {
-        true
+    fn handle_extranonce_subscribe(&self) -> Result<(), Error<'a>> {
+        Ok(())
     }
 
-    fn authorize(&mut self, _client_id: Option<usize>, name: &str) {
-        self.authorized_names.push(name.to_string())
+    fn is_authorized(&self, _client_id: Option<usize>, _name: &str) -> Result<bool, Error<'a>> {
+        Ok(true)
+    }
+
+    fn authorize(&mut self, _client_id: Option<usize>, name: &str) -> Result<(), Error<'a>> {
+        self.authorized_names.push(name.to_string());
+        Ok(())
     }
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
@@ -254,13 +257,13 @@ impl<'a> IsServer<'a> for Server<'a> {
         &mut self,
         _client_id: Option<usize>,
         extranonce1: Option<Extranonce<'a>>,
-    ) -> Extranonce<'a> {
+    ) -> Result<Extranonce<'a>, Error<'a>> {
         self.extranonce1 = extranonce1.unwrap_or_else(new_extranonce);
-        self.extranonce1.clone()
+        Ok(self.extranonce1.clone())
     }
 
-    fn extranonce1(&self, _client_id: Option<usize>) -> Extranonce<'a> {
-        self.extranonce1.clone()
+    fn extranonce1(&self, _client_id: Option<usize>) -> Result<Extranonce<'a>, Error<'a>> {
+        Ok(self.extranonce1.clone())
     }
 
     /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
@@ -268,25 +271,38 @@ impl<'a> IsServer<'a> for Server<'a> {
         &mut self,
         _client_id: Option<usize>,
         extra_nonce2_size: Option<usize>,
-    ) -> usize {
+    ) -> Result<usize, Error<'a>> {
         self.extranonce2_size = extra_nonce2_size.unwrap_or_else(new_extranonce2_size);
-        self.extranonce2_size
+        Ok(self.extranonce2_size)
     }
 
-    fn extranonce2_size(&self, _client_id: Option<usize>) -> usize {
-        self.extranonce2_size
+    fn extranonce2_size(&self, _client_id: Option<usize>) -> Result<usize, Error<'a>> {
+        Ok(self.extranonce2_size)
     }
 
-    fn version_rolling_mask(&self, _client_id: Option<usize>) -> Option<HexU32Be> {
-        self.version_rolling_mask.clone()
+    fn version_rolling_mask(
+        &self,
+        _client_id: Option<usize>,
+    ) -> Result<Option<HexU32Be>, Error<'a>> {
+        Ok(self.version_rolling_mask.clone())
     }
 
-    fn set_version_rolling_mask(&mut self, _client_id: Option<usize>, mask: Option<HexU32Be>) {
+    fn set_version_rolling_mask(
+        &mut self,
+        _client_id: Option<usize>,
+        mask: Option<HexU32Be>,
+    ) -> Result<(), Error<'a>> {
         self.version_rolling_mask = mask;
+        Ok(())
     }
 
-    fn set_version_rolling_min_bit(&mut self, _client_id: Option<usize>, mask: Option<HexU32Be>) {
-        self.version_rolling_min_bit = mask
+    fn set_version_rolling_min_bit(
+        &mut self,
+        _client_id: Option<usize>,
+        mask: Option<HexU32Be>,
+    ) -> Result<(), Error<'a>> {
+        self.version_rolling_min_bit = mask;
+        Ok(())
     }
 
     fn notify(&mut self, _client_id: Option<usize>) -> Result<json_rpc::Message, Error<'a>> {
@@ -397,7 +413,7 @@ impl Client<'static> {
     }
 
     pub fn send_subscribe(&mut self) {
-        while let ClientStatus::Init = self.status {
+        while let Ok(ClientStatus::Init) = self.status(None) {
             thread::sleep(Duration::from_millis(100));
         }
         let id = SystemTime::now()
@@ -445,8 +461,9 @@ impl Client<'static> {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let configure = self.configure(None, id);
-        Self::send_message(&self.sender_outgoing, configure);
+        if let Ok(configure) = self.configure(None, id) {
+            Self::send_message(&self.sender_outgoing, configure);
+        }
     }
 }
 
@@ -500,72 +517,112 @@ impl<'a> IsClient<'a> for Client<'a> {
         Ok(())
     }
 
-    fn set_extranonce1(&mut self, _server_id: Option<usize>, extranonce1: Extranonce<'a>) {
+    fn set_extranonce1(
+        &mut self,
+        _server_id: Option<usize>,
+        extranonce1: Extranonce<'a>,
+    ) -> Result<(), Error<'a>> {
         self.extranonce1 = extranonce1;
+        Ok(())
     }
 
-    fn extranonce1(&self, _server_id: Option<usize>) -> Extranonce<'a> {
-        self.extranonce1.clone()
+    fn extranonce1(&self, _server_id: Option<usize>) -> Result<Extranonce<'a>, Error<'a>> {
+        Ok(self.extranonce1.clone())
     }
 
-    fn set_extranonce2_size(&mut self, _server_id: Option<usize>, extra_nonce2_size: usize) {
+    fn set_extranonce2_size(
+        &mut self,
+        _server_id: Option<usize>,
+        extra_nonce2_size: usize,
+    ) -> Result<(), Error<'a>> {
         self.extranonce2_size = extra_nonce2_size;
+        Ok(())
     }
 
-    fn extranonce2_size(&self, _server_id: Option<usize>) -> usize {
-        self.extranonce2_size
+    fn extranonce2_size(&self, _server_id: Option<usize>) -> Result<usize, Error<'a>> {
+        Ok(self.extranonce2_size)
     }
 
-    fn version_rolling_mask(&self, _server_id: Option<usize>) -> Option<HexU32Be> {
-        self.version_rolling_mask.clone()
+    fn version_rolling_mask(
+        &self,
+        _server_id: Option<usize>,
+    ) -> Result<Option<HexU32Be>, Error<'a>> {
+        Ok(self.version_rolling_mask.clone())
     }
 
-    fn set_version_rolling_mask(&mut self, _server_id: Option<usize>, mask: Option<HexU32Be>) {
+    fn set_version_rolling_mask(
+        &mut self,
+        _server_id: Option<usize>,
+        mask: Option<HexU32Be>,
+    ) -> Result<(), Error<'a>> {
         self.version_rolling_mask = mask;
+        Ok(())
     }
 
-    fn set_version_rolling_min_bit(&mut self, _server_id: Option<usize>, min: Option<HexU32Be>) {
+    fn set_version_rolling_min_bit(
+        &mut self,
+        _server_id: Option<usize>,
+        min: Option<HexU32Be>,
+    ) -> Result<(), Error<'a>> {
         self.version_rolling_min_bit = min;
+        Ok(())
     }
 
-    fn set_status(&mut self, _server_id: Option<usize>, status: ClientStatus) {
+    fn set_status(
+        &mut self,
+        _server_id: Option<usize>,
+        status: ClientStatus,
+    ) -> Result<(), Error<'a>> {
         self.status = status;
+        Ok(())
     }
 
-    fn signature(&self, _server_id: Option<usize>) -> String {
-        format!("{}", self.client_id)
+    fn signature(&self, _server_id: Option<usize>) -> Result<String, Error<'a>> {
+        Ok(format!("{}", self.client_id))
     }
 
-    fn status(&self, _server_id: Option<usize>) -> ClientStatus {
-        self.status
+    fn status(&self, _server_id: Option<usize>) -> Result<ClientStatus, Error<'a>> {
+        Ok(self.status)
     }
 
-    fn version_rolling_min_bit(&mut self, _server_id: Option<usize>) -> Option<HexU32Be> {
-        self.version_rolling_min_bit.clone()
+    fn version_rolling_min_bit(
+        &mut self,
+        _server_id: Option<usize>,
+    ) -> Result<Option<HexU32Be>, Error<'a>> {
+        Ok(self.version_rolling_min_bit.clone())
     }
 
-    fn id_is_authorize(&mut self, _server_id: Option<usize>, id: &u64) -> Option<String> {
+    fn id_is_authorize(
+        &mut self,
+        _server_id: Option<usize>,
+        id: &u64,
+    ) -> Result<Option<String>, Error<'a>> {
         let req: Vec<&(u64, String)> = self
             .sented_authorize_request
             .iter()
             .filter(|x| x.0 == *id)
             .collect();
         match req.len() {
-            0 => None,
-            _ => Some(req[0].1.clone()),
+            0 => Ok(None),
+            _ => Ok(Some(req[0].1.clone())),
         }
     }
 
-    fn id_is_submit(&mut self, _server_id: Option<usize>, _: &u64) -> bool {
-        false
+    fn id_is_submit(&mut self, _server_id: Option<usize>, _: &u64) -> Result<bool, Error<'a>> {
+        Ok(false)
     }
 
-    fn authorize_user_name(&mut self, _server_id: Option<usize>, name: String) {
-        self.authorized.push(name)
+    fn authorize_user_name(
+        &mut self,
+        _server_id: Option<usize>,
+        name: String,
+    ) -> Result<(), Error<'a>> {
+        self.authorized.push(name);
+        Ok(())
     }
 
-    fn is_authorized(&self, _server_id: Option<usize>, name: &String) -> bool {
-        self.authorized.contains(name)
+    fn is_authorized(&self, _server_id: Option<usize>, name: &String) -> Result<bool, Error<'a>> {
+        Ok(self.authorized.contains(name))
     }
 
     fn authorize(
@@ -574,8 +631,8 @@ impl<'a> IsClient<'a> for Client<'a> {
         id: u64,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error> {
-        match self.status(None) {
+    ) -> Result<json_rpc::Message, Error<'a>> {
+        match self.status(None)? {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
                 self.sented_authorize_request.push((id, "user".to_string()));
@@ -584,8 +641,11 @@ impl<'a> IsClient<'a> for Client<'a> {
         }
     }
 
-    fn last_notify(&self, _server_id: Option<usize>) -> Option<server_to_client::Notify> {
-        self.last_notify.clone()
+    fn last_notify(
+        &self,
+        _server_id: Option<usize>,
+    ) -> Result<Option<server_to_client::Notify<'a>>, Error<'a>> {
+        Ok(self.last_notify.clone())
     }
 
     fn handle_error_message(
