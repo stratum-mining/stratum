@@ -157,12 +157,17 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
                 (Header::SIZE - bytes.len()) as isize
             }
             Ok(header) => {
-                if bytes.len() - Header::SIZE == header.len() {
+                let actual_payload_len = bytes.len() - Header::SIZE;
+                let expected_payload_len = header.len();
+
+                if actual_payload_len == expected_payload_len {
                     // expected frame size confirmed
                     0
                 } else {
-                    // Returns how many excess bytes are beyond the expected frame size
-                    (bytes.len() - Header::SIZE) as isize + header.len() as isize
+                    // Returns the delta between actual and expected payload length
+                    // Positive: excess bytes beyond expected size
+                    // Negative: missing bytes to complete the frame
+                    actual_payload_len as isize - expected_payload_len as isize
                 }
             }
         }
@@ -310,8 +315,10 @@ mod tests {
 
     #[test]
     fn test_size_hint() {
+        // Test case: header says payload is 46 bytes, but we only have header (6 bytes)
+        // Expected: should return -46 (missing 46 bytes of payload)
         let h = Sv2Frame::<T, Vec<u8>>::size_hint(&[0, 128, 30, 46, 0, 0][..]);
-        assert!(h == 46);
+        assert_eq!(h, -46, "Should return negative value for truncated frame");
     }
 
     #[derive(Debug, Clone)]
