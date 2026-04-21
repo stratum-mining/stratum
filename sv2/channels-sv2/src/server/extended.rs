@@ -346,8 +346,13 @@ where
 
     /// Updates channel configuration with a new nominal hashrate.
     ///
-    /// Adjusts target difficulty and internal state. Returns an error if
-    /// any input parameters are invalid or constraints are violated.
+    /// Recomputes target difficulty and updates channel state.
+    ///
+    /// If the recomputed target is easier than the effective `requested_max_target`,
+    /// the target is clamped to `requested_max_target`.
+    ///
+    /// Returns [`ExtendedChannelError::InvalidNominalHashrate`] when
+    /// `new_nominal_hashrate` cannot be converted into a valid target.
     ///
     /// This can be used in two scenarios:
     /// - Client sent `UpdateChannel` message, which contains a `requested_max_target` parameter
