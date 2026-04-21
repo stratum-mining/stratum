@@ -1301,6 +1301,44 @@ mod tests {
     }
 
     #[test]
+    fn test_new_clamps_target_to_max_target() {
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [0, 0, 0, 1].to_vec();
+        let share_batch_size = 100;
+        let expected_share_per_minute = 1.0;
+        let very_small_hashrate = 0.1;
+        let job_store = DefaultJobStore::<StandardJob>::new();
+
+        // less permissive max_target to exercise constructor clamp path
+        let not_so_permissive_max_target = Target::from_le_bytes([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0x00,
+        ]);
+
+        let channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            not_so_permissive_max_target,
+            very_small_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            channel.get_requested_max_target(),
+            &not_so_permissive_max_target
+        );
+        assert_eq!(channel.get_target(), &not_so_permissive_max_target);
+    }
+
+    #[test]
     fn test_update_channel() {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
