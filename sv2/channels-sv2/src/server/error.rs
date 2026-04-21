@@ -6,7 +6,6 @@ use crate::server::jobs::error::JobFactoryError;
 pub enum ExtendedChannelError {
     JobFactoryError(JobFactoryError),
     InvalidNominalHashrate,
-    RequestedMaxTargetOutOfRange,
     ChainTipNotSet,
     TemplateIdNotFound,
     JobIdNotFound,
@@ -29,7 +28,6 @@ pub enum GroupChannelError {
 pub enum StandardChannelError {
     TemplateIdNotFound,
     InvalidNominalHashrate,
-    RequestedMaxTargetOutOfRange,
     ExtranoncePrefixTooLarge,
     JobFactoryError(JobFactoryError),
     ChainTipNotSet,
