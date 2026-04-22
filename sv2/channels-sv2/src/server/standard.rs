@@ -195,11 +195,10 @@ where
                 }
             };
 
-        let target: Target = calculated_target;
-
-        if target > requested_max_target {
-            return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
-        }
+        // Clamp to max_target rather than error. The client declared max_target as
+        // an acceptable difficulty floor, so using it when the initial target would
+        // otherwise exceed it is always valid.
+        let target = calculated_target.min(requested_max_target);
 
         if extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
@@ -296,8 +295,13 @@ where
 
     /// Updates channel configuration with a new nominal hashrate.
     ///
-    /// Adjusts target difficulty and internal state. Returns an error if
-    /// any input parameters are invalid or constraints are violated.
+    /// Recomputes target difficulty and updates channel state.
+    ///
+    /// If the recomputed target is easier than the effective `requested_max_target`,
+    /// the target is clamped to `requested_max_target`.
+    ///
+    /// Returns [`StandardChannelError::InvalidNominalHashrate`] when
+    /// `nominal_hashrate` cannot be converted into a valid target.
     ///
     /// This can be used in two scenarios:
     /// - Client sent `UpdateChannel` message, which contains a `requested_max_target` parameter
@@ -344,11 +348,10 @@ where
             bytes_to_hex(&max_target_bytes)
         );
 
-        let new_target: Target = target;
-
-        if new_target > requested_max_target {
-            return Err(StandardChannelError::RequestedMaxTargetOutOfRange);
-        }
+        // Clamp to max_target rather than error. The client declared max_target as
+        // an acceptable difficulty floor, so using it when vardiff would otherwise
+        // exceed it is always valid.
+        let new_target = target.min(requested_max_target);
 
         self.target = new_target;
         self.nominal_hashrate = nominal_hashrate;
@@ -1303,6 +1306,44 @@ mod tests {
     }
 
     #[test]
+    fn test_new_clamps_target_to_max_target() {
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [0, 0, 0, 1].to_vec();
+        let share_batch_size = 100;
+        let expected_share_per_minute = 1.0;
+        let very_small_hashrate = 0.1;
+        let job_store = DefaultJobStore::<StandardJob>::new();
+
+        // less permissive max_target to exercise constructor clamp path
+        let not_so_permissive_max_target = Target::from_le_bytes([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0x00,
+        ]);
+
+        let channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            extranonce_prefix,
+            not_so_permissive_max_target,
+            very_small_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            channel.get_requested_max_target(),
+            &not_so_permissive_max_target
+        );
+        assert_eq!(channel.get_target(), &not_so_permissive_max_target);
+    }
+
+    #[test]
     fn test_update_channel() {
         let channel_id = 1;
         let user_identity = "user_identity".to_string();
@@ -1368,17 +1409,15 @@ mod tests {
             0xff, 0xff, 0xff, 0x00,
         ]);
 
-        // Try to update with a hashrate that would result in a target exceeding the max_target
-        // new target: 2492492492492492492492492492492492492492492492492492492492492491
-        // max target: 00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        // Update with a hashrate that would compute a target exceeding max_target.
+        // The channel should clamp to not_so_permissive_max_target instead of erroring.
+        // calculated target: 2492492492492492492492492492492492492492492492492492492492492491
+        // max target:        00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         let very_small_hashrate = 0.1;
         let result =
             channel.update_channel(very_small_hashrate, Some(not_so_permissive_max_target));
-        assert!(result.is_err());
-        assert!(matches!(
-            result,
-            Err(StandardChannelError::RequestedMaxTargetOutOfRange)
-        ));
+        assert!(result.is_ok());
+        assert_eq!(channel.get_target(), &not_so_permissive_max_target);
 
         // Test successful update with not_so_permissive_max_target
         // new target: 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
