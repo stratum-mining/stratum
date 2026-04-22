@@ -54,6 +54,7 @@ pub enum ShareValidationError {
 ///
 /// **Validation phase** (updated by [`validate_share`] via [`track_validated_share`]):
 /// - total validated shares (shares that passed local validation)
+/// - cumulative validated work (based on each job's target difficulty)
 /// - hashes of seen shares (for duplicate detection)
 /// - last received share's sequence number
 /// - highest difficulty seen in validated shares
@@ -61,7 +62,7 @@ pub enum ShareValidationError {
 /// **Acceptance phase** (updated by the application layer via [`on_share_acknowledgement`]):
 /// - total acknowledged shares (confirmed by upstream [`SubmitSharesSuccess`])
 /// - total rejected shares (reported by upstream [`SubmitSharesError`])
-/// - cumulative work from accepted shares
+/// - cumulative acknowledged work (as reported by upstream [`SubmitSharesSuccess`])
 /// - number of blocks found
 ///
 /// [`validate_share`]: super::extended::ExtendedChannel::validate_share
@@ -73,9 +74,10 @@ pub enum ShareValidationError {
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     acknowledged_shares: u32,
+    acknowledged_work_sum: u64,
     validated_shares: u32,
+    validated_work_sum: f64,
     rejected_shares: HashMap<String, u32>, // <error_code, count>
-    share_work_sum: f64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
     blocks_found: u32,
@@ -93,9 +95,11 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             acknowledged_shares: 0,
+            acknowledged_work_sum: 0,
             validated_shares: 0,
+            validated_work_sum: 0.0,
+
             rejected_shares: HashMap::new(),
-            share_work_sum: 0.0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
             blocks_found: 0,
@@ -112,10 +116,10 @@ impl ShareAccounting {
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.acknowledged_shares += new_submits_accepted_count;
-        self.share_work_sum += new_shares_sum;
+        self.acknowledged_work_sum = self.acknowledged_work_sum.saturating_add(new_shares_sum);
     }
 
     /// Updates rejection accounting based on a [`SubmitSharesError`] message from the upstream
@@ -135,9 +139,15 @@ impl ShareAccounting {
     /// number. Called from [`validate_share`] — does **not** count the share as accepted.
     /// Acceptance accounting is deferred to [`on_share_acknowledgement`], which should be
     /// called when the upstream server confirms via [`SubmitSharesSuccess`].
-    pub fn track_validated_share(&mut self, share_sequence_number: u32, share_hash: Hash) {
+    pub fn track_validated_share(
+        &mut self,
+        share_sequence_number: u32,
+        share_hash: Hash,
+        share_work: f64,
+    ) {
         self.last_share_sequence_number = share_sequence_number;
         self.validated_shares += 1;
+        self.validated_work_sum += share_work;
         self.seen_shares.insert(share_hash);
     }
 
@@ -169,9 +179,17 @@ impl ShareAccounting {
         &self.rejected_shares
     }
 
-    /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> f64 {
-        self.share_work_sum
+    /// Returns the cumulative work acknowledged by upstream via `SubmitSharesSuccess`.
+    pub fn get_acknowledged_work_sum(&self) -> u64 {
+        self.acknowledged_work_sum
+    }
+
+    /// Returns the cumulative work of all locally validated shares.
+    ///
+    /// Work is tracked using job-target difficulty (matching server-side accounting),
+    /// not per-share hash difficulty.
+    pub fn get_validated_work_sum(&self) -> f64 {
+        self.validated_work_sum
     }
 
     /// Checks if the given share hash has already been seen (duplicate detection).
