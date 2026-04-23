@@ -325,12 +325,14 @@ version = "5.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
+ "criterion",
  "framing_sv2",
  "key-utils",
  "noise_sv2",
  "quickcheck",
  "quickcheck_macros",
  "rand",
+ "rayon-core",
  "tracing",
 ]
 

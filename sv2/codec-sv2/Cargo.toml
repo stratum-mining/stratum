@@ -21,6 +21,8 @@ tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
 key-utils = { workspace = true }
+criterion = { workspace = true }
+rayon-core = { workspace = true }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 
@@ -32,3 +34,28 @@ tracing = ["dep:tracing"]
 
 [package.metadata.docs.rs]
 features = ["with_buffer_pool", "noise_sv2", "std"]
+
+
+[[bench]]
+name = "encoder"
+harness = false
+
+[[bench]]
+name = "decoder"
+harness = false
+
+[[bench]]
+name = "noise_roundtrip"
+harness = false
+
+[[bench]]
+name = "serialization"
+harness = false
+
+[[bench]]
+name = "buffer_exhaustion"
+harness = false
+
+[[bench]]
+name = "pool_lifecycle"
+harness = false
