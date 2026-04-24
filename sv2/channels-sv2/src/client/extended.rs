@@ -12,9 +12,10 @@ use crate::{
         error::ExtendedChannelError,
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
+    extranonce_manager::ExtranoncePrefix,
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, u256_to_block_hash},
-    MAX_EXTRANONCE_PREFIX_LEN,
+    MAX_EXTRANONCE_LEN,
 };
 use alloc::{format, string::String, vec, vec::Vec};
 use binary_sv2::{self, Sv2Option};
@@ -59,11 +60,11 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
 ///   `job_id`).
 /// - Share accounting for the channel (as tracked by the client).
 /// - The channel's current chain tip.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExtendedChannel<'a> {
     channel_id: u32,
     user_identity: String,
-    extranonce_prefix: Vec<u8>,
+    extranonce_prefix: ExtranoncePrefix,
     rollable_extranonce_size: u16,
     target: Target,
     nominal_hashrate: f32,
@@ -84,7 +85,7 @@ impl<'a> ExtendedChannel<'a> {
     pub fn new(
         channel_id: u32,
         user_identity: String,
-        extranonce_prefix: Vec<u8>,
+        extranonce_prefix: ExtranoncePrefix,
         target: Target,
         nominal_hashrate: f32,
         version_rolling: bool,
@@ -118,8 +119,22 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns the bytes representing the first part of the `extranonce`.
-    pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
-        &self.extranonce_prefix
+    pub fn get_extranonce_prefix(&self) -> &[u8] {
+        self.extranonce_prefix.as_bytes()
+    }
+
+    /// Returns the length of the `upstream_prefix` region of this channel's
+    /// extranonce prefix, if known.
+    ///
+    /// See [`ExtranoncePrefix::upstream_prefix_len`](crate::extranonce_manager::ExtranoncePrefix::upstream_prefix_len)
+    /// for the full semantics. In particular, this is `None` for channels
+    /// opened from a wire-sourced prefix (the common case on a client),
+    /// and `Some(n)` when the application minted the prefix locally from
+    /// an [`ExtranonceAllocator`](crate::extranonce_manager::ExtranonceAllocator) — e.g. a proxy that
+    /// sub-allocates an upstream-assigned extranonce space and hands one
+    /// slot to each downstream channel.
+    pub fn upstream_prefix_len(&self) -> Option<u8> {
+        self.extranonce_prefix.upstream_prefix_len()
     }
 
     /// Returns `true` if the channel supports version rolling as per [BIP 320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki).
@@ -146,9 +161,9 @@ impl<'a> ExtendedChannel<'a> {
     /// Returns an error if the new extranonce prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
-        new_extranonce_prefix: Vec<u8>,
+        new_extranonce_prefix: ExtranoncePrefix,
     ) -> Result<(), ExtendedChannelError> {
-        if new_extranonce_prefix.len() > MAX_EXTRANONCE_PREFIX_LEN {
+        if new_extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
             return Err(ExtendedChannelError::NewExtranoncePrefixTooLarge);
         }
 
@@ -267,7 +282,7 @@ impl<'a> ExtendedChannel<'a> {
                 }
                 self.active_job = Some((
                     new_extended_mining_job,
-                    self.extranonce_prefix.clone(),
+                    self.extranonce_prefix.as_bytes().to_vec(),
                     self.target,
                 ));
             }
@@ -276,7 +291,7 @@ impl<'a> ExtendedChannel<'a> {
                     new_extended_mining_job.job_id,
                     (
                         new_extended_mining_job,
-                        self.extranonce_prefix.clone(),
+                        self.extranonce_prefix.as_bytes().to_vec(),
                         self.target,
                     ),
                 );
@@ -389,7 +404,7 @@ impl<'a> ExtendedChannel<'a> {
         }
         self.active_job = Some((
             new_extended_mining_job,
-            self.extranonce_prefix.clone(),
+            self.extranonce_prefix.as_bytes().to_vec(),
             self.target,
         ));
 
@@ -608,9 +623,12 @@ impl<'a> ExtendedChannel<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{
-        extended::ExtendedChannel,
-        share_accounting::{ShareValidationError, ShareValidationResult},
+    use crate::{
+        client::{
+            extended::ExtendedChannel,
+            share_accounting::{ShareValidationError, ShareValidationResult},
+        },
+        extranonce_manager::ExtranoncePrefix,
     };
     use binary_sv2::Sv2Option;
     use bitcoin::Target;
@@ -636,7 +654,7 @@ mod tests {
         let mut channel = ExtendedChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             target,
             nominal_hashrate,
             version_rolling,
@@ -722,7 +740,7 @@ mod tests {
         let mut channel = ExtendedChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             target,
             nominal_hashrate,
             version_rolling,
@@ -803,7 +821,7 @@ mod tests {
         let mut channel = ExtendedChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             target,
             nominal_hashrate,
             version_rolling,
@@ -904,7 +922,7 @@ mod tests {
         let mut channel = ExtendedChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             target,
             nominal_hashrate,
             version_rolling,
@@ -999,7 +1017,7 @@ mod tests {
         let mut channel = ExtendedChannel::new(
             channel_id,
             user_identity,
-            extranonce_prefix.clone(),
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
             target,
             nominal_hashrate,
             version_rolling,
