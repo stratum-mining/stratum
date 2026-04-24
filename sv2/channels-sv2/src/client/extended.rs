@@ -232,7 +232,7 @@ impl<'a> ExtendedChannel<'a> {
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.share_accounting
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);

@@ -67,7 +67,7 @@ pub struct ShareAccounting {
     acknowledged_shares: u32,
     validated_shares: u32,
     rejected_shares: u32,
-    share_work_sum: f64,
+    share_work_sum: u64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
     blocks_found: u32,
@@ -87,7 +87,7 @@ impl ShareAccounting {
             acknowledged_shares: 0,
             validated_shares: 0,
             rejected_shares: 0,
-            share_work_sum: 0.0,
+            share_work_sum: 0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
             blocks_found: 0,
@@ -104,10 +104,10 @@ impl ShareAccounting {
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.acknowledged_shares += new_submits_accepted_count;
-        self.share_work_sum += new_shares_sum;
+        self.share_work_sum = self.share_work_sum.saturating_add(new_shares_sum);
     }
 
     /// Updates rejection accounting based on a [`SubmitSharesError`] message from the upstream
@@ -159,7 +159,7 @@ impl ShareAccounting {
     }
 
     /// Returns the cumulative work of all accepted shares.
-    pub fn get_share_work_sum(&self) -> f64 {
+    pub fn get_share_work_sum(&self) -> u64 {
         self.share_work_sum
     }
 
