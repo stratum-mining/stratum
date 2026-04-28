@@ -4,7 +4,9 @@
 //! statistics, and reporting share validation results and errors. These abstractions
 //! are intended for use in Mining Clients.
 
-use super::HashSet;
+extern crate alloc;
+use super::{HashMap, HashSet};
+use alloc::string::String;
 use bitcoin::hashes::sha256d::Hash;
 
 /// The outcome of share validation, as seen by a Mining Client.
@@ -66,7 +68,7 @@ pub struct ShareAccounting {
     last_share_sequence_number: u32,
     acknowledged_shares: u32,
     validated_shares: u32,
-    rejected_shares: u32,
+    rejected_shares: HashMap<String, u32>, // <error_code, count>
     share_work_sum: f64,
     seen_shares: HashSet<Hash>,
     best_diff: f64,
@@ -86,7 +88,7 @@ impl ShareAccounting {
             last_share_sequence_number: 0,
             acknowledged_shares: 0,
             validated_shares: 0,
-            rejected_shares: 0,
+            rejected_shares: HashMap::new(),
             share_work_sum: 0.0,
             seen_shares: HashSet::new(),
             best_diff: 0.0,
@@ -114,8 +116,11 @@ impl ShareAccounting {
     /// server.
     ///
     /// One call corresponds to one rejected share.
-    pub fn on_share_rejection(&mut self) {
-        self.rejected_shares += 1;
+    pub fn on_share_rejection(&mut self, error_code: String) {
+        self.rejected_shares
+            .entry(error_code)
+            .and_modify(|v| *v += 1)
+            .or_insert(1);
     }
 
     /// Records a share that passed local validation.
@@ -153,9 +158,9 @@ impl ShareAccounting {
         self.validated_shares
     }
 
-    /// Returns the total number of shares rejected by upstream.
-    pub fn get_rejected_shares(&self) -> u32 {
-        self.rejected_shares
+    /// Returns a reference to the map of rejected shares by error code.
+    pub fn get_rejected_shares(&self) -> &HashMap<String, u32> {
+        &self.rejected_shares
     }
 
     /// Returns the cumulative work of all accepted shares.

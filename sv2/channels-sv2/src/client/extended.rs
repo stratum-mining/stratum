@@ -240,8 +240,8 @@ impl<'a> ExtendedChannel<'a> {
 
     /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
-    pub fn on_share_rejection(&mut self) {
-        self.share_accounting.on_share_rejection();
+    pub fn on_share_rejection(&mut self, error_code: String) {
+        self.share_accounting.on_share_rejection(error_code);
     }
 
     /// Handles a [`NewExtendedMiningJob`] message received from upstream.
