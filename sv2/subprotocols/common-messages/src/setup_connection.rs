@@ -197,6 +197,11 @@ pub fn has_work_selection(flags: u32) -> bool {
     flag != 0
 }
 
+/// Helper function to check if `DECLARE_TX_DATA` bit flag present.
+pub fn has_declare_tx_data(flags: u32) -> bool {
+    flags & 0b1 != 0
+}
+
 /// Message used by an upstream role to accept a connection setup request from a downstream role.
 ///
 /// This message is sent in response to a [`SetupConnection`] message.
@@ -389,6 +394,21 @@ mod test {
         assert!(has_work_selection(flags));
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         assert!(!has_work_selection(flags));
+    }
+
+    #[test]
+    fn test_has_declare_tx_data() {
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        assert!(has_declare_tx_data(flags));
+
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0010;
+        assert!(!has_declare_tx_data(flags));
+
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_1111;
+        assert!(has_declare_tx_data(flags));
+
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+        assert!(!has_declare_tx_data(flags));
     }
 
     fn create_setup_connection() -> SetupConnection<'static> {
