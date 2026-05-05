@@ -24,8 +24,11 @@ if [ "$EXIT_CODE" -eq 0 ] ; then
   exit 0
 fi
 
-# If cargo failed, check whether it was 'already uploaded'
-if echo "$OUTPUT" | grep -q "already uploaded"; then
+# If cargo failed, check whether the crate version was already published.
+# Cargo has used both of these error strings across versions:
+# - "already uploaded" (rust 1.75.0)
+# - "already exists on crates.io index" (rust 1.85.0)
+if echo "$OUTPUT" | grep -Eq "already uploaded|already exists on crates.io index"; then
   echo "Crate is already published: $CRATE_DIR"
   exit 0
 fi
