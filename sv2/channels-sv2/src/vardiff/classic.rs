@@ -5,7 +5,37 @@ use tracing::debug;
 /// Default minimum hashrate (H/s) if not specified.
 const DEFAULT_MIN_HASHRATE: f32 = 1.0;
 
+/// Two-sided 99% normal quantile, used for the predictive Poisson noise floor.
+const Z_99_TWO_SIDED: f64 = 2.576;
+
+/// Safety margin (in percentage points) added on top of the noise floor.
+const NOISE_FLOOR_MARGIN_PCT: f64 = 5.0;
+
 use super::{error::VardiffError, Vardiff};
+
+/// Returns the minimum |hashrate delta| (as a percentage of current hashrate) that
+/// should trigger a vardiff retarget at this elapsed time, given the configured
+/// share rate.
+///
+/// Below this threshold, an observed deviation is statistically indistinguishable
+/// from Poisson sampling noise on the share count and should not cause a fire.
+///
+/// The threshold is the two-sided 99% predictive upper bound on a Poisson count
+/// with the given expected value, expressed as a percentage above the expected
+/// value, plus a small safety margin. A normal approximation with continuity
+/// correction is used (accurate to <1pp for `λ ≥ 10`; the safety margin covers
+/// the small-`λ` regime).
+///
+/// When the expected count is below 1, returns infinity — there are not yet
+/// enough samples to make a statistical call, so no rung should fire.
+fn noise_floor_threshold_pct(delta_time: u64, shares_per_minute: f32) -> f64 {
+    let expected = (delta_time as f64 / 60.0) * shares_per_minute as f64;
+    if expected < 1.0 {
+        return f64::INFINITY;
+    }
+    let upper_count = expected + Z_99_TWO_SIDED * expected.sqrt() + 0.5;
+    (upper_count - expected) / expected * 100.0 + NOISE_FLOOR_MARGIN_PCT
+}
 
 /// Represents the dynamic state for a variable difficulty (Vardiff) connection.
 ///
@@ -151,15 +181,11 @@ impl Vardiff for VardiffState {
             hashrate,
         );
 
-        let should_update = match hashrate_delta_percentage {
-            pct if pct >= 100.0 => true,
-            pct if pct >= 60.0 && delta_time >= 60 => true,
-            pct if pct >= 50.0 && delta_time >= 120 => true,
-            pct if pct >= 45.0 && delta_time >= 180 => true,
-            pct if pct >= 30.0 && delta_time >= 240 => true,
-            pct if pct >= 15.0 && delta_time >= 300 => true,
-            _ => false,
-        };
+        // Fire only when the observed deviation is outside the Poisson noise band
+        // for the share count expected at this elapsed time and configured rate.
+        // Threshold is computed live; see `noise_floor_threshold_pct` for details.
+        let threshold = noise_floor_threshold_pct(delta_time, shares_per_minute);
+        let should_update = (hashrate_delta_percentage as f64) >= threshold;
 
         if !should_update {
             return Ok(None);

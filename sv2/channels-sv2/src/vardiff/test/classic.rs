@@ -5,9 +5,9 @@ use crate::vardiff::test::{
 use crate::{target::hash_rate_to_target, vardiff::VardiffError, VardiffState};
 
 use super::{
-    test_increment_and_reset_shares, test_try_vardiff_low_hashrate_decrease_target,
+    test_increment_and_reset_shares, test_try_vardiff_fires_outside_noise,
+    test_try_vardiff_low_hashrate_decrease_target, test_try_vardiff_no_fire_within_noise,
     test_try_vardiff_no_shares_30_to_60s_decrease,
-    test_try_vardiff_no_shares_less_than_30s_decrease,
     test_try_vardiff_no_shares_more_than_60s_decrease,
     test_try_vardiff_stable_hashrate_minimal_change_or_no_change,
     test_try_vardiff_with_less_spm_than_expected, test_try_vardiff_with_shares_30_to_60s,
@@ -75,15 +75,21 @@ pub fn test_try_vardiff_no_shares_more_than_60s_decrease_classic() {
 }
 
 #[test]
-pub fn test_try_vardiff_no_shares_less_than_30s_decrease_classic() {
-    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
-    test_try_vardiff_no_shares_less_than_30s_decrease(&mut vardiff);
-}
-
-#[test]
 fn test_try_vardiff_with_less_spm_than_expected_classic() {
     let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
     test_try_vardiff_with_less_spm_than_expected(&mut vardiff);
+}
+
+#[test]
+fn test_try_vardiff_no_fire_within_noise_classic() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    test_try_vardiff_no_fire_within_noise(&mut vardiff);
+}
+
+#[test]
+fn test_try_vardiff_fires_outside_noise_classic() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    test_try_vardiff_fires_outside_noise(&mut vardiff);
 }
 
 #[test]
@@ -96,7 +102,11 @@ fn test_try_vardiff_hashrate_clamps_to_minimum() {
     let mut vardiff = VardiffState::new_with_min(TEST_MIN_ALLOWED_HASHRATE)
         .expect("Failed to create VardiffState");
 
-    let simulation_duration_secs = 16;
+    // delta_time = 60s ⇒ λ = 10, threshold ≈ 91%; 0 shares produces a 100% delta which
+    // fires. Hits the realized==0, dt>=60 branch (÷3.0). 15.0 / 3.0 = 5.0, clamped to
+    // TEST_MIN_ALLOWED_HASHRATE = 10.0. Previous value (16s) sat inside the new noise
+    // floor and would no longer fire.
+    let simulation_duration_secs = 60;
     simulate_shares_and_wait(&mut vardiff, 0, simulation_duration_secs);
 
     let result = vardiff
@@ -108,10 +118,6 @@ fn test_try_vardiff_hashrate_clamps_to_minimum() {
     assert_eq!(
         new_hashrate, TEST_MIN_ALLOWED_HASHRATE,
         "Hashrate should be clamped to minimum"
-    );
-    assert_eq!(
-        new_hashrate, TEST_MIN_ALLOWED_HASHRATE,
-        "Stored hashrate should be clamped"
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }

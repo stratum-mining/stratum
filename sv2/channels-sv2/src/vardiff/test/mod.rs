@@ -223,35 +223,13 @@ pub fn test_try_vardiff_with_shares_more_than_60s<V: Vardiff>(vardiff: &mut V) {
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
 
-// Verifies that difficulty decreases when no shares are found within a 30-second window.
-fn test_try_vardiff_no_shares_less_than_30s_decrease<V: Vardiff>(vardiff: &mut V) {
-    let initial_hashrate = TEST_INITIAL_HASHRATE;
-    let initial_target =
-        hash_rate_to_target(initial_hashrate.into(), TEST_SHARES_PER_MINUTE.into())
-            .unwrap()
-            .into();
-
-    let simulation_duration = 16;
-    simulate_shares_and_wait(vardiff, 0, simulation_duration);
-
-    let result = vardiff
-        .try_vardiff(initial_hashrate, &initial_target, TEST_SHARES_PER_MINUTE)
-        .expect("try_vardiff failed");
-    assert!(result.is_some(), "Hashrate should update");
-    let new_hashrate = result.unwrap();
-
-    // This logic checks the `dt < 30` case, which divides by 1.5
-    let expected_hashrate = initial_hashrate / 1.5;
-    assert!(
-        (new_hashrate - expected_hashrate).abs() < 0.01,
-        "Hashrate should be initial / 1.5. Got: {}, Expected: {}",
-        new_hashrate,
-        expected_hashrate
-    );
-    assert_eq!(vardiff.shares_since_last_update(), 0);
-}
-
 // Verifies that difficulty decreases when no shares are found within a 30 to 60-second window.
+//
+// Note: at `shares_per_minute = 10`, the parametric noise floor only drops below 100% once
+// expected count climbs high enough — around `delta_time = 52s` (λ ≈ 8.7, threshold ≈ 99%).
+// We use 55s to leave a comfortable margin while staying inside the dt < 60 branch (÷2.0)
+// that this test asserts. Anywhere shorter at this share rate, zero shares is statistically
+// indistinguishable from Poisson noise.
 fn test_try_vardiff_no_shares_30_to_60s_decrease<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = TEST_INITIAL_HASHRATE;
     let initial_target =
@@ -259,7 +237,7 @@ fn test_try_vardiff_no_shares_30_to_60s_decrease<V: Vardiff>(vardiff: &mut V) {
             .unwrap()
             .into();
 
-    let simulation_duration = 31;
+    let simulation_duration = 55;
     simulate_shares_and_wait(vardiff, 0, simulation_duration);
 
     let result = vardiff
@@ -305,99 +283,95 @@ fn test_try_vardiff_no_shares_more_than_60s_decrease<V: Vardiff>(vardiff: &mut V
     assert_eq!(vardiff.shares_since_last_update(), 0);
 }
 
+// Verifies that the algorithm reduces hashrate when the miner is consistently underperforming,
+// once enough samples have accumulated to push the deviation outside the noise floor.
+//
+// Pre-existing rung-by-rung calibration (which fired at 60%/50%/45%/30%/15% deviations at
+// 60s/120s/180s/240s/300s) was retired with the parametric-threshold change: those small-magnitude
+// deviations now sit *inside* the Poisson noise band at the configured share rate and should not
+// trigger fires. This test instead verifies the surviving guarantee: a sustained 50% deviation
+// over 300s produces enough samples (expected ~50, threshold ~42%) for the algorithm to fire and
+// correct the hashrate.
 fn test_try_vardiff_with_less_spm_than_expected<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = TEST_INITIAL_HASHRATE;
     let initial_target =
         hash_rate_to_target(initial_hashrate.into(), TEST_SHARES_PER_MINUTE.into())
             .unwrap()
             .into();
-
     assert_eq!(initial_hashrate, 1000.0);
 
-    let simulation_duration = 60;
-    // testing case when realized_shares_per_minute / shares_per_minute = 0.4
-    simulate_shares_and_wait(vardiff, 4, simulation_duration);
+    // 25 shares over 300s ⇒ realized = 5 shares/min vs expected 10 shares/min ⇒ 50% deviation.
+    let simulation_duration = 300;
+    simulate_shares_and_wait(vardiff, 25, simulation_duration);
 
-    let hashrate_after_60s = vardiff
+    let new_hashrate = vardiff
         .try_vardiff(initial_hashrate, &initial_target, TEST_SHARES_PER_MINUTE)
         .expect("try_vardiff failed")
-        .unwrap();
-    let target_after_60s: Target =
-        hash_rate_to_target(hashrate_after_60s.into(), TEST_SHARES_PER_MINUTE.into())
+        .expect("50% deviation at 300s should fire (threshold ~42%)");
+
+    // hash_rate_from_target produces ~initial × (realized / expected) = 1000 × 0.5 = 500.
+    assert!(
+        (new_hashrate - 500.0).abs() < 1.0,
+        "Hashrate should be ~500 (half of initial); got {new_hashrate}"
+    );
+    assert!(
+        new_hashrate < initial_hashrate,
+        "Hashrate should decrease for under-performing miner"
+    );
+    assert_eq!(vardiff.shares_since_last_update(), 0);
+}
+
+// Verifies that the algorithm does NOT fire on a deviation that's inside the Poisson
+// noise band — this is the core property of the parametric-threshold change.
+pub fn test_try_vardiff_no_fire_within_noise<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = TEST_INITIAL_HASHRATE;
+    let initial_target =
+        hash_rate_to_target(initial_hashrate.into(), TEST_SHARES_PER_MINUTE.into())
             .unwrap()
             .into();
 
-    assert_eq!(hashrate_after_60s, 400.0);
+    // 8 shares over 60s ⇒ realized = 8/min vs expected 10/min ⇒ 20% deviation.
+    // At λ = 10, parametric threshold ≈ 91%. 20% is well within noise.
+    let simulation_duration = 60;
+    simulate_shares_and_wait(vardiff, 8, simulation_duration);
 
-    let simulation_duration = 120;
-    // testing case when realized_shares_per_minute / shares_per_minute = 0.5
-    simulate_shares_and_wait(vardiff, 10, simulation_duration);
+    let result = vardiff
+        .try_vardiff(initial_hashrate, &initial_target, TEST_SHARES_PER_MINUTE)
+        .expect("try_vardiff failed");
+    assert!(
+        result.is_none(),
+        "Algorithm should not fire on noise-level deviation; got {result:?}"
+    );
+    // Counter is preserved when no fire happens.
+    assert_eq!(vardiff.shares_since_last_update(), 8);
+}
 
-    let hashrate_after_120s = vardiff
-        .try_vardiff(
-            hashrate_after_60s,
-            &target_after_60s,
-            TEST_SHARES_PER_MINUTE,
-        )
-        .expect("try_vardiff failed")
-        .unwrap();
-    let target_after_120s: Target =
-        hash_rate_to_target(hashrate_after_120s.into(), TEST_SHARES_PER_MINUTE.into())
+// Verifies that the algorithm fires once a deviation is comfortably outside the noise floor
+// — confirming the threshold drops below 100% as samples accumulate, which the prior
+// unconditional ≥100% rung enforced unconditionally (and incorrectly, at small N).
+pub fn test_try_vardiff_fires_outside_noise<V: Vardiff>(vardiff: &mut V) {
+    let initial_hashrate = TEST_INITIAL_HASHRATE;
+    let initial_target =
+        hash_rate_to_target(initial_hashrate.into(), TEST_SHARES_PER_MINUTE.into())
             .unwrap()
             .into();
 
-    assert_eq!(hashrate_after_120s, 200.0);
-
-    let simulation_duration = 180;
-    // testing case when realized_shares_per_minute / shares_per_minute = 0.55
-    simulate_shares_and_wait(vardiff, 16, simulation_duration);
-
-    let hashrate_after_180s = vardiff
-        .try_vardiff(
-            hashrate_after_120s,
-            &target_after_120s,
-            TEST_SHARES_PER_MINUTE,
-        )
-        .expect("try_vardiff failed")
-        .unwrap();
-    let target_after_180s: Target =
-        hash_rate_to_target(hashrate_after_180s.into(), TEST_SHARES_PER_MINUTE.into())
-            .unwrap()
-            .into();
-
-    assert_eq!(hashrate_after_180s, 106.0);
-
+    // 20 shares over 240s ⇒ realized = 5/min vs expected 10/min ⇒ 50% deviation.
+    // At λ = 40, parametric threshold ≈ 47%. 50% is just outside noise.
     let simulation_duration = 240;
-    // testing case when realized_shares_per_minute / shares_per_minute = 0.7
-    simulate_shares_and_wait(vardiff, 28, simulation_duration);
+    simulate_shares_and_wait(vardiff, 20, simulation_duration);
 
-    let hashrate_after_240s = vardiff
-        .try_vardiff(
-            hashrate_after_180s,
-            &target_after_180s,
-            TEST_SHARES_PER_MINUTE,
-        )
-        .expect("try_vardiff failed")
-        .unwrap();
-    let target_after_240s: Target =
-        hash_rate_to_target(hashrate_after_240s.into(), TEST_SHARES_PER_MINUTE.into())
-            .unwrap()
-            .into();
-
-    assert_eq!(hashrate_after_240s, 74.2);
-
-    let simulation_duration = 300;
-    // testing case when realized_shares_per_minute / shares_per_minute = 0.85
-    simulate_shares_and_wait(vardiff, 42, simulation_duration);
-
-    let hashrate_after_300s = vardiff
-        .try_vardiff(
-            hashrate_after_240s,
-            &target_after_240s,
-            TEST_SHARES_PER_MINUTE,
-        )
-        .expect("try_vardiff failed")
-        .unwrap();
-
-    assert_eq!(hashrate_after_300s, 62.327995);
+    let result = vardiff
+        .try_vardiff(initial_hashrate, &initial_target, TEST_SHARES_PER_MINUTE)
+        .expect("try_vardiff failed");
+    assert!(
+        result.is_some(),
+        "Algorithm should fire when deviation crosses the noise floor"
+    );
+    let new_hashrate = result.unwrap();
+    assert!(
+        new_hashrate < initial_hashrate,
+        "Hashrate should decrease for under-performing miner; got {new_hashrate}"
+    );
+    assert_eq!(vardiff.shares_since_last_update(), 0);
 }
