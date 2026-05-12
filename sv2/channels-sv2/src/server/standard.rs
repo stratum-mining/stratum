@@ -72,6 +72,7 @@ use tracing::debug;
 /// - the channel's current target
 /// - the channel's mapping between `job_id` and target
 /// - the channel's nominal hashrate
+/// - whether the channel's nominal hashrate is treated as stable
 /// - the channel's [`JobStore`]
 /// - the channel's share accounting state
 /// - the channel's expected share per minute
@@ -89,6 +90,7 @@ where
     target: Target,
     job_id_to_target: HashMap<u32, Target>,
     nominal_hashrate: f32,
+    stable_hashrate: bool,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     job_store: J,
@@ -225,6 +227,7 @@ where
             target,
             job_id_to_target: HashMap::new(),
             nominal_hashrate,
+            stable_hashrate: false,
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
@@ -275,6 +278,16 @@ where
     /// Updates the nominal hashrate for this channel.
     pub fn set_nominal_hashrate(&mut self, nominal_hashrate: f32) {
         self.nominal_hashrate = nominal_hashrate;
+    }
+
+    /// Sets whether this channel's nominal hashrate should be treated as stable.
+    pub fn set_stable_hashrate(&mut self, stable_hashrate: bool) {
+        self.stable_hashrate = stable_hashrate;
+    }
+
+    /// Returns whether this channel's nominal hashrate is treated as stable.
+    pub fn get_stable_hashrate(&self) -> bool {
+        self.stable_hashrate
     }
 
     /// Returns the requested maximum target for this channel.
