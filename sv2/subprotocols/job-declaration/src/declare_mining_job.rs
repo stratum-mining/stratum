@@ -95,7 +95,12 @@ pub struct DeclareMiningJobError<'decoder> {
     /// Possible values:
     ///
     /// - invalid-mining-job-token
-    /// - invalid-job-param-value-{DeclareMiningJob::field}
+    /// - missing-txs
+    /// - invalid-coinbase-tx
+    /// - invalid-coinbase-tx-input
+    /// - internal-error
+    /// - stale-chain-tip
+    /// - invalid-job
     pub error_code: Str0255<'decoder>,
     /// Optional details about the error.
     pub error_details: B064K<'decoder>,

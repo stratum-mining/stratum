@@ -46,3 +46,13 @@ pub const CHANNEL_BIT_DECLARE_MINING_JOB_ERROR: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: bool = false;
 pub const CHANNEL_BIT_PUSH_SOLUTION: bool = true;
+
+// Commonly used DeclareMiningJobError error_code values.
+pub const ERROR_CODE_DECLARE_MINING_JOB_INVALID_MINING_JOB_TOKEN: &str = "invalid-mining-job-token";
+pub const ERROR_CODE_DECLARE_MINING_JOB_MISSING_TXS: &str = "missing-txs";
+pub const ERROR_CODE_DECLARE_MINING_JOB_INVALID_COINBASE_TX: &str = "invalid-coinbase-tx";
+pub const ERROR_CODE_DECLARE_MINING_JOB_INVALID_COINBASE_TX_INPUT: &str =
+    "invalid-coinbase-tx-input";
+pub const ERROR_CODE_DECLARE_MINING_JOB_INTERNAL_ERROR: &str = "internal-error";
+pub const ERROR_CODE_DECLARE_MINING_JOB_STALE_CHAIN_TIP: &str = "stale-chain-tip";
+pub const ERROR_CODE_DECLARE_MINING_JOB_INVALID_JOB: &str = "invalid-job";
