@@ -108,7 +108,18 @@ pub struct SetCustomMiningJobError<'decoder> {
     /// Possible errors:
     /// - invalid-channel-id
     /// - invalid-mining-job-token
-    /// - invalid-job-param-value-{field_name}
+    /// - job-not-yet-validated
+    /// - stale-chain-tip
+    /// - invalid-min-ntime
+    /// - invalid-nbits
+    /// - invalid-version
+    /// - invalid-coinbase-tx
+    /// - invalid-coinbase-tx-version
+    /// - invalid-coinbase-prefix
+    /// - invalid-coinbase-tx-input-n-sequence
+    /// - invalid-coinbase-tx-outputs
+    /// - invalid-coinbase-tx-locktime
+    /// - invalid-merkle-path
     pub error_code: Str0255<'decoder>,
 }
 

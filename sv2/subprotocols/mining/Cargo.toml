@@ -1,6 +1,6 @@
 [package]
 name = "mining_sv2"
-version = "9.0.0"
+version = "10.0.0"
 authors = ["The Stratum V2 Developers"]
 edition = "2021"
 readme = "README.md"
@@ -20,4 +20,3 @@ binary_sv2 = { path = "../../binary-sv2", version = "^5.0.0" }
 [dev-dependencies]
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
-
