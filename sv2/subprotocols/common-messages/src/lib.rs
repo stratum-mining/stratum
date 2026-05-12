@@ -60,6 +60,12 @@ pub const CHANNEL_BIT_SETUP_CONNECTION_ERROR: bool = false;
 pub const CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED: bool = true;
 pub const CHANNEL_BIT_RECONNECT: bool = false;
 
+// Commonly used SetupConnectionError error_code values.
+pub const ERROR_CODE_SETUP_CONNECTION_UNSUPPORTED_FEATURE_FLAGS: &str = "unsupported-feature-flags";
+pub const ERROR_CODE_SETUP_CONNECTION_UNSUPPORTED_PROTOCOL: &str = "unsupported-protocol";
+pub const ERROR_CODE_SETUP_CONNECTION_MISSING_DECLARE_TX_DATA_FLAG: &str =
+    "missing-declare-tx-data-flag";
+
 #[cfg(feature = "prop_test")]
 impl ChannelEndpointChanged {
     pub fn from_gen(g: &mut Gen) -> Self {
