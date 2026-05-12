@@ -56,6 +56,10 @@ pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS: bool = false;
 pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR: bool = false;
 pub const CHANNEL_BIT_SUBMIT_SOLUTION: bool = false;
 
+// Commonly used RequestTransactionDataError error_code values.
+pub const ERROR_CODE_REQUEST_TRANSACTION_DATA_STALE_TEMPLATE_ID: &str = "stale-template-id";
+pub const ERROR_CODE_REQUEST_TRANSACTION_DATA_TEMPLATE_ID_NOT_FOUND: &str = "template-id-not-found";
+
 #[cfg(feature = "prop_test")]
 impl NewTemplate<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
