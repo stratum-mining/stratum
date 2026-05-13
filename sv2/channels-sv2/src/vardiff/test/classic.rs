@@ -2,7 +2,9 @@
 use crate::vardiff::test::{
     simulate_shares_and_wait, TEST_MIN_ALLOWED_HASHRATE, TEST_SHARES_PER_MINUTE,
 };
+use crate::vardiff::clock::MockClock;
 use crate::{target::hash_rate_to_target, vardiff::VardiffError, VardiffState};
+use std::sync::Arc;
 
 use super::{
     test_increment_and_reset_shares, test_try_vardiff_low_hashrate_decrease_target,
@@ -114,4 +116,69 @@ fn test_try_vardiff_hashrate_clamps_to_minimum() {
         "Stored hashrate should be clamped"
     );
     assert_eq!(vardiff.shares_since_last_update(), 0);
+}
+
+// Verifies that `VardiffState::new_with_clock` actually wires the provided clock
+// into the algorithm — i.e., timestamps come from the injected clock, not from
+// `SystemTime::now()`. This is the integration the simulation framework relies on.
+#[test]
+fn test_vardiff_state_reads_from_injected_clock() {
+    let clock = Arc::new(MockClock::new(1_700_000_000));
+    let mut vardiff = VardiffState::new_with_clock(TEST_MIN_ALLOWED_HASHRATE, clock.clone())
+        .expect("construction with mock clock should succeed");
+
+    // Initial timestamp must match the mock's starting value, not wall clock.
+    assert_eq!(vardiff.last_update_timestamp(), 1_700_000_000);
+
+    // Advancing the mock advances what the algorithm sees as "now."
+    // reset_counter reads the clock and stores the new timestamp.
+    clock.advance(60);
+    vardiff
+        .reset_counter()
+        .expect("reset_counter should succeed");
+    assert_eq!(vardiff.last_update_timestamp(), 1_700_000_060);
+
+    // A larger advance is also observable.
+    clock.advance(3600);
+    vardiff
+        .reset_counter()
+        .expect("reset_counter should succeed");
+    assert_eq!(vardiff.last_update_timestamp(), 1_700_003_660);
+}
+
+// Verifies that `try_vardiff`'s `delta_time` computation reads from the injected
+// clock. With the mock clock advanced by exactly 16s after reset, delta_time
+// crosses the `delta_time <= 15` early-return guard and the algorithm proceeds
+// to evaluate. With zero shares the algorithm hits the realized==0 branch and
+// returns a reduced hashrate (or clamps to minimum).
+#[test]
+fn test_try_vardiff_uses_injected_clock_for_delta_time() {
+    let clock = Arc::new(MockClock::new(0));
+    let initial_hashrate: f32 = 1_000_000.0;
+    let target = hash_rate_to_target(initial_hashrate.into(), TEST_SHARES_PER_MINUTE.into())
+        .unwrap()
+        .into();
+    let mut vardiff = VardiffState::new_with_clock(TEST_MIN_ALLOWED_HASHRATE, clock.clone())
+        .expect("construction with mock clock should succeed");
+
+    // Advance below the 15s early-return threshold; algorithm should return None.
+    clock.advance(10);
+    let result = vardiff
+        .try_vardiff(initial_hashrate, &target, TEST_SHARES_PER_MINUTE)
+        .expect("try_vardiff failed");
+    assert!(
+        result.is_none(),
+        "try_vardiff should early-return when delta_time <= 15s"
+    );
+
+    // Advance past the threshold; algorithm should now proceed and (with
+    // 0 shares observed) fire a downward adjustment via the realized==0 branch.
+    clock.advance(60); // total 70s elapsed since last reset
+    let result = vardiff
+        .try_vardiff(initial_hashrate, &target, TEST_SHARES_PER_MINUTE)
+        .expect("try_vardiff failed");
+    assert!(
+        result.is_some(),
+        "try_vardiff should fire with delta_time > 15s and realized rate == 0"
+    );
 }

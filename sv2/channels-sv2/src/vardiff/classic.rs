@@ -1,5 +1,7 @@
 use crate::target::hash_rate_from_target;
+use crate::vardiff::clock::{Clock, SystemClock};
 use bitcoin::Target;
+use std::sync::Arc;
 use tracing::debug;
 
 /// Default minimum hashrate (H/s) if not specified.
@@ -10,6 +12,11 @@ use super::{error::VardiffError, Vardiff};
 /// Represents the dynamic state for a variable difficulty (Vardiff) connection.
 ///
 /// Tracks performance and adjusts the mining target to achieve a desired share rate.
+///
+/// The state holds an `Arc<dyn Clock>` for reading "current time." In production
+/// this is a [`SystemClock`] and behavior is identical to reading
+/// `SystemTime::now()` directly. For simulation and high-throughput testing the
+/// clock can be replaced with a mock via [`VardiffState::new_with_clock`].
 #[derive(Debug)]
 pub struct VardiffState {
     /// Count of shares received since the last difficulty adjustment.
@@ -18,30 +25,49 @@ pub struct VardiffState {
     pub timestamp_of_last_update: u64,
     /// The lowest hashrate (H/s) the system will allow; values below this are clamped.
     pub min_allowed_hashrate: f32,
+    /// Source of "current time" for elapsed-time computations.
+    /// Defaults to [`SystemClock`]; replaceable via [`Self::new_with_clock`].
+    clock: Arc<dyn Clock>,
 }
 
 impl VardiffState {
-    /// Creates a new `VardiffState` with the default minimum hashrate.
-    ///
-    /// # Arguments
-    /// * `estimated_hashrate` - The initial hashrate estimate.
+    /// Creates a new `VardiffState` with the default minimum hashrate and the
+    /// system clock.
     pub fn new() -> Result<Self, VardiffError> {
         Self::new_with_min(DEFAULT_MIN_HASHRATE)
     }
 
-    /// Creates a new `VardiffState` with a specific minimum hashrate.
+    /// Creates a new `VardiffState` with a specific minimum hashrate and the
+    /// system clock.
     ///
     /// # Arguments
     /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
     pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        Self::new_with_clock(min_allowed_hashrate, Arc::new(SystemClock))
+    }
+
+    /// Creates a new `VardiffState` with a specific minimum hashrate and a
+    /// custom clock implementation.
+    ///
+    /// Primarily intended for simulation and testing, where a
+    /// [`MockClock`](super::clock::MockClock) lets the algorithm run against
+    /// controlled time. In production code prefer [`Self::new`] or
+    /// [`Self::new_with_min`].
+    ///
+    /// # Arguments
+    /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
+    /// * `clock` - The clock implementation to read current time from.
+    pub fn new_with_clock(
+        min_allowed_hashrate: f32,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, VardiffError> {
+        let timestamp_secs = clock.now_secs();
 
         Ok(VardiffState {
             shares_since_last_update: 0,
             timestamp_of_last_update: timestamp_secs,
             min_allowed_hashrate,
+            clock,
         })
     }
 
@@ -74,11 +100,17 @@ impl Vardiff for VardiffState {
         self.shares_since_last_update += 1;
     }
 
+    /// Bulk-adds `n` shares with a single saturating add. Overrides the default
+    /// trait implementation (which calls increment `n` times) for performance
+    /// — the simulation framework calls this with `n` values into the millions
+    /// during cold-start ticks, where the loop overhead would dominate.
+    fn add_shares(&mut self, n: u32) {
+        self.shares_since_last_update = self.shares_since_last_update.saturating_add(n);
+    }
+
     /// Resets the share counter and updates the timestamp to now.
     fn reset_counter(&mut self) -> Result<(), VardiffError> {
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let timestamp_secs = self.clock.now_secs();
         self.set_timestamp_of_last_update(timestamp_secs);
         self.set_shares_since_last_update(0);
         Ok(())
@@ -99,12 +131,8 @@ impl Vardiff for VardiffState {
         target: &Target,
         shares_per_minute: f32,
     ) -> Result<Option<f32>, VardiffError> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(VardiffError::TimeError)?
-            .as_secs();
-
-        let delta_time = now - self.timestamp_of_last_update;
+        let now = self.clock.now_secs();
+        let delta_time = now.saturating_sub(self.timestamp_of_last_update);
 
         if delta_time <= 15 {
             return Ok(None);

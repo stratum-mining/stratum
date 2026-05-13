@@ -3,9 +3,12 @@ use error::VardiffError;
 use std::fmt::Debug;
 
 pub mod classic;
+pub mod clock;
 pub mod error;
 #[cfg(test)]
 pub mod test;
+
+pub use clock::{Clock, MockClock, SystemClock};
 
 /// Trait defining the interface for a Vardiff implementation.
 pub trait Vardiff: Debug + Send + Sync {
@@ -20,6 +23,21 @@ pub trait Vardiff: Debug + Send + Sync {
 
     /// Increments the share count.
     fn increment_shares_since_last_update(&mut self);
+
+    /// Adds `n` shares to the counter in a single operation.
+    ///
+    /// Default implementation calls [`Self::increment_shares_since_last_update`]
+    /// `n` times, which is correct but `O(n)`. Implementors may override with
+    /// a saturating bulk add for `O(1)` performance at large `n`. The
+    /// simulation framework uses this method to bulk-add the Poisson-sampled
+    /// share count per tick, which can reach the millions during cold-start
+    /// scenarios — calling `increment` that many times would dominate
+    /// simulation runtime.
+    fn add_shares(&mut self, n: u32) {
+        for _ in 0..n {
+            self.increment_shares_since_last_update();
+        }
+    }
 
     /// Resets share count and timestamp for a new cycle.
     fn reset_counter(&mut self) -> Result<(), VardiffError>;
