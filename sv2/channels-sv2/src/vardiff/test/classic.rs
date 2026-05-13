@@ -1,8 +1,8 @@
+use crate::vardiff::clock::MockClock;
 /// Classic implementation test suite
 use crate::vardiff::test::{
     simulate_shares_and_wait, TEST_MIN_ALLOWED_HASHRATE, TEST_SHARES_PER_MINUTE,
 };
-use crate::vardiff::clock::MockClock;
 use crate::{target::hash_rate_to_target, vardiff::VardiffError, VardiffState};
 use std::sync::Arc;
 

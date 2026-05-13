@@ -32,8 +32,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use vardiff_sim::baseline::{
-    default_cells, run_baseline, serialize_markdown, serialize_toml,
-    DEFAULT_BASELINE_SEED, DEFAULT_TRIAL_COUNT,
+    default_cells, run_baseline, serialize_markdown, serialize_toml, DEFAULT_BASELINE_SEED,
+    DEFAULT_TRIAL_COUNT,
 };
 
 fn main() -> std::io::Result<()> {

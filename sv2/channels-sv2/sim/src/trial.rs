@@ -139,8 +139,7 @@ pub fn run_trial<V: Vardiff>(
 
     let mut rng = XorShift64::new(seed);
     let mut current_hashrate = config.initial_hashrate;
-    let mut current_target =
-        hashrate_to_target_safe(current_hashrate, config.shares_per_minute);
+    let mut current_target = hashrate_to_target_safe(current_hashrate, config.shares_per_minute);
     let mut fires: Vec<FireEvent> = Vec::new();
 
     let mut last_tick_at: u64 = 0;
@@ -200,8 +199,11 @@ pub fn run_trial<V: Vardiff>(
 /// realistic trials. Share rate is floored at 0.001 spm to prevent division
 /// by zero in the underlying conversion.
 fn hashrate_to_target_safe(hashrate: f32, shares_per_minute: f32) -> Target {
-    hash_rate_to_target(hashrate.max(1.0) as f64, shares_per_minute.max(0.001) as f64)
-        .expect("hash_rate_to_target with positive inputs should not fail")
+    hash_rate_to_target(
+        hashrate.max(1.0) as f64,
+        shares_per_minute.max(0.001) as f64,
+    )
+    .expect("hash_rate_to_target with positive inputs should not fail")
 }
 
 #[cfg(test)]
@@ -263,7 +265,10 @@ mod tests {
                 .iter()
                 .zip(t2.fires.iter())
                 .all(|(a, b)| a.at_secs == b.at_secs);
-        assert!(!same, "Two seeds produced identical fire timelines; RNG broken?");
+        assert!(
+            !same,
+            "Two seeds produced identical fire timelines; RNG broken?"
+        );
     }
 
     #[test]
@@ -278,11 +283,7 @@ mod tests {
         // Halve hashrate at 15 min — algorithm should respond.
         let schedule = HashrateSchedule::step(1.0e15, 5.0e14, 15 * 60);
         let trial = run_trial(vardiff, clock, config, &schedule, 9001);
-        let post_step_fires = trial
-            .fires
-            .iter()
-            .filter(|f| f.at_secs > 15 * 60)
-            .count();
+        let post_step_fires = trial.fires.iter().filter(|f| f.at_secs > 15 * 60).count();
         assert!(
             post_step_fires >= 1,
             "Expected at least one fire after 50% load drop at 15 min; got {} post-step fires (total {})",

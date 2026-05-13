@@ -27,8 +27,24 @@ pub struct VardiffState {
     pub min_allowed_hashrate: f32,
     /// Source of "current time" for elapsed-time computations.
     /// Defaults to [`SystemClock`]; replaceable via [`Self::new_with_clock`].
-    clock: Arc<dyn Clock>,
+    ///
+    /// Public so downstream consumers can continue to construct `VardiffState`
+    /// via struct literal (e.g., custom impl Clock + Arc::new). The
+    /// constructors are still the recommended path.
+    pub clock: Arc<dyn Clock>,
 }
+
+// `Arc<dyn Clock>` does not auto-implement `UnwindSafe` / `RefUnwindSafe`
+// because trait objects don't propagate auto-traits unless the bounds are
+// included in the trait-object type. We assert them explicitly here:
+// `VardiffState`'s scalar fields are trivially unwind-safe, and the contract
+// of the `Clock` trait (a single `&self -> u64` read) does not introduce any
+// interior mutability that could leave the type inconsistent after a panic.
+//
+// This preserves the auto-trait impls that `VardiffState` had prior to the
+// `Clock` injection refactor — required for semver compatibility.
+impl std::panic::UnwindSafe for VardiffState {}
+impl std::panic::RefUnwindSafe for VardiffState {}
 
 impl VardiffState {
     /// Creates a new `VardiffState` with the default minimum hashrate and the

@@ -140,7 +140,11 @@ impl Cell {
     /// Stable, machine-readable identifier suitable for use as a key in the
     /// TOML output, in the form `spm_<RATE>.<scenario_key>`.
     pub fn key(&self) -> String {
-        format!("spm_{}.{}", self.shares_per_minute as u32, self.scenario.key())
+        format!(
+            "spm_{}.{}",
+            self.shares_per_minute as u32,
+            self.scenario.key()
+        )
     }
 }
 
@@ -181,12 +185,7 @@ pub struct CellResult {
 
 /// Runs a single cell: builds the scenario, runs `trial_count` trials with
 /// deterministic seeds, computes metric distributions, returns a `CellResult`.
-pub fn run_cell(
-    cell: &Cell,
-    trial_count: usize,
-    base_seed: u64,
-    cell_index: u64,
-) -> CellResult {
+pub fn run_cell(cell: &Cell, trial_count: usize, base_seed: u64, cell_index: u64) -> CellResult {
     let (config, schedule) = cell.scenario.build(cell.shares_per_minute);
 
     let mut trials: Vec<Trial> = Vec::with_capacity(trial_count);
@@ -335,16 +334,56 @@ pub fn serialize_toml(
         ));
         out.push_str(&format!("scenario = \"{}\"\n", result.scenario_key));
         out.push_str(&format!("convergence_rate = {}\n", result.convergence_rate));
-        write_opt(&mut out, "convergence_p10_secs", result.convergence_p10_secs);
-        write_opt(&mut out, "convergence_p50_secs", result.convergence_p50_secs);
-        write_opt(&mut out, "convergence_p90_secs", result.convergence_p90_secs);
-        write_opt(&mut out, "convergence_p95_secs", result.convergence_p95_secs);
-        write_opt(&mut out, "convergence_p99_secs", result.convergence_p99_secs);
-        write_opt(&mut out, "settled_accuracy_p10", result.settled_accuracy_p10);
-        write_opt(&mut out, "settled_accuracy_p50", result.settled_accuracy_p50);
-        write_opt(&mut out, "settled_accuracy_p90", result.settled_accuracy_p90);
-        write_opt(&mut out, "settled_accuracy_p95", result.settled_accuracy_p95);
-        write_opt(&mut out, "settled_accuracy_p99", result.settled_accuracy_p99);
+        write_opt(
+            &mut out,
+            "convergence_p10_secs",
+            result.convergence_p10_secs,
+        );
+        write_opt(
+            &mut out,
+            "convergence_p50_secs",
+            result.convergence_p50_secs,
+        );
+        write_opt(
+            &mut out,
+            "convergence_p90_secs",
+            result.convergence_p90_secs,
+        );
+        write_opt(
+            &mut out,
+            "convergence_p95_secs",
+            result.convergence_p95_secs,
+        );
+        write_opt(
+            &mut out,
+            "convergence_p99_secs",
+            result.convergence_p99_secs,
+        );
+        write_opt(
+            &mut out,
+            "settled_accuracy_p10",
+            result.settled_accuracy_p10,
+        );
+        write_opt(
+            &mut out,
+            "settled_accuracy_p50",
+            result.settled_accuracy_p50,
+        );
+        write_opt(
+            &mut out,
+            "settled_accuracy_p90",
+            result.settled_accuracy_p90,
+        );
+        write_opt(
+            &mut out,
+            "settled_accuracy_p95",
+            result.settled_accuracy_p95,
+        );
+        write_opt(
+            &mut out,
+            "settled_accuracy_p99",
+            result.settled_accuracy_p99,
+        );
         write_opt(&mut out, "jitter_p50_per_min", result.jitter_p50_per_min);
         write_opt(&mut out, "jitter_p90_per_min", result.jitter_p90_per_min);
         write_opt(&mut out, "jitter_p95_per_min", result.jitter_p95_per_min);
@@ -513,16 +552,17 @@ pub fn serialize_markdown(
 }
 
 fn unique_rates(results: &[CellResult]) -> Vec<u32> {
-    let mut rates: Vec<u32> = results
-        .iter()
-        .map(|r| r.shares_per_minute as u32)
-        .collect();
+    let mut rates: Vec<u32> = results.iter().map(|r| r.shares_per_minute as u32).collect();
     rates.sort_unstable();
     rates.dedup();
     rates
 }
 
-fn find_cell<'a>(results: &'a [CellResult], spm: u32, scenario_key: &str) -> Option<&'a CellResult> {
+fn find_cell<'a>(
+    results: &'a [CellResult],
+    spm: u32,
+    scenario_key: &str,
+) -> Option<&'a CellResult> {
     results
         .iter()
         .find(|r| r.shares_per_minute as u32 == spm && r.scenario_key == scenario_key)

@@ -193,7 +193,10 @@ pub fn settled_accuracy_for_trial(trial: &Trial) -> Option<f64> {
 /// Distribution of settled accuracy errors across a set of trials. Trials with
 /// non-positive true hashrate are silently dropped.
 pub fn settled_accuracy_distribution(trials: &[Trial]) -> Distribution {
-    let values: Vec<f64> = trials.iter().filter_map(settled_accuracy_for_trial).collect();
+    let values: Vec<f64> = trials
+        .iter()
+        .filter_map(settled_accuracy_for_trial)
+        .collect();
     Distribution::new(values)
 }
 
@@ -247,7 +250,14 @@ pub fn jitter_distribution(
 ) -> Distribution {
     let values: Vec<f64> = trials
         .iter()
-        .filter_map(|t| jitter_for_trial(t, quiet_window_secs, settle_buffer_secs, min_settled_window_secs))
+        .filter_map(|t| {
+            jitter_for_trial(
+                t,
+                quiet_window_secs,
+                settle_buffer_secs,
+                min_settled_window_secs,
+            )
+        })
         .collect();
     Distribution::new(values)
 }
@@ -270,8 +280,10 @@ pub fn reaction_time_for_trial(
     react_window_secs: u64,
 ) -> Option<u64> {
     let window_end = event_at_secs.saturating_add(react_window_secs);
-    let first_post_event_fire: Option<&FireEvent> =
-        trial.fires.iter().find(|f| f.at_secs > event_at_secs && f.at_secs <= window_end);
+    let first_post_event_fire: Option<&FireEvent> = trial
+        .fires
+        .iter()
+        .find(|f| f.at_secs > event_at_secs && f.at_secs <= window_end);
     first_post_event_fire.map(|f| f.at_secs - event_at_secs)
 }
 
@@ -311,11 +323,7 @@ pub fn reaction_time_distribution(
 /// Identical to the `reaction_rate` component of [`reaction_time_distribution`];
 /// kept as a separate function because it's the metric the baseline tables
 /// report and the assertion policy operates on.
-pub fn reaction_sensitivity(
-    trials: &[Trial],
-    event_at_secs: u64,
-    react_window_secs: u64,
-) -> f64 {
+pub fn reaction_sensitivity(trials: &[Trial], event_at_secs: u64, react_window_secs: u64) -> f64 {
     let (rate, _) = reaction_time_distribution(trials, event_at_secs, react_window_secs);
     rate
 }

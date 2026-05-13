@@ -138,9 +138,8 @@ pub fn parse_baseline_toml(input: &str) -> Result<BaselineDoc, ParseError> {
             .split_once('=')
             .ok_or_else(|| ParseError::MalformedLine(line_no + 1, line.to_string()))?;
         let key = key.trim().to_string();
-        let value = parse_value(raw_value.trim()).ok_or_else(|| {
-            ParseError::MalformedValue(line_no + 1, raw_value.trim().to_string())
-        })?;
+        let value = parse_value(raw_value.trim())
+            .ok_or_else(|| ParseError::MalformedValue(line_no + 1, raw_value.trim().to_string()))?;
         match current_section.as_deref() {
             Some("meta") => {
                 meta_kv.insert(key, value);
@@ -490,7 +489,10 @@ fn compare_max_mul(
                     metric: metric.to_string(),
                     baseline: b,
                     current: c,
-                    tolerance: format!("{} (baseline was 0; current must be ≤ 0.01)", tolerance_desc),
+                    tolerance: format!(
+                        "{} (baseline was 0; current must be ≤ 0.01)",
+                        tolerance_desc
+                    ),
                 });
             }
             return;
@@ -700,7 +702,10 @@ convergence_rate = 0.95
         if !report.is_clean() {
             let mut msg = String::new();
             if !report.failures.is_empty() {
-                msg.push_str(&format!("\n{} tolerance failures:\n", report.failures.len()));
+                msg.push_str(&format!(
+                    "\n{} tolerance failures:\n",
+                    report.failures.len()
+                ));
                 for d in &report.failures {
                     msg.push_str(&format!("  {}\n", d));
                 }

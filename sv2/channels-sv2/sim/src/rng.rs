@@ -25,7 +25,11 @@ impl XorShift64 {
     /// a non-zero constant since XorShift cannot have a zero state.
     pub fn new(seed: u64) -> Self {
         Self {
-            state: if seed == 0 { 0xDEAD_BEEF_CAFE_F00D } else { seed },
+            state: if seed == 0 {
+                0xDEAD_BEEF_CAFE_F00D
+            } else {
+                seed
+            },
         }
     }
 
@@ -46,8 +50,8 @@ impl XorShift64 {
     pub fn next_f64(&mut self) -> f64 {
         // Take 53 bits of randomness (f64 mantissa precision).
         let bits = self.next_u64() >> 11; // 53 bits, range [0, 2^53)
-        // Map [0, 2^53) → (0, 1): add 1 to numerator to exclude 0, divide by
-        // (2^53 + 1) to keep result strictly < 1.
+                                          // Map [0, 2^53) → (0, 1): add 1 to numerator to exclude 0, divide by
+                                          // (2^53 + 1) to keep result strictly < 1.
         ((bits as f64) + 1.0) / ((1u64 << 53) as f64 + 1.0)
     }
 }
@@ -167,7 +171,10 @@ mod tests {
         let mut rng = XorShift64::new(7);
         let rate = 0.5; // Exp(0.5) has mean 2.0
         let n = 100_000;
-        let mean: f64 = (0..n).map(|_| sample_exponential(&mut rng, rate)).sum::<f64>() / n as f64;
+        let mean: f64 = (0..n)
+            .map(|_| sample_exponential(&mut rng, rate))
+            .sum::<f64>()
+            / n as f64;
         // Standard error of mean for Exp(0.5) over n samples is 2 / sqrt(n) ≈ 0.0063.
         // 6-sigma envelope is ±0.04 — very forgiving.
         assert!(
@@ -213,7 +220,9 @@ mod tests {
         // Normal-approximation path: λ = 1000.0
         let mut rng = XorShift64::new(42);
         let n = 10_000;
-        let sum: u64 = (0..n).map(|_| sample_poisson(&mut rng, 1000.0) as u64).sum();
+        let sum: u64 = (0..n)
+            .map(|_| sample_poisson(&mut rng, 1000.0) as u64)
+            .sum();
         let mean = sum as f64 / n as f64;
         // SE of mean for Poisson(1000) over n=10k samples is sqrt(1000/10000) ≈ 0.32.
         // 5-sigma envelope is ±1.6.
