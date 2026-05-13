@@ -1,0 +1,22 @@
+# `[workspace]` declaration intentionally marks this crate as the root of a
+# separate workspace, isolating its lockfile from the parent stratum workspace.
+# The parent's `Cargo.lock` is v4 and the parent's pinned 1.75 toolchain cannot
+# update it in-place; adding members triggers an update and breaks the build.
+# Keeping `vardiff_sim` in its own workspace sidesteps the issue and lets the
+# sim crate be built and tested via `cd sv2/channels-sv2/sim && cargo test`.
+[workspace]
+
+[package]
+name = "vardiff_sim"
+version = "0.1.0"
+authors = ["The Stratum V2 Developers"]
+edition = "2021"
+description = "Vardiff algorithm simulation framework for behavioral characterization and CI regression testing"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+homepage = "https://stratumprotocol.org"
+keywords = ["stratum", "mining", "bitcoin", "protocol", "vardiff"]
+
+[dependencies]
+channels_sv2 = { path = ".." }
+bitcoin = "0.32.5"
