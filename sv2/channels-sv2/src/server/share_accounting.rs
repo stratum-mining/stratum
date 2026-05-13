@@ -42,26 +42,32 @@ pub enum ShareValidationResult {
 }
 
 /// The error variants that can occur during share validation.
+///
+/// Variants carrying `&'static str` are intended to be used as `error_code` values in
+/// [`SubmitSharesError`](mining_sv2::SubmitSharesError).
+///
+/// Variants without `&'static str` SHOULD lead to a client disconnection or application
+/// shutdown.
 #[derive(Debug)]
 pub enum ShareValidationError {
     /// The share is invalid for unspecified reasons.
-    Invalid,
+    Invalid(&'static str),
     /// The share is stale due to chain tip changes.
-    Stale,
+    Stale(&'static str),
     /// The submitted job ID does not refer to any known job for this channel.
-    InvalidJobId,
+    InvalidJobId(&'static str),
     /// The share does not meet the required target difficulty.
-    DoesNotMeetTarget,
+    DoesNotMeetTarget(&'static str),
     /// The submitted share attempts version rolling when not allowed.
-    VersionRollingNotAllowed,
+    VersionRollingNotAllowed(&'static str),
     /// The share is a duplicate of a previously accepted share.
-    DuplicateShare,
+    DuplicateShare(&'static str),
+    /// The share extranonce size is different from the channel's rollable extranonce size.
+    BadExtranonceSize(&'static str),
     /// The coinbase transaction was invalid or malformed.
     InvalidCoinbase,
     /// No chain tip is set for the channel (required for share validation).
     NoChainTip,
-    /// The share extranonce size is different from the channel's rollable extranonce size.
-    BadExtranonceSize,
 }
 
 /// The state of share validation in the context of some specific channel (either Extended or

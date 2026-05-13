@@ -21,25 +21,31 @@ pub enum ShareValidationResult {
 
 /// Possible errors encountered during share validation.
 ///
+/// Variants carrying `&'static str` are intended to be used as `error_code` values in
+/// [`SubmitSharesError`](mining_sv2::SubmitSharesError).
+///
+/// Variants without `&'static str` SHOULD lead to a client disconnection or application
+/// shutdown.
+///
 /// - `Invalid`: The share is malformed or not valid.
 /// - `Stale`: The share refers to an outdated job or block tip.
 /// - `InvalidJobId`: The job ID referenced by the share is not recognized.
 /// - `DoesNotMeetTarget`: The share does not meet the required target difficulty.
 /// - `VersionRollingNotAllowed`: Version rolling is not permitted for this channel/job.
 /// - `DuplicateShare`: The share has already been submitted (detected by hash).
-/// - `NoChainTip`: The chain tip is unknown or unavailable.
 /// - `BadExtranonceSize`: The share extranonce size is different from the channel's rollable
 ///   extranonce size.
+/// - `NoChainTip`: The chain tip is unknown or unavailable.
 #[derive(Debug)]
 pub enum ShareValidationError {
-    Invalid,
-    Stale,
-    InvalidJobId,
-    DoesNotMeetTarget,
-    VersionRollingNotAllowed,
-    DuplicateShare,
+    Invalid(&'static str),
+    Stale(&'static str),
+    InvalidJobId(&'static str),
+    DoesNotMeetTarget(&'static str),
+    VersionRollingNotAllowed(&'static str),
+    DuplicateShare(&'static str),
+    BadExtranonceSize(&'static str),
     NoChainTip,
-    BadExtranonceSize,
 }
 
 /// Tracks share validation and acceptance state for a specific channel (Extended or Standard).
