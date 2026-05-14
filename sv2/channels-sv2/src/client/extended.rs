@@ -30,6 +30,10 @@ use bitcoin::{
 use mining_sv2::{
     NewExtendedMiningJob, SetCustomMiningJob, SetCustomMiningJobSuccess,
     SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
+    ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+    ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
 };
 use tracing::debug;
 
@@ -502,7 +506,9 @@ impl<'a> ExtendedChannel<'a> {
         let is_stale_job = self.stale_jobs.contains_key(&job_id);
 
         if is_stale_job {
-            return Err(ShareValidationError::Stale);
+            return Err(ShareValidationError::Stale(
+                ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+            ));
         }
 
         let job = if is_active_job {
@@ -510,12 +516,16 @@ impl<'a> ExtendedChannel<'a> {
         } else if is_past_job {
             self.past_jobs.get(&job_id).expect("past job must exist")
         } else {
-            return Err(ShareValidationError::InvalidJobId);
+            return Err(ShareValidationError::InvalidJobId(
+                ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+            ));
         };
 
         let extranonce_size = share.extranonce.inner_as_ref().len();
         if extranonce_size != self.rollable_extranonce_size as usize {
-            return Err(ShareValidationError::BadExtranonceSize);
+            return Err(ShareValidationError::BadExtranonceSize(
+                ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE,
+            ));
         }
 
         let mut full_extranonce = vec![];
@@ -533,7 +543,9 @@ impl<'a> ExtendedChannel<'a> {
             full_extranonce.as_ref(),
             &job.0.merkle_path.inner_as_ref(),
         )
-        .ok_or(ShareValidationError::Invalid)?
+        .ok_or(ShareValidationError::Invalid(
+            ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
+        ))?
         .try_into()
         .expect("merkle root must be 32 bytes");
 
@@ -551,7 +563,9 @@ impl<'a> ExtendedChannel<'a> {
             // This is done by checking if the version & 0x1fffe000 == 0
             // ref: https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki
             if (share.version & 0x1fffe000) != 0 {
-                return Err(ShareValidationError::VersionRollingNotAllowed);
+                return Err(ShareValidationError::VersionRollingNotAllowed(
+                    ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
+                ));
             }
         }
 
@@ -591,7 +605,9 @@ impl<'a> ExtendedChannel<'a> {
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
-                return Err(ShareValidationError::DuplicateShare);
+                return Err(ShareValidationError::DuplicateShare(
+                    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
+                ));
             }
             self.share_accounting
                 .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
@@ -605,7 +621,9 @@ impl<'a> ExtendedChannel<'a> {
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
-                return Err(ShareValidationError::DuplicateShare);
+                return Err(ShareValidationError::DuplicateShare(
+                    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
+                ));
             }
 
             self.share_accounting
@@ -617,7 +635,9 @@ impl<'a> ExtendedChannel<'a> {
             return Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()));
         }
 
-        Err(ShareValidationError::DoesNotMeetTarget)
+        Err(ShareValidationError::DoesNotMeetTarget(
+            ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+        ))
     }
 }
 
@@ -896,7 +916,7 @@ mod tests {
         let res = channel.validate_share(share_valid_block);
         assert!(matches!(
             res.unwrap_err(),
-            ShareValidationError::DuplicateShare
+            ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
     }
@@ -992,7 +1012,7 @@ mod tests {
 
         assert!(matches!(
             res.unwrap_err(),
-            ShareValidationError::DoesNotMeetTarget
+            ShareValidationError::DoesNotMeetTarget(_)
         ));
     }
 
@@ -1103,7 +1123,7 @@ mod tests {
 
         assert!(matches!(
             res.unwrap_err(),
-            ShareValidationError::DuplicateShare
+            ShareValidationError::DuplicateShare(_)
         ));
     }
 }

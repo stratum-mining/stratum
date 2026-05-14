@@ -88,6 +88,7 @@ pub struct RequestTransactionDataError<'decoder> {
     /// Reason why no transaction data has been provided.
     ///
     /// Possible error codes:
+    /// - stale-template-id
     /// - template-id-not-found
     pub error_code: Str0255<'decoder>,
 }

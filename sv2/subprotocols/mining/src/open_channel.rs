@@ -225,8 +225,13 @@ pub struct OpenMiningChannelError<'decoder> {
     ///
     /// Possible error codes:
     ///
-    /// - ‘unknown-user’
-    /// - ‘max-target-out-of-range’
+    /// - standard-channels-not-supported-for-custom-work
+    /// - invalid-user-identity
+    /// - invalid-nominal-hashrate
+    /// - min-extranonce-size-too-large
+    /// - max-target-out-of-range
+    /// - unsupported-min-extranonce-size
+    /// - unknown-user
     pub error_code: Str0255<'decoder>,
 }
 
@@ -245,13 +250,16 @@ impl OpenMiningChannelError<'_> {
     pub fn new_max_target_out_of_range(request_id: u32) -> Self {
         Self {
             request_id,
-            error_code: "max-target-out-of-range".to_string().try_into().unwrap(),
+            error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_MAX_TARGET_OUT_OF_RANGE
+                .to_string()
+                .try_into()
+                .unwrap(),
         }
     }
     pub fn unsupported_extranonce_size(request_id: u32) -> Self {
         Self {
             request_id,
-            error_code: "unsupported-min-extranonce-size"
+            error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_UNSUPPORTED_MIN_EXTRANONCE_SIZE
                 .to_string()
                 .try_into()
                 .unwrap(),
@@ -260,7 +268,10 @@ impl OpenMiningChannelError<'_> {
     pub fn new_unknown_user(request_id: u32) -> Self {
         Self {
             request_id,
-            error_code: "unknown-user".to_string().try_into().unwrap(),
+            error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_UNKNOWN_USER
+                .to_string()
+                .try_into()
+                .unwrap(),
         }
     }
 }

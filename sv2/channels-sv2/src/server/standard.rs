@@ -57,7 +57,12 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version as TxVersion},
     CompactTarget, Sequence, Target,
 };
-use mining_sv2::SubmitSharesStandard;
+use mining_sv2::{
+    SubmitSharesStandard, ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
+    ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW, ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+    ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE,
+};
 use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
@@ -194,7 +199,9 @@ where
             match hash_rate_to_target(nominal_hashrate.into(), expected_share_per_minute.into()) {
                 Ok(target_u256) => target_u256,
                 Err(_) => {
-                    return Err(StandardChannelError::InvalidNominalHashrate);
+                    return Err(StandardChannelError::OpenChannelInvalidNominalHashrate(
+                        ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
+                    ));
                 }
             };
 
@@ -314,7 +321,7 @@ where
     /// If the recomputed target is easier than the effective `requested_max_target`,
     /// the target is clamped to `requested_max_target`.
     ///
-    /// Returns [`StandardChannelError::InvalidNominalHashrate`] when
+    /// Returns [`StandardChannelError::UpdateChannelInvalidNominalHashrate`] when
     /// `nominal_hashrate` cannot be converted into a valid target.
     ///
     /// This can be used in two scenarios:
@@ -334,7 +341,9 @@ where
         ) {
             Ok(target) => target,
             Err(_) => {
-                return Err(StandardChannelError::InvalidNominalHashrate);
+                return Err(StandardChannelError::UpdateChannelInvalidNominalHashrate(
+                    ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE,
+                ));
             }
         };
 
@@ -582,12 +591,16 @@ where
         let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
-            return Err(ShareValidationError::Stale);
+            return Err(ShareValidationError::Stale(
+                ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+            ));
         }
 
         // if job_id is not active, past or stale, return error
         if !is_active_job && !is_past_job && !is_stale_job {
-            return Err(ShareValidationError::InvalidJobId);
+            return Err(ShareValidationError::InvalidJobId(
+                ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+            ));
         }
 
         let job = if is_active_job {
@@ -657,7 +670,9 @@ where
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
-                return Err(ShareValidationError::DuplicateShare);
+                return Err(ShareValidationError::DuplicateShare(
+                    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
+                ));
             }
             self.share_accounting.update_share_accounting(
                 job_target.difficulty_float(),
@@ -708,7 +723,9 @@ where
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
-                return Err(ShareValidationError::DuplicateShare);
+                return Err(ShareValidationError::DuplicateShare(
+                    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
+                ));
             }
 
             self.share_accounting.update_share_accounting(
@@ -722,7 +739,9 @@ where
 
             Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {
-            Err(ShareValidationError::DoesNotMeetTarget)
+            Err(ShareValidationError::DoesNotMeetTarget(
+                ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+            ))
         }
     }
 }
@@ -1096,7 +1115,7 @@ mod tests {
         let res = standard_channel.validate_share(share_valid_block);
         assert!(matches!(
             res.unwrap_err(),
-            ShareValidationError::DuplicateShare
+            ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(
             standard_channel.get_share_accounting().get_blocks_found(),
@@ -1209,7 +1228,7 @@ mod tests {
 
         assert!(matches!(
             res.unwrap_err(),
-            ShareValidationError::DoesNotMeetTarget
+            ShareValidationError::DoesNotMeetTarget(_)
         ));
     }
 
@@ -1414,7 +1433,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(StandardChannelError::InvalidNominalHashrate)
+            Err(StandardChannelError::UpdateChannelInvalidNominalHashrate(_))
         ));
 
         // Create a not so permissive max_target so we can test a target that exceeds it

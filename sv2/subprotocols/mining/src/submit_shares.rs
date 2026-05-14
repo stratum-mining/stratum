@@ -128,9 +128,13 @@ pub struct SubmitSharesError<'decoder> {
     /// Possible error codes:
     ///
     /// - invalid-channel-id
+    /// - invalid-share
     /// - stale-share
     /// - difficulty-too-low
     /// - invalid-job-id
+    /// - duplicate-share
+    /// - bad-extranonce-size
+    /// - version-rolling-not-allowed
     pub error_code: Str0255<'decoder>,
 }
 
@@ -143,20 +147,5 @@ impl fmt::Display for SubmitSharesError<'_> {
             self.sequence_number,
             self.error_code.as_utf8_or_hex()
         )
-    }
-}
-
-impl SubmitSharesError<'_> {
-    pub fn invalid_channel_error_code() -> &'static str {
-        "invalid-channel-id"
-    }
-    pub fn stale_share_error_code() -> &'static str {
-        "stale-share"
-    }
-    pub fn difficulty_too_low_error_code() -> &'static str {
-        "difficulty-too-low"
-    }
-    pub fn invalid_job_id_error_code() -> &'static str {
-        "invalid-job-id"
     }
 }

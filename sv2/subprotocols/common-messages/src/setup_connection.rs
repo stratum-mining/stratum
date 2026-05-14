@@ -256,7 +256,7 @@ pub struct SetupConnectionError<'decoder> {
     /// Possible error codes:
     /// - unsupported-feature-flags
     /// - unsupported-protocol
-    /// - protocol-version-mismatch
+    /// - missing-declare-tx-data-flag
     pub error_code: Str0255<'decoder>,
 }
 
