@@ -11,15 +11,16 @@
 //!   success, batch acknowledgment, and block discovery.
 //! - **Share Validation Error**: Enumerates possible failure reasons when validating a share.
 //! - **Share Accounting**: Tracks per-channel share statistics, acknowledges batches, detects
-//!   duplicate shares, and maintains best difficulty found.
+//!   duplicate shares, tracks rejected shares, and maintains best difficulty found.
 //!
 //! ## Usage
 //!
 //! Intended for use within mining server implementations that process SV2 share submissions and
-//! issue `SubmitShares.Success` messages. Not intended for use by mining clients.
+//! issue `SubmitShares.Success` or `SubmitShares.Error` messages. Not intended for use by mining
+//! clients.
 
 use bitcoin::hashes::sha256d::Hash;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// The outcome of share validation, from the perspective of a Mining Server.
 ///
@@ -74,11 +75,12 @@ pub enum ShareValidationError {
 /// Standard).
 ///
 /// This struct manages per-channel share statistics, batch acknowledgment, duplicate detection,
-/// and difficulty tracking. Only meant for usage on Mining Servers.
+/// rejected-share accounting, and difficulty tracking. Only meant for usage on Mining Servers.
 #[derive(Clone, Debug)]
 pub struct ShareAccounting {
     last_share_sequence_number: u32,
     shares_accepted: u32,
+    rejected_shares: HashMap<String, u32>,
     share_work_sum: f64,
     last_batch_accepted: u32,
     last_batch_work_sum: f64,
@@ -97,6 +99,7 @@ impl ShareAccounting {
         Self {
             last_share_sequence_number: 0,
             shares_accepted: 0,
+            rejected_shares: HashMap::new(),
             share_work_sum: 0.0,
             last_batch_accepted: 0,
             last_batch_work_sum: 0.0,
@@ -105,6 +108,19 @@ impl ShareAccounting {
             seen_shares: HashSet::new(),
             best_diff: 0.0,
             blocks_found: 0,
+        }
+    }
+
+    /// Increments rejected-share accounting for a share-validation `error_code`.
+    ///
+    /// Intended to be called by channel validation paths when returning a
+    /// [`ShareValidationError`] variant that carries an `error_code`.
+    /// Validation errors that do not map to `SubmitShares.Error` should not be counted here.
+    pub fn increment_rejected_shares(&mut self, error_code: &str) {
+        if let Some(count) = self.rejected_shares.get_mut(error_code) {
+            *count += 1;
+        } else {
+            self.rejected_shares.insert(error_code.to_string(), 1);
         }
     }
 
@@ -166,6 +182,16 @@ impl ShareAccounting {
         self.shares_accepted
     }
 
+    /// Returns a reference to the map of rejected shares by error code.
+    pub fn get_rejected_shares(&self) -> &HashMap<String, u32> {
+        &self.rejected_shares
+    }
+
+    /// Returns the total number of rejected shares on this channel.
+    pub fn get_rejected_shares_total(&self) -> u32 {
+        self.rejected_shares.values().copied().sum()
+    }
+
     /// Returns the sum of work contributed by all accepted shares.
     ///
     /// Note: this is not what we use for `SubmitShares.Success` messages.
@@ -218,5 +244,35 @@ impl ShareAccounting {
     /// Returns the total number of blocks found on this channel.
     pub fn get_blocks_found(&self) -> u32 {
         self.blocks_found
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ShareAccounting;
+
+    #[test]
+    fn rejected_shares_are_tracked_by_error_code() {
+        let mut accounting = ShareAccounting::new(10);
+
+        accounting.increment_rejected_shares("difficulty-too-low");
+        accounting.increment_rejected_shares("duplicate-share");
+        accounting.increment_rejected_shares("difficulty-too-low");
+
+        assert_eq!(accounting.get_rejected_shares_total(), 3);
+        assert_eq!(
+            accounting
+                .get_rejected_shares()
+                .get("difficulty-too-low")
+                .copied(),
+            Some(2)
+        );
+        assert_eq!(
+            accounting
+                .get_rejected_shares()
+                .get("duplicate-share")
+                .copied(),
+            Some(1)
+        );
     }
 }

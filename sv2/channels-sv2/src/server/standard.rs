@@ -591,6 +591,8 @@ where
         let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_STALE_SHARE);
             return Err(ShareValidationError::Stale(
                 ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
             ));
@@ -598,6 +600,8 @@ where
 
         // if job_id is not active, past or stale, return error
         if !is_active_job && !is_past_job && !is_stale_job {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID);
             return Err(ShareValidationError::InvalidJobId(
                 ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
             ));
@@ -670,6 +674,8 @@ where
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
+                self.share_accounting
+                    .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE);
                 return Err(ShareValidationError::DuplicateShare(
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
@@ -723,6 +729,8 @@ where
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
+                self.share_accounting
+                    .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE);
                 return Err(ShareValidationError::DuplicateShare(
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
@@ -739,6 +747,8 @@ where
 
             Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW);
             Err(ShareValidationError::DoesNotMeetTarget(
                 ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
             ))
@@ -763,7 +773,9 @@ mod tests {
     };
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
-    use mining_sv2::{NewMiningJob, SubmitSharesStandard};
+    use mining_sv2::{
+        NewMiningJob, SubmitSharesStandard, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+    };
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
 
@@ -1230,6 +1242,13 @@ mod tests {
             res.unwrap_err(),
             ShareValidationError::DoesNotMeetTarget(_)
         ));
+        assert_eq!(
+            standard_channel
+                .get_share_accounting()
+                .get_rejected_shares()
+                .get(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW),
+            Some(&1)
+        );
     }
 
     #[test]
