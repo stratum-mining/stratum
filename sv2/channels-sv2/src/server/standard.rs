@@ -524,9 +524,6 @@ where
         &mut self,
         set_new_prev_hash: SetNewPrevHash<'a>,
     ) -> Result<(), StandardChannelError> {
-        // clear the job id to target mapping
-        self.job_id_to_target.clear();
-
         match self.job_store.has_future_jobs() {
             false => {
                 return Err(StandardChannelError::TemplateIdNotFound);
@@ -539,6 +536,10 @@ where
                 ) {
                     return Err(StandardChannelError::TemplateIdNotFound);
                 }
+
+                // clear the job id to target mapping only after a successful activation,
+                // so that an early-return error path does not corrupt channel state.
+                self.job_id_to_target.clear();
 
                 // associate the new active job with the current target
                 let job_id = self
@@ -607,7 +608,7 @@ where
         let job_target = self
             .job_id_to_target
             .get(&job_id)
-            .expect("job target must exist");
+            .ok_or(ShareValidationError::InvalidJobId)?;
 
         let merkle_root: [u8; 32] = job
             .get_merkle_root()
@@ -1499,6 +1500,127 @@ mod tests {
         assert!(matches!(
             ExtranoncePrefix::from_wire(new_extranonce_prefix_too_long),
             Err(ExtranoncePrefixError::ExceedsMaxLength)
+        ));
+    }
+
+    #[test]
+    fn test_set_new_prev_hash_without_future_jobs_preserves_state() {
+        // Regression test: when on_set_new_prev_hash is called with no future jobs to
+        // activate, it must return an error WITHOUT corrupting channel state. Previously
+        // the function cleared job_id_to_target before checking for future jobs, so a
+        // caller that treated the error as recoverable would crash on the next share at
+        // the `expect("job target must exist")` site.
+        let standard_channel_id = 1;
+        let user_identity = "user_identity".to_string();
+
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let nominal_hashrate = 100.0;
+        let share_batch_size = 100;
+        let expected_share_per_minute = 1.0;
+        let job_store = DefaultJobStore::<StandardJob>::new();
+
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
+            max_target,
+            nominal_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 158,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ]
+        .into();
+        let n_bits = 453040064;
+        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
+
+        let active_standard_job = standard_channel.get_active_job().unwrap();
+        let active_job_id = active_standard_job.get_job_id();
+        assert!(!standard_channel.job_store.has_future_jobs());
+
+        // No future jobs available -> on_set_new_prev_hash must return Err.
+        let snph = SetNewPrevHashTdp {
+            template_id: 999,
+            prev_hash: [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            header_timestamp: ntime + 600,
+            n_bits,
+            target: [0xff; 32].into(),
+        };
+        let res = standard_channel.on_set_new_prev_hash(snph);
+        assert!(matches!(res, Err(StandardChannelError::TemplateIdNotFound)));
+
+        // Channel state must be preserved: active job still active, target entry intact.
+        // A subsequent share submission for the still-active job must NOT panic on a
+        // missing job_id_to_target entry. The share itself does not meet target, so we
+        // expect DoesNotMeetTarget — the load-bearing assertion is that it returns
+        // without panicking.
+        let share_low_diff = SubmitSharesStandard {
+            channel_id: standard_channel_id,
+            sequence_number: 0,
+            job_id: active_job_id,
+            nonce: 3,
+            ntime: 1745596932,
+            version: 536870912,
+        };
+        let res = standard_channel.validate_share(share_low_diff);
+        assert!(matches!(
+            res.unwrap_err(),
+            ShareValidationError::DoesNotMeetTarget
         ));
     }
 }

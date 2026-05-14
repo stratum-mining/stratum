@@ -39,6 +39,17 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns `true` if successful, `false` if not found.
     fn activate_future_job(&mut self, template_id: u64, prev_hash_header_timestamp: u32) -> bool;
 
+    /// Demotes the currently active job (if any) to past jobs, leaving the channel without an
+    /// active job.
+    ///
+    /// Intended for `on_set_new_prev_hash` paths where no future job is available to activate
+    /// (e.g. custom-work / JD flows). Callers typically follow up with
+    /// [`mark_past_jobs_as_stale`](Self::mark_past_jobs_as_stale) so that late shares for the
+    /// demoted job are rejected as stale instead of being treated as active.
+    ///
+    /// Returns `true` if a job was deactivated, `false` if there was no active job.
+    fn deactivate_job(&mut self) -> bool;
+
     /// Marks all past jobs as stale, so that shares can be rejected with the appropriate error
     /// code
     fn mark_past_jobs_as_stale(&mut self);
@@ -147,6 +158,15 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.mark_past_jobs_as_stale();
 
         true
+    }
+
+    fn deactivate_job(&mut self) -> bool {
+        if let Some(active_job) = self.active_job.take() {
+            self.past_jobs.insert(active_job.get_job_id(), active_job);
+            true
+        } else {
+            false
+        }
     }
 
     fn mark_past_jobs_as_stale(&mut self) {
