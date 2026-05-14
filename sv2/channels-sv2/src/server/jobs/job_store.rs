@@ -48,7 +48,13 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// demoted job are rejected as stale instead of being treated as active.
     ///
     /// Returns `true` if a job was deactivated, `false` if there was no active job.
-    fn deactivate_job(&mut self) -> bool;
+    ///
+    /// The default implementation is a no-op that returns `false`. It exists so that adding
+    /// this method does not break existing downstream `JobStore` implementations.
+    /// Implementations that own an active job slot should override it.
+    fn deactivate_job(&mut self) -> bool {
+        false
+    }
 
     /// Marks all past jobs as stale, so that shares can be rejected with the appropriate error
     /// code
