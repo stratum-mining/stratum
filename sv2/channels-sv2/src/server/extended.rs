@@ -564,6 +564,12 @@ where
         // extended channels dedicated to custom work don't need to keep track of future jobs
         match self.job_store.has_future_jobs() {
             false => {
+                // demote the previously-active job to past so that the subsequent
+                // mark_past_jobs_as_stale call moves it into the stale set. without this,
+                // a late share for the still-active old job would skip the stale check in
+                // validate_share and panic on the missing job_id_to_target entry that we
+                // just cleared.
+                self.job_store.deactivate_job();
                 // explicitly mark past jobs as stale, because we're not going to
                 // do it implicitly via activate_future_job in case this extended channel is doing custom work
                 self.job_store.mark_past_jobs_as_stale();
@@ -685,7 +691,7 @@ where
         let job_target = self
             .job_id_to_target
             .get(&job_id)
-            .expect("job target must exist");
+            .ok_or(ShareValidationError::InvalidJobId)?;
 
         let extranonce_size = share.extranonce.inner_as_ref().len();
         if extranonce_size != self.rollable_extranonce_size as usize {
@@ -2023,5 +2029,122 @@ mod tests {
             result.unwrap_err(),
             ExtendedChannelError::InvalidJobOrigin
         ));
+    }
+
+    #[test]
+    fn test_set_new_prev_hash_without_future_jobs_marks_active_as_stale() {
+        // Regression test: when on_set_new_prev_hash takes the no-future-jobs branch,
+        // the previously-active job must be moved to stale so that late shares are
+        // rejected as Stale instead of panicking on a missing job_id_to_target entry.
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 100.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+        let job_store = DefaultJobStore::new();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template_id = 1;
+        let template = NewTemplate {
+            template_id,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ]
+        .into();
+        let n_bits = 453040064;
+        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
+
+        channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
+
+        let active_job_id = channel.get_active_job().unwrap().get_job_id();
+        assert!(!channel.job_store.has_future_jobs());
+
+        // Chain tip flip with no matching future job (typical of custom-work / JD flow
+        // where the channel never queues future jobs from a TDP NewTemplate).
+        let new_prev_hash = SetNewPrevHash {
+            template_id: 999,
+            prev_hash: [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            header_timestamp: ntime + 600,
+            n_bits,
+            target: [0xff; 32].into(),
+        };
+
+        channel.on_set_new_prev_hash(new_prev_hash).unwrap();
+
+        // A miner's in-flight share for the now-old job arrives after the tip flip.
+        let late_share = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: active_job_id,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(late_share);
+        assert!(matches!(res, Err(ShareValidationError::Stale)));
     }
 }
