@@ -190,7 +190,7 @@ impl<'a> StandardChannel<'a> {
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
-        new_shares_sum: f64,
+        new_shares_sum: u64,
     ) {
         self.share_accounting
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
@@ -382,8 +382,11 @@ impl<'a> StandardChannel<'a> {
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
             }
-            self.share_accounting
-                .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
+            self.share_accounting.track_validated_share(
+                share.sequence_number,
+                share_hash.to_raw_hash(),
+                job_target.difficulty_float(),
+            );
             self.share_accounting.increment_blocks_found();
             return Ok(ShareValidationResult::BlockFound(share_hash.to_raw_hash()));
         }
@@ -399,8 +402,11 @@ impl<'a> StandardChannel<'a> {
                 ));
             }
 
-            self.share_accounting
-                .track_validated_share(share.sequence_number, share_hash.to_raw_hash());
+            self.share_accounting.track_validated_share(
+                share.sequence_number,
+                share_hash.to_raw_hash(),
+                job_target.difficulty_float(),
+            );
 
             // update the best diff
             self.share_accounting.update_best_diff(share_hash_as_diff);
