@@ -671,6 +671,8 @@ where
         let is_stale_job = self.job_store.get_stale_job(job_id).is_some();
 
         if is_stale_job {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_STALE_SHARE);
             return Err(ShareValidationError::Stale(
                 ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
             ));
@@ -678,6 +680,8 @@ where
 
         // if job_id is not active, past or stale, return error
         if !is_active_job && !is_past_job && !is_stale_job {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID);
             return Err(ShareValidationError::InvalidJobId(
                 ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
             ));
@@ -696,7 +700,6 @@ where
                 .get_stale_job(job_id)
                 .expect("stale job must exist")
         };
-
         let job_target = self
             .job_id_to_target
             .get(&job_id)
@@ -704,6 +707,8 @@ where
 
         let extranonce_size = share.extranonce.inner_as_ref().len();
         if extranonce_size != self.rollable_extranonce_size as usize {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE);
             return Err(ShareValidationError::BadExtranonceSize(
                 ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE,
             ));
@@ -745,6 +750,8 @@ where
             // This is done by checking if the version & 0x1fffe000 == 0
             // ref: https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki
             if (share.version & 0x1fffe000) != 0 {
+                self.share_accounting
+                    .increment_rejected_shares(ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED);
                 return Err(ShareValidationError::VersionRollingNotAllowed(
                     ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
                 ));
@@ -786,6 +793,8 @@ where
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
+                self.share_accounting
+                    .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE);
                 return Err(ShareValidationError::DuplicateShare(
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
@@ -828,6 +837,8 @@ where
                 .share_accounting
                 .is_share_seen(share_hash.to_raw_hash())
             {
+                self.share_accounting
+                    .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE);
                 return Err(ShareValidationError::DuplicateShare(
                     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
                 ));
@@ -844,6 +855,8 @@ where
 
             Ok(ShareValidationResult::Valid(share_hash.to_raw_hash()))
         } else {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW);
             Err(ShareValidationError::DoesNotMeetTarget(
                 ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
             ))
@@ -868,7 +881,10 @@ mod tests {
     };
     use binary_sv2::{Sv2Option, U256};
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
-    use mining_sv2::{NewExtendedMiningJob, SetCustomMiningJob, SubmitSharesExtended};
+    use mining_sv2::{
+        NewExtendedMiningJob, SetCustomMiningJob, SubmitSharesExtended,
+        ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+    };
     use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
@@ -1448,6 +1464,13 @@ mod tests {
             res.unwrap_err(),
             ShareValidationError::DoesNotMeetTarget(_)
         ));
+        assert_eq!(
+            channel
+                .get_share_accounting()
+                .get_rejected_shares()
+                .get(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW),
+            Some(&1)
+        );
     }
 
     #[test]
