@@ -1,0 +1,98 @@
+name: vardiff_sim
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'sv2/channels-sv2/sim/**'
+      - 'sv2/channels-sv2/src/vardiff/**'
+      - 'sv2/channels-sv2/src/target.rs'
+      - '.github/workflows/vardiff-sim.yaml'
+
+jobs:
+  # Fast tests in the sim crate. Always run.
+  test-fast:
+    name: cargo test --lib
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sv2/channels-sv2/sim
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            sv2/channels-sv2/sim/target
+          key: ${{ runner.os }}-vardiff-sim-${{ hashFiles('sv2/channels-sv2/sim/Cargo.lock') }}
+
+      - name: Build sim crate
+        run: cargo build --release --verbose
+
+      - name: Fast unit tests
+        run: cargo test --lib --verbose
+
+  # Slow regression check: cargo test --release --lib -- --ignored runs
+  # the full 50-cell × 1000-trial baseline regression. ~15-20s.
+  # The current algorithm's behavior is asserted against the checked-in
+  # baseline_VardiffState.toml with CI-aware tolerance budgets.
+  test-regression:
+    name: regression vs checked-in baseline
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sv2/channels-sv2/sim
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            sv2/channels-sv2/sim/target
+          key: ${{ runner.os }}-vardiff-sim-regression-${{ hashFiles('sv2/channels-sv2/sim/Cargo.lock') }}
+
+      - name: Slow regression test
+        run: cargo test --release --lib -- --ignored
+
+  # Verify that the binaries still build (compare-algorithms,
+  # generate-baseline, trace-trial, sweep-ewma-tau). Doesn't run them
+  # (full sweep takes ~150s).
+  build-binaries:
+    name: cargo build --release (all bins)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sv2/channels-sv2/sim
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            sv2/channels-sv2/sim/target
+          key: ${{ runner.os }}-vardiff-sim-bins-${{ hashFiles('sv2/channels-sv2/sim/Cargo.lock') }}
+
+      - name: Build all binaries
+        run: cargo build --release --bins --verbose

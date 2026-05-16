@@ -148,6 +148,24 @@ impl Distribution {
     }
 }
 
+/// Normal-approximation 95% confidence interval on a binomial
+/// proportion `p` with sample size `n`. Returns `(low, high)`, both
+/// clamped to `[0, 1]`. For `n < 10` returns `(None, None)` — the
+/// normal approximation isn't reliable.
+///
+/// Used by [`ConvergenceTime`] and [`ReactionTime`] to emit CI bounds
+/// alongside the rate point estimates.
+pub fn proportion_ci(p: f64, n: usize) -> (Option<f64>, Option<f64>) {
+    if n < 10 {
+        return (None, None);
+    }
+    let z = 1.96_f64;
+    let half = z * (p * (1.0 - p) / n as f64).sqrt();
+    let low = (p - half).max(0.0);
+    let high = (p + half).min(1.0);
+    (Some(low), Some(high))
+}
+
 impl std::fmt::Debug for Distribution {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Distribution(n={}", self.count())?;
@@ -751,12 +769,14 @@ impl Metric for ConvergenceTime {
     fn compute(&self, trials: &[Trial], _cell: &Cell) -> MetricValues {
         let (rate, dist) = convergence_time_distribution(trials, self.quiet_window_secs);
         let mut v = MetricValues::new();
-        v.set("convergence_rate", Some(rate));
+        let (rate_lo, rate_hi) = proportion_ci(rate, trials.len());
+        v.set_with_ci("convergence_rate", Some(rate), rate_lo, rate_hi);
         dist.record_percentile(&mut v, "convergence_p10_secs", 10.0);
         dist.record_percentile(&mut v, "convergence_p50_secs", 50.0);
         dist.record_percentile(&mut v, "convergence_p90_secs", 90.0);
         dist.record_percentile(&mut v, "convergence_p95_secs", 95.0);
         dist.record_percentile(&mut v, "convergence_p99_secs", 99.0);
+        v.set("convergence_mean_secs", dist.mean());
         v
     }
     fn tolerance_checks(&self, _cell: &Cell) -> Vec<ToleranceCheck> {
@@ -800,18 +820,19 @@ impl Metric for ConvergenceTime {
     fn render_markdown(&self, results: &[crate::baseline::CellResult], w: &mut String) {
         use crate::baseline::{find_cell, fmt_duration, unique_rates};
         w.push_str("## Convergence time (cold start: 10 GH/s → 1 PH/s)\n\n");
-        w.push_str("| share/min | rate | p10 | p50 | p90 | p99 |\n");
-        w.push_str("| --- | --- | --- | --- | --- | --- |\n");
+        w.push_str("| share/min | rate | p10 | p50 | p90 | p99 | mean |\n");
+        w.push_str("| --- | --- | --- | --- | --- | --- | --- |\n");
         for spm in unique_rates(results) {
             if let Some(r) = find_cell(results, spm, "cold_start_10gh_to_1ph") {
                 w.push_str(&format!(
-                    "| {} | {:.1}% | {} | {} | {} | {} |\n",
+                    "| {} | {:.1}% | {} | {} | {} | {} | {} |\n",
                     spm,
                     r.get("convergence_rate").unwrap_or(0.0) * 100.0,
                     fmt_duration(r.get("convergence_p10_secs")),
                     fmt_duration(r.get("convergence_p50_secs")),
                     fmt_duration(r.get("convergence_p90_secs")),
                     fmt_duration(r.get("convergence_p99_secs")),
+                    fmt_duration(r.get("convergence_mean_secs")),
                 ));
             }
         }
@@ -894,6 +915,7 @@ impl Metric for SettledAccuracy {
         dist.record_percentile(&mut v, "settled_accuracy_p90", 90.0);
         dist.record_percentile(&mut v, "settled_accuracy_p95", 95.0);
         dist.record_percentile(&mut v, "settled_accuracy_p99", 99.0);
+        v.set("settled_accuracy_mean", dist.mean());
         v
     }
     fn tolerance_checks(&self, _cell: &Cell) -> Vec<ToleranceCheck> {
@@ -940,17 +962,18 @@ impl Metric for SettledAccuracy {
         w.push_str(
             "`|final_hashrate / true_hashrate - 1|` at trial end. Smaller is better.\n\n",
         );
-        w.push_str("| share/min | p10 | p50 | p90 | p99 |\n");
-        w.push_str("| --- | --- | --- | --- | --- |\n");
+        w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
+        w.push_str("| --- | --- | --- | --- | --- | --- |\n");
         for spm in unique_rates(results) {
             if let Some(r) = find_cell(results, spm, "stable_1ph") {
                 w.push_str(&format!(
-                    "| {} | {} | {} | {} | {} |\n",
+                    "| {} | {} | {} | {} | {} | {} |\n",
                     spm,
                     fmt_pct(r.get("settled_accuracy_p10")),
                     fmt_pct(r.get("settled_accuracy_p50")),
                     fmt_pct(r.get("settled_accuracy_p90")),
                     fmt_pct(r.get("settled_accuracy_p99")),
+                    fmt_pct(r.get("settled_accuracy_mean")),
                 ));
             }
         }
@@ -997,6 +1020,7 @@ impl Metric for Jitter {
             self.min_settled_window_secs,
         );
         let mut v = MetricValues::new();
+        dist.record_percentile(&mut v, "jitter_p10_per_min", 10.0);
         dist.record_percentile(&mut v, "jitter_p50_per_min", 50.0);
         dist.record_percentile(&mut v, "jitter_p90_per_min", 90.0);
         dist.record_percentile(&mut v, "jitter_p95_per_min", 95.0);
@@ -1040,13 +1064,14 @@ impl Metric for Jitter {
             "Post-convergence rate of vardiff fires. Smaller is better — \
              ideal is zero under stable load.\n\n",
         );
-        w.push_str("| share/min | p50 | p90 | p99 | mean |\n");
-        w.push_str("| --- | --- | --- | --- | --- |\n");
+        w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
+        w.push_str("| --- | --- | --- | --- | --- | --- |\n");
         for spm in unique_rates(results) {
             if let Some(r) = find_cell(results, spm, "stable_1ph") {
                 w.push_str(&format!(
-                    "| {} | {} | {} | {} | {} |\n",
+                    "| {} | {} | {} | {} | {} | {} |\n",
                     spm,
+                    fmt_f(r.get("jitter_p10_per_min")),
                     fmt_f(r.get("jitter_p50_per_min")),
                     fmt_f(r.get("jitter_p90_per_min")),
                     fmt_f(r.get("jitter_p99_per_min")),
@@ -1096,11 +1121,13 @@ impl Metric for ReactionTime {
         let (rate, dist) =
             reaction_time_distribution(trials, self.event_at_secs, self.react_window_secs);
         let mut v = MetricValues::new();
-        v.set("reaction_rate", Some(rate));
+        let (rate_lo, rate_hi) = proportion_ci(rate, trials.len());
+        v.set_with_ci("reaction_rate", Some(rate), rate_lo, rate_hi);
         dist.record_percentile(&mut v, "reaction_p10_secs", 10.0);
         dist.record_percentile(&mut v, "reaction_p50_secs", 50.0);
         dist.record_percentile(&mut v, "reaction_p90_secs", 90.0);
         dist.record_percentile(&mut v, "reaction_p99_secs", 99.0);
+        v.set("reaction_mean_secs", dist.mean());
         v
     }
     fn tolerance_checks(&self, cell: &Cell) -> Vec<ToleranceCheck> {
@@ -1170,18 +1197,19 @@ impl Metric for ReactionTime {
 
         // ---- Reaction time to a 50% drop ----
         w.push_str("## Reaction time to a 50% drop (step at 15 min)\n\n");
-        w.push_str("| share/min | reacted | p10 | p50 | p90 | p99 |\n");
-        w.push_str("| --- | --- | --- | --- | --- | --- |\n");
+        w.push_str("| share/min | reacted | p10 | p50 | p90 | p99 | mean |\n");
+        w.push_str("| --- | --- | --- | --- | --- | --- | --- |\n");
         for spm in &rates {
             if let Some(r) = find_cell(results, *spm, "step_minus_50_at_15min") {
                 w.push_str(&format!(
-                    "| {} | {:.1}% | {} | {} | {} | {} |\n",
+                    "| {} | {:.1}% | {} | {} | {} | {} | {} |\n",
                     spm,
                     r.get("reaction_rate").unwrap_or(0.0) * 100.0,
                     fmt_duration(r.get("reaction_p10_secs")),
                     fmt_duration(r.get("reaction_p50_secs")),
                     fmt_duration(r.get("reaction_p90_secs")),
                     fmt_duration(r.get("reaction_p99_secs")),
+                    fmt_duration(r.get("reaction_mean_secs")),
                 ));
             }
         }
@@ -1249,17 +1277,18 @@ impl Bias {
             if r.metrics.get("bias").is_none() { continue; }
             if !wrote_header {
                 w.push_str(&format!("### Bias — {}\n\n", scenario_label));
-                w.push_str("| share/min | mean | p10 | p50 | p90 |\n");
-                w.push_str("| --- | --- | --- | --- | --- |\n");
+                w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
+                w.push_str("| --- | --- | --- | --- | --- | --- |\n");
                 wrote_header = true;
             }
             w.push_str(&format!(
-                "| {} | {} | {} | {} | {} |\n",
+                "| {} | {} | {} | {} | {} | {} |\n",
                 spm,
-                fmt_pct(r.get("bias_mean")),
                 fmt_pct(r.get("bias_p10")),
                 fmt_pct(r.get("bias_p50")),
                 fmt_pct(r.get("bias_p90")),
+                fmt_pct(r.get("bias_p99")),
+                fmt_pct(r.get("bias_mean")),
             ));
         }
         if wrote_header {
@@ -1330,6 +1359,7 @@ impl Metric for Bias {
         dist.record_percentile(&mut v, "bias_p10", 10.0);
         dist.record_percentile(&mut v, "bias_p50", 50.0);
         dist.record_percentile(&mut v, "bias_p90", 90.0);
+        dist.record_percentile(&mut v, "bias_p99", 99.0);
         v
     }
 }
@@ -1352,17 +1382,18 @@ impl Variance {
             if r.metrics.get("variance").is_none() { continue; }
             if !wrote_header {
                 w.push_str(&format!("### Variance — {}\n\n", scenario_label));
-                w.push_str("| share/min | mean | p10 | p50 | p90 |\n");
-                w.push_str("| --- | --- | --- | --- | --- |\n");
+                w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
+                w.push_str("| --- | --- | --- | --- | --- | --- |\n");
                 wrote_header = true;
             }
             w.push_str(&format!(
-                "| {} | {} | {} | {} | {} |\n",
+                "| {} | {} | {} | {} | {} | {} |\n",
                 spm,
-                fmt_f(r.get("variance_mean")),
                 fmt_f(r.get("variance_p10")),
                 fmt_f(r.get("variance_p50")),
                 fmt_f(r.get("variance_p90")),
+                fmt_f(r.get("variance_p99")),
+                fmt_f(r.get("variance_mean")),
             ));
         }
         if wrote_header {
@@ -1434,6 +1465,7 @@ impl Metric for Variance {
         dist.record_percentile(&mut v, "variance_p10", 10.0);
         dist.record_percentile(&mut v, "variance_p50", 50.0);
         dist.record_percentile(&mut v, "variance_p90", 90.0);
+        dist.record_percentile(&mut v, "variance_p99", 99.0);
         v
     }
 }
@@ -1497,6 +1529,7 @@ impl Metric for RampTargetOvershoot {
         }
         // Upper-tail standard-normal quantiles Φ⁻¹(p):
         let z = match key {
+            "ramp_target_overshoot_p10" => 0.0,    // upper-tail p10 deviation is 0
             "ramp_target_overshoot_p50" => 0.0,    // upper-tail median deviation is 0
             "ramp_target_overshoot_p90" => 1.282,  // Φ⁻¹(0.90)
             "ramp_target_overshoot_p99" => 2.326,  // Φ⁻¹(0.99)
@@ -1524,9 +1557,11 @@ impl Metric for RampTargetOvershoot {
         }
         let dist = Distribution::new(per_trial);
         let mut v = MetricValues::new();
+        dist.record_percentile(&mut v, "ramp_target_overshoot_p10", 10.0);
         dist.record_percentile(&mut v, "ramp_target_overshoot_p50", 50.0);
         dist.record_percentile(&mut v, "ramp_target_overshoot_p90", 90.0);
         dist.record_percentile(&mut v, "ramp_target_overshoot_p99", 99.0);
+        v.set("ramp_target_overshoot_mean", dist.mean());
         v
     }
     fn tolerance_checks(&self, _cell: &Cell) -> Vec<ToleranceCheck> {
@@ -1575,19 +1610,21 @@ impl Metric for RampTargetOvershoot {
              by estimator-belief noise. Works for any algorithm that \
              fires, including those without introspection.\n\n",
         );
-        w.push_str("| share/min | p50 | p90 | p99 |\n");
-        w.push_str("| --- | --- | --- | --- |\n");
+        w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
+        w.push_str("| --- | --- | --- | --- | --- | --- |\n");
         for spm in unique_rates(results) {
             if let Some(r) = find_cell(results, spm, "cold_start_10gh_to_1ph") {
                 if r.metrics.get("ramp_target_overshoot").is_none() {
                     continue;
                 }
                 w.push_str(&format!(
-                    "| {} | {} | {} | {} |\n",
+                    "| {} | {} | {} | {} | {} | {} |\n",
                     spm,
+                    fmt_pct(r.get("ramp_target_overshoot_p10")),
                     fmt_pct(r.get("ramp_target_overshoot_p50")),
                     fmt_pct(r.get("ramp_target_overshoot_p90")),
                     fmt_pct(r.get("ramp_target_overshoot_p99")),
+                    fmt_pct(r.get("ramp_target_overshoot_mean")),
                 ));
             }
         }
@@ -1724,22 +1761,37 @@ impl DerivedMetric for DecouplingScore {
     }
 
     fn compute(&self, results: &[crate::baseline::CellResult]) -> Vec<(f32, MetricValues)> {
-        // Group inputs by share rate. The key is `shares_per_minute
-        // as u32`, fine for integer-valued rates (canonical
-        // 6/12/30/60/120). Fractional rates would collide.
-        let mut by_spm: HashMap<u32, (Option<f64>, Option<f64>)> = HashMap::new();
+        // Group inputs by share rate. Pull point estimates plus CI
+        // bounds for both inputs (jitter_p50 and reaction_rate). The
+        // score is then computed with worst-case substitution for
+        // the lower bound and best-case for the upper bound — a
+        // monotonic propagation that respects each input's
+        // direction-of-improvement.
+        //
+        // The key is `shares_per_minute as u32`, fine for canonical
+        // 6/12/30/60/120; fractional rates would collide.
+        #[derive(Default, Clone, Copy)]
+        struct Inputs {
+            jitter: Option<f64>,
+            jitter_ci: Option<(f64, f64)>,
+            reaction: Option<f64>,
+            reaction_ci: Option<(f64, f64)>,
+        }
+        let mut by_spm: HashMap<u32, Inputs> = HashMap::new();
         for r in results {
             let spm_key = r.shares_per_minute as u32;
-            let entry = by_spm.entry(spm_key).or_insert((None, None));
+            let entry = by_spm.entry(spm_key).or_default();
             match r.scenario {
                 Scenario::Stable => {
                     if let Some(j) = r.get("jitter_p50_per_min") {
-                        entry.0 = Some(j);
+                        entry.jitter = Some(j);
+                        entry.jitter_ci = r.get_ci("jitter_p50_per_min");
                     }
                 }
                 Scenario::Step { delta_pct: -50 } => {
                     if let Some(rate) = r.get("reaction_rate") {
-                        entry.1 = Some(rate);
+                        entry.reaction = Some(rate);
+                        entry.reaction_ci = r.get_ci("reaction_rate");
                     }
                 }
                 _ => {}
@@ -1749,16 +1801,32 @@ impl DerivedMetric for DecouplingScore {
         let mut entries: Vec<_> = by_spm.into_iter().collect();
         entries.sort_by_key(|&(spm, _)| spm);
 
+        let score_of = |r: f64, j: f64| -> f64 {
+            let factor = (1.0 - (j / DEFAULT_JITTER_CEILING_PER_MIN)).clamp(0.0, 1.0);
+            r * factor
+        };
+
         entries
             .into_iter()
-            .filter_map(|(spm, (jitter, react))| match (jitter, react) {
-                (Some(j), Some(r)) => {
-                    let factor = (1.0 - (j / DEFAULT_JITTER_CEILING_PER_MIN)).clamp(0.0, 1.0);
-                    let mut mv = MetricValues::new();
-                    mv.set("score", Some(r * factor));
-                    Some((spm as f32, mv))
-                }
-                _ => None,
+            .filter_map(|(spm, inputs)| {
+                let (Some(j), Some(r)) = (inputs.jitter, inputs.reaction) else {
+                    return None;
+                };
+                let point = score_of(r, j);
+                // Worst-case bound: lowest r, highest j → lowest score.
+                // Best-case bound: highest r, lowest j → highest score.
+                // Both inputs need CIs for the derived CI to be meaningful.
+                let ci = match (inputs.reaction_ci, inputs.jitter_ci) {
+                    (Some((r_lo, r_hi)), Some((j_lo, j_hi))) => {
+                        let lo = score_of(r_lo, j_hi);
+                        let hi = score_of(r_hi, j_lo);
+                        Some((lo, hi))
+                    }
+                    _ => None,
+                };
+                let mut mv = MetricValues::new();
+                mv.set_with_ci("score", Some(point), ci.map(|(l, _)| l), ci.map(|(_, h)| h));
+                Some((spm as f32, mv))
             })
             .collect()
     }
@@ -1855,12 +1923,13 @@ impl DerivedMetric for ReactionAsymmetry {
     }
 
     fn compute(&self, results: &[crate::baseline::CellResult]) -> Vec<(f32, MetricValues)> {
-        // Build a lookup from (spm, delta_pct) → reaction_rate.
-        let mut by_pair: HashMap<(u32, i32), f64> = HashMap::new();
+        // Build a lookup from (spm, delta_pct) → (rate, ci_low, ci_high).
+        let mut by_pair: HashMap<(u32, i32), (f64, Option<(f64, f64)>)> = HashMap::new();
         for r in results {
             if let Scenario::Step { delta_pct } = r.scenario {
                 if let Some(rate) = r.get("reaction_rate") {
-                    by_pair.insert((r.shares_per_minute as u32, delta_pct), rate);
+                    let ci = r.get_ci("reaction_rate");
+                    by_pair.insert((r.shares_per_minute as u32, delta_pct), (rate, ci));
                 }
             }
         }
@@ -1875,15 +1944,64 @@ impl DerivedMetric for ReactionAsymmetry {
             .filter_map(|spm| {
                 let mut mv = MetricValues::new();
                 let mut any = false;
+                let mut max_abs: f64 = 0.0;
+                let mut max_abs_ci_lo: f64 = 0.0;
+                let mut max_abs_ci_hi: f64 = 0.0;
+                let mut have_max_ci = true;
                 for &(mag, key) in Self::MAGNITUDES {
                     let up = by_pair.get(&(spm, mag as i32));
                     let down = by_pair.get(&(spm, -(mag as i32)));
-                    if let (Some(u), Some(d)) = (up, down) {
-                        mv.set(key, Some(u - d));
+                    if let (Some((u, u_ci)), Some((d, d_ci))) = (up, down) {
+                        let delta = u - d;
+                        // CI on the difference: worst-case low =
+                        // u_lo − d_hi, worst-case high = u_hi − d_lo.
+                        // Requires both endpoints to have CIs.
+                        let ci = match (u_ci, d_ci) {
+                            (Some((u_lo, u_hi)), Some((d_lo, d_hi))) => {
+                                Some((u_lo - d_hi, u_hi - d_lo))
+                            }
+                            _ => None,
+                        };
+                        if let Some((lo, hi)) = ci {
+                            mv.set_with_ci(key, Some(delta), Some(lo), Some(hi));
+                        } else {
+                            mv.set(key, Some(delta));
+                            have_max_ci = false;
+                        }
+                        if delta.abs() > max_abs {
+                            max_abs = delta.abs();
+                            if let Some((lo, hi)) = ci {
+                                // The worst-case |asymmetry| envelope
+                                // takes the larger absolute bound of
+                                // [lo, hi]. The best-case is
+                                // |smallest in absolute value|, but
+                                // since both lo and hi are around the
+                                // point estimate, a clean lower
+                                // bound is the point absolute value
+                                // minus the half-width.
+                                let half_width = (hi - lo) / 2.0;
+                                max_abs_ci_lo = (max_abs - half_width).max(0.0);
+                                max_abs_ci_hi = max_abs + half_width;
+                            }
+                        }
                         any = true;
                     }
                 }
                 if any {
+                    // Aggregate: the largest |asymmetry| across all
+                    // step magnitudes at this share rate. Surfaces the
+                    // strongest direction-bias in a single number for
+                    // the TL;DR table.
+                    if have_max_ci && max_abs > 0.0 {
+                        mv.set_with_ci(
+                            "max_abs_asymmetry",
+                            Some(max_abs),
+                            Some(max_abs_ci_lo),
+                            Some(max_abs_ci_hi),
+                        );
+                    } else {
+                        mv.set("max_abs_asymmetry", Some(max_abs));
+                    }
                     Some((spm as f32, mv))
                 } else {
                     None
@@ -1897,8 +2015,10 @@ impl DerivedMetric for ReactionAsymmetry {
         // makes the check two-sided: a movement of more than 0.10
         // (10 percentage points) in either direction beyond the
         // baseline CI signals a structural shift in the algorithm's
-        // direction-aware response.
-        Self::MAGNITUDES
+        // direction-aware response. We also check the
+        // `max_abs_asymmetry` aggregate as `LowerIsBetter` so a
+        // direction-flip at any magnitude is caught.
+        let mut checks: Vec<ToleranceCheck> = Self::MAGNITUDES
             .iter()
             .map(|&(_, key)| ToleranceCheck {
                 key,
@@ -1908,7 +2028,30 @@ impl DerivedMetric for ReactionAsymmetry {
                     extra_mul: None,
                 },
             })
-            .collect()
+            .collect();
+        checks.push(ToleranceCheck {
+            key: "max_abs_asymmetry",
+            tolerance: Tolerance::WithinCi {
+                direction: Direction::LowerIsBetter,
+                extra_abs: 0.10,
+                extra_mul: None,
+            },
+        });
+        checks
+    }
+
+    fn summary_specs(&self) -> Vec<SummarySpec> {
+        // Compress the four per-magnitude rows into one headline:
+        // `max_abs_asymmetry` is the largest direction-bias the
+        // algorithm exhibits at any step magnitude at this share
+        // rate. Lower (closer to zero) is better.
+        vec![SummarySpec {
+            label: "max |reaction asymmetry|",
+            key: "max_abs_asymmetry",
+            direction: Direction::LowerIsBetter,
+            scenario_filter: ScenarioFilter::Any,
+            fmt: SummaryFmt::Float3,
+        }]
     }
 
     fn render_markdown(&self, results: &[crate::baseline::CellResult], w: &mut String) {

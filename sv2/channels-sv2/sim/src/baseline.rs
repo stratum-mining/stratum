@@ -371,6 +371,13 @@ impl CellResult {
         self.metrics.values().find_map(|m| m.get(key))
     }
 
+    /// Looks up the bootstrap CI bounds for a key across all metrics
+    /// in this cell. Returns `None` if no metric recorded a CI for
+    /// the given key.
+    pub fn get_ci(&self, key: &str) -> Option<(f64, f64)> {
+        self.metrics.values().find_map(|m| m.get_ci(key))
+    }
+
     /// String key form of the scenario for output paths.
     pub fn scenario_key(&self) -> String {
         self.scenario.key()
@@ -518,11 +525,7 @@ pub fn serialize_toml(
     // (metric_id, spm) pair.
     for derived in metrics::derived_registry() {
         for (spm, mv) in derived.compute(results) {
-            out.push_str(&format!(
-                "[derived.{}.spm_{}]\n",
-                derived.id(),
-                spm as u32
-            ));
+            out.push_str(&format!("[derived.{}.spm_{}]\n", derived.id(), spm as u32));
             for (key, value, ci) in mv.iter() {
                 if let Some(v) = value {
                     out.push_str(&format!("{} = {}\n", key, v));
@@ -589,51 +592,56 @@ pub fn serialize_markdown(
 /// `summary_specs`. For each spec we scan all matching cells and
 /// emit the best / worst values across share rates.
 fn render_summary(results: &[CellResult], w: &mut String) {
-    use metrics::{Direction, ScenarioFilter, SummaryFmt, SummarySpec};
+    use metrics::{Direction, ScenarioFilter, SummarySpec};
 
-    // Collect (label, direction, best_value@spm, worst_value@spm, fmt)
-    // for every spec across both registries.
-    let mut rows: Vec<(SummarySpec, Option<(f32, f64)>, Option<(f32, f64)>)> = Vec::new();
+    /// `(spm, value, floor_at_that_cell)`. `floor` is `None` for
+    /// derived metrics (which don't have a `fundamental_limit`) and
+    /// for per-cell metrics whose `fundamental_limit` returns `None`
+    /// for this (cell, key) pair.
+    type Candidate = (f32, f64, Option<f64>);
+
+    // Collect (spec, best, worst) for every spec across both
+    // registries. `best` and `worst` carry the candidate plus a
+    // fundamental_limit floor at the corresponding cell when known.
+    let mut rows: Vec<(SummarySpec, Option<Candidate>, Option<Candidate>)> = Vec::new();
 
     let cell_matches = |scen: &Scenario, f: &ScenarioFilter| match f {
         ScenarioFilter::Any => true,
         ScenarioFilter::Stable => matches!(scen, Scenario::Stable),
         ScenarioFilter::ColdStart => matches!(scen, Scenario::ColdStart),
-        ScenarioFilter::StepDelta(d) => matches!(scen, Scenario::Step { delta_pct } if delta_pct == d),
+        ScenarioFilter::StepDelta(d) => {
+            matches!(scen, Scenario::Step { delta_pct } if delta_pct == d)
+        }
     };
 
-    // Per-cell metric specs read from the cell's MetricValues via
-    // `r.get(key)`. Derived-metric specs require the same `compute`
-    // pass the renderer uses; we run it once and inspect the spm/key
-    // values.
-    let collect = |spec: SummarySpec, candidates: Vec<(f32, f64)>| {
-        let mut best: Option<(f32, f64)> = None;
-        let mut worst: Option<(f32, f64)> = None;
-        for (spm, v) in candidates {
+    let collect = |spec: SummarySpec, candidates: Vec<Candidate>| {
+        let mut best: Option<Candidate> = None;
+        let mut worst: Option<Candidate> = None;
+        for c in candidates {
+            let (_spm, v, _floor) = c;
             match spec.direction {
                 Direction::HigherIsBetter => {
-                    if best.map_or(true, |(_, b)| v > b) {
-                        best = Some((spm, v));
+                    if best.map_or(true, |(_, b, _)| v > b) {
+                        best = Some(c);
                     }
-                    if worst.map_or(true, |(_, w)| v < w) {
-                        worst = Some((spm, v));
+                    if worst.map_or(true, |(_, w, _)| v < w) {
+                        worst = Some(c);
                     }
                 }
                 Direction::LowerIsBetter => {
-                    if best.map_or(true, |(_, b)| v < b) {
-                        best = Some((spm, v));
+                    if best.map_or(true, |(_, b, _)| v < b) {
+                        best = Some(c);
                     }
-                    if worst.map_or(true, |(_, w)| v > w) {
-                        worst = Some((spm, v));
+                    if worst.map_or(true, |(_, w, _)| v > w) {
+                        worst = Some(c);
                     }
                 }
                 Direction::Either => {
-                    // For Either, "best" is closest to zero, "worst" is farthest.
-                    if best.map_or(true, |(_, b)| v.abs() < b.abs()) {
-                        best = Some((spm, v));
+                    if best.map_or(true, |(_, b, _)| v.abs() < b.abs()) {
+                        best = Some(c);
                     }
-                    if worst.map_or(true, |(_, w)| v.abs() > w.abs()) {
-                        worst = Some((spm, v));
+                    if worst.map_or(true, |(_, w, _)| v.abs() > w.abs()) {
+                        worst = Some(c);
                     }
                 }
             }
@@ -641,12 +649,22 @@ fn render_summary(results: &[CellResult], w: &mut String) {
         (spec, best, worst)
     };
 
+    // Per-cell metrics — query fundamental_limit per candidate cell.
     for metric in metrics::registry() {
         for spec in metric.summary_specs() {
-            let candidates: Vec<(f32, f64)> = results
+            let candidates: Vec<Candidate> = results
                 .iter()
                 .filter(|r| cell_matches(&r.scenario, &spec.scenario_filter))
-                .filter_map(|r| r.get(spec.key).map(|v| (r.shares_per_minute, v)))
+                .filter_map(|r| {
+                    r.get(spec.key).map(|v| {
+                        let cell = Cell {
+                            shares_per_minute: r.shares_per_minute,
+                            scenario: r.scenario.clone(),
+                        };
+                        let floor = metric.fundamental_limit(&cell, spec.key);
+                        (r.shares_per_minute, v, floor)
+                    })
+                })
                 .collect();
             if !candidates.is_empty() {
                 rows.push(collect(spec, candidates));
@@ -654,12 +672,13 @@ fn render_summary(results: &[CellResult], w: &mut String) {
         }
     }
 
+    // Derived metrics — no fundamental_limit; floor stays None.
     for derived in metrics::derived_registry() {
         let computed = derived.compute(results);
         for spec in derived.summary_specs() {
-            let candidates: Vec<(f32, f64)> = computed
+            let candidates: Vec<Candidate> = computed
                 .iter()
-                .filter_map(|(spm, mv)| mv.get(spec.key).map(|v| (*spm, v)))
+                .filter_map(|(spm, mv)| mv.get(spec.key).map(|v| (*spm, v, None)))
                 .collect();
             if !candidates.is_empty() {
                 rows.push(collect(spec, candidates));
@@ -672,14 +691,21 @@ fn render_summary(results: &[CellResult], w: &mut String) {
     }
 
     w.push_str("## Summary\n\n");
-    w.push_str("Headline per-metric values at each share rate's best and worst cells. ↑ = higher is better; ↓ = lower is better; ↔ = near-zero is better.\n\n");
+    w.push_str(
+        "Headline per-metric values at each share rate's best and \
+         worst cells. ↑ = higher is better; ↓ = lower is better; \
+         ↔ = near-zero is better. Where a `(floor: X.X%)` annotation \
+         appears, it's the Poisson-noise lower bound on that metric at \
+         that share rate — the algorithm cannot do better than this \
+         without exotic estimation techniques.\n\n",
+    );
     w.push_str("| Metric | Dir | Best | Worst |\n");
     w.push_str("| --- | :-: | --- | --- |\n");
     for (spec, best, worst) in rows {
         let arrow = match spec.direction {
-            metrics::Direction::HigherIsBetter => "↑",
-            metrics::Direction::LowerIsBetter => "↓",
-            metrics::Direction::Either => "↔",
+            Direction::HigherIsBetter => "↑",
+            Direction::LowerIsBetter => "↓",
+            Direction::Either => "↔",
         };
         w.push_str(&format!(
             "| {} | {} | {} | {} |\n",
@@ -692,18 +718,25 @@ fn render_summary(results: &[CellResult], w: &mut String) {
     w.push('\n');
 }
 
-fn fmt_summary_cell(v: Option<(f32, f64)>, fmt: metrics::SummaryFmt) -> String {
+fn fmt_summary_cell(v: Option<(f32, f64, Option<f64>)>, fmt: metrics::SummaryFmt) -> String {
     use metrics::SummaryFmt;
-    let Some((spm, value)) = v else {
+    let Some((spm, value, floor)) = v else {
         return "—".to_string();
     };
-    let formatted = match fmt {
-        SummaryFmt::Percentage => format!("{:.1}%", value * 100.0),
-        SummaryFmt::Duration => fmt_duration(Some(value)),
-        SummaryFmt::Float3 => format!("{:.3}", value),
-        SummaryFmt::RatePerMin => format!("{:.3}/min", value),
+    let format_one = |x: f64| -> String {
+        match fmt {
+            SummaryFmt::Percentage => format!("{:.1}%", x * 100.0),
+            SummaryFmt::Duration => fmt_duration(Some(x)),
+            SummaryFmt::Float3 => format!("{:.3}", x),
+            SummaryFmt::RatePerMin => format!("{:.3}/min", x),
+        }
     };
-    format!("{} @ SPM={}", formatted, spm as u32)
+    let main = format!("{} @ SPM={}", format_one(value), spm as u32);
+    if let Some(f) = floor {
+        format!("{} (floor: {})", main, format_one(f))
+    } else {
+        main
+    }
 }
 
 /// Returns the distinct share rates present in `results`, sorted
