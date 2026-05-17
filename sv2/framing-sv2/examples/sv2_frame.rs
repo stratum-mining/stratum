@@ -51,9 +51,7 @@ fn main() {
         .expect("Failed to deserialize frame");
 
     // Assert that deserialized header has the original content
-    let deserialized_header = deserialized_frame
-        .get_header()
-        .expect("Frame has no header");
+    let deserialized_header = deserialized_frame.get_header();
     assert_eq!(deserialized_header.msg_type(), MSG_TYPE);
     assert_eq!(deserialized_header.ext_type(), EXT_TYPE);
 
