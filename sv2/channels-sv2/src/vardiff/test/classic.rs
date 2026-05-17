@@ -1,5 +1,14 @@
+//! Classic implementation test suite.
+//!
+//! These tests deliberately exercise the historical `VardiffState`
+//! threshold-ladder algorithm via its deprecated constructors
+//! (`new_with_min` etc.). The deprecation warnings nudge new
+//! *production* code toward `channels_sv2::vardiff::default()` —
+//! they are correctly suppressed here because the explicit purpose
+//! of this module is to verify classic-algorithm behavior.
+#![allow(deprecated)]
+
 use crate::vardiff::clock::MockClock;
-/// Classic implementation test suite
 use crate::vardiff::test::{
     simulate_shares_and_wait, TEST_MIN_ALLOWED_HASHRATE, TEST_SHARES_PER_MINUTE,
 };

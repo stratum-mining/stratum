@@ -49,15 +49,39 @@ impl std::panic::RefUnwindSafe for VardiffState {}
 impl VardiffState {
     /// Creates a new `VardiffState` with the default minimum hashrate and the
     /// system clock.
+    ///
+    /// **Deprecated.** `VardiffState` is the historical threshold-ladder
+    /// algorithm; the recommended production vardiff is now the four-axis
+    /// `FullRemedy` composition, constructed via
+    /// [`crate::vardiff::default()`](crate::vardiff::default). See
+    /// `sim/docs/FINDINGS.md` for the empirical case for the migration.
+    /// To construct `VardiffState` explicitly for simulation, testing, or
+    /// when you specifically want the classic algorithm, use
+    /// [`Self::new_with_clock`] (not deprecated).
+    #[deprecated(
+        since = "6.1.0",
+        note = "use `channels_sv2::vardiff::default()` for the recommended production \
+                vardiff composition (FullRemedy). To opt into the classic threshold-ladder \
+                algorithm explicitly, use `VardiffState::new_with_clock`."
+    )]
     pub fn new() -> Result<Self, VardiffError> {
+        #[allow(deprecated)]
         Self::new_with_min(DEFAULT_MIN_HASHRATE)
     }
 
     /// Creates a new `VardiffState` with a specific minimum hashrate and the
     /// system clock.
     ///
+    /// **Deprecated.** See [`Self::new`] for the migration note.
+    ///
     /// # Arguments
     /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
+    #[deprecated(
+        since = "6.1.0",
+        note = "use `channels_sv2::vardiff::default_with_min()` for the recommended production \
+                vardiff composition (FullRemedy). To opt into the classic threshold-ladder \
+                algorithm explicitly, use `VardiffState::new_with_clock`."
+    )]
     pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
         Self::new_with_clock(min_allowed_hashrate, Arc::new(SystemClock))
     }
@@ -92,7 +116,13 @@ impl VardiffState {
         self.shares_since_last_update = shares_since_last_update;
     }
 
-    /// Recommended production composition.
+    /// Recommended production composition. Implementation hub for the
+    /// module-level [`crate::vardiff::default`] / [`default_with_min`] /
+    /// [`default_with_clock`] factories — most callers should use those
+    /// instead of constructing through `VardiffState` directly.
+    ///
+    /// [`default_with_min`]: crate::vardiff::default_with_min
+    /// [`default_with_clock`]: crate::vardiff::default_with_clock
     ///
     /// Returns a [`Box<dyn Vardiff>`] wrapping the four-axis
     /// `FullRemedy` composition: `EwmaEstimator(120s) + AbsoluteRatio +
