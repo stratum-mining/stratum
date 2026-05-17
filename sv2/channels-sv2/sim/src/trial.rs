@@ -93,21 +93,19 @@ impl Default for TrialConfig {
     }
 }
 
-/// A snapshot of the algorithm's decision at a single tick.
+/// Re-exported from production: a snapshot of the algorithm's
+/// decision at a single tick.
 ///
 /// Captured by [`Observable::last_decision`] after each `try_vardiff`
 /// call and pasted into the corresponding [`TickRecord`] by
-/// [`run_trial_observed`]. `None` for ticks where the algorithm returned
-/// early before computing a decision (i.e., `dt_secs <= 15`).
-#[derive(Debug, Clone, Copy)]
-pub struct DecisionRecord {
-    /// Test statistic at this tick.
-    pub delta: f64,
-    /// Decision threshold at this tick.
-    pub threshold: f64,
-    /// Estimator's belief about miner hashrate at this tick.
-    pub h_estimate: f32,
-}
+/// [`run_trial_observed`]. `None` for ticks where the algorithm
+/// returned early before computing a decision (i.e., `dt_secs <= 15`).
+///
+/// The concrete struct lives in
+/// [`channels_sv2::vardiff::composed::DecisionRecord`] so production
+/// `Composed` instances can populate it without depending on the sim
+/// crate.
+pub use channels_sv2::vardiff::composed::DecisionRecord;
 
 /// Algorithms that expose introspection of their last decision.
 ///

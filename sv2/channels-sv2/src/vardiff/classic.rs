@@ -91,6 +91,39 @@ impl VardiffState {
     pub fn set_shares_since_last_update(&mut self, shares_since_last_update: u32) {
         self.shares_since_last_update = shares_since_last_update;
     }
+
+    /// Recommended production composition.
+    ///
+    /// Returns a [`Box<dyn Vardiff>`] wrapping the four-axis
+    /// `FullRemedy` composition: `EwmaEstimator(120s) + AbsoluteRatio +
+    /// PoissonCI(z = 2.576, margin = 0.05) + PartialRetarget(η = 0.3)`.
+    ///
+    /// Empirically dominates `VardiffState` on every operationally
+    /// meaningful metric across the canonical 5 × 10 grid (convergence
+    /// rate, reaction rate at ±5/10/25/50% steps, ramp target overshoot
+    /// tail, decoupling score). See `sim/docs/FINDINGS.md` for the
+    /// validation and `sim/docs/DESIGN.md` for the architectural
+    /// rationale.
+    ///
+    /// Trade-offs documented in `FINDINGS.md` §5: ~2.7 stable-load
+    /// fires/hour at SPM=6 (active tracking) and a mild negative
+    /// cold-start bias (EWMA lag during ramp). Both well-bounded.
+    pub fn production_default(
+        min_allowed_hashrate: f32,
+        clock: Arc<dyn Clock>,
+    ) -> Box<dyn Vardiff> {
+        use crate::vardiff::composed::{
+            AbsoluteRatio, Composed, EwmaEstimator, PartialRetarget, PoissonCI,
+        };
+        Box::new(Composed::new(
+            EwmaEstimator::new(120),
+            AbsoluteRatio,
+            PoissonCI::default_parametric(),
+            PartialRetarget::new(0.3),
+            min_allowed_hashrate,
+            clock,
+        ))
+    }
 }
 
 impl Vardiff for VardiffState {

@@ -11,8 +11,8 @@
 //! behind keeping this axis separate from Statistic, Boundary, and
 //! UpdateRule.
 
+use crate::target::hash_rate_from_target;
 use bitcoin::Target;
-use channels_sv2::target::hash_rate_from_target;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 

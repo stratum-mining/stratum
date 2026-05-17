@@ -17,6 +17,7 @@ Headline per-metric values at each share rate's best and worst cells. ↑ = high
 | reaction rate at +50% step | ↑ | 100.0% @ SPM=120 | 39.5% @ SPM=6 |
 | ramp target overshoot p99 (cold start) | ↓ | 0.1% @ SPM=120 (floor: 21.2%) | 100.0% @ SPM=30 (floor: 42.5%) |
 | decoupling score | ↑ | 1.000 @ SPM=60 | 0.369 @ SPM=6 |
+| max |reaction asymmetry| | ↓ | 0.005 @ SPM=60 | 0.041 @ SPM=30 |
 
 ## Convergence time (cold start: 10 GH/s → 1 PH/s)
 
