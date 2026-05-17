@@ -59,10 +59,7 @@ fn main() -> std::io::Result<()> {
     let taus: Vec<u64> = env::var("VARDIFF_EWMA_TAUS")
         .ok()
         .and_then(|s| {
-            let v: Vec<u64> = s
-                .split(',')
-                .filter_map(|t| t.trim().parse().ok())
-                .collect();
+            let v: Vec<u64> = s.split(',').filter_map(|t| t.trim().parse().ok()).collect();
             if v.is_empty() {
                 None
             } else {
@@ -98,7 +95,10 @@ fn main() -> std::io::Result<()> {
 
     let started = Instant::now();
     let results = grid.run_paired();
-    eprintln!("Sweep complete in {:.2}s\n", started.elapsed().as_secs_f64());
+    eprintln!(
+        "Sweep complete in {:.2}s\n",
+        started.elapsed().as_secs_f64()
+    );
 
     fs::create_dir_all(&out_dir)?;
     let out_path = out_dir.join("ewma_tau_sweep.md");
@@ -262,7 +262,12 @@ fn build_report(
     for &spm in share_rates {
         out.push_str(&format!("| {} |", spm as u32));
         for &tau in taus {
-            let v = lookup(tau, spm, "cold_start_10gh_to_1ph", "ramp_target_overshoot_p50");
+            let v = lookup(
+                tau,
+                spm,
+                "cold_start_10gh_to_1ph",
+                "ramp_target_overshoot_p50",
+            );
             out.push_str(&match v {
                 Some(x) => format!(" {:.1}% |", x * 100.0),
                 None => " — |".to_string(),
@@ -282,7 +287,12 @@ fn build_report(
     for &spm in share_rates {
         out.push_str(&format!("| {} |", spm as u32));
         for &tau in taus {
-            let v = lookup(tau, spm, "cold_start_10gh_to_1ph", "ramp_target_overshoot_p90");
+            let v = lookup(
+                tau,
+                spm,
+                "cold_start_10gh_to_1ph",
+                "ramp_target_overshoot_p90",
+            );
             out.push_str(&match v {
                 Some(x) => format!(" {:.1}% |", x * 100.0),
                 None => " — |".to_string(),

@@ -204,10 +204,7 @@ pub type ClassicComposed =
 /// behavior fire-for-fire identical to
 /// `VardiffState::new_with_clock(min_allowed_hashrate, clock)` — asserted
 /// by `vardiff_sim`'s equivalence-test suite.
-pub fn classic_composed(
-    min_allowed_hashrate: f32,
-    clock: Arc<dyn Clock>,
-) -> ClassicComposed {
+pub fn classic_composed(min_allowed_hashrate: f32, clock: Arc<dyn Clock>) -> ClassicComposed {
     Composed::new(
         CumulativeCounter::new(),
         AbsoluteRatio,

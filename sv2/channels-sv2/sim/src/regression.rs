@@ -132,7 +132,10 @@ pub fn parse_baseline_toml(input: &str) -> Result<BaselineDoc, ParseError> {
             }
             Some(s) if s.starts_with("derived.") => {
                 let derived_key = s.strip_prefix("derived.").unwrap().to_string();
-                derived_kv.entry(derived_key).or_default().insert(key, value);
+                derived_kv
+                    .entry(derived_key)
+                    .or_default()
+                    .insert(key, value);
             }
             Some(other) => {
                 return Err(ParseError::UnknownSection(line_no + 1, other.to_string()));
@@ -401,10 +404,8 @@ pub fn compare_to_baseline(current: &[CellResult], baseline: &BaselineDoc) -> Co
             for check in derived.tolerance_checks(spm) {
                 let current_val = current_mv.get(check.key);
                 let baseline_point = baseline_kv.get(check.key).copied();
-                let baseline_ci_low =
-                    baseline_kv.get(&format!("{}_ci_low", check.key)).copied();
-                let baseline_ci_high =
-                    baseline_kv.get(&format!("{}_ci_high", check.key)).copied();
+                let baseline_ci_low = baseline_kv.get(&format!("{}_ci_low", check.key)).copied();
+                let baseline_ci_high = baseline_kv.get(&format!("{}_ci_high", check.key)).copied();
                 if let (Some(point), Some(cv)) = (baseline_point, current_val) {
                     let bv = metrics::BaselineValue {
                         point,

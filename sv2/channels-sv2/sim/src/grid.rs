@@ -58,9 +58,7 @@ use bitcoin::Target;
 use channels_sv2::vardiff::{error::VardiffError, Clock, MockClock, Vardiff};
 use channels_sv2::VardiffState;
 
-use crate::baseline::{
-    Cell, CellResult, Scenario, DEFAULT_BASELINE_SEED, DEFAULT_TRIAL_COUNT,
-};
+use crate::baseline::{Cell, CellResult, Scenario, DEFAULT_BASELINE_SEED, DEFAULT_TRIAL_COUNT};
 use crate::composed;
 use crate::metrics;
 use crate::trial::{run_trial_observed, DecisionRecord, Observable, Trial};
@@ -505,14 +503,14 @@ impl Grid {
     ///        + trial_index
     /// ```
     ///
-    /// where `cell_index = algo_idx × N_spm × N_scen + spm_idx × N_scen
-    /// + scen_idx`. The `<< 20` shift gives each cell a 2^20-wide
-    /// (1,048,576-entry) seed range, so seeds remain collision-free as
-    /// long as `trial_count ≤ 2^20`. The default 1,000-trial baseline
-    /// and even a 50,000-trial stress-baseline are well within range;
-    /// trial counts above 1 million should either replace this with a
-    /// 64-bit splitmix derivation or accept the (small) risk of seed
-    /// reuse across adjacent cells.
+    /// where `cell_index = (algo_idx * N_spm * N_scen) + (spm_idx *
+    /// N_scen) + scen_idx`. The `<< 20` shift gives each cell a
+    /// 2^20-wide (1,048,576-entry) seed range, so seeds remain
+    /// collision-free as long as `trial_count <= 2^20`. The default
+    /// 1,000-trial baseline and even a 50,000-trial stress-baseline
+    /// are well within range; trial counts above 1 million should
+    /// either replace this with a 64-bit splitmix derivation or
+    /// accept the (small) risk of seed reuse across adjacent cells.
     pub fn run(&self) -> HashMap<String, Vec<CellResult>> {
         let n_spm = self.share_rates.len();
         let n_scen = self.scenarios.len();
@@ -528,8 +526,7 @@ impl Grid {
                         shares_per_minute: spm,
                         scenario: scen.clone(),
                     };
-                    let cell_index =
-                        algo_idx * n_spm * n_scen + spm_idx * n_scen + scen_idx;
+                    let cell_index = algo_idx * n_spm * n_scen + spm_idx * n_scen + scen_idx;
                     let result = run_cell_with_algorithm(
                         algo,
                         &cell,
@@ -806,9 +803,7 @@ mod tests {
     #[test]
     fn algorithm_spec_new_accepts_custom_factory() {
         let spec = AlgorithmSpec::new("CustomAlgo", |clock| {
-            let inner = AsObservable(
-                VardiffState::new_with_clock(2.5, clock).unwrap(),
-            );
+            let inner = AsObservable(VardiffState::new_with_clock(2.5, clock).unwrap());
             VardiffBox(Box::new(inner))
         });
         assert_eq!(spec.name, "CustomAlgo");
@@ -1034,7 +1029,11 @@ mod tests {
         let grid = Grid {
             algorithms: vec![AlgorithmSpec::full_remedy()],
             share_rates: vec![6.0, 60.0],
-            scenarios: vec![Scenario::ColdStart, Scenario::Stable, Scenario::Step { delta_pct: -50 }],
+            scenarios: vec![
+                Scenario::ColdStart,
+                Scenario::Stable,
+                Scenario::Step { delta_pct: -50 },
+            ],
             trial_count: 2,
             base_seed: 0xCAFE,
         };
@@ -1058,10 +1057,7 @@ mod tests {
         // their behavior must differ at some metric to be a meaningful
         // distinct algorithm.
         let grid = Grid {
-            algorithms: vec![
-                AlgorithmSpec::ewma_60s(),
-                AlgorithmSpec::full_remedy(),
-            ],
+            algorithms: vec![AlgorithmSpec::ewma_60s(), AlgorithmSpec::full_remedy()],
             share_rates: vec![6.0],
             scenarios: vec![Scenario::Stable, Scenario::Step { delta_pct: -50 }],
             trial_count: 30,
@@ -1071,9 +1067,13 @@ mod tests {
         let ewma = &results["EWMA-60s"];
         let fr = &results["FullRemedy"];
         let any_differ = ewma.iter().zip(fr.iter()).any(|(a, b)| {
-            ["jitter_mean_per_min", "settled_accuracy_p50", "variance_p50"]
-                .iter()
-                .any(|k| a.get(k) != b.get(k))
+            [
+                "jitter_mean_per_min",
+                "settled_accuracy_p50",
+                "variance_p50",
+            ]
+            .iter()
+            .any(|k| a.get(k) != b.get(k))
         });
         assert!(
             any_differ,
@@ -1159,9 +1159,7 @@ mod tests {
             "reaction_rate",
             "reaction_p50_secs",
         ];
-        let any_differ = metrics_to_check
-            .iter()
-            .any(|k| c.get(k) != p.get(k));
+        let any_differ = metrics_to_check.iter().any(|k| c.get(k) != p.get(k));
         assert!(
             any_differ,
             "Boundary axis swap (Classic → Parametric) must produce at least \
@@ -1301,10 +1299,7 @@ mod tests {
         // (including the introspection-sensitive Estimator) is
         // detectable end-to-end.
         let grid = Grid {
-            algorithms: vec![
-                AlgorithmSpec::classic_composed(),
-                AlgorithmSpec::ewma_60s(),
-            ],
+            algorithms: vec![AlgorithmSpec::classic_composed(), AlgorithmSpec::ewma_60s()],
             share_rates: vec![12.0],
             scenarios: vec![Scenario::Stable],
             trial_count: 20,
@@ -1319,9 +1314,7 @@ mod tests {
             "settled_accuracy_p50",
             "jitter_p50_per_min",
         ];
-        let any_differ = metrics_to_check
-            .iter()
-            .any(|k| c.get(k) != e.get(k));
+        let any_differ = metrics_to_check.iter().any(|k| c.get(k) != e.get(k));
         assert!(
             any_differ,
             "Estimator+Boundary+Update axis swap (Classic → EWMA-60s) must produce \

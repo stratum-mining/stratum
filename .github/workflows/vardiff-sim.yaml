@@ -24,6 +24,14 @@ jobs:
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+
+      # The repo root's `rust-toolchain.toml` pins 1.75, but the sim
+      # crate's Cargo.lock is v4 format (needs newer rustup). Override
+      # explicitly so the sim crate gets the stable toolchain.
+      - name: Override toolchain
+        run: rustup override set ${{ steps.toolchain.outputs.name }}
+        working-directory: sv2/channels-sv2/sim
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -56,6 +64,14 @@ jobs:
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+
+      # The repo root's `rust-toolchain.toml` pins 1.75, but the sim
+      # crate's Cargo.lock is v4 format (needs newer rustup). Override
+      # explicitly so the sim crate gets the stable toolchain.
+      - name: Override toolchain
+        run: rustup override set ${{ steps.toolchain.outputs.name }}
+        working-directory: sv2/channels-sv2/sim
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -84,6 +100,14 @@ jobs:
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
+        id: toolchain
+
+      # The repo root's `rust-toolchain.toml` pins 1.75, but the sim
+      # crate's Cargo.lock is v4 format (needs newer rustup). Override
+      # explicitly so the sim crate gets the stable toolchain.
+      - name: Override toolchain
+        run: rustup override set ${{ steps.toolchain.outputs.name }}
+        working-directory: sv2/channels-sv2/sim
 
       - name: Cache cargo registry
         uses: actions/cache@v3

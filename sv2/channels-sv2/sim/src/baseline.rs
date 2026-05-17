@@ -614,6 +614,10 @@ fn render_summary(results: &[CellResult], w: &mut String) {
         }
     };
 
+    // `Option::is_none_or` would be cleaner but requires Rust 1.82+;
+    // the workspace toolchain is 1.75. Using map_or(true, ...) here
+    // for MSRV compatibility and silencing the clippy suggestion.
+    #[allow(clippy::unnecessary_map_or)]
     let collect = |spec: SummarySpec, candidates: Vec<Candidate>| {
         let mut best: Option<Candidate> = None;
         let mut worst: Option<Candidate> = None;

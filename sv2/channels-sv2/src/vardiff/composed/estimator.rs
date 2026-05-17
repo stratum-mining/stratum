@@ -126,9 +126,7 @@ impl Estimator for CumulativeCounter {
             realized_share_per_min,
         ) {
             Ok(h) => h as f32,
-            Err(_) => {
-                ctx.current_hashrate * realized_share_per_min as f32 / ctx.shares_per_minute
-            }
+            Err(_) => ctx.current_hashrate * realized_share_per_min as f32 / ctx.shares_per_minute,
         };
 
         EstimatorSnapshot {
@@ -243,9 +241,7 @@ impl Estimator for EwmaEstimator {
             realized_share_per_min,
         ) {
             Ok(h) => h as f32,
-            Err(_) => {
-                ctx.current_hashrate * realized_share_per_min as f32 / ctx.shares_per_minute
-            }
+            Err(_) => ctx.current_hashrate * realized_share_per_min as f32 / ctx.shares_per_minute,
         };
         EstimatorSnapshot {
             h_estimate,
@@ -327,7 +323,9 @@ impl Estimator for SlidingWindowEstimator {
         // Saturating sum — at typical n_ticks (≤ 200) and per-tick
         // counts (≤ a few thousand under realistic Poisson) overflow
         // is unreachable. The saturate is defense in depth.
-        self.buffer.iter().fold(0u32, |acc, &n| acc.saturating_add(n))
+        self.buffer
+            .iter()
+            .fold(0u32, |acc, &n| acc.saturating_add(n))
     }
 
     fn snapshot(&self, dt_secs: u64, ctx: &EstimatorContext) -> EstimatorSnapshot {
@@ -347,9 +345,7 @@ impl Estimator for SlidingWindowEstimator {
             realized_share_per_min,
         ) {
             Ok(h) => h as f32,
-            Err(_) => {
-                ctx.current_hashrate * realized_share_per_min as f32 / ctx.shares_per_minute
-            }
+            Err(_) => ctx.current_hashrate * realized_share_per_min as f32 / ctx.shares_per_minute,
         };
 
         EstimatorSnapshot {
@@ -454,7 +450,11 @@ mod tests {
         // mostly 10 (long memory).
         e.observe(0);
         // alpha = exp(-60/600) ≈ 0.905. new rate ≈ 0.905 × 10 + 0.095 × 0 = 9.05
-        assert!(e.rate_per_tick > 8.5, "rate fell too fast: {}", e.rate_per_tick);
+        assert!(
+            e.rate_per_tick > 8.5,
+            "rate fell too fast: {}",
+            e.rate_per_tick
+        );
         assert!(e.rate_per_tick < 9.5);
     }
 
@@ -468,7 +468,11 @@ mod tests {
         // Switch to 0.
         e.observe(0);
         // alpha = exp(-60/30) = exp(-2) ≈ 0.135. new ≈ 0.135 × 10 + 0.865 × 0 = 1.35
-        assert!(e.rate_per_tick < 2.0, "rate fell too slow: {}", e.rate_per_tick);
+        assert!(
+            e.rate_per_tick < 2.0,
+            "rate fell too slow: {}",
+            e.rate_per_tick
+        );
     }
 
     #[test]
@@ -540,8 +544,12 @@ mod tests {
                  expected ~1.0, got {} (recovered={}, linear_prediction={}). \
                  This likely means the `× 100_000` U256 scale factor in \
                  target.rs was reverted to `× 100` — see FINDINGS.md §3.",
-                hashrate, configured, realized,
-                inflation, recovered, linear_prediction,
+                hashrate,
+                configured,
+                realized,
+                inflation,
+                recovered,
+                linear_prediction,
             );
         }
     }

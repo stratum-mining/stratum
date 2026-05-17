@@ -31,12 +31,8 @@ use std::fmt::Debug;
 /// the current registry). A `LogLikelihoodRatio` variant for CUSUM-style
 /// algorithms is plausible but not yet implemented.
 pub trait Statistic: Debug + Send + Sync {
-    fn delta(
-        &self,
-        snap: &EstimatorSnapshot,
-        current_hashrate: f32,
-        shares_per_minute: f32,
-    ) -> f64;
+    fn delta(&self, snap: &EstimatorSnapshot, current_hashrate: f32, shares_per_minute: f32)
+        -> f64;
 }
 
 /// δ = `|H̃ - H_current| / H_current * 100`.

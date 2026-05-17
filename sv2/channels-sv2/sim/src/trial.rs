@@ -232,7 +232,9 @@ pub fn run_trial_observed<V: Vardiff + Observable>(
     schedule: &HashrateSchedule,
     seed: u64,
 ) -> Trial {
-    run_trial_with_observer(vardiff, clock, config, schedule, seed, |v| v.last_decision())
+    run_trial_with_observer(vardiff, clock, config, schedule, seed, |v| {
+        v.last_decision()
+    })
 }
 
 /// Internal trial driver shared by [`run_trial`] and
@@ -294,11 +296,8 @@ fn run_trial_with_observer<V: Vardiff, F: FnMut(&V) -> Option<DecisionRecord>>(
         // Advance the clock to the tick boundary and invoke the algorithm.
         let hashrate_before = current_hashrate;
         clock.set(tick_at);
-        let result = vardiff.try_vardiff(
-            current_hashrate,
-            &current_target,
-            config.shares_per_minute,
-        );
+        let result =
+            vardiff.try_vardiff(current_hashrate, &current_target, config.shares_per_minute);
 
         // Snapshot the algorithm's last decision (if observable). The
         // observer is called *after* try_vardiff so that the decision
@@ -397,7 +396,10 @@ mod tests {
         for (a, b) in t1.ticks.iter().zip(t2.ticks.iter()) {
             assert_eq!(a.t_secs, b.t_secs);
             assert_eq!(a.fired, b.fired);
-            assert_eq!(a.new_hashrate.map(f32::to_bits), b.new_hashrate.map(f32::to_bits));
+            assert_eq!(
+                a.new_hashrate.map(f32::to_bits),
+                b.new_hashrate.map(f32::to_bits)
+            );
         }
         assert_eq!(t1.final_hashrate.to_bits(), t2.final_hashrate.to_bits());
     }
@@ -492,7 +494,10 @@ mod tests {
         let schedule = HashrateSchedule::stable(1.0e15);
         let trial = run_trial(vardiff, clock, config, &schedule, 42);
         for tick in &trial.ticks {
-            assert!(tick.delta.is_none(), "delta should be None for non-observable algorithm");
+            assert!(
+                tick.delta.is_none(),
+                "delta should be None for non-observable algorithm"
+            );
             assert!(tick.threshold.is_none(), "threshold should be None");
             assert!(tick.h_estimate.is_none(), "h_estimate should be None");
         }

@@ -54,11 +54,7 @@ mod equivalence_tests {
     use channels_sv2::VardiffState;
     use std::sync::Arc;
 
-    fn run_both(
-        config: TrialConfig,
-        schedule: HashrateSchedule,
-        seed: u64,
-    ) -> (Trial, Trial) {
+    fn run_both(config: TrialConfig, schedule: HashrateSchedule, seed: u64) -> (Trial, Trial) {
         let clock_a = Arc::new(MockClock::new(0));
         let state = VardiffState::new_with_clock(1.0, clock_a.clone()).unwrap();
         let trial_a = run_trial(state, clock_a, config.clone(), &schedule, seed);
@@ -97,14 +93,16 @@ mod equivalence_tests {
                 fa.current_hashrate_before.to_bits(),
                 fb.current_hashrate_before.to_bits(),
                 "{ctx}: fire #{i}: current_hashrate_before differs ({} vs {})",
-                fa.current_hashrate_before, fb.current_hashrate_before
+                fa.current_hashrate_before,
+                fb.current_hashrate_before
             );
         }
         assert_eq!(
             a.final_hashrate.to_bits(),
             b.final_hashrate.to_bits(),
             "{ctx}: final hashrate differs ({} vs {})",
-            a.final_hashrate, b.final_hashrate
+            a.final_hashrate,
+            b.final_hashrate
         );
     }
 
@@ -218,8 +216,14 @@ mod equivalence_tests {
         let mut none_count = 0;
         for tick in &trial.ticks {
             if tick.delta.is_some() {
-                assert!(tick.threshold.is_some(), "threshold None despite delta Some");
-                assert!(tick.h_estimate.is_some(), "h_estimate None despite delta Some");
+                assert!(
+                    tick.threshold.is_some(),
+                    "threshold None despite delta Some"
+                );
+                assert!(
+                    tick.h_estimate.is_some(),
+                    "h_estimate None despite delta Some"
+                );
                 populated += 1;
             } else {
                 assert!(tick.threshold.is_none());
@@ -259,13 +263,17 @@ mod equivalence_tests {
                     assert!(
                         delta >= threshold,
                         "tick t={}: fired but δ={} < θ={}",
-                        tick.t_secs, delta, threshold,
+                        tick.t_secs,
+                        delta,
+                        threshold,
                     );
                 } else {
                     assert!(
                         delta < threshold,
                         "tick t={}: not fired but δ={} ≥ θ={}",
-                        tick.t_secs, delta, threshold,
+                        tick.t_secs,
+                        delta,
+                        threshold,
                     );
                 }
             }

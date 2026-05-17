@@ -233,7 +233,10 @@ fn main() -> Result<(), String> {
     } else {
         eprintln!(
             "tracing: algorithm={}, scenario={}, spm={}, seed={:#x}",
-            algorithm.name, scenario.key(), args.spm, args.seed,
+            algorithm.name,
+            scenario.key(),
+            args.spm,
+            args.seed,
         );
         args.seed
     };
@@ -252,7 +255,16 @@ fn main() -> Result<(), String> {
     // Header.
     println!(
         "{:>5} {:>4} {:>6} {:>12} {:>10} {:>10} {:>12} {:>6} {:>12} {:>11}",
-        "tick", "t", "shares", "current_h", "delta", "thresh", "h_estimate", "fired", "new_h", "true_h_now"
+        "tick",
+        "t",
+        "shares",
+        "current_h",
+        "delta",
+        "thresh",
+        "h_estimate",
+        "fired",
+        "new_h",
+        "true_h_now"
     );
     println!("{}", "-".repeat(106));
 
@@ -293,8 +305,14 @@ fn main() -> Result<(), String> {
     println!();
     println!("Summary:");
     println!("  total fires:                  {}", trial.fire_count());
-    println!("  final hashrate:               {:.3e}", trial.final_hashrate);
-    println!("  true_hashrate_at_end:         {:.3e}", trial.true_hashrate_at_end);
+    println!(
+        "  final hashrate:               {:.3e}",
+        trial.final_hashrate
+    );
+    println!(
+        "  true_hashrate_at_end:         {:.3e}",
+        trial.true_hashrate_at_end
+    );
     if peak_h_estimate.is_finite() {
         let ratio = peak_h_estimate / true_h_end;
         println!(

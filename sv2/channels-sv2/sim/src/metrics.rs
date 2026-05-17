@@ -230,11 +230,17 @@ pub enum MetricClass {
 /// The serializer emits these as separate `<key>_ci_low` /
 /// `<key>_ci_high` lines mechanically; metrics record them via
 /// [`MetricValues::set_with_ci`].
+///
+/// Each value is a [`MetricEntry`]: a `(key, point, ci)` triple
+/// where `point` is the point estimate and `ci` is the optional
+/// 95% bootstrap CI.
+pub type MetricEntry = (&'static str, Option<f64>, Option<(f64, f64)>);
+
 #[derive(Debug, Clone, Default)]
 pub struct MetricValues {
     /// `(key, value, ci)` triples in insertion order. The CI is
     /// optional per entry — only percentile metrics emit it.
-    pub values: Vec<(&'static str, Option<f64>, Option<(f64, f64)>)>,
+    pub values: Vec<MetricEntry>,
 }
 
 impl MetricValues {
@@ -286,9 +292,7 @@ impl MetricValues {
     }
 
     /// Iterates over `(key, value, ci)` triples in insertion order.
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&'static str, Option<f64>, Option<(f64, f64)>)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = MetricEntry> + '_ {
         self.values.iter().copied()
     }
 }
@@ -406,14 +410,7 @@ impl Tolerance {
                     Some(format!(
                         "{:?}: current = {:.4} outside [{:.4}, {:.4}] \
                          (CI [{:.4}, {:.4}] + slack ±max(abs={}, mul={:?}))",
-                        direction,
-                        current,
-                        lower_bound,
-                        upper_bound,
-                        lo,
-                        hi,
-                        extra_abs,
-                        extra_mul,
+                        direction, current, lower_bound, upper_bound, lo, hi, extra_abs, extra_mul,
                     ))
                 } else {
                     None
@@ -601,8 +598,7 @@ pub fn convergence_time_for_trial(trial: &Trial, quiet_window_secs: u64) -> Opti
         if quiet_end > trial.config.duration_secs {
             break;
         }
-        let has_subsequent_in_window =
-            fires[i + 1..].iter().any(|f2| f2.t_secs <= quiet_end);
+        let has_subsequent_in_window = fires[i + 1..].iter().any(|f2| f2.t_secs <= quiet_end);
         if !has_subsequent_in_window {
             return Some(fire.t_secs);
         }
@@ -737,11 +733,7 @@ pub fn reaction_time_distribution(
     (rate, Distribution::new(times))
 }
 
-pub fn reaction_sensitivity(
-    trials: &[Trial],
-    event_at_secs: u64,
-    react_window_secs: u64,
-) -> f64 {
+pub fn reaction_sensitivity(trials: &[Trial], event_at_secs: u64, react_window_secs: u64) -> f64 {
     reaction_time_distribution(trials, event_at_secs, react_window_secs).0
 }
 
@@ -793,7 +785,7 @@ impl Metric for ConvergenceTime {
                 key: "convergence_p90_secs",
                 tolerance: Tolerance::WithinCi {
                     direction: Direction::LowerIsBetter,
-                    extra_abs: 60.0, // 1 minute
+                    extra_abs: 60.0,       // 1 minute
                     extra_mul: Some(0.10), // 10% beyond CI
                 },
             },
@@ -959,9 +951,7 @@ impl Metric for SettledAccuracy {
     fn render_markdown(&self, results: &[crate::baseline::CellResult], w: &mut String) {
         use crate::baseline::{find_cell, fmt_pct, unique_rates};
         w.push_str("## Settled accuracy (stable load, post-convergence)\n\n");
-        w.push_str(
-            "`|final_hashrate / true_hashrate - 1|` at trial end. Smaller is better.\n\n",
-        );
+        w.push_str("`|final_hashrate / true_hashrate - 1|` at trial end. Smaller is better.\n\n");
         w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
         w.push_str("| --- | --- | --- | --- | --- | --- |\n");
         for spm in unique_rates(results) {
@@ -1266,15 +1256,25 @@ pub struct Bias {
 }
 
 impl Bias {
-    fn render_section(&self, w: &mut String, results: &[crate::baseline::CellResult], scenario_label: &str, scenario_key: &str) {
+    fn render_section(
+        &self,
+        w: &mut String,
+        results: &[crate::baseline::CellResult],
+        scenario_label: &str,
+        scenario_key: &str,
+    ) {
         use crate::baseline::{find_cell, fmt_pct, unique_rates};
         let rates = unique_rates(results);
         let mut wrote_header = false;
         for spm in &rates {
-            let Some(r) = find_cell(results, *spm, scenario_key) else { continue; };
+            let Some(r) = find_cell(results, *spm, scenario_key) else {
+                continue;
+            };
             // Skip cells that didn't emit bias at all (non-observable
             // algorithms; bias_mean key missing entirely).
-            if r.metrics.get("bias").is_none() { continue; }
+            if !r.metrics.contains_key("bias") {
+                continue;
+            }
             if !wrote_header {
                 w.push_str(&format!("### Bias — {}\n\n", scenario_label));
                 w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
@@ -1314,9 +1314,9 @@ impl Metric for Bias {
         // Bias requires observable algorithms; for non-observable ones
         // (VardiffState through AsObservable) every value is None and
         // the section is omitted entirely.
-        let has_any = results.iter().any(|r| {
-            r.get("bias_mean").is_some() || r.get("bias_p50").is_some()
-        });
+        let has_any = results
+            .iter()
+            .any(|r| r.get("bias_mean").is_some() || r.get("bias_p50").is_some());
         if !has_any {
             return;
         }
@@ -1373,13 +1373,23 @@ pub struct Variance {
 }
 
 impl Variance {
-    fn render_section(&self, w: &mut String, results: &[crate::baseline::CellResult], scenario_label: &str, scenario_key: &str) {
+    fn render_section(
+        &self,
+        w: &mut String,
+        results: &[crate::baseline::CellResult],
+        scenario_label: &str,
+        scenario_key: &str,
+    ) {
         use crate::baseline::{find_cell, fmt_f, unique_rates};
         let rates = unique_rates(results);
         let mut wrote_header = false;
         for spm in &rates {
-            let Some(r) = find_cell(results, *spm, scenario_key) else { continue; };
-            if r.metrics.get("variance").is_none() { continue; }
+            let Some(r) = find_cell(results, *spm, scenario_key) else {
+                continue;
+            };
+            if !r.metrics.contains_key("variance") {
+                continue;
+            }
             if !wrote_header {
                 w.push_str(&format!("### Variance — {}\n\n", scenario_label));
                 w.push_str("| share/min | p10 | p50 | p90 | p99 | mean |\n");
@@ -1447,10 +1457,7 @@ impl Metric for Variance {
             }
             let mean = normalized.iter().sum::<f64>() / normalized.len() as f64;
             // Population variance: sum((x - mean)²) / N.
-            let variance = normalized
-                .iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f64>()
+            let variance = normalized.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
                 / normalized.len() as f64;
             per_trial_variances.push(variance);
         }
@@ -1529,10 +1536,10 @@ impl Metric for RampTargetOvershoot {
         }
         // Upper-tail standard-normal quantiles Φ⁻¹(p):
         let z = match key {
-            "ramp_target_overshoot_p10" => 0.0,    // upper-tail p10 deviation is 0
-            "ramp_target_overshoot_p50" => 0.0,    // upper-tail median deviation is 0
-            "ramp_target_overshoot_p90" => 1.282,  // Φ⁻¹(0.90)
-            "ramp_target_overshoot_p99" => 2.326,  // Φ⁻¹(0.99)
+            "ramp_target_overshoot_p10" => 0.0, // upper-tail p10 deviation is 0
+            "ramp_target_overshoot_p50" => 0.0, // upper-tail median deviation is 0
+            "ramp_target_overshoot_p90" => 1.282, // Φ⁻¹(0.90)
+            "ramp_target_overshoot_p99" => 2.326, // Φ⁻¹(0.99)
             _ => return None,
         };
         Some(z / lambda_bar.sqrt())
@@ -1614,7 +1621,7 @@ impl Metric for RampTargetOvershoot {
         w.push_str("| --- | --- | --- | --- | --- | --- |\n");
         for spm in unique_rates(results) {
             if let Some(r) = find_cell(results, spm, "cold_start_10gh_to_1ph") {
-                if r.metrics.get("ramp_target_overshoot").is_none() {
+                if !r.metrics.contains_key("ramp_target_overshoot") {
                     continue;
                 }
                 w.push_str(&format!(
@@ -1923,8 +1930,9 @@ impl DerivedMetric for ReactionAsymmetry {
     }
 
     fn compute(&self, results: &[crate::baseline::CellResult]) -> Vec<(f32, MetricValues)> {
-        // Build a lookup from (spm, delta_pct) → (rate, ci_low, ci_high).
-        let mut by_pair: HashMap<(u32, i32), (f64, Option<(f64, f64)>)> = HashMap::new();
+        // Build a lookup from (spm, delta_pct) → (rate, ci).
+        type RateWithCi = (f64, Option<(f64, f64)>);
+        let mut by_pair: HashMap<(u32, i32), RateWithCi> = HashMap::new();
         for r in results {
             if let Scenario::Step { delta_pct } = r.scenario {
                 if let Some(rate) = r.get("reaction_rate") {
@@ -2584,10 +2592,7 @@ mod tests {
         // The earlier `[60, 1100]` pattern *would* converge at 60 because
         // 1100 is past 60's 600s quiet window; that bug is what motivates
         // checking the round-trip explicitly here.
-        let trials = vec![
-            trial_with_fires(1800, &[]),
-            trial_with_fires(1800, &[1100]),
-        ];
+        let trials = vec![trial_with_fires(1800, &[]), trial_with_fires(1800, &[1100])];
         let v = m.compute(&trials, &stable_cell());
         assert_eq!(v.get("convergence_rate"), Some(1.0));
         // p50 of converged times {0, 1100}: nearest-rank idx = round(0.5*1) = 1 → 1100.
@@ -2663,10 +2668,7 @@ mod tests {
         // truth. With settle_after_secs cutting at 200, the first 3 are
         // excluded (they're at t=60, 120, 180 — all < 200) and the last
         // 2 (t=240, 300) contribute bias=0.
-        let trial = trial_with_observed_ticks(
-            1.0e15,
-            &[0.5e15, 0.7e15, 0.9e15, 1.0e15, 1.0e15],
-        );
+        let trial = trial_with_observed_ticks(1.0e15, &[0.5e15, 0.7e15, 0.9e15, 1.0e15, 1.0e15]);
         let m = Bias {
             settle_after_secs: 200,
         };
@@ -2756,10 +2758,7 @@ mod tests {
     fn ramp_target_overshoot_captures_peak_new_hashrate_above_truth() {
         // Targets that overshoot to 1.5e15 before settling at 1e15.
         // Peak/true = 1.5; overshoot = 0.5 = 50%.
-        let trial = trial_with_fire_targets(
-            &[(60, 1.0e14), (120, 1.5e15), (180, 1.0e15)],
-            1.0e15,
-        );
+        let trial = trial_with_fire_targets(&[(60, 1.0e14), (120, 1.5e15), (180, 1.0e15)], 1.0e15);
         let m = RampTargetOvershoot;
         let v = m.compute(&[trial], &cold_start_cell());
         let p50 = v.get("ramp_target_overshoot_p50").unwrap();
@@ -2769,10 +2768,7 @@ mod tests {
     #[test]
     fn ramp_target_overshoot_zero_when_targets_below_truth() {
         // All targets below truth — no overshoot.
-        let trial = trial_with_fire_targets(
-            &[(60, 3.0e14), (120, 7.0e14), (180, 9.0e14)],
-            1.0e15,
-        );
+        let trial = trial_with_fire_targets(&[(60, 3.0e14), (120, 7.0e14), (180, 9.0e14)], 1.0e15);
         let m = RampTargetOvershoot;
         let v = m.compute(&[trial], &cold_start_cell());
         assert_eq!(v.get("ramp_target_overshoot_p50"), Some(0.0));

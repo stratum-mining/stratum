@@ -72,8 +72,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use vardiff_sim::baseline::{
-    fmt_duration, serialize_markdown, serialize_toml, CellResult, Scenario,
-    DEFAULT_BASELINE_SEED, DEFAULT_TRIAL_COUNT,
+    fmt_duration, serialize_markdown, serialize_toml, CellResult, Scenario, DEFAULT_BASELINE_SEED,
+    DEFAULT_TRIAL_COUNT,
 };
 use vardiff_sim::grid::{AlgorithmSpec, Grid};
 use vardiff_sim::metrics::{self, Direction, ScenarioFilter, SummaryFmt, SummarySpec};
@@ -133,7 +133,11 @@ fn main() -> std::io::Result<()> {
     );
 
     let started = Instant::now();
-    let results = if paired { grid.run_paired() } else { grid.run() };
+    let results = if paired {
+        grid.run_paired()
+    } else {
+        grid.run()
+    };
     let elapsed = started.elapsed();
     eprintln!("Sweep complete in {:.2}s", elapsed.as_secs_f64());
 
@@ -252,13 +256,7 @@ fn render_pareto_report(
     // Derived-metric sections.
     for derived in metrics::derived_registry() {
         for spec in derived.summary_specs() {
-            render_pareto_section_derived(
-                &mut out,
-                derived.as_ref(),
-                &spec,
-                results,
-                algo_order,
-            );
+            render_pareto_section_derived(&mut out, derived.as_ref(), &spec, results, algo_order);
         }
     }
 
@@ -382,7 +380,12 @@ fn write_pareto_table(
         Direction::LowerIsBetter => "↓",
         Direction::Either => "↔",
     };
-    out.push_str(&format!("## {} ({} {})\n\n", spec.label, arrow, direction_label(spec.direction)));
+    out.push_str(&format!(
+        "## {} ({} {})\n\n",
+        spec.label,
+        arrow,
+        direction_label(spec.direction)
+    ));
 
     // Header row: | SPM | algo1 | algo2 | ... |
     out.push_str("| SPM |");
@@ -405,19 +408,25 @@ fn write_pareto_table(
         // Collect this row's values from each algorithm.
         let row_vals: Vec<(&str, Option<f64>)> = algo_order
             .iter()
-            .filter_map(|a| per_algo.get(a.as_str()).map(|m| (a.as_str(), m.get(&spm).copied())))
+            .filter_map(|a| {
+                per_algo
+                    .get(a.as_str())
+                    .map(|m| (a.as_str(), m.get(&spm).copied()))
+            })
             .collect();
 
         // Determine the winner: best value given direction. Entries
         // within 5% relative of the winner are also "tied".
         let present: Vec<f64> = row_vals.iter().filter_map(|(_, v)| *v).collect();
         let winner: Option<f64> = match spec.direction {
-            Direction::HigherIsBetter => present.iter().copied().fold(None, |acc, v| {
-                Some(acc.map_or(v, |a: f64| a.max(v)))
-            }),
-            Direction::LowerIsBetter => present.iter().copied().fold(None, |acc, v| {
-                Some(acc.map_or(v, |a: f64| a.min(v)))
-            }),
+            Direction::HigherIsBetter => present
+                .iter()
+                .copied()
+                .fold(None, |acc, v| Some(acc.map_or(v, |a: f64| a.max(v)))),
+            Direction::LowerIsBetter => present
+                .iter()
+                .copied()
+                .fold(None, |acc, v| Some(acc.map_or(v, |a: f64| a.min(v)))),
             Direction::Either => present.iter().copied().fold(None, |acc, v| {
                 Some(acc.map_or(v, |a: f64| if v.abs() < a.abs() { v } else { a }))
             }),
