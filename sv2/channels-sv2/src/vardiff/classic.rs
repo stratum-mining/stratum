@@ -1,5 +1,7 @@
 use crate::target::hash_rate_from_target;
+use crate::vardiff::clock::{Clock, SystemClock};
 use bitcoin::Target;
+use std::sync::Arc;
 use tracing::debug;
 
 /// Default minimum hashrate (H/s) if not specified.
@@ -10,6 +12,11 @@ use super::{error::VardiffError, Vardiff};
 /// Represents the dynamic state for a variable difficulty (Vardiff) connection.
 ///
 /// Tracks performance and adjusts the mining target to achieve a desired share rate.
+///
+/// The state holds an `Arc<dyn Clock>` for reading "current time." In production
+/// this is a [`SystemClock`] and behavior is identical to reading
+/// `SystemTime::now()` directly. For simulation and high-throughput testing the
+/// clock can be replaced with a mock via [`VardiffState::new_with_clock`].
 #[derive(Debug)]
 pub struct VardiffState {
     /// Count of shares received since the last difficulty adjustment.
@@ -18,36 +25,138 @@ pub struct VardiffState {
     pub timestamp_of_last_update: u64,
     /// The lowest hashrate (H/s) the system will allow; values below this are clamped.
     pub min_allowed_hashrate: f32,
+    /// Source of "current time" for elapsed-time computations.
+    /// Defaults to [`SystemClock`]; replaceable via [`Self::new_with_clock`].
+    ///
+    /// Public so downstream consumers can continue to construct `VardiffState`
+    /// via struct literal (e.g., custom impl Clock + Arc::new). The
+    /// constructors are still the recommended path.
+    pub clock: Arc<dyn Clock>,
 }
 
+// `Arc<dyn Clock>` does not auto-implement `UnwindSafe` / `RefUnwindSafe`
+// because trait objects don't propagate auto-traits unless the bounds are
+// included in the trait-object type. We assert them explicitly here:
+// `VardiffState`'s scalar fields are trivially unwind-safe, and the contract
+// of the `Clock` trait (a single `&self -> u64` read) does not introduce any
+// interior mutability that could leave the type inconsistent after a panic.
+//
+// This preserves the auto-trait impls that `VardiffState` had prior to the
+// `Clock` injection refactor — required for semver compatibility.
+impl std::panic::UnwindSafe for VardiffState {}
+impl std::panic::RefUnwindSafe for VardiffState {}
+
 impl VardiffState {
-    /// Creates a new `VardiffState` with the default minimum hashrate.
+    /// Creates a new `VardiffState` with the default minimum hashrate and the
+    /// system clock.
     ///
-    /// # Arguments
-    /// * `estimated_hashrate` - The initial hashrate estimate.
+    /// **Deprecated.** `VardiffState` is the historical threshold-ladder
+    /// algorithm; the recommended production vardiff is now the four-axis
+    /// `FullRemedy` composition, constructed via
+    /// [`crate::vardiff::default()`](crate::vardiff::default). See
+    /// `sim/docs/FINDINGS.md` for the empirical case for the migration.
+    /// To construct `VardiffState` explicitly for simulation, testing, or
+    /// when you specifically want the classic algorithm, use
+    /// [`Self::new_with_clock`] (not deprecated).
+    #[deprecated(
+        since = "6.1.0",
+        note = "use `channels_sv2::vardiff::default()` for the recommended production \
+                vardiff composition (FullRemedy). To opt into the classic threshold-ladder \
+                algorithm explicitly, use `VardiffState::new_with_clock`."
+    )]
     pub fn new() -> Result<Self, VardiffError> {
+        #[allow(deprecated)]
         Self::new_with_min(DEFAULT_MIN_HASHRATE)
     }
 
-    /// Creates a new `VardiffState` with a specific minimum hashrate.
+    /// Creates a new `VardiffState` with a specific minimum hashrate and the
+    /// system clock.
+    ///
+    /// **Deprecated.** See [`Self::new`] for the migration note.
     ///
     /// # Arguments
     /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
+    #[deprecated(
+        since = "6.1.0",
+        note = "use `channels_sv2::vardiff::default_with_min()` for the recommended production \
+                vardiff composition (FullRemedy). To opt into the classic threshold-ladder \
+                algorithm explicitly, use `VardiffState::new_with_clock`."
+    )]
     pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        Self::new_with_clock(min_allowed_hashrate, Arc::new(SystemClock))
+    }
+
+    /// Creates a new `VardiffState` with a specific minimum hashrate and a
+    /// custom clock implementation.
+    ///
+    /// Primarily intended for simulation and testing, where a
+    /// [`MockClock`](super::clock::MockClock) lets the algorithm run against
+    /// controlled time. In production code prefer [`Self::new`] or
+    /// [`Self::new_with_min`].
+    ///
+    /// # Arguments
+    /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
+    /// * `clock` - The clock implementation to read current time from.
+    pub fn new_with_clock(
+        min_allowed_hashrate: f32,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, VardiffError> {
+        let timestamp_secs = clock.now_secs();
 
         Ok(VardiffState {
             shares_since_last_update: 0,
             timestamp_of_last_update: timestamp_secs,
             min_allowed_hashrate,
+            clock,
         })
     }
 
     /// Sets the count of shares since the last update.
     pub fn set_shares_since_last_update(&mut self, shares_since_last_update: u32) {
         self.shares_since_last_update = shares_since_last_update;
+    }
+
+    /// Recommended production composition. Implementation hub for the
+    /// module-level [`crate::vardiff::default`] / [`default_with_min`] /
+    /// [`default_with_clock`] factories — most callers should use those
+    /// instead of constructing through `VardiffState` directly.
+    ///
+    /// [`default_with_min`]: crate::vardiff::default_with_min
+    /// [`default_with_clock`]: crate::vardiff::default_with_clock
+    ///
+    /// Returns a [`Box<dyn Vardiff>`] wrapping the four-axis
+    /// `FullRemedy` composition: `EwmaEstimator(120s) + AbsoluteRatio +
+    /// PoissonCI(z = 2.576, margin = 0.05) + PartialRetarget(η = 0.2)`.
+    ///
+    /// Empirically dominates `VardiffState` on every operationally
+    /// meaningful metric across the canonical 5 × 10 grid (convergence
+    /// rate, reaction rate at ±5/10/25/50% steps, ramp target overshoot
+    /// tail, decoupling score). Each of the three FullRemedy parameters
+    /// (τ = 120s, η = 0.2, z = 2.576) is substantiated by its own
+    /// Pareto sweep — see `sim/ewma_tau_sweep.md`, `sim/eta_sweep.md`,
+    /// `sim/z_sweep.md`, and the joint `sim/eta_z_joint_sweep.md`.
+    /// See `sim/docs/FINDINGS.md` for the validation and
+    /// `sim/docs/DESIGN.md` for the architectural rationale.
+    ///
+    /// Trade-offs documented in `FINDINGS.md` §5: a small number of
+    /// stable-load fires per hour at low SPM (active tracking, the
+    /// cost of detecting small steps) and a mild negative cold-start
+    /// bias (EWMA lag during ramp). Both well-bounded.
+    pub fn production_default(
+        min_allowed_hashrate: f32,
+        clock: Arc<dyn Clock>,
+    ) -> Box<dyn Vardiff> {
+        use crate::vardiff::composed::{
+            AbsoluteRatio, Composed, EwmaEstimator, PartialRetarget, PoissonCI,
+        };
+        Box::new(Composed::new(
+            EwmaEstimator::new(120),
+            AbsoluteRatio,
+            PoissonCI::default_parametric(),
+            PartialRetarget::new(0.2),
+            min_allowed_hashrate,
+            clock,
+        ))
     }
 }
 
@@ -74,11 +183,17 @@ impl Vardiff for VardiffState {
         self.shares_since_last_update += 1;
     }
 
+    /// Bulk-adds `n` shares with a single saturating add. Overrides the default
+    /// trait implementation (which calls increment `n` times) for performance
+    /// — the simulation framework calls this with `n` values into the millions
+    /// during cold-start ticks, where the loop overhead would dominate.
+    fn add_shares(&mut self, n: u32) {
+        self.shares_since_last_update = self.shares_since_last_update.saturating_add(n);
+    }
+
     /// Resets the share counter and updates the timestamp to now.
     fn reset_counter(&mut self) -> Result<(), VardiffError> {
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let timestamp_secs = self.clock.now_secs();
         self.set_timestamp_of_last_update(timestamp_secs);
         self.set_shares_since_last_update(0);
         Ok(())
@@ -99,12 +214,8 @@ impl Vardiff for VardiffState {
         target: &Target,
         shares_per_minute: f32,
     ) -> Result<Option<f32>, VardiffError> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(VardiffError::TimeError)?
-            .as_secs();
-
-        let delta_time = now - self.timestamp_of_last_update;
+        let now = self.clock.now_secs();
+        let delta_time = now.saturating_sub(self.timestamp_of_last_update);
 
         if delta_time <= 15 {
             return Ok(None);

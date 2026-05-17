@@ -181,7 +181,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let numerator = max_target - (target - U256Primitive::one());
     // now we calculate the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
-    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
+    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100_000.0;
     // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
     // only if s is zero.
     let shares_occurrency_frequence = shares_occurrency_frequence as u128;
@@ -194,7 +194,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
         .ok_or(InputError::ArithmeticOverflow)?;
     let denominator = target_plus_one
         .checked_mul(shares_occurrency_frequence)
-        .and_then(|e| e.checked_div(U256Primitive::from(100)))
+        .and_then(|e| e.checked_div(U256Primitive::from(100_000)))
         .ok_or(InputError::ArithmeticOverflow)?;
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator

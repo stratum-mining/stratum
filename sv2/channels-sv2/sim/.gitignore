@@ -1,0 +1,19 @@
+# Build artifacts (sim is its own Cargo workspace; root .gitignore
+# covers the parent workspace's target/, this entry covers ours).
+/target
+
+# macOS finder noise
+.DS_Store
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Locally generated reports & traces — regenerate via `cargo run`, no
+# need to track. The checked-in baselines are explicitly named.
+/trace-*.txt
+/scratch-*
+
+# Optional: cargo-semver-checks scratch directory
+.semver-checks/
