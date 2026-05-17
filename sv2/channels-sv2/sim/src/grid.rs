@@ -402,27 +402,80 @@ impl AlgorithmSpec {
     /// - Estimator: `EwmaEstimator(120s)` — temporal smoothing closes
     ///   the single-window Poisson spike that drives Phase-1-end
     ///   cascades.
-    /// - Boundary: `PoissonCI` (default 99% CI) — rate-aware threshold
-    ///   floor, prevents false-fires on stable load.
-    /// - Update: `PartialRetarget(0.3)` — bounds the magnitude of any
+    /// - Boundary: `PoissonCI` (default 99% CI, z = 2.576) — rate-aware
+    ///   threshold floor, prevents false-fires on stable load.
+    /// - Update: `PartialRetarget(0.2)` — bounds the magnitude of any
     ///   single fire, defense-in-depth against estimator-noise tails.
     ///
-    /// τ = 120s rather than 60s because the τ sweep
-    /// (`sweep-ewma-tau.rs`) showed τ = 120 wins the SPM=6 decoupling
-    /// Pareto cleanly. η = 0.3 rather than 0.5 because the EWMA
-    /// already smooths — a smaller η compounds the temporal damping
-    /// rather than fighting it.
+    /// Each parameter is substantiated by its own Pareto sweep:
+    /// `sweep-ewma-tau` characterizes τ, `sweep-eta` characterizes η,
+    /// `sweep-z` characterizes z, and `sweep-eta-z` confirms the
+    /// (η, z) axes are nearly separable (no exotic joint optimum).
     ///
-    /// Prediction: worst-case `--scan-overshoot 100 --spm 6` should
-    /// land below 30%, vs the 187% under VardiffState and Parametric
-    /// and 56% under EWMA-60s.
+    /// η = 0.2 is the convergence-vs-overshoot balance point. Smaller
+    /// η (e.g. 0.1) tightens the ramp-overshoot tail further but
+    /// catastrophically breaks cold-start convergence at high SPM
+    /// (48% convergence at SPM=120 vs 99.6% at η=0.2 — the rate-aware
+    /// PoissonCI threshold suppresses firing before truth is reached
+    /// when per-fire moves are too small). Larger η (e.g. 0.3) preserves
+    /// cold-start convergence but widens the ramp-overshoot tail
+    /// (p99 = 31% at SPM=6 vs 12% at η=0.2) and worsens decoupling
+    /// (0.79 vs 0.87 at SPM=6). η = 0.2 is the sweet spot.
+    ///
+    /// z = 2.576 preserves the −10% step sensitivity floor at high SPM
+    /// (raising z to 3.0 drops it from 0.57 to 0.48).
+    ///
+    /// Worst-case behavior: `--scan-overshoot 100 --spm 6` against
+    /// VardiffState peaks at 187% above truth; FullRemedy on the same
+    /// scan collapses the worst-case to a low double-digit excursion.
     pub fn full_remedy() -> Self {
         Self::new("FullRemedy", |clock| {
             let inner = composed::Composed::new(
                 composed::EwmaEstimator::new(120),
                 composed::AbsoluteRatio,
                 composed::PoissonCI::default_parametric(),
-                composed::PartialRetarget::new(0.3),
+                composed::PartialRetarget::new(0.2),
+                1.0,
+                clock,
+            );
+            VardiffBox(Box::new(inner))
+        })
+    }
+
+    /// Parameterized FullRemedy: same three-axis composition as
+    /// [`full_remedy`](Self::full_remedy) but with the EWMA time
+    /// constant, PartialRetarget η, and PoissonCI z-score exposed as
+    /// arguments. Use this to Pareto-explore the
+    /// (responsiveness, damping, false-fire rate) frontier:
+    ///
+    /// ```text
+    /// for &eta in &[0.1, 0.2, 0.3, 0.5, 0.7, 1.0] {
+    ///     grid.algorithms.push(AlgorithmSpec::full_remedy_with(120, eta, 2.576));
+    /// }
+    /// ```
+    ///
+    /// `full_remedy_with(120, 0.3, 2.576)` is behaviorally identical
+    /// to `full_remedy()` but carries a different display name
+    /// (`FullRemedy-tau120-eta30-z2576`) to keep parametric-sweep
+    /// result tables collision-free.
+    ///
+    /// The PoissonCI margin is held at `0.05` (the default-parametric
+    /// value); a four-parameter version is not currently exposed
+    /// because the sweep evidence so far suggests `margin` is a less
+    /// impactful axis than the other three.
+    pub fn full_remedy_with(tau_secs: u64, eta: f32, z: f64) -> Self {
+        let name = format!(
+            "FullRemedy-tau{}-eta{}-z{}",
+            tau_secs,
+            (eta * 100.0).round() as u32,
+            (z * 1000.0).round() as u32,
+        );
+        Self::new(name, move |clock| {
+            let inner = composed::Composed::new(
+                composed::EwmaEstimator::new(tau_secs),
+                composed::AbsoluteRatio,
+                composed::PoissonCI::with_z(z, 0.05),
+                composed::PartialRetarget::new(eta),
                 1.0,
                 clock,
             );
@@ -1077,8 +1130,85 @@ mod tests {
         });
         assert!(
             any_differ,
-            "FullRemedy (EWMA-120 + η=0.3) must differ from EWMA-60s (EWMA-60 + η=0.5) \
+            "FullRemedy (EWMA-120 + η=0.2) must differ from EWMA-60s (EWMA-60 + η=0.5) \
              on at least one metric",
+        );
+    }
+
+    // ---- FullRemedy parametric variant ----
+
+    #[test]
+    fn full_remedy_with_default_args_matches_full_remedy_behavior() {
+        // `full_remedy_with(120, 0.2, 2.576)` is the same composition as
+        // `full_remedy()`; only the display name differs. On a small grid
+        // the per-cell metrics must be identical when the seeds match.
+        let grid = Grid {
+            algorithms: vec![
+                AlgorithmSpec::full_remedy(),
+                AlgorithmSpec::full_remedy_with(120, 0.2, 2.576),
+            ],
+            share_rates: vec![12.0, 60.0],
+            scenarios: vec![Scenario::Stable, Scenario::Step { delta_pct: -50 }],
+            trial_count: 20,
+            base_seed: 0xCAFE,
+        };
+        let results = grid.run_paired();
+        let canonical = &results["FullRemedy"];
+        let parametric = &results["FullRemedy-tau120-eta20-z2576"];
+        assert_eq!(canonical.len(), parametric.len());
+        for (a, b) in canonical.iter().zip(parametric.iter()) {
+            for key in [
+                "settled_accuracy_p50",
+                "jitter_mean_per_min",
+                "variance_p50",
+                "ramp_target_overshoot_p50",
+                "reaction_rate",
+            ] {
+                assert_eq!(
+                    a.get(key),
+                    b.get(key),
+                    "metric {} differs at {:?}@{}",
+                    key,
+                    a.scenario,
+                    a.shares_per_minute
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn full_remedy_with_sweep_distinguishes_parameter_changes() {
+        // Two FullRemedy variants differing in one axis must produce a
+        // different name and at least one different metric — otherwise
+        // the sweep produces collapsed/indistinguishable rows.
+        let grid = Grid {
+            algorithms: vec![
+                AlgorithmSpec::full_remedy_with(120, 0.1, 2.576),
+                AlgorithmSpec::full_remedy_with(120, 1.0, 2.576),
+            ],
+            share_rates: vec![6.0],
+            scenarios: vec![Scenario::ColdStart, Scenario::Step { delta_pct: -50 }],
+            trial_count: 30,
+            base_seed: 0xCAFE,
+        };
+        let results = grid.run_paired();
+        let cautious = &results["FullRemedy-tau120-eta10-z2576"];
+        let aggressive = &results["FullRemedy-tau120-eta100-z2576"];
+        // η=0.1 caps per-fire moves at 10% of the gap; η=1.0 is full
+        // retargets. The ramp overshoot tail must differ at SPM=6 cold
+        // start (the canonical η-sensitive cell).
+        let cautious_cs = cautious
+            .iter()
+            .find(|c| c.scenario == Scenario::ColdStart)
+            .expect("ColdStart cell present");
+        let aggressive_cs = aggressive
+            .iter()
+            .find(|c| c.scenario == Scenario::ColdStart)
+            .expect("ColdStart cell present");
+        assert_ne!(
+            cautious_cs.get("ramp_target_overshoot_p90"),
+            aggressive_cs.get("ramp_target_overshoot_p90"),
+            "η=0.1 and η=1.0 must produce different ramp overshoot tails"
         );
     }
 

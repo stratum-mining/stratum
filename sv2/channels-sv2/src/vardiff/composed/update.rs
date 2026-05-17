@@ -138,8 +138,10 @@ impl PartialRetarget {
     }
 
     /// The default damping for the `EWMA-60s` algorithm: `η = 0.5`.
-    /// `FullRemedy` uses a tighter `η = 0.3` instead — see the
-    /// algorithm registry in `DESIGN.md`.
+    /// `FullRemedy` uses a tighter `η = 0.2` instead, chosen via the
+    /// `sweep-eta` and joint `sweep-eta-z` Pareto sweeps as the
+    /// convergence-vs-overshoot balance point — see the algorithm
+    /// registry in `DESIGN.md`.
     pub fn default_ewma() -> Self {
         Self { eta: 0.5 }
     }

@@ -20,7 +20,7 @@ axis-swap derivatives) read as:
 
 | SPM | VardiffState | Parametric | EWMA-60s | **FullRemedy** |
 |-----|--------------|------------|----------|----------------|
-| 6   | 0.70         | 0.03       | 0.72     | **0.79**       |
+| 6   | 0.70         | 0.03       | 0.72     | **0.87**       |
 | 12  | 0.55         | 0.08       | 0.81     | **0.99**       |
 | 30  | 0.34         | 0.23       | 0.85     | **1.00**       |
 | 60  | 0.19         | 0.51       | 0.87     | **1.00**       |
@@ -102,7 +102,7 @@ each candidate single-axis remedy:
 | `ClassicPartialRetarget(η=0.3)` | 47.0% | 26 | **32.3%** |
 | `EWMA-60s` | 56.1% | 23 | **56.1%** |
 | `SlidingWindow-10t` | 70.0% | 15 | 15.0% |
-| **`FullRemedy`** | **23.4%** | 20 | **2.8%** |
+| **`FullRemedy`** | **5.1%** | 27 | **5.1%** |
 
 **Tightening the boundary alone doesn't help.** The PoissonCI
 threshold at `λ̄ = 5.2` with `z = 2.576` is
@@ -133,8 +133,8 @@ the Phase-1 cascade and low-SPM settled accuracy together.
 ## 4. The composition closes it
 
 `FullRemedy = Composed<EwmaEstimator(120s), AbsoluteRatio,
-PoissonCI::default_parametric(), PartialRetarget(0.3)>` drops the
-worst-case at SPM=6 to 23% with 2.8% settled accuracy. Three axis
+PoissonCI::default_parametric(), PartialRetarget(0.2)>` drops the
+worst-case at SPM=6 to 5% with 5% settled accuracy. Three axis
 changes from the classic algorithm.
 
 Each axis contributes a distinct closure:
@@ -142,8 +142,22 @@ Each axis contributes a distinct closure:
 | Axis | Contribution |
 |------|-------------|
 | `EwmaEstimator(120s)` | Spreads the Poisson(5.2)→15 minute across ~120 seconds of memory. Tick-11 estimate becomes `≈ 0.39·15 + 0.61·prior_mean ≈ 9`, a 32% deviation that doesn't cross the boundary. |
-| `PoissonCI(z=2.576)` | Keeps stable-load false fires near zero (decoupling score 1.0 from SPM=12 upward). |
-| `PartialRetarget(0.3)` | Defense-in-depth — caps the magnitude of any fire that does happen at 30% of the current-to-estimate gap. |
+| `PoissonCI(z=2.576)` | Keeps stable-load false fires near zero (decoupling score 1.0 from SPM=30 upward; 0.99 at SPM=12). |
+| `PartialRetarget(0.2)` | Defense-in-depth — caps the magnitude of any fire that does happen at 20% of the current-to-estimate gap. |
+
+Each parameter sits on its own characterized Pareto frontier:
+[`ewma_tau_sweep.md`](../ewma_tau_sweep.md) for τ,
+[`eta_sweep.md`](../eta_sweep.md) for η,
+[`z_sweep.md`](../z_sweep.md) for z, and the joint
+[`eta_z_joint_sweep.md`](../eta_z_joint_sweep.md) confirms (η, z)
+are nearly separable — overshoot is η-dominated, small-step
+sensitivity is z-dominated, no exotic joint optimum. The chosen
+(τ, η, z) = (120s, 0.2, 2.576) is the smallest-η point that preserves
+cold-start convergence rate ≥99% at every SPM: smaller η (e.g. 0.1)
+tightens the ramp-overshoot tail further but catastrophically breaks
+cold-start convergence at high SPM (48% at SPM=120 vs 99.6% at η=0.2),
+because per-fire moves become too small to traverse the cold-start
+ramp before the rate-aware boundary suppresses firing.
 
 `FullRemedy` dominates the registry on every operationally
 meaningful metric. Per-cell details:
@@ -154,10 +168,10 @@ side-by-side: [`pareto.md`](../pareto.md). The headline deltas vs
 | Metric | VardiffState | FullRemedy | At SPM |
 |--------|--------------|------------|--------|
 | Cold-start convergence rate | 83.2% | **100%** | 6 |
-| Cold-start convergence p50 | 12m | **6m** | 6 |
+| Cold-start convergence p50 | 12m | **7m** | 6 |
 | Reaction rate to −50% step | 9.8% | **100%** | 120 |
-| Reaction sensitivity at ±10% | 0.00 / 0.03 | **0.59 / 0.61** | 120 |
-| Ramp target overshoot p99 | 145% | **31%** | 6 |
+| Reaction sensitivity at −10% step | 0.00 | **0.57** | 120 |
+| Ramp target overshoot p99 | 145% | **12%** | 6 |
 | Decoupling score | 0.10 | **1.00** | 120 |
 
 ## 5. The trade-offs FullRemedy makes
@@ -165,27 +179,27 @@ side-by-side: [`pareto.md`](../pareto.md). The headline deltas vs
 Two trade-offs are deliberate and well-bounded.
 
 **Active stable-load tracking.** Under stable load at SPM=6,
-`FullRemedy` fires ~2.7 times per hour (mean 0.045/min); at SPM=120
+`FullRemedy` fires ~2.0 times per hour (mean 0.033/min); at SPM=120
 it's near zero. `VardiffState` and `Parametric` fire roughly never
 under stable load — because they're not actively tracking, just
 coasting. The cost of FullRemedy's active tracking is what pays for
-its ability to detect a ±10% step at SPM=120 (sensitivity 0.59/0.61
-vs VardiffState's 0.00/0.03). Operationally, a few defensible
-retargets per hour are worth substantially better load tracking.
+its ability to detect a −10% step at SPM=120 (sensitivity 0.57 vs
+VardiffState's 0.00). Operationally, a few defensible retargets per
+hour are worth substantially better load tracking.
 
 **Mild negative cold-start bias.** The EWMA(120s) estimate lags
-during the cold-start ramp: mean cold-start bias is −1.9% at SPM=6
-decreasing to −0.6% at SPM=120. This is harmless or beneficial:
-under-estimating during ramp keeps the target slightly easier than
-truth, which accelerates share arrival and therefore accelerates the
-estimator's own convergence. It disappears once the algorithm hits
-stable load.
+during the cold-start ramp: mean cold-start bias is approximately
+−1.9% at SPM=6 decreasing to approximately −0.6% at SPM=120. This is
+harmless or beneficial: under-estimating during ramp keeps the
+target slightly easier than truth, which accelerates share arrival
+and therefore accelerates the estimator's own convergence. It
+disappears once the algorithm hits stable load.
 
 The settled-accuracy comparison needs careful reading. `VardiffState`
 shows 0.0% p50 settled accuracy at SPM=120 because it almost never
 fires — `current_h` stays near its initialized value. `FullRemedy`
-shows a wider median band (0.0–9.3% p50 across SPM) because it
-actively tracks; but its `p99` is much tighter at low SPM (28% vs
+shows a wider median band (0.0–6.6% p50 across SPM) because it
+actively tracks; but its `p99` is much tighter at low SPM (22% vs
 `VardiffState`'s 70% at SPM=6). The choice is between "narrow
 distribution but heavy unreliability tail" and "wider distribution
 but bounded tail." Bounded tails are worth more operationally.

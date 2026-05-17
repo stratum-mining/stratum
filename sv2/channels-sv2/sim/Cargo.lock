@@ -121,7 +121,7 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "channels_sv2"
-version = "5.0.0"
+version = "6.0.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
@@ -273,7 +273,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "mining_sv2"
-version = "9.0.0"
+version = "10.0.0"
 dependencies = [
  "binary_sv2",
 ]
@@ -492,7 +492,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "template_distribution_sv2"
-version = "5.0.0"
+version = "5.1.0"
 dependencies = [
  "binary_sv2",
 ]

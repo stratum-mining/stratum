@@ -25,7 +25,7 @@
 //!     EwmaEstimator::new(120),
 //!     AbsoluteRatio,
 //!     PoissonCI::default_parametric(),
-//!     PartialRetarget::new(0.3),
+//!     PartialRetarget::new(0.2),
 //!     /* min_hashrate */ 1.0,
 //!     Arc::new(SystemClock),
 //! );

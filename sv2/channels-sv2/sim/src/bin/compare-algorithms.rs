@@ -13,7 +13,9 @@
 //! - `SlidingWindow-10t` — `SlidingWindowEstimator(10)` + `PoissonCI` +
 //!   `FullRetargetNoClamp`.
 //! - `FullRemedy` — `EwmaEstimator(120s)` + `PoissonCI` +
-//!   `PartialRetarget(η=0.3)`. The "three-axis fix" composition.
+//!   `PartialRetarget(η=0.2)`. The "three-axis fix" composition.
+//!   The three parameters are each substantiated by their own Pareto
+//!   sweep (`sweep-ewma-tau`, `sweep-eta`, `sweep-z`, `sweep-eta-z`).
 //!
 //! Algorithm is a first-class grid axis, so a single command produces
 //! all baselines that can be diff'd against each other to see,

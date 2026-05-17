@@ -150,7 +150,7 @@ let v = Composed::new(
     EwmaEstimator::new(120),
     AbsoluteRatio,
     PoissonCI::default_parametric(),
-    PartialRetarget::new(0.3),
+    PartialRetarget::new(0.2),
     /* min_hashrate */ 1.0,
     clock,
 );
@@ -181,7 +181,7 @@ factories in `sim/src/grid.rs`:
 | `ClassicPartialRetarget-30` | `CumulativeCounter` | `AbsoluteRatio` | `StepFunction::classic_table()` | `PartialRetarget(η=0.3)` |
 | `EWMA-60s` | `EwmaEstimator(60s)` | `AbsoluteRatio` | `PoissonCI::default_parametric()` | `PartialRetarget(η=0.5)` |
 | `SlidingWindow-10t` | `SlidingWindowEstimator(10 ticks)` | `AbsoluteRatio` | `PoissonCI::default_parametric()` | `FullRetargetNoClamp` |
-| **`FullRemedy`** | **`EwmaEstimator(120s)`** | **`AbsoluteRatio`** | **`PoissonCI::default_parametric()`** | **`PartialRetarget(η=0.3)`** |
+| **`FullRemedy`** | **`EwmaEstimator(120s)`** | **`AbsoluteRatio`** | **`PoissonCI::default_parametric()`** | **`PartialRetarget(η=0.2)`** |
 
 `VardiffState` is the production reference. `ClassicComposed` is its
 four-axis representation; the two are asserted fire-for-fire
@@ -410,10 +410,18 @@ The summary is:
   is too weak to recover from a single bad minute at low SPM).
 - The composition **`FullRemedy = Composed<EwmaEstimator(120s),
   AbsoluteRatio, PoissonCI::default_parametric(),
-  PartialRetarget(0.3)>`** closes the cascade: EWMA smooths the
+  PartialRetarget(0.2)>`** closes the cascade: EWMA smooths the
   spike before it reaches the boundary, PoissonCI keeps stable-load
   false-fires near zero, PartialRetarget bounds the magnitude of any
-  fire that does happen.
+  fire that does happen. The three parameters (τ = 120s, η = 0.2,
+  z = 2.576) are each substantiated by their own Pareto sweep
+  (`sim/ewma_tau_sweep.md`, `sim/eta_sweep.md`, `sim/z_sweep.md`),
+  with the joint `sim/eta_z_joint_sweep.md` confirming the (η, z)
+  axes are nearly separable. η = 0.2 is the smallest value that
+  preserves cold-start convergence rate at ≥99% across every SPM —
+  smaller η catastrophically breaks convergence at high SPM by
+  making per-fire moves too small to traverse the cold-start ramp
+  before the rate-aware boundary suppresses firing.
 
 This composition argument is the empirical demonstration that the
 four-axis vocabulary cuts the design space at the right joints:
@@ -443,7 +451,7 @@ let vardiff = Composed::new(
     EwmaEstimator::new(120),
     AbsoluteRatio,
     PoissonCI::default_parametric(),
-    PartialRetarget::new(0.3),
+    PartialRetarget::new(0.2),
     min_hashrate,
     clock,
 );

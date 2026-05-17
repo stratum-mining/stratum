@@ -96,18 +96,22 @@ impl VardiffState {
     ///
     /// Returns a [`Box<dyn Vardiff>`] wrapping the four-axis
     /// `FullRemedy` composition: `EwmaEstimator(120s) + AbsoluteRatio +
-    /// PoissonCI(z = 2.576, margin = 0.05) + PartialRetarget(η = 0.3)`.
+    /// PoissonCI(z = 2.576, margin = 0.05) + PartialRetarget(η = 0.2)`.
     ///
     /// Empirically dominates `VardiffState` on every operationally
     /// meaningful metric across the canonical 5 × 10 grid (convergence
     /// rate, reaction rate at ±5/10/25/50% steps, ramp target overshoot
-    /// tail, decoupling score). See `sim/docs/FINDINGS.md` for the
-    /// validation and `sim/docs/DESIGN.md` for the architectural
-    /// rationale.
+    /// tail, decoupling score). Each of the three FullRemedy parameters
+    /// (τ = 120s, η = 0.2, z = 2.576) is substantiated by its own
+    /// Pareto sweep — see `sim/ewma_tau_sweep.md`, `sim/eta_sweep.md`,
+    /// `sim/z_sweep.md`, and the joint `sim/eta_z_joint_sweep.md`.
+    /// See `sim/docs/FINDINGS.md` for the validation and
+    /// `sim/docs/DESIGN.md` for the architectural rationale.
     ///
-    /// Trade-offs documented in `FINDINGS.md` §5: ~2.7 stable-load
-    /// fires/hour at SPM=6 (active tracking) and a mild negative
-    /// cold-start bias (EWMA lag during ramp). Both well-bounded.
+    /// Trade-offs documented in `FINDINGS.md` §5: a small number of
+    /// stable-load fires per hour at low SPM (active tracking, the
+    /// cost of detecting small steps) and a mild negative cold-start
+    /// bias (EWMA lag during ramp). Both well-bounded.
     pub fn production_default(
         min_allowed_hashrate: f32,
         clock: Arc<dyn Clock>,
@@ -119,7 +123,7 @@ impl VardiffState {
             EwmaEstimator::new(120),
             AbsoluteRatio,
             PoissonCI::default_parametric(),
-            PartialRetarget::new(0.3),
+            PartialRetarget::new(0.2),
             min_allowed_hashrate,
             clock,
         ))
