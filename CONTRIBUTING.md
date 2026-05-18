@@ -129,6 +129,8 @@ Public API exposure includes, but is not limited to:
 
 For crates that are already `1.0.0` or above, an incompatible version bump means a MAJOR bump. For `0.x.y` crates, an incompatible version bump usually means a MINOR bump, for example `0.2.3 -> 0.3.0`. A PATCH bump on a `0.x.y` crate is still treated as compatible within the same minor line, for example `0.2.3 -> 0.2.4`.
 
+The only exception to the rules above is `stratum-core` crate: `PATCH` version bumps of `stratum-core` crate must be reserved to `PATCH` global releases of `stratum` repo.
+
 ### Your First Code Contribution
 >In order to contribute, a basic learning about git and github is needed. If you're not familiar with them, have a look at https://docs.github.com/en/get-started/start-your-journey/git-and-github-learning-resources to dig into and learn how to use them.
 
