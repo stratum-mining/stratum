@@ -154,8 +154,11 @@ impl ShareAccounting {
     }
 
     /// Returns the sum of work contributed by shares in the last batch.
-    pub fn get_last_batch_work_sum(&self) -> f64 {
-        self.last_batch_work_sum
+    ///
+    /// Note: this is meant to be used for `SubmitShares.Success` messages.
+    /// Therefore, it truncates `f64` into `u64`.
+    pub fn get_last_batch_work_sum(&self) -> u64 {
+        self.last_batch_work_sum as u64
     }
 
     /// Returns the total number of shares accepted on this channel.
