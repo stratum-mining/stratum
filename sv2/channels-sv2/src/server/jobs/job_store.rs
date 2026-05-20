@@ -39,6 +39,11 @@ pub trait JobStore<T: Job>: Send + Sync + Debug {
     /// Returns `true` if successful, `false` if not found.
     fn activate_future_job(&mut self, template_id: u64, prev_hash_header_timestamp: u32) -> bool;
 
+    /// Moves the active job (if any) into past jobs.
+    ///
+    /// Default impl is a no-op.
+    fn deactivate_job(&mut self) {}
+
     /// Marks all past jobs as stale, so that shares can be rejected with the appropriate error
     /// code
     fn mark_past_jobs_as_stale(&mut self);
@@ -147,6 +152,12 @@ impl<T: Job + Clone + Debug> JobStore<T> for DefaultJobStore<T> {
         self.mark_past_jobs_as_stale();
 
         true
+    }
+
+    fn deactivate_job(&mut self) {
+        if let Some(active_job) = self.active_job.take() {
+            self.past_jobs.insert(active_job.get_job_id(), active_job);
+        }
     }
 
     fn mark_past_jobs_as_stale(&mut self) {
