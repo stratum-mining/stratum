@@ -93,7 +93,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the user identity string associated with this channel.
-    pub fn get_user_identity(&self) -> &String {
+    pub fn get_user_identity(&self) -> &str {
         &self.user_identity
     }
 
@@ -158,11 +158,21 @@ impl<'a> StandardChannel<'a> {
         self.nominal_hashrate
     }
 
-    /// Returns all future jobs for this channel.
+    /// Returns an iterator over all future jobs for this channel.
     ///
     /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.future_jobs
+    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob<'a>)> + '_ {
+        self.future_jobs.iter()
+    }
+
+    /// Returns a reference to a future job by `job_id`, if present.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+        self.future_jobs.get(&job_id)
+    }
+
+    /// Returns the number of future jobs tracked by this channel.
+    pub fn get_future_jobs_count(&self) -> usize {
+        self.future_jobs.len()
     }
 
     /// Returns the currently active job, if any.
@@ -170,14 +180,34 @@ impl<'a> StandardChannel<'a> {
         self.active_job.as_ref()
     }
 
-    /// Returns all past jobs for the channel (active jobs under current chain tip).
-    pub fn get_past_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.past_jobs
+    /// Returns an iterator over all past jobs for the channel (active jobs under current chain tip).
+    pub fn get_past_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob<'a>)> + '_ {
+        self.past_jobs.iter()
     }
 
-    /// Returns all stale jobs for the channel (jobs from previous chain tip).
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, StandardJob<'a>> {
-        &self.stale_jobs
+    /// Returns a reference to a past job by `job_id`, if present.
+    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+        self.past_jobs.get(&job_id)
+    }
+
+    /// Returns the number of past jobs tracked by this channel.
+    pub fn get_past_jobs_count(&self) -> usize {
+        self.past_jobs.len()
+    }
+
+    /// Returns an iterator over all stale jobs for the channel (jobs from previous chain tip).
+    pub fn get_stale_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob<'a>)> + '_ {
+        self.stale_jobs.iter()
+    }
+
+    /// Returns a reference to a stale job by `job_id`, if present.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+        self.stale_jobs.get(&job_id)
+    }
+
+    /// Returns the number of stale jobs tracked by this channel.
+    pub fn get_stale_jobs_count(&self) -> usize {
+        self.stale_jobs.len()
     }
 
     /// Returns the share accounting state for this channel.
@@ -467,9 +497,9 @@ mod tests {
 
         channel.on_new_mining_job(future_job.clone());
 
-        assert_eq!(channel.get_future_jobs().len(), 1);
+        assert_eq!(channel.get_future_jobs_count(), 1);
         assert_eq!(channel.get_active_job(), None);
-        assert_eq!(channel.get_past_jobs().len(), 0);
+        assert_eq!(channel.get_past_jobs_count(), 0);
 
         let ntime: u32 = 1746839905;
         let set_new_prev_hash = SetNewPrevHashMp {
@@ -485,7 +515,7 @@ mod tests {
         };
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
-        assert!(channel.get_future_jobs().is_empty());
+        assert_eq!(channel.get_future_jobs_count(), 0);
 
         let mut previously_future_job = future_job.clone();
         previously_future_job.min_ntime = Sv2Option::new(Some(ntime));
@@ -531,23 +561,23 @@ mod tests {
 
         channel.on_new_mining_job(active_job.clone());
 
-        assert_eq!(channel.get_future_jobs().len(), 0);
+        assert_eq!(channel.get_future_jobs_count(), 0);
         assert_eq!(
             channel.get_active_job(),
             Some(&(active_job.clone(), channel.get_target().clone()))
         );
-        assert_eq!(channel.get_past_jobs().len(), 0);
+        assert_eq!(channel.get_past_jobs_count(), 0);
 
         let mut new_active_job = active_job.clone();
         new_active_job.job_id = 2;
         channel.on_new_mining_job(new_active_job.clone());
 
-        assert_eq!(channel.get_future_jobs().len(), 0);
+        assert_eq!(channel.get_future_jobs_count(), 0);
         assert_eq!(
             channel.get_active_job(),
             Some(&(new_active_job, channel.get_target().clone()))
         );
-        assert_eq!(channel.get_past_jobs().len(), 1);
+        assert_eq!(channel.get_past_jobs_count(), 1);
     }
 
     #[test]

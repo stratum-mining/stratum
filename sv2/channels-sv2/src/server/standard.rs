@@ -250,7 +250,7 @@ where
     }
 
     /// Returns the user identity string for this channel.
-    pub fn get_user_identity(&self) -> &String {
+    pub fn get_user_identity(&self) -> &str {
         &self.user_identity
     }
 
@@ -1249,9 +1249,8 @@ mod tests {
         assert_eq!(
             standard_channel
                 .get_share_accounting()
-                .get_rejected_shares()
-                .get(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW),
-            Some(&1)
+                .get_rejected_shares_error_count(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW),
+            1
         );
     }
 

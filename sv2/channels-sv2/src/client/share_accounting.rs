@@ -174,9 +174,21 @@ impl ShareAccounting {
         self.validated_shares
     }
 
-    /// Returns a reference to the map of rejected shares by error code.
-    pub fn get_rejected_shares(&self) -> &HashMap<String, u32> {
-        &self.rejected_shares
+    /// Returns the number of rejected shares tracked for a specific `error_code`.
+    pub fn get_rejected_shares_error_count(&self, error_code: &str) -> u32 {
+        self.rejected_shares.get(error_code).copied().unwrap_or(0)
+    }
+
+    /// Returns the total number of rejected shares across all error codes.
+    pub fn get_rejected_shares_count(&self) -> u32 {
+        self.rejected_shares.values().copied().sum()
+    }
+
+    /// Returns an iterator over rejected shares by error code.
+    pub fn get_rejected_shares(&self) -> impl Iterator<Item = (&str, u32)> + '_ {
+        self.rejected_shares
+            .iter()
+            .map(|(error_code, count)| (error_code.as_str(), *count))
     }
 
     /// Returns the cumulative work acknowledged by upstream via `SubmitSharesSuccess`.

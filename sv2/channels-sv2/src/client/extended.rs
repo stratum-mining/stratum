@@ -118,7 +118,7 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns the `user_identity` used by the upstream node to identify this client.
-    pub fn get_user_identity(&self) -> &String {
+    pub fn get_user_identity(&self) -> &str {
         &self.user_identity
     }
 
@@ -211,19 +211,49 @@ impl<'a> ExtendedChannel<'a> {
         self.active_job.as_ref()
     }
 
-    /// Returns a reference to all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        &self.future_jobs
+    /// Returns an iterator over all future jobs for this channel.
+    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob<'a>)> + '_ {
+        self.future_jobs.iter()
     }
 
-    /// Returns a reference to all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        &self.past_jobs
+    /// Returns a reference to a future job by `job_id`, if present.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+        self.future_jobs.get(&job_id)
     }
 
-    /// Returns a reference to all stale jobs for this channel.
-    pub fn get_stale_jobs(&self) -> &HashMap<u32, ExtendedJob<'a>> {
-        &self.stale_jobs
+    /// Returns the number of future jobs tracked by this channel.
+    pub fn get_future_jobs_count(&self) -> usize {
+        self.future_jobs.len()
+    }
+
+    /// Returns an iterator over all past jobs for this channel.
+    pub fn get_past_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob<'a>)> + '_ {
+        self.past_jobs.iter()
+    }
+
+    /// Returns a reference to a past job by `job_id`, if present.
+    pub fn get_past_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+        self.past_jobs.get(&job_id)
+    }
+
+    /// Returns the number of past jobs tracked by this channel.
+    pub fn get_past_jobs_count(&self) -> usize {
+        self.past_jobs.len()
+    }
+
+    /// Returns an iterator over all stale jobs for this channel.
+    pub fn get_stale_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob<'a>)> + '_ {
+        self.stale_jobs.iter()
+    }
+
+    /// Returns a reference to a stale job by `job_id`, if present.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+        self.stale_jobs.get(&job_id)
+    }
+
+    /// Returns the number of stale jobs tracked by this channel.
+    pub fn get_stale_jobs_count(&self) -> usize {
+        self.stale_jobs.len()
     }
 
     /// Returns a reference to the [`ShareAccounting`] for this channel.
@@ -715,9 +745,9 @@ mod tests {
             .on_new_extended_mining_job(future_job.clone())
             .unwrap();
 
-        assert_eq!(channel.get_future_jobs().len(), 1);
+        assert_eq!(channel.get_future_jobs_count(), 1);
         assert_eq!(channel.get_active_job(), None);
-        assert_eq!(channel.get_past_jobs().len(), 0);
+        assert_eq!(channel.get_past_jobs_count(), 0);
 
         let ntime: u32 = 1746839905;
         let set_new_prev_hash = SetNewPrevHashMp {
@@ -734,7 +764,7 @@ mod tests {
 
         channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
 
-        assert!(channel.get_future_jobs().is_empty());
+        assert_eq!(channel.get_future_jobs_count(), 0);
 
         let mut previously_future_job = future_job.clone();
         previously_future_job.min_ntime = Sv2Option::new(Some(ntime));
@@ -802,7 +832,7 @@ mod tests {
             .on_new_extended_mining_job(active_job.clone())
             .unwrap();
 
-        assert_eq!(channel.get_future_jobs().len(), 0);
+        assert_eq!(channel.get_future_jobs_count(), 0);
         assert_eq!(
             channel.get_active_job(),
             Some(&(
@@ -811,7 +841,7 @@ mod tests {
                 channel.get_target().clone()
             ))
         );
-        assert_eq!(channel.get_past_jobs().len(), 0);
+        assert_eq!(channel.get_past_jobs_count(), 0);
 
         let mut new_active_job = active_job.clone();
         new_active_job.job_id = 2;
@@ -819,7 +849,7 @@ mod tests {
             .on_new_extended_mining_job(new_active_job.clone())
             .unwrap();
 
-        assert_eq!(channel.get_future_jobs().len(), 0);
+        assert_eq!(channel.get_future_jobs_count(), 0);
         assert_eq!(
             channel.get_active_job(),
             Some(&(
@@ -828,7 +858,7 @@ mod tests {
                 channel.get_target().clone()
             ))
         );
-        assert_eq!(channel.get_past_jobs().len(), 1);
+        assert_eq!(channel.get_past_jobs_count(), 1);
     }
 
     #[test]
