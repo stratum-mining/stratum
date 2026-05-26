@@ -639,16 +639,29 @@ where
             )
             .map_err(ExtendedChannelError::JobFactoryError)?;
 
-        let job_id = new_job.get_job_id();
-
-        self.job_store.add_active_job(new_job);
-
-        // update the chain tip
         let set_custom_mining_job_static = set_custom_mining_job.into_static();
         let prev_hash = set_custom_mining_job_static.prev_hash;
         let nbits = set_custom_mining_job_static.nbits;
         let min_ntime = set_custom_mining_job_static.min_ntime;
         let new_chain_tip = ChainTip::new(prev_hash, nbits, min_ntime);
+
+        let is_new_chain_tip = self.chain_tip.as_ref().is_some_and(|chain_tip| {
+            chain_tip.prev_hash() != new_chain_tip.prev_hash()
+                || chain_tip.nbits() != new_chain_tip.nbits()
+                || chain_tip.min_ntime() != new_chain_tip.min_ntime()
+        });
+
+        let job_id = new_job.get_job_id();
+
+        self.job_store.add_active_job(new_job);
+
+        if is_new_chain_tip {
+            self.job_store.mark_past_jobs_as_stale();
+            self.share_accounting.flush_seen_shares();
+            self.job_id_to_target.clear();
+        }
+
+        // update the chain tip
         self.chain_tip = Some(new_chain_tip);
 
         // associate the new active job with the current target
@@ -2201,5 +2214,152 @@ mod tests {
 
         let res = channel.validate_share(late_share);
         assert!(matches!(res, Err(ShareValidationError::Stale(_))));
+    }
+
+    #[test]
+    fn test_set_custom_mining_job_chain_tip_change_marks_past_job_stale() {
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = vec![1, 2, 3, 4];
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 100.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+        let job_store = DefaultJobStore::new();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let first_prev_hash = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ];
+        let second_prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+
+        let first_job_id = channel
+            .on_set_custom_mining_job(custom_mining_job(
+                channel_id,
+                1,
+                first_prev_hash,
+                1745596910,
+            ))
+            .unwrap();
+        let second_job_id = channel
+            .on_set_custom_mining_job(custom_mining_job(
+                channel_id,
+                2,
+                second_prev_hash,
+                1745596970,
+            ))
+            .unwrap();
+
+        assert_ne!(first_job_id, second_job_id);
+        assert!(channel.job_store.get_stale_job(first_job_id).is_some());
+
+        let late_share = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: first_job_id,
+            nonce: 0,
+            ntime: 1745596930,
+            version: 536870912,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(late_share);
+        assert!(matches!(res, Err(ShareValidationError::Stale(_))));
+    }
+
+    #[test]
+    fn test_set_custom_mining_job_same_chain_tip_keeps_past_job() {
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = vec![1, 2, 3, 4];
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 100.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+        let job_store = DefaultJobStore::new();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            job_store,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let prev_hash = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ];
+        let min_ntime = 1745596910;
+
+        let first_job_id = channel
+            .on_set_custom_mining_job(custom_mining_job(channel_id, 1, prev_hash, min_ntime))
+            .unwrap();
+        let second_job_id = channel
+            .on_set_custom_mining_job(custom_mining_job(channel_id, 2, prev_hash, min_ntime))
+            .unwrap();
+
+        assert_ne!(first_job_id, second_job_id);
+        assert!(channel.job_store.get_past_job(first_job_id).is_some());
+        assert!(channel.job_store.get_stale_job(first_job_id).is_none());
+    }
+
+    fn custom_mining_job(
+        channel_id: u32,
+        request_id: u32,
+        prev_hash: [u8; 32],
+        min_ntime: u32,
+    ) -> SetCustomMiningJob<'static> {
+        SetCustomMiningJob {
+            channel_id,
+            request_id,
+            token: vec![request_id as u8].try_into().unwrap(),
+            version: 536870912,
+            prev_hash: prev_hash.into(),
+            min_ntime,
+            nbits: 453040064,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_n_sequence: 4294967295,
+            coinbase_tx_outputs: vec![
+                1u8, 0, 0xf2, 0x05, 0x2a, 0x01, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147,
+                204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        }
     }
 }
