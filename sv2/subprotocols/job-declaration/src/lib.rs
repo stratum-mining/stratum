@@ -36,8 +36,7 @@ pub const MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS: u8 = 0x58;
 pub const MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR: u8 = 0x59;
 pub const MESSAGE_TYPE_PUSH_SOLUTION: u8 = 0x60;
 
-// In the Job Declaration protocol, the `channel_msg` bit is always unset,
-// except for `PUSH_SOLUTION`, which requires a specific channel reference.
+// In the Job Declaration protocol, the `channel_msg` bit is always unset.
 pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN: bool = false;
 pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS: bool = false;
 pub const CHANNEL_BIT_DECLARE_MINING_JOB: bool = false;
@@ -45,7 +44,7 @@ pub const CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS: bool = false;
 pub const CHANNEL_BIT_DECLARE_MINING_JOB_ERROR: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: bool = false;
-pub const CHANNEL_BIT_PUSH_SOLUTION: bool = true;
+pub const CHANNEL_BIT_PUSH_SOLUTION: bool = false;
 
 // Commonly used DeclareMiningJobError error_code values.
 pub const ERROR_CODE_DECLARE_MINING_JOB_INVALID_MINING_JOB_TOKEN: &str = "invalid-mining-job-token";
