@@ -1748,14 +1748,15 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, Mining};
+    use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining};
     use alloc::string::String;
     use alloc::vec;
     use alloc::vec::Vec;
-    use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B064K, U256};
+    use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
     use codec_sv2::StandardSv2Frame;
     use core::convert::{TryFrom, TryInto};
     use extensions_sv2::{RequestExtensions, EXTENSION_TYPE_EXTENSIONS_NEGOTIATION};
+    use job_declaration_sv2::PushSolution;
     use mining_sv2::{
         NewMiningJob, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
     };
@@ -1851,6 +1852,28 @@ mod test {
                 "SetCustomMiningJob messages must set channel_msg"
             );
         }
+    }
+
+    #[test]
+    fn push_solution_serialization() {
+        let mut correctly_serialized_msg = vec![0, 0, 0x60, 53, 0, 0, 4, 1, 2, 3, 4];
+        correctly_serialized_msg.extend(5_u8..37);
+        correctly_serialized_msg.extend(0x11223344_u32.to_le_bytes());
+        correctly_serialized_msg.extend(0x55667788_u32.to_le_bytes());
+        correctly_serialized_msg.extend(0x99aabbcc_u32.to_le_bytes());
+        correctly_serialized_msg.extend(0xddeeff00_u32.to_le_bytes());
+
+        let job_declaration_message =
+            AnyMessage::JobDeclaration(JobDeclaration::PushSolution(PushSolution {
+                extranonce: B032::try_from(vec![1, 2, 3, 4]).unwrap(),
+                prev_hash: U256::try_from((5_u8..37).collect::<Vec<u8>>()).unwrap(),
+                nonce: 0x11223344,
+                ntime: 0x55667788,
+                nbits: 0x99aabbcc,
+                version: 0xddeeff00,
+            }));
+
+        message_serialization_check(job_declaration_message, &correctly_serialized_msg);
     }
 
     fn message_serialization_check(message: AnyMessage<'static>, expected_result: &[u8]) {
