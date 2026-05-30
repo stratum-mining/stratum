@@ -19,10 +19,10 @@ pub struct PushSolution<'decoder> {
     pub extranonce: B032<'decoder>,
     /// Previous block hash.
     pub prev_hash: U256<'decoder>,
-    /// Contains the time the block was constructed as a Unix timestamp.
-    pub ntime: u32,
     /// Nonce of the block.
     pub nonce: u32,
+    /// Contains the time the block was constructed as a Unix timestamp.
+    pub ntime: u32,
     /// The bits field is compact representation of the target at the time the block was mined.
     pub nbits: u32,
     /// The version field in a Bitcoin header initially indicated protocol rule changes. [`BIP9`]
@@ -40,11 +40,11 @@ impl fmt::Display for PushSolution<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "PushSolution(extranonce: {}, prev_hash: {}, ntime: {}, nonce: 0x{:08x}, nbits: 0x{:08x}, version: 0x{:08x})",
+            "PushSolution(extranonce: {}, prev_hash: {}, nonce: 0x{:08x}, ntime: {}, nbits: 0x{:08x}, version: 0x{:08x})",
             self.extranonce,
             self.prev_hash,
-            self.ntime,
             self.nonce,
+            self.ntime,
             self.nbits,
             self.version
         )
