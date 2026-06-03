@@ -53,7 +53,7 @@ use alloc::vec::Vec;
 
 pub use crate::buffer::BufferFromSystemMemory;
 pub use aes_gcm::aead::Buffer as AeadBuffer;
-pub use buffer_pool::BufferPool;
+pub use buffer_pool::{BufferPool, POOL_CAPACITY};
 pub use slice::Slice;
 
 /// Represents errors that can occur while writing data into a buffer.
