@@ -283,6 +283,44 @@ impl State {
 #[cfg(feature = "noise_sv2")]
 mod tests {
     use super::*;
+    use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+    use noise_sv2::{ELLSWIFT_ENCODING_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE};
+    use std::time::Duration;
+
+    const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72";
+    const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";
+
+    fn make_transport_state() -> State {
+        let pub_k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let pub_k_bytes = pub_k.into_bytes();
+        let priv_k: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
+        let priv_k_bytes = priv_k.into_bytes();
+
+        let initiator = noise_sv2::Initiator::from_raw_k(pub_k_bytes).unwrap();
+        let responder = noise_sv2::Responder::from_authority_kp(
+            &pub_k_bytes,
+            &priv_k_bytes,
+            Duration::from_secs(3600),
+        )
+        .unwrap();
+
+        let mut initiator_state = State::initialized(HandshakeRole::Initiator(initiator));
+        let mut responder_state = State::initialized(HandshakeRole::Responder(responder));
+
+        let msg0 = initiator_state.step_0().unwrap();
+        let msg0: [u8; ELLSWIFT_ENCODING_SIZE] =
+            msg0.get_payload_when_handshaking().try_into().unwrap();
+
+        let (msg1, _) = responder_state.step_1(msg0).unwrap();
+        let msg1: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE] =
+            msg1.get_payload_when_handshaking().try_into().unwrap();
+
+        let initiator_transport = initiator_state.step_2(msg1).unwrap();
+        match initiator_transport {
+            State::Transport(codec) => State::with_transport_mode(codec),
+            _ => unreachable!(),
+        }
+    }
 
     #[test]
     fn handshake_step_fails_if_state_is_not_initialized() {
@@ -294,7 +332,7 @@ mod tests {
 
     #[test]
     fn handshake_step_fails_if_state_is_in_transport_mode() {
-        let mut state = State::NotInitialized(32);
+        let mut state = make_transport_state();
         let actual = state.step_0().unwrap_err();
         let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
