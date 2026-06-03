@@ -198,9 +198,24 @@ where
         self.full_extranonce_size
     }
 
-    /// Returns a reference to the set of channel IDs associated with this group channel.
-    pub fn get_channel_ids(&self) -> &HashSet<u32> {
-        &self.channel_ids
+    /// Returns an iterator over channel IDs associated with this group channel.
+    pub fn get_channel_ids(&self) -> impl Iterator<Item = &u32> + '_ {
+        self.channel_ids.iter()
+    }
+
+    /// Returns the number of channel IDs associated with this group channel.
+    pub fn get_channel_ids_count(&self) -> usize {
+        self.channel_ids.len()
+    }
+
+    /// Returns `true` if this group channel has no channel IDs associated with it.
+    pub fn is_empty(&self) -> bool {
+        self.channel_ids.is_empty()
+    }
+
+    /// Returns `true` if this group channel contains `channel_id`.
+    pub fn has_channel_id(&self, channel_id: u32) -> bool {
+        self.channel_ids.contains(&channel_id)
     }
 
     /// Returns the current chain tip, if set.
@@ -326,7 +341,7 @@ mod tests {
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use mining_sv2::NewExtendedMiningJob;
-    use std::{collections::HashSet, convert::TryInto};
+    use std::convert::TryInto;
     use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
@@ -636,7 +651,8 @@ mod tests {
         group_channel
             .add_channel_id(1, full_extranonce_size)
             .unwrap();
-        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([1]));
+        assert_eq!(group_channel.get_channel_ids_count(), 1);
+        assert!(group_channel.has_channel_id(1));
         assert_eq!(
             group_channel.get_full_extranonce_size(),
             full_extranonce_size
@@ -646,7 +662,9 @@ mod tests {
         group_channel
             .add_channel_id(2, full_extranonce_size)
             .unwrap();
-        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([1, 2]));
+        assert_eq!(group_channel.get_channel_ids_count(), 2);
+        assert!(group_channel.has_channel_id(1));
+        assert!(group_channel.has_channel_id(2));
         assert_eq!(
             group_channel.get_full_extranonce_size(),
             full_extranonce_size
@@ -666,13 +684,14 @@ mod tests {
             new_full_extranonce_size
         );
         // all channel IDs should be cleared
-        assert_eq!(group_channel.get_channel_ids(), &HashSet::new());
+        assert_eq!(group_channel.get_channel_ids_count(), 0);
 
         // add a fourth channel with the correct full extranonce size
         group_channel
             .add_channel_id(4, new_full_extranonce_size)
             .unwrap();
-        assert_eq!(group_channel.get_channel_ids(), &HashSet::from([4]));
+        assert_eq!(group_channel.get_channel_ids_count(), 1);
+        assert!(group_channel.has_channel_id(4));
 
         // add a fifth channel with the old full extranonce size
         // this should return an error because the full extranonce size is now set to 24

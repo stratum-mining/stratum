@@ -86,11 +86,11 @@ impl<'a> StandardJob<'a> {
         self.job_message.job_id
     }
     /// Returns all coinbase outputs (spendable and unspendable) for this job.
-    pub fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
+    pub fn get_coinbase_outputs(&self) -> &[TxOut] {
         &self.coinbase_outputs
     }
     /// Returns the extranonce prefix used for this job.
-    pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
+    pub fn get_extranonce_prefix(&self) -> &[u8] {
         &self.extranonce_prefix
     }
     /// Returns the `NewMiningJob` message for this job.

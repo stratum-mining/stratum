@@ -134,7 +134,7 @@ impl<'a> ExtendedJob<'a> {
         let standard_job = StandardJob::from_template(
             template.clone(),
             extranonce_prefix,
-            self.get_coinbase_outputs().clone(),
+            self.get_coinbase_outputs().to_vec(),
             standard_job_message,
         )
         .map_err(|_| ExtendedJobError::FailedToConvertToStandardJob)?;
@@ -170,11 +170,11 @@ impl<'a> ExtendedJob<'a> {
     }
 
     /// Returns the extranonce prefix used for this job.
-    pub fn get_extranonce_prefix(&self) -> &Vec<u8> {
+    pub fn get_extranonce_prefix(&self) -> &[u8] {
         &self.extranonce_prefix
     }
     /// Returns all coinbase outputs for this job.
-    pub fn get_coinbase_outputs(&self) -> &Vec<TxOut> {
+    pub fn get_coinbase_outputs(&self) -> &[TxOut] {
         &self.coinbase_outputs
     }
     /// Returns the [`NewExtendedMiningJob`] message for this job.

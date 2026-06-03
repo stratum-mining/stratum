@@ -185,13 +185,20 @@ impl ShareAccounting {
         self.shares_accepted
     }
 
-    /// Returns a reference to the map of rejected shares by error code.
-    pub fn get_rejected_shares(&self) -> &HashMap<String, u32> {
-        &self.rejected_shares
+    /// Returns the number of rejected shares tracked for a specific `error_code`.
+    pub fn get_rejected_shares_error_count(&self, error_code: &str) -> u32 {
+        self.rejected_shares.get(error_code).copied().unwrap_or(0)
+    }
+
+    /// Returns an iterator over rejected shares by error code.
+    pub fn get_rejected_shares(&self) -> impl Iterator<Item = (&str, u32)> + '_ {
+        self.rejected_shares
+            .iter()
+            .map(|(error_code, count)| (error_code.as_str(), *count))
     }
 
     /// Returns the total number of rejected shares on this channel.
-    pub fn get_rejected_shares_total(&self) -> u32 {
+    pub fn get_rejected_shares_count(&self) -> u32 {
         self.rejected_shares.values().copied().sum()
     }
 
@@ -262,20 +269,14 @@ mod tests {
         accounting.increment_rejected_shares("duplicate-share");
         accounting.increment_rejected_shares("difficulty-too-low");
 
-        assert_eq!(accounting.get_rejected_shares_total(), 3);
+        assert_eq!(accounting.get_rejected_shares_count(), 3);
         assert_eq!(
-            accounting
-                .get_rejected_shares()
-                .get("difficulty-too-low")
-                .copied(),
-            Some(2)
+            accounting.get_rejected_shares_error_count("difficulty-too-low"),
+            2
         );
         assert_eq!(
-            accounting
-                .get_rejected_shares()
-                .get("duplicate-share")
-                .copied(),
-            Some(1)
+            accounting.get_rejected_shares_error_count("duplicate-share"),
+            1
         );
     }
 }

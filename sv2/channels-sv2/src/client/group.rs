@@ -91,9 +91,24 @@ impl<'a> GroupChannel<'a> {
         self.group_channel_id
     }
 
-    /// Returns a reference to all channel IDs associated with this group channel.
-    pub fn get_channel_ids(&self) -> &HashSet<u32> {
-        &self.channel_ids
+    /// Returns an iterator over all channel IDs associated with this group channel.
+    pub fn get_channel_ids(&self) -> impl Iterator<Item = &u32> + '_ {
+        self.channel_ids.iter()
+    }
+
+    /// Returns the number of channel IDs associated with this group channel.
+    pub fn get_channel_ids_count(&self) -> usize {
+        self.channel_ids.len()
+    }
+
+    /// Returns `true` if this group channel has no channel IDs associated with it.
+    pub fn is_empty(&self) -> bool {
+        self.channel_ids.is_empty()
+    }
+
+    /// Returns `true` if this group channel contains `channel_id`.
+    pub fn has_channel_id(&self, channel_id: u32) -> bool {
+        self.channel_ids.contains(&channel_id)
     }
 
     /// Returns a reference to the current active job, if any.
@@ -101,9 +116,19 @@ impl<'a> GroupChannel<'a> {
         self.active_job.as_ref()
     }
 
-    /// Returns a reference to all future jobs indexed by job_id.
-    pub fn get_future_jobs(&self) -> &HashMap<u32, NewExtendedMiningJob<'a>> {
-        &self.future_jobs
+    /// Returns an iterator over all future jobs, keyed by `job_id`.
+    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &NewExtendedMiningJob<'a>)> + '_ {
+        self.future_jobs.iter()
+    }
+
+    /// Returns a reference to a future job by `job_id`, if present.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&NewExtendedMiningJob<'a>> {
+        self.future_jobs.get(&job_id)
+    }
+
+    /// Returns the number of future jobs.
+    pub fn get_future_jobs_count(&self) -> usize {
+        self.future_jobs.len()
     }
 
     /// Returns the full extranonce size for jobs associated with this group channel.

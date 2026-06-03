@@ -267,7 +267,7 @@ where
     }
 
     /// Returns the user identity string associated with this channel.
-    pub fn get_user_identity(&self) -> &String {
+    pub fn get_user_identity(&self) -> &str {
         &self.user_identity
     }
 
@@ -740,7 +740,7 @@ where
 
         let extranonce_prefix = job.get_extranonce_prefix();
         let mut full_extranonce = vec![];
-        full_extranonce.extend(extranonce_prefix.clone());
+        full_extranonce.extend_from_slice(extranonce_prefix);
         full_extranonce.extend(share.extranonce.inner_as_ref());
 
         // calculate the merkle root from:
@@ -1491,9 +1491,8 @@ mod tests {
         assert_eq!(
             channel
                 .get_share_accounting()
-                .get_rejected_shares()
-                .get(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW),
-            Some(&1)
+                .get_rejected_shares_error_count(ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW),
+            1
         );
     }
 
