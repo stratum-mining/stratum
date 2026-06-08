@@ -1,4 +1,4 @@
-use binary_sv2::{self, *};
+use binary_sv2::*;
 
 mod test_struct {
     use super::*;

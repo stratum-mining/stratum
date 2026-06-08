@@ -7,7 +7,7 @@
 //! message types with fixed structures.
 
 use alloc::{fmt, vec::Vec};
-use binary_sv2::{self, Deserialize, Seq064K, Serialize};
+use binary_sv2::{Deserialize, Seq064K, Serialize};
 
 /// Extension type for Extensions Negotiation
 pub const EXTENSION_TYPE: u16 = 0x0001;

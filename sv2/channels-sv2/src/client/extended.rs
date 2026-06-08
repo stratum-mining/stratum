@@ -18,7 +18,7 @@ use crate::{
     MAX_EXTRANONCE_LEN,
 };
 use alloc::{format, string::String, vec, vec::Vec};
-use binary_sv2::{self, Sv2Option};
+use binary_sv2::Sv2Option;
 use bitcoin::{
     absolute::LockTime,
     blockdata::block::{Header, Version as BlockVersion},
