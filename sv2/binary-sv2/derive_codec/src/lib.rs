@@ -478,13 +478,11 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 ///
 /// ```ignore
 /// mod impl_parse_decodable_test {
-///     use super::{
-///         binary_sv2::{
+///     use ::binary_sv2::{
 ///             decodable::{DecodableField, FieldMarker},
 ///             Decodable, Error, SizeHint,
-///         },
-///         *,
 ///     };
+///     use super::*;
 ///
 ///     struct Test {
 ///         a: u32,
@@ -642,7 +640,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_decodable_{} {{
 
-    use super::binary_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
+    use ::binary_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
     use super::*;
 
     impl{} Decodable<'decoder> for {}{} {{
@@ -742,7 +740,7 @@ fn get_static_generics(gen: &str) -> &str {
 ///
 /// ```ignore
 /// mod impl_parse_encodable_test {
-///     use super::binary_sv2::{encodable::EncodableField, GetSize};
+///     use ::binary_sv2::{encodable::EncodableField, GetSize};
 ///     extern crate alloc;
 ///     use alloc::vec::Vec;
 ///
@@ -828,7 +826,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     } else {
         format!(
             "
-            impl{} super::binary_sv2::GetSize for {}{} {{
+            impl{} ::binary_sv2::GetSize for {}{} {{
                 fn get_size(&self) -> usize {{
                     let mut size = 0;
                     {}
@@ -843,12 +841,12 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_encodable_{} {{
 
-    use super::binary_sv2::{{encodable::EncodableField, GetSize}};
+    use ::binary_sv2::{{encodable::EncodableField, GetSize}};
     use super::{};
     extern crate alloc;
     use alloc::vec::Vec;
 
-    impl{} From<{}{}> for super::binary_sv2::EncodableField<'decoder> {{
+    impl{} From<{}{}> for ::binary_sv2::EncodableField<'decoder> {{
         fn from(v: {}{}) -> Self {{
             let mut fields: Vec<EncodableField> = Vec::new();
             {}
