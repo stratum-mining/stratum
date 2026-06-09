@@ -8,7 +8,7 @@ pub mod server_to_client;
 use crate::json_rpc::{Message, Response};
 
 /// Errors encountered during conversion between valid json_rpc messages and Sv1 messages.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum MethodError<'a> {
     /// If the json_rpc message call a method not defined by Sv1. It contains the called method
     MethodNotFound(String),
@@ -35,7 +35,7 @@ impl From<binary_sv2::Error> for ParsingMethodError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ParsingMethodError {
     BadU256Convert(Box<binary_sv2::Error>),
     HexError(Box<BTCHashError>),
