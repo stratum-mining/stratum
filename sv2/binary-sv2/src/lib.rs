@@ -83,6 +83,40 @@ pub use crate::codec::{
 
 use alloc::vec::Vec;
 
+#[cfg(not(feature = "no_std"))]
+#[derive(Debug)]
+pub struct StdIoError(E);
+
+#[cfg(not(feature = "no_std"))]
+impl StdIoError {
+    pub fn inner(&self) -> &E {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> E {
+        self.0
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl PartialEq for StdIoError {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.kind() == other.0.kind()
+            && self.0.raw_os_error() == other.0.raw_os_error()
+            && self.0.to_string() == other.0.to_string()
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+impl Eq for StdIoError {}
+
+#[cfg(not(feature = "no_std"))]
+impl From<E> for StdIoError {
+    fn from(v: E) -> Self {
+        Self(v)
+    }
+}
+
 /// Converts the provided SV2 data type to a byte vector based on the SV2 encoding format.
 #[allow(clippy::wrong_self_convention)]
 pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
@@ -199,7 +233,7 @@ pub mod encodable {
 extern crate alloc;
 
 /// Error types used within the protocol library to indicate various failure conditions.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     /// Indicates an attempt to read beyond a valid range.
     OutOfBound,
@@ -250,7 +284,7 @@ pub enum Error {
     #[cfg(not(feature = "no_std"))]
     /// Represents I/O-related errors, compatible with `no_std` mode where specific error types may
     /// vary.
-    IoError(E),
+    IoError(StdIoError),
 
     #[cfg(feature = "no_std")]
     /// Represents I/O-related errors, compatible with `no_std` mode.
@@ -289,7 +323,7 @@ impl From<E> for Error {
     fn from(v: E) -> Self {
         match v.kind() {
             ErrorKind::UnexpectedEof => Error::OutOfBound,
-            _ => Error::IoError(v),
+            _ => Error::IoError(v.into()),
         }
     }
 }
