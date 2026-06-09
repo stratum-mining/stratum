@@ -296,7 +296,7 @@ mod prop_tests {
     use super::*;
     #[cfg(feature = "noise_sv2")]
     use crate::{HandshakeRole, State};
-    use binary_sv2::{self, Serialize};
+    use binary_sv2::Serialize;
     #[cfg(feature = "noise_sv2")]
     use framing_sv2::framing::Frame;
     use framing_sv2::framing::Sv2Frame;

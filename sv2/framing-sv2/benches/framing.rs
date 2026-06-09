@@ -1,7 +1,7 @@
 //! Performance benchmarks for SV2 framing layer operations
 //! Tests both Vec and buffer_pool backends across different message sizes
 
-use binary_sv2::{self, Serialize};
+use binary_sv2::Serialize;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use framing_sv2::{framing::Sv2Frame, header::Header};
 

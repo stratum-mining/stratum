@@ -423,7 +423,7 @@ impl<T: Serialize + binary_sv2::GetSize> Default for WithoutNoise<Buffer, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use binary_sv2::{self, Serialize};
+    use binary_sv2::Serialize;
 
     #[derive(Serialize)]
     pub struct TestMessage {}
@@ -442,7 +442,7 @@ mod prop_tests {
     use crate::{decoder::Buffer, encoder::Encoder, StandardDecoder};
     #[cfg(feature = "noise_sv2")]
     use crate::{HandshakeRole, NoiseEncoder, StandardNoiseDecoder, State};
-    use binary_sv2::{self, Deserialize, Serialize};
+    use binary_sv2::{Deserialize, Serialize};
     use buffer_sv2::Buffer as IsBuffer;
     #[cfg(feature = "noise_sv2")]
     use framing_sv2::framing::Frame;

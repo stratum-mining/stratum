@@ -1,4 +1,4 @@
-use binary_sv2::{self, Deserialize, Serialize, B064K, U256};
+use binary_sv2::{Deserialize, Serialize, B064K, U256};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestMsg {
