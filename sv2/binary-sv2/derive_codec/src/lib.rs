@@ -53,7 +53,7 @@ use alloc::{
     vec::Vec,
 };
 use core::iter::FromIterator;
-use proc_macro::{Group, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 // Reserved field names to avoid conflicts
 const RESERVED_FIELDS: [&str; 2] = ["__decodable_internal_data", "__decodable_internal_offset"];
@@ -274,6 +274,33 @@ impl ParsedField {
             ".into_static()".to_string()
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty() && self.type_.is_empty() && self.generics.is_empty()
+    }
+}
+
+// Return `compile_error!(...)` tokens so the downstream crate gets a normal
+// compiler error at the derive site instead of a proc-macro panic.
+fn emit_compile_error(message: &str) -> TokenStream {
+    let mut inner = TokenStream::new();
+    inner.extend([TokenTree::Literal(Literal::string(message))]);
+
+    TokenStream::from_iter([
+        TokenTree::Ident(Ident::new("compile_error", Span::call_site())),
+        TokenTree::Punct(Punct::new('!', Spacing::Alone)),
+        TokenTree::Group(Group::new(Delimiter::Parenthesis, inner)),
+        TokenTree::Punct(Punct::new(';', Spacing::Alone)),
+    ])
+}
+
+fn parse_generated_tokens(result: &str) -> TokenStream {
+    result.parse().unwrap_or_else(|err| {
+        emit_compile_error(&format!(
+            "derive_codec_sv2 generated invalid Rust tokens: {}",
+            err
+        ))
+    })
 }
 
 // Extracts properties of a struct, including its name, generics, and fields.
@@ -303,27 +330,24 @@ impl ParsedField {
 //
 // This example demonstrates how `get_struct_properties` identifies the struct's
 // name, any generic parameters, and its fields, including types and generic parameters.
-fn get_struct_properties(item: TokenStream) -> ParsedStruct {
+fn get_struct_properties(item: TokenStream) -> Result<ParsedStruct, String> {
     let item = remove_attributes(item);
     let mut stream = item.into_iter();
 
     // Check if the stream is a struct
     loop {
-        match stream.next().expect("Stream not a struct") {
-            TokenTree::Ident(i) => {
-                if i.to_string() == "struct" {
-                    break;
-                }
-            }
-            _ => continue,
+        match stream.next() {
+            Some(TokenTree::Ident(i)) if i.to_string() == "struct" => break,
+            Some(_) => continue,
+            None => return Err("Expected a struct definition".to_string()),
         }
     }
 
     // Get the struct name
-    let struct_name = match stream.next().expect("Struct has no name") {
-        TokenTree::Ident(i) => i.to_string(),
-        // Never executed at runtime it ok to panic
-        _ => panic!("Strcut has no name"),
+    let struct_name = match stream.next() {
+        Some(TokenTree::Ident(i)) => i.to_string(),
+        Some(token) => return Err(format!("Expected a struct name, found '{}'", token)),
+        None => return Err("Struct has no name".to_string()),
     };
 
     let mut struct_generics = "".to_string();
@@ -331,33 +355,34 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
 
     // Get the struct generics if any
     loop {
-        match stream
-            .next()
-            // Never executed at runtime it ok to panic
-            .unwrap_or_else(|| panic!("Struct {} has no fields", struct_name))
-        {
-            TokenTree::Group(g) => {
+        match stream.next() {
+            Some(TokenTree::Group(g)) => {
                 group = g.stream().into_iter().collect();
                 break;
             }
-            TokenTree::Punct(p) => {
+            Some(TokenTree::Punct(p)) => {
                 struct_generics = format!("{struct_generics}{p}");
             }
-            TokenTree::Ident(i) => {
+            Some(TokenTree::Ident(i)) => {
                 struct_generics = format!("{struct_generics}{i}");
             }
-            // Never executed at runtime it ok to panic
-            _ => panic!("Struct {} has no fields", struct_name),
+            Some(token) => {
+                return Err(format!(
+                    "Struct '{}' has invalid tokens before its fields: '{}'",
+                    struct_name, token
+                ));
+            }
+            None => return Err(format!("Struct '{}' has no fields", struct_name)),
         };
     }
 
-    let fields = parse_struct_fields(group);
+    let fields = parse_struct_fields(group)?;
 
-    ParsedStruct {
+    Ok(ParsedStruct {
         name: struct_name,
         generics: struct_generics,
         fields,
-    }
+    })
 }
 
 // Parses the fields of a struct, scanning tokens to identify field names, types, and generics.
@@ -384,7 +409,7 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
 //
 // This example shows how `parse_struct_fields` handles both a primitive field (`id`) and a
 // generic field (`data`) within a struct, including parsing of generic parameters.
-fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
+fn parse_struct_fields(group: Vec<TokenTree>) -> Result<Vec<ParsedField>, String> {
     let mut fields = Vec::new();
     let mut field_ = ParsedField::new();
     let mut field_parser_state = ParserState::Name;
@@ -407,8 +432,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                 if p.to_string() == ":" {
                     field_parser_state = ParserState::Type
                 } else {
-                    // Never executed at runtime it ok to panic
-                    panic!("Unexpected token '{}' in parsing {:#?}", p, field_);
+                    return Err(format!("Unexpected token '{}' in parsing {:#?}", p, field_));
                 }
             }
             (TokenTree::Punct(p), ParserState::Type) => match p.to_string().as_ref() {
@@ -421,8 +445,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                     field_.generics = "<".to_string();
                     field_parser_state = ParserState::Generics(0);
                 }
-                // Never executed at runtime it ok to panic
-                _ => panic!("Unexpected token '{}' in parsing {:#?}", p, field_),
+                _ => return Err(format!("Unexpected token '{}' in parsing {:#?}", p, field_)),
             },
             (TokenTree::Punct(p), ParserState::Generics(open_brackets)) => {
                 match p.to_string().as_ref() {
@@ -446,11 +469,23 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                     }
                 }
             }
-            // Never executed at runtime it ok to panic
-            _ => panic!("Unexpected token"),
+            (token, _) => {
+                return Err(format!(
+                    "Unexpected token '{}' while parsing struct fields",
+                    token
+                ));
+            }
         }
     }
-    fields
+
+    if !field_.is_empty() {
+        if field_.name.is_empty() || field_.type_.is_empty() {
+            return Err(format!("Incomplete field definition: {:#?}", field_));
+        }
+        fields.push(field_);
+    }
+
+    Ok(fields)
 }
 
 /// Derives the `Decodable` trait, generating implementations for deserializing a struct from a
@@ -555,18 +590,19 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
 /// ownership and lifetime management of decoded fields in the struct.
 #[proc_macro_derive(Decodable)]
 pub fn decodable(item: TokenStream) -> TokenStream {
-    let parsed_struct = get_struct_properties(item);
+    let parsed_struct = match get_struct_properties(item) {
+        Ok(parsed_struct) => parsed_struct,
+        Err(err) => return emit_compile_error(&err),
+    };
     let data_ident = RESERVED_FIELDS[0];
     let offset_ident = RESERVED_FIELDS[1];
 
     for field in &parsed_struct.fields {
         if RESERVED_FIELDS.contains(&field.name.as_str()) {
-            return format!(
-                "compile_error!(\"Field name '{}' is reserved and cannot be used in struct '{}'. Rename it to avoid conflicts.\");",
+            return emit_compile_error(&format!(
+                "Field name '{}' is reserved and cannot be used in struct '{}'. Rename it to avoid conflicts.",
                 field.name, parsed_struct.name
-            )
-            .parse()
-            .unwrap();
+            ));
         }
     }
 
@@ -703,8 +739,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
 
     );
 
-    // Never executed at runtime it ok to panic
-    result.parse().unwrap()
+    parse_generated_tokens(&result)
 }
 
 fn get_static_generics(gen: &str) -> &str {
@@ -787,7 +822,10 @@ fn get_static_generics(gen: &str) -> &str {
 #[proc_macro_derive(Encodable, attributes(already_sized))]
 pub fn encodable(item: TokenStream) -> TokenStream {
     let is_already_sized = is_already_sized(item.clone());
-    let parsed_struct = get_struct_properties(item);
+    let parsed_struct = match get_struct_properties(item) {
+        Ok(parsed_struct) => parsed_struct,
+        Err(err) => return emit_compile_error(&err),
+    };
     let fields = parsed_struct.fields.clone();
 
     let mut field_into_decoded_field = String::new();
@@ -871,6 +909,5 @@ pub fn encodable(item: TokenStream) -> TokenStream {
         get_size,
     );
 
-    // Never executed at runtime it ok to panic
-    result.parse().unwrap()
+    parse_generated_tokens(&result)
 }
