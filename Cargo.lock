@@ -340,7 +340,6 @@ name = "common_messages_sv2"
 version = "8.0.0"
 dependencies = [
  "binary_sv2",
- "quickcheck",
 ]
 
 [[package]]

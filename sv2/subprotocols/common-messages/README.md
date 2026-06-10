@@ -10,11 +10,6 @@
 
 For further information, please refer to [Stratum V2 documentation - Common Messages](https://stratumprotocol.org/specification/03-Protocol-Overview/#36-common-protocol-messages).
 
-## Build Options
-
-This crate can be built with the following features:
- - `quickcheck`: Enables support for property-based testing using QuickCheck.
-
 ## Usage
 
 To include this crate in your project, run:
