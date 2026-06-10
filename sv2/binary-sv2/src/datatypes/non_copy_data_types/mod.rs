@@ -27,11 +27,6 @@ use alloc::{borrow::ToOwned, fmt, string::String};
 mod inner;
 mod seq_inner;
 
-#[allow(dead_code)]
-trait IntoOwned {
-    fn into_owned(self) -> Self;
-}
-
 pub use inner::Inner;
 pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
 
