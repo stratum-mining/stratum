@@ -38,8 +38,6 @@
 //
 // ## Build Options
 //
-// - `prop_test`: Enables property-based testing compatibility by implementing `TryFrom` for `Vec`
-//   conversions.
 // - `no_std`: Allows the module to be used in `no_std` environments by disabling `std::io::Read`
 //   dependencies.
 
@@ -346,30 +344,6 @@ impl_into_encodable_field_for_seq!(Signature<'a>);
 impl_into_encodable_field_for_seq!(B0255<'a>);
 impl_into_encodable_field_for_seq!(B064K<'a>);
 impl_into_encodable_field_for_seq!(B016M<'a>);
-
-#[cfg(feature = "prop_test")]
-impl<'a, T> core::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
-    type Error = &'static str;
-    fn try_from(v: Seq0255<'a, T>) -> Result<Self, Self::Error> {
-        if v.0.len() > 255 {
-            Ok(v.0)
-        } else {
-            Err("Incorrect length, expected 225")
-        }
-    }
-}
-
-#[cfg(feature = "prop_test")]
-impl<'a, T> core::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
-    type Error = &'static str;
-    fn try_from(v: Seq064K<'a, T>) -> Result<Self, Self::Error> {
-        if v.0.len() > 64 {
-            Ok(v.0)
-        } else {
-            Err("Incorrect length, expected 64")
-        }
-    }
-}
 
 impl<T> From<Vec<T>> for Seq0255<'_, T> {
     fn from(v: Vec<T>) -> Self {
