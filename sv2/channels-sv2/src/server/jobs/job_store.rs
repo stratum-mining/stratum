@@ -16,7 +16,7 @@ use super::Job;
 /// Maintains collections for future, active, past, and stale jobs, and tracks template-to-job ID
 /// mappings for future job activation.
 #[derive(Debug)]
-pub(crate) struct JobStore<T: Job + Clone> {
+pub(crate) struct JobStore<T: Job> {
     future_template_to_job_id: HashMap<u64, u32>,
     // Future jobs are indexed with job_id (u32)
     future_jobs: HashMap<u32, T>,
@@ -27,7 +27,7 @@ pub(crate) struct JobStore<T: Job + Clone> {
     stale_jobs: HashMap<u32, T>,
 }
 
-impl<T: Job + Clone> JobStore<T> {
+impl<T: Job> JobStore<T> {
     /// Creates a new empty job store.
     pub fn new() -> Self {
         Self {
@@ -40,13 +40,13 @@ impl<T: Job + Clone> JobStore<T> {
     }
 }
 
-impl<T: Job + Clone> Default for JobStore<T> {
+impl<T: Job> Default for JobStore<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Job + Clone> JobStore<T> {
+impl<T: Job> JobStore<T> {
     /// Adds a future job associated with a template ID.
     /// Returns the new job's ID.
     pub fn add_future_job(&mut self, template_id: u64, new_job: T) -> u32 {
@@ -119,9 +119,9 @@ impl<T: Job + Clone> JobStore<T> {
         self.future_template_to_job_id.get(&template_id).cloned()
     }
 
-    /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<T> {
-        self.active_job.clone()
+    /// Returns a reference to the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<&T> {
+        self.active_job.as_ref()
     }
 
     /// Returns true if there are any future jobs, false otherwise.
@@ -129,28 +129,18 @@ impl<T: Job + Clone> JobStore<T> {
         !self.future_jobs.is_empty()
     }
 
-    /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<T> {
-        self.future_jobs.get(&job_id).cloned()
+    /// Returns a reference to a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&T> {
+        self.future_jobs.get(&job_id)
     }
 
-    /// Returns true if there are any past jobs, false otherwise.
-    pub fn has_past_jobs(&self) -> bool {
-        !self.past_jobs.is_empty()
+    /// Returns a reference to a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<&T> {
+        self.past_jobs.get(&job_id)
     }
 
-    /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<T> {
-        self.past_jobs.get(&job_id).cloned()
-    }
-
-    /// Returns true if there are any stale jobs, false otherwise.
-    pub fn has_stale_jobs(&self) -> bool {
-        !self.stale_jobs.is_empty()
-    }
-
-    /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<T> {
-        self.stale_jobs.get(&job_id).cloned()
+    /// Returns a reference to a stale job from its job ID, if any.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&T> {
+        self.stale_jobs.get(&job_id)
     }
 }

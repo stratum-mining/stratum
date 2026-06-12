@@ -372,8 +372,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
         self.job_store.get_active_job()
     }
     /// Returns the job ID for a future job from a template ID, if any.
@@ -382,21 +381,18 @@ impl<'a> StandardChannel<'a> {
             .get_future_job_id_from_template_id(template_id)
     }
 
-    /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
         self.job_store.get_future_job(job_id)
     }
 
-    /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
         self.job_store.get_past_job(job_id)
     }
 
-    /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a stale job from its job ID, if any.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
         self.job_store.get_stale_job(job_id)
     }
 
@@ -854,7 +850,7 @@ mod tests {
             min_ntime: Sv2Option::new(None),
         };
 
-        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap();
+        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap().clone();
         assert_eq!(
             future_standard_job_from_channel.get_job_message(),
             &expected_future_standard_job

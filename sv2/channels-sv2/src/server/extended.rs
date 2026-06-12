@@ -426,21 +426,18 @@ impl<'a> ExtendedChannel<'a> {
         Ok(())
     }
 
-    /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_active_job()
     }
 
-    /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_future_job(job_id)
     }
 
-    /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_past_job(job_id)
     }
     /// Returns a reference to the share accounting state for this channel.
@@ -979,7 +976,7 @@ mod tests {
             .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
-        let future_job = channel.get_future_job(future_job_id).unwrap();
+        let future_job = channel.get_future_job(future_job_id).unwrap().clone();
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job

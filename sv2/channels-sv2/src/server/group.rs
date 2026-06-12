@@ -218,9 +218,8 @@ impl<'a> GroupChannel<'a> {
         self.chain_tip = Some(chain_tip);
     }
 
-    /// Returns an owned copy of the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<ExtendedJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to the currently active job, if any.
+    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_active_job()
     }
 
@@ -230,9 +229,8 @@ impl<'a> GroupChannel<'a> {
             .get_future_job_id_from_template_id(template_id)
     }
 
-    /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<ExtendedJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
         self.job_store.get_future_job(job_id)
     }
 
@@ -384,7 +382,7 @@ mod tests {
             .get_future_job_id_from_template_id(template.template_id)
             .unwrap();
 
-        let future_job = group_channel.get_future_job(future_job_id).unwrap();
+        let future_job = group_channel.get_future_job(future_job_id).unwrap().clone();
 
         // we know that the provided template + coinbase_reward_outputs should generate this future
         // job
