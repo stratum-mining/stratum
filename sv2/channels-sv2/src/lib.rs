@@ -11,7 +11,7 @@
 //! - Channel management for mining servers and clients
 //! - Standard, extended, and group channel support
 //! - Share accounting
-//! - Job store abstractions
+//! - Server-side job lifecycle management
 //! - [`client`] module is `no_std` compatible. To enable it build the crate with `no_std` feature.
 #![cfg_attr(feature = "no_std", no_std)]
 

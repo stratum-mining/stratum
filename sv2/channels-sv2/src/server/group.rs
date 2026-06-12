@@ -58,40 +58,32 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
 #[derive(Debug)]
-pub struct GroupChannel<'a, J>
-where
-    J: JobStore<ExtendedJob<'a>>,
-{
+pub struct GroupChannel<'a> {
     group_channel_id: u32,
     channel_ids: HashSet<u32>,
     job_factory: JobFactory,
-    job_store: J,
+    job_store: JobStore<ExtendedJob<'a>>,
     chain_tip: Option<ChainTip>,
     full_extranonce_size: usize,
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> GroupChannel<'a, J>
-where
-    J: JobStore<ExtendedJob<'a>>,
-{
+impl<'a> GroupChannel<'a> {
     /// Constructor of `GroupChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
-    /// Initializes the group channel state with the provided group channel ID and job store.
+    /// Initializes the group channel state with the provided group channel ID.
     /// The job factory is initialized with version rolling enabled.
     ///
     /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
     /// and `//` delimiters: `/pool_tag_string//`
     pub fn new_for_pool(
         group_channel_id: u32,
-        job_store: J,
         full_extranonce_size: usize,
         pool_tag_string: String,
     ) -> Result<Self, GroupChannelError> {
         let group_channel = Self::new(
             group_channel_id,
-            job_store,
             full_extranonce_size,
             Some(pool_tag_string),
             None,
@@ -111,14 +103,12 @@ where
     /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
     pub fn new_for_job_declaration_client(
         group_channel_id: u32,
-        job_store: J,
         full_extranonce_size: usize,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, GroupChannelError> {
         let group_channel = Self::new(
             group_channel_id,
-            job_store,
             full_extranonce_size,
             pool_tag_string,
             Some(miner_tag_string),
@@ -129,7 +119,6 @@ where
     // private constructor
     fn new(
         group_channel_id: u32,
-        job_store: J,
         full_extranonce_size: usize,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
@@ -150,7 +139,7 @@ where
             group_channel_id,
             channel_ids: HashSet::new(),
             job_factory: JobFactory::new(true, pool_tag, miner_tag),
-            job_store,
+            job_store: JobStore::new(),
             chain_tip: None,
             full_extranonce_size,
             phantom: PhantomData,
@@ -331,13 +320,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        chain_tip::ChainTip,
-        server::{
-            group::GroupChannel,
-            jobs::job_store::{DefaultJobStore, JobStore},
-        },
-    };
+    use crate::{chain_tip::ChainTip, server::group::GroupChannel};
     use binary_sv2::Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use mining_sv2::NewExtendedMiningJob;
@@ -352,16 +335,9 @@ mod tests {
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
-        let job_store = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
-            group_channel_id,
-            job_store,
-            full_extranonce_size,
-            None,
-            None,
-        )
-        .unwrap();
+        let mut group_channel =
+            GroupChannel::new(group_channel_id, full_extranonce_size, None, None).unwrap();
 
         let template = NewTemplate {
             template_id: 1,
@@ -481,17 +457,9 @@ mod tests {
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
-
-        let job_store = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
-            group_channel_id,
-            job_store,
-            full_extranonce_size,
-            None,
-            None,
-        )
-        .unwrap();
+        let mut group_channel =
+            GroupChannel::new(group_channel_id, full_extranonce_size, None, None).unwrap();
 
         let ntime = 1746839905;
         let prev_hash = [
@@ -579,17 +547,9 @@ mod tests {
         // the messages on this test were collected from a sane message flow
         // we use them as test vectors to assert correct behavior of job creation
         let group_channel_id = 1;
-
-        let job_store = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
-            group_channel_id,
-            job_store,
-            full_extranonce_size,
-            None,
-            None,
-        )
-        .unwrap();
+        let mut group_channel =
+            GroupChannel::new(group_channel_id, full_extranonce_size, None, None).unwrap();
 
         let template = NewTemplate {
             template_id: 1,
@@ -636,16 +596,9 @@ mod tests {
     #[test]
     fn test_add_channel_id() {
         let group_channel_id = 1;
-        let job_store = DefaultJobStore::new();
         let full_extranonce_size = 32;
-        let mut group_channel = GroupChannel::new(
-            group_channel_id,
-            job_store,
-            full_extranonce_size,
-            None,
-            None,
-        )
-        .unwrap();
+        let mut group_channel =
+            GroupChannel::new(group_channel_id, full_extranonce_size, None, None).unwrap();
 
         // add a first channel with the correct full extranonce size
         group_channel

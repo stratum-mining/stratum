@@ -9,7 +9,7 @@
 //! - **Extended Jobs**: See [`extended`] submodule for SV2 extended job implementation.
 //! - **Standard Jobs**: See [`standard`] submodule for SV2 standard job implementation.
 //! - **Job Factories**: See [`factory`] for job creation logic and unique job ID assignment.
-//! - **Job Storage**: See [`job_store`] for job lifecycle management and storage abstractions.
+//! - **Job Storage**: Uses an internal store for server-side job lifecycle management.
 //! - **Job Origin Tracking**: Tracks job origin (template or custom job message).
 //! - **Job Trait**: Unified trait for all mining job types, supporting activation and job ID
 //!   retrieval.
@@ -21,7 +21,7 @@
 pub mod error;
 pub mod extended;
 pub mod factory;
-pub mod job_store;
+pub(crate) mod job_store;
 pub mod standard;
 
 use mining_sv2::SetCustomMiningJob;

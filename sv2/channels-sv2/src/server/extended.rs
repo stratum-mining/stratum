@@ -81,17 +81,14 @@ use tracing::debug;
 /// - the channel's mapping between `job_id` and target
 /// - the channel's nominal hashrate
 /// - whether the channel's nominal hashrate is treated as stable
-/// - the channel's [`JobStore`]
+/// - the channel's internal job store
 /// - the channel's [`JobFactory`]
 /// - the channel's [`ShareAccounting`]
 /// - the channel's expected share per minute
 /// - the channel's [`JobFactory`]
 /// - the channel's [`ChainTip`]
 #[derive(Debug)]
-pub struct ExtendedChannel<'a, J>
-where
-    J: JobStore<ExtendedJob<'a>>,
-{
+pub struct ExtendedChannel<'a> {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: ExtranoncePrefix,
@@ -101,7 +98,7 @@ where
     job_id_to_target: HashMap<u32, Target>,
     nominal_hashrate: f32,
     stable_hashrate: bool,
-    job_store: J,
+    job_store: JobStore<ExtendedJob<'a>>,
     job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
@@ -109,10 +106,7 @@ where
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> ExtendedChannel<'a, J>
-where
-    J: JobStore<ExtendedJob<'a>>,
-{
+impl<'a> ExtendedChannel<'a> {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -134,7 +128,6 @@ where
         rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
         pool_tag_string: String,
     ) -> Result<Self, ExtendedChannelError> {
         Self::new(
@@ -147,7 +140,6 @@ where
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             Some(pool_tag_string),
             None,
         )
@@ -174,7 +166,6 @@ where
         rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, ExtendedChannelError> {
@@ -188,7 +179,6 @@ where
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             pool_tag_string,
             Some(miner_tag_string),
         )
@@ -206,7 +196,6 @@ where
         rollable_extranonce_size: u16,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
         pool_tag: Option<String>,
         miner_tag: Option<String>,
     ) -> Result<Self, ExtendedChannelError> {
@@ -252,7 +241,7 @@ where
             job_id_to_target: HashMap::new(),
             nominal_hashrate,
             stable_hashrate: false,
-            job_store,
+            job_store: JobStore::new(),
             job_factory: JobFactory::new(version_rolling_allowed, pool_tag, miner_tag),
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
@@ -896,10 +885,7 @@ mod tests {
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
-            jobs::{
-                extended::ExtendedJob,
-                job_store::{DefaultJobStore, JobStore},
-            },
+            jobs::extended::ExtendedJob,
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
@@ -932,7 +918,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -944,7 +929,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1078,7 +1062,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1090,7 +1073,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1198,7 +1180,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1210,7 +1191,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1276,7 +1256,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1288,7 +1267,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1397,7 +1375,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1409,7 +1386,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1515,7 +1491,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1527,7 +1502,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1634,7 +1608,6 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
         let very_small_hashrate = 0.1;
-        let job_store = DefaultJobStore::new();
 
         // less permissive max_target to exercise constructor clamp path
         let not_so_permissive_max_target = Target::from_le_bytes([
@@ -1653,7 +1626,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1680,7 +1652,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         // this is the most permissive possible max_target
         let max_target = Target::from_le_bytes([0xff; 32]);
@@ -1696,7 +1667,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1769,7 +1739,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1781,7 +1750,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1826,7 +1794,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1838,7 +1805,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1932,7 +1898,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -1944,7 +1909,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -2035,7 +1999,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 4u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -2047,7 +2010,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -2115,7 +2077,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -2127,7 +2088,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -2226,7 +2186,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -2238,7 +2197,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -2298,7 +2256,6 @@ mod tests {
         let version_rolling_allowed = true;
         let rollable_extranonce_size = 8u16;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::new();
 
         let mut channel = ExtendedChannel::new(
             channel_id,
@@ -2310,7 +2267,6 @@ mod tests {
             rollable_extranonce_size,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
