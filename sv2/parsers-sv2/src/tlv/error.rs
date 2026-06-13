@@ -1,7 +1,7 @@
 use core::fmt;
 
 /// Generic errors that can occur during TLV field encoding and decoding.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TlvError {
     /// TLV data buffer is too short to contain a valid TLV header or value.
     ///
