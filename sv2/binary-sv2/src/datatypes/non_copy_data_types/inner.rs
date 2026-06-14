@@ -34,7 +34,6 @@
 // # Error Handling
 // Methods return `Error` types when data exceeds size limits or deviates from the configuration,
 // ensuring compliance with defined constraints.
-use super::IntoOwned;
 use crate::{
     codec::{GetSize, SizeHint},
     datatypes::Sv2DataType,
@@ -388,20 +387,6 @@ where
             }
         };
         Ok(())
-    }
-}
-
-impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    IntoOwned for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
-{
-    fn into_owned(self) -> Self {
-        match self {
-            Inner::Ref(data) => {
-                let v: Vec<u8> = data.into();
-                Self::Owned(v)
-            }
-            Inner::Owned(_) => self,
-        }
     }
 }
 

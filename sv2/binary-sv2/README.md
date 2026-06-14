@@ -34,7 +34,6 @@ The crate supports the following mappings between Rust and SV2 types
 
 ## Features
 
-- **prop_test**: Adds property testing support.
 - **with_buffer_pool**: Optimizes memory usage during encoding.
 
 ## Usage

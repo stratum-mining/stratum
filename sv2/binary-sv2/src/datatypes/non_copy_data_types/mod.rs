@@ -11,10 +11,8 @@
 //   represent specific byte sizes, often used in cryptographic contexts or protocol identifiers.
 // - **Variable-size Aliases**: Types like [`B032`], [`B0255`], [`Str0255`], [`B064K`], and
 //   [`B016M`] handle data with bounded sizes, providing flexibility for dynamic data.
-// - **Traits and Conversions**: Implements traits like `From`, `TryFrom`, and [`IntoOwned`] for
+// - **Traits and Conversions**: Implements traits like `From`, `TryFrom`, and `Clone` for
 //   seamless transformations between owned and reference-based values.
-// - **Property Testing** (optional, requires the `prop_test` feature): Supports generating
-//   arbitrary test data for property-based testing.
 
 // # Type Aliases
 // - **[`U32AsRef`]**: 4-byte representation for small identifiers or integer values.
@@ -24,24 +22,10 @@
 // - **[`B032`], [`B0255`], [`Str0255`]**: Variable-size representations for optional fields or
 //   protocol data.
 
-// # Feature Flags
-// - **`prop_test`**: Enables property-based testing with the `quickcheck` crate. When enabled,
-//   types like `U256` and `B016M` gain methods to generate arbitrary test data for testing
-//   serialization and deserialization.
-#[cfg(feature = "prop_test")]
-use quickcheck::{Arbitrary, Gen};
-
-#[cfg(feature = "prop_test")]
-use alloc::vec::Vec;
 use alloc::{borrow::ToOwned, fmt, string::String};
 
 mod inner;
 mod seq_inner;
-
-#[allow(dead_code)]
-trait IntoOwned {
-    fn into_owned(self) -> Self;
-}
 
 pub use inner::Inner;
 pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
@@ -310,25 +294,6 @@ impl fmt::Display for B032<'_> {
 impl From<[u8; 32]> for U256<'_> {
     fn from(v: [u8; 32]) -> Self {
         Inner::Owned(v.into())
-    }
-}
-
-#[cfg(feature = "prop_test")]
-impl<'a> U256<'a> {
-    pub fn from_gen(g: &mut Gen) -> Self {
-        let mut inner = Vec::<u8>::arbitrary(g);
-        inner.resize(32, 0);
-        // 32 Bytes arrays are always converted into U256 unwrap never panic
-        let inner: [u8; 32] = inner.try_into().unwrap();
-        inner.into()
-    }
-}
-
-#[cfg(feature = "prop_test")]
-impl<'a> B016M<'a> {
-    pub fn from_gen(g: &mut Gen) -> Self {
-        // This can fail but is used only for tests purposes
-        Vec::<u8>::arbitrary(g).try_into().unwrap()
     }
 }
 

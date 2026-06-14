@@ -15,13 +15,11 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 derive_codec_sv2 = { path = "derive_codec", version = "^1.0.0" }
-quickcheck = { workspace = true, optional = true }
 buffer_sv2 = { path = "../buffer-sv2", optional=true, version = "^3.0.0" }
 
 [features]
 no_std = []
 default = ["no_std"]
-prop_test = ["quickcheck"]
 with_buffer_pool = ["buffer_sv2"]
 
 [package.metadata.docs.rs]

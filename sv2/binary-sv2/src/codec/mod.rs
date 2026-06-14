@@ -11,7 +11,7 @@
 //
 // ### Key Components
 //
-// - **Traits**: Defines core traits (`SizeHint`, `GetSize`, `Fixed`, `Variable`) that establish a
+// - **Traits**: Defines core traits (`SizeHint`, `GetSize`, `Fixed`) that establish a
 //   consistent interface for encoding and decoding operations.
 // - **Buffer Management**: With the `with_buffer_pool` feature enabled, the `Slice` type from
 //   `buffer_sv2` is included, supporting memory pooling and efficient slice handling for
@@ -24,8 +24,6 @@
 // - **`GetSize`**: Provides the exact size of an encodable type in bytes, crucial for buffer
 //   allocation.
 // - **`Fixed`**: Marks types with a compile-time constant size, simplifying encoding and decoding.
-// - **`Variable`**: For types with dynamic sizes, manages size variability and calculates inner
-//   sizes.
 //
 // ## Build Options
 //
@@ -49,10 +47,6 @@
 // For types with a fixed size, this trait defines a constant `SIZE`, simplifying work with
 // fixed-size types.
 //
-// ### `Variable`
-// Types with variable sizes implement this trait, providing constants (`HEADER_SIZE`, `MAX_SIZE`)
-// and methods for size management and inner size calculation.
-//
 // ## Summary
 //
 // This module supports efficient, low-level encoding and decoding by operating directly on slices,
@@ -64,8 +58,6 @@ pub mod encodable;
 mod impls;
 #[cfg(feature = "with_buffer_pool")]
 use buffer_sv2::Slice;
-
-use alloc::vec::Vec;
 
 /// The `SizeHint` trait provides a mechanism to return the encoded bytes size of a decodable type.
 ///
@@ -109,20 +101,6 @@ pub trait Fixed {
     ///the constant `SIZE`, represents the fixed number of bytes needed to encode or decode the
     /// type.
     const SIZE: usize;
-}
-
-// Not used and will be removed during refactoring
-#[allow(dead_code)]
-pub trait Variable {
-    const HEADER_SIZE: usize;
-    //const ELEMENT_SIZE: usize;
-    const MAX_SIZE: usize;
-
-    fn inner_size(&self) -> usize;
-
-    // Retrieves the header as a byte vector. This header typically contains information
-    // about the size or type of the data that follows.
-    fn get_header(&self) -> Vec<u8>;
 }
 
 impl<T: Fixed> SizeHint for T {

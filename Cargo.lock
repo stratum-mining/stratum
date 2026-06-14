@@ -97,7 +97,6 @@ version = "6.0.0"
 dependencies = [
  "buffer_sv2",
  "derive_codec_sv2",
- "quickcheck",
 ]
 
 [[package]]
@@ -341,7 +340,6 @@ name = "common_messages_sv2"
 version = "8.0.0"
 dependencies = [
  "binary_sv2",
- "quickcheck",
 ]
 
 [[package]]
@@ -1320,7 +1318,6 @@ name = "template_distribution_sv2"
 version = "6.0.0"
 dependencies = [
  "binary_sv2",
- "quickcheck",
 ]
 
 [[package]]

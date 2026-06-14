@@ -12,11 +12,6 @@ receive updates of the block templates to use in mining.
 
 For further information about the messages, please refer to [Stratum V2 documentation - Job Distribution](https://stratumprotocol.org/specification/07-Template-Distribution-Protocol/).
 
-## Build Options
-
-This crate can be built with the following features:
-- `prop_test`: Enables support for property testing.
-
 ## Usage
 
 To include this crate in your project, run:
