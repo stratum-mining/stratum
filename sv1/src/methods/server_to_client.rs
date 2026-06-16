@@ -491,8 +491,9 @@ impl TryFrom<&Response> for Subscribe<'_> {
         };
         let mut subscriptions: Vec<(String, String)> = vec![];
         for s in subscriptions_ {
-            // we already checked that subscriptions_ is an array
-            let s = s.as_array().unwrap();
+            let s = s
+                .as_array()
+                .ok_or_else(|| ParsingMethodError::UnexpectedArrayParams(params.clone()))?;
             if s.len() != 2 {
                 return Err(ParsingMethodError::UnexpectedArrayParams(params.clone()));
             };
@@ -710,6 +711,22 @@ fn configure_response_parsing_no_vr_min_bit_count() {
     assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(0));
 
     assert_eq!(server_configure.minimum_difficulty, Some(false));
+}
+
+#[test]
+fn subscribe_response_crash_on_object_in_subscriptions() {
+    let json = r#"{
+        "id": 2199023913727,
+        "error": null,
+        "result": [
+            [{"": [[null, null, null], {}, null]}],
+            "",
+            186546217025536
+        ]
+    }"#;
+    let response: crate::json_rpc::Response = serde_json::from_str(json).unwrap();
+    let result = crate::methods::Server2ClientResponse::try_from(response);
+    assert!(result.is_err());
 }
 
 impl VersionRollingParams {
