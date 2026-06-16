@@ -67,10 +67,19 @@ jobs:
         run: |
           brew install capnp
 
+      # Install cargo-binstall so tool installs below use prebuilt binaries.
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.20.0
+        with:
+          version: "1.20.0"
+
+      # Install cargo-nextest via cargo-binstall (no source build).
+      # Keep quick-install disabled to only use upstream release artifacts.
       - name: Install cargo-nextest
-        run: cargo install cargo-nextest --version 0.9.100 --locked
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cargo binstall --no-confirm --disable-telemetry --disable-strategies quick-install --locked cargo-nextest@0.9.100
 
       - name: Run Integration Tests Script
         if: steps.detect.outputs.should_run_integration_test == 'true'
         run: ./scripts/run-integration-tests.sh
-
