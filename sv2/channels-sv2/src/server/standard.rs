@@ -78,16 +78,13 @@ use tracing::debug;
 /// - the channel's mapping between `job_id` and target
 /// - the channel's nominal hashrate
 /// - whether the channel's nominal hashrate is treated as stable
-/// - the channel's [`JobStore`]
+/// - the channel's internal job store
 /// - the channel's share accounting state
 /// - the channel's expected share per minute
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a, J>
-where
-    J: JobStore<StandardJob<'a>>,
-{
+pub struct StandardChannel<'a> {
     pub channel_id: u32,
     user_identity: String,
     extranonce_prefix: ExtranoncePrefix,
@@ -98,16 +95,13 @@ where
     stable_hashrate: bool,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
-    job_store: J,
+    job_store: JobStore<StandardJob<'a>>,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, J> StandardChannel<'a, J>
-where
-    J: JobStore<StandardJob<'a>>,
-{
+impl<'a> StandardChannel<'a> {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -127,7 +121,6 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
         pool_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
         Self::new(
@@ -138,7 +131,6 @@ where
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             Some(pool_tag_string),
             None,
         )
@@ -163,7 +155,6 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: String,
     ) -> Result<Self, StandardChannelError> {
@@ -175,7 +166,6 @@ where
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             pool_tag_string,
             Some(miner_tag_string),
         )
@@ -191,7 +181,6 @@ where
         nominal_hashrate: f32,
         share_batch_size: usize,
         expected_share_per_minute: f32,
-        job_store: J,
         pool_tag_string: Option<String>,
         miner_tag_string: Option<String>,
     ) -> Result<Self, StandardChannelError> {
@@ -237,9 +226,9 @@ where
             stable_hashrate: false,
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
+            job_store: JobStore::new(),
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
-            job_store,
             phantom: PhantomData,
         })
     }
@@ -383,8 +372,7 @@ where
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
         self.job_store.get_active_job()
     }
     /// Returns the job ID for a future job from a template ID, if any.
@@ -393,21 +381,18 @@ where
             .get_future_job_id_from_template_id(template_id)
     }
 
-    /// Returns an owned copy of a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a future job from its job ID, if any.
+    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
         self.job_store.get_future_job(job_id)
     }
 
-    /// Returns an owned copy of a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a past job from its job ID, if any.
+    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
         self.job_store.get_past_job(job_id)
     }
 
-    /// Returns an owned copy of a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<StandardJob<'a>> {
-        // cloning happens inside the job store
+    /// Returns a reference to a stale job from its job ID, if any.
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
         self.job_store.get_stale_job(job_id)
     }
 
@@ -767,10 +752,6 @@ mod tests {
         extranonce_manager::{AllocatedExtranoncePrefix, ExtranoncePrefix, ExtranoncePrefixError},
         server::{
             error::StandardChannelError,
-            jobs::{
-                job_store::{DefaultJobStore, JobStore},
-                standard::StandardJob,
-            },
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
@@ -803,8 +784,6 @@ mod tests {
         let nominal_hashrate = 10.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -813,7 +792,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -872,7 +850,7 @@ mod tests {
             min_ntime: Sv2Option::new(None),
         };
 
-        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap();
+        let future_standard_job_from_channel = standard_channel.get_future_job(1).unwrap().clone();
         assert_eq!(
             future_standard_job_from_channel.get_job_message(),
             &expected_future_standard_job
@@ -929,9 +907,6 @@ mod tests {
         let nominal_hashrate = 10.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -940,7 +915,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1033,9 +1007,6 @@ mod tests {
         let nominal_hashrate = 1.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -1044,7 +1015,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1157,9 +1127,6 @@ mod tests {
         let nominal_hashrate = 100.0; // bigger hashrate to get higher difficulty
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -1168,7 +1135,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1272,9 +1238,6 @@ mod tests {
         let nominal_hashrate = 1_000.0; // bigger hashrate to get higher difficulty
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -1283,7 +1246,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1369,8 +1331,6 @@ mod tests {
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
         let very_small_hashrate = 0.1;
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         // less permissive max_target to exercise constructor clamp path
         let not_so_permissive_max_target = Target::from_le_bytes([
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -1386,7 +1346,6 @@ mod tests {
             very_small_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1410,9 +1369,7 @@ mod tests {
         .to_vec();
         let expected_share_per_minute = 1.0;
         let initial_hashrate = 10.0;
-        let share_batch_size = 100;
-        let job_store = DefaultJobStore::<StandardJob>::new();
-        // this is the most permissive possible max_target
+        let share_batch_size = 100; // this is the most permissive possible max_target
         let max_target = Target::from_le_bytes([0xff; 32]);
 
         // Create a channel with initial hashrate
@@ -1424,7 +1381,6 @@ mod tests {
             initial_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1499,8 +1455,6 @@ mod tests {
         let expected_share_per_minute = 1.0;
         let nominal_hashrate = 1_000.0;
         let share_batch_size = 100;
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut channel = StandardChannel::new(
             channel_id,
             user_identity,
@@ -1509,7 +1463,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
@@ -1562,8 +1515,6 @@ mod tests {
         let nominal_hashrate = 100.0;
         let share_batch_size = 100;
         let expected_share_per_minute = 1.0;
-        let job_store = DefaultJobStore::<StandardJob>::new();
-
         let mut standard_channel = StandardChannel::new(
             standard_channel_id,
             user_identity,
@@ -1572,7 +1523,6 @@ mod tests {
             nominal_hashrate,
             share_batch_size,
             expected_share_per_minute,
-            job_store,
             None,
             None,
         )
