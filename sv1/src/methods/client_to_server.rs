@@ -1,4 +1,5 @@
-use bitcoin_hashes::hex::{FromHex, ToHex};
+use crate::utils::hex_decode;
+use bitcoin::hashes::hex::DisplayHex;
 use serde_json::{
     Value,
     Value::{Array as JArrary, Null, Number as JNumber, String as JString},
@@ -168,7 +169,7 @@ impl Submit<'_> {
 
 impl From<Submit<'_>> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.0.inner_as_ref().to_hex();
+        let ex: String = submit.extra_nonce2.0.inner_as_ref().to_lower_hex_string();
         let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -200,7 +201,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
+                        Extranonce::try_from(hex_decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -208,7 +209,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
+                        Extranonce::try_from(hex_decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -216,7 +217,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
+                        Extranonce::try_from(hex_decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -224,7 +225,7 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(Vec::<u8>::from_hex(c)?)?,
+                        Extranonce::try_from(hex_decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
@@ -334,7 +335,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.0.inner_as_ref().to_hex()],
+            (a, Some(b)) => vec![a, b.0.inner_as_ref().to_lower_hex_string()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {

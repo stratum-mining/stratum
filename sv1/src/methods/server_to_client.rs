@@ -1,4 +1,3 @@
-use bitcoin_hashes::hex::FromHex;
 use serde_json::{
     Value,
     Value::{Array as JArrary, Bool as JBool, Number as JNumber, String as JString},
@@ -10,7 +9,7 @@ use crate::{
     error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash},
+    utils::{hex_decode, Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash},
 };
 
 // client.get_version()
@@ -268,7 +267,7 @@ impl TryFrom<Notification> for SetExtranonce<'_> {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                Extranonce::try_from(Vec::<u8>::from_hex(a)?)?,
+                Extranonce::try_from(hex_decode(a)?)?,
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
