@@ -728,6 +728,23 @@ fn subscribe_response_crash_on_object_in_subscriptions() {
     assert!(result.is_err());
 }
 
+#[test]
+fn subscribe_response_crash_on_non_ascii_hex_extranonce() {
+    let json = r#"{
+      "id": 0,
+      "error": null,
+      "result": [
+        ["mining.notify", "1"],
+        "55555ʛ",
+        4
+      ]
+    }"#;
+
+    let response: crate::json_rpc::Response = serde_json::from_str(json).unwrap();
+    let result = crate::methods::Server2ClientResponse::try_from(response);
+    assert!(result.is_err(), "{:?}", result);
+}
+
 impl VersionRollingParams {
     pub fn new(
         version_rolling_mask: HexU32Be,
