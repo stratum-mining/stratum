@@ -68,7 +68,7 @@ pub fn hex_decode_with_padding(s: &str) -> Result<Vec<u8>, Error<'static>> {
         s
     };
 
-    Ok(hex_decode(s)?)
+    hex_decode(s)
 }
 
 impl<'a> TryFrom<&str> for Extranonce<'a> {
