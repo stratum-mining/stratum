@@ -745,6 +745,24 @@ fn subscribe_response_crash_on_non_ascii_hex_extranonce() {
     assert!(result.is_err(), "{:?}", result);
 }
 
+#[test]
+fn subscribe_response_crash_on_too_long_extranonce() {
+    let json = format!(
+        r#"{{"id":0,"error":null,"result":[["mining.notify","1"],"{}",4]}}"#,
+        "ff".repeat(33)
+    );
+    let response: crate::json_rpc::Response = serde_json::from_str(&json).unwrap();
+    let result = crate::methods::Server2ClientResponse::try_from(response);
+    assert!(
+        matches!(
+            result,
+            Err(ParsingMethodError::MultipleError(ref v)) if v.iter().any(|e| matches!(e, ParsingMethodError::BadBytesConvert(_)))
+        ),
+        "{:?}",
+        result
+    );
+}
+
 impl VersionRollingParams {
     pub fn new(
         version_rolling_mask: HexU32Be,
