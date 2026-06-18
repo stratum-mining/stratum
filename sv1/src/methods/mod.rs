@@ -54,6 +54,7 @@ pub enum ParsingMethodError {
     MultipleError(Vec<ParsingMethodError>),
     InvalidHexLen(Box<serde_json::Value>),
     Todo,
+    UnhandledSv1Error(String),
 }
 
 impl From<Error<'_>> for ParsingMethodError {
@@ -64,10 +65,7 @@ impl From<Error<'_>> for ParsingMethodError {
                 ParsingMethodError::InvalidHexLen(Box::new(serde_json::Value::String(s)))
             }
             Error::BadBytesConvert(e) => ParsingMethodError::BadBytesConvert(e),
-            _ => panic!(
-                "v1 Error does not implement this ParsingMethodError, but probably should: {:?}",
-                inner
-            ),
+            other => ParsingMethodError::UnhandledSv1Error(format!("{other:?}")),
         }
     }
 }
