@@ -15,7 +15,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [dependencies]
 binary_sv2 = { path = "../sv2/binary-sv2", version = "^6.0.0" }
-bitcoin_hashes = { workspace = true }
+bitcoin = { workspace = true }
 byteorder = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

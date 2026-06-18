@@ -2,14 +2,13 @@ use crate::{
     methods::{Method, MethodError},
     utils::HexU32Be,
 };
-
+use bitcoin::hashes::hex::HexToBytesError;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error<'a> {
     BadBytesConvert(binary_sv2::Error),
-    BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
-    HexError(bitcoin_hashes::Error),
+    HexError(HexToBytesError),
     /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
     /// if a `mining.subscribed` is received when the `ClientStatus` is in the `Init` state.
     IncorrectClientStatus(String),
@@ -44,8 +43,7 @@ impl std::fmt::Display for Error<'_> {
                 f,
                 "Bad U256 or B032 conversion (U256 length must be exactly 32 bytes; B032 length must be <= 32 bytes): {e:?}"
             ),
-            Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{e:?}`"),
-            Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e:?}`"),
+            Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{e}`"),
             Error::InvalidHexLen(ref val) => write!(f, "Hex string length is invalid: `{val}`"),
             Error::IncorrectClientStatus(s) => {
                 write!(f, "Client status is incompatible with message: `{s}`")
@@ -80,9 +78,9 @@ impl std::fmt::Display for Error<'_> {
     }
 }
 
-impl From<bitcoin_hashes::Error> for Error<'_> {
-    fn from(e: bitcoin_hashes::Error) -> Self {
-        Error::BTCHashError(e)
+impl From<HexToBytesError> for Error<'_> {
+    fn from(e: HexToBytesError) -> Self {
+        Error::HexError(e)
     }
 }
 

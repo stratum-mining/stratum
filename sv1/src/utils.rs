@@ -1,6 +1,6 @@
 use crate::error::{self, Error};
 use binary_sv2::{B032, U256};
-use bitcoin_hashes::hex::{FromHex, ToHex};
+use bitcoin::hashes::hex::{DisplayHex, FromHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,7 +15,7 @@ pub struct Extranonce<'a>(pub B032<'a>);
 
 impl fmt::Display for Extranonce<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0.inner_as_ref().to_hex())
+        f.write_str(&self.0.inner_as_ref().to_lower_hex_string())
     }
 }
 
@@ -47,27 +47,41 @@ impl<'a> From<Extranonce<'a>> for Value {
     }
 }
 
-/// fix for error on odd-length hex sequences
-/// FIXME: find a nicer solution
-fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
-    if s.len() % 2 != 0 {
-        Vec::<u8>::from_hex(&format!("0{s}")).map_err(Error::HexError)
+/// Decodes a hexadecimal string into bytes.
+///
+/// Returns an error if the input has an odd length or contains
+/// non-hexadecimal characters.
+pub(crate) fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
+    Ok(Vec::<u8>::from_hex(s)?)
+}
+
+/// Decodes a hexadecimal string into bytes.
+///
+/// Odd-length inputs are left-padded with `0`.
+pub fn hex_decode_with_padding(s: &str) -> Result<Vec<u8>, Error<'static>> {
+    let padded;
+
+    let s = if s.len() % 2 != 0 {
+        padded = format!("0{s}");
+        &padded
     } else {
-        Vec::<u8>::from_hex(s).map_err(Error::HexError)
-    }
+        s
+    };
+
+    hex_decode(s)
 }
 
 impl<'a> TryFrom<&str> for Extranonce<'a> {
     type Error = error::Error<'a>;
 
     fn try_from(value: &str) -> Result<Self, Error<'a>> {
-        Ok(Extranonce(B032::try_from(hex_decode(value)?)?))
+        Ok(Extranonce(B032::try_from(hex_decode_with_padding(value)?)?))
     }
 }
 
 impl<'a> From<Extranonce<'a>> for String {
     fn from(bytes: Extranonce<'a>) -> String {
-        bytes.0.inner_as_ref().to_hex()
+        bytes.0.inner_as_ref().to_lower_hex_string()
     }
 }
 
@@ -122,7 +136,9 @@ impl TryFrom<&str> for HexU32Be {
             prefix.push('0');
         }
         prefix.push_str(value);
-        let parsed_bytes: [u8; 4] = FromHex::from_hex(&prefix)?;
+        let parsed_bytes: [u8; 4] = hex_decode(&prefix)?
+            .try_into()
+            .map_err(|_| Error::InvalidHexLen(prefix.clone()))?;
         Ok(HexU32Be(u32::from_be_bytes(parsed_bytes)))
     }
 }
@@ -130,7 +146,7 @@ impl TryFrom<&str> for HexU32Be {
 /// Helper Serializer
 impl From<HexU32Be> for String {
     fn from(v: HexU32Be) -> Self {
-        v.0.to_be_bytes().to_hex()
+        v.0.to_be_bytes().to_lower_hex_string()
     }
 }
 
@@ -146,7 +162,7 @@ impl Serialize for HexU32Be {
     where
         S: serde::Serializer,
     {
-        let serialized_string = self.0.to_be_bytes().to_hex();
+        let serialized_string = self.0.to_be_bytes().to_lower_hex_string();
         serializer.serialize_str(&serialized_string)
     }
 }
@@ -235,7 +251,7 @@ impl From<PrevHash<'_>> for String {
                 .write_u32::<BigEndian>(prev_hash_word)
                 .expect("Internal error: Could not write buffer");
         }
-        prev_hash_stratum_cursor.into_inner().to_hex()
+        prev_hash_stratum_cursor.into_inner().to_lower_hex_string()
     }
 }
 
@@ -265,7 +281,7 @@ pub struct MerkleNode<'a>(pub U256<'a>);
 
 impl fmt::Display for MerkleNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0.inner_as_ref().to_hex())
+        write!(f, "{}", self.0.inner_as_ref().to_lower_hex_string())
     }
 }
 
@@ -314,7 +330,7 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
 
 impl<'a> From<MerkleNode<'a>> for String {
     fn from(bytes: MerkleNode<'a>) -> String {
-        bytes.0.inner_as_ref().to_hex()
+        bytes.0.inner_as_ref().to_lower_hex_string()
     }
 }
 
@@ -326,7 +342,7 @@ pub struct HexBytes(Vec<u8>);
 
 impl fmt::Display for HexBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0.to_hex())
+        write!(f, "{}", self.0.to_lower_hex_string())
     }
 }
 
@@ -374,7 +390,7 @@ impl TryFrom<&str> for HexBytes {
 
 impl From<HexBytes> for String {
     fn from(bytes: HexBytes) -> String {
-        bytes.0.to_hex()
+        bytes.0.to_lower_hex_string()
     }
 }
 
@@ -409,7 +425,7 @@ mod tests {
     #[quickcheck_macros::quickcheck]
     fn test_prev_hash(mut bytes: Vec<u8>) -> bool {
         bytes.resize(32, 0);
-        let be_hex = bytes.to_hex();
+        let be_hex = bytes.to_lower_hex_string();
         let me = PrevHash::try_from(be_hex.clone().as_str()).unwrap();
         let back_to_hex = String::from(me.clone());
         let back_to_hex_value = Value::from(me.clone());
