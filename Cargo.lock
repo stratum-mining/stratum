@@ -1252,6 +1252,7 @@ dependencies = [
  "bitcoin",
  "channels_sv2",
  "mining_sv2",
+ "serde_json",
  "sv1_api",
  "tracing",
 ]
