@@ -801,4 +801,19 @@ mod tests {
             panic!("Message parsing failed unexpectedly");
         }
     }
+    #[test]
+    fn subscribe_extranonce1_too_long_must_not_panic() {
+        // Extranonce1 hex that decodes to 33 bytes, exceeding the B032
+        // 32-byte cap. Extranonce::try_from returns Error::BadBytesConvert,
+        // which the catch-all panic arm in From<Error<'_>> for
+        // ParsingMethodError (sv1/src/methods/mod.rs) crashes on.
+        let extranonce1 = "00".repeat(33);
+        let raw = serde_json::json!({
+            "id": 1,
+            "method": "mining.subscribe",
+            "params": ["agent", extranonce1],
+        });
+        let msg: Message = serde_json::from_value(raw).unwrap();
+        assert!(Method::try_from(msg).is_err());
+    }
 }
