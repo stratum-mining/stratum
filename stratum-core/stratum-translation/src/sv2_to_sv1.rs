@@ -12,11 +12,13 @@ use crate::error::{Result, StratumTranslationError};
 use bitcoin::Target;
 use channels_sv2::bip141::try_strip_bip141;
 use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget};
+use serde_json::Value;
 use tracing::debug;
 use v1::{
     json_rpc, server_to_client,
     utils::{HexU32Be, MerkleNode, PrevHash},
 };
+
 /// Builds an SV1 `mining.notify` message from SV2 messages.
 ///
 /// This function attempts to strip BIP141 (SegWit) data from the coinbase transaction
@@ -124,15 +126,93 @@ pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_r
     Ok(set_target.into())
 }
 
+/// Builds an SV1 `mining.set_difficulty` message using integer power-of-two rounding above a
+/// configurable minimum difficulty.
+///
+/// The difficulty is computed from the SV2 target using Bitcoin's standard difficulty-1 target.
+/// Difficulties below `minimum_difficulty_for_integer_power_of_two_rounding` are emitted unchanged
+/// as JSON numbers built from `f64`, preserving fractional values.
+///
+/// Difficulties at or above the threshold are rounded up to the next integer power of two and
+/// emitted as JSON numbers built from `u64`.
+pub fn build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding(
+    target: Target,
+    minimum_difficulty_for_integer_power_of_two_rounding: f64,
+) -> Result<json_rpc::Message> {
+    let value = integer_power_of_two_sv1_difficulty_value_from_difficulty(
+        target.difficulty_float(),
+        minimum_difficulty_for_integer_power_of_two_rounding,
+    )?;
+    Ok(build_sv1_set_difficulty_notification(value))
+}
+
+fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
+    difficulty: f64,
+    minimum_difficulty_for_integer_power_of_two_rounding: f64,
+) -> Result<Value> {
+    if !difficulty.is_finite() || difficulty <= 0.0 {
+        return Err(StratumTranslationError::InvalidSv1Difficulty(difficulty));
+    }
+
+    if !minimum_difficulty_for_integer_power_of_two_rounding.is_finite()
+        || minimum_difficulty_for_integer_power_of_two_rounding <= 0.0
+    {
+        return Err(
+            StratumTranslationError::InvalidSv1IntegerPowerOfTwoRoundingThreshold(
+                minimum_difficulty_for_integer_power_of_two_rounding,
+            ),
+        );
+    }
+
+    if difficulty < minimum_difficulty_for_integer_power_of_two_rounding {
+        let value = serde_json::Number::from_f64(difficulty)
+            .ok_or(StratumTranslationError::InvalidSv1Difficulty(difficulty))?;
+        return Ok(Value::Number(value));
+    }
+
+    let integer_difficulty = difficulty.ceil();
+    if integer_difficulty > u64::MAX as f64 {
+        return Err(StratumTranslationError::Sv1DifficultyOverflow(difficulty));
+    }
+
+    let power_of_two = (integer_difficulty as u64)
+        .checked_next_power_of_two()
+        .ok_or(StratumTranslationError::Sv1DifficultyOverflow(difficulty))?;
+
+    Ok(Value::from(power_of_two))
+}
+
+fn build_sv1_set_difficulty_notification(value: Value) -> json_rpc::Message {
+    json_rpc::Message::Notification(json_rpc::Notification {
+        method: "mining.set_difficulty".to_string(),
+        params: Value::Array(vec![value]),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use binary_sv2::{Seq0255, Sv2Option, U256};
-    use bitcoin::Target;
+    use bitcoin::{CompactTarget, Target};
     use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget as Sv2SetTarget};
 
     fn dummy_target() -> Target {
         Target::from_le_bytes([0xffu8; 32])
+    }
+
+    fn set_difficulty_value(msg: &json_rpc::Message) -> &Value {
+        match msg {
+            json_rpc::Message::Notification(notif) => {
+                assert_eq!(notif.method, "mining.set_difficulty");
+                notif
+                    .params
+                    .as_array()
+                    .expect("params must be an array")
+                    .first()
+                    .expect("params must contain difficulty")
+            }
+            _ => panic!("Expected mining.set_difficulty notification"),
+        }
     }
 
     #[test]
@@ -167,6 +247,95 @@ mod tests {
             assert!(!notif.params.is_null());
             // Just verify it has parameters - detailed checking would require serde_json
         }
+    }
+
+    #[test]
+    fn test_integer_power_of_two_difficulty_keeps_value_below_threshold() {
+        let value = integer_power_of_two_sv1_difficulty_value_from_difficulty(0.25, 1.0)
+            .expect("valid value");
+
+        assert_eq!(value.as_f64(), Some(0.25));
+        assert_eq!(value.as_u64(), None);
+    }
+
+    #[test]
+    fn test_integer_power_of_two_difficulty_can_round_sub_one_when_threshold_is_lower() {
+        let value = integer_power_of_two_sv1_difficulty_value_from_difficulty(0.25, 0.1)
+            .expect("valid value");
+
+        assert_eq!(value.as_u64(), Some(1));
+    }
+
+    #[test]
+    fn test_integer_power_of_two_difficulty_rounds_up() {
+        let cases = [
+            (1.0, 1),
+            (2.0, 2),
+            (2.1, 4),
+            (10_000.0, 16_384),
+            (12_500.0, 16_384),
+            (20_000.0, 32_768),
+            (50_000.0, 65_536),
+            (100_000.0, 131_072),
+        ];
+
+        for (difficulty, expected) in cases {
+            let value = integer_power_of_two_sv1_difficulty_value_from_difficulty(difficulty, 1.0)
+                .expect("valid value");
+
+            assert_eq!(value.as_u64(), Some(expected), "difficulty={difficulty}");
+        }
+    }
+
+    #[test]
+    fn test_integer_power_of_two_set_difficulty_uses_configurable_rounding_threshold() {
+        let target = Target::from_compact(CompactTarget::from_consensus(0x1b00ffff));
+
+        let default_msg =
+            build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding(
+                target, 1.0,
+            )
+            .expect("valid default threshold");
+        let high_threshold_msg =
+            build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding(
+                target, 100_000.0,
+            )
+            .expect("valid custom threshold");
+
+        assert_eq!(set_difficulty_value(&default_msg).as_u64(), Some(65_536));
+        assert_eq!(
+            set_difficulty_value(&high_threshold_msg).as_f64(),
+            Some(65_536.0)
+        );
+        assert_eq!(set_difficulty_value(&high_threshold_msg).as_u64(), None);
+    }
+
+    #[test]
+    fn test_integer_power_of_two_difficulty_rejects_invalid_values() {
+        for difficulty in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                integer_power_of_two_sv1_difficulty_value_from_difficulty(difficulty, 1.0),
+                Err(StratumTranslationError::InvalidSv1Difficulty(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn test_integer_power_of_two_difficulty_rejects_invalid_rounding_threshold() {
+        for rounding_threshold in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                integer_power_of_two_sv1_difficulty_value_from_difficulty(1.0, rounding_threshold),
+                Err(StratumTranslationError::InvalidSv1IntegerPowerOfTwoRoundingThreshold(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn test_integer_power_of_two_difficulty_rejects_overflow() {
+        assert!(matches!(
+            integer_power_of_two_sv1_difficulty_value_from_difficulty(u64::MAX as f64, 1.0),
+            Err(StratumTranslationError::Sv1DifficultyOverflow(_))
+        ));
     }
 
     #[test]

@@ -16,3 +16,4 @@ channels_sv2 = { path = "../../sv2/channels-sv2", version = "^7.0.0" }
 v1 = { path = "../../sv1", package = "sv1_api", version = "^5.0.0" }
 tracing = { workspace = true }
 bitcoin = { workspace = true }
+serde_json = { workspace = true }
