@@ -108,9 +108,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// [`Sv2Frame`] always returns `Some(self.header)`.
-    pub fn get_header(&self) -> Option<crate::header::Header> {
-        Some(self.header)
+    /// Returns the [`Header`] for this [`Sv2Frame`].
+    pub fn get_header(&self) -> crate::header::Header {
+        self.header
     }
 
     /// Tries to build a [`Sv2Frame`] from raw bytes.
@@ -414,9 +414,7 @@ mod tests {
         let deserialized = Sv2Frame::<TestMessage, Vec<u8>>::from_bytes(buffer)
             .expect("Deserialization should succeed");
 
-        let header = deserialized
-            .get_header()
-            .expect("Sv2Frame should always have header");
+        let header = deserialized.get_header();
         assert_eq!(
             header.msg_type(),
             msg_type,
@@ -486,9 +484,7 @@ mod tests {
         )
         .unwrap();
 
-        let header = frame
-            .get_header()
-            .expect("Sv2Frame should always have header");
+        let header = frame.get_header();
         assert_eq!(
             header.channel_msg(),
             channel_msg,
@@ -498,7 +494,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn prop_sv2frame_get_header_always_some(msg: TestMessage) {
+    fn prop_sv2frame_get_header_returns_header(msg: TestMessage) {
         let msg_type = 0x01u8;
         let extension_type = 0x0000u16;
 
@@ -506,10 +502,9 @@ mod tests {
             Sv2Frame::<TestMessage, Vec<u8>>::from_message(msg, msg_type, extension_type, false)
                 .unwrap();
 
-        assert!(
-            frame.get_header().is_some(),
-            "Sv2Frame::get_header() should always return Some"
-        );
+        let header: Header = frame.get_header();
+        assert_eq!(header.msg_type(), msg_type);
+        assert_eq!(header.ext_type(), extension_type);
     }
 
     #[quickcheck]
