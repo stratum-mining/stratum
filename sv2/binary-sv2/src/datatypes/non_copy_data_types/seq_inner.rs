@@ -223,6 +223,10 @@ macro_rules! impl_codec_for_sequence {
                 data: &[u8],
             ) -> Result<Vec<crate::codec::decodable::FieldMarker>, Error> {
                 let len = Self::expected_len(data)?;
+                let available = data.len().saturating_sub(Self::HEADERSIZE);
+                if len > available {
+                    return Err(Error::ReadError(data.len(), len + Self::HEADERSIZE));
+                }
                 let mut inner = Vec::with_capacity(len + Self::HEADERSIZE);
                 for _ in 0..Self::HEADERSIZE {
                     inner.push(FieldMarker::Primitive(PrimitiveMarker::U8));
@@ -514,5 +518,24 @@ impl<T: GetSize> GetSize for Sv2Option<'_, T> {
             size += with_size.get_size()
         }
         size
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Decodable, Seq064K};
+
+    #[test]
+    fn get_structure_does_not_overallocate_from_tiny_header() {
+        let data: [u8; 2] = [0xff, 0xff];
+        match <Seq064K<'static, u8> as Decodable<'static>>::get_structure(&data) {
+            Err(_) => {}
+            Ok(markers) => assert!(
+                markers.len() <= data.len(),
+                "get_structure built {} markers from a {}-byte buffer",
+                markers.len(),
+                data.len()
+            ),
+        }
     }
 }
