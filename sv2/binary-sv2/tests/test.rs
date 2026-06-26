@@ -633,3 +633,26 @@ mod test_sv2_option_none {
         assert_eq!(bytes, bytes_2);
     }
 }
+
+mod test_fixed_primitive_from_bytes_truncated {
+    use super::*;
+
+    // Regression test for the blanket `impl<T: Fixed> SizeHint for T` in
+    // `src/codec/mod.rs`. `Sv2DataType::from_bytes_` is the documented *checked*
+    // constructor: it calls `Self::size_hint(data, 0)?` to validate the buffer
+    // before delegating to the panicking `from_bytes_unchecked`. For fixed-size
+    // copy primitives (u8/u16/u32/u64/f32/U24/bool) `size_hint` ignores `data`
+    // and unconditionally returns `Ok(Self::SIZE)`, so a truncated buffer is
+    // never rejected. `from_bytes_unchecked` then slices `data[0..SIZE]` and
+    // panics ("range end index out of range") instead of returning `Err`.
+    #[test]
+    fn u16_from_bytes_truncated_must_be_err_not_panic() {
+        // u16 has SIZE == 2; provide only 1 byte.
+        let mut data = [0u8; 1];
+        let res = <u16 as Sv2DataType>::from_bytes_(&mut data[..]);
+        assert!(
+            res.is_err(),
+            "u16::from_bytes_ must reject a 1-byte buffer (SIZE = 2) with Err, not panic"
+        );
+    }
+}

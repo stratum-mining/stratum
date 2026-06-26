@@ -104,12 +104,20 @@ pub trait Fixed {
 }
 
 impl<T: Fixed> SizeHint for T {
-    fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        Ok(Self::SIZE)
+    fn size_hint(data: &[u8], offset: usize) -> Result<usize, Error> {
+        let available = data
+            .len()
+            .checked_sub(offset)
+            .ok_or(Error::ReadError(data.len(), offset))?;
+        if available >= Self::SIZE {
+            Ok(Self::SIZE)
+        } else {
+            Err(Error::ReadError(data.len(), offset + Self::SIZE))
+        }
     }
 
-    fn size_hint_(&self, _: &[u8], _offset: usize) -> Result<usize, Error> {
-        Ok(Self::SIZE)
+    fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
+        Self::size_hint(data, offset)
     }
 }
 

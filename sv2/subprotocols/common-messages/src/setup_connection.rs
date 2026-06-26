@@ -344,8 +344,8 @@ mod test {
         assert!(result.is_err());
 
         match result {
-            Err(binary_sv2::Error::OutOfBound) => (),
-            Err(e) => panic!("Expected OutOfBounds error, got {:?}", e),
+            Err(binary_sv2::Error::ReadError(0, 1)) => (),
+            Err(e) => panic!("Expected ReadError(0, 1), got {:?}", e),
             Ok(_) => panic!("Expected error, got Ok"),
         }
     }
