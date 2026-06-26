@@ -712,3 +712,32 @@ mod test_to_writer_no_recursion {
         assert_eq!(buf, vec![0x04, 0x03, 0x02, 0x01]);
     }
 }
+#[cfg(not(feature = "no_std"))]
+mod test_from_reader_dos {
+    use super::*;
+    use std::io::Cursor;
+
+    #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: u8,
+    }
+
+    #[test]
+    fn from_reader_does_not_consume_unbounded_input() {
+        // A `Test { a: u8 }` only encodes to a single byte. `Decodable::from_reader`
+        // should read at most a small bounded amount from the reader. The current
+        // implementation calls `read_to_end` which drains everything — feeding an
+        // attacker-controlled reader can therefore exhaust memory.
+        let mut data = vec![42u8];
+        data.extend(std::iter::repeat(0xff).take(1_000_000));
+
+        let mut cursor = Cursor::new(data);
+        let _decoded: Test = <Test as Decodable>::from_reader(&mut cursor).unwrap();
+
+        assert!(
+            cursor.position() < 1000,
+            "from_reader consumed too much: position = {} (struct needs 1 byte)",
+            cursor.position(),
+        );
+    }
+}

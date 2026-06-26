@@ -54,9 +54,34 @@ pub trait Decodable<'a>: Sized {
     #[cfg(not(feature = "no_std"))]
     fn from_reader(reader: &mut impl Read) -> Result<Self, Error> {
         let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
 
-        let structure = Self::get_structure(&data[..])?;
+        let structure = loop {
+            match Self::get_structure(&data[..]) {
+                Ok(structure) => match structure.size_hint_(&data[..], 0) {
+                    Ok(expected_len) => {
+                        if data.len() < expected_len {
+                            let missing = expected_len - data.len();
+                            let original_len = data.len();
+                            data.resize(expected_len, 0);
+                            reader.read_exact(&mut data[original_len..original_len + missing])?;
+                        }
+                        break structure;
+                    }
+                    Err(Error::OutOfBound | Error::ReadError(_, _)) => {
+                        let mut next = [0_u8; 1];
+                        reader.read_exact(&mut next)?;
+                        data.push(next[0]);
+                    }
+                    Err(error) => return Err(error),
+                },
+                Err(Error::OutOfBound | Error::ReadError(_, _)) => {
+                    let mut next = [0_u8; 1];
+                    reader.read_exact(&mut next)?;
+                    data.push(next[0]);
+                }
+                Err(error) => return Err(error),
+            }
+        };
 
         let mut fields = Vec::new();
         let mut reader = Cursor::new(data);
