@@ -14,16 +14,16 @@ pub struct Extranonce<'a>(pub B032<'a>);
 
 impl fmt::Display for Extranonce<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0.inner_as_ref().to_lower_hex_string())
+        f.write_str(&self.0.as_bytes().to_lower_hex_string())
     }
 }
 
 impl Extranonce<'_> {
     pub fn len(&self) -> usize {
-        self.0.inner_as_ref().len()
+        self.0.len()
     }
     pub fn is_empty(&self) -> bool {
-        self.0.inner_as_ref().is_empty()
+        self.0.is_empty()
     }
 }
 
@@ -36,7 +36,7 @@ impl<'a> TryFrom<Vec<u8>> for Extranonce<'a> {
 
 impl<'a> From<Extranonce<'a>> for Vec<u8> {
     fn from(v: Extranonce<'a>) -> Self {
-        v.0.to_vec()
+        v.0.into_bytes()
     }
 }
 
@@ -80,7 +80,7 @@ impl<'a> TryFrom<&str> for Extranonce<'a> {
 
 impl<'a> From<Extranonce<'a>> for String {
     fn from(bytes: Extranonce<'a>) -> String {
-        bytes.0.inner_as_ref().to_lower_hex_string()
+        bytes.0.as_bytes().to_lower_hex_string()
     }
 }
 
@@ -170,7 +170,7 @@ impl fmt::Display for PrevHash<'_> {
 
 impl<'a> From<PrevHash<'a>> for Vec<u8> {
     fn from(p_hash: PrevHash<'a>) -> Self {
-        p_hash.0.to_vec()
+        p_hash.0.into_bytes()
     }
 }
 
@@ -199,9 +199,19 @@ impl<'a> TryFrom<&str> for PrevHash<'a> {
                 }
                 Ok(PrevHash(prev_hash_arr.into()))
             }
-            _ => Err(error::Error::BadBytesConvert(
-                binary_sv2::Error::InvalidU256(prev_hash_stratum_order.len()),
-            )),
+            _ => {
+                let len = prev_hash_stratum_order.len();
+                Err(error::Error::BadBytesConvert(
+                    binary_sv2::Error::ValueExceedsMaxSize(
+                        true,
+                        32,
+                        0,
+                        0,
+                        prev_hash_stratum_order,
+                        len,
+                    ),
+                ))
+            }
         }
     }
 }
@@ -218,7 +228,7 @@ impl From<PrevHash<'_>> for String {
     fn from(v: PrevHash) -> Self {
         let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());
         // swap every u32 from little endian to big endian
-        for chunk in v.0.inner_as_ref().chunks(size_of::<u32>()) {
+        for chunk in v.0.as_bytes().chunks(size_of::<u32>()) {
             let prev_hash_word = LittleEndian::read_u32(chunk);
             prev_hash_stratum_cursor
                 .write_u32::<BigEndian>(prev_hash_word)
@@ -231,7 +241,7 @@ impl From<PrevHash<'_>> for String {
 // / Referencing the internal part of hex bytes
 impl AsRef<[u8]> for PrevHash<'_> {
     fn as_ref(&self) -> &[u8] {
-        self.0.inner_as_ref()
+        self.0.as_bytes()
     }
 }
 
@@ -245,7 +255,7 @@ impl<'a> AsRef<U256<'a>> for PrevHash<'a> {
 /// Referencing the internal part of hex bytes
 impl AsRef<[u8]> for Extranonce<'_> {
     fn as_ref(&self) -> &[u8] {
-        self.0.inner_as_ref()
+        self.0.as_bytes()
     }
 }
 
@@ -254,13 +264,13 @@ pub struct MerkleNode<'a>(pub U256<'a>);
 
 impl fmt::Display for MerkleNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0.inner_as_ref().to_lower_hex_string())
+        write!(f, "{}", self.0.as_bytes().to_lower_hex_string())
     }
 }
 
 impl MerkleNode<'_> {
     pub fn is_empty(&self) -> bool {
-        self.0.inner_as_ref().is_empty()
+        self.0.is_empty()
     }
 }
 
@@ -275,7 +285,7 @@ impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
 
 impl<'a> From<MerkleNode<'a>> for Vec<u8> {
     fn from(v: MerkleNode<'a>) -> Self {
-        v.0.to_vec()
+        v.0.into_bytes()
     }
 }
 
@@ -288,7 +298,7 @@ impl<'a> From<MerkleNode<'a>> for Value {
 /// Referencing the internal part of hex bytes
 impl AsRef<[u8]> for MerkleNode<'_> {
     fn as_ref(&self) -> &[u8] {
-        self.0.inner_as_ref()
+        self.0.as_bytes()
     }
 }
 
@@ -303,7 +313,7 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
 
 impl<'a> From<MerkleNode<'a>> for String {
     fn from(bytes: MerkleNode<'a>) -> String {
-        bytes.0.inner_as_ref().to_lower_hex_string()
+        bytes.0.as_bytes().to_lower_hex_string()
     }
 }
 
@@ -381,8 +391,7 @@ mod tests {
         let value_to_string = back_to_hex_value.as_str().unwrap();
 
         let chunk_size: usize = size_of::<u32>();
-        let me_chunks = me.clone().0.to_vec();
-        let me_chunks = me_chunks.chunks(chunk_size);
+        let me_chunks = me.0.as_bytes().chunks(chunk_size);
         for (be_chunk, le_chunk) in bytes.clone().chunks(chunk_size).zip(me_chunks) {
             let le_chunk = [le_chunk[0], le_chunk[1], le_chunk[2], le_chunk[3]];
             let be_chunk = [be_chunk[0], be_chunk[1], be_chunk[2], be_chunk[3]];

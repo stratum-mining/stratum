@@ -66,8 +66,8 @@ impl TlvField for UserIdentity {
     /// Converts this UserIdentity into a TLV structure.
     fn to_tlv(&self) -> Result<Tlv, ParserError> {
         // Validate length
-        if self.as_bytes().len() > MAX_USER_IDENTITY_LENGTH {
-            return Err(UserIdentityError::TooLong(self.as_bytes().len()).into());
+        if self.len() > MAX_USER_IDENTITY_LENGTH {
+            return Err(UserIdentityError::TooLong(self.len()).into());
         }
 
         Ok(Tlv::new(

@@ -10,9 +10,7 @@
 // - **Deserialize**: Convert byte slices or reader sources into Rust types.
 // - **Serialize**: Encode Rust types into byte slices or write them to I/O streams.
 //
-// Supports both **checked** and **unchecked** variants for serialization and deserialization.
-// Checked functions validate data lengths, while unchecked versions assume size correctness for
-// optimized performance.
+// Checked functions validate data lengths before decoding or encoding.
 //
 // ### Modules
 // - **`copy_data_types`**: Defines fixed-size types directly copied into or from byte slices, such
@@ -21,8 +19,8 @@
 //   strings, requiring size handling logic for SV2 compatibility.
 //
 // ### Re-exports
-// Re-exports common data types used in SV2 serialization, such as `PubKey`, `Signature`, `Seq0255`,
-// and others, simplifying protocol data handling with concrete implementations of `Sv2DataType`.
+// Re-exports common data types used in SV2 serialization, such as `Signature`, `Seq0255`, and
+// others, simplifying protocol data handling with concrete implementations of `Sv2DataType`.
 //
 // The `Sv2DataType` trait and its implementations enable seamless conversion between in-memory
 // representations and serialized forms, ensuring efficient protocol communication and
@@ -38,10 +36,11 @@ mod copy_data_types;
 use crate::codec::decodable::FieldMarker;
 pub use copy_data_types::U24;
 pub use non_copy_data_types::{
-    Inner, Mac, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2Option, B016M, B0255, B032,
-    B064K, U256,
+    Inner, Mac, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2Option, B016M, B0255, B032, B064K,
+    U256,
 };
 
+use alloc::vec::Vec;
 use core::convert::TryInto;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
@@ -60,7 +59,6 @@ pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     /// This function verifies that the provided byte slice has the correct size according to the
     /// type's size hint.
     fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error>;
-
 
     // Constructs an instance from a reader source, checking for size constraints.
     #[cfg(not(feature = "no_std"))]

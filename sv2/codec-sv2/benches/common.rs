@@ -36,11 +36,11 @@ impl OwnedMsg {
     #[allow(dead_code)]
     pub fn from_zc(msg: ZeroCopyMsg<'_>) -> Self {
         let mut merkle_root = [0u8; 32];
-        merkle_root.copy_from_slice(msg.merkle_root.inner_as_ref());
+        merkle_root.copy_from_slice(msg.merkle_root.as_bytes());
         OwnedMsg {
             channel_id: msg.channel_id,
             merkle_root,
-            coinbase_suffix: msg.coinbase_suffix.inner_as_ref().to_vec(),
+            coinbase_suffix: msg.coinbase_suffix.to_owned_bytes(),
         }
     }
 }

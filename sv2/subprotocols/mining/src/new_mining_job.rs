@@ -214,8 +214,7 @@ mod tests {
             job_id,
             min_ntime: Sv2Option::new(min_ntime),
             version,
-            merkle_root: U256::try_from(merkle_root.to_vec())
-                .expect("NewMiningJob: failed to convert merkle_root to B032"),
+            merkle_root: U256::from(merkle_root),
         };
         let static_nmj = nmj.clone().as_static();
         static_nmj.channel_id == nmj.channel_id

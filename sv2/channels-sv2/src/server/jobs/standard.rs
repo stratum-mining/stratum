@@ -65,7 +65,7 @@ impl<'a> StandardJob<'a> {
         job_message: NewMiningJob<'a>,
     ) -> Result<Self, StandardJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
-            template.coinbase_tx_outputs.to_vec(),
+            template.coinbase_tx_outputs.to_owned_bytes(),
             template.coinbase_tx_outputs_count,
         )
         .map_err(|_| StandardJobError::FailedToDeserializeCoinbaseOutputs)?;

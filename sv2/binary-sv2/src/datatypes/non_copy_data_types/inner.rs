@@ -21,8 +21,9 @@
 //
 // # Usage
 // `Inner` offers several methods for data manipulation, including:
-// - `to_vec()`: Returns a `Vec<u8>`, cloning the slice or owned data.
-// - `inner_as_ref()` and `inner_as_mut()`: Provide immutable or mutable access to the data.
+// - `as_bytes()` and `as_mut_bytes()`: Provide immutable or mutable access to the data.
+// - `to_owned_bytes()` and `into_bytes()`: Return owned payload bytes.
+// - `len()` and `is_empty()`: Inspect payload size directly.
 // - `expected_length(data: &[u8])`: Computes the expected length, validating it against
 //   constraints.
 // - `get_header()`: Returns the data's header based on `HEADERSIZE`.
@@ -71,55 +72,6 @@ pub enum Inner<
 > {
     Ref(&'a mut [u8]),
     Owned(Vec<u8>),
-}
-
-impl<const SIZE: usize> Inner<'_, true, SIZE, 0, 0> {
-    // Converts the inner data to a vector, either by cloning the referenced slice or
-    // returning a clone of the owned vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        match self {
-            Inner::Ref(ref_) => ref_.to_vec(),
-            Inner::Owned(v) => v.clone(),
-        }
-    }
-    // Returns an immutable reference to the inner data, whether it's a reference or
-    // an owned vector.
-    pub fn inner_as_ref(&self) -> &[u8] {
-        match self {
-            Inner::Ref(ref_) => ref_,
-            Inner::Owned(v) => v,
-        }
-    }
-    // Provides a mutable reference to the inner data, allowing modification if the
-    // data is being referenced.
-    pub fn inner_as_mut(&mut self) -> &mut [u8] {
-        match self {
-            Inner::Ref(ref_) => ref_,
-            Inner::Owned(v) => v,
-        }
-    }
-}
-
-impl<const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'_, false, SIZE, HEADERSIZE, MAXSIZE>
-{
-    // Similar to the fixed-size variant, this method converts the inner data into a vector.
-    // The data is either cloned from the referenced slice or returned as a clone of the
-    // owned vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        match self {
-            Inner::Ref(ref_) => ref_[..].to_vec(),
-            Inner::Owned(v) => v[..].to_vec(),
-        }
-    }
-    // Returns an immutable reference to the inner data for variable-size types, either
-    // referencing a slice or an owned vector.
-    pub fn inner_as_ref(&self) -> &[u8] {
-        match self {
-            Inner::Ref(ref_) => &ref_[..],
-            Inner::Owned(v) => &v[..],
-        }
-    }
 }
 
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
@@ -415,6 +367,42 @@ where
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
+    /// Returns the payload bytes without any SV2 length header.
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Inner::Ref(data) => data,
+            Inner::Owned(data) => data,
+        }
+    }
+
+    /// Returns the payload bytes mutably without any SV2 length header.
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+        match self {
+            Inner::Ref(data) => data,
+            Inner::Owned(data) => data,
+        }
+    }
+
+    /// Clones the payload bytes into an owned vector.
+    pub fn to_owned_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    /// Consumes the value and returns owned payload bytes.
+    pub fn into_bytes(self) -> Vec<u8> {
+        match self {
+            Inner::Ref(data) => data.to_vec(),
+            Inner::Owned(data) => data,
+        }
+    }
+
+    /// Copies the payload bytes into an array of the requested size.
+    pub fn try_as_array<const N: usize>(&self) -> Result<[u8; N], Error> {
+        self.as_bytes()
+            .try_into()
+            .map_err(|_| Error::ReadError(self.as_bytes().len(), N))
+    }
+
     pub fn into_static(self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
         match self {
             Inner::Ref(data) => {
@@ -423,6 +411,32 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
                 Inner::Owned(v)
             }
             Inner::Owned(data) => Inner::Owned(data),
+        }
+    }
+}
+
+impl<const SIZE: usize> Inner<'_, true, SIZE, 0, 0> {
+    /// Returns the payload bytes as an array reference.
+    pub fn as_array(&self) -> &[u8; SIZE] {
+        self.as_bytes()
+            .try_into()
+            .expect("fixed-size SV2 byte wrapper must always match SIZE")
+    }
+
+    /// Copies the payload bytes into an array.
+    pub fn to_array(&self) -> [u8; SIZE] {
+        *self.as_array()
+    }
+
+    /// Consumes the value and returns the payload bytes as an array.
+    pub fn into_array(self) -> [u8; SIZE] {
+        match self {
+            Inner::Ref(data) => data
+                .try_into()
+                .expect("fixed-size SV2 byte wrapper must always match SIZE"),
+            Inner::Owned(data) => data
+                .try_into()
+                .expect("fixed-size SV2 byte wrapper must always match SIZE"),
         }
     }
 }
@@ -446,10 +460,33 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     AsRef<[u8]> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn as_ref(&self) -> &[u8] {
-        match self {
-            Inner::Ref(r) => &r[..],
-            Inner::Owned(r) => &r[..],
-        }
+        self.as_bytes()
+    }
+}
+
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    TryFrom<&[u8]> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+{
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        value.to_vec().try_into()
+    }
+}
+
+impl<const SIZE: usize> From<[u8; SIZE]> for Inner<'_, true, SIZE, 0, 0> {
+    fn from(value: [u8; SIZE]) -> Self {
+        Inner::Owned(value.into())
+    }
+}
+
+impl<const N: usize, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    TryFrom<[u8; N]> for Inner<'_, false, SIZE, HEADERSIZE, MAXSIZE>
+{
+    type Error = Error;
+
+    fn try_from(value: [u8; N]) -> Result<Self, Self::Error> {
+        value.to_vec().try_into()
     }
 }
 

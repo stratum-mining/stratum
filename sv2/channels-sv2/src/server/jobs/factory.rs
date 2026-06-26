@@ -176,7 +176,7 @@ impl JobFactory {
             &coinbase_tx_prefix,
             &coinbase_tx_suffix,
             &extranonce_prefix,
-            &merkle_path.inner_as_ref(),
+            merkle_path.as_slice(),
         )
         .expect("merkle root must be valid")
         .try_into()
@@ -374,7 +374,7 @@ impl JobFactory {
         }
 
         let template_outputs = deserialize_template_outputs(
-            template.coinbase_tx_outputs.to_vec(),
+            template.coinbase_tx_outputs.to_owned_bytes(),
             template.coinbase_tx_outputs_count,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
@@ -386,7 +386,7 @@ impl JobFactory {
         let serialized_outputs = serialize(&coinbase_tx_outputs);
 
         let mut coinbase_prefix = vec![];
-        coinbase_prefix.extend_from_slice(&template.coinbase_prefix.to_vec());
+        coinbase_prefix.extend_from_slice(template.coinbase_prefix.as_bytes());
         coinbase_prefix.extend_from_slice(&self.op_pushbytes_pool_miner_tag()?);
         coinbase_prefix.push(full_extranonce_size as u8); // OP_PUSHBYTES_X (for the full extranonce)
 
@@ -424,10 +424,7 @@ impl JobFactory {
         extranonce_prefix: Vec<u8>,
         full_extranonce_size: usize,
     ) -> Result<ExtendedJob<'a>, JobFactoryError> {
-        let serialized_outputs = set_custom_mining_job
-            .coinbase_tx_outputs
-            .inner_as_ref()
-            .to_vec();
+        let serialized_outputs = set_custom_mining_job.coinbase_tx_outputs.to_owned_bytes();
 
         let coinbase_outputs = Vec::<TxOut>::consensus_decode(&mut serialized_outputs.as_slice())
             .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
@@ -489,13 +486,12 @@ impl JobFactory {
         m: SetCustomMiningJob<'_>,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
-        let deserialized_outputs = Vec::<TxOut>::consensus_decode(
-            &mut m.coinbase_tx_outputs.inner_as_ref().to_vec().as_slice(),
-        )
-        .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
+        let deserialized_outputs =
+            Vec::<TxOut>::consensus_decode(&mut m.coinbase_tx_outputs.to_owned_bytes().as_slice())
+                .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
 
         let mut script_sig = vec![];
-        script_sig.extend_from_slice(m.coinbase_prefix.inner_as_ref());
+        script_sig.extend_from_slice(m.coinbase_prefix.as_bytes());
         script_sig.extend_from_slice(&vec![0; full_extranonce_size]);
 
         // Create transaction input
@@ -530,7 +526,7 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + m.coinbase_prefix.inner_as_ref().len();
+            + m.coinbase_prefix.len();
 
         let coinbase_tx_prefix = serialized_coinbase[0..index].to_vec();
 
@@ -551,7 +547,7 @@ impl JobFactory {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + m.coinbase_prefix.inner_as_ref().len()
+            + m.coinbase_prefix.len()
             + full_extranonce_size;
 
         let coinbase_tx_suffix = serialized_coinbase[index..].to_vec();
@@ -586,7 +582,7 @@ impl JobFactory {
         }
 
         let mut template_outputs = deserialize_template_outputs(
-            template.coinbase_tx_outputs.to_vec(),
+            template.coinbase_tx_outputs.to_owned_bytes(),
             template.coinbase_tx_outputs_count,
         )
         .map_err(|_| JobFactoryError::DeserializeCoinbaseOutputsError)?;
@@ -596,7 +592,7 @@ impl JobFactory {
         let op_pushbytes_pool_miner_tag = self.op_pushbytes_pool_miner_tag()?;
 
         let mut script_sig = vec![];
-        script_sig.extend_from_slice(&template.coinbase_prefix.to_vec());
+        script_sig.extend_from_slice(template.coinbase_prefix.as_bytes());
         script_sig.extend_from_slice(&op_pushbytes_pool_miner_tag);
         script_sig.push(full_extranonce_size as u8); // OP_PUSHBYTES_X (for the full extranonce)
         script_sig.extend_from_slice(&vec![0; full_extranonce_size]);

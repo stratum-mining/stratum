@@ -428,12 +428,12 @@ mod tests {
         assert_eq!(alloc.allocated_count(), 0);
 
         let ext = alloc.allocate_extended(16).unwrap();
-        assert_eq!(ext.as_bytes().len(), 4);
+        assert_eq!(ext.len(), 4);
         assert_eq!(&ext.as_bytes()[0..2], &[0x00, 0x01]);
         assert_eq!(alloc.allocated_count(), 1);
 
         let std = alloc.allocate_standard().unwrap();
-        assert_eq!(std.as_bytes().len(), 20);
+        assert_eq!(std.len(), 20);
         assert_eq!(&std.as_bytes()[0..2], &[0x00, 0x01]);
         assert_eq!(alloc.allocated_count(), 2);
     }
@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(alloc.rollable_extranonce_size(), 14);
 
         let ext = alloc.allocate_extended(14).unwrap();
-        assert_eq!(ext.as_bytes().len(), 6);
+        assert_eq!(ext.len(), 6);
         assert_eq!(&ext.as_bytes()[0..4], &[0xAA, 0xBB, 0xCC, 0xDD]);
     }
 
@@ -490,7 +490,7 @@ mod tests {
 
         let ext = alloc.allocate_extended(4).unwrap();
         // Prefix bytes must be [upstream | local_prefix | local_index].
-        assert_eq!(ext.as_bytes().len(), 16);
+        assert_eq!(ext.len(), 16);
         assert_eq!(&ext.as_bytes()[0..4], upstream_prefix.as_slice());
         assert_eq!(&ext.as_bytes()[4..15], local_prefix_bytes.as_slice());
         // local_index is 1 byte; first allocation index is 0.
@@ -626,7 +626,7 @@ mod tests {
         let mut alloc = ExtranonceAllocator::new(vec![0x01], 20, 256).unwrap();
 
         let std = alloc.allocate_standard().unwrap();
-        assert_eq!(std.as_bytes().len(), 20);
+        assert_eq!(std.len(), 20);
         assert!(std.as_bytes()[2..].iter().all(|&b| b == 0));
     }
 

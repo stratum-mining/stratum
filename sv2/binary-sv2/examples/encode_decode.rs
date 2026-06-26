@@ -1,7 +1,5 @@
-use binary_sv2::{from_bytes, to_bytes, U24};
-pub use binary_sv2::{Decodable as Deserialize, Encodable as Serialize};
+use binary_sv2::{from_bytes, to_bytes, Deserialize, Serialize, U24};
 use core::convert::TryInto;
-pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 
 // The `Test` struct is expanded using the `Deserialize` and `Serialize` procedural macros.
 // These macros provide the necessary methods for serializing and deserializing the struct.

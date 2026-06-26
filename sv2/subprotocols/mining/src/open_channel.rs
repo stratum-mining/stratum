@@ -322,9 +322,7 @@ mod tests {
             request_id,
             channel_id,
             target: U256::from(target),
-            extranonce_prefix: B032::try_from(extranonce_prefix.to_vec()).expect(
-                "OpenStandardMiningChannelSuccess: failed to convert extranonce_prefix to B032",
-            ),
+            extranonce_prefix: B032::try_from(extranonce_prefix).unwrap(),
             group_channel_id,
         };
         let test_request_id_1 = osmcs.get_request_id_as_u32();

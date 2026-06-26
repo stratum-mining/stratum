@@ -57,7 +57,7 @@ impl<'a> ExtendedJob<'a> {
         job_message: NewExtendedMiningJob<'a>,
     ) -> Result<Self, ExtendedJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
-            template.coinbase_tx_outputs.to_vec(),
+            template.coinbase_tx_outputs.to_owned_bytes(),
             template.coinbase_tx_outputs_count,
         )
         .map_err(|_| ExtendedJobError::FailedToDeserializeCoinbaseOutputs)?;
@@ -117,7 +117,7 @@ impl<'a> ExtendedJob<'a> {
             &self.get_coinbase_tx_prefix_without_bip141(),
             &self.get_coinbase_tx_suffix_without_bip141(),
             &extranonce_prefix,
-            &self.get_merkle_path().inner_as_ref(),
+            self.get_merkle_path().as_slice(),
         )
         .ok_or(ExtendedJobError::FailedToCalculateMerkleRoot)?
         .try_into()
@@ -154,12 +154,12 @@ impl<'a> ExtendedJob<'a> {
 
     /// Returns the coinbase transaction without for this job without BIP141 data.
     pub fn get_coinbase_tx_prefix_without_bip141(&self) -> Vec<u8> {
-        self.job_message.coinbase_tx_prefix.inner_as_ref().to_vec()
+        self.job_message.coinbase_tx_prefix.to_owned_bytes()
     }
 
     /// Returns the coinbase transaction suffix for this job without BIP141 data.
     pub fn get_coinbase_tx_suffix_without_bip141(&self) -> Vec<u8> {
-        self.job_message.coinbase_tx_suffix.inner_as_ref().to_vec()
+        self.job_message.coinbase_tx_suffix.to_owned_bytes()
     }
 
     /// Sets the extranonce prefix for this job.

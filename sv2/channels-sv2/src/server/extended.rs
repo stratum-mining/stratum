@@ -715,7 +715,7 @@ impl<'a> ExtendedChannel<'a> {
             ));
         };
 
-        let extranonce_size = share.extranonce.inner_as_ref().len();
+        let extranonce_size = share.extranonce.len();
         if extranonce_size != self.rollable_extranonce_size as usize {
             self.share_accounting
                 .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE);
@@ -727,7 +727,7 @@ impl<'a> ExtendedChannel<'a> {
         let extranonce_prefix = job.get_extranonce_prefix();
         let mut full_extranonce = vec![];
         full_extranonce.extend_from_slice(extranonce_prefix);
-        full_extranonce.extend(share.extranonce.inner_as_ref());
+        full_extranonce.extend(share.extranonce.as_bytes());
 
         // calculate the merkle root from:
         // - job coinbase_tx_prefix
@@ -738,7 +738,7 @@ impl<'a> ExtendedChannel<'a> {
             &job.get_coinbase_tx_prefix_without_bip141(),
             &job.get_coinbase_tx_suffix_without_bip141(),
             full_extranonce.as_ref(),
-            &job.get_merkle_path().inner_as_ref(),
+            job.get_merkle_path().as_slice(),
         )
         .ok_or(ShareValidationError::Invalid(
             ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,

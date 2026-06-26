@@ -238,10 +238,10 @@ impl<'a> StandardChannel<'a> {
     /// The new job is constructed using the current extranonce prefix.
     pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJob<'a>) {
         let merkle_root = merkle_root_from_path(
-            new_extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
-            new_extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
+            new_extended_mining_job.coinbase_tx_prefix.as_bytes(),
+            new_extended_mining_job.coinbase_tx_suffix.as_bytes(),
             self.extranonce_prefix.as_bytes(),
-            &new_extended_mining_job.merkle_path.inner_as_ref(),
+            new_extended_mining_job.merkle_path.as_slice(),
         )
         .expect("merkle root must be valid")
         .try_into()
@@ -357,12 +357,7 @@ impl<'a> StandardChannel<'a> {
             ));
         };
 
-        let merkle_root: [u8; 32] = job
-            .0
-            .merkle_root
-            .inner_as_ref()
-            .try_into()
-            .expect("merkle root must be 32 bytes");
+        let merkle_root = job.0.merkle_root.to_array();
 
         let chain_tip = self
             .chain_tip
