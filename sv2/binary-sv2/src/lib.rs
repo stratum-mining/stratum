@@ -317,17 +317,3 @@ impl From<buffer_sv2::Slice> for EncodableField<'_> {
         unreachable!()
     }
 }
-
-/// Converts a value implementing the `Into<u64>` trait into a custom `U256` type.
-pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
-    // initialize u256 as a bytes vec of len 24
-    let mut u256 = vec![0_u8; 24];
-    let val: u64 = value.into();
-    for v in &(val.to_le_bytes()) {
-        // add 8 bytes to u256
-        u256.push(*v)
-    }
-    // Always safe cause u256 is 24 + 8 (32) bytes
-    let u256: U256 = u256.try_into().unwrap();
-    u256
-}
