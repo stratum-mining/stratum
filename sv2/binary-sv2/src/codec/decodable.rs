@@ -1,6 +1,6 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{Mac, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
@@ -79,6 +79,7 @@ pub enum PrimitiveMarker {
     Bool,
     U24,
     U256,
+    Mac,
     Signature,
     U32,
     F32,
@@ -121,6 +122,7 @@ pub enum DecodablePrimitive<'a> {
     Bool(bool),
     U24(U24),
     U256(U256<'a>),
+    Mac(Mac<'a>),
     Signature(Signature<'a>),
     U32(u32),
     F32(f32),
@@ -160,6 +162,7 @@ impl SizeHint for PrimitiveMarker {
             Self::Bool => bool::size_hint(data, offset),
             Self::U24 => U24::size_hint(data, offset),
             Self::U256 => U256::size_hint(data, offset),
+            Self::Mac => Mac::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
             Self::F32 => f32::size_hint(data, offset),
@@ -306,6 +309,7 @@ impl PrimitiveMarker {
             Self::Bool => Ok(DecodablePrimitive::Bool(bool::from_reader_(reader)?)),
             Self::U24 => Ok(DecodablePrimitive::U24(U24::from_reader_(reader)?)),
             Self::U256 => Ok(DecodablePrimitive::U256(U256::from_reader_(reader)?)),
+            Self::Mac => Ok(DecodablePrimitive::Mac(Mac::from_reader_(reader)?)),
             Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_reader_(
                 reader,
             )?)),
@@ -328,6 +332,7 @@ impl GetSize for DecodablePrimitive<'_> {
             DecodablePrimitive::Bool(v) => v.get_size(),
             DecodablePrimitive::U24(v) => v.get_size(),
             DecodablePrimitive::U256(v) => v.get_size(),
+            DecodablePrimitive::Mac(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
             DecodablePrimitive::F32(v) => v.get_size(),

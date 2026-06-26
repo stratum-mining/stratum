@@ -20,6 +20,7 @@
 //! u64      <-> U64     
 //! U256     <-> U256
 //! Str0255  <-> STRO_255
+//! Mac      <-> MAC
 //! Signature<-> SIGNATURE
 //! B032     <-> B0_32   
 //! B0255    <-> B0_255
@@ -71,8 +72,8 @@ pub use encodable::Encodable as Serialize;
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2DataType, Sv2Option, B016M, B0255,
-    B032, B064K, U24, U256,
+    Mac, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2DataType, Sv2Option, B016M, B0255, B032,
+    B064K, U24, U256,
 };
 
 pub use crate::codec::{
