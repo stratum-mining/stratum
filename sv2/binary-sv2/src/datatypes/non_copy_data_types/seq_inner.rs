@@ -250,7 +250,7 @@ macro_rules! impl_codec_for_sequence {
                     }
                     let (head, t) = tail.split_at_mut(element_size);
                     tail = t;
-                    inner.push(T::from_bytes_unchecked(head));
+                    inner.push(T::from_bytes_(head)?);
                 }
                 Ok(Self(inner, PhantomData))
             }

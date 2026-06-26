@@ -150,14 +150,9 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     // `SIZE`, `MAXSIZE`, and `HEADERSIZE`, returning the length or an error if the data
     // exceeds the limits.
     fn expected_length(data: &[u8]) -> Result<usize, Error> {
-        let expected_length = match ISFIXED {
-            true => Self::expected_length_fixed(),
-            false => Self::expected_length_variable(data)?,
-        };
-        if ISFIXED || expected_length <= (MAXSIZE + HEADERSIZE) {
-            Ok(expected_length)
-        } else {
-            Err(Error::ReadError(data.len(), MAXSIZE))
+        match ISFIXED {
+            true => Ok(Self::expected_length_fixed()),
+            false => Self::expected_length_variable(data),
         }
     }
 
@@ -171,7 +166,7 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     // is correctly sized relative to the header information.
     fn expected_length_variable(data: &[u8]) -> Result<usize, Error> {
         if data.len() >= HEADERSIZE {
-            let size = match HEADERSIZE {
+            let payload_len = match HEADERSIZE {
                 1 => Ok(data[0] as usize),
                 2 => Ok(u16::from_le_bytes([data[0], data[1]]) as usize),
                 3 => Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]) as usize),
@@ -180,7 +175,20 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
                 // not used
                 _ => unreachable!(),
             };
-            size.map(|x| x + HEADERSIZE)
+            payload_len.and_then(|payload_len| {
+                if payload_len <= MAXSIZE {
+                    Ok(payload_len + HEADERSIZE)
+                } else {
+                    Err(Error::ValueExceedsMaxSize(
+                        ISFIXED,
+                        SIZE,
+                        HEADERSIZE,
+                        MAXSIZE,
+                        data.to_vec(),
+                        payload_len,
+                    ))
+                }
+            })
         } else {
             Err(Error::ReadError(data.len(), HEADERSIZE))
         }
@@ -195,7 +203,7 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
         } else {
             let mut header = [0_u8; HEADERSIZE];
             reader.read_exact(&mut header)?;
-            let expected_length = match HEADERSIZE {
+            let payload_len = match HEADERSIZE {
                 1 => header[0] as usize,
                 2 => u16::from_le_bytes([header[0], header[1]]) as usize,
                 3 => u32::from_le_bytes([header[0], header[1], header[2], 0]) as usize,
@@ -204,10 +212,17 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
                 // not used
                 _ => unreachable!(),
             };
-            if expected_length <= (MAXSIZE + HEADERSIZE) {
-                Ok(expected_length)
+            if payload_len <= MAXSIZE {
+                Ok(payload_len)
             } else {
-                Err(Error::ReadError(expected_length, MAXSIZE))
+                Err(Error::ValueExceedsMaxSize(
+                    ISFIXED,
+                    SIZE,
+                    HEADERSIZE,
+                    MAXSIZE,
+                    header.to_vec(),
+                    payload_len,
+                ))
             }
         }
     }
@@ -220,6 +235,11 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
             (Inner::Owned(data), false) => data.len(),
             (_, true) => 1,
         }
+    }
+
+    /// Returns true when the payload has no bytes.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     // Retrieves the header as a byte vector. If `HEADERSIZE` is zero, an empty vector is
@@ -333,14 +353,18 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 where
     Self: TryInto<FieldMarker>,
 {
-    fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
+    fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+        let size = Self::size_hint(data, 0)?;
+        if size > data.len() {
+            return Err(Error::ReadError(data.len(), size));
+        }
+        let (head, _) = data.split_at_mut(size);
         if ISFIXED {
-            Self::Ref(data)
+            Ok(Self::Ref(head))
         } else {
-            Self::Ref(&mut data[HEADERSIZE..])
+            Ok(Self::Ref(&mut head[HEADERSIZE..]))
         }
     }
-
 
     #[cfg(not(feature = "no_std"))]
     fn from_reader_(mut reader: &mut impl Read) -> Result<Self, Error> {
@@ -352,8 +376,11 @@ where
         Ok(Self::Owned(dst))
     }
 
-    fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+    fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
         let size = self.get_size();
+        if dst.len() < size {
+            return Err(Error::WriteError(size, dst.len()));
+        }
         let header = self.get_header();
         dst[0..HEADERSIZE].copy_from_slice(&header[..HEADERSIZE]);
         match self {
@@ -366,6 +393,7 @@ where
                 dst[HEADERSIZE..].copy_from_slice(data);
             }
         }
+        Ok(size)
     }
 
     #[cfg(not(feature = "no_std"))]

@@ -27,8 +27,11 @@
 // The `impl_sv2_for_unsigned` macro streamlines the implementation of the `Sv2DataType` trait for
 // unsigned integer types, ensuring little-endian byte ordering for serialization and handling both
 // in-memory buffers and `std::io::Read`/`Write` interfaces when `std` is available.
-use crate::{codec::Fixed, datatypes::Sv2DataType, Error};
-
+use crate::{
+    codec::{Fixed, SizeHint},
+    datatypes::Sv2DataType,
+    Error,
+};
 use core::convert::{TryFrom, TryInto};
 
 #[cfg(not(feature = "no_std"))]
@@ -41,21 +44,20 @@ impl Fixed for bool {
 }
 
 impl<'a> Sv2DataType<'a> for bool {
-    fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
-        match data
+    fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+        bool::size_hint(data, 0)?;
+        let value = match data
             .first()
             .map(|x: &u8| x << 7)
             .map(|x: u8| x >> 7)
-            // This is an unchecked function is fine to panic
             .expect("Try to decode a bool from a buffer of len 0")
         {
             0 => false,
             1 => true,
-            // Below panic is impossible value is either 0 or 1
             _ => panic!(),
-        }
+        };
+        Ok(value)
     }
-
 
     #[cfg(not(feature = "no_std"))]
     fn from_reader_(reader: &mut impl Read) -> Result<Self, Error> {
@@ -64,11 +66,15 @@ impl<'a> Sv2DataType<'a> for bool {
         Self::from_bytes_(&mut dst)
     }
 
-    fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+    fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
+        if dst.len() < Self::SIZE {
+            return Err(Error::WriteError(Self::SIZE, dst.len()));
+        }
         match self {
             true => dst[0] = 1,
             false => dst[0] = 0,
         };
+        Ok(Self::SIZE)
     }
 
     #[cfg(not(feature = "no_std"))]
@@ -106,26 +112,29 @@ impl Fixed for u64 {
 macro_rules! impl_sv2_for_unsigned {
     ($a:ty) => {
         impl<'a> Sv2DataType<'a> for $a {
-            fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
-                // unchecked function is fine to panic
+            fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+                Self::size_hint(data, 0)?;
                 let a: &[u8; Self::SIZE] = data[0..Self::SIZE].try_into().expect(
                     "Try to decode a copy data type from a buffer that do not have enough bytes",
                 );
-                Self::from_le_bytes(*a)
+                Ok(Self::from_le_bytes(*a))
             }
-
 
             #[cfg(not(feature = "no_std"))]
             fn from_reader_(reader: &mut impl Read) -> Result<Self, Error> {
                 let mut dst = [0_u8; Self::SIZE];
                 reader.read_exact(&mut dst)?;
-                Ok(Self::from_bytes_unchecked(&mut dst))
+                Ok(Self::from_le_bytes(dst))
             }
 
-            fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+            fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
+                if dst.len() < Self::SIZE {
+                    return Err(Error::WriteError(Self::SIZE, dst.len()));
+                }
                 let dst = &mut dst[0..Self::SIZE];
                 let src = self.to_le_bytes();
                 dst.copy_from_slice(&src);
+                Ok(Self::SIZE)
             }
 
             #[cfg(not(feature = "no_std"))]

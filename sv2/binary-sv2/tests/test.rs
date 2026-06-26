@@ -634,6 +634,31 @@ mod test_sv2_option_none {
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+mod test_b032_from_reader_oversize {
+    use super::*;
+    use std::io::Cursor;
+
+    // B032 has MAXSIZE=32 and HEADERSIZE=1. A header byte of 33 declares a
+    // 33-byte payload. The `from_bytes` path checks
+    // `(payload + HEADERSIZE) <= (MAXSIZE + HEADERSIZE)`, correctly rejecting
+    // 33-byte payloads. But `expected_length_for_reader` checks
+    // `payload <= (MAXSIZE + HEADERSIZE)` (i.e. `payload <= 33`), so 33-byte
+    // payloads are accepted via the reader path. This lets oversized B032
+    // values through one decoder path and not the other.
+    #[test]
+    fn b032_from_reader_should_reject_oversize_payload() {
+        let mut buf = vec![33u8];
+        buf.extend(vec![0u8; 33]);
+        let mut cursor = Cursor::new(buf);
+        let result = B032::from_reader_(&mut cursor);
+        assert!(
+            result.is_err(),
+            "B032::from_reader_ must reject a 33-byte payload (MAXSIZE = 32)"
+        );
+    }
+}
+
 mod test_fixed_primitive_from_bytes_truncated {
     use super::*;
 

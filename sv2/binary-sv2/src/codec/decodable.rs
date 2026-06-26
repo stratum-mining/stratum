@@ -150,9 +150,9 @@ pub enum DecodableField<'a> {
 }
 
 impl SizeHint for PrimitiveMarker {
-    // PrimitiveMarker needs introspection to return a size hint. This method is not implementable.
+    // PrimitiveMarker requires a concrete marker instance to determine the size.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        unimplemented!()
+        Err(Error::UnInitializedDecoder)
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
@@ -176,9 +176,9 @@ impl SizeHint for PrimitiveMarker {
 }
 
 impl SizeHint for FieldMarker {
-    // FieldMarker need introspection to return a size hint. This method is not implementeable
+    // FieldMarker requires a concrete marker instance to determine the size.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        unimplemented!()
+        Err(Error::UnInitializedDecoder)
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
@@ -196,9 +196,9 @@ impl SizeHint for FieldMarker {
 }
 
 impl SizeHint for Vec<FieldMarker> {
-    // FieldMarker need introspection to return a size hint. This method is not implementeable
+    // The structure must be initialized before its aggregate size can be calculated.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        unimplemented!()
+        Err(Error::UnInitializedDecoder)
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
@@ -246,32 +246,54 @@ impl PrimitiveMarker {
     // Decodes a primitive value from a byte slice at the given offset, returning the corresponding
     // `DecodablePrimitive`. The specific decoding logic depends on the type of the primitive (e.g.,
     // `u8`, `u16`, etc.).
-    fn decode<'a>(&self, data: &'a mut [u8], offset: usize) -> DecodablePrimitive<'a> {
+    fn decode<'a>(
+        &self,
+        data: &'a mut [u8],
+        offset: usize,
+    ) -> Result<DecodablePrimitive<'a>, Error> {
         match self {
-            Self::U8 => DecodablePrimitive::U8(u8::from_bytes_unchecked(&mut data[offset..])),
-            Self::U16 => DecodablePrimitive::U16(u16::from_bytes_unchecked(&mut data[offset..])),
-            Self::Bool => DecodablePrimitive::Bool(bool::from_bytes_unchecked(&mut data[offset..])),
-            Self::U24 => DecodablePrimitive::U24(U24::from_bytes_unchecked(&mut data[offset..])),
-            Self::U256 => DecodablePrimitive::U256(U256::from_bytes_unchecked(&mut data[offset..])),
-            Self::Signature => {
-                DecodablePrimitive::Signature(Signature::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::U32 => DecodablePrimitive::U32(u32::from_bytes_unchecked(&mut data[offset..])),
-            Self::U32AsRef => {
-                DecodablePrimitive::U32AsRef(U32AsRef::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::F32 => DecodablePrimitive::F32(f32::from_bytes_unchecked(&mut data[offset..])),
-            Self::U64 => DecodablePrimitive::U64(u64::from_bytes_unchecked(&mut data[offset..])),
-            Self::B032 => DecodablePrimitive::B032(B032::from_bytes_unchecked(&mut data[offset..])),
-            Self::B0255 => {
-                DecodablePrimitive::B0255(B0255::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::B064K => {
-                DecodablePrimitive::B064K(B064K::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::B016M => {
-                DecodablePrimitive::B016M(B016M::from_bytes_unchecked(&mut data[offset..]))
-            }
+            Self::U8 => Ok(DecodablePrimitive::U8(u8::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U16 => Ok(DecodablePrimitive::U16(u16::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::Bool => Ok(DecodablePrimitive::Bool(bool::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U24 => Ok(DecodablePrimitive::U24(U24::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U256 => Ok(DecodablePrimitive::U256(U256::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::Mac => Ok(DecodablePrimitive::Mac(Mac::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U32 => Ok(DecodablePrimitive::U32(u32::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::F32 => Ok(DecodablePrimitive::F32(f32::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U64 => Ok(DecodablePrimitive::U64(u64::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B032 => Ok(DecodablePrimitive::B032(B032::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B0255 => Ok(DecodablePrimitive::B0255(B0255::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B064K => Ok(DecodablePrimitive::B064K(B064K::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B016M => Ok(DecodablePrimitive::B016M(B016M::from_bytes_(
+                &mut data[offset..],
+            )?)),
         }
     }
 
@@ -332,7 +354,7 @@ impl FieldMarker {
     // and returns the resulting `DecodableField`.
     pub(crate) fn decode<'a>(&self, data: &'a mut [u8]) -> Result<DecodableField<'a>, Error> {
         match self {
-            Self::Primitive(p) => Ok(DecodableField::Primitive(p.decode(data, 0))),
+            Self::Primitive(p) => Ok(DecodableField::Primitive(p.decode(data, 0)?)),
             Self::Struct(ps) => {
                 let mut decodeds = Vec::new();
                 let mut tail = data;
