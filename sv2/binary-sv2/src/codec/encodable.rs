@@ -70,8 +70,6 @@ impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
 pub enum EncodablePrimitive<'a> {
     /// U8 Primitive, representing a byte
     U8(u8),
-    /// Owned U8 Primitive, representing an owned byte
-    OwnedU8(u8),
     /// U16 Primitive, representing a u16 type
     U16(u16),
     /// Bool Primitive, representing a bool type
@@ -107,7 +105,6 @@ impl EncodablePrimitive<'_> {
     fn encode(&self, dst: &mut [u8]) -> Result<usize, Error> {
         match self {
             Self::U8(v) => v.to_slice(dst),
-            Self::OwnedU8(v) => v.to_slice(dst),
             Self::U16(v) => v.to_slice(dst),
             Self::Bool(v) => v.to_slice(dst),
             Self::U24(v) => v.to_slice(dst),
@@ -132,7 +129,6 @@ impl EncodablePrimitive<'_> {
     pub fn write(&self, writer: &mut impl Write) -> Result<(), E> {
         match self {
             Self::U8(v) => v.to_writer_(writer),
-            Self::OwnedU8(v) => v.to_writer_(writer),
             Self::U16(v) => v.to_writer_(writer),
             Self::Bool(v) => v.to_writer_(writer),
             Self::U24(v) => v.to_writer_(writer),
@@ -154,7 +150,6 @@ impl GetSize for EncodablePrimitive<'_> {
     fn get_size(&self) -> usize {
         match self {
             Self::U8(v) => v.get_size(),
-            Self::OwnedU8(v) => v.get_size(),
             Self::U16(v) => v.get_size(),
             Self::Bool(v) => v.get_size(),
             Self::U24(v) => v.get_size(),

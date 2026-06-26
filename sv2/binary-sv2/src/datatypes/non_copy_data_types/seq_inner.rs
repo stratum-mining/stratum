@@ -228,8 +228,10 @@ macro_rules! impl_codec_for_sequence {
                                     T::from_decoded_fields(vec![DecodableField::Primitive(p)]);
                                 inner.push(element?)
                             }
-                            // A struct always recursivly call decode until it reach a primitive
-                            DecodableField::Struct(_) => unreachable!(),
+                            DecodableField::Struct(fields) => {
+                                let element = T::from_decoded_fields(fields);
+                                inner.push(element?)
+                            }
                         }
                     }
                     i += 1;
@@ -288,10 +290,10 @@ macro_rules! impl_into_encodable_field_for_seq {
                 let inner_len = v.0.len() as u16;
                 let mut as_encodable: Vec<EncodableField> =
                     Vec::with_capacity(inner_len as usize + 2);
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(
                     inner_len.to_le_bytes()[0],
                 )));
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(
                     inner_len.to_le_bytes()[1],
                 )));
                 for element in v.0 {
@@ -306,9 +308,7 @@ macro_rules! impl_into_encodable_field_for_seq {
                 let inner_len = v.0.len() as u8;
                 let mut as_encodable: Vec<EncodableField> =
                     Vec::with_capacity((inner_len as usize) + 1);
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
-                    inner_len,
-                )));
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(inner_len)));
                 for element in v.0 {
                     as_encodable.push(element.into());
                 }
@@ -321,9 +321,7 @@ macro_rules! impl_into_encodable_field_for_seq {
                 let inner_len = v.0.len() as u8;
                 let mut as_encodable: Vec<EncodableField> =
                     Vec::with_capacity((inner_len as usize) + 1);
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
-                    inner_len,
-                )));
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(inner_len)));
                 for element in v.0 {
                     as_encodable.push(element.into());
                 }
