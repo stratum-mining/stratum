@@ -681,3 +681,34 @@ mod test_fixed_primitive_from_bytes_truncated {
         );
     }
 }
+
+// Regression test for unconditional recursion in `<T as Encodable>::to_writer`
+// (src/codec/encodable.rs:56-61).
+//
+// The `Write`-based `to_writer` is only compiled when the (default) `no_std`
+// feature is OFF, so this module is gated to match and must be run with:
+//
+//     cargo test --no-default-features --test test
+//
+// On HEAD the call stack-overflows: the blanket `impl Encodable for T`'s
+// `to_writer` dispatches `.to_writer` back to the same trait method instead of
+// the inherent `EncodableField::to_writer`, so the process aborts and the test
+// FAILS. Once the dispatch reaches the inherent method, the four little-endian
+// bytes are written and the test PASSES.
+#[cfg(not(feature = "no_std"))]
+mod test_to_writer_no_recursion {
+    use super::*;
+
+    #[derive(Serialize)]
+    struct Test {
+        a: u32,
+    }
+
+    #[test]
+    fn to_writer_must_not_recurse() {
+        let v = Test { a: 0x0102_0304 };
+        let mut buf: Vec<u8> = Vec::new();
+        <Test as Encodable>::to_writer(v, &mut buf).unwrap();
+        assert_eq!(buf, vec![0x04, 0x03, 0x02, 0x01]);
+    }
+}
