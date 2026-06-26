@@ -1,6 +1,6 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
@@ -81,7 +81,6 @@ pub enum PrimitiveMarker {
     U256,
     Signature,
     U32,
-    U32AsRef,
     F32,
     U64,
     B032,
@@ -124,7 +123,6 @@ pub enum DecodablePrimitive<'a> {
     U256(U256<'a>),
     Signature(Signature<'a>),
     U32(u32),
-    U32AsRef(U32AsRef<'a>),
     F32(f32),
     U64(u64),
     B032(B032<'a>),
@@ -164,7 +162,6 @@ impl SizeHint for PrimitiveMarker {
             Self::U256 => U256::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
-            Self::U32AsRef => U32AsRef::size_hint(data, offset),
             Self::F32 => f32::size_hint(data, offset),
             Self::U64 => u64::size_hint(data, offset),
             Self::B032 => B032::size_hint(data, offset),
@@ -313,9 +310,6 @@ impl PrimitiveMarker {
                 reader,
             )?)),
             Self::U32 => Ok(DecodablePrimitive::U32(u32::from_reader_(reader)?)),
-            Self::U32AsRef => Ok(DecodablePrimitive::U32AsRef(U32AsRef::from_reader_(
-                reader,
-            )?)),
             Self::F32 => Ok(DecodablePrimitive::F32(f32::from_reader_(reader)?)),
             Self::U64 => Ok(DecodablePrimitive::U64(u64::from_reader_(reader)?)),
             Self::B032 => Ok(DecodablePrimitive::B032(B032::from_reader_(reader)?)),
@@ -336,7 +330,6 @@ impl GetSize for DecodablePrimitive<'_> {
             DecodablePrimitive::U256(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
-            DecodablePrimitive::U32AsRef(v) => v.get_size(),
             DecodablePrimitive::F32(v) => v.get_size(),
             DecodablePrimitive::U64(v) => v.get_size(),
             DecodablePrimitive::B032(v) => v.get_size(),

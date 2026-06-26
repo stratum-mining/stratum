@@ -2,21 +2,19 @@
 // arrays, simplifying serialization and deserialization of cryptographic and protocol data.
 //
 // The core component is the [`Inner`] type, a wrapper for managing both fixed and variable-length
-// data slices or owned values. It offers aliases for commonly used data types like 4-byte
-// identifiers (`U32AsRef`), 32-byte hashes (`U256`), cryptographic signatures (`Signature`), and
-// dynamically-sized arrays (`B0255`, `B064K`).
+// data slices or owned values. It offers aliases for commonly used data types like 32-byte hashes
+// (`U256`), cryptographic signatures (`Signature`), and dynamically-sized arrays (`B0255`,
+// `B064K`).
 
 // # Features
-// - **Fixed-size Aliases**: Types like [`U32AsRef`], [`U256`], [`Mac`], [`PubKey`], and
-//   [`Signature`] represent specific byte sizes, often used in cryptographic contexts or protocol
-//   identifiers.
+// - **Fixed-size Aliases**: Types like [`U256`], [`Mac`], [`PubKey`], and [`Signature`] represent
+//   specific byte sizes, often used in cryptographic contexts or protocol identifiers.
 // - **Variable-size Aliases**: Types like [`B032`], [`B0255`], [`Str0255`], [`B064K`], and
 //   [`B016M`] handle data with bounded sizes, providing flexibility for dynamic data.
 // - **Traits and Conversions**: Implements traits like `From`, `TryFrom`, and `Clone` for
 //   seamless transformations between owned and reference-based values.
 
 // # Type Aliases
-// - **[`U32AsRef`]**: 4-byte representation for small identifiers or integer values.
 // - **[`U256`]**: 32-byte cryptographic hash (e.g., SHA-256 or protocol IDs).
 // - **[`Mac`]**: 16-byte message authentication code.
 // - **[`PubKey`]**: 32-byte Secp256k1 public key x-coordinate.
@@ -33,9 +31,6 @@ mod seq_inner;
 pub use inner::Inner;
 pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
 
-/// Type alias for a 4-byte slice or owned data represented using the `Inner`
-/// type with fixed-size configuration.
-pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
 /// Type alias for a 32-byte slice or owned data (commonly used for cryptographic
 /// hashes or IDs) represented using the `Inner` type with fixed-size configuration.
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
@@ -68,12 +63,6 @@ fn bytes_to_hex<'a>(bytes: impl IntoIterator<Item = &'a u8>) -> String {
         write!(&mut hex, "{byte:02x}").expect("writing to String cannot fail");
     }
     hex
-}
-
-impl fmt::Display for U32AsRef<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "U32AsRef({})", self.as_u32())
-    }
 }
 
 impl fmt::Display for Sv2Option<'_, u32> {
@@ -260,28 +249,7 @@ impl fmt::Display for B032<'_> {
     }
 }
 
-impl U32AsRef<'_> {
-    /// Returns the `u32` value represented by this reference.
-    pub fn as_u32(&self) -> u32 {
-        let inner = self.as_bytes();
-        u32::from_le_bytes([inner[0], inner[1], inner[2], inner[3]])
-    }
-}
-
 use core::convert::{TryFrom, TryInto};
-
-impl From<u32> for U32AsRef<'_> {
-    fn from(v: u32) -> Self {
-        let bytes = v.to_le_bytes();
-        U32AsRef::Owned(bytes.into())
-    }
-}
-
-impl<'a> From<&'a U32AsRef<'a>> for u32 {
-    fn from(v: &'a U32AsRef<'a>) -> Self {
-        v.as_u32()
-    }
-}
 
 // Attempts to convert a `String` into a `Str0255<'a>`.
 impl TryFrom<String> for Str0255<'_> {
