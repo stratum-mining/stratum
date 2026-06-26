@@ -2,7 +2,6 @@ use crate::error::{self, Error};
 use binary_sv2::{B032, U256};
 use bitcoin::hashes::hex::{DisplayHex, FromHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
 use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
@@ -153,32 +152,6 @@ impl From<HexU32Be> for String {
 impl From<u32> for HexU32Be {
     fn from(a: u32) -> Self {
         HexU32Be(a)
-    }
-}
-
-//Example of serialization for testing purpose
-impl Serialize for HexU32Be {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let serialized_string = self.0.to_be_bytes().to_lower_hex_string();
-        serializer.serialize_str(&serialized_string)
-    }
-}
-
-//Example of deserialization for testing purpose
-impl<'de> Deserialize<'de> for HexU32Be {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let hex_string: String = Deserialize::deserialize(deserializer)?;
-
-        match u32::from_str_radix(&hex_string, 16) {
-            Ok(value) => Ok(HexU32Be(value)),
-            Err(_) => Err(serde::de::Error::custom("Invalid hex value")),
-        }
     }
 }
 
@@ -391,30 +364,6 @@ impl TryFrom<&str> for HexBytes {
 impl From<HexBytes> for String {
     fn from(bytes: HexBytes) -> String {
         bytes.0.to_lower_hex_string()
-    }
-}
-
-//Example of serialization for testing purpose
-impl Serialize for HexBytes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let bytes = self.0.as_ref();
-        let serialized_string = String::from_utf8_lossy(bytes);
-        serializer.serialize_str(&serialized_string)
-    }
-}
-
-//Example of deserialization for testing purpose
-impl<'de> Deserialize<'de> for HexBytes {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let hex_string: String = Deserialize::deserialize(deserializer)?;
-        let bytes = hex_string.as_bytes().to_vec();
-        Ok(HexBytes(bytes))
     }
 }
 
