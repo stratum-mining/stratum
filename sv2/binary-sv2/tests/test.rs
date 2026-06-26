@@ -682,6 +682,28 @@ mod test_fixed_primitive_from_bytes_truncated {
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+mod test_to_writer_length_prefix {
+    use super::*;
+    use core::convert::TryInto;
+
+    #[test]
+    fn b064k_to_writer_matches_to_bytes() {
+        let mut payload = [1u8, 2, 3];
+        let b: B064K = (&mut payload[..]).try_into().unwrap();
+
+        let via_bytes = to_bytes(b.clone()).unwrap();
+
+        let mut via_writer: Vec<u8> = Vec::new();
+        b.to_writer(&mut via_writer).unwrap();
+
+        assert_eq!(
+            via_writer, via_bytes,
+            "Encodable::to_writer must include the length prefix, matching to_bytes"
+        );
+    }
+}
+
 // Regression test for unconditional recursion in `<T as Encodable>::to_writer`
 // (src/codec/encodable.rs:56-61).
 //

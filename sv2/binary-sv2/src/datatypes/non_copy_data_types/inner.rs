@@ -233,7 +233,7 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
         match (self, ISFIXED) {
             (Inner::Ref(data), false) => data.len(),
             (Inner::Owned(data), false) => data.len(),
-            (_, true) => 1,
+            (_, true) => SIZE,
         }
     }
 
@@ -398,6 +398,8 @@ where
 
     #[cfg(not(feature = "no_std"))]
     fn to_writer_(&self, writer: &mut impl Write) -> Result<(), E> {
+        let header = self.get_header();
+        writer.write_all(&header[..HEADERSIZE])?;
         match self {
             Inner::Ref(data) => {
                 writer.write_all(data)?;
@@ -448,5 +450,22 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
             Inner::Ref(r) => &r[..],
             Inner::Owned(r) => &r[..],
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{GetSize, Signature, U256};
+
+    #[test]
+    fn fixed_inner_len_reports_real_size() {
+        let mut u = [0u8; 32];
+        let u256: U256 = (&mut u[..]).try_into().unwrap();
+        assert_eq!(u256.len(), 32, "U256::len() must be 32, not 1");
+        assert_eq!(u256.len(), u256.get_size());
+
+        let mut s = [0u8; 64];
+        let sig: Signature = (&mut s[..]).try_into().unwrap();
+        assert_eq!(sig.len(), 64, "Signature::len() must be 64, not 1");
     }
 }
