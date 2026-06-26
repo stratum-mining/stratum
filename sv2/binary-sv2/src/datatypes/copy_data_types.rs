@@ -12,8 +12,8 @@
 //
 // ### `Sv2DataType`
 // The `Sv2DataType` trait is implemented for these data types, providing methods for encoding and
-// decoding operations such as `from_bytes_unchecked`, `from_vec_`, `from_reader_` (if `std` is
-// available), and `to_slice_unchecked`. The methods use little-endian byte order for consistency
+// decoding operations such as `from_bytes_`, `from_reader_` (if `std` is available), and
+// `to_slice`. The methods use little-endian byte order for consistency
 // across platforms.
 //
 // ## Special Types
@@ -29,7 +29,6 @@
 // in-memory buffers and `std::io::Read`/`Write` interfaces when `std` is available.
 use crate::{codec::Fixed, datatypes::Sv2DataType, Error};
 
-use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 
 #[cfg(not(feature = "no_std"))]
@@ -57,13 +56,6 @@ impl<'a> Sv2DataType<'a> for bool {
         }
     }
 
-    fn from_vec_(mut data: Vec<u8>) -> Result<Self, Error> {
-        Self::from_bytes_(&mut data)
-    }
-
-    fn from_vec_unchecked(mut data: Vec<u8>) -> Self {
-        Self::from_bytes_unchecked(&mut data)
-    }
 
     #[cfg(not(feature = "no_std"))]
     fn from_reader_(reader: &mut impl Read) -> Result<Self, Error> {
@@ -122,13 +114,6 @@ macro_rules! impl_sv2_for_unsigned {
                 Self::from_le_bytes(*a)
             }
 
-            fn from_vec_(mut data: Vec<u8>) -> Result<Self, Error> {
-                Self::from_bytes_(&mut data)
-            }
-
-            fn from_vec_unchecked(mut data: Vec<u8>) -> Self {
-                Self::from_bytes_unchecked(&mut data)
-            }
 
             #[cfg(not(feature = "no_std"))]
             fn from_reader_(reader: &mut impl Read) -> Result<Self, Error> {

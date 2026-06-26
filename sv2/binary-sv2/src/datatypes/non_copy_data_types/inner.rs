@@ -341,14 +341,6 @@ where
         }
     }
 
-    fn from_vec_(data: Vec<u8>) -> Result<Self, Error> {
-        Self::size_hint(&data, 0)?;
-        Ok(Self::Owned(data))
-    }
-
-    fn from_vec_unchecked(data: Vec<u8>) -> Self {
-        Self::Owned(data)
-    }
 
     #[cfg(not(feature = "no_std"))]
     fn from_reader_(mut reader: &mut impl Read) -> Result<Self, Error> {
@@ -357,7 +349,7 @@ where
         let mut dst = vec![0; size];
 
         reader.read_exact(&mut dst)?;
-        Ok(Self::from_vec_unchecked(dst))
+        Ok(Self::Owned(dst))
     }
 
     fn to_slice_unchecked(&'a self, dst: &mut [u8]) {

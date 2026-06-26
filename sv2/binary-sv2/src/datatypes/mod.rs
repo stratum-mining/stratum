@@ -42,7 +42,6 @@ pub use non_copy_data_types::{
     B064K, U256,
 };
 
-use alloc::vec::Vec;
 use core::convert::TryInto;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
@@ -70,11 +69,6 @@ pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     /// Constructs an instance from a mutable byte slice without verifying size constraints.
     fn from_bytes_unchecked(data: &'a mut [u8]) -> Self;
 
-    /// Constructs an instance from a vector, checking for the correct size.
-    fn from_vec_(data: Vec<u8>) -> Result<Self, Error>;
-
-    /// Constructs an instance from a vector without validating its size.
-    fn from_vec_unchecked(data: Vec<u8>) -> Self;
 
     // Constructs an instance from a reader source, checking for size constraints.
     #[cfg(not(feature = "no_std"))]
