@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="600" font-family="system-ui, sans-serif" font-size="13">
+<defs><pattern id="unreach" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#78909c" stroke-width="1.1" stroke-opacity="0.55"/></pattern></defs>
+<text x="590.0" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#222">The cost is interior, not at the boundary: one error surface, two thresholds, the modal declines in the gap</text>
+<text x="590.0" y="43" text-anchor="middle" font-size="11" fill="#888" font-style="italic">phase-portrait.rs (generated). (rate × depth) plane sliced at spm=6. Deadband boundaries are the closed form e=−ln(1−d); champion trough is measured. Disconnect uses θ=0.36.</text>
+<text x="285.0" y="64.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#333">structural-deadband (no-op in decline)</text>
+<rect x="70.0" y="78.0" width="430.0" height="22.5" fill="#eafaf1"/>
+<rect x="70.0" y="100.5" width="430.0" height="272.7" fill="#fdebd0"/>
+<rect x="70.0" y="373.2" width="430.0" height="96.8" fill="#f9d6d5"/>
+<line x1="70.0" y1="100.5" x2="500.0" y2="100.5" stroke="#e67e22" stroke-width="2"/>
+<text x="496.0" y="96.5" text-anchor="end" font-size="10" fill="#b9690e" font-weight="bold">over-difficulty gate · d≈5% (e=−ln(1−d)=5%)</text>
+<line x1="70.0" y1="373.2" x2="500.0" y2="373.2" stroke="#c0392b" stroke-width="2"/>
+<text x="496.0" y="369.2" text-anchor="end" font-size="10" fill="#c0392b" font-weight="bold">disconnect floor · d=1−θ≈64%</text>
+<text x="76.0" y="93.2" text-anchor="start" font-size="11" fill="#1e8449">safe (under-difficulty)</text>
+<text x="76.0" y="236.8" text-anchor="start" font-size="11" font-weight="bold" fill="#a85c00">interior fails · boundary clear</text>
+<text x="76.0" y="251.8" text-anchor="start" font-size="10" fill="#a85c00">over-difficulty past the gate; miner not dropped</text>
+<text x="76.0" y="421.6" text-anchor="start" font-size="11" fill="#922b21">both fail (cliff depth)</text>
+<polygon points="70.0,96.4 77.2,97.6 84.3,98.9 91.5,100.2 98.7,101.6 105.8,103.1 113.0,104.7 120.2,106.4 127.3,108.2 134.5,110.1 141.7,112.1 148.8,114.3 156.0,116.6 163.2,119.0 170.3,121.6 177.5,124.4 184.7,127.3 191.8,130.5 199.0,133.8 206.2,137.3 213.3,141.1 220.5,145.1 227.7,149.3 234.8,153.9 242.0,158.7 249.2,163.8 256.3,169.2 263.5,175.0 270.7,181.2 277.8,187.7 285.0,194.7 292.2,202.1 299.3,209.9 306.5,218.3 313.7,227.2 320.8,236.7 328.0,246.7 335.2,257.4 342.3,268.8 349.5,280.9 356.7,293.8 363.8,307.4 371.0,322.0 378.2,337.5 385.3,353.9 392.5,371.4 399.7,390.0 406.8,409.8 414.0,430.8 421.2,453.2 428.3,470.0 435.5,470.0 442.7,470.0 449.8,470.0 457.0,470.0 464.2,470.0 471.3,470.0 478.5,470.0 485.7,470.0 492.8,470.0 500.0,470.0 500.0,470.0 70.0,470.0" fill="url(#unreach)" stroke="#90a4ae" stroke-width="1" stroke-dasharray="3 2"/>
+<text x="216.2" y="462.0" text-anchor="middle" font-size="10" fill="#607d8b" font-style="italic">unreachable in a bounded (≤4h) decline — NOT safe</text>
+<rect x="176.8" y="110.3" width="253.5" height="60.0" rx="14" fill="none" stroke="#2c3e50" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="303.6" y="185.2" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#2c3e50">modal declines (what miners actually see)</text>
+<rect x="70.0" y="78.0" width="430.0" height="392.0" fill="none" stroke="#999"/>
+<text x="70.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">1</text>
+<text x="150.8" y="484.0" text-anchor="middle" font-size="9" fill="#666">2</text>
+<text x="257.6" y="484.0" text-anchor="middle" font-size="9" fill="#666">5</text>
+<text x="338.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">10</text>
+<text x="419.2" y="484.0" text-anchor="middle" font-size="9" fill="#666">20</text>
+<text x="500.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">40</text>
+<text x="285.0" y="502.0" text-anchor="middle" font-size="11" fill="#444">decline rate (%/hr, log)</text>
+<text x="64.0" y="81.0" text-anchor="end" font-size="9" fill="#666">0%</text>
+<text x="64.0" y="173.2" text-anchor="end" font-size="9" fill="#666">20%</text>
+<text x="64.0" y="265.5" text-anchor="end" font-size="9" fill="#666">40%</text>
+<text x="64.0" y="357.7" text-anchor="end" font-size="9" fill="#666">60%</text>
+<text x="64.0" y="449.9" text-anchor="end" font-size="9" fill="#666">80%</text>
+<text x="22" y="274.0" text-anchor="middle" font-size="11" fill="#444" transform="rotate(-90 22 274.0)">decline depth (fraction of hashrate lost) →</text>
+<text x="807.0" y="64.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#333">champion Ewma360 (reacts)</text>
+<rect x="592.0" y="78.0" width="40.4" height="69.2" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="78.0" width="93.8" height="69.2" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="78.0" width="93.8" height="69.2" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="820.0" y="78.0" width="80.8" height="69.2" fill="#2980b9" fill-opacity="0.01"/>
+<rect x="900.8" y="78.0" width="80.8" height="69.2" fill="#2980b9" fill-opacity="0.02"/>
+<rect x="981.6" y="78.0" width="40.4" height="69.2" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="592.0" y="147.2" width="40.4" height="46.1" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="147.2" width="93.8" height="46.1" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="147.2" width="93.8" height="46.1" fill="#2980b9" fill-opacity="0.06"/>
+<rect x="820.0" y="147.2" width="80.8" height="46.1" fill="#2980b9" fill-opacity="0.07"/>
+<rect x="900.8" y="147.2" width="80.8" height="46.1" fill="#2980b9" fill-opacity="0.09"/>
+<rect x="981.6" y="147.2" width="40.4" height="46.1" fill="#2980b9" fill-opacity="0.14"/>
+<rect x="592.0" y="193.3" width="40.4" height="46.1" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="193.3" width="93.8" height="46.1" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="193.3" width="93.8" height="46.1" fill="#2980b9" fill-opacity="0.06"/>
+<rect x="820.0" y="193.3" width="80.8" height="46.1" fill="#2980b9" fill-opacity="0.10"/>
+<rect x="900.8" y="193.3" width="80.8" height="46.1" fill="#2980b9" fill-opacity="0.13"/>
+<rect x="981.6" y="193.3" width="40.4" height="46.1" fill="#2980b9" fill-opacity="0.22"/>
+<rect x="592.0" y="239.4" width="40.4" height="46.1" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="239.4" width="93.8" height="46.1" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="239.4" width="93.8" height="46.1" fill="#2980b9" fill-opacity="0.06"/>
+<rect x="820.0" y="239.4" width="80.8" height="46.1" fill="#2980b9" fill-opacity="0.13"/>
+<rect x="900.8" y="239.4" width="80.8" height="46.1" fill="#2980b9" fill-opacity="0.17"/>
+<rect x="981.6" y="239.4" width="40.4" height="46.1" fill="#2980b9" fill-opacity="0.26"/>
+<rect x="592.0" y="285.5" width="40.4" height="57.6" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="285.5" width="93.8" height="57.6" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="285.5" width="93.8" height="57.6" fill="#2980b9" fill-opacity="0.06"/>
+<rect x="820.0" y="285.5" width="80.8" height="57.6" fill="#2980b9" fill-opacity="0.13"/>
+<rect x="900.8" y="285.5" width="80.8" height="57.6" fill="#2980b9" fill-opacity="0.20"/>
+<rect x="981.6" y="285.5" width="40.4" height="57.6" fill="#2980b9" fill-opacity="0.29"/>
+<rect x="592.0" y="343.2" width="40.4" height="69.2" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="343.2" width="93.8" height="69.2" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="343.2" width="93.8" height="69.2" fill="#2980b9" fill-opacity="0.06"/>
+<rect x="820.0" y="343.2" width="80.8" height="69.2" fill="#2980b9" fill-opacity="0.13"/>
+<rect x="900.8" y="343.2" width="80.8" height="69.2" fill="#2980b9" fill-opacity="0.24"/>
+<rect x="981.6" y="343.2" width="40.4" height="69.2" fill="#2980b9" fill-opacity="0.35"/>
+<rect x="592.0" y="412.4" width="40.4" height="57.6" fill="#2980b9" fill-opacity="0.03"/>
+<rect x="632.4" y="412.4" width="93.8" height="57.6" fill="#2980b9" fill-opacity="0.04"/>
+<rect x="726.2" y="412.4" width="93.8" height="57.6" fill="#2980b9" fill-opacity="0.06"/>
+<rect x="820.0" y="412.4" width="80.8" height="57.6" fill="#2980b9" fill-opacity="0.13"/>
+<rect x="900.8" y="412.4" width="80.8" height="57.6" fill="#2980b9" fill-opacity="0.30"/>
+<rect x="981.6" y="412.4" width="40.4" height="57.6" fill="#2980b9" fill-opacity="0.43"/>
+<line x1="592.0" y1="100.5" x2="1022.0" y2="100.5" stroke="#e67e22" stroke-width="1.3" stroke-dasharray="4 3"/>
+<line x1="592.0" y1="373.2" x2="1022.0" y2="373.2" stroke="#c0392b" stroke-width="1.3" stroke-dasharray="4 3"/>
+<text x="807.0" y="216.4" text-anchor="middle" font-size="11" fill="#1f618d">reacts → trough stays shallow (corner, deepens down-right)</text>
+<text x="807.0" y="232.4" text-anchor="middle" font-size="10.5" fill="#555">crosses NEITHER threshold on this slice;</text>
+<text x="807.0" y="246.4" text-anchor="middle" font-size="10.5" fill="#555">its only failure is off-slice at sparse rate (§9.2, +2.7%)</text>
+<polygon points="592.0,96.4 599.2,97.6 606.3,98.9 613.5,100.2 620.7,101.6 627.8,103.1 635.0,104.7 642.2,106.4 649.3,108.2 656.5,110.1 663.7,112.1 670.8,114.3 678.0,116.6 685.2,119.0 692.3,121.6 699.5,124.4 706.7,127.3 713.8,130.5 721.0,133.8 728.2,137.3 735.3,141.1 742.5,145.1 749.7,149.3 756.8,153.9 764.0,158.7 771.2,163.8 778.3,169.2 785.5,175.0 792.7,181.2 799.8,187.7 807.0,194.7 814.2,202.1 821.3,209.9 828.5,218.3 835.7,227.2 842.8,236.7 850.0,246.7 857.2,257.4 864.3,268.8 871.5,280.9 878.7,293.8 885.8,307.4 893.0,322.0 900.2,337.5 907.3,353.9 914.5,371.4 921.7,390.0 928.8,409.8 936.0,430.8 943.2,453.2 950.3,470.0 957.5,470.0 964.7,470.0 971.8,470.0 979.0,470.0 986.2,470.0 993.3,470.0 1000.5,470.0 1007.7,470.0 1014.8,470.0 1022.0,470.0 1022.0,470.0 592.0,470.0" fill="url(#unreach)" stroke="#90a4ae" stroke-width="1" stroke-dasharray="3 2"/>
+<text x="738.2" y="462.0" text-anchor="middle" font-size="10" fill="#607d8b" font-style="italic">unreachable in a bounded (≤4h) decline — NOT safe</text>
+<rect x="698.8" y="110.3" width="253.5" height="60.0" rx="14" fill="none" stroke="#2c3e50" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="825.6" y="185.2" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#2c3e50">modal declines (what miners actually see)</text>
+<rect x="592.0" y="78.0" width="430.0" height="392.0" fill="none" stroke="#999"/>
+<text x="592.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">1</text>
+<text x="672.8" y="484.0" text-anchor="middle" font-size="9" fill="#666">2</text>
+<text x="779.6" y="484.0" text-anchor="middle" font-size="9" fill="#666">5</text>
+<text x="860.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">10</text>
+<text x="941.2" y="484.0" text-anchor="middle" font-size="9" fill="#666">20</text>
+<text x="1022.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">40</text>
+<text x="807.0" y="502.0" text-anchor="middle" font-size="11" fill="#444">decline rate (%/hr, log)</text>
+<text x="590.0" y="586.0" text-anchor="middle" font-size="10.5" fill="#555">Deadband: one no-op identity (e=−ln(1−d)) yields both boundaries — the over-difficulty half-plane is vertical in rate because nothing acts on it. Modal declines sit in the gap: past the gate, far from disconnect.</text>
+</svg>

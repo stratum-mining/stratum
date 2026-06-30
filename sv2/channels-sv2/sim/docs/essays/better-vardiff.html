@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Better Vardiff — What "Better" Turned Out to Mean</title>
+<link href="./fonts/fonts.css" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFAF6;
+    --ink:#23252C;
+    --ink-soft:#3D424E;
+    --muted:#6E7480;
+    --rule:#E4E2D8;
+    --panel:#FFFFFF;
+    --controller:#2C6FB0;   /* the controller / champion — protagonist */
+    --controller-soft:#E7F0F8;
+    --truth:#C07D1B;        /* the miner's true hashrate */
+    --truth-soft:#F6ECD8;
+    --danger:#BE3A2B;       /* over-difficulty / the spiral / classic failure */
+    --danger-soft:#F6E2DD;
+    --serif:"Fraunces",Georgia,serif;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:18px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .paper{max-width:720px;margin:0 auto;padding:0 26px 96px;}
+
+  /* ---- masthead ---- */
+  .masthead{padding:72px 0 16px;}
+  .kicker{
+    font-family:var(--mono);font-size:0.74rem;letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--controller);margin:0 0 22px;
+  }
+  h1{
+    font-family:var(--serif);font-optical-sizing:auto;font-weight:600;
+    font-size:clamp(2.4rem,6.2vw,3.9rem);line-height:1.04;letter-spacing:-0.015em;
+    margin:0 0 20px;color:var(--ink);
+  }
+  .dek{
+    font-family:var(--serif);font-weight:400;font-style:normal;
+    font-size:clamp(1.2rem,2.6vw,1.5rem);line-height:1.4;color:var(--ink-soft);
+    margin:0 0 26px;max-width:40ch;
+  }
+  .author{font-family:var(--mono);font-size:0.86rem;color:var(--ink-soft);margin:0 0 22px;}
+  .author .role{color:var(--muted);}
+  .byline{font-family:var(--mono);font-size:0.82rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:18px;}
+
+  /* ---- TL;DR ---- */
+  .tldr{
+    background:var(--panel);border:1px solid var(--rule);border-radius:12px;
+    padding:26px 28px;margin:40px 0 8px;
+  }
+  .tldr .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;}
+  .tldr p{font-size:1.06rem;margin:0;color:var(--ink-soft);}
+  .tldr p + p{margin-top:13px;}
+
+  /* ---- sections ---- */
+  section{padding:46px 0 8px;}
+  .eyebrow{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;display:flex;align-items:center;gap:12px;}
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--rule);}
+  h2{
+    font-family:var(--serif);font-optical-sizing:auto;font-weight:600;
+    font-size:clamp(1.55rem,3.6vw,2.15rem);line-height:1.12;letter-spacing:-0.01em;
+    margin:0 0 16px;color:var(--ink);
+  }
+  p{margin:0 0 18px;color:var(--ink-soft);}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:italic;}
+  .lead{font-size:1.08rem;color:var(--ink);}
+  a{color:var(--controller);}
+
+  .pull{
+    font-family:var(--serif);font-weight:500;font-size:clamp(1.25rem,3vw,1.7rem);
+    line-height:1.32;color:var(--ink);
+    border-left:3px solid var(--controller);padding:6px 0 6px 22px;margin:30px 0;
+  }
+
+  .c-ctrl{color:var(--controller);font-weight:600;}
+  .c-truth{color:var(--truth);font-weight:600;}
+  .c-dngr{color:var(--danger);font-weight:600;}
+
+  /* ---- figures ---- */
+  figure{margin:34px 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:20px 20px 12px;}
+  .figbox svg{display:block;width:100%;height:auto;}
+  figcaption{font-family:var(--mono);font-size:0.8rem;line-height:1.55;color:var(--muted);margin-top:14px;}
+  figcaption b{color:var(--ink-soft);font-weight:500;}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 2px;vertical-align:baseline;}
+
+  /* ---- interactive demo ---- */
+  .demo{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:22px 22px 18px;margin:36px 0;}
+  .demo-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+  .demo-title{font-family:var(--mono);font-size:0.78rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--controller);margin:0;}
+  .verdict{font-family:var(--mono);font-size:0.82rem;font-weight:500;padding:5px 13px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap;color:var(--muted);transition:background .25s,color .25s,border-color .25s;}
+  .verdict.safe{color:var(--controller);background:var(--controller-soft);border-color:#CFE0F0;}
+  .verdict.edge{color:var(--truth);background:var(--truth-soft);border-color:#EAD9B6;}
+  .verdict.spiral{color:var(--danger);background:var(--danger-soft);border-color:#E9C9C2;}
+  .demo svg{display:block;width:100%;height:auto;}
+  #demoPlot .live-short{display:none;}
+  .controls{display:grid;grid-template-columns:1fr;gap:13px;margin-top:18px;}
+  .ctl{display:grid;grid-template-columns:minmax(150px,auto) 1fr auto;align-items:center;gap:14px;}
+  .ctl label{font-size:0.95rem;color:var(--ink-soft);font-weight:500;}
+  .ctl input[type=range]{width:100%;accent-color:var(--controller);height:4px;}
+  .ctl .val{font-family:var(--mono);font-size:0.82rem;color:var(--controller);min-width:5ch;text-align:right;}
+  .demo-note{font-family:var(--mono);font-size:0.78rem;line-height:1.6;color:var(--muted);margin:16px 0 0;min-height:3.4em;}
+  #shareTrace,#hashTrace{animation:demofade 700ms ease both;}
+  @keyframes demofade{from{opacity:0;}to{opacity:1;}}
+  @media (max-width:520px){
+    .ctl{grid-template-columns:1fr auto;}
+    .ctl input[type=range]{grid-column:1 / -1;order:3;margin-top:2px;}
+    .ctl .val{order:2;}
+    #demoPlot text{font-size:19px;}
+    #demoPlot .ax-min{display:none;}
+    #demoPlot .live-full{display:none;}
+    #demoPlot .live-short{display:inline;}
+    #hashTrace{stroke-width:3;}
+    #shareTrace{stroke-width:4;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #shareTrace,#hashTrace{animation:none;}
+    .verdict{transition:none;}
+  }
+
+  /* ---- operator callout ---- */
+  .takeaway{background:var(--controller-soft);border:1px solid #CFE0F0;border-radius:12px;padding:24px 26px;margin:34px 0 8px;}
+  .takeaway .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;}
+  .takeaway ul{margin:0;padding-left:20px;}
+  .takeaway li{margin:0 0 10px;color:var(--ink-soft);}
+  .takeaway li:last-child{margin-bottom:0;}
+
+  .verify{font-family:var(--mono);font-size:0.82rem;color:var(--muted);}
+  .verify code{font-size:0.85em;}
+  footer{margin-top:64px;border-top:1px solid var(--rule);padding-top:24px;}
+  footer p{font-family:var(--mono);font-size:0.8rem;color:var(--muted);}
+
+  @media (max-width:520px){
+    body{font-size:17px;}
+    .tldr,.takeaway,.demo{padding:20px;}
+  }
+</style>
+</head>
+<body>
+<main class="paper">
+
+  <!-- ===== MASTHEAD ===== -->
+  <header class="masthead">
+    <p class="kicker">Companion essay — the why</p>
+    <h1>A better vardiff, and what “better” turned out to mean</h1>
+    <p class="dek">We set out to build a controller that tracks a miner more tightly. We ended up somewhere we didn't expect.</p>
+    <p class="author">By Eric Price <span class="role">· Senior Software Engineer, Mara</span></p>
+    <p class="byline">Part one of a two-part article, in plain language. This is the <strong>why</strong> — the story of what we found; part two, <em>“Building a vardiff, part by part,”</em> is the <strong>how</strong>. There's also a technical report, <em>“Vardiff at the Information Floor,”</em> with the full derivations and proofs — there if you want them, but you don't need it to follow either part.</p>
+  </header>
+
+  <div class="tldr">
+    <p class="lbl">The short version</p>
+    <p>We set out to build a vardiff that tracks a miner more tightly than the one we had. Three things we didn't expect:</p>
+    <p><strong>They're all about the same.</strong> Across the share rates that matter, every reasonable vardiff comes out about even on overall cost — pinned to a precision floor no cleverness beats. (Pick one narrow axis and you can spread the field wide; it's the <em>combined</em> cost that flattens.) So “better” couldn't mean “more accurate.”</p>
+    <p><strong>The whole game is the decline.</strong> What separates controllers is whether they spiral on a <em>falling</em> miner — lagging the drop, holding the difficulty too high, and choking off the very shares needed to notice. Declines are constant — heat, failing boards, grid curtailment — so that's the common case, not a corner one. The controller we ship is the calmest one that never spirals.</p>
+    <p><strong>There's one real lever.</strong> The only way to buy more precision is to ask the miner for more shares per minute. Everything else just trades one weakness for another.</p>
+  </div>
+
+  <!-- ===== 1 ===== -->
+  <section>
+    <p class="eyebrow">01 — where we started</p>
+    <h2>The job, and the controller we had</h2>
+    <p class="lead">A mining pool serves machines that range from a hobbyist's box to an industrial farm — a millionfold spread in power. But it wants every connection to send back proof-of-work “shares” at about the same steady rate, a few per minute. Too few and the pool can't tell what a miner is doing; too many and it drowns in messages.</p>
+    <p>The tool for this is <strong>variable difficulty</strong>, or vardiff: give each connection its own difficulty target and keep nudging it so the miner's share rate stays near a chosen rate. The difficulty rises for big miners and falls for small ones, so they all report in at the same comfortable pace.</p>
+    <p>The controller we had — call it the <strong>classic</strong> one — is simple and dependable: it checks in on a fixed schedule and steps the difficulty by fixed amounts. It has worked fine for years. Our goal was modest and obvious: build something that tracks a miner's hashrate <em>better</em> — reacts faster, sits closer to target. Find the best controller. We wrote a batch of candidates and a way to score them, fully expecting a clear winner to emerge.</p>
+    <p class="pull">That expectation — that there's a meaningful gap between a good vardiff and a mediocre one — is the thing that turned out to be wrong.</p>
+  </section>
+
+  <!-- ===== 2 ===== -->
+  <section>
+    <p class="eyebrow">02 — how vardiffs differ</p>
+    <h2>A handful of dials</h2>
+    <p>Strip away the details and every vardiff is the same few dials, set differently:</p>
+    <p><strong>How long it waits</strong> before trusting what it sees (a long averaging window is steady but slow; a short one is jumpy but quick). <strong>How far off</strong> the rate has to drift before it acts. <strong>How big a step</strong> it takes when it does. And <strong>how often</strong> it's allowed to move at all.</p>
+    <p>Those four dials really do just three jobs: <strong>measuring</strong> the rate (the waiting window), <strong>deciding</strong> when a drift is real enough to act on (the threshold), and <strong>moving</strong> the difficulty when it is (the step, and how often). What separates one vardiff from another is mostly how much care goes into each — and, as we'll see, whether it treats them as separate jobs at all. (Turning these three jobs into three parts you actually build — and deciding what belongs in each — is the whole subject of the companion piece, <em>“Building a vardiff, part by part.”</em>)</p>
+    <p>Turn those dials one way and you get a <em>twitchy</em> controller that reacts to every flicker. Turn them the other way and you get a <em>sleepy</em> one that stays calm and moves rarely. Intuition says the right settings somewhere in between give you a clearly better tracker. So we went looking for them.</p>
+    <p>It helps to have a real one in mind. Take ckpool — a mature, well-regarded pool many operators know. It's built from exactly these four dials, with unusual care poured into the waiting-window in particular: not one averaging window but several at once, with logic to lean on the fast one when shares are pouring in and the slow one when they're sparse. It's the kind of carefully-engineered estimator you'd expect to simply track better than a plain one. Keep it in mind — we'll come back to how it does.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 220" role="img" aria-label="Four dials that define a vardiff: how long it waits, how far off before acting, how big a step, and how often it can move; set one way they make a twitchy controller, the other way a sleepy one.">
+          <g font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="middle">
+            <g>
+              <circle cx="110" cy="74" r="34" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+              <line x1="110" y1="74" x2="92" y2="52" stroke="#2C6FB0" stroke-width="2.5" stroke-linecap="round"/>
+              <text x="110" y="135" fill="#23252C" font-weight="500">window</text>
+              <text x="110" y="153">how long it waits</text>
+            </g>
+            <g>
+              <circle cx="280" cy="74" r="34" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+              <line x1="280" y1="74" x2="280" y2="44" stroke="#2C6FB0" stroke-width="2.5" stroke-linecap="round"/>
+              <text x="280" y="135" fill="#23252C" font-weight="500">threshold</text>
+              <text x="280" y="153">how far off to act</text>
+            </g>
+            <g>
+              <circle cx="450" cy="74" r="34" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+              <line x1="450" y1="74" x2="470" y2="52" stroke="#2C6FB0" stroke-width="2.5" stroke-linecap="round"/>
+              <text x="450" y="135" fill="#23252C" font-weight="500">step</text>
+              <text x="450" y="153">how big a move</text>
+            </g>
+            <g>
+              <circle cx="620" cy="74" r="34" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+              <line x1="620" y1="74" x2="640" y2="74" stroke="#2C6FB0" stroke-width="2.5" stroke-linecap="round"/>
+              <text x="620" y="135" fill="#23252C" font-weight="500">cadence</text>
+              <text x="620" y="153">how often</text>
+            </g>
+          </g>
+          <line x1="60" y1="186" x2="660" y2="186" stroke="#E4E2D8" stroke-width="1"/>
+          <text x="60" y="206" font-family="IBM Plex Mono" font-size="12" fill="#BE3A2B" text-anchor="start">◀ twitchy: reacts to everything</text>
+          <text x="660" y="206" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="end">sleepy: calm and slow ▶</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 1.</b> Every vardiff is these four dials, set somewhere between twitchy and sleepy. We assumed the right setting was the whole game.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== 3 ===== -->
+  <section>
+    <p class="eyebrow">03 — the wall</p>
+    <h2>The controller is flying blind</h2>
+    <p>Here is the fact that changes everything. A vardiff <strong>never sees the miner</strong>. It can't read the hashrate off a gauge. All it ever gets is shares arriving — and shares come at random, like clicks on a Geiger counter. A miner averaging six shares a minute might send four this minute and nine the next, purely by chance.</p>
+    <p>So to tell a real slowdown from an unlucky stretch, the controller has to <strong>average over time</strong>. And that's where the wall is: the precision you can get out of that average is capped. It improves only as the square root of how many shares you collect — that is, the share rate multiplied by how long you wait. There is a floor on the noise, and no algorithm, however clever, gets under it.</p>
+    <p>The first thing that floor does is set a trap. Average longer and you get more precise — but you're also <strong>slower to notice a real change</strong>, because you're leaning on more old data. Precision and speed come out of one fixed budget. You cannot have both at once.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 280" role="img" aria-label="Two opposing curves against window length: noise falls as the window grows, lag rises, and their sum is a U-shape with a best window at the bottom.">
+          <line x1="70" y1="40" x2="70" y2="220" stroke="#C9C7BD" stroke-width="1"/>
+          <line x1="70" y1="220" x2="670" y2="220" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="70" y="248" font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="start">short window</text>
+          <text x="670" y="248" font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="end">long window →</text>
+          <text x="52" y="44" font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="end" transform="rotate(-90 52 44)">trouble</text>
+          <path d="M 90 70 C 180 130, 300 185, 650 205" fill="none" stroke="#2C6FB0" stroke-width="2.5"/>
+          <text x="94" y="60" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0">noise (randomness)</text>
+          <path d="M 90 208 C 320 196, 460 150, 650 72" fill="none" stroke="#C07D1B" stroke-width="2.5"/>
+          <text x="96" y="192" font-family="IBM Plex Mono" font-size="12" fill="#C07D1B">lag (slowness)</text>
+          <path d="M 90 96 C 230 150, 330 156, 380 158 C 470 162, 560 120, 650 70" fill="none" stroke="#23252C" stroke-width="2.5" stroke-dasharray="1 0"/>
+          <text x="372" y="138" font-family="IBM Plex Mono" font-size="12" fill="#23252C" text-anchor="middle">total error</text>
+          <circle cx="372" cy="158" r="5.5" fill="#23252C"/>
+          <line x1="372" y1="164" x2="372" y2="198" stroke="#23252C" stroke-width="1" stroke-dasharray="3 4"/>
+          <text x="372" y="212" font-family="IBM Plex Mono" font-size="12" fill="#23252C" text-anchor="middle">best window</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 2.</b> The core trade. A short window is fast but <span class="swatch" style="background:#2C6FB0"></span>noisy; a long one is precise but <span class="swatch" style="background:#C07D1B"></span>slow. Add the two and you get a U — there's a best window, but you can't push both sides down at once. (The one thing that lowers the whole U is in Figure 6.)</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== 4 ===== -->
+  <section>
+    <p class="eyebrow">04 — the surprise</p>
+    <h2>They're all about the same</h2>
+    <p>Because that floor is set by the share rate and the window — <strong>not by how clever the algorithm is</strong> — something surprising falls out when you score the whole field. Every reasonable vardiff lands within about 12% of every other one, measured in overall cost. The elaborate ones and the plain ones pile up against the same wall.</p>
+    <p>Remember ckpool and its several blended windows — the estimator you'd expect to pull ahead? It lands in the same band as the plainest single-window controller. The care went into precision the floor had already capped; it never became a better track.</p>
+    <p>That broke our original framing. We'd gone looking for “the best tracker,” and there barely is one. The differences we'd been chasing — this window versus that threshold — mostly wash out, because they're all bumping against the same limit. The gap we assumed was there isn't.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Left: what we expected, a wide spread of controllers from worse to better. Right: what we found, all controllers clustered in a narrow band just above a shared floor.">
+          <line x1="360" y1="30" x2="360" y2="210" stroke="#E4E2D8" stroke-width="1"/>
+          <text x="40" y="30" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">WHAT WE EXPECTED</text>
+          <g fill="#9AA0AC">
+            <circle cx="70"  cy="180" r="6"/>
+            <circle cx="115" cy="162" r="6"/>
+            <circle cx="160" cy="146" r="6"/>
+            <circle cx="205" cy="124" r="6"/>
+            <circle cx="250" cy="100" r="6"/>
+            <circle cx="295" cy="74"  r="6"/>
+          </g>
+          <line x1="60" y1="196" x2="330" y2="196" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="60" y="216" font-family="IBM Plex Mono" font-size="11.5" fill="#6E7480">a clear worst → best</text>
+          <text x="400" y="30" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">WHAT WE FOUND</text>
+          <line x1="400" y1="190" x2="690" y2="190" stroke="#BE3A2B" stroke-width="2"/>
+          <text x="400" y="212" font-family="IBM Plex Mono" font-size="11.5" fill="#BE3A2B">the floor — nobody beats it</text>
+          <g fill="#2C6FB0">
+            <circle cx="420" cy="120" r="6"/><circle cx="455" cy="112" r="6"/><circle cx="490" cy="126" r="6"/>
+            <circle cx="525" cy="116" r="6"/><circle cx="560" cy="122" r="6"/><circle cx="595" cy="110" r="6"/>
+            <circle cx="630" cy="124" r="6"/><circle cx="660" cy="116" r="6"/>
+          </g>
+          <line x1="408" y1="104" x2="672" y2="104" stroke="#2C6FB0" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+          <line x1="408" y1="132" x2="672" y2="132" stroke="#2C6FB0" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+          <text x="540" y="74" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="middle">all within ~12%</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 3.</b> We expected a wide field with a clear winner. We found everyone piled into a narrow band against the same floor. That reframed the whole project.</figcaption>
+    </figure>
+
+    <p>Which raises the real question: if they all come out about even on cost, <strong>what is actually worth choosing between them?</strong></p>
+  </section>
+
+  <!-- ===== 5 ===== -->
+  <section>
+    <p class="eyebrow">05 — the exception</p>
+    <h2>One knob that wasn't a wash</h2>
+    <p>The honest first answer was discouraging: <strong>almost nothing</strong>. The controllers really are that close. But <em>almost</em> nothing isn't <em>nothing</em> — and the one difference that survived the dead heat is the loose thread the rest of this story pulls on. When we stopped ranking controllers by their headline cost number and asked a blunter question — which ones actually drove a miner into trouble — the field stopped looking flat. The controllers that moved difficulty <em>asymmetrically</em> — quick to ease it down, slow to push it back up — rode out declines that toppled the ones that adjusted evenly. Averaged into the overall cost it barely showed. Among the runs that went wrong, it was nearly the whole difference.</p>
+    <p>That was strange, because on paper the two directions look identical. Difficulty is just a number; nudging it up a notch or down a notch by the same amount ought to cost the same. So we went looking for where the asymmetry was earning its keep, and reached for the obvious explanation first. A controller that's slow to <em>raise</em> difficulty — or quick to <em>lower</em> it — spends less time holding the bar too high; and a bar held too high, surely, is rejecting shares the miner worked for and should have been paid for. By that reasoning the asymmetry was just a way to throw away less: ease fast, reject less, lose less.</p>
+    <p class="pull">The asymmetry plainly helped. The reason we first reached for — that it was saving wasted work — turned out to be a red herring.</p>
+    <p>It's a tidy story, and it's wrong — wrong in a way we could check directly, and did. There was no wasted work to save; we'll come back to that, with the receipts. But running it down — working out what the asymmetry was <em>actually</em> doing — meant turning to the one thing the shootout had glossed over. Not how a controller tracks a healthy miner holding steady, but what happens to a miner as it comes apart. That, it turns out, is where all the danger lives.</p>
+  </section>
+
+  <!-- ===== 6 ===== -->
+  <section>
+    <p class="eyebrow">06 — why decline is the danger</p>
+    <h2>Miners don't fail all at once</h2>
+    <p>To see what actually separates one controller from another, look at how a miner gets into trouble in the first place. It almost never drops dead in one step. It loses ground <strong>gradually, partially, and silently</strong> — and that shape is the whole reason one direction of error is dangerous and the other isn't.</p>
+    <p>The most common cause is just heat. As a machine or the room around it warms up, its chips quietly throttle themselves to stay safe — the single largest source of gradual hashrate loss, and it trips no alarm. You don't lose the miner; you lose <span class="c-truth">10 to 30% of it</span>, drifting with the temperature over minutes and hours.</p>
+    <p>Hardware wears the same way. Boards degrade in increments, firmware routes around dead chips, and a single failed board on a three-board machine walks off with about a third of the hashrate. The clean, total failure is the <em>rare</em> case. The slow bleed is the normal one.</p>
+    <p>And the largest deliberate reductions come from the grid. A site on a demand-response contract can power its machines all the way off — a clean shutdown the controller handles easily, because the connection simply closes. But it can also curtail <em>partially</em>, holding the fleet at a reduced power target: every machine <span class="c-truth">underclocked to a fraction of its output</span>, hashing less with the connection still live. For a grid-scale operation that partial mode is routine — a large, deliberate hashrate drop on a connection that stays up the whole time.</p>
+    <p>So the decline a vardiff actually has to survive is rarely a cliff. It's a gentle, partial slide on a connection that stays up — which, as it happens, is the exact shape a slow controller handles worst.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 270" role="img" aria-label="Several hashrate declines over time. Most are gradual partial slides settling at reduced levels; one grey dashed line shows the rare sudden cliff that any controller would catch.">
+          <line x1="70" y1="30" x2="70" y2="210" stroke="#C9C7BD" stroke-width="1"/>
+          <line x1="70" y1="210" x2="680" y2="210" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="52" y="40" font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="end" transform="rotate(-90 52 40)">hashrate</text>
+          <text x="70" y="232" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">time →</text>
+          <line x1="70" y1="44" x2="680" y2="44" stroke="#E4E2D8" stroke-width="1" stroke-dasharray="2 4"/>
+          <text x="676" y="40" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">full power</text>
+          <!-- gradual partial declines (amber) -->
+          <path d="M 90 56 L 200 56 C 300 58, 330 92, 420 96 L 660 100" fill="none" stroke="#C07D1B" stroke-width="2.5"/>
+          <text x="664" y="100" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B" text-anchor="start">–22%</text>
+          <path d="M 90 56 L 170 56 C 280 60, 320 118, 430 128 L 660 132" fill="none" stroke="#C07D1B" stroke-width="2.5" opacity="0.78"/>
+          <text x="664" y="133" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B" text-anchor="start" opacity="0.85">–33%</text>
+          <path d="M 90 56 L 150 56 C 250 64, 300 150, 440 162 L 660 166" fill="none" stroke="#C07D1B" stroke-width="2.5" opacity="0.6"/>
+          <text x="664" y="167" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B" text-anchor="start" opacity="0.7">–50%</text>
+          <!-- the rare sudden cliff (grey dashed) -->
+          <path d="M 90 56 L 350 56 L 350 198 L 660 198" fill="none" stroke="#9AA0AC" stroke-width="2" stroke-dasharray="5 4"/>
+          <text x="356" y="192" font-family="IBM Plex Mono" font-size="11" fill="#6E7480">the rare clean break — everyone catches this</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 4.</b> The shape of a real decline. <span class="swatch" style="background:#C07D1B"></span>Heat, wear, and curtailment produce gradual, partial slides on a live connection. The <span class="swatch" style="background:#9AA0AC"></span>sudden cliff everyone pictures is the uncommon case — and the easy one. It's the slides that catch a slow controller out.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== 7 ===== -->
+  <section>
+    <p class="eyebrow">07 — the trap</p>
+    <h2>The death spiral</h2>
+    <p>If you know Bitcoin's “death spiral,” set that aside — that's the network-level worry that a price crash sheds hashrate faster than difficulty can retarget down, and it's mostly dismissed, because the retarget does catch up. This is a different animal: one connection's vardiff, where the loop is real and plays out in minutes.</p>
+    <p>Now the trap itself — and the obvious version of it is wrong, which matters, because the wrong version is the one we'd reached for first, and it sends you chasing the wrong fix. You'd assume the danger of a controller that's slow to lower difficulty is that it keeps the bar too high and <strong>throws away the miner's work</strong>: shares that should have counted, rejected. That isn't what happens. The protocol freezes each job's difficulty the moment it's handed out, so lowering it later rejects nothing already in flight; and a share is worth exactly its difficulty, so a miner earns in proportion to its hashrate no matter what difficulty it's set at. <strong>There is no lost <em>work</em></strong> — which is not to say no cost: a difficulty held too high still drives the connection toward the disconnect that the rest of this piece is about, and it raises payout <em>variance</em>. What it does <em>not</em> do is throw away earnings. We didn't take the protocol's word for it, either: if a too-high difficulty were quietly costing a miner its work, rejected shares would swell as it rose — we watched, and they don't. There was nothing to reclaim. <span class="verify">(Both the protocol behavior and this measurement are derived and pinned to source in the technical paper — each job snapshots its target at issue and is validated against that snapshot until the next block.)</span></p>
+    <p>The real trap is about <em>information</em>, and it runs in a loop. When a miner's hashrate falls and the controller is slow to follow, the difficulty is now <span class="c-dngr">too high</span> for what the miner can do. Too high means the miner clears it less often — so it sends <strong>fewer shares</strong>. But shares are the only thing the controller can see. Fewer shares is less to go on, so it has to wait even longer to be sure of anything — which makes it <strong>slower still</strong> to notice the hashrate is falling. Slow to notice keeps the difficulty too high, which keeps the shares sparse. Round and round.</p>
+    <p class="pull">Holding the bar too high chokes off the very shares the controller needs in order to notice the bar is too high.</p>
+    <p>The cruel part is that the opposite mistake is harmless. If the difficulty is <span class="c-ctrl">too low</span>, the miner clears it constantly and <strong>floods</strong> the controller with shares — more to see by, not less — so it spots the error fast and pulls itself back. One direction of error heals itself. The other digs in. That asymmetry is the entire ballgame.</p>
+    <p>And this is what the shootout had been picking up all along. The controllers that came through the declines clean weren't saving wasted work — there was none to save. They were the ones that leaned the safe way on this very asymmetry: quick to ease difficulty down onto the side that heals itself, slow to push it up toward the side that digs in. The mystery knob from the dead heat and the death spiral are the same fact approached from opposite ends — we'd stumbled on the effect, pinned it on rejected work, and only here, at the loop, is the real reason. The asymmetry helps because it keeps the controller on the side where it can still see.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 300" role="img" aria-label="Two feedback loops. Over-difficulty: too high leads to fewer shares leads to slower to notice and back to too high, a closed self-reinforcing cycle. Under-difficulty: too low leads to more shares leads to quick to notice, which corrects back onto target and exits.">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#BE3A2B"/></marker>
+            <marker id="ab" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2C6FB0"/></marker>
+          </defs>
+
+          <text x="200" y="34" font-family="IBM Plex Mono" font-size="12" fill="#BE3A2B" text-anchor="middle" letter-spacing="0.08em">OVER-DIFFICULTY — feeds itself</text>
+          <text x="530" y="34" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="middle" letter-spacing="0.08em">UNDER-DIFFICULTY — heals itself</text>
+
+          <!-- RED closed vicious cycle -->
+          <g font-family="IBM Plex Mono" font-size="11" fill="#23252C" text-anchor="middle">
+            <rect x="161" y="56" width="78" height="38" rx="7" fill="#FFFFFF" stroke="#BE3A2B" stroke-width="1.5"/>
+            <text x="200" y="73">difficulty</text><text x="200" y="87">too high</text>
+            <rect x="251" y="200" width="78" height="38" rx="7" fill="#FFFFFF" stroke="#BE3A2B" stroke-width="1.5"/>
+            <text x="290" y="217">fewer</text><text x="290" y="231">shares</text>
+            <rect x="71" y="200" width="80" height="38" rx="7" fill="#FFFFFF" stroke="#BE3A2B" stroke-width="1.5"/>
+            <text x="111" y="217">slower to</text><text x="111" y="231">notice</text>
+          </g>
+          <path d="M 232 96 Q 300 132 296 196" fill="none" stroke="#BE3A2B" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M 249 226 Q 200 250 153 226" fill="none" stroke="#BE3A2B" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M 104 196 Q 100 132 168 96" fill="none" stroke="#BE3A2B" stroke-width="2" marker-end="url(#ar)"/>
+          <text x="200" y="162" font-family="IBM Plex Mono" font-size="12" fill="#BE3A2B" text-anchor="middle" font-style="italic">no exit</text>
+
+          <!-- BLUE virtuous cycle that exits to target -->
+          <g font-family="IBM Plex Mono" font-size="11" fill="#23252C" text-anchor="middle">
+            <rect x="491" y="56" width="78" height="38" rx="7" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+            <text x="530" y="73">difficulty</text><text x="530" y="87">too low</text>
+            <rect x="581" y="200" width="78" height="38" rx="7" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+            <text x="620" y="217">more</text><text x="620" y="231">shares</text>
+            <rect x="401" y="200" width="80" height="38" rx="7" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+            <text x="441" y="217">quick to</text><text x="441" y="231">notice</text>
+          </g>
+          <path d="M 562 96 Q 630 132 626 196" fill="none" stroke="#2C6FB0" stroke-width="2" marker-end="url(#ab)"/>
+          <path d="M 579 226 Q 530 250 483 226" fill="none" stroke="#2C6FB0" stroke-width="2" marker-end="url(#ab)"/>
+          <circle cx="530" cy="152" r="13" fill="#E7F0F8" stroke="#2C6FB0" stroke-width="1.5"/>
+          <path d="M 524 152 l 4 4 l 7 -8" fill="none" stroke="#2C6FB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M 452 200 Q 500 180 516 162" fill="none" stroke="#2C6FB0" stroke-width="2" marker-end="url(#ab)"/>
+          <text x="530" y="182" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="middle" font-style="italic">back on target</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 5.</b> The asymmetry. <span class="swatch" style="background:#BE3A2B"></span>Over-difficulty is a closed loop — fewer shares make the controller blinder, which keeps the difficulty too high. <span class="swatch" style="background:#2C6FB0"></span>Under-difficulty isn't a loop at all — more shares let the controller see, so it corrects and leaves. Same controller, opposite fate, depending only on which side of the truth it's caught on.</figcaption>
+    </figure>
+
+    <p>So what does the spiral actually cost, if not work? It costs <strong>sight</strong>. The pool loses its read on what the miner is doing; the miner's payouts turn lumpier and more erratic as the shares thin out. And if it runs far enough, the miner reports in so rarely that the pool concludes it's gone — and drops the connection. <em>That</em> is the real money lost: not from a difficulty that sat too high, but from a live miner disconnected because the controller talked itself blind. Everything before that point is recoverable. The dropped connection is not.</p>
+
+    <p>And the "lumpier" has a size. The deeper a miner declines under a controller that won't follow it down, the noisier its payouts get — and a controller that does nothing makes them blow up fast: <strong>roughly five times noisier</strong> by the time the miner has lost most of its hashrate, while a controller that actually eases the difficulty keeps them close to normal the whole way.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 300" role="img" aria-label="Payout noise versus how much hashrate a miner has lost. A bad controller's noise climbs steeply to about five times normal; a good controller's stays near normal across the whole range.">
+          <!-- axes -->
+          <line x1="80" y1="40" x2="80" y2="230" stroke="#C9C7BD" stroke-width="1"/>
+          <line x1="80" y1="230" x2="670" y2="230" stroke="#C9C7BD" stroke-width="1"/>
+          <!-- y gridlines + labels -->
+          <line x1="80" y1="230" x2="670" y2="230" stroke="#E4E2D8" stroke-width="1"/>
+          <text x="74" y="234" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end">normal</text>
+          <line x1="80" y1="183.5" x2="670" y2="183.5" stroke="#EEEDE6" stroke-width="1"/>
+          <text x="74" y="187" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end">2×</text>
+          <line x1="80" y1="137" x2="670" y2="137" stroke="#EEEDE6" stroke-width="1"/>
+          <text x="74" y="140" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end">3×</text>
+          <line x1="80" y1="90.5" x2="670" y2="90.5" stroke="#EEEDE6" stroke-width="1"/>
+          <text x="74" y="94" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end">4×</text>
+          <line x1="80" y1="44" x2="670" y2="44" stroke="#EEEDE6" stroke-width="1"/>
+          <text x="74" y="48" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end">5× noisier</text>
+          <!-- typical-decline band (8–20% lost) — neutral grey, deliberately NOT
+               the tan of the time-axis demo below, so the two don't read as a pair -->
+          <rect x="127.2" y="40" width="82.6" height="190" fill="#E9EBEE" opacity="0.8"/>
+          <text x="168.5" y="252" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="middle">a typical decline</text>
+          <!-- bad controller: 1/(1-d), normal..5x over 0..80% lost -->
+          <path d="M 80 230 C 240 224, 360 206, 450 184 C 530 164, 600 120, 670 44" fill="none" stroke="#BE3A2B" stroke-width="2.6"/>
+          <text x="556" y="120" font-family="IBM Plex Mono" font-size="12" fill="#BE3A2B" text-anchor="end" font-weight="500">a bad controller</text>
+          <!-- good controller: stays near normal, ~1.2x at the far end -->
+          <path d="M 80 230 C 300 228, 480 224, 670 219" fill="none" stroke="#2C6FB0" stroke-width="2.6"/>
+          <text x="470" y="214" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="start" font-weight="500">a good controller</text>
+          <!-- x labels -->
+          <text x="80" y="252" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="middle">0%</text>
+          <text x="375" y="252" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="middle">40%</text>
+          <text x="670" y="252" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="middle">80%</text>
+          <text x="375" y="278" font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="middle">how much hashrate the miner has lost</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 5b.</b> How much the spiral costs, sized — a summary across <em>all</em> decline depths, not one decline over time. As a miner loses hashrate (left to right), a controller that won't follow it down makes its payouts <span class="swatch" style="background:#BE3A2B"></span>steeply noisier — around 5× by a deep decline — while one that eases the difficulty keeps them <span class="swatch" style="background:#2C6FB0"></span>near normal. Noisier, not smaller: the miner still earns what it's owed, the payouts just swing more.</figcaption>
+    </figure>
+
+    <div class="demo" aria-label="Interactive: watch a controller either ride out a decline or fall into the spiral.">
+      <div class="demo-head">
+        <p class="demo-title">Watch it happen — a miner declines, you set the controller</p>
+        <span id="verdict" class="verdict" aria-live="polite">—</span>
+      </div>
+      <svg id="demoPlot" viewBox="0 0 720 285" role="img" aria-label="A miner's hashrate falls partway and settles. The share rate either dips and recovers toward target, or craters below the liveness line and stays there.">
+        <!-- liveness danger zone -->
+        <rect id="livenessZone" x="60" y="176.7" width="620" height="73.3" fill="#F6E2DD" opacity="0.6"/>
+        <!-- decline window band -->
+        <rect id="declineBand" x="163.3" y="22" width="155" height="228" fill="#F6ECD8" opacity="0.55"/>
+        <text x="240.8" y="36" font-family="IBM Plex Mono" font-size="11" fill="#B5934C" text-anchor="middle">hashrate falls here</text>
+        <!-- axes -->
+        <line x1="60" y1="22" x2="60" y2="250" stroke="#C9C7BD" stroke-width="1"/>
+        <line x1="60" y1="250" x2="680" y2="250" stroke="#C9C7BD" stroke-width="1"/>
+        <!-- y ticks -->
+        <text class="ax-min" x="54" y="50"  font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">100%</text>
+        <text class="ax-min" x="54" y="152" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">50%</text>
+        <text class="ax-min" x="54" y="252" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">0%</text>
+        <!-- time-axis title: emphatic and always shown (NOT ax-min), because the
+             whole 5b-vs-demo confusion is depth-axis-vs-time-axis — the demo's
+             time-ness is what resolves it -->
+        <text x="370" y="276" font-family="IBM Plex Mono" font-size="12" fill="#6E7480" text-anchor="middle" font-weight="500">time (minutes) — one decline unfolding →</text>
+        <!-- target line -->
+        <line id="targetLine" x1="60" y1="46.4" x2="680" y2="46.4" stroke="#23252C" stroke-width="1" stroke-dasharray="2 4" opacity="0.55"/>
+        <text id="targetLabel" x="676" y="42" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end">target share rate</text>
+        <!-- liveness line + label -->
+        <line id="livenessLine" x1="60" y1="176.7" x2="680" y2="176.7" stroke="#BE3A2B" stroke-width="1.25" stroke-dasharray="4 3"/>
+        <text id="livenessLabel" class="live-full" x="66" y="192" font-family="IBM Plex Mono" font-size="11" fill="#BE3A2B">below here, the pool gives up and disconnects you</text>
+        <text class="live-short" x="66" y="192" font-family="IBM Plex Mono" font-size="11" fill="#BE3A2B">↓ pool drops you here</text>
+        <!-- traces (drawn by script) -->
+        <path id="hashTrace" fill="none" stroke="#C07D1B" stroke-width="2" opacity="0.7" stroke-dasharray="5 4" d=""/>
+        <path id="shareTrace" fill="none" stroke="#23252C" stroke-width="2.75" stroke-linejoin="round" d=""/>
+        <text id="hashEndLabel"  x="676" y="120" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B" text-anchor="end"></text>
+        <text id="shareEndLabel" x="676" y="150" font-family="IBM Plex Mono" font-size="11.5" fill="#23252C" text-anchor="end" font-weight="500"></text>
+      </svg>
+
+      <div class="controls">
+        <div class="ctl">
+          <label for="beta">Controller responsiveness</label>
+          <input type="range" id="beta" min="0" max="100" value="28" step="1" aria-describedby="betaVal"/>
+          <span class="val" id="betaVal">slow to react</span>
+        </div>
+        <div class="ctl">
+          <label for="sev">Decline severity</label>
+          <input type="range" id="sev" min="40" max="90" value="85" step="1" aria-describedby="sevVal"/>
+          <span class="val" id="sevVal">−85%</span>
+        </div>
+      </div>
+      <p class="demo-note" id="demoNote" aria-live="polite"></p>
+    </div>
+
+    <p>Out of the box, that miner sheds most of its hashrate over a few minutes, and a controller that's slow to react never lowers the bar in time. The share rate — the dark line, the miner's heartbeat — falls straight through the disconnect floor, and the pool gives up on it. The hardware, meanwhile, has settled at a reduced level it could happily keep mining at all day. Nothing is broken. The controller dropped the connection purely by being too slow to follow the decline down — and a dropped connection is a real loss even though the miner will try to reconnect: the dead time is gone, and a controller stuck too high will keep dropping it rather than fix the cause. <strong>Drag responsiveness up</strong> and the same decline turns survivable: the heartbeat dips, then climbs back toward target as the controller eases the difficulty to match, and the miner keeps earning at the new level. Somewhere in the middle is the tipping point — and finding the setting that stays on the safe side of it, for every decline a miner can throw at you, is the whole job.</p>
+    <p>And this trap isn't hypothetical — a real, principled design walks straight into it. One well-known approach builds its vardiff on a PID controller: the standard feedback tool behind cruise control and thermostats, and a reasonable instinct, since holding a share rate steady is a regulation problem at heart. But its difficulty comes only in doublings — powers of two — so to change the setting at all, the controller has to want to move it past the halfway point between two rungs, a jump of more than 40%. At the strength it actually pushes with, a jump that large takes a swing in the share rate so big that an ordinary decline never reaches it: a third of the hashrate lost to a failing board, a fleet curtailed partway, barely moves the needle. So the difficulty sits frozen while the miner withers underneath it. It's the spiral in its purest form — not a controller merely slow to follow a decline, but one that, on the gradual declines that actually happen, can't register them as large enough to act on at all. A principled design, defeated by the exact shape of a real decline.</p>
+  </section>
+
+  <!-- ===== 8 ===== -->
+  <section>
+    <p class="eyebrow">08 — what “better” means</p>
+    <h2>Better is the controller that doesn't spiral</h2>
+    <p>This is the turn the whole project took. If no controller tracks meaningfully tighter than another — they're pinned to the same precision floor — then <strong>accuracy is not a thing you can choose on</strong> — there's no real gap to pick from. But controllers do <em>not</em> all survive a decline equally well, and that you can choose on. So “better” stopped meaning “tracks the tightest” and started meaning <strong>“never falls into the spiral, on the declines that actually happen.”</strong></p>
+    <p>Staying out of the spiral comes down to how long the controller waits before it believes a change. Wait too long and it's <em>sleepy</em>: it lags a genuine decline right into the trap. React too fast and it's <em>twitchy</em>: it overshoots ordinary randomness, sets the bar too high for no reason, and needlessly churns the connection. The safe setting is a valley between the two — quick enough to catch a real decline, calm enough not to invent one out of noise.</p>
+    <p>Two design choices fall straight out of the asymmetry. <strong>Be eager to lower difficulty and reluctant to raise it:</strong> lowering is the move that escapes the spiral, and when the controller must guess wrong, it should land on the harmless too-low side. And <strong>move in partial steps,</strong> so a single noisy reading can't fling the bar too high in one jump. Both are the same instinct — stay clear of the dangerous direction.</p>
+    <p>The subtle lesson came when we tried to pick the safe setting by minimizing that cost score — and couldn't. Two things we'd already established are why. The controllers all score within about 12% of each other, so there's barely any difference to minimize in the first place; and the cost everyone pictures as the dominant one — work thrown away at too-high difficulty — is actually zero, because rejected shares cost nothing. With no large, real penalty to separate the candidates, minimizing the score just ranks near-ties, and which one comes out “cheapest” slides all over the range depending on how you weight its pieces. It can't point at anything stable. What <em>does</em> pick the setting is a hard rule, not a number: does this controller keep a declining miner out of the spiral across every speed and severity we test — including the sparse, low-share-rate cases where it's blindest and most at risk? That question has a definite yes-or-no answer. The cost score never did.</p>
+    <p class="pull">The cost score can't choose. The safety rule can — and that's what we let make the call.</p>
+  </section>
+
+  <!-- ===== 9 ===== -->
+  <section>
+    <p class="eyebrow">09 — the one lever</p>
+    <h2>If you want more, turn up the rate</h2>
+    <p>Everything so far has been about <em>where to sit</em> on a fixed trade-off. There is exactly one move that changes the trade-off itself — that lowers the whole curve instead of sliding along it. It isn't a cleverer algorithm. It's the target share rate: how many shares a minute you ask each miner to send.</p>
+    <p>The reason goes straight back to the floor. A controller's precision is set by how many shares it gets to count — roughly one part in the square root of <em>(share rate × window)</em>. Ask for more shares per minute and every controller sees a given change sooner and more sharply; the noise band around its estimate tightens, no matter which algorithm is underneath. This is the one knob that lowers the entire U-curve from Figure&nbsp;2, and it does it for everybody at once.</p>
+
+    <p>The lever isn't free: more shares per minute means more messages, which costs bandwidth. This is where Stratum V2 pays off — its share messages are far smaller on the wire than the old protocol's, so V2 buys the same tightening for less traffic. It doesn't make any controller cleverer; it lowers the floor that every controller sits on.</p>
+
+    <p>And there's a usable band, not a single right answer. Set the rate too low and the controller goes blind to small declines — the noise swallows them; set it too high and you're paying bandwidth for precision the square root has already stopped meaningfully delivering. Where the sweet spot lands depends on the pool: how much it values steady payouts against the bandwidth it's willing to spend.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Two panels. At a low share rate the controller's estimate carries a wide noise band that completely hides a ten percent hashrate drop. At a high share rate the band is narrow and the same drop is clearly visible below it.">
+          <text x="200" y="28" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="middle" font-weight="500">low share rate</text>
+          <text x="525" y="28" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="middle" font-weight="500">high share rate</text>
+
+          <!-- panel A: wide noise band swallows the drop -->
+          <rect x="55" y="42" width="285" height="96" fill="#E7F0F8" stroke="#CFE0F0" stroke-width="1"/>
+          <line x1="55" y1="90" x2="340" y2="90" stroke="#2C6FB0" stroke-width="1.25" stroke-dasharray="3 3" opacity="0.8"/>
+          <path d="M 60 90 L 180 90 L 215 125 L 335 125" fill="none" stroke="#C07D1B" stroke-width="2.75"/>
+          <line x1="55" y1="210" x2="340" y2="210" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="55" y="228" font-family="IBM Plex Mono" font-size="11" fill="#6E7480">time →</text>
+          <text x="46" y="92" font-family="IBM Plex Mono" font-size="11" fill="#6E7480" text-anchor="end" transform="rotate(-90 46 92)">hashrate</text>
+          <text x="300" y="120" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B" text-anchor="end">−10%</text>
+          <text x="197" y="170" font-family="IBM Plex Mono" font-size="11.5" fill="#6E7480" text-anchor="middle">the drop hides inside the noise band</text>
+
+          <line x1="360" y1="34" x2="360" y2="214" stroke="#E4E2D8" stroke-width="1"/>
+
+          <!-- panel B: narrow band, same drop now clears it -->
+          <rect x="385" y="75" width="285" height="30" fill="#E7F0F8" stroke="#CFE0F0" stroke-width="1"/>
+          <line x1="385" y1="90" x2="670" y2="90" stroke="#2C6FB0" stroke-width="1.25" stroke-dasharray="3 3" opacity="0.8"/>
+          <path d="M 390 90 L 510 90 L 545 125 L 665 125" fill="none" stroke="#C07D1B" stroke-width="2.75"/>
+          <line x1="385" y1="210" x2="670" y2="210" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="385" y="228" font-family="IBM Plex Mono" font-size="11" fill="#6E7480">time →</text>
+          <line x1="600" y1="105" x2="600" y2="125" stroke="#BE3A2B" stroke-width="1.25"/>
+          <line x1="596" y1="105" x2="604" y2="105" stroke="#BE3A2B" stroke-width="1.25"/>
+          <line x1="596" y1="125" x2="604" y2="125" stroke="#BE3A2B" stroke-width="1.25"/>
+          <text x="525" y="170" font-family="IBM Plex Mono" font-size="11.5" fill="#BE3A2B" text-anchor="middle">the same drop clears the band — now visible</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 6.</b> The only lever. Precision is set by how many shares the controller counts, so a faster share stream narrows the noise band on every estimate. <span class="swatch" style="background:#E7F0F8;border:1px solid #CFE0F0"></span>At a low rate a 10% drop is lost inside the band; raise the rate and the <span class="swatch" style="background:#C07D1B"></span>same drop stands clear — the one move that sharpens every controller at once.</figcaption>
+    </figure>
+
+    <p>So when someone asks for a vardiff that reacts faster, the honest answer usually isn't a better controller — the field is already flat against the floor. It's <strong>turn up the share rate</strong>. You spend a little more bandwidth and a few more shares to process, and in return every miner on the pool gets sharper eyes and a tighter grip on a decline. That's the lever. It turns out there's really only the one.</p>
+  </section>
+
+  <!-- ===== 10 ===== -->
+  <section>
+    <p class="eyebrow">10 — the refinement we tried</p>
+    <h2>What about a window that follows the rate?</h2>
+    <p>There's one more controller worth addressing — the one a careful reader has been assembling since Figure&nbsp;2, and the most natural “cleverer algorithm” anyone proposes. If precision is the share rate times the window, and the rate is the lever, then surely the smart move is to let the window <em>follow</em> the rate: short while shares are plentiful, stretched out when they thin. On paper it hugs the ideal at every rate a fixed window can't.</p>
+    <p>We built it and measured it, and two things came back. The obvious recipe — stretch the window in exact inverse proportion to the rate — <em>overshoots</em>: it runs jumpier than it should when shares are plentiful, and the best amount of adaptation lands somewhere short of that textbook rule. But that's a footnote beside the finding that matters: <strong>however you tune it, a rate-following window only ever moves the controller's smoothness — never its safety on a decline.</strong> Across every rate we tested, letting the window chase the rate changed nothing about whether a falling miner stayed out of the spiral.</p>
+    <p>So the “smart” window lands right back where Figure&nbsp;3 put everyone else: smoothness is the axis that was already a wash — the ~12% band nobody escapes — and chasing the rate with your window just slides you around inside it. That also dissolves the thing that made the idea seductive: <em>raising</em> the share rate and <em>chasing</em> it with the window are two knobs that share a word. The first lowers the floor itself, for every controller at once — that's the lever from the last section. The second only picks where you sit on a trade-off the floor has already fixed. One moves the floor; the other moves you along it, and only the first is a lever.</p>
+    <p class="pull">Raising the rate lowers the floor. Chasing the rate with your window only slides you along it — a smoothness setting, not a safer controller.</p>
+    <p>The measurements — and the precise limits of what we could resolve — live in the technical paper; and the companion build paper, <em>“Building a vardiff,”</em> meets the <em>other</em> tempting “cleverer algorithm” — estimating the decline's slope and leaning into it — and finds it fails the same way, with a new risk attached. And notice what that adds up to: the floor behind the dead heat — precision capped on a steady miner — turns out to cap a falling one too. Hand a slope-tracker the decline's exact rate for free, and it still barely follows the fall any tighter than the plain one. The same wall, reached from two directions.</p>
+  </section>
+
+  <!-- ===== 11 ===== -->
+  <section>
+    <p class="eyebrow">11 — the two bets</p>
+    <h2>Two bets on where it's hard</h2>
+    <p>The two real controllers we've met each bet differently on where this problem is hard. ckpool bet on <em>measuring</em> — several windows blended, switched by rate — but that craft runs straight into walls we've already hit: the switching is the rate-following window of section ten (smoothness, never safety), and the precision is capped by the floor of section three. The care went where the problem doesn't reward it. The PID design bet the other way and fused the pieces into a single loop, which leaves no separate place to catch the one failure that matters — so it walks into the spiral with nothing to stop it. Neither is a bad design; both just spent their care on the wrong part. The floor settles the measuring for you, which leaves the whole fight in the deciding — and that is where we put the work.</p>
+  </section>
+
+  <!-- ===== 12 ===== -->
+  <section>
+    <p class="eyebrow">12 — where we ended</p>
+    <h2>The controller we ship</h2>
+    <p>So the controller we settled on is the <strong>calmest setting that never falls into the spiral</strong> — the gentlest one that still follows every decline we tested all the way down without ever getting stuck holding the difficulty too high. It's deliberately slow, and that's the whole point: the quickness it gives up is quickness the floor would never have let it cash in, so we spent it on safety instead.</p>
+    <p>What that buys is a controller that never chokes a struggling miner. It eases off the moment the hashrate starts to fall, keeps the share stream alive so it can keep seeing, and never lets the bar sit too high while the miner withers underneath it. In hardware terms, that's the difference between a board that throttles and quietly recovers and a board that throttles and gets dropped from the pool. The measurements that back this up — and the exact limits of what we tested — live in the technical paper.</p>
+    <p class="pull">“Better vardiff” didn't mean “tracks better.” It meant: never spiral on a decline — and know that the one real lever is the share rate.</p>
+
+    <div class="takeaway">
+      <p class="lbl">What to take away</p>
+      <ul>
+        <li><strong>Don't agonize over the algorithm.</strong> Every reasonable controller comes out about even on overall cost — they're all pinned to the same precision floor, so the choice between them is nearly a wash on accuracy.</li>
+        <li><strong>Choose on the decline, not the average.</strong> Controllers differ in how they handle a falling miner, not in how tightly they track a steady one. Pick for safety on the decline, not for accuracy on the average.</li>
+        <li><strong>Rejected shares aren't the enemy — a dropped connection is.</strong> Fewer shares at a too-high difficulty isn't lost earnings; it's lost visibility, and at the limit, a lost connection. Optimize against the disconnect, not the reject count.</li>
+        <li><strong>Need more responsiveness? Raise the share rate.</strong> It's the only knob that lowers the floor for everyone. Everything else just trades one weakness for another.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>Part one of a two-part article, in plain language. This is the <strong>why</strong> — the reasoning. Part two, <a href="./building-a-vardiff.html"><em>“Building a vardiff, part by part,”</em></a> is the <strong>how</strong>: it takes the classic controller apart and rebuilds it, piece by piece. Read part one then part two, or in either order. For anyone who wants the formal version, there's a technical report — <a href="../information-floor.md"><em>“Vardiff at the Information Floor,”</em></a> with the derivations, the hardware validation, and the exact scope of every claim — but it's there for the curious, not required reading.</p>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  var T=120, t0=20, t1=50, dt=0.25;
+  var LIVE=36;
+  var BMIN=0.02, BMAX=0.34, G=1.45;
+  var YDROP=246;
+
+  function xx(t){ return 60 + (t/T)*620; }
+  function yy(p){ var y=250 - 2.036*p; if(y<22) y=22; if(y>252) y=252; return y; }
+
+  function id(s){ return document.getElementById(s); }
+  var beta=id("beta"), sev=id("sev");
+  var betaVal=id("betaVal"), sevVal=id("sevVal");
+  var verdict=id("verdict"), demoNote=id("demoNote");
+  var hashTrace=id("hashTrace"), shareTrace=id("shareTrace");
+  var hashEndLabel=id("hashEndLabel"), shareEndLabel=id("shareEndLabel");
+
+  function Hof(t,s){
+    if(t<=t0) return 1.0;
+    if(t>=t1) return 1.0 - s;
+    return 1.0 - s*(t-t0)/(t1-t0);
+  }
+  function forcing(t,s){
+    if(t<=t0 || t>=t1) return 0.0;
+    return (s/(t1-t0))/Hof(t,s);
+  }
+  function betaOf(v){ return BMIN + Math.pow(v/100, G)*(BMAX-BMIN); }
+
+  function labelResp(v){
+    if(v<=17) return "sleepy";
+    if(v<=38) return "slow to react";
+    if(v<=61) return "balanced";
+    if(v<=82) return "responsive";
+    return "eager";
+  }
+
+  function simulate(v,s){
+    var b=betaOf(v), e=0.0, n=Math.round(T/dt);
+    var sharePts=[], hashPts=[];
+    var trough=1e9, dropped=false, tDrop=null, settledHash=100*(1-s);
+    for(var i=0;i<=n;i++){
+      var t=i*dt;
+      var H=Hof(t,s);
+      hashPts.push(xx(t)+","+yy(100*H));
+      if(!dropped){
+        e += (forcing(t,s) - b*e*Math.exp(-e))*dt;
+        var sv=100*Math.exp(-e);
+        if(sv<trough) trough=sv;
+        sharePts.push(xx(t)+","+yy(sv));
+        if(sv<LIVE){ dropped=true; tDrop=t; }
+      } else {
+        sharePts.push(xx(t)+","+YDROP);
+      }
+    }
+    var endShare = dropped ? 0 : 100*Math.exp(-e);
+    return { sharePts:sharePts, hashPts:hashPts, trough:trough,
+             dropped:dropped, tDrop:tDrop, endShare:endShare, settledHash:settledHash };
+  }
+
+  function render(){
+    var v = +beta.value;
+    var s = (+sev.value)/100;
+    betaVal.textContent = labelResp(v);
+    sevVal.textContent = "\u2212" + sev.value + "%";
+
+    var r = simulate(v,s);
+    hashTrace.setAttribute("d", "M " + r.hashPts.join(" L "));
+    shareTrace.setAttribute("d", "M " + r.sharePts.join(" L "));
+
+    var hp = Math.round(r.settledHash);
+    hashEndLabel.setAttribute("y", yy(r.settledHash) - 6);
+    hashEndLabel.textContent = "hardware \u2192 " + hp + "%";
+
+    if(r.dropped){
+      verdict.className = "verdict spiral";
+      verdict.textContent = "spiraled \u2014 dropped";
+      shareEndLabel.setAttribute("fill", "#BE3A2B");
+      shareEndLabel.setAttribute("y", yy(LIVE) + 16);
+      shareEndLabel.textContent = "\u2715 connection dropped, ~" + Math.round(r.tDrop) + " min";
+      demoNote.textContent = "The controller lagged the decline, the share rate fell through the disconnect floor, and the pool let the miner go \u2014 even though the hardware is still running at " + hp + "%. Raise responsiveness, or let the decline be milder, to keep the connection alive.";
+    } else {
+      var sp = Math.round(r.endShare);
+      shareEndLabel.setAttribute("fill", "#23252C");
+      shareEndLabel.setAttribute("y", yy(r.endShare) + 16);
+      shareEndLabel.textContent = "heartbeat \u2192 " + sp + "%";
+      if(r.trough < LIVE + 10){
+        verdict.className = "verdict edge";
+        verdict.textContent = "close call";
+        demoNote.textContent = "The controller eased the difficulty down just fast enough to hold the connection \u2014 but the heartbeat grazed the disconnect floor (down to " + Math.round(r.trough) + "%) before recovering. A deeper or faster decline would have dropped it.";
+      } else {
+        verdict.className = "verdict safe";
+        verdict.textContent = "rode it out";
+        demoNote.textContent = "The controller lowered the difficulty in step with the falling hashrate, so the share rate barely dipped (to " + Math.round(r.trough) + "%) and climbed back to target. The miner keeps earning at the new level \u2014 no disconnect, no spiral.";
+      }
+    }
+  }
+
+  beta.addEventListener("input", render);
+  sev.addEventListener("input", render);
+  render();
+})();
+</script>
+</body>
+</html>

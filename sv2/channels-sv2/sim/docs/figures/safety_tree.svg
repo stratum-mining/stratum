@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720" font-family="system-ui, sans-serif" font-size="13">
+<defs><pattern id="unmeas" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="11" height="11" fill="#fbeae7"/><line x1="0" y1="0" x2="0" y2="11" stroke="#c0392b" stroke-width="1.4" stroke-opacity="0.85"/></pattern><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 Z" fill="#7a7f8a"/></marker></defs>
+<text x="620.0" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#222">Decline-safety is decided by two structural properties — not by sophistication</text>
+<text x="620.0" y="50" text-anchor="middle" font-size="11.5" fill="#888" font-style="italic">safety-tree.rs (generated). A taxonomy, not a metric plot: two yes/no gates sort every controller. Harm shown ONLY where measured.</text>
+<polygon points="300.0,58.0 430.0,110.0 300.0,162.0 170.0,110.0" fill="#eef2f6" stroke="#566" stroke-width="1.5"/>
+<text x="300.0" y="94.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#2c3e50">GATE 1</text>
+<text x="300.0" y="112.0" text-anchor="middle" font-size="12" fill="#2c3e50">eases without a</text>
+<text x="300.0" y="128.0" text-anchor="middle" font-size="12" fill="#2c3e50">fresh share? (idle path)</text>
+<line x1="205.0" y1="140.0" x2="240.0" y2="392.0" stroke="#7a7f8a" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="180.0" y="190.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#c0392b">NO</text>
+<line x1="410.0" y1="136.0" x2="520.0" y2="220.0" stroke="#7a7f8a" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="450.0" y="150.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">YES</text>
+<polygon points="640.0,198.0 775.0,250.0 640.0,302.0 505.0,250.0" fill="#eef2f6" stroke="#566" stroke-width="1.5"/>
+<text x="640.0" y="234.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#2c3e50">GATE 2</text>
+<text x="640.0" y="252.0" text-anchor="middle" font-size="12" fill="#2c3e50">ease trigger reachable</text>
+<text x="640.0" y="268.0" text-anchor="middle" font-size="12" fill="#2c3e50">on the modal decline?</text>
+<line x1="570.0" y1="290.0" x2="565.0" y2="392.0" stroke="#7a7f8a" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="530.0" y="340.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#c0392b">NO</text>
+<line x1="710.0" y1="290.0" x2="860.0" y2="392.0" stroke="#7a7f8a" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="770.0" y="340.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">YES</text>
+<line x1="770.0" y1="242.0" x2="822.0" y2="250.0" stroke="#7a7f8a" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+<rect x="95.0" y="390.0" width="290.0" height="188.0" rx="8" fill="url(#unmeas)" stroke="#c0392b" stroke-width="1.6"/>
+<text x="240.0" y="410.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#922b21">share-driven, no idle path</text>
+<text x="240.0" y="426.0" text-anchor="middle" font-size="10" fill="#922b21">NOMP + forks · ckpool · classic SMA</text>
+<rect x="107.0" y="460.0" width="266.0" height="66" rx="5" fill="#ffffff" fill-opacity="0.94" stroke="#c0392b" stroke-width="1"/>
+<text x="240.0" y="476.0" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#922b21">harm magnitude: UNMEASURED</text>
+<text x="240.0" y="491.0" text-anchor="middle" font-size="9.5" fill="#5a3530">common case: gradual lag (size unknown)</text>
+<text x="240.0" y="506.0" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#922b21">tail: rare — but a DROPPED CONNECTION (severe)</text>
+<text x="240.0" y="568.0" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e8449">FIX: easy — port MiningCore's idle ease-path</text>
+<rect x="440.0" y="390.0" width="250.0" height="188.0" rx="8" fill="#f4c9c2" stroke="#c0392b" stroke-width="1.6"/>
+<text x="565.0" y="412.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#922b21">deadband, unreachable trigger</text>
+<text x="565.0" y="428.0" text-anchor="middle" font-size="10" fill="#922b21">DMND · current MARA production</text>
+<text x="565.0" y="488.0" text-anchor="middle" font-size="22" font-weight="bold" fill="#c0392b">~5× variance</text>
+<text x="565.0" y="506.0" text-anchor="middle" font-size="9.5" fill="#5a3530">MEASURED (1/(1−d)); fails on depth alone</text>
+<text x="565.0" y="566.0" text-anchor="middle" font-size="10" font-weight="bold" fill="#b9690e">FIX: hard — narrow deadband / rework pow2</text>
+<rect x="795.0" y="206.0" width="210.0" height="88.0" rx="8" fill="#eafaf1" stroke="#1e8449" stroke-width="1.6"/>
+<text x="900.0" y="228.0" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e7a45">escapes via idle timer</text>
+<text x="900.0" y="244.0" text-anchor="middle" font-size="10" fill="#1e7a45">MiningCore (IdleUpdate)</text>
+<text x="900.0" y="262.0" text-anchor="middle" font-size="9.5" fill="#46604f">has the escaping mechanism —</text>
+<text x="900.0" y="276.0" text-anchor="middle" font-size="9.5" fill="#46604f">NOT verified-optimal (unmeasured)</text>
+<rect x="745.0" y="390.0" width="230.0" height="188.0" rx="8" fill="#d8f0e2" stroke="#1e8449" stroke-width="1.6"/>
+<text x="860.0" y="412.0" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#1e7a45">safe by construction</text>
+<text x="860.0" y="430.0" text-anchor="middle" font-size="10" fill="#1e7a45">the champion (EWMA + asym. seq. test)</text>
+<text x="860.0" y="488.0" text-anchor="middle" font-size="15" font-weight="bold" fill="#1e8449">near-floor</text>
+<text x="860.0" y="506.0" text-anchor="middle" font-size="9.5" fill="#46604f">decline-safe as a hard minimax constraint</text>
+<text x="860.0" y="566.0" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#1e8449">no fix needed</text>
+<text x="620.0" y="682.0" text-anchor="middle" font-size="10.5" fill="#555">"FIX easy/hard" = effort to make decline-safe + whether a working example exists — NOT a deploy recommendation. Easing still costs responsiveness/churn each pool weighs itself.</text>
+<text x="620.0" y="700.0" text-anchor="middle" font-size="10" fill="#777" font-style="italic">The hatched leaf's harm is UNMEASURED in size (not small): its rare tail is the corpus's worst outcome. The solid leaf's ~5× is the one magnitude measured.</text>
+</svg>

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="540" font-family="Helvetica,Arial,sans-serif" font-size="13">
+<text x="520" y="18" text-anchor="middle" font-size="11" fill="#999" font-style="italic">tau-family.rs — generated. LOG-τ. The TRADE: short τ wins over-difficulty (left), loses wobble (right) — axes are NOT symmetric (see caption).</text>
+<rect x="64" y="64" width="360" height="406" fill="none" stroke="#bbb"/>
+<text x="244.0" y="56.0" text-anchor="middle" font-weight="bold" font-size="13">over-difficulty area  (dangerous axis — short τ WINS)</text>
+<line x1="327.0" y1="64" x2="327.0" y2="470.0" stroke="#888" stroke-dasharray="3 3"/>
+<text x="327.0" y="500.0" text-anchor="middle" font-size="10" fill="#555">champ 360</text>
+<text x="64.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">30</text>
+<text x="106.9" y="484.0" text-anchor="middle" font-size="9" fill="#666">45</text>
+<text x="137.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">60</text>
+<text x="180.3" y="484.0" text-anchor="middle" font-size="9" fill="#666">90</text>
+<text x="210.7" y="484.0" text-anchor="middle" font-size="9" fill="#666">120</text>
+<text x="234.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">150</text>
+<text x="284.1" y="484.0" text-anchor="middle" font-size="9" fill="#666">240</text>
+<text x="307.7" y="484.0" text-anchor="middle" font-size="9" fill="#666">300</text>
+<text x="327.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">360</text>
+<text x="357.5" y="484.0" text-anchor="middle" font-size="9" fill="#666">480</text>
+<text x="381.1" y="484.0" text-anchor="middle" font-size="9" fill="#666">600</text>
+<text x="400.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">720</text>
+<text x="424.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">900</text>
+<text x="244.0" y="512.0" text-anchor="middle" font-weight="bold" font-size="12">window τ (s), log scale</text>
+<text x="20.0" y="267.0" text-anchor="middle" font-size="11" transform="rotate(-90 20.0 267.0)">worst over-diff area (e-min)</text>
+<polyline points="64.0,121.3 106.9,143.2 137.4,167.2 180.3,199.4 210.7,219.2 234.4,230.3 284.1,239.5 307.7,232.7 327.0,225.3 357.5,193.3 381.1,156.2 400.4,127.5 424.0,94.1 " fill="none" stroke="#8c564b" stroke-width="2"/>
+<circle cx="284.1" cy="239.5" r="5" fill="none" stroke="#8c564b" stroke-width="2"/>
+<polyline points="64.0,246.1 106.9,254.5 137.4,275.8 180.3,290.9 210.7,296.5 234.4,297.3 284.1,283.4 307.7,270.5 327.0,257.6 357.5,221.3 381.1,184.4 400.4,152.0 424.0,116.5 " fill="none" stroke="#e377c2" stroke-width="2"/>
+<circle cx="234.4" cy="297.3" r="5" fill="none" stroke="#e377c2" stroke-width="2"/>
+<polyline points="64.0,464.9 106.9,465.3 137.4,464.8 180.3,463.4 210.7,461.6 234.4,457.6 284.1,446.0 307.7,438.1 327.0,434.5 357.5,423.7 381.1,414.3 400.4,407.5 424.0,393.1 " fill="none" stroke="#1f77b4" stroke-width="2"/>
+<circle cx="106.9" cy="465.3" r="5" fill="none" stroke="#1f77b4" stroke-width="2"/>
+<polyline points="64.0,466.8 106.9,467.2 137.4,466.7 180.3,463.9 210.7,460.1 234.4,455.8 284.1,444.0 307.7,437.4 327.0,429.7 357.5,419.1 381.1,410.6 400.4,400.2 424.0,383.0 " fill="none" stroke="#2ca02c" stroke-width="2"/>
+<circle cx="106.9" cy="467.2" r="5" fill="none" stroke="#2ca02c" stroke-width="2"/>
+<polyline points="64.0,469.0 106.9,468.5 137.4,466.5 180.3,461.5 210.7,454.6 234.4,449.5 284.1,436.5 307.7,429.4 327.0,422.8 357.5,412.5 381.1,399.9 400.4,387.7 424.0,372.9 " fill="none" stroke="#ff7f0e" stroke-width="2"/>
+<circle cx="64.0" cy="469.0" r="5" fill="none" stroke="#ff7f0e" stroke-width="2"/>
+<polyline points="64.0,468.4 106.9,464.8 137.4,462.0 180.3,453.5 210.7,443.8 234.4,437.3 284.1,425.7 307.7,418.4 327.0,410.9 357.5,397.8 381.1,386.4 400.4,369.7 424.0,353.9 " fill="none" stroke="#9467bd" stroke-width="2"/>
+<circle cx="64.0" cy="468.4" r="5" fill="none" stroke="#9467bd" stroke-width="2"/>
+<polyline points="64.0,464.4 106.9,459.8 137.4,452.0 180.3,442.7 210.7,435.4 234.4,428.4 284.1,414.8 307.7,409.6 327.0,396.7 357.5,380.6 381.1,366.0 400.4,354.0 424.0,334.8 " fill="none" stroke="#d62728" stroke-width="2"/>
+<circle cx="64.0" cy="464.4" r="5" fill="none" stroke="#d62728" stroke-width="2"/>
+<rect x="520" y="64" width="360" height="406" fill="none" stroke="#bbb"/>
+<text x="700.0" y="56.0" text-anchor="middle" font-weight="bold" font-size="13">wobble  (safe axis — short τ LOSES)</text>
+<line x1="783.0" y1="64" x2="783.0" y2="470.0" stroke="#888" stroke-dasharray="3 3"/>
+<text x="783.0" y="500.0" text-anchor="middle" font-size="10" fill="#555">champ 360</text>
+<text x="520.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">30</text>
+<text x="562.9" y="484.0" text-anchor="middle" font-size="9" fill="#666">45</text>
+<text x="593.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">60</text>
+<text x="636.3" y="484.0" text-anchor="middle" font-size="9" fill="#666">90</text>
+<text x="666.7" y="484.0" text-anchor="middle" font-size="9" fill="#666">120</text>
+<text x="690.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">150</text>
+<text x="740.1" y="484.0" text-anchor="middle" font-size="9" fill="#666">240</text>
+<text x="763.7" y="484.0" text-anchor="middle" font-size="9" fill="#666">300</text>
+<text x="783.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">360</text>
+<text x="813.5" y="484.0" text-anchor="middle" font-size="9" fill="#666">480</text>
+<text x="837.1" y="484.0" text-anchor="middle" font-size="9" fill="#666">600</text>
+<text x="856.4" y="484.0" text-anchor="middle" font-size="9" fill="#666">720</text>
+<text x="880.0" y="484.0" text-anchor="middle" font-size="9" fill="#666">900</text>
+<text x="700.0" y="512.0" text-anchor="middle" font-weight="bold" font-size="12">window τ (s), log scale</text>
+<text x="476.0" y="267.0" text-anchor="middle" font-size="11" transform="rotate(-90 476.0 267.0)">|settled-e| % (under-diff)</text>
+<polyline points="520.0,184.0 562.9,204.9 593.4,232.6 636.3,264.6 666.7,291.2 690.4,316.6 740.1,347.5 763.7,351.6 783.0,359.6 813.5,355.2 837.1,357.3 856.4,366.4 880.0,367.3 " fill="none" stroke="#8c564b" stroke-width="2"/>
+<circle cx="740.1" cy="347.5" r="4" fill="#8c564b"/>
+<polyline points="520.0,282.7 562.9,297.6 593.4,310.5 636.3,333.3 666.7,343.6 690.4,359.0 740.1,379.8 763.7,386.6 783.0,390.1 813.5,391.5 837.1,391.2 856.4,397.3 880.0,394.3 " fill="none" stroke="#e377c2" stroke-width="2"/>
+<circle cx="690.4" cy="359.0" r="4" fill="#e377c2"/>
+<polyline points="520.0,98.1 562.9,113.1 593.4,142.5 636.3,205.0 666.7,239.7 690.4,265.2 740.1,310.1 763.7,324.4 783.0,333.1 813.5,346.0 837.1,351.7 856.4,352.8 880.0,357.5 " fill="none" stroke="#1f77b4" stroke-width="2"/>
+<circle cx="562.9" cy="113.1" r="4" fill="#1f77b4"/>
+<polyline points="520.0,94.1 562.9,146.9 593.4,191.8 636.3,235.5 666.7,266.2 690.4,278.0 740.1,323.1 763.7,340.4 783.0,336.9 813.5,343.9 837.1,356.8 856.4,359.2 880.0,371.5 " fill="none" stroke="#2ca02c" stroke-width="2"/>
+<circle cx="562.9" cy="146.9" r="4" fill="#2ca02c"/>
+<polyline points="520.0,141.4 562.9,201.3 593.4,232.2 636.3,261.2 666.7,303.0 690.4,313.7 740.1,332.8 763.7,346.1 783.0,342.0 813.5,349.2 837.1,357.2 856.4,371.4 880.0,385.4 " fill="none" stroke="#ff7f0e" stroke-width="2"/>
+<circle cx="520.0" cy="141.4" r="4" fill="#ff7f0e"/>
+<polyline points="520.0,193.9 562.9,232.9 593.4,253.1 636.3,285.8 666.7,311.5 690.4,324.2 740.1,329.1 763.7,340.2 783.0,346.3 813.5,366.2 837.1,389.9 856.4,400.9 880.0,414.1 " fill="none" stroke="#9467bd" stroke-width="2"/>
+<circle cx="520.0" cy="193.9" r="4" fill="#9467bd"/>
+<polyline points="520.0,230.5 562.9,259.7 593.4,268.7 636.3,292.6 666.7,306.8 690.4,321.5 740.1,336.4 763.7,358.0 783.0,376.3 813.5,390.6 837.1,407.0 856.4,422.9 880.0,436.1 " fill="none" stroke="#d62728" stroke-width="2"/>
+<circle cx="520.0" cy="230.5" r="4" fill="#d62728"/>
+<line x1="894.0" y1="70.0" x2="910.0" y2="70.0" stroke="#8c564b" stroke-width="2"/>
+<text x="914.0" y="74.0" font-size="11">spm 2 (τ*=240)</text>
+<line x1="894.0" y1="88.0" x2="910.0" y2="88.0" stroke="#e377c2" stroke-width="2"/>
+<text x="914.0" y="92.0" font-size="11">spm 4 (τ*=150)</text>
+<line x1="894.0" y1="106.0" x2="910.0" y2="106.0" stroke="#1f77b4" stroke-width="2"/>
+<text x="914.0" y="110.0" font-size="11">spm 6 (τ*=45)</text>
+<line x1="894.0" y1="124.0" x2="910.0" y2="124.0" stroke="#2ca02c" stroke-width="2"/>
+<text x="914.0" y="128.0" font-size="11">spm 8 (τ*=45)</text>
+<line x1="894.0" y1="142.0" x2="910.0" y2="142.0" stroke="#ff7f0e" stroke-width="2"/>
+<text x="914.0" y="146.0" font-size="11">spm 12 (τ*=30)</text>
+<line x1="894.0" y1="160.0" x2="910.0" y2="160.0" stroke="#9467bd" stroke-width="2"/>
+<text x="914.0" y="164.0" font-size="11">spm 20 (τ*=30)</text>
+<line x1="894.0" y1="178.0" x2="910.0" y2="178.0" stroke="#d62728" stroke-width="2"/>
+<text x="914.0" y="182.0" font-size="11">spm 30 (τ*=30)</text>
+<text x="24" y="532.0" font-size="10" fill="#555">○ = per-rate over-difficulty optimum τ* (left); ● = same τ* on the wobble axis (right). The axes are NOT symmetric:</text>
+<text x="24" y="544.0" font-size="10" fill="#555">over-difficulty is the self-reinforcing spiral direction; wobble is self-healing under-difficulty. Short τ trades the dangerous axis down for the safe axis.</text>
+</svg>

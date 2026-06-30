@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="560" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <!-- ============================================================
+       SCHEMATIC — hand-authored, NOT data-generated.
+       Unlike every other figure in docs/ (tau_valley.svg, excess_lever.svg,
+       steady_transient*.svg, ... which are emitted by their sim binaries),
+       this is a conceptual diagram of the two forces. No measured points.
+       ============================================================ -->
+  <!-- ============================================================
+       SUPERSEDED FRAMING (do NOT reuse as-is in the technical paper —
+       needs RESTRUCTURE, not relabel). Recorded so this figure is not
+       picked up clean-looking-but-stale. NOT "wrong" — correct for the
+       theory as drawn; the FRAMING was superseded by the item-1 finding
+       (stratum commit 9518f3bf, corrected a6ccec7f; see
+       sim/src/bin/eager-ease-* + cellA-mechanism + which-boundary).
+
+       What's superseded:
+       - The VERTICAL AXIS here is "direction bias (eager-ease/symmetric/
+         eager-tighten)" and the WALL is "ASYMMETRY (safety)". The closed
+         theory says validity lives on DANGEROUS-DIRECTION PROTECTION;
+         eager-ease/asymmetry is only ONE MECHANISM for it — the DENSE-rate
+         one (SignPersistenceCusum's reluctant-tighten). At SPARSE rate the
+         ESTIMATOR carries the protection entirely (sets fire direction +
+         doesn't present up-spikes) and the boundary asymmetry is SWITCHED
+         OFF (the spm_threshold=6 guard runs PoissonCI, symmetric, no
+         tighten_multiplier). So "asymmetry = the validity axis" is the
+         pre-item-1 labeling.
+       - The plane is 2D (bias x responsiveness); the post-item-1 content is
+         3-part (the protection axis + two regime-mechanisms + the REGIME
+         dimension), which this geometry cannot hold — hence RESTRUCTURE.
+
+       What's still reusable: the GEOMETRY (a hard binary wall bounding an
+       admissible region + a floor/gradient orienting to the gentlest
+       interior point; champion = wall x gradient intersection) is
+       structurally fine. The rebuild keeps that shape but: (1) relabels the
+       validity axis as dangerous-direction protection, (2) adds a rate/regime
+       dimension showing the estimator carrying sparse protection and the
+       boundary-reluctance the dense, (3) demotes asymmetry from "the axis"
+       to "the dense-regime mechanism."
+       (tau_tradeoff.svg, by contrast, is CONSISTENT with the closed theory —
+       reusable with one ADDITIVE extension: rate-awareness as wobble-half
+       motion that never reaches the gate wall. See FIGURES-STATUS.md.)
+       ============================================================ -->
+  <style>
+    .ax    { stroke:#222; stroke-width:1.5; }
+    .axlbl { fill:#222; font-weight:bold; }
+    .tick  { fill:#555; font-size:12px; }
+    .blocked { fill:#e74c3c; fill-opacity:0.18; }
+    .blockedhatch { stroke:#e74c3c; stroke-width:1; stroke-opacity:0.5; }
+    .safe  { fill:#2ecc71; fill-opacity:0.10; }
+    .toosleepy { fill:#f1c40f; fill-opacity:0.14; }
+    .toojumpy  { fill:#f1c40f; fill-opacity:0.14; }
+    .champ { fill:#2c3e50; }
+    .note  { fill:#444; font-size:12.5px; }
+    .force { font-weight:bold; }
+    .prov  { fill:#999; font-size:11px; font-style:italic; }
+  </style>
+
+  <!-- provenance, top -->
+  <text x="380" y="22" text-anchor="middle" class="prov">SCHEMATIC — hand-authored, not data-generated (cf. tau_valley.svg et al., which are sim output)</text>
+
+  <!-- plot box -->
+  <!-- x: responsiveness  (left=sleepy/long-memory, right=jumpy/high-gain) -->
+  <!-- y: direction bias  (top=eager-ease, mid=symmetric, bottom=eager-tighten) -->
+  <rect x="120" y="60" width="520" height="420" fill="none" stroke="#bbb" stroke-width="1"/>
+
+  <!-- BLOCKED band: lower (eager-to-tighten) region — hard exclusion -->
+  <rect x="120" y="360" width="520" height="120" class="blocked"/>
+  <!-- hatch the blocked band -->
+  <g class="blockedhatch">
+    <line x1="120" y1="380" x2="170" y2="360"/><line x1="120" y1="420" x2="210" y2="360"/>
+    <line x1="120" y1="460" x2="250" y2="360"/><line x1="160" y1="480" x2="290" y2="360"/>
+    <line x1="200" y1="480" x2="330" y2="360"/><line x1="240" y1="480" x2="370" y2="360"/>
+    <line x1="280" y1="480" x2="410" y2="360"/><line x1="320" y1="480" x2="450" y2="360"/>
+    <line x1="360" y1="480" x2="490" y2="360"/><line x1="400" y1="480" x2="530" y2="360"/>
+    <line x1="440" y1="480" x2="570" y2="360"/><line x1="480" y1="480" x2="610" y2="360"/>
+    <line x1="520" y1="480" x2="640" y2="370"/><line x1="560" y1="480" x2="640" y2="410"/>
+    <line x1="600" y1="480" x2="640" y2="450"/>
+  </g>
+  <line x1="120" y1="360" x2="640" y2="360" stroke="#e74c3c" stroke-width="2"/>
+
+  <!-- SAFE region (everything above the wall) -->
+  <rect x="120" y="60" width="520" height="300" class="safe"/>
+  <!-- too-sleepy flank (left) and too-jumpy flank (right): off-valley, still safe -->
+  <rect x="120" y="60" width="95" height="300" class="toosleepy"/>
+  <rect x="545" y="60" width="95" height="300" class="toojumpy"/>
+
+  <!-- axes labels -->
+  <text x="380" y="514" text-anchor="middle" class="axlbl">responsiveness  →</text>
+  <text x="150" y="534" text-anchor="middle" class="tick">sleepy / long-memory</text>
+  <text x="610" y="534" text-anchor="middle" class="tick">jumpy / high-gain</text>
+
+  <text x="44" y="270" text-anchor="middle" class="axlbl" transform="rotate(-90 44 270)">direction bias</text>
+  <text x="78" y="120" text-anchor="middle" class="tick" transform="rotate(-90 78 120)">eager-ease</text>
+  <text x="78" y="300" text-anchor="middle" class="tick" transform="rotate(-90 78 300)">symmetric</text>
+  <text x="78" y="430" text-anchor="middle" class="tick" transform="rotate(-90 78 430)">eager-tighten</text>
+
+  <!-- the two forces, named on their axes -->
+  <text x="380" y="345" text-anchor="middle" class="force" fill="#e74c3c">ASYMMETRY (safety) — BLOCKS OFF: the wall is a hard binary edge</text>
+  <text x="380" y="408" text-anchor="middle" class="note" fill="#c0392b">eager-to-tighten configs are INADMISSIBLE — over-difficulty spiral, not merely costly</text>
+
+  <!-- floor = orientation: a horizontal gradient toward the gentlest safe point -->
+  <!-- arrows from both flanks pointing inward toward the champion column -->
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#2980b9"/>
+    </marker>
+  </defs>
+  <line x1="235" y1="200" x2="350" y2="200" stroke="#2980b9" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="525" y1="200" x2="410" y2="200" stroke="#2980b9" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="380" y="150" text-anchor="middle" class="force" fill="#2980b9">FLOOR (information) — ORIENTS</text>
+  <text x="380" y="170" text-anchor="middle" class="note" fill="#2980b9">within what's left, a gradient toward the gentlest config that still escapes</text>
+  <text x="167" y="230" text-anchor="middle" class="tick" fill="#b7950b">too sleepy</text>
+  <text x="167" y="245" text-anchor="middle" class="tick" fill="#b7950b">(lags decline)</text>
+  <text x="593" y="230" text-anchor="middle" class="tick" fill="#b7950b">too jumpy</text>
+  <text x="593" y="245" text-anchor="middle" class="tick" fill="#b7950b">(tracks noise)</text>
+
+  <!-- champion: the intersection -->
+  <circle cx="380" cy="200" r="7" class="champ"/>
+  <circle cx="380" cy="200" r="12" fill="none" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="380" y="280" text-anchor="middle" class="champ" font-weight="bold">champion</text>
+  <text x="380" y="298" text-anchor="middle" class="note">safe by the vertical force,</text>
+  <text x="380" y="314" text-anchor="middle" class="note">gentlest by the horizontal one</text>
+
+  <!-- reading key, bottom -->
+  <text x="120" y="556" class="note" font-size="11">Two perpendicular forces — the wall (admissibility, binary) and the gradient (dominance, a frontier); the champion is their intersection.</text>
+</svg>

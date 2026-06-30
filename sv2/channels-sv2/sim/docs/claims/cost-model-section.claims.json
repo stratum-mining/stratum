@@ -1,0 +1,185 @@
+{
+  "_about": "Typed claim fixture for the companion 'What it costs to not apply the criterion' section. Each claim carries its warrant TYPE so it routes to the right check; nothing ships unrouted. This file is the executable fixture validate_claims.py runs against. The integrity test: a claim and its warrant must disagree LOUDLY (gate fails) with no human electing to look. S2 is deliberately UNDECIDED — the attribution call (authorial-observation vs reproducible-public-pointer) is an open human decision, and the fixture models it as open rather than letting the tool that found it close it.",
+  "_code_version": {
+    "_about": "The environment a recorded seed reproduces under. A seed is the VALUE; this is its DOMAIN — a seed reproduces a result only under the same RNG/toolchain/deps (Poisson draws + float-order are toolchain-sensitive). Capturing only the seed is the value-without-domain trap: it reproduces by luck of being on the same box. So execution-warrant manifest entries are {seed} + this block.",
+    "commit": "dc70e2e53cf168cd34379f62e580eeb0c1ee05b3",
+    "sim_cargo_lock_sha256": "da4b7c3bf2e210978c9350fddf9bf098c7afaabead853557b13c3f9a03267515",
+    "toolchain": "1.75.0",
+    "_toolchain_note": "sim/ is its own Cargo workspace (own Cargo.lock); a reviewer building only sim/ would not inherit the parent stratum rust-toolchain, so sim/rust-toolchain.toml now pins 1.75.0 explicitly — added this commit to close the environment-completeness gap."
+  },
+  "_warrant_types": {
+    "execution": "value produced by a reproducible run; check = re-run, compare value AND match claimed domain against run's domain",
+    "source": "fact at a repo path + commit; check = re-read cited lines, CONTENT-match (not existence)",
+    "source-private": "warranted but warrant genuinely cannot be public, and that impossibility is itself load-bearing; check = correctly typed as authorial observation + phrasing avoids dressing as derivation. NOT yet bound to any claim here — its binding to S2 is downstream of S2's UNDECIDED resolution.",
+    "socket": "warrant is the EXPLICIT ABSENCE of one; check = socket tag present AND 'conditional' propagates to downstream claims",
+    "cross-doc": "points at another claim/section; check = resolves + is-about-what-claim-says + load-bearing-type honest FOR THE CORPUS BOUNDARY (supports may cross documents within corpus, never across; see-also may cross corpus but carries no weight)",
+    "judgment": "reasoned position, not a warranted fact; REFUSED for validation — marked, never checked, never laundered as derived; tracks depends_on so a drifted input flags BASIS-CHANGED",
+    "UNDECIDED": "warrant_type itself awaits an external human decision; check = BLOCKS the gate, routes to owner, cannot be marked green by any automated path"
+  },
+  "claims": [
+    {
+      "id": "CIT-revenue-zero",
+      "statement": "Below the disconnect threshold there is no first-order expected-revenue cost; the continuous quantity is payout variance, which is expectation-neutral.",
+      "warrant_type": "source",
+      "warrant_ref": {"doc": "information-floor.md", "anchor": "§6", "lines": "357-364", "content_must_match": "churn costs the miner **no value at all**"},
+      "domain": {"regime": "below disconnect threshold"},
+      "status": "validated",
+      "depends_on": ["CIT-no-lost-work"]
+    },
+    {
+      "id": "CIT-no-lost-work",
+      "statement": "A difficulty retarget rejects no in-flight work: each job snapshots its target at creation and shares validate against THAT snapshot until the next block — so the lost-in-flight-work premise (old THEORY §6(ii)) is retracted, and churn is value-neutral.",
+      "warrant_type": "source",
+      "_warrant_kind": "SOURCE-KILL — a protocol/implementation fact, NOT sim-reproducible. The retraction is reproduced by READING the per-job-target-snapshot mechanism in production source, the static §10 falsifier — a stronger warrant than a sim re-run, not weaker. There is deliberately NO bin: the sim models share ARRIVALS, not job-target validation; building a probe to 'reproduce' this would manufacture fake reproducibility for a claim whose real warrant is source.",
+      "warrant_ref": {
+        "repo": "marafoundation/stratum",
+        "commit": "dc70e2e53cf168cd34379f62e580eeb0c1ee05b3",
+        "file": "sv2/channels-sv2/src/server/extended.rs",
+        "content_must_match": "job_id_to_target",
+        "_pin_note": "CONTENT-match at a COMMIT SHA, not line numbers. The original THEORY/doc citation 'extended.rs:510/549/668' was the §7 mutable-locator failure twice over: bare 'extended.rs' is ambiguous (THREE extended.rs exist — server/, client/, server/jobs/) and line numbers drift. Corrected: the mechanism is server/extended.rs (job_id_to_target HashMap, insert at job creation :605/:668, validate against the snapshot :724). Pinned by SHA so the kill is reproducible-by-source-read forever."
+      },
+      "domain": {"protocol": "SV2 (verified PR #2188); SV1 analog PLAUSIBLE but UNVERIFIED — flag before leaning on it"},
+      "status": "validated",
+      "_note": "The arc's most-cited retraction (blogs + proof §6 + THEORY + cost model all lean on 'no lost work'), and until now it had no claim pinning it to the source that proves it. This is the SOURCE-KILL half of the kill-evidence split: source-kills get a SHA-pinned source ref; sim-kills (floor-ribbon, seed-rampup) get a seed + expected-refutation."
+    },
+    {
+      "id": "CIT-EXCESS-prod-blind",
+      "statement": "At production rates a -10% drop is statistically invisible across the whole field.",
+      "warrant_type": "execution",
+      "warrant_ref": {"bins": ["detection-control", "excess-lever"], "recorded_in": "information-floor.md §5 lines 308-311"},
+      "domain": {"drop": "-10%", "window": "60min", "rate": "4-6spm", "scope": "whole-field", "value": "EXCESS=0.00"},
+      "status": "validated",
+      "_note": "Domain is load-bearing: the SAME surface reads EXCESS=+0.75 at 60spm (CIT-EXCESS-lever). A value-only check passes a cherry-picked scope; domain-matching is what catches dropping '4-6spm'. This pair is the permanent EXCESS-catch test case."
+    },
+    {
+      "id": "CIT-EXCESS-lever",
+      "statement": "EXCESS climbs monotonically to +0.75 by 60 spm as the floor recedes.",
+      "warrant_type": "execution",
+      "warrant_ref": {"bins": ["excess-lever"], "recorded_in": "information-floor.md §8 lines 826-848"},
+      "domain": {"drop": "-10%", "rate": "60spm", "value": "EXCESS=+0.75"},
+      "status": "validated",
+      "_note": "Same measurement surface as CIT-EXCESS-prod-blind at a different domain. Byte-identical warrant family, differs ONLY in domain — the field the abstract schema would have missed."
+    },
+    {
+      "id": "CIT-deadband-unreachable",
+      "statement": "A pow2-in-loop deadband PID at Kp=-0.01, setpoint ~10, has its easing crossing at -31.4 SPM (below zero realized rate), so it is structurally unable to ease on a decline.",
+      "warrant_type": "source",
+      "warrant_ref": {"doc": "records/PID_INVESTIGATION.md", "anchor": "the pinned addendum", "lines": "73-96", "content_must_match": "below zero and\n>   therefore UNREACHABLE"},
+      "domain": {"gain": "Kp=-0.01", "setpoint": "~10 SPM", "deadband": "+-41.4 SPM"},
+      "status": "validated",
+      "_note": "Source-derived from reading DEPLOYED source — verification ran instance->archetype, which is why CIT-construction-ships is grounded, not bolted on."
+    },
+    {
+      "id": "CIT-construction-ships",
+      "statement": "A controller of this construction (pow2-in-loop, easing crossing below zero rate) is present in deployed pool software, verifiable in public pool source.",
+      "warrant_type": "source",
+      "warrant_ref": {
+        "doc": "records/PID_INVESTIGATION.md",
+        "anchor": "re-validated against live DMND source 2026-06-25",
+        "public_source": "dmnd-pool/dmnd-client/src/translator/downstream/diff_management.rs (nearest_power_of_2 :268/:389, next_control_output :267, Kp=-diff*0.01 :281)",
+        "lines": "59-96",
+        "content_must_match": "below zero and\n>   therefore UNREACHABLE"
+      },
+      "domain": {"level": "construction, verifiable in public source; published-voice names NO operator (see revisit_when)"},
+      "status": "validated",
+      "revisit_when": "(a) pin strength: anchored to a DATE (2026-06-25) + line numbers, NOT a commit hash — line numbers drift against upstream main; strengthen to a pinned commit/sha so the public pointer can't resolve-to-the-wrong-lines (the §7 failure). (b) naming: published-voice currently POINTS to the construction in public source and does NOT name the operator; naming DMND in the published artifact is a SEPARATE deliberate increment (owner: human), not resolved by the prudence call — do not let 'show the data' launder into 'name them'.",
+      "_note": "RESOLVED 2026-06-28 (prudence call: show the verified result). reproducible-public-pointer chosen -> ordinary `source`, strongest form; source-private binds to NO claim here and the sub-type is now unused. Construction is named in INTERNAL docs (PID_INVESTIGATION, this fixture) by source path; the PUBLISHED section points-not-names. Two debts ride in revisit_when: a commit-hash pin, and the still-open name-in-published-voice decision."
+    },
+    {
+      "id": "CIT-self-concealing",
+      "statement": "Over-difficulty suppresses the share stream — the controller's sole observable — so detection sensitivity falls in lockstep with the condition it would flag.",
+      "warrant_type": "source",
+      "warrant_ref": {"doc": "information-floor.md", "anchor": "Theorem 1 (§2) + §5", "lines": "154-158, 308-311", "content_must_match": "The sole observable `N`"},
+      "domain": {"rests_on": ["Theorem 1", "§5 EXCESS"], "imports": "none"},
+      "status": "validated",
+      "_note": "Rests entirely on resident theorems. OE_m2p appears only as see-also (CIT-oe-seealso) carrying no weight."
+    },
+    {
+      "id": "CIT-socket-theta",
+      "statement": "Disconnect threshold below which the pool drops a connection.",
+      "warrant_type": "socket",
+      "warrant_ref": {"unpinned": true, "would_pin": "pool-policy fact; pool configuration"},
+      "domain": {"symbol": "theta"},
+      "status": "unpinned",
+      "downstream": ["CIT-conditional-exposure"]
+    },
+    {
+      "id": "CIT-socket-T",
+      "statement": "Dead pool-time per avoidable drop (reconnect gap + failover/re-ramp/PPLNS-position loss).",
+      "warrant_type": "socket",
+      "warrant_ref": {"unpinned": true, "would_pin": "operational fact; per-deployment measurement"},
+      "domain": {"symbol": "T"},
+      "status": "unpinned",
+      "downstream": ["CIT-conditional-exposure"]
+    },
+    {
+      "id": "CIT-socket-decline-dist",
+      "statement": "Joint distribution over (depth, rate) of sustained declines a real fleet experiences, per sector.",
+      "warrant_type": "socket",
+      "warrant_ref": {"unpinned": true, "would_pin": "fleet telemetry; supply as range, treat any single curve as illustrative"},
+      "domain": {"symbol": "(d, r-dot) per sector"},
+      "status": "unpinned",
+      "downstream": ["CIT-conditional-exposure"],
+      "_note": "Over-declared in the first draft: I listed CIT-archetype-separation downstream, but that claim rests on the deadband GEOMETRY + modal-decline SHAPE, not the fleet distribution — so it does not inherit this socket. The conditional-exposure COUNT does. The validator caught the propagation mismatch (downstream declared, depends_on absent) before it could mislead."
+    },
+    {
+      "id": "CIT-conditional-exposure",
+      "statement": "Output is a conditional exposure (N avoidable disconnects/yr at rate rho under archetype A, T minutes each), not a scalar expected cost.",
+      "warrant_type": "source",
+      "warrant_ref": {"doc": "this-section", "anchor": "derived from sockets + per-event differential", "content_must_match": "conditional exposure"},
+      "domain": {"form": "conditional on the decline-distribution dial"},
+      "status": "validated",
+      "depends_on_sockets": ["CIT-socket-theta", "CIT-socket-T", "CIT-socket-decline-dist"],
+      "_note": "Downstream of three sockets -> MUST carry 'conditional' (socket propagation). If any socket hardened to a default, this is where it would surface."
+    },
+    {
+      "id": "CIT-archetype-separation",
+      "statement": "Sleepy-symmetric drop-probability is a joint function of (depth,rate) concentrated in a corner; structural-deadband collapses to a step in depth alone (rate drops out); convolved against the modal gentle/slow decline they separate hard.",
+      "warrant_type": "source",
+      "warrant_ref": {"doc": "records/PID_INVESTIGATION.md", "anchor": "deadband geometry", "content_must_match": "UNREACHABLE"},
+      "warrant_ref_2": {"doc": "records/SLOW_DECLINE_TEST.md", "anchor": "the modal gentle/slow/partial decline", "content_must_match": "sustained"},
+      "domain": {"two_forms": ["sleepy-symmetric", "structural-deadband"]},
+      "status": "validated",
+      "_note": "Rests on TWO pins (deadband geometry + modal-decline shape). A claim resting on two sources needs two pins, not a concatenated path — the validator caught the malformed single-path version on first run."
+    },
+    {
+      "id": "CIT-seam-xref",
+      "statement": "At sparse rates the asymmetric trigger collapses to neutral and estimator inertia carries the decline guard (the safety hand-off).",
+      "warrant_type": "cross-doc",
+      "warrant_ref": {
+        "target_doc": "building-a-vardiff.html",
+        "target_section": "§7 'Who keeps the miner safe changes with the share rate'",
+        "corpus_boundary": "in-corpus",
+        "load_bearing_type": "supports",
+        "is_about": "the seam / safety hand-off"
+      },
+      "domain": {},
+      "status": "validated",
+      "_note": "Caught: an earlier draft cited 'the seam' as '§7' which in the WHITE PAPER is 'the trap'. The white paper has no standalone seam statement; the seam lives in the BUILD paper's §7. is_about must match, and target_doc must be the build paper, not silently the companion."
+    },
+    {
+      "id": "CIT-oe-seealso",
+      "statement": "Operational loss-attribution frameworks formalize the share-stream-blindness cost further.",
+      "warrant_type": "cross-doc",
+      "warrant_ref": {
+        "target_doc": "Delving Bitcoin (OE_min / OE_m2p)",
+        "corpus_boundary": "cross-corpus",
+        "load_bearing_type": "see-also",
+        "is_about": "operational loss attribution / measured-to-paid decomposition"
+      },
+      "domain": {},
+      "status": "validated",
+      "_note": "Cross-corpus -> load_bearing_type MUST be see-also (carries no weight). An earlier instinct borrowed it as 'supports', which is authority across a corpus boundary. The gate fails a cross-corpus 'supports'."
+    },
+    {
+      "id": "CIT-industrial-tail",
+      "statement": "Aggregate dollar exposure is likely dominated by the industrial correlated tail; avoidable-drop COUNT by the sparse-rate fleet.",
+      "warrant_type": "judgment",
+      "warrant_ref": {"reasoned_not_warranted": true},
+      "domain": {},
+      "status": "judgment",
+      "depends_on": ["CIT-socket-decline-dist", "CIT-archetype-separation"],
+      "_note": "REFUSED for validation — reasoned position, not a fact. Tracks depends_on: if CIT-archetype-separation DRIFTS, this flags BASIS-CHANGED (re-examine), NOT invalidated (category error). Uncheckable conclusion, checkable inputs."
+    }
+  ]
+}

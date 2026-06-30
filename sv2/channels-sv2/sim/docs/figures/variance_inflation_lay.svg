@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" font-family="system-ui, sans-serif" font-size="13">
+<text x="360.0" y="26" text-anchor="middle" font-size="15" font-weight="bold" fill="#222">How noisy your payouts get as your miner declines</text>
+<text x="360.0" y="44" text-anchor="middle" font-size="11.5" fill="#777">The bad controller makes payouts ~5× noisier in a deep decline; the good one stays near normal.</text>
+<line x1="66.0" y1="384.0" x2="654.0" y2="384.0" stroke="#eee"/>
+<text x="60.0" y="387.0" text-anchor="end" font-size="9.5" fill="#888">normal</text>
+<line x1="66.0" y1="312.9" x2="654.0" y2="312.9" stroke="#eee"/>
+<text x="60.0" y="315.9" text-anchor="end" font-size="9.5" fill="#888">2× noisier</text>
+<line x1="66.0" y1="241.8" x2="654.0" y2="241.8" stroke="#eee"/>
+<text x="60.0" y="244.8" text-anchor="end" font-size="9.5" fill="#888">3× noisier</text>
+<line x1="66.0" y1="170.7" x2="654.0" y2="170.7" stroke="#eee"/>
+<text x="60.0" y="173.7" text-anchor="end" font-size="9.5" fill="#888">4× noisier</text>
+<line x1="66.0" y1="99.6" x2="654.0" y2="99.6" stroke="#eee"/>
+<text x="60.0" y="102.6" text-anchor="end" font-size="9.5" fill="#888">5× noisier</text>
+<rect x="121.3" y="64.0" width="83.0" height="320.0" fill="#2c3e50" fill-opacity="0.06"/>
+<text x="162.8" y="418.0" text-anchor="middle" font-size="10" fill="#2c3e50">a typical decline</text>
+<polyline points="66.0,384.0 73.3,383.2 80.7,382.5 88.0,381.7 95.4,380.8 102.8,380.0 110.1,379.2 117.4,378.3 124.8,377.4 132.1,376.5 139.5,375.5 146.8,374.6 154.2,373.6 161.6,372.6 168.9,371.6 176.2,370.5 183.6,369.4 190.9,368.3 198.3,367.2 205.6,366.0 213.0,364.8 220.3,363.6 227.7,362.3 235.1,361.0 242.4,359.7 249.8,358.3 257.1,356.9 264.5,355.4 271.8,353.9 279.1,352.3 286.5,350.7 293.8,349.1 301.2,347.4 308.6,345.6 315.9,343.8 323.2,341.9 330.6,340.0 337.9,337.9 345.3,335.8 352.6,333.7 360.0,331.4 367.4,329.1 374.7,326.7 382.1,324.2 389.4,321.6 396.8,318.9 404.1,316.0 411.4,313.1 418.8,310.0 426.2,306.8 433.5,303.4 440.9,299.9 448.2,296.2 455.6,292.3 462.9,288.3 470.2,284.0 477.6,279.5 484.9,274.8 492.3,269.8 499.6,264.5 507.0,258.9 514.4,253.0 521.7,246.7 529.0,240.0 536.4,232.9 543.8,225.3 551.1,217.1 558.4,208.3 565.8,198.9 573.2,188.7 580.5,177.6 587.9,165.6 595.2,152.5 602.6,138.2 609.9,122.4 617.2,105.0 624.6,85.7 632.0,64.1 639.3,64.0 646.6,64.0 654.0,64.0 " fill="none" stroke="#c0392b" stroke-width="2.8"/>
+<polyline points="135.2,382.9 204.4,379.6 273.5,377.6 342.7,375.7 411.9,374.1 515.6,371.5 619.4,367.6 " fill="none" stroke="#2980b9" stroke-width="2.8"/>
+<text x="564.1" y="199.1" text-anchor="end" font-size="12" font-weight="bold" fill="#c0392b">a bad controller</text>
+<text x="356.5" y="356.7" text-anchor="start" font-size="12" font-weight="bold" fill="#1f618d">a good controller</text>
+<rect x="66.0" y="64.0" width="588.0" height="320.0" fill="none" stroke="#bbb"/>
+<text x="66.0" y="400.0" text-anchor="middle" font-size="9.5" fill="#888">0%</text>
+<text x="204.4" y="400.0" text-anchor="middle" font-size="9.5" fill="#888">20%</text>
+<text x="342.7" y="400.0" text-anchor="middle" font-size="9.5" fill="#888">40%</text>
+<text x="481.1" y="400.0" text-anchor="middle" font-size="9.5" fill="#888">60%</text>
+<text x="619.4" y="400.0" text-anchor="middle" font-size="9.5" fill="#888">80%</text>
+<text x="360.0" y="434.0" text-anchor="middle" font-size="11.5" fill="#555">how much hashrate the miner has lost</text>
+<text x="360.0" y="446.0" text-anchor="middle" font-size="10.5" fill="#777">(noisier, not smaller — you still earn what you're owed, the payouts just swing more)</text>
+</svg>

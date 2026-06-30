@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 460" font-family="system-ui, sans-serif" font-size="13">
+<rect width="100%" height="100%" fill="#fafafa"/>
+<text x="410" y="28" text-anchor="middle" font-size="16" font-weight="bold">The lever: raising r* lifts a small drop above the information floor</text>
+<text x="410" y="46" text-anchor="middle" font-size="12" fill="#555">False-alarm-corrected detection EXCESS of a −10% drop (15-min window) vs share rate.</text>
+<text x="410" y="62" text-anchor="middle" font-size="12" fill="#555">At production the drop is at the floor (60-min window: EXCESS=0.00, invisible); the lever is r*.</text>
+<line x1="72.0" y1="402.0" x2="760.0" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="406.0" text-anchor="end" font-size="11" fill="#aaa">+0.00</text>
+<line x1="72.0" y1="383.7" x2="760.0" y2="383.7" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="387.7" text-anchor="end" font-size="11" fill="#aaa">+0.05</text>
+<line x1="72.0" y1="365.4" x2="760.0" y2="365.4" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="369.4" text-anchor="end" font-size="11" fill="#aaa">+0.10</text>
+<line x1="72.0" y1="347.1" x2="760.0" y2="347.1" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="351.1" text-anchor="end" font-size="11" fill="#aaa">+0.15</text>
+<line x1="72.0" y1="328.8" x2="760.0" y2="328.8" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="332.8" text-anchor="end" font-size="11" fill="#aaa">+0.20</text>
+<line x1="72.0" y1="310.4" x2="760.0" y2="310.4" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="314.4" text-anchor="end" font-size="11" fill="#aaa">+0.25</text>
+<line x1="72.0" y1="292.1" x2="760.0" y2="292.1" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="296.1" text-anchor="end" font-size="11" fill="#aaa">+0.30</text>
+<line x1="72.0" y1="273.8" x2="760.0" y2="273.8" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="277.8" text-anchor="end" font-size="11" fill="#aaa">+0.35</text>
+<line x1="72.0" y1="255.5" x2="760.0" y2="255.5" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="259.5" text-anchor="end" font-size="11" fill="#aaa">+0.40</text>
+<line x1="72.0" y1="237.2" x2="760.0" y2="237.2" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="241.2" text-anchor="end" font-size="11" fill="#aaa">+0.45</text>
+<line x1="72.0" y1="218.9" x2="760.0" y2="218.9" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="222.9" text-anchor="end" font-size="11" fill="#aaa">+0.50</text>
+<line x1="72.0" y1="200.6" x2="760.0" y2="200.6" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="204.6" text-anchor="end" font-size="11" fill="#aaa">+0.55</text>
+<line x1="72.0" y1="182.3" x2="760.0" y2="182.3" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="186.3" text-anchor="end" font-size="11" fill="#aaa">+0.60</text>
+<line x1="72.0" y1="164.0" x2="760.0" y2="164.0" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="168.0" text-anchor="end" font-size="11" fill="#aaa">+0.65</text>
+<line x1="72.0" y1="145.7" x2="760.0" y2="145.7" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="149.7" text-anchor="end" font-size="11" fill="#aaa">+0.70</text>
+<line x1="72.0" y1="127.3" x2="760.0" y2="127.3" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="131.3" text-anchor="end" font-size="11" fill="#aaa">+0.75</text>
+<line x1="72.0" y1="109.0" x2="760.0" y2="109.0" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="113.0" text-anchor="end" font-size="11" fill="#aaa">+0.80</text>
+<line x1="72.0" y1="90.7" x2="760.0" y2="90.7" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="94.7" text-anchor="end" font-size="11" fill="#aaa">+0.85</text>
+<line x1="72.0" y1="402.0" x2="760.0" y2="402.0" stroke="#bbb" stroke-width="1.4"/>
+<text x="760.0" y="397.0" text-anchor="end" font-size="10" fill="#999">floor (drop invisible in-window)</text>
+<line x1="97.2" y1="78.0" x2="97.2" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="97.2" y="420.0" text-anchor="middle" font-size="11" fill="#999">4</text>
+<line x1="194.4" y1="78.0" x2="194.4" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="194.4" y="420.0" text-anchor="middle" font-size="11" fill="#999">6</text>
+<line x1="263.3" y1="78.0" x2="263.3" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="263.3" y="420.0" text-anchor="middle" font-size="11" fill="#999">8</text>
+<line x1="360.4" y1="78.0" x2="360.4" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="360.4" y="420.0" text-anchor="middle" font-size="11" fill="#999">12</text>
+<line x1="482.8" y1="78.0" x2="482.8" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="482.8" y="420.0" text-anchor="middle" font-size="11" fill="#999">20</text>
+<line x1="580.0" y1="78.0" x2="580.0" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="580.0" y="420.0" text-anchor="middle" font-size="11" fill="#999">30</text>
+<line x1="677.1" y1="78.0" x2="677.1" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="677.1" y="420.0" text-anchor="middle" font-size="11" fill="#999">45</text>
+<line x1="746.0" y1="78.0" x2="746.0" y2="402.0" stroke="#ececec" stroke-width="1"/>
+<text x="746.0" y="420.0" text-anchor="middle" font-size="11" fill="#999">60</text>
+<text x="416.0" y="444.0" text-anchor="middle" font-size="12" fill="#666">share rate r* (shares/min, log)</text>
+<text x="22.0" y="240.0" text-anchor="middle" font-size="12" fill="#666" transform="rotate(-90 22.0 240.0)">detection EXCESS (false-alarm-corrected)</text>
+<rect x="97.2" y="78.0" width="97.1" height="324.0" fill="#000" fill-opacity="0.03"/>
+<text x="145.8" y="92.0" text-anchor="middle" font-size="10" fill="#888">production</text>
+<text x="145.8" y="105.0" text-anchor="middle" font-size="10" fill="#888">(floor-limited)</text>
+<text x="145.8" y="119.0" text-anchor="middle" font-size="9" fill="#999">60-min: 0.00</text>
+<path d="M97.2,390.2 L194.4,400.7 L263.3,400.4 L360.4,387.8 L482.8,350.5 L580.0,295.3 L677.1,231.3 L746.0,180.1" fill="none" stroke="#9aa0a6" stroke-width="1" stroke-opacity="0.4"/>
+<path d="M97.2,389.5 L194.4,384.1 L263.3,362.0 L360.4,329.7 L482.8,252.3 L580.0,202.8 L677.1,166.2 L746.0,137.6" fill="none" stroke="#9aa0a6" stroke-width="1" stroke-opacity="0.4"/>
+<path d="M97.2,380.8 L194.4,367.8 L263.3,347.0 L360.4,298.5 L482.8,233.5 L580.0,201.3 L677.1,145.9 L746.0,120.3" fill="none" stroke="#9aa0a6" stroke-width="1" stroke-opacity="0.4"/>
+<path d="M97.2,387.2 L194.4,364.6 L263.3,337.5 L360.4,292.1 L482.8,237.9 L580.0,206.2 L677.1,157.1 L746.0,132.5" fill="none" stroke="#9aa0a6" stroke-width="1" stroke-opacity="0.4"/>
+<path d="M97.2,382.9 L194.4,356.1 L263.3,340.6 L360.4,289.0 L482.8,221.3 L580.0,188.4 L677.1,143.9 L746.0,129.0" fill="none" stroke="#2e8b2e" stroke-width="3.0"/>
+<circle cx="97.2" cy="382.9" r="4" fill="#2e8b2e"/>
+<circle cx="194.4" cy="356.1" r="4" fill="#2e8b2e"/>
+<circle cx="263.3" cy="340.6" r="4" fill="#2e8b2e"/>
+<circle cx="360.4" cy="289.0" r="4" fill="#2e8b2e"/>
+<circle cx="482.8" cy="221.3" r="4" fill="#2e8b2e"/>
+<circle cx="580.0" cy="188.4" r="4" fill="#2e8b2e"/>
+<circle cx="677.1" cy="143.9" r="4" fill="#2e8b2e"/>
+<circle cx="746.0" cy="129.0" r="4" fill="#2e8b2e"/>
+<line x1="610.0" y1="90.0" x2="636.0" y2="90.0" stroke="#2e8b2e" stroke-width="3"/>
+<text x="642.0" y="94.0" font-size="12">champion (Ewma360/s1.5)</text>
+<line x1="610.0" y1="110.0" x2="636.0" y2="110.0" stroke="#9aa0a6" stroke-width="1"/>
+<text x="642.0" y="114.0" font-size="12" fill="#777">field</text>
+</svg>
