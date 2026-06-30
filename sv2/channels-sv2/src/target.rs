@@ -78,6 +78,21 @@ pub fn hash_rate_to_target(
     hashrate: f64,
     share_per_min: f64,
 ) -> Result<Target, HashRateToTargetError> {
+    // Reject non-finite input before any arithmetic. ORDER IS LOAD-BEARING:
+    // this check MUST precede the zero/negative checks below. A NaN compares
+    // false to everything (`NaN == 0.0` is false) and has its sign bit clear
+    // (`NaN.is_sign_negative()` is false), so it slips past every guard below
+    // and reaches the `as u128` cast, which saturates silently: `NaN as u128`
+    // is `0` and `f64::INFINITY as u128` is `u128::MAX`. A NaN or +inf hashrate
+    // would then yield a garbage target with no error — and `+inf` is the
+    // dangerous one: it casts to the maximum work, collapsing the target toward
+    // zero, i.e. the HARDEST difficulty (the over-difficulty / spiral
+    // direction). `-inf` is also caught here (it would otherwise return
+    // `NegativeInput`); keeping all non-finite rejection in one check ahead of
+    // the others is what makes the guard sound.
+    if !hashrate.is_finite() || !share_per_min.is_finite() {
+        return Err(HashRateToTargetError::NonFiniteInput);
+    }
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(HashRateToTargetError::DivisionByZero);
@@ -133,6 +148,11 @@ pub fn from_u128_to_u256(input: u128) -> U256Primitive {
 pub enum HashRateToTargetError {
     DivisionByZero,
     NegativeInput,
+    /// A `hashrate` or `share_per_min` argument was non-finite (`NaN` or
+    /// `±infinity`). These cast to nonsense `u128` work values (`NaN` → `0`,
+    /// `+inf` → `u128::MAX`) and would silently produce a garbage target, so
+    /// they are rejected before any conversion.
+    NonFiniteInput,
 }
 
 #[derive(Debug)]
@@ -199,4 +219,92 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A representative valid input still converts (regression guard: the
+    // non-finite screen must not reject ordinary finite values).
+    #[test]
+    fn finite_input_still_converts() {
+        assert!(hash_rate_to_target(1_000.0, 1.0).is_ok());
+        // zero hashrate is finite and non-negative — still accepted, as before.
+        assert!(hash_rate_to_target(0.0, 1.0).is_ok());
+    }
+
+    // Each non-finite hashrate is rejected with the dedicated variant.
+    #[test]
+    fn non_finite_hashrate_is_rejected() {
+        for hashrate in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                matches!(
+                    hash_rate_to_target(hashrate, 1.0),
+                    Err(HashRateToTargetError::NonFiniteInput)
+                ),
+                "hashrate {hashrate} should be NonFiniteInput",
+            );
+        }
+    }
+
+    // Each non-finite share_per_min is rejected — BOTH operands are screened,
+    // not just the hashrate.
+    #[test]
+    fn non_finite_share_per_min_is_rejected() {
+        for spm in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                matches!(
+                    hash_rate_to_target(1_000.0, spm),
+                    Err(HashRateToTargetError::NonFiniteInput)
+                ),
+                "share_per_min {spm} should be NonFiniteInput",
+            );
+        }
+    }
+
+    // ORDER IS LOAD-BEARING. A `-inf` argument is BOTH non-finite AND
+    // sign-negative; if the negative check ran first it would return
+    // `NegativeInput`. Pinning `NonFiniteInput` here proves the finite screen
+    // precedes the negative screen — the property that keeps the guard sound.
+    #[test]
+    fn neg_infinity_is_non_finite_not_negative() {
+        assert!(matches!(
+            hash_rate_to_target(f64::NEG_INFINITY, 1.0),
+            Err(HashRateToTargetError::NonFiniteInput)
+        ));
+        // and a NaN share_per_min must not slip through to DivisionByZero/
+        // NegativeInput (it compares false to 0.0 and is sign-positive).
+        assert!(matches!(
+            hash_rate_to_target(1_000.0, f64::NAN),
+            Err(HashRateToTargetError::NonFiniteInput)
+        ));
+    }
+
+    // The headline case: a `+inf` hashrate used to cast to `u128::MAX` work and
+    // collapse the target toward zero — the HARDEST difficulty (the
+    // over-difficulty / spiral direction). It must now be rejected outright,
+    // never silently converted to that dangerous-direction target.
+    #[test]
+    fn positive_infinity_hashrate_does_not_yield_a_target() {
+        assert!(matches!(
+            hash_rate_to_target(f64::INFINITY, 1.0),
+            Err(HashRateToTargetError::NonFiniteInput)
+        ));
+    }
+
+    // The pre-existing finite guards are unchanged: a genuinely negative finite
+    // hashrate is still NegativeInput, and zero share_per_min still
+    // DivisionByZero — the new screen narrows nothing that worked before.
+    #[test]
+    fn preexisting_finite_guards_unchanged() {
+        assert!(matches!(
+            hash_rate_to_target(-1.0, 1.0),
+            Err(HashRateToTargetError::NegativeInput)
+        ));
+        assert!(matches!(
+            hash_rate_to_target(1_000.0, 0.0),
+            Err(HashRateToTargetError::DivisionByZero)
+        ));
+    }
 }
