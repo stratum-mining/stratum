@@ -1,0 +1,10 @@
+# Pinned so the simulation crate reproduces deterministically when built in
+# isolation. The sim is its own Cargo workspace (separate Cargo.lock — see
+# README "Cargo.lock is checked in"), so a reviewer building only sim/ would
+# otherwise NOT inherit the parent stratum repo's rust-toolchain. A recorded
+# seed reproduces a result only under the toolchain that produced it (RNG /
+# float-order determinism), so the toolchain is part of the reproducibility
+# environment, not incidental. Mirrors the parent: channel 1.75.0.
+[toolchain]
+channel = "1.75.0"
+components = ["rustfmt", "clippy"]

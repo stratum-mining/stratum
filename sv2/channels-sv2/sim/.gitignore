@@ -1,0 +1,46 @@
+# Build artifacts (sim is its own Cargo workspace; root .gitignore
+# covers the parent workspace's target/, this entry covers ours).
+/target
+
+# macOS finder noise
+.DS_Store
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Locally generated reports & traces — regenerate via `cargo run`, no
+# need to track. The checked-in baselines are explicitly named.
+/trace-*.txt
+/scratch-*
+# Sweep/comparison reports and charts (regenerate via the sweep / radar
+# / trajectory bins; the analysis lives in commit messages / docs, not
+# the raw output files).
+/*_sweep.md
+/*_sweep_big.md
+/confirm_*.md
+/champion_weights.md
+/eta_sweep.md
+/eta_z_joint_sweep.md
+/iterative_eval.md
+/pareto.md
+/*.svg
+/docs/*.svg
+/compare_out*/
+/sweep_out/
+
+# Cross-algorithm comparison baselines are regenerated on demand by
+# `compare-algorithms` (that binary is their archive). Only the two CI
+# regression fixtures are tracked; ignore every other baseline_* so a
+# comparison run does not re-stage the bulky frozen snapshots that used
+# to be force-added here.
+/baseline_*.toml
+/baseline_*.md
+!/baseline_classic.toml
+!/baseline_classic.md
+!/baseline_champion.toml
+!/baseline_champion.md
+
+# Optional: cargo-semver-checks scratch directory
+.semver-checks/
