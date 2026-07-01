@@ -229,7 +229,7 @@
     <p class="eyebrow">03 — the wall</p>
     <h2>The controller is flying blind</h2>
     <p>Here is the fact that changes everything. A vardiff <strong>never sees the miner</strong>. It can't read the hashrate off a gauge. All it ever gets is shares arriving — and shares come at random, like clicks on a Geiger counter. A miner averaging six shares a minute might send four this minute and nine the next, purely by chance.</p>
-    <p>So to tell a real slowdown from an unlucky stretch, the controller has to <strong>average over time</strong>. And that's where the wall is: the precision you can get out of that average is capped. It improves only as the square root of how many shares you collect — that is, the share rate multiplied by how long you wait. There is a floor on the noise, and no algorithm, however clever, gets under it.</p>
+    <p>So to tell a real slowdown from an unlucky stretch, the controller has to <strong>average over time</strong>. And that's where the wall is: the precision you can get out of that average is capped. It improves only with more shares to average over — and with diminishing returns, so buying real precision takes a lot more of them. There is a floor on the noise, and no algorithm, however clever, gets under it.</p>
     <p>The first thing that floor does is set a trap. Average longer and you get more precise — but you're also <strong>slower to notice a real change</strong>, because you're leaning on more old data. Precision and speed come out of one fixed budget. You cannot have both at once.</p>
 
     <figure>
@@ -510,11 +510,11 @@
     <p class="eyebrow">09 — the one lever</p>
     <h2>If you want more, turn up the rate</h2>
     <p>Everything so far has been about <em>where to sit</em> on a fixed trade-off. There is exactly one move that changes the trade-off itself — that lowers the whole curve instead of sliding along it. It isn't a cleverer algorithm. It's the target share rate: how many shares a minute you ask each miner to send.</p>
-    <p>The reason goes straight back to the floor. A controller's precision is set by how many shares it gets to count — roughly one part in the square root of <em>(share rate × window)</em>. Ask for more shares per minute and every controller sees a given change sooner and more sharply; the noise band around its estimate tightens, no matter which algorithm is underneath. This is the one knob that lowers the entire U-curve from Figure&nbsp;2, and it does it for everybody at once.</p>
+    <p>The reason goes straight back to the floor. A controller's precision is set by how many shares it gets to count. Ask for more shares per minute and every controller sees a given change sooner and more sharply; the noise band around its estimate tightens, no matter which algorithm is underneath. This is the one knob that lowers the entire U-curve from Figure&nbsp;2, and it does it for everybody at once.</p>
 
     <p>The lever isn't free: more shares per minute means more messages, which costs bandwidth. This is where Stratum V2 pays off — its share messages are far smaller on the wire than the old protocol's, so V2 buys the same tightening for less traffic. It doesn't make any controller cleverer; it lowers the floor that every controller sits on.</p>
 
-    <p>And there's a usable band, not a single right answer. Set the rate too low and the controller goes blind to small declines — the noise swallows them; set it too high and you're paying bandwidth for precision the square root has already stopped meaningfully delivering. Where the sweet spot lands depends on the pool: how much it values steady payouts against the bandwidth it's willing to spend.</p>
+    <p>And there's a usable band, not a single right answer. Set the rate too low and the controller goes blind to small declines — the noise swallows them; set it too high and you're paying bandwidth for precision the diminishing returns have already stopped meaningfully delivering. Where the sweet spot lands depends on the pool: how much it values steady payouts against the bandwidth it's willing to spend.</p>
 
     <figure>
       <div class="figbox">
@@ -590,7 +590,7 @@
   </section>
 
   <footer>
-    <p>Part one of a two-part article, in plain language. This is the <strong>why</strong> — the reasoning. Part two, <a href="./building-a-vardiff.html"><em>“Building a vardiff, part by part,”</em></a> is the <strong>how</strong>: it takes the classic controller apart and rebuilds it, piece by piece. Read part one then part two, or in either order. For anyone who wants the formal version, there's a technical report — <a href="../information-floor.md"><em>“Vardiff at the Information Floor,”</em></a> with the derivations, the hardware validation, and the exact scope of every claim — but it's there for the curious, not required reading.</p>
+    <p>Part one of a two-part article, in plain language. This is the <strong>why</strong> — the reasoning. Part two, <a href="./building-a-vardiff.html"><em>“Building a vardiff, part by part,”</em></a> is the <strong>how</strong>: it takes the classic controller apart and rebuilds it, piece by piece. Read part one then part two, or in either order. If you want the reasoning behind the numbers but not the full formalism, there's a <a href="../information-floor-primer.html"><em>primer</em></a> — a ground-up walkthrough of the estimation theory, no prior statistics assumed. And for the complete formal version, there's the technical report — <a href="../information-floor.md"><em>“Vardiff at the Information Floor,”</em></a> with the derivations, the hardware validation, and the exact scope of every claim — but both are there for the curious, not required reading.</p>
   </footer>
 
 </main>
