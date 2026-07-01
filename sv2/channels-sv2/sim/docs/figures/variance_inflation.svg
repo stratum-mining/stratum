@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="540" font-family="system-ui, sans-serif" font-size="13">
+<text x="380.0" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#222">How bad it is there: payout-variance inflation through a decline</text>
+<text x="380.0" y="43" text-anchor="middle" font-size="11" fill="#888" font-style="italic">phase-portrait.rs (generated). Relative variance ∝ 1/(r_obs·τ); inflation over the on-target floor = 1/trough. Slice at spm=6.</text>
+<line x1="78.0" y1="462.0" x2="698.0" y2="462.0" stroke="#eee"/>
+<text x="72.0" y="465.0" text-anchor="end" font-size="9" fill="#666">1.0×</text>
+<line x1="78.0" y1="418.4" x2="698.0" y2="418.4" stroke="#eee"/>
+<text x="72.0" y="421.4" text-anchor="end" font-size="9" fill="#666">1.5×</text>
+<line x1="78.0" y1="374.9" x2="698.0" y2="374.9" stroke="#eee"/>
+<text x="72.0" y="377.9" text-anchor="end" font-size="9" fill="#666">2.0×</text>
+<line x1="78.0" y1="287.8" x2="698.0" y2="287.8" stroke="#eee"/>
+<text x="72.0" y="290.8" text-anchor="end" font-size="9" fill="#666">3.0×</text>
+<line x1="78.0" y1="200.7" x2="698.0" y2="200.7" stroke="#eee"/>
+<text x="72.0" y="203.7" text-anchor="end" font-size="9" fill="#666">4.0×</text>
+<line x1="78.0" y1="113.6" x2="698.0" y2="113.6" stroke="#eee"/>
+<text x="72.0" y="116.6" text-anchor="end" font-size="9" fill="#666">5.0×</text>
+<text x="692.0" y="457.0" text-anchor="end" font-size="9.5" fill="#1e8449">1× = on-target (at the floor, no inflation)</text>
+<rect x="136.4" y="70.0" width="87.5" height="392.0" fill="#2c3e50" fill-opacity="0.06"/>
+<text x="180.1" y="84.0" text-anchor="middle" font-size="10" fill="#2c3e50" font-weight="bold">modal declines</text>
+<line x1="113.6" y1="70.0" x2="113.6" y2="462.0" stroke="#e67e22" stroke-width="1.2" stroke-dasharray="3 3"/>
+<polyline points="78.0,462.0 85.8,461.1 93.5,460.1 101.2,459.1 109.0,458.1 116.8,457.1 124.5,456.1 132.2,455.0 140.0,453.9 147.8,452.8 155.5,451.6 163.2,450.5 171.0,449.3 178.8,448.0 186.5,446.8 194.2,445.5 202.0,444.2 209.8,442.8 217.5,441.4 225.2,440.0 233.0,438.5 240.7,437.0 248.5,435.4 256.2,433.8 264.0,432.2 271.8,430.5 279.5,428.8 287.2,427.0 295.0,425.1 302.8,423.2 310.5,421.2 318.2,419.2 326.0,417.1 333.8,415.0 341.5,412.7 349.2,410.4 357.0,408.0 364.8,405.6 372.5,403.0 380.2,400.4 388.0,397.6 395.8,394.8 403.5,391.8 411.2,388.7 419.0,385.5 426.8,382.2 434.5,378.7 442.2,375.1 450.0,371.3 457.8,367.4 465.5,363.3 473.3,359.0 481.0,354.4 488.8,349.7 496.5,344.7 504.2,339.5 512.0,334.0 519.8,328.2 527.5,322.1 535.2,315.6 543.0,308.8 550.8,301.5 558.5,293.8 566.2,285.6 574.0,276.9 581.8,267.5 589.5,257.5 597.2,246.8 605.0,235.2 612.8,222.7 620.5,209.2 628.2,194.5 636.0,178.4 643.8,160.9 651.5,141.6 659.2,120.3 667.0,96.6 674.8,70.1 682.5,70.0 690.2,70.0 698.0,70.0 " fill="none" stroke="#c0392b" stroke-width="2.6"/>
+<polyline points="150.9,460.7 223.9,456.7 296.8,454.2 369.8,451.8 442.7,449.9 552.1,446.7 661.5,441.9 " fill="none" stroke="#2980b9" stroke-width="2.2" stroke-dasharray=""/>
+<polyline points="150.9,460.0 223.9,453.7 296.8,447.9 369.8,444.8 442.7,442.9 552.1,438.0 661.5,429.8 " fill="none" stroke="#2980b9" stroke-width="2.2" stroke-dasharray="5 3"/>
+<text x="657.5" y="117.6" text-anchor="end" font-size="11.5" font-weight="bold" fill="#c0392b">deadband 1/(1−d) — steep (it does nothing)</text>
+<text x="311.4" y="388.0" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#1f618d">champion — flat (it reacts; ≤~1.4× even at deep/fast)</text>
+<text x="311.4" y="403.0" text-anchor="middle" font-size="9.5" fill="#5dade2">(solid 20%/hr, dashed 40%/hr — the cap-free columns)</text>
+<rect x="78.0" y="70.0" width="620.0" height="392.0" fill="none" stroke="#999"/>
+<text x="78.0" y="476.0" text-anchor="middle" font-size="9" fill="#666">0%</text>
+<text x="150.9" y="476.0" text-anchor="middle" font-size="9" fill="#666">10%</text>
+<text x="223.9" y="476.0" text-anchor="middle" font-size="9" fill="#666">20%</text>
+<text x="296.8" y="476.0" text-anchor="middle" font-size="9" fill="#666">30%</text>
+<text x="369.8" y="476.0" text-anchor="middle" font-size="9" fill="#666">40%</text>
+<text x="442.7" y="476.0" text-anchor="middle" font-size="9" fill="#666">50%</text>
+<text x="552.1" y="476.0" text-anchor="middle" font-size="9" fill="#666">65%</text>
+<text x="661.5" y="476.0" text-anchor="middle" font-size="9" fill="#666">80%</text>
+<text x="388.0" y="494.0" text-anchor="middle" font-size="11" fill="#444">decline depth (fraction of hashrate lost)</text>
+<text x="22" y="266.0" text-anchor="middle" font-size="11" fill="#444" transform="rotate(-90 22 266.0)">payout-variance inflation × (over the on-target floor)</text>
+<text x="380.0" y="524.0" text-anchor="middle" font-size="10.5" fill="#555">Same identity as the phase portrait, read as a cost: the figure shows WHERE the failure is, this shows HOW BAD it is there. Deadband variance blows up as 1/(1−d) because it never retargets; the champion holds near 1× because it does.</text>
+</svg>

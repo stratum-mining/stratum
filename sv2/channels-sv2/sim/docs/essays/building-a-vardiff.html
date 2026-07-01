@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building a Vardiff, Part by Part</title>
+<link href="./fonts/fonts.css" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFAF6; --ink:#23252C; --ink-soft:#3D424E; --muted:#6E7480;
+    --rule:#E4E2D8; --panel:#FFFFFF;
+    --controller:#2C6FB0; --controller-soft:#E7F0F8;
+    --truth:#C07D1B; --truth-soft:#F6ECD8;
+    --danger:#BE3A2B; --danger-soft:#F6E2DD;
+    --serif:"Fraunces",Georgia,serif; --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:18px;line-height:1.7;-webkit-font-smoothing:antialiased;}
+  .paper{max-width:720px;margin:0 auto;padding:0 26px 96px;}
+  .masthead{padding:72px 0 16px;}
+  .kicker{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--controller);margin:0 0 22px;}
+  h1{font-family:var(--serif);font-optical-sizing:auto;font-weight:600;font-size:clamp(2.4rem,6.2vw,3.9rem);line-height:1.04;letter-spacing:-0.015em;margin:0 0 20px;color:var(--ink);}
+  .dek{font-family:var(--serif);font-weight:400;font-size:clamp(1.2rem,2.6vw,1.5rem);line-height:1.4;color:var(--ink-soft);margin:0 0 26px;max-width:42ch;}
+  .author{font-family:var(--mono);font-size:0.86rem;color:var(--ink-soft);margin:0 0 22px;}
+  .author .role{color:var(--muted);}
+  .byline{font-family:var(--mono);font-size:0.82rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:18px;}
+  .buildstamp{font-family:var(--mono);font-size:0.76rem;line-height:1.9;color:var(--muted);background:var(--controller-soft);border:1px solid #CFE0F0;border-radius:8px;padding:11px 15px;margin:0 0 26px;}
+  .buildstamp b{color:var(--ink-soft);font-weight:500;}
+  .buildstamp .ar{color:var(--controller);padding:0 5px;}
+  .buildstamp .sep{color:#B7BDC8;padding:0 8px;}
+  .tldr{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:26px 28px;margin:40px 0 8px;}
+  .tldr .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;}
+  .tldr p{font-size:1.06rem;margin:0;color:var(--ink-soft);}
+  section{padding:46px 0 8px;}
+  .eyebrow{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;display:flex;align-items:center;gap:12px;}
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--rule);}
+  h2{font-family:var(--serif);font-optical-sizing:auto;font-weight:600;font-size:clamp(1.55rem,3.6vw,2.15rem);line-height:1.12;letter-spacing:-0.01em;margin:0 0 16px;color:var(--ink);}
+  h3{font-family:var(--sans);font-weight:600;font-size:1.04rem;color:var(--ink);margin:26px 0 6px;}
+  p{margin:0 0 18px;color:var(--ink-soft);}
+  strong{color:var(--ink);font-weight:600;} em{font-style:italic;}
+  .lead{font-size:1.08rem;color:var(--ink);} a{color:var(--controller);}
+  code{font-family:var(--mono);font-size:0.88em;background:#F1EFE7;border-radius:4px;padding:1px 5px;color:var(--ink-soft);}
+  .pull{font-family:var(--serif);font-weight:500;font-size:clamp(1.25rem,3vw,1.7rem);line-height:1.32;color:var(--ink);border-left:3px solid var(--controller);padding:6px 0 6px 22px;margin:30px 0;}
+  .c-ctrl{color:var(--controller);font-weight:600;} .c-truth{color:var(--truth);font-weight:600;} .c-dngr{color:var(--danger);font-weight:600;}
+  figure{margin:34px 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:20px 20px 12px;}
+  .figbox svg{display:block;width:100%;height:auto;}
+  figcaption{font-family:var(--mono);font-size:0.8rem;line-height:1.55;color:var(--muted);margin-top:14px;}
+  figcaption b{color:var(--ink-soft);font-weight:500;}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 2px;vertical-align:baseline;}
+  .part{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:6px 0 4px;}
+  .part .num{font-family:var(--mono);font-size:0.78rem;color:var(--controller);border:1px solid #CFE0F0;background:var(--controller-soft);border-radius:999px;padding:3px 11px;white-space:nowrap;}
+  .fromto{font-family:var(--mono);font-size:0.82rem;color:var(--muted);margin:0 0 14px;}
+  .fromto b{color:var(--ink-soft);font-weight:500;} .fromto .arrow{color:var(--controller);padding:0 6px;}
+  .demo{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:22px 22px 18px;margin:36px 0;}
+  .demo-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:4px;}
+  .demo-title{font-family:var(--mono);font-size:0.78rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--controller);margin:0;}
+  .verdict{font-family:var(--mono);font-size:0.82rem;font-weight:500;padding:5px 13px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap;color:var(--muted);transition:background .25s,color .25s,border-color .25s;}
+  .verdict.safe{color:var(--controller);background:var(--controller-soft);border-color:#CFE0F0;}
+  .verdict.edge{color:var(--truth);background:var(--truth-soft);border-color:#EAD9B6;}
+  .verdict.spiral{color:var(--danger);background:var(--danger-soft);border-color:#E9C9C2;}
+  .buildname{font-family:var(--mono);font-size:0.82rem;color:var(--ink-soft);margin:0 0 12px;}
+  .buildname b{color:var(--controller);font-weight:500;}
+  .demo svg{display:block;width:100%;height:auto;}
+  .builder{display:grid;grid-template-columns:1fr;gap:11px;margin-top:18px;}
+  .crow{display:grid;grid-template-columns:minmax(96px,auto) 1fr;align-items:center;gap:14px;}
+  .crow .clab{font-size:0.92rem;color:var(--ink-soft);font-weight:500;}
+  .crow .clab small{display:block;font-family:var(--mono);font-size:0.68rem;color:var(--muted);font-weight:400;letter-spacing:0.02em;}
+  .seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden;background:var(--paper);width:fit-content;}
+  .seg button{font-family:var(--mono);font-size:0.78rem;border:0;background:transparent;color:var(--muted);padding:7px 15px;cursor:pointer;transition:background .2s,color .2s;}
+  .seg button.on{background:var(--controller);color:#fff;}
+  .seg button:not(.on):hover{color:var(--ink-soft);}
+  .ctl{display:grid;grid-template-columns:minmax(96px,auto) 1fr auto;align-items:center;gap:14px;margin-top:6px;}
+  .ctl label{font-size:0.92rem;color:var(--ink-soft);font-weight:500;}
+  .ctl input[type=range]{width:100%;accent-color:var(--controller);height:4px;}
+  .ctl .val{font-family:var(--mono);font-size:0.82rem;color:var(--controller);min-width:5ch;text-align:right;}
+  .demo-row{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap;}
+  .preset{font-family:var(--mono);font-size:0.76rem;border:1px solid var(--rule);background:var(--paper);color:var(--ink-soft);border-radius:999px;padding:6px 13px;cursor:pointer;}
+  .preset:hover{border-color:#CFE0F0;background:var(--controller-soft);color:var(--controller);}
+  .demo-note{font-family:var(--mono);font-size:0.78rem;line-height:1.6;color:var(--muted);margin:16px 0 0;min-height:3.4em;}
+  .recipe{background:var(--controller-soft);border:1px solid #CFE0F0;border-radius:12px;padding:24px 26px;margin:34px 0 8px;}
+  .recipe .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--controller);margin:0 0 16px;}
+  .recipe ol{margin:0;padding-left:0;list-style:none;counter-reset:step;}
+  .recipe li{position:relative;padding-left:40px;margin:0 0 16px;color:var(--ink-soft);}
+  .recipe li:last-child{margin-bottom:0;}
+  .recipe li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--controller);color:#fff;font-family:var(--mono);font-size:0.82rem;display:flex;align-items:center;justify-content:center;}
+  .recipe li b{color:var(--ink);font-weight:600;}
+  .takeaway{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:22px 26px;margin:30px 0 8px;}
+  .takeaway .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+  .takeaway p:last-child{margin-bottom:0;}
+  footer{margin-top:64px;border-top:1px solid var(--rule);padding-top:24px;}
+  footer p{font-family:var(--mono);font-size:0.8rem;color:var(--muted);}
+  @media (max-width:520px){
+    body{font-size:17px;}
+    .tldr,.recipe,.takeaway,.demo{padding:20px;}
+    .crow{grid-template-columns:1fr;gap:6px;}
+    .ctl{grid-template-columns:1fr auto;}
+    .ctl input[type=range]{grid-column:1 / -1;order:3;margin-top:2px;}
+    .ctl .val{order:2;}
+    #demoPlot text{font-size:13px;}
+  }
+  @media (prefers-reduced-motion: reduce){ .verdict{transition:none;} }
+</style>
+</head>
+<body>
+<main class="paper">
+
+  <header class="masthead">
+    <p class="kicker">Build manual &mdash; the how</p>
+    <h1>Building a vardiff, part by part</h1>
+    <p class="dek">Start from the simplest controller that works. Take it apart. Improve each piece &mdash; and find out where improving stops mattering.</p>
+    <p class="author">By Eric Price <span class="role">&middot; Senior Software Engineer, Mara</span></p>
+    <p class="buildstamp">The build, in one line:&nbsp;&nbsp; <b>simple average</b><span class="ar">&rarr;</span><b>EWMA</b> <span class="sep">&middot;</span> <b>symmetric</b><span class="ar">&rarr;</span><b>asymmetric</b> <span class="sep">&middot;</span> <b>full snap</b><span class="ar">&rarr;</span><b>partial step</b></p>
+    <p class="byline">Part two of a two-part article. This is the <strong>how</strong> &mdash; the build order. Part one, <em>&ldquo;A better vardiff,&rdquo;</em> is the <strong>why</strong>, and the place to start if you want the story of how the shape was found. (There&rsquo;s also a technical report with the proofs &mdash; there if you want it, not required.)</p>
+  </header>
+
+  <div class="tldr">
+    <p class="lbl">The short version</p>
+    <p>A vardiff controller does three jobs: it <strong>measures</strong> a miner&rsquo;s share rate, <strong>decides</strong> when a change is real, and <strong>moves</strong> the difficulty when it is. The plain &ldquo;classic&rdquo; controller mashes all three into one line of arithmetic. The way to build a good one is to pull the three apart and improve each on its own &mdash; a smoother way to measure (an <strong>EWMA</strong>), a wiser way to decide (an asymmetric <strong>sequential test</strong>), and a gentler way to move (a partial step). But there&rsquo;s a lesson we&rsquo;ll keep returning to: there&rsquo;s really just one <em>safety</em> job &mdash; keeping the difficulty from running too high &mdash; and which part does it depends on the share rate. The cleverness you can spend on measuring is capped by a hard floor, and past a certain point a fancier controller doesn&rsquo;t just stop helping &mdash; it starts to hurt.</p>
+  </div>
+
+  <!-- ===== 01 ===== -->
+  <section>
+    <p class="eyebrow">01 &mdash; the starting block</p>
+    <h2>The classic controller</h2>
+    <p class="lead">A vardiff is the little control loop a pool runs on every connection: it nudges each miner&rsquo;s difficulty up and down to keep its share rate near a chosen target &mdash; a few per minute, whether the machine is a hobby box or an industrial farm. (The companion essay, <em>&ldquo;A better vardiff,&rdquo;</em> makes the full case for why pools need this and what shape it should take; this paper assumes it.)</p>
+    <p>The controller almost everyone starts with &mdash; the one we&rsquo;ll call <strong>classic</strong> &mdash; is about as simple as a control loop gets. Every so often it looks at how fast shares have been arriving, compares that to the rate it wants, and scales the difficulty by the ratio. Shares coming in twice as fast as target? Double the difficulty. Half as fast? Halve it. That&rsquo;s essentially the whole thing, and it has run pools dependably for years &mdash; on a miner holding steady, which is most of them, most of the time.</p>
+    <p>We&rsquo;re going to treat classic as a block of clay: the honest, working baseline we reshape into something better. To reshape it, we first have to see that the one simple line it runs is quietly doing three different jobs at once.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 196" role="img" aria-label="The classic vardiff loop watches the share rate, compares it to the target, and rescales difficulty by the ratio in one fused step.">
+          <g font-family="IBM Plex Mono" font-size="12.5">
+            <rect x="44" y="64" width="150" height="62" rx="9" fill="#FFFFFF" stroke="#9AA0AC" stroke-width="1.4"/>
+            <text x="119" y="90" text-anchor="middle" fill="#23252C">watch the</text>
+            <text x="119" y="108" text-anchor="middle" fill="#23252C">share rate</text>
+            <rect x="285" y="64" width="150" height="62" rx="9" fill="#FFFFFF" stroke="#9AA0AC" stroke-width="1.4"/>
+            <text x="360" y="90" text-anchor="middle" fill="#23252C">compare to</text>
+            <text x="360" y="108" text-anchor="middle" fill="#23252C">the target</text>
+            <rect x="526" y="64" width="150" height="62" rx="9" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.6"/>
+            <text x="601" y="90" text-anchor="middle" fill="#2C6FB0">rescale</text>
+            <text x="601" y="108" text-anchor="middle" fill="#2C6FB0">difficulty</text>
+          </g>
+          <g stroke="#9AA0AC" stroke-width="1.6" fill="none" marker-end="url(#ah)">
+            <path d="M 194 95 L 281 95"/><path d="M 435 95 L 522 95"/>
+          </g>
+          <path d="M 601 126 C 601 170, 119 170, 119 130" stroke="#C9C7BD" stroke-width="1.4" fill="none" stroke-dasharray="4 4" marker-end="url(#ah2)"/>
+          <text x="360" y="186" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" fill="#9AA0AC">&hellip;and the new difficulty changes what it sees next time</text>
+          <text x="360" y="34" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">every check-in, all in one step</text>
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9AA0AC"/></marker>
+            <marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#C9C7BD"/></marker>
+          </defs>
+        </svg>
+      </div>
+      <figcaption><b>Figure 1.</b> The classic loop. Look at the rate, compare it to target, rescale the difficulty &mdash; fused into a single recurring step. Simple and reliable, and exactly the thing we&rsquo;ll take apart.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== 02 ===== -->
+  <section>
+    <p class="eyebrow">02 &mdash; three jobs in one</p>
+    <h2>Pull the loop apart</h2>
+    <p>Look closely at &ldquo;scale the difficulty by the ratio of observed rate to target,&rdquo; and three separate decisions are hiding inside it, each made implicitly and badly:</p>
+    <p>First, <strong>what is the rate, really?</strong> Shares don&rsquo;t arrive on a metronome &mdash; they&rsquo;re random, clumpy, a burst here and a gap there even from a perfectly steady miner. Turning that jittery stream into a single believable number is a <strong>measuring</strong> problem, and classic solves it with the bluntest tool available: count the shares in the last block of time and divide. Second, <strong>is this drift real, or just noise?</strong> A rate that looks 20% low for one window might be a genuine slowdown or might be three shares that happened to bunch late. Classic doesn&rsquo;t ask &mdash; it reacts to whatever the last window showed. That&rsquo;s a <strong>deciding</strong> problem. Third, <strong>how far should it move?</strong> Classic jumps the difficulty all the way to wherever the ratio points. That&rsquo;s a <strong>moving</strong> problem.</p>
+    <p>Name those three jobs, because the whole rest of this build is improving them one at a time:</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 214" role="img" aria-label="The one classic step expands into three named components: the estimator that measures, the trigger that decides, and the step that moves.">
+          <rect x="40" y="86" width="120" height="50" rx="9" fill="#F1EFE7" stroke="#9AA0AC" stroke-width="1.4"/>
+          <text x="100" y="108" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">classic:</text>
+          <text x="100" y="125" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">one step</text>
+          <path d="M 162 111 L 210 111" stroke="#9AA0AC" stroke-width="1.6" fill="none" marker-end="url(#bh)"/>
+          <text x="186" y="100" text-anchor="middle" font-family="IBM Plex Mono" font-size="16" fill="#2C6FB0">&#10807;</text>
+          <g font-family="IBM Plex Mono" font-size="12.5">
+            <rect x="224" y="58" width="150" height="106" rx="9" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+            <text x="299" y="84" text-anchor="middle" fill="#2C6FB0" font-weight="500">the estimator</text>
+            <text x="299" y="106" text-anchor="middle" fill="#6E7480">measures the</text>
+            <text x="299" y="123" text-anchor="middle" fill="#6E7480">rate from a</text>
+            <text x="299" y="140" text-anchor="middle" fill="#6E7480">noisy stream</text>
+            <rect x="404" y="58" width="150" height="106" rx="9" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+            <text x="479" y="84" text-anchor="middle" fill="#2C6FB0" font-weight="500">the trigger</text>
+            <text x="479" y="106" text-anchor="middle" fill="#6E7480">decides if a</text>
+            <text x="479" y="123" text-anchor="middle" fill="#6E7480">change is</text>
+            <text x="479" y="140" text-anchor="middle" fill="#6E7480">real enough</text>
+            <rect x="584" y="58" width="136" height="106" rx="9" fill="#FFFFFF" stroke="#2C6FB0" stroke-width="1.5"/>
+            <text x="652" y="84" text-anchor="middle" fill="#2C6FB0" font-weight="500">the step</text>
+            <text x="652" y="106" text-anchor="middle" fill="#6E7480">moves the</text>
+            <text x="652" y="123" text-anchor="middle" fill="#6E7480">difficulty,</text>
+            <text x="652" y="140" text-anchor="middle" fill="#6E7480">how far</text>
+          </g>
+          <g stroke="#CFE0F0" stroke-width="1.6" fill="none" marker-end="url(#bh2)">
+            <path d="M 374 111 L 401 111"/><path d="M 554 111 L 581 111"/>
+          </g>
+          <text x="360" y="34" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">measure &rarr; decide &rarr; move</text>
+          <text x="472" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="11.5" fill="#9AA0AC">three jobs that classic does all at once, and we&rsquo;ll do separately</text>
+          <defs>
+            <marker id="bh" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9AA0AC"/></marker>
+            <marker id="bh2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#CFE0F0"/></marker>
+          </defs>
+        </svg>
+      </div>
+      <figcaption><b>Figure 2.</b> The same work, separated. The <span class="c-ctrl">estimator</span> measures, the <span class="c-ctrl">trigger</span> decides, the <span class="c-ctrl">step</span> moves. Classic fuses them, so it can&rsquo;t improve one without disturbing the others. Separating them is the entire method of this paper.</figcaption>
+    </figure>
+    <p class="pull">The method is just this: make the three jobs separate, so each can be reasoned about &mdash; and fixed &mdash; on its own.</p>
+  </section>
+
+  <!-- ===== 03 ===== -->
+  <section>
+    <p class="eyebrow">03 &mdash; where classic hurts</p>
+    <h2>It tracks a steady miner fine &mdash; and chokes a falling one</h2>
+    <p>Point classic at a healthy miner holding steady and it does its job. But real miners sag &mdash; a chip throttling on heat, a failing board, a site curtailing power &mdash; drifting <em>down</em> over minutes, on a connection that stays up the whole time. (The companion paper, <em>&ldquo;A better vardiff,&rdquo;</em> makes the case that this gentle, partial slide &mdash; not a clean cliff &mdash; is the <em>common</em> case, and shows exactly why it&rsquo;s the dangerous one.) The gradual slide is precisely what a slow, blunt controller handles worst.</p>
+    <p>Left to lag, classic holds the difficulty too high as the hashrate falls &mdash; which starves the miner of the very shares the controller needs to notice. That self-feeding trap is the <strong class="c-dngr">death spiral</strong>, and the companion essay tells its full story (it even lets you watch a controller fall into one). Here we need only the upshot, because it&rsquo;s the failure this whole build exists to prevent: a slow controller can lag so deep into over-difficulty that the share stream trips the pool&rsquo;s disconnect line, and a <em>live</em> miner gets dropped for sending too little &mdash; its hardware fine the entire time.</p>
+
+    <p>So there are two things we might try to improve: track the rate <strong>more precisely</strong>, or <strong>never spiral on a decline</strong>. Hold onto both &mdash; we&rsquo;ll work on each as we rebuild the three parts. Which one actually pays off, and which turns out to be mostly a fool&rsquo;s errand, is the through-line of everything below; the answer is more lopsided than you&rsquo;d expect, and the reason is a hard limit we run into in the very next part.</p>
+  </section>
+
+  <!-- ===== 04 ===== -->
+  <section>
+    <p class="eyebrow">04 &mdash; part one &middot; the estimator</p>
+    <h2>From a plain average to a fading memory</h2>
+    <p class="fromto"><b>simple moving average</b> <span class="arrow">&rarr;</span> <b>EWMA</b> <span style="color:#9AA0AC">(exponentially weighted moving average)</span></p>
+    <p>The estimator&rsquo;s job is to turn the random trickle of shares into one trustworthy number for the current rate. Classic does it the obvious way: pick a window &mdash; say the last few minutes &mdash; count the shares that fell inside it, and divide by the time. A <strong>simple moving average</strong>. It works, but it has two ugly habits.</p>
+    <p>First, it has a <strong>hard edge</strong>. Every share inside the window counts fully and equally; the instant a share ages past the window&rsquo;s far edge, it counts for nothing. So a burst of shares enters the window all at once, rides at full weight for the whole window length, and then &mdash; one window-length later &mdash; <em>all drops out together</em> as the clump crosses the trailing edge in a single step. The estimate lurches at that exit, not because the miner changed, but because the window swept the whole burst out at once. Second, it forces a bad either-or: a <em>short</em> window is quick to react but jumpy (few shares, lots of noise); a <em>long</em> window is calm but sluggish (it keeps averaging in old, stale data long after things have changed).</p>
+    <p>The upgrade is a small idea with a clumsy name: the <strong>exponentially weighted moving average</strong>, or EWMA. Instead of a hard window, keep one running estimate and, each time a fresh reading comes in, nudge it a little of the way toward that reading:</p>
+    <p style="text-align:center;font-family:var(--mono);font-size:0.92rem;color:var(--ink-soft);background:#F1EFE7;border-radius:8px;padding:14px;">new estimate &nbsp;=&nbsp; (a little of) the latest reading &nbsp;+&nbsp; (mostly) the old estimate</p>
+    <p>That one line quietly fixes both habits. Old data doesn&rsquo;t drop off a cliff &mdash; it <em>fades</em>, each reading counting a bit less than the one after it, smoothly into the past. And there&rsquo;s no window to choose anymore, just a single dial: how big &ldquo;a little&rdquo; is. A big nudge means the estimate is mostly the latest reading &mdash; quick, but jumpy. A small nudge means it leans on its long memory &mdash; calm, but slow. One knob, sliding between the same two extremes the window forced on us, but smoothly and without the edge.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 224" role="img" aria-label="Two ways of weighting past share readings. The simple average gives every reading in a window equal weight then zero; the EWMA fades smoothly, recent readings counting most.">
+          <text x="60" y="26" font-family="IBM Plex Mono" font-size="12" fill="#6E7480">SIMPLE AVERAGE &mdash; equal, then a cliff</text>
+          <line x1="60" y1="148" x2="330" y2="148" stroke="#C9C7BD" stroke-width="1"/>
+          <g fill="#9AA0AC">
+            <rect x="70" y="68" width="22" height="80"/><rect x="98" y="68" width="22" height="80"/>
+            <rect x="126" y="68" width="22" height="80"/><rect x="154" y="68" width="22" height="80"/>
+            <rect x="182" y="68" width="22" height="80"/><rect x="210" y="68" width="22" height="80"/>
+          </g>
+          <g fill="#E4E2D8"><rect x="238" y="144" width="22" height="4"/><rect x="266" y="144" width="22" height="4"/><rect x="294" y="144" width="22" height="4"/></g>
+          <line x1="232" y1="56" x2="232" y2="156" stroke="#BE3A2B" stroke-width="1.3" stroke-dasharray="3 3"/>
+          <text x="60" y="170" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC">now</text>
+          <text x="318" y="170" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">older &rarr;</text>
+          <text x="232" y="186" font-family="IBM Plex Mono" font-size="10.5" fill="#BE3A2B" text-anchor="middle">edge: everything past here</text>
+          <text x="232" y="200" font-family="IBM Plex Mono" font-size="10.5" fill="#BE3A2B" text-anchor="middle">counts for nothing</text>
+          <text x="400" y="26" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0">EWMA &mdash; a smooth fade</text>
+          <line x1="400" y1="148" x2="690" y2="148" stroke="#C9C7BD" stroke-width="1"/>
+          <g fill="#2C6FB0">
+            <rect x="410" y="62"  width="20" height="86"/><rect x="436" y="78"  width="20" height="70"/>
+            <rect x="462" y="94"  width="20" height="54"/><rect x="488" y="108" width="20" height="40"/>
+            <rect x="514" y="119" width="20" height="29"/><rect x="540" y="127" width="20" height="21"/>
+            <rect x="566" y="133" width="20" height="15"/><rect x="592" y="137" width="20" height="11"/>
+            <rect x="618" y="140" width="20" height="8"/><rect x="644" y="142" width="20" height="6"/>
+            <rect x="670" y="143" width="16" height="5"/>
+          </g>
+          <path d="M 420 62 C 480 94, 560 136, 686 144" fill="none" stroke="#2C6FB0" stroke-width="1.4" opacity="0.5"/>
+          <text x="400" y="170" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC">now</text>
+          <text x="686" y="170" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">older &rarr;</text>
+          <text x="545" y="186" font-family="IBM Plex Mono" font-size="10.5" fill="#2C6FB0" text-anchor="middle">recent counts most; nothing</text>
+          <text x="545" y="200" font-family="IBM Plex Mono" font-size="10.5" fill="#2C6FB0" text-anchor="middle">ever drops off a cliff</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 3.</b> How each estimator weighs the past. <span class="swatch" style="background:#9AA0AC"></span>The simple average counts every reading in its window equally, then drops it to zero at the edge &mdash; so the estimate jumps when old data falls out. <span class="swatch" style="background:#2C6FB0"></span>The EWMA fades the past smoothly: one dial sets how fast, and there&rsquo;s no edge to lurch on.</figcaption>
+    </figure>
+
+    <p>And here is the catch that the companion paper makes its centerpiece, so we&rsquo;ll only state it: that one dial can&rsquo;t be cheated. How many shares you&rsquo;ve gathered sets a hard <strong>floor</strong> on precision &mdash; a longer memory is steadier but laggier, a shorter one quicker but noisier, and the budget you&rsquo;re spending between them is fixed by the share rate, not by how clever the estimator is. No estimator gets under that floor; a simple average and an EWMA tuned to the same memory sit at essentially the same point on it. (<em>&ldquo;A better vardiff&rdquo;</em> draws this exact trade, and the floor beneath it, in full.) So choose the EWMA for what it genuinely gives &mdash; smoothness, one honest dial, no edge effects &mdash; not in any hope of out-measuring the floor. That hope is the first thing the next two parts will teach you to drop.</p>
+  </section>
+
+  <!-- ===== 05 ===== -->
+  <section>
+    <p class="eyebrow">05 &mdash; part two &middot; the trigger</p>
+    <h2>From snap judgments to weighing evidence &mdash; then a thumb on the scale</h2>
+    <p class="fromto"><b>react to each window</b> <span class="arrow">&rarr;</span> <b>accumulate evidence</b> (a CUSUM) <span class="arrow">&rarr;</span> <b>make it lopsided</b></p>
+    <p>The estimator hands us a number. The trigger&rsquo;s job is to decide whether that number has drifted far enough from target to actually move the difficulty. This part comes in two upgrades, and the second is where this build&rsquo;s safety comes from &mdash; at least while shares are plentiful (Section 7 has the rest of that story).</p>
+
+    <h3>Upgrade A &mdash; stop judging each window alone</h3>
+    <p>Classic decides fresh every check-in: is the rate off <em>right now?</em> If so, move. The problem is that a single window is a noisy witness. Demand a big drift before acting and you&rsquo;re slow to catch a real change; act on a small one and you&rsquo;ll fire constantly on noise that means nothing. Either way you&rsquo;re throwing away something you already have &mdash; the <em>history</em>. A rate that reads a little low this window and a little low last window and a little low the window before is telling you something three separate snap-judgments each shrug off.</p>
+    <p>The fix is a method called a <strong>CUSUM</strong> &mdash; short for &ldquo;cumulative sum,&rdquo; which is exactly what it is. Instead of asking &ldquo;is the rate off now?&rdquo; keep a running tally of evidence. Every window the rate looks low, add to the tally; every window it looks high, subtract. One-off noise pushes the tally up and down around zero and cancels out. But a <em>genuine</em>, persistent drift pushes it the same direction over and over, and the tally climbs steadily until it crosses a line &mdash; and <em>that</em> is when you fire. A small change you couldn&rsquo;t trust in any one window becomes undeniable once its evidence has piled up. You react to the <em>weight</em> of evidence, not the last glance.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 244" role="img" aria-label="Top: reacting to each noisy window crosses a threshold by accident and fires falsely. Bottom: a cumulative tally lets noise cancel while a real drift builds steadily to the line.">
+          <!-- top: per-window -->
+          <text x="60" y="24" font-family="IBM Plex Mono" font-size="12" fill="#9AA0AC">EACH WINDOW ALONE &mdash; noise trips it</text>
+          <line x1="60" y1="74" x2="680" y2="74" stroke="#BE3A2B" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <text x="684" y="88" font-family="IBM Plex Mono" font-size="10" fill="#BE3A2B" text-anchor="end">fire line</text>
+          <polyline points="70,58 100,40 130,66 160,36 190,62 220,46 250,70 280,42 310,60 340,50 370,64 400,44 430,58 460,52 490,66 520,46 550,60 580,50 610,64 640,48 670,58" fill="none" stroke="#9AA0AC" stroke-width="1.6"/>
+          <circle cx="160" cy="36" r="4" fill="#BE3A2B"/><circle cx="280" cy="42" r="4" fill="#BE3A2B"/>
+          <text x="225" y="104" font-family="IBM Plex Mono" font-size="10.5" fill="#BE3A2B" text-anchor="middle">false fires on lucky bursts &mdash; no real change</text>
+          <!-- bottom: cumulative -->
+          <text x="60" y="150" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0">A CUMULATIVE TALLY &mdash; evidence builds</text>
+          <line x1="60" y1="196" x2="680" y2="196" stroke="#C9C7BD" stroke-width="1"/>
+          <line x1="60" y1="172" x2="680" y2="172" stroke="#2C6FB0" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <text x="684" y="188" font-family="IBM Plex Mono" font-size="10" fill="#2C6FB0" text-anchor="end">fire line</text>
+          <!-- noise-cancel wiggle then steady climb after drift starts -->
+          <polyline points="70,196 100,192 130,197 160,190 190,195 220,193 250,196 280,191 310,196 340,188 370,182 400,176 430,170 460,164" fill="none" stroke="#2C6FB0" stroke-width="2"/>
+          <line x1="340" y1="150" x2="340" y2="200" stroke="#C07D1B" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <text x="340" y="216" font-family="IBM Plex Mono" font-size="10.5" fill="#C07D1B" text-anchor="middle">real decline starts here</text>
+          <circle cx="450" cy="166" r="4" fill="#2C6FB0"/>
+          <text x="540" y="146" font-family="IBM Plex Mono" font-size="10.5" fill="#2C6FB0" text-anchor="middle">noise cancels; the real drift</text>
+          <text x="540" y="160" font-family="IBM Plex Mono" font-size="10.5" fill="#2C6FB0" text-anchor="middle">climbs to the line, then fires</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 4.</b> Why accumulate. <span class="swatch" style="background:#9AA0AC"></span>Judging each window on its own, a couple of lucky bursts cross the line and fire on nothing. <span class="swatch" style="background:#2C6FB0"></span>A running tally lets noise cancel itself out, while a real, persistent decline (starting at the <span class="c-truth">amber line</span>) builds steadily until the evidence is undeniable.</figcaption>
+    </figure>
+
+    <h3>Upgrade B &mdash; the two directions are not equal</h3>
+    <p>So far we&rsquo;ve made the trigger wiser, not safer. The safety upgrade is one fact: <strong>raising the difficulty too far and lowering it too far are not equally dangerous</strong>. The companion essay spends its heart on <em>why</em>; here we take that as given and put it to work.</p>
+    <p>Set the bar too <em>low</em> and the error is benign and self-correcting; set it too <em>high</em> and you&rsquo;ve taken the first step of the spiral from Section 3. One side heals, the other digs in &mdash; so the trigger shouldn&rsquo;t weigh them the same. Make it <strong class="c-ctrl">eager to ease</strong> (quick to lower difficulty on the slightest sign the miner is fading) and <strong class="c-dngr">reluctant to tighten</strong> (demanding much stronger evidence before it raises the bar): a small thumb on the scale, always pressing toward the safe side. This one-sided reluctance is what separated the good controllers from the bad. The obvious reason for it &mdash; that easing fast &ldquo;saves wasted work&rdquo; &mdash; is a red herring; the companion essay shows there&rsquo;s no wasted work to save. Here we don&rsquo;t re-argue that &mdash; we just build the asymmetry in.</p>
+    <p>It costs almost nothing on a healthy miner and it is decisive on a failing one. When the hashrate sags, an eager-to-ease trigger lowers the bar fast enough to keep the share stream alive &mdash; so it keeps <em>seeing</em>, and never enters the spiral. The reluctant-to-tighten half guards the same edge from the other direction: when the trigger is slow to raise the bar and the miner was actually fine, it errs into the harmless too-low side, never the dangerous too-high one.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 230" role="img" aria-label="Two share-rate axes with the target marked. The symmetric trigger places its tighten and ease thresholds equally far from target. The asymmetric trigger keeps the ease threshold close to target (a small drop triggers it) but pushes the tighten threshold far above (a large overshoot is required), so it reacts to the dangerous low-rate side fast and tolerates the safe high-rate side.">
+          <!-- shared y-axis legend (rate runs high above target, low below) -->
+          <text x="40" y="44" font-family="IBM Plex Mono" font-size="9.5" fill="#9AA0AC">rate high</text>
+          <text x="40" y="196" font-family="IBM Plex Mono" font-size="9.5" fill="#9AA0AC">rate low</text>
+          <text x="22" y="120" font-family="IBM Plex Mono" font-size="9.5" fill="#9AA0AC" transform="rotate(-90 22 120)" text-anchor="middle">observed share rate</text>
+
+          <!-- ===== SYMMETRIC (left) ===== -->
+          <text x="180" y="22" font-family="IBM Plex Mono" font-size="12" fill="#9AA0AC" text-anchor="middle">SYMMETRIC &mdash; equal both ways</text>
+          <line x1="180" y1="36" x2="180" y2="200" stroke="#C9C7BD" stroke-width="1.4"/>
+          <!-- target line -->
+          <line x1="120" y1="115" x2="240" y2="115" stroke="#23252C" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <text x="252" y="118" font-family="IBM Plex Mono" font-size="10" fill="#23252C">target</text>
+          <!-- tighten threshold (safe / high side), equal distance above -->
+          <line x1="132" y1="85" x2="228" y2="85" stroke="#9AA0AC" stroke-width="2"/>
+          <text x="180" y="74" font-family="IBM Plex Mono" font-size="9.5" fill="#9AA0AC" text-anchor="middle">tighten if rate this high</text>
+          <!-- ease threshold (danger / low side), equal distance below -->
+          <line x1="132" y1="145" x2="228" y2="145" stroke="#9AA0AC" stroke-width="2"/>
+          <text x="180" y="163" font-family="IBM Plex Mono" font-size="9.5" fill="#9AA0AC" text-anchor="middle">ease only if rate this low</text>
+          <text x="180" y="218" font-family="IBM Plex Mono" font-size="10.5" fill="#BE3A2B" text-anchor="middle">treats the trap like the safe side</text>
+
+          <!-- ===== ASYMMETRIC (right) ===== -->
+          <text x="510" y="22" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" text-anchor="middle">ASYMMETRIC &mdash; thumb on the scale</text>
+          <line x1="510" y1="36" x2="510" y2="200" stroke="#C9C7BD" stroke-width="1.4"/>
+          <!-- target line -->
+          <line x1="450" y1="115" x2="570" y2="115" stroke="#23252C" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <text x="582" y="118" font-family="IBM Plex Mono" font-size="10" fill="#23252C">target</text>
+          <!-- tighten threshold pushed FAR above (reluctant) — much farther than symmetric's 83 -->
+          <line x1="462" y1="52" x2="558" y2="52" stroke="#BE3A2B" stroke-width="2.4"/>
+          <text x="510" y="45" font-family="IBM Plex Mono" font-size="9.5" fill="#BE3A2B" text-anchor="middle">tightens only on a big overshoot</text>
+          <!-- ease threshold HUGGING target (eager) — much closer than symmetric's 147 -->
+          <line x1="462" y1="127" x2="558" y2="127" stroke="#2C6FB0" stroke-width="2.4"/>
+          <text x="510" y="141" font-family="IBM Plex Mono" font-size="9.5" fill="#2C6FB0" text-anchor="middle">eases on the slightest dip</text>
+          <text x="510" y="218" font-family="IBM Plex Mono" font-size="10.5" fill="#2C6FB0" text-anchor="middle">every error lands on the safe side</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 5.</b> The one safety upgrade, against the target rate. <span class="swatch" style="background:#9AA0AC"></span>A symmetric trigger sets its ease and tighten thresholds equally far from target &mdash; it waits as long to react to a dangerous drop as to a harmless rise. <span class="swatch" style="background:#2C6FB0"></span>An asymmetric trigger keeps the ease threshold <em>close</em> to target (the slightest dip toward starvation triggers it) but pushes the tighten threshold <em>far</em> above (it tolerates a large overshoot before raising the bar) &mdash; so every error it makes lands on the safe, high-rate side. <em>(Schematic: the trigger weighs accumulated evidence, not a fixed rate level &mdash; tightening requires roughly 8&times; more of it than easing. The exact form is derived in the technical report.)</em></figcaption>
+    </figure>
+    <p class="pull">Safety isn&rsquo;t a part you bolt on. It&rsquo;s a job &mdash; protecting the over-difficulty side &mdash; and which part holds it shifts with the share rate.</p>
+  </section>
+
+  <!-- ===== 06 ===== -->
+  <section>
+    <p class="eyebrow">06 &mdash; part three &middot; the step</p>
+    <h2>From a full snap to a partial move &mdash; and a myth to retire</h2>
+    <p class="fromto"><b>jump all the way</b> <span class="arrow">&rarr;</span> <b>move part of the way</b></p>
+    <p>The trigger has decided to move. The last job is <em>how far</em>. Classic snaps the difficulty all the way to wherever the new estimate points. But the estimate is never perfect &mdash; it carries the noise we met in Part 1 &mdash; so a full jump chases that noise. Overshoot one way, then the next reading pulls it back the other, and the difficulty hunts back and forth around the right value instead of settling on it.</p>
+    <p>The upgrade is simply to move <em>part</em> of the way each time &mdash; a <strong>partial step</strong>. Take a fraction of the distance to where the estimate says, let the next reading refine it, take another fraction. It converges a little more slowly, but it glides into place instead of overshooting and ringing. One dial again: a big step is fast but bouncy; a small step is calm but unhurried.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 226" role="img" aria-label="After a change, a full snap overshoots the target and oscillates before settling; a partial step glides in smoothly without overshoot.">
+          <line x1="64" y1="38" x2="64" y2="176" stroke="#C9C7BD" stroke-width="1"/>
+          <line x1="64" y1="176" x2="680" y2="176" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="64" y="196" font-family="IBM Plex Mono" font-size="11.5" fill="#6E7480">time after a move &rarr;</text>
+          <line x1="64" y1="100" x2="680" y2="100" stroke="#C9C7BD" stroke-width="1" stroke-dasharray="2 4"/>
+          <text x="676" y="94" font-family="IBM Plex Mono" font-size="10.5" fill="#9AA0AC" text-anchor="end">target</text>
+          <!-- snap: overshoot + ring -->
+          <path d="M 80 160 C 130 60, 180 56, 220 78 C 260 100, 300 130, 340 112 C 380 98, 410 88, 450 98 C 490 105, 520 102, 560 100 L 680 100" fill="none" stroke="#BE3A2B" stroke-width="2.4"/>
+          <text x="210" y="48" font-family="IBM Plex Mono" font-size="11" fill="#BE3A2B">full snap: overshoots &amp; rings</text>
+          <!-- partial: smooth glide -->
+          <path d="M 80 160 C 160 128, 260 108, 360 102 C 460 99, 560 100, 680 100" fill="none" stroke="#2C6FB0" stroke-width="2.4"/>
+          <text x="470" y="124" font-family="IBM Plex Mono" font-size="11" fill="#2C6FB0">partial step: glides in</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 6.</b> How far to move. <span class="swatch" style="background:#BE3A2B"></span>A full snap jumps the whole distance, overshoots the target, and rings before settling. <span class="swatch" style="background:#2C6FB0"></span>A partial step takes a fraction at a time and glides in. The difference is purely <em>smoothness</em> &mdash; which is the point of what comes next.</figcaption>
+    </figure>
+
+    <p>And one thing the step pointedly does <em>not</em> need: any safety logic of its own. You might expect raising the difficulty to be the costly direction &mdash; throwing away the partly-finished work aimed at the old, lower bar &mdash; which would make the step lopsided like the trigger. It isn&rsquo;t: a share is validated against the difficulty it was <em>issued</em> at, so moving the bar rejects nothing already in flight. Raising and lowering are equally free. (The essay runs this down with the receipts &mdash; it even watches the rejected-share stream to confirm there&rsquo;s nothing there to reclaim.) So the step is the one part with no safety role at all: choose it for the settling in Figure&nbsp;6, and nothing more.</p>
+  </section>
+
+  <!-- ===== 07 ===== -->
+  <section>
+    <p class="eyebrow">07 &mdash; assembling it</p>
+    <h2>Who keeps the miner safe changes with the share rate</h2>
+    <p>Snap the three upgraded parts together and you almost have it &mdash; but first, a wiring detail the &ldquo;assembly line&rdquo; picture quietly hides. The pipeline mostly runs one way: measure, decide, move. The exception turns on something you already know &mdash; a higher bar means sparser shares, since a miner clears a harder target less often. So the instant the step raises the difficulty, the share rate drops &mdash; not because the miner faltered, but because the controller just moved the goalposts. An estimator that isn&rsquo;t told will read that dip as the miner fading. So the step sends one signal back every time it fires: <em>that drop is me, not the miner.</em> Pulling the three jobs apart didn&rsquo;t make them independent &mdash; it left exactly one wire running backward, the unavoidable price of measuring something you&rsquo;re also moving, now named and in the open instead of buried inside a single loop.</p>
+    <p>The other assembly subtlety is the prettier one: <strong>which part is responsible for safety depends on how many shares are coming in.</strong></p>
+    <p>At a healthy share rate, the <span class="c-ctrl">trigger</span> carries it. Enough evidence is flowing that the asymmetric, evidence-weighing trigger from Part 2 can do its job &mdash; tell a real decline from noise and lean to the safe side. But when shares are <em>sparse</em> &mdash; a small miner, or one already partway into a decline &mdash; the trigger runs out of the one thing it needs. With so few readings arriving, there simply isn&rsquo;t enough evidence to accumulate, and the sequential test can no longer function: it quietly collapses back into a plain, <em>symmetric</em> trigger &mdash; the kind from before Part 2, with no directional caution at all. Right where a falling miner is most fragile, the part that was supposed to protect it goes neutral.</p>
+    <p>So at sparse rates the safety job hands off to the <span class="c-ctrl">estimator</span> &mdash; and this is where its slowness, the apparent weakness from Part 1, turns out to be the point. A deliberately slow estimator&rsquo;s belief moves so gently that it simply cannot lurch upward fast enough to cross the bar and fire a tightening move. It doesn&rsquo;t protect the miner by leaning to the safe side; it protects the miner by being too <em>inert</em> to make the dangerous move at all. So the over-difficulty direction is guarded either way &mdash; by the trigger&rsquo;s asymmetry where shares are plentiful enough for it to work, and by the estimator&rsquo;s sluggishness where they aren&rsquo;t &mdash; with the handoff falling at a chosen share-rate seam.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 214" role="img" aria-label="Across share rate, a seam divides who carries safety: at sparse rates the slow estimator guards the miner; at healthy rates the asymmetric trigger does.">
+          <line x1="64" y1="150" x2="680" y2="150" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="64" y="172" font-family="IBM Plex Mono" font-size="11.5" fill="#6E7480">sparse: ~4 spm &larr;</text>
+          <text x="680" y="172" font-family="IBM Plex Mono" font-size="11.5" fill="#6E7480" text-anchor="end">&rarr; ~30 spm: plenty</text>
+          <!-- seam -->
+          <line x1="372" y1="48" x2="372" y2="150" stroke="#23252C" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <text x="372" y="40" font-family="IBM Plex Mono" font-size="11" fill="#23252C" text-anchor="middle">the seam &middot; 6 spm</text>
+          <!-- left region -->
+          <rect x="80" y="64" width="266" height="66" rx="10" fill="#E7F0F8" stroke="#2C6FB0" stroke-width="1.3"/>
+          <text x="213" y="90" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" font-weight="500">the slow ESTIMATOR guards</text>
+          <text x="213" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#3D424E">too gentle to be spooked into a tighten</text>
+          <!-- right region -->
+          <rect x="398" y="64" width="266" height="66" rx="10" fill="#E7F0F8" stroke="#2C6FB0" stroke-width="1.3"/>
+          <text x="531" y="90" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#2C6FB0" font-weight="500">the asymmetric TRIGGER guards</text>
+          <text x="531" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#3D424E">enough evidence to judge safely</text>
+          <text x="372" y="200" font-family="IBM Plex Mono" font-size="10.5" fill="#9AA0AC" text-anchor="middle">the danger is always over-difficulty; only the part that prevents it changes</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 7.</b> The safety hand-off. The thing being guarded against &mdash; over-difficulty, the spiral &mdash; never changes. What changes across the <b>seam</b> is who guards it: the <span class="c-ctrl">asymmetric trigger</span> where shares are plentiful enough to judge, the <span class="c-ctrl">slow estimator</span> where they&rsquo;re too sparse and the trigger could be fooled.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== 08 ===== -->
+  <section>
+    <p class="eyebrow">08 &mdash; build it yourself</p>
+    <h2>Watch each upgrade earn its keep</h2>
+    <p>You met this scene in the companion paper &mdash; a miner sliding, the <span class="c-dngr">disconnect floor</span> beneath it &mdash; where a single responsiveness dial decided whether a controller lived or spiraled. Here the controller is <em>opened up</em>: the three parts you just built, each on its own switch. A miner&rsquo;s hashrate (<span class="c-truth">the amber line</span>) slides downward over the better part of an hour; what the pool sees is the <span class="c-ctrl">share rate</span>, and if it falls through the floor the pool drops a miner that&rsquo;s still running. Start from the classic build and turn the upgrades on one at a time &mdash; and watch not just <em>whether</em> the connection survives, but <em>which part</em> does the saving.</p>
+
+    <div class="demo">
+      <div class="demo-head">
+        <p class="demo-title">Build &amp; test a controller</p>
+        <span id="verdict" class="verdict">&mdash;</span>
+      </div>
+      <p id="buildName" class="buildname">Now testing: <b>the classic controller</b></p>
+
+      <svg id="demoPlot" viewBox="0 0 720 300" role="img" aria-label="A declining hashrate and the share rate the controller produces, against a disconnect floor.">
+        <!-- y axis -->
+        <line x1="64" y1="34" x2="64" y2="250" stroke="#C9C7BD" stroke-width="1"/>
+        <line x1="64" y1="250" x2="676" y2="250" stroke="#C9C7BD" stroke-width="1"/>
+        <!-- target line at 100% (y=53.6) -->
+        <line x1="64" y1="54" x2="676" y2="54" stroke="#C9C7BD" stroke-width="1" stroke-dasharray="2 5"/>
+        <text x="672" y="48" font-family="IBM Plex Mono" font-size="11" fill="#9AA0AC" text-anchor="end">target rate</text>
+        <!-- disconnect floor at 36% (y=179.3) -->
+        <line x1="64" y1="179" x2="676" y2="179" stroke="#BE3A2B" stroke-width="1.3" stroke-dasharray="5 4"/>
+        <text x="68" y="173" font-family="IBM Plex Mono" font-size="11" fill="#BE3A2B">disconnect floor</text>
+        <!-- y ticks -->
+        <text x="58" y="58" font-family="IBM Plex Mono" font-size="10.5" fill="#9AA0AC" text-anchor="end">100%</text>
+        <text x="58" y="156" font-family="IBM Plex Mono" font-size="10.5" fill="#9AA0AC" text-anchor="end">50%</text>
+        <text x="58" y="253" font-family="IBM Plex Mono" font-size="10.5" fill="#9AA0AC" text-anchor="end">0</text>
+        <text x="64" y="272" font-family="IBM Plex Mono" font-size="11" fill="#6E7480">time &rarr;</text>
+        <!-- traces (filled by script) -->
+        <path id="hashTrace" d="" fill="none" stroke="#C07D1B" stroke-width="2.4"/>
+        <path id="shareTrace" d="" fill="none" stroke="#2C6FB0" stroke-width="2.6"/>
+        <text id="hashEndLabel" x="0" y="0" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B" text-anchor="end"></text>
+        <text id="shareEndLabel" x="0" y="0" font-family="IBM Plex Mono" font-size="11" fill="#2C6FB0" text-anchor="end"></text>
+        <!-- legend -->
+        <g font-family="IBM Plex Mono" font-size="11">
+          <rect x="430" y="28" width="10" height="10" rx="2" fill="#C07D1B"/>
+          <text x="446" y="37" fill="#6E7480">true hashrate</text>
+          <rect x="556" y="28" width="10" height="10" rx="2" fill="#2C6FB0"/>
+          <text x="572" y="37" fill="#6E7480">share rate</text>
+        </g>
+      </svg>
+
+      <div class="builder">
+        <div class="crow">
+          <span class="clab">Estimator<small>how it measures</small></span>
+          <span class="seg" data-group="est">
+            <button data-val="simpleavg" class="on">simple average</button>
+            <button data-val="ewma">EWMA</button>
+          </span>
+        </div>
+        <div class="crow">
+          <span class="clab">Trigger<small>how it decides</small></span>
+          <span class="seg" data-group="trig">
+            <button data-val="sym" class="on">symmetric</button>
+            <button data-val="asym">asymmetric</button>
+          </span>
+        </div>
+        <div class="crow">
+          <span class="clab">Step<small>how far it moves</small></span>
+          <span class="seg" data-group="step">
+            <button data-val="snap" class="on">full snap</button>
+            <button data-val="partial">partial</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="ctl">
+        <label for="sev">Decline depth</label>
+        <input id="sev" type="range" min="25" max="80" step="1" value="72">
+        <span id="sevVal" class="val">&minus;72%</span>
+      </div>
+
+      <div class="demo-row">
+        <button class="preset" data-preset="classic">&#8635; reset to classic</button>
+        <button class="preset" data-preset="ship">jump to the shipped build</button>
+      </div>
+
+      <p id="demoNote" class="demo-note"></p>
+    </div>
+
+    <p>Two things show up immediately. The upgrade that decides whether the connection lives or dies is the <strong>asymmetric trigger</strong> &mdash; flip it on a deep decline and a drop becomes a ride. The EWMA estimator, by contrast, only <em>steadies</em> the share trace (watch the jitter smooth out when you switch it on); turn it on under the symmetric trigger and the miner still drops, exactly as the floor demands &mdash; a better estimator can&rsquo;t get you under it, so it can&rsquo;t save a steep fall on its own. And the step? It changes how the share rate <em>settles</em> &mdash; full snap overshoots and ripples, partial glides &mdash; but never whether the miner survives. Two caveats in fairness: the demo is schematic (the gaps between builds are drawn larger than life for clarity), and the step&rsquo;s safety-neutrality here is built in rather than discovered. But the three directions it teaches are the real ones &mdash; <span class="c-ctrl">trigger</span> for life-or-death, <span class="c-ctrl">estimator</span> for steadiness, <span class="c-ctrl">step</span> for comfort.</p>
+  </section>
+
+  <!-- ===== 09 ===== -->
+  <section>
+    <p class="eyebrow">09 &mdash; knowing when to stop</p>
+    <h2>The upgrade you should <em>not</em> make</h2>
+    <p>With the three parts in place and the seam handled, the controller is good &mdash; and the theory paper says it&rsquo;s about as good as anything can be, because it&rsquo;s sitting on the precision floor. That&rsquo;s exactly when the temptation to keep going is strongest, so it&rsquo;s worth naming the next upgrade and why to refuse it.</p>
+    <p>The obvious move is a cleverer estimator. Our EWMA only tracks the <em>level</em> of the rate; why not also track its <strong>slope</strong> &mdash; notice that the hashrate is trending down and lean into the trend, reacting before the level has even finished falling? It sounds like a clean win, and we built one to check.</p>
+    <p>It is not a win, for two reasons that compound. First, the gain barely exists. Handed the decline&rsquo;s true slope for free, a trend-aware tracker beat the plain one by only about five percent &mdash; and a real one, which has to learn the slope from the same sparse, noisy shares, clawed back almost none of even that. The floor isn&rsquo;t quite untouchable on a decline; it&rsquo;s just that slipping under it buys a sliver, and only if you cheat. Second, and worse: a slope estimate is a <em>jittery</em> thing on sparse data. A run of unlucky readings can make the trend estimate swing <strong>positive</strong> &mdash; the tracker briefly believes the miner is <em>rising</em> &mdash; and on that belief it fires a <strong class="c-dngr">tightening move</strong>, raising the bar on a miner that&rsquo;s actually falling. That is the precise first step of the spiral, the one move Section 7&rsquo;s slow estimator was safe <em>because it structurally could not make</em>. So the clever estimator reintroduces, right in the sparse corner where it&rsquo;s most dangerous, the exact failure we spent the whole build engineering out &mdash; in exchange for an improvement the floor guarantees is negligible. And it isn&rsquo;t the only &ldquo;cleverer algorithm&rdquo; that fails this way: the companion paper takes up the other natural one &mdash; letting the averaging window <em>chase</em> the share rate &mdash; and finds the same thing, that it moves only smoothness, never safety. Two different roads to sophistication, the same dead end.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 226" role="img" aria-label="A slope-chasing estimator on sparse noisy data swings its trend positive, predicts a rise, and fires a tightening move on a falling miner; the slow estimator cannot.">
+          <line x1="64" y1="36" x2="64" y2="176" stroke="#C9C7BD" stroke-width="1"/>
+          <line x1="64" y1="176" x2="680" y2="176" stroke="#C9C7BD" stroke-width="1"/>
+          <text x="64" y="196" font-family="IBM Plex Mono" font-size="11.5" fill="#6E7480">sparse, noisy share readings over time &rarr;</text>
+          <!-- true gentle decline -->
+          <path d="M 80 84 L 680 132" fill="none" stroke="#C07D1B" stroke-width="2.2"/>
+          <text x="80" y="76" font-family="IBM Plex Mono" font-size="11" fill="#C07D1B">true hashrate: drifting down</text>
+          <!-- noisy readings -->
+          <g fill="#9AA0AC"><circle cx="120" cy="96" r="3"/><circle cx="170" cy="78" r="3"/><circle cx="220" cy="104" r="3"/><circle cx="270" cy="86" r="3"/><circle cx="320" cy="112" r="3"/><circle cx="370" cy="92" r="3"/><circle cx="420" cy="120" r="3"/><circle cx="470" cy="100" r="3"/><circle cx="520" cy="126" r="3"/><circle cx="570" cy="106" r="3"/><circle cx="620" cy="132" r="3"/></g>
+          <!-- slope-chaser estimate ringing, with a positive swing -->
+          <path d="M 120 96 C 180 70, 220 70, 260 96 C 300 120, 330 96, 360 80 C 390 66, 420 70, 450 100 C 480 126, 520 110, 560 100 L 620 118" fill="none" stroke="#BE3A2B" stroke-width="2.2"/>
+          <circle cx="345" cy="83" r="5" fill="#BE3A2B"/>
+          <line x1="345" y1="58" x2="345" y2="83" stroke="#BE3A2B" stroke-width="1.2" stroke-dasharray="3 2"/>
+          <text x="345" y="50" font-family="IBM Plex Mono" font-size="10.5" fill="#BE3A2B" text-anchor="middle">trend swings UP on noise &rarr;</text>
+          <text x="345" y="216" font-family="IBM Plex Mono" font-size="10.5" fill="#BE3A2B" text-anchor="middle">&hellip;so it TIGHTENS a falling miner &mdash; the spiral&rsquo;s first step</text>
+        </svg>
+      </div>
+      <figcaption><b>Figure 8.</b> Why cleverer is more dangerous. <span class="swatch" style="background:#C07D1B"></span>The miner is gently falling. <span class="swatch" style="background:#9AA0AC"></span>The readings are sparse and noisy. <span class="swatch" style="background:#BE3A2B"></span>A slope-chasing estimate rings, and on one upward swing it predicts a rise and fires a <em>tightening</em> move &mdash; the exact spiral step the slow estimator could never make. The last few percent of speed aren&rsquo;t worth re-opening the trap.</figcaption>
+    </figure>
+    <p class="pull">Past the floor, &ldquo;more sophisticated&rdquo; doesn&rsquo;t mean better. It means a smaller gain and a bigger risk.</p>
+  </section>
+
+  <!-- ===== 10 ===== -->
+  <section>
+    <p class="eyebrow">10 &mdash; the build</p>
+    <h2>The recipe, in order</h2>
+    <p>Put it all together and the controller worth shipping is short to describe &mdash; and most of its wisdom is in what it deliberately doesn&rsquo;t do.</p>
+
+    <div class="recipe">
+      <p class="lbl">How to build it</p>
+      <ol>
+        <li><b>Measure with an EWMA, set slow.</b> One memory dial, no hard window. Don&rsquo;t pour effort into precision &mdash; the floor caps it, and a slow estimate is part of how you stay safe.</li>
+        <li><b>Decide with an asymmetric sequential test.</b> Accumulate evidence rather than reacting to each window; then put a thumb on the scale &mdash; eager to ease, reluctant to tighten. This is what protects the over-difficulty side while shares are plentiful &mdash; spend your care here.</li>
+        <li><b>Move with a partial step.</b> One gain dial, for smoothness only. Raising and lowering are equally cheap, so the step needs no safety logic &mdash; just don&rsquo;t let it overshoot.</li>
+        <li><b>Hand off safety across a share-rate seam.</b> Let the asymmetric trigger guard when shares are plentiful; below the seam, neutralize it and let the slow estimator &mdash; too gentle to be spooked &mdash; carry the safe direction.</li>
+        <li><b>Then stop.</b> Don&rsquo;t add slope-chasing or other cleverness. Past the floor it can&rsquo;t help, and it re-opens the spiral exactly where data is thinnest.</li>
+        <li><b>Need more responsiveness? Raise the share rate.</b> It&rsquo;s the only knob that lifts the whole field off the floor &mdash; the companion paper&rsquo;s one true lever. Everything else just trades one weakness for another.</li>
+      </ol>
+    </div>
+
+    <div class="takeaway">
+      <p class="lbl">The shape of it</p>
+      <p>Building a good vardiff isn&rsquo;t a search for a clever algorithm &mdash; it&rsquo;s separating three jobs, doing two of them simply, and concentrating all the real care on the one that keeps a failing miner from being choked off and dropped. The classic controller wasn&rsquo;t wrong so much as <em>fused</em>: it couldn&rsquo;t put its care where the danger is, because it never told the danger apart from the routine. Pull the pieces apart, and the right design almost falls out on its own.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Part two of a two-part article, and the build manual of the set. Part one, <a href="./better-vardiff.html"><em>&ldquo;A better vardiff, and what &lsquo;better&rsquo; turned out to mean&rdquo;</em></a>, is the <strong>why</strong> &mdash; the story of what we found, and why a <em>falling</em> miner, not a steady one, is the whole game. This is the <strong>how</strong> &mdash; the order to build the parts in. If you want the reasoning behind the numbers but not the full formalism, there&rsquo;s a <a href="../information-floor-primer.html"><em>primer</em></a> &mdash; a ground-up walkthrough of the estimation theory, no prior statistics assumed. And for the complete formal version, there&rsquo;s the technical report, <a href="../information-floor.md"><em>&ldquo;Vardiff at the Information Floor,&rdquo;</em></a> where the precision floor, the safety asymmetry, the retired in-flight-work cost, and the slope-chasing hazard are each derived with the exact limits of every claim &mdash; both there for anyone who wants more, not required reading. This one assumes the why and spends its pages on the build.</p>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var T=150, t0=16, t1=70, dt=0.3, FLOOR=36;
+  var B_SYM=0.013, B_ASYM=0.200, EWMA_BONUS=0.0;  // estimator does NOT change survival (Fig 5); its effect is smoothness only
+
+  function id(s){ return document.getElementById(s); }
+  function xx(t){ return 64 + (t/T)*612; }
+  function yy(p){ var y=250 - p*1.964; if(y<28)y=28; if(y>252)y=252; return y; }
+
+  function Hof(t,s){ if(t<=t0) return 1; if(t>=t1) return 1-s; return 1 - s*(t-t0)/(t1-t0); }
+  function forcing(t,s){ if(t<=t0 || t>=t1) return 0; return (s/(t1-t0))/Hof(t,s); }
+  function bEff(est,trig){ var b = (trig==='asym')?B_ASYM:B_SYM; if(est==='ewma') b += EWMA_BONUS; return b; }
+
+  function getSel(group){
+    var seg = document.querySelector('.seg[data-group="'+group+'"]');
+    var on = seg.querySelector('button.on');
+    return on ? on.getAttribute('data-val') : null;
+  }
+
+  function simulate(est,trig,step,s){
+    var b=bEff(est,trig), e=0.0, n=Math.round(T/dt);
+    var es=[], hashPts=[], trough=100, tT=0, dropped=false, tDrop=null;
+    var i,t,sv;
+    for(i=0;i<=n;i++){
+      t=i*dt;
+      e += (forcing(t,s) - b*e*Math.exp(-e))*dt;
+      es.push(e);
+      hashPts.push(xx(t)+","+yy(100*Hof(t,s)));
+      sv = 100*Math.exp(-e);
+      if(!dropped){
+        if(sv<trough){ trough=sv; tT=t; }
+        if(sv<FLOOR){ dropped=true; tDrop=t; }
+      }
+    }
+    // display share trace: the STEP sets a settling ring; the ESTIMATOR sets steadiness (a deterministic
+    // ripple standing in for the simple average's edge-lurch). Neither touches survival (decided above).
+    var ringAmp = dropped ? 0 : (step==='snap' ? (100-trough)*0.22 : (100-trough)*0.02);
+    var jitAmp = (est==='ewma') ? 0.5 : 3.0;
+    var sharePts=[];
+    for(i=0;i<=n;i++){
+      t=i*dt;
+      if(dropped && t>tDrop){ sharePts.push(xx(t)+","+yy(0)); continue; }
+      sv = 100*Math.exp(-es[i]);
+      sv += jitAmp*(Math.sin(2*Math.PI*t/5.5) + 0.5*Math.sin(2*Math.PI*t/2.7));
+      if(!dropped && t>tT){
+        var w=t-tT;
+        sv += ringAmp*Math.exp(-w/14)*Math.sin(2*Math.PI*w/22);
+      }
+      if(sv>112) sv=112;
+      sharePts.push(xx(t)+","+yy(sv));
+    }
+    return { sharePts:sharePts, hashPts:hashPts, trough:trough, tTrough:tT,
+             dropped:dropped, tDrop:tDrop, settledHash:100*(1-s) };
+  }
+
+  function buildLabel(est,trig,step){
+    if(est==='simpleavg' && trig==='sym' && step==='snap') return "the classic controller";
+    if(est==='ewma' && trig==='asym' && step==='partial') return "the controller we ship";
+    var ups=[];
+    if(est==='ewma') ups.push("EWMA estimator");
+    if(trig==='asym') ups.push("asymmetric trigger");
+    if(step==='partial') ups.push("partial step");
+    if(ups.length===0) return "the classic controller";
+    return "classic + " + ups.join(" + ");
+  }
+
+  function render(){
+    var est=getSel('est'), trig=getSel('trig'), step=getSel('step');
+    var s=(+id('sev').value)/100;
+    id('sevVal').innerHTML = "\u2212" + id('sev').value + "%";
+    id('buildName').innerHTML = "Now testing: <b>" + buildLabel(est,trig,step) + "</b>";
+
+    var r=simulate(est,trig,step,s);
+    id('hashTrace').setAttribute('d', "M " + r.hashPts.join(" L "));
+    id('shareTrace').setAttribute('d', "M " + r.sharePts.join(" L "));
+    id('shareTrace').setAttribute('stroke', r.dropped ? "#BE3A2B" : "#2C6FB0");
+
+    var hp=Math.round(r.settledHash);
+    id('hashEndLabel').setAttribute('x', xx(T)-2);
+    id('hashEndLabel').setAttribute('y', yy(r.settledHash)+(r.settledHash<55?16:-6));
+    id('hashEndLabel').textContent = "hardware " + hp + "%";
+
+    var verdict=id('verdict'), note=id('demoNote'), sEnd=id('shareEndLabel');
+    if(r.dropped){
+      verdict.className="verdict spiral";
+      verdict.textContent="spiraled \u2014 dropped";
+      sEnd.setAttribute('fill','#BE3A2B');
+      sEnd.setAttribute('x', xx(r.tDrop));
+      sEnd.setAttribute('y', yy(FLOOR)+18);
+      sEnd.setAttribute('text-anchor','middle');
+      sEnd.textContent="\u2715 dropped, ~"+Math.round(r.tDrop)+" min";
+      note.textContent="This build lagged the decline: the share rate fell through the disconnect floor near "+Math.round(r.tDrop)+" minutes and the pool dropped the miner \u2014 hardware still running at "+hp+"%. Switch on the asymmetric trigger, or ease the decline, to keep the connection alive.";
+    } else {
+      sEnd.setAttribute('fill','#2C6FB0');
+      sEnd.setAttribute('text-anchor','end');
+      sEnd.setAttribute('x', xx(T)-2);
+      sEnd.setAttribute('y', yy(100)-6);
+      sEnd.textContent="back to target";
+      if(r.trough < FLOOR+9){
+        verdict.className="verdict edge";
+        verdict.textContent="close call";
+        note.textContent="The share rate grazed the disconnect floor (down to "+Math.round(r.trough)+"%) before the controller caught up. A slightly deeper decline would have dropped it \u2014 this build is on the edge. The asymmetric trigger is what buys real margin.";
+      } else {
+        verdict.className="verdict safe";
+        verdict.textContent="rode it out";
+        note.textContent="The controller eased the difficulty in step with the falling hashrate, so the share rate only dipped to "+Math.round(r.trough)+"% and climbed back to target \u2014 no spiral, no disconnect. The miner keeps earning at its new level."+(step==='snap'?" Notice the share rate overshoots and ripples on the way back: that's the full snap settling \u2014 a comfort cost, not a safety one.":"");
+      }
+    }
+  }
+
+  // wire up segmented toggles
+  var segs=document.querySelectorAll('.seg');
+  segs.forEach(function(seg){
+    seg.querySelectorAll('button').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        seg.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+        btn.classList.add('on');
+        render();
+      });
+    });
+  });
+  function setGroup(group,val){
+    var seg=document.querySelector('.seg[data-group="'+group+'"]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-val')===val);
+    });
+  }
+  id('sev').addEventListener('input', render);
+  document.querySelectorAll('.preset').forEach(function(p){
+    p.addEventListener('click', function(){
+      if(p.getAttribute('data-preset')==='classic'){
+        setGroup('est','simpleavg'); setGroup('trig','sym'); setGroup('step','snap');
+      } else {
+        setGroup('est','ewma'); setGroup('trig','asym'); setGroup('step','partial');
+      }
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

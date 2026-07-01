@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="560" font-family="Helvetica,Arial,sans-serif" font-size="13">
+<text x="390.0" y="18" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">MINIMAX over rate×spm: why a FIXED window lands interior — champion = gentlest point in a doubly-walled island</text>
+<text x="390.0" y="33" text-anchor="middle" font-size="10" fill="#999" font-style="italic">tau-tradeoff.rs (generated). τ=30 reads HIGH here = worst-case across rates, NOT "τ=30 is bad" — per-rate it is optimal at high spm (cf. §8.3 flag / tau-family).</text>
+<rect x="70" y="70" width="640" height="410" fill="none" stroke="#bbb"/>
+<rect x="50.2" y="70" width="58.0" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="108.1" y="70" width="65.2" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="173.4" y="70" width="65.2" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="238.6" y="70" width="65.2" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="303.8" y="70" width="48.1" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="351.9" y="70" width="65.2" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="564.6" y="70" width="48.1" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="612.7" y="70" width="38.1" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="650.9" y="70" width="38.1" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<rect x="689.0" y="70" width="38.9" height="410" fill="#e74c3c" fill-opacity="0.14"/>
+<text x="390.0" y="84.0" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="bold">DECLINE-SAFETY WALL — worst settled-e &gt; 5% (inadmissible), on BOTH ends</text>
+<text x="221.4" y="100.0" text-anchor="middle" font-size="9.5" fill="#c0392b">jumpy: too noisy at its</text>
+<text x="221.4" y="112.0" text-anchor="middle" font-size="9.5" fill="#c0392b">worst-case sparse rate*</text>
+<text x="650.9" y="100.0" text-anchor="middle" font-size="9.5" fill="#c0392b">sleepy: lags the</text>
+<text x="650.9" y="112.0" text-anchor="middle" font-size="9.5" fill="#c0392b">decline</text>
+<text x="74.0" y="476.0" text-anchor="start" font-size="8.5" fill="#999" font-style="italic">*jumpy mechanism inferred from minimax structure, not proven by this figure</text>
+<polyline points="70.0,101.3 146.3,127.4 200.4,149.1 276.7,189.7 330.9,208.7 372.8,221.8 461.3,233.0 503.3,226.7 537.6,214.3 591.7,181.8 633.7,144.7 668.0,117.5 710.0,70.0 " fill="none" stroke="#c0392b" stroke-width="2.5"/>
+<polyline points="70.0,70.0 146.3,111.9 200.4,162.0 276.7,214.8 330.9,242.3 372.8,274.2 461.3,319.7 503.3,337.1 537.6,345.3 591.7,348.7 633.7,341.3 668.0,322.8 710.0,283.4 " fill="none" stroke="#2980b9" stroke-width="2.5"/>
+<line x1="537.6" y1="70" x2="537.6" y2="480.0" stroke="#2c3e50" stroke-width="1.5" stroke-dasharray="4 3"/>
+<circle cx="537.6" cy="480.0" r="5" fill="#2c3e50"/>
+<text x="477.6" y="468.0" text-anchor="middle" font-weight="bold" font-size="12" fill="#2c3e50">champion τ=360 (gentlest safe window)</text>
+<text x="70.0" y="495.0" text-anchor="middle" font-size="9" fill="#666">30</text>
+<text x="146.3" y="495.0" text-anchor="middle" font-size="9" fill="#666">45</text>
+<text x="200.4" y="495.0" text-anchor="middle" font-size="9" fill="#666">60</text>
+<text x="276.7" y="495.0" text-anchor="middle" font-size="9" fill="#666">90</text>
+<text x="330.9" y="495.0" text-anchor="middle" font-size="9" fill="#666">120</text>
+<text x="372.8" y="495.0" text-anchor="middle" font-size="9" fill="#666">150</text>
+<text x="461.3" y="495.0" text-anchor="middle" font-size="9" fill="#666">240</text>
+<text x="503.3" y="495.0" text-anchor="middle" font-size="9" fill="#666">300</text>
+<text x="537.6" y="495.0" text-anchor="middle" font-size="9" fill="#666">360</text>
+<text x="591.7" y="495.0" text-anchor="middle" font-size="9" fill="#666">480</text>
+<text x="633.7" y="495.0" text-anchor="middle" font-size="9" fill="#666">600</text>
+<text x="668.0" y="495.0" text-anchor="middle" font-size="9" fill="#666">720</text>
+<text x="710.0" y="495.0" text-anchor="middle" font-size="9" fill="#666">900</text>
+<text x="390.0" y="530.0" text-anchor="middle" font-weight="bold">estimator window τ (s, log) — the path</text>
+<text x="74.0" y="548.0" text-anchor="start" font-size="11" fill="#444">← JUMPY / responsive</text>
+<text x="706.0" y="548.0" text-anchor="end" font-size="11" fill="#444">SLEEPY / damped →</text>
+<text x="22" y="275.0" text-anchor="middle" font-size="11" transform="rotate(-90 22 275.0)">cost (each normalized to its own max — a SHAPE figure)</text>
+<line x1="726.0" y1="80.0" x2="748.0" y2="80.0" stroke="#c0392b" stroke-width="2.5"/>
+<text x="754.0" y="84.0" font-size="12">over-difficulty area</text>
+<text x="754.0" y="98.0" font-size="10" fill="#c0392b">(DANGEROUS; U-shaped — GATES island)</text>
+<line x1="726.0" y1="122.0" x2="748.0" y2="122.0" stroke="#2980b9" stroke-width="2.5"/>
+<text x="754.0" y="126.0" font-size="12">wobble (under-diff)</text>
+<text x="754.0" y="140.0" font-size="10" fill="#2980b9">(SAFE; falls sleepy-ward across the band — ORDERS within)</text>
+<rect x="726.0" y="156.0" width="22" height="11" fill="#e74c3c" fill-opacity="0.14"/>
+<text x="754.0" y="165.0" font-size="12">wall (inadmissible)</text>
+<text x="726.0" y="192.0" font-size="11" fill="#333">Over-difficulty (dangerous) GATES:</text>
+<text x="726.0" y="206.0" font-size="11" fill="#333">U-shaped, walls BOTH ends → the</text>
+<text x="726.0" y="220.0" font-size="11" fill="#333">admissible island. Wobble (safe)</text>
+<text x="726.0" y="234.0" font-size="11" fill="#333">ORDERS within it → champion at the</text>
+<text x="726.0" y="248.0" font-size="11" fill="#333">sleepy edge (interior, not extremal).</text>
+<text x="726.0" y="268.0" font-size="10" fill="#555">Over-diff min is LEFT of champion:</text>
+<text x="726.0" y="281.0" font-size="10" fill="#555">a jumpier τ lowers over-diff but</text>
+<text x="726.0" y="294.0" font-size="10" fill="#555">climbs wobble — the §8.3 flag's trade.</text>
+</svg>

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <!-- ============================================================
+       SCHEMATIC — hand-authored, NOT data-generated (cf. tau_valley.svg
+       et al., which are sim output). The §6.1 mechanism figure: WHAT carries
+       the dangerous-direction protection in each rate regime, and the
+       ASYMMETRY between the two (sole-necessary sparse / substitutable dense).
+
+       JOB (deliberately NOT tau_tradeoff's job): this is a STRUCTURAL MAP of
+       what-protects-where (membership in / mechanism of the valid set), NOT a
+       selection plane (where the champion sits in the admissible island —
+       that is tau_tradeoff.svg, §9.2). Membership vs placement. It is drawn as
+       a regime-split schematic (two role-labelled regime boxes), NOT a
+       cost-over-τ curve plot, so it is visibly distinct from tau_tradeoff.
+
+       SCOPE (deliberately narrow — figure-safe): it makes ONE structural claim
+       — the regime split and which mechanism is necessary/substitutable in each
+       (verified: eager-ease-strength.rs). It draws NO per-mechanism curves
+       (no fire-prob-vs-evidence, no volatility curve), because those would
+       flatten §6.1's hard-won mechanism nuances (categorical-absent-not-weak;
+       low-volatility-not-stays-below-OP). Those stay in §6.1 prose. The figure
+       buys navigability of the regime split; the prose keeps the mechanism.
+
+       ASYMMETRY is the load-bearing structural claim (eager-ease-strength.rs):
+       SPARSE: estimator SOLE-NECESSARY (boundary reluctance tm 8→1024× flat at
+         4 self-deepening fires — regime-locked, cannot substitute).
+       DENSE: boundary reluctant-tighten ACTIVE/default but SUBSTITUTABLE (slow
+         estimator τ 360→2880 drives fires 5→0 — covers dense too).
+       NOT the symmetric "each covers a regime the other cannot" (refuted).
+       ============================================================ -->
+  <style>
+    .title { fill:#222; font-weight:bold; font-size:15px; }
+    .axlbl { fill:#222; font-weight:bold; }
+    .regbox { fill:none; stroke:#bbb; stroke-width:1.5; }
+    .sparsefill { fill:#8e44ad; fill-opacity:0.07; }
+    .densefill  { fill:#2980b9; fill-opacity:0.07; }
+    .reglbl { font-weight:bold; font-size:14px; }
+    .necessary { fill:#c0392b; font-weight:bold; }
+    .substit   { fill:#2980b9; font-weight:bold; }
+    .trigger   { fill:#999; font-style:italic; }
+    .note  { fill:#444; font-size:12px; }
+    .small { fill:#666; font-size:11px; }
+    .switch { stroke:#2c3e50; stroke-width:2; stroke-dasharray:5 4; }
+    .prov  { fill:#999; font-size:10.5px; font-style:italic; }
+    .threat { fill:#e74c3c; font-weight:bold; font-size:12px; }
+  </style>
+
+  <text x="450" y="34" text-anchor="middle" class="title">Dangerous-direction protection: what carries it, in each rate regime</text>
+  <text x="450" y="54" text-anchor="middle" class="small">the validity invariant (§6.1) = suppress self-deepening over-difficulty fires during an escape — provided by DIFFERENT mechanisms by regime</text>
+
+  <!-- rate axis spanning both regimes, switch at spm6 -->
+  <line x1="80" y1="92" x2="800" y2="92" stroke="#222" stroke-width="1.5"/>
+  <polygon points="800,92 792,88 792,96" fill="#222"/>
+  <text x="80" y="84" class="small">sparse  ← share rate r*  →  dense</text>
+  <text x="808" y="96" class="axlbl" font-size="12">r*</text>
+  <line x1="450" y1="80" x2="450" y2="430" class="switch"/>
+  <text x="450" y="112" text-anchor="middle" class="axlbl" font-size="12" fill="#2c3e50">spm 6 switch</text>
+  <text x="450" y="127" text-anchor="middle" class="small" fill="#2c3e50">(boundary changes here)</text>
+
+  <!-- ===== SPARSE panel (left) ===== -->
+  <rect x="80" y="140" width="330" height="250" class="sparsefill"/>
+  <rect x="80" y="140" width="330" height="250" class="regbox"/>
+  <text x="245" y="164" text-anchor="middle" class="reglbl" fill="#8e44ad">SPARSE  (spm &lt; 6)</text>
+
+  <text x="100" y="196" class="note">boundary = PoissonCI (symmetric)</text>
+  <text x="100" y="214" class="trigger">→ a magnitude TRIGGER; no directional</text>
+  <text x="100" y="230" class="trigger">   content. Provides NO protection.</text>
+
+  <text x="100" y="262" class="note">estimator (slow Ewma360):</text>
+  <text x="100" y="282" class="necessary">SOLE NECESSARY protector</text>
+  <text x="100" y="300" class="small">sets fire direction + low belief-volatility</text>
+  <text x="100" y="315" class="small">(no threshold-clearing spike — see §6.1)</text>
+
+  <text x="100" y="348" class="note" font-weight="bold">Regime-locked:</text>
+  <text x="100" y="366" class="small">boundary reluctance at ANY strength</text>
+  <text x="100" y="381" class="small">(tm 8→1024×) cannot substitute → flat at 4 fires</text>
+
+  <!-- ===== DENSE panel (right) ===== -->
+  <rect x="480" y="140" width="340" height="250" class="densefill"/>
+  <rect x="480" y="140" width="340" height="250" class="regbox"/>
+  <text x="650" y="164" text-anchor="middle" class="reglbl" fill="#2980b9">DENSE  (spm ≥ 6)</text>
+
+  <text x="500" y="196" class="note">boundary = SignPersistenceCusum</text>
+  <text x="500" y="214" class="note" fill="#c0392b">reluctant-tighten: ACTIVE/default protector</text>
+  <text x="500" y="230" class="small">refuses weak-evidence tighten-fires by direction</text>
+
+  <text x="500" y="262" class="note">estimator (slow):</text>
+  <text x="500" y="282" class="substit">can SUBSTITUTE for the boundary</text>
+  <text x="500" y="300" class="small">a slow-enough window (τ 360→2880) covers</text>
+  <text x="500" y="315" class="small">dense too → fires 5→0</text>
+
+  <text x="500" y="348" class="note" font-weight="bold">So boundary is the wobble-CHEAP way,</text>
+  <text x="500" y="366" class="note" font-weight="bold">not the ONLY way:</text>
+  <text x="500" y="381" class="substit">ACTIVE but SUBSTITUTABLE</text>
+  <text x="690" y="381" class="small">(not necessary)</text>
+
+  <!-- ===== the asymmetry banner ===== -->
+  <text x="450" y="424" text-anchor="middle" class="threat">THE ASYMMETRY: sparse has a SOLE-NECESSARY protector; dense has a DEFAULT-with-a-SUBSTITUTE.</text>
+  <text x="450" y="442" text-anchor="middle" class="note">The champion carries both — estimator because it is necessary at sparse, reluctant-tighten because it is the wobble-cheap default at dense —</text>
+  <text x="450" y="458" text-anchor="middle" class="note">NOT a symmetric "each covers a regime the other cannot" (refuted: the estimator CAN cover dense).</text>
+
+  <text x="80" y="490" class="prov">SCHEMATIC — hand-authored. Structural claim verified by eager-ease-strength.rs (sparse plateau / dense 5→0); mechanism detail in §6.1, not drawn here.</text>
+  <text x="80" y="506" class="prov">Distinct job from tau_tradeoff.svg: which-protects-where (membership/mechanism), not where-the-champion-sits (placement/selection).</text>
+</svg>

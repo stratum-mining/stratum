@@ -1,196 +1,129 @@
-use crate::target::hash_rate_from_target;
+use crate::vardiff::clock::{Clock, SystemClock};
 use bitcoin::Target;
-use tracing::debug;
+use std::sync::Arc;
 
 /// Default minimum hashrate (H/s) if not specified.
 const DEFAULT_MIN_HASHRATE: f32 = 1.0;
 
 use super::{error::VardiffError, Vardiff};
 
-/// Represents the dynamic state for a variable difficulty (Vardiff) connection.
+/// Variable difficulty controller — the production champion.
 ///
-/// Tracks performance and adjusts the mining target to achieve a desired share rate.
+/// Delegates to [`composed::champion_composed`]: `EwmaEstimator(τ=360s) +
+/// AdaptiveSignPersist(spm_threshold=6) + AcceleratingPartialRetarget(0.2,
+/// 0.6, 0.05)`. This is the configuration the simulation framework selected
+/// by minimax over the target share rate under a decline-safety constraint
+/// (see `sim/docs/METRIC_DERIVATION.md`): the gentlest controller that stays
+/// decline-safe across the rate band.
+///
+/// The classic algorithm's three-stage decomposition remains available as
+/// [`composed::classic_composed`] and is what the simulation crate's
+/// equivalence suite pins against the original monolith; it is no longer the
+/// production path.
 #[derive(Debug)]
 pub struct VardiffState {
-    /// Count of shares received since the last difficulty adjustment.
-    pub shares_since_last_update: u32,
-    /// Unix timestamp (seconds) of the last difficulty adjustment.
-    pub timestamp_of_last_update: u64,
-    /// The lowest hashrate (H/s) the system will allow; values below this are clamped.
-    pub min_allowed_hashrate: f32,
+    inner: Box<dyn Vardiff>,
 }
+
+impl std::panic::UnwindSafe for VardiffState {}
+impl std::panic::RefUnwindSafe for VardiffState {}
 
 impl VardiffState {
     /// Creates a new `VardiffState` with the default minimum hashrate.
-    ///
-    /// # Arguments
-    /// * `estimated_hashrate` - The initial hashrate estimate.
     pub fn new() -> Result<Self, VardiffError> {
         Self::new_with_min(DEFAULT_MIN_HASHRATE)
     }
 
     /// Creates a new `VardiffState` with a specific minimum hashrate.
-    ///
-    /// # Arguments
-    /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
     pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        Self::new_with_clock(min_allowed_hashrate, Arc::new(SystemClock))
+    }
 
+    /// Creates a new `VardiffState` with a specific minimum hashrate and
+    /// a custom clock (for simulation/testing).
+    pub fn new_with_clock(
+        min_allowed_hashrate: f32,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, VardiffError> {
         Ok(VardiffState {
-            shares_since_last_update: 0,
-            timestamp_of_last_update: timestamp_secs,
-            min_allowed_hashrate,
+            inner: Box::new(crate::vardiff::composed::champion_composed(
+                min_allowed_hashrate,
+                clock,
+            )),
         })
     }
 
-    /// Sets the count of shares since the last update.
-    pub fn set_shares_since_last_update(&mut self, shares_since_last_update: u32) {
-        self.shares_since_last_update = shares_since_last_update;
+    /// Creates a `VardiffState` whose estimator is SEEDED from the channel's
+    /// declared `nominal_hash_rate` at open, collapsing the cold-start ramp
+    /// (see [`composed::champion_composed_seeded`]). `shares_per_minute` is the
+    /// target rate the open-time difficulty was set against.
+    ///
+    /// Drop-in for [`Self::new`] at the open-channel handler — the nominal and
+    /// spm are already in scope there, so this needs no channel/protocol API
+    /// change. Falls back to a cold start (use [`Self::new`]) if no plausible
+    /// nominal is available.
+    pub fn new_seeded(shares_per_minute: f32, prior_ticks: u32) -> Result<Self, VardiffError> {
+        Self::new_seeded_with_clock(
+            DEFAULT_MIN_HASHRATE,
+            shares_per_minute,
+            prior_ticks,
+            Arc::new(SystemClock),
+        )
+    }
+
+    /// As [`Self::new_seeded`] with a custom clock (simulation/testing).
+    pub fn new_seeded_with_clock(
+        min_allowed_hashrate: f32,
+        shares_per_minute: f32,
+        prior_ticks: u32,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, VardiffError> {
+        Ok(VardiffState {
+            inner: Box::new(crate::vardiff::composed::champion_composed_seeded(
+                min_allowed_hashrate,
+                shares_per_minute as f64,
+                prior_ticks,
+                clock,
+            )),
+        })
     }
 }
 
 impl Vardiff for VardiffState {
     fn last_update_timestamp(&self) -> u64 {
-        self.timestamp_of_last_update
+        self.inner.last_update_timestamp()
     }
 
     fn shares_since_last_update(&self) -> u32 {
-        self.shares_since_last_update
+        self.inner.shares_since_last_update()
     }
 
     fn min_allowed_hashrate(&self) -> f32 {
-        self.min_allowed_hashrate
+        self.inner.min_allowed_hashrate()
     }
 
-    /// Sets the timestamp of the last update.
-    fn set_timestamp_of_last_update(&mut self, timestamp_of_last_update: u64) {
-        self.timestamp_of_last_update = timestamp_of_last_update;
+    fn set_timestamp_of_last_update(&mut self, timestamp: u64) {
+        self.inner.set_timestamp_of_last_update(timestamp);
     }
 
-    /// Increments the share counter by one.
     fn increment_shares_since_last_update(&mut self) {
-        self.shares_since_last_update += 1;
+        self.inner.increment_shares_since_last_update();
     }
 
-    /// Resets the share counter and updates the timestamp to now.
+    fn add_shares(&mut self, n: u32) {
+        self.inner.add_shares(n);
+    }
+
     fn reset_counter(&mut self) -> Result<(), VardiffError> {
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
-        self.set_timestamp_of_last_update(timestamp_secs);
-        self.set_shares_since_last_update(0);
-        Ok(())
+        self.inner.reset_counter()
     }
 
-    /// Checks channel performance and potentially updates the hashrate and target.
-    ///
-    /// It calculates the realized share rate since the last update. If the
-    /// deviation from the target rate is significant enough (based on internal,
-    /// time-sensitive thresholds), it estimates a new hashrate and applies it.
-    ///
-    /// It returns `Ok(Some(new_hashrate))` when an update occurs,
-    /// `Ok(None)` when conditions don't warrant an update, and
-    /// `Err` for actual processing errors.
     fn try_vardiff(
         &mut self,
         hashrate: f32,
         target: &Target,
         shares_per_minute: f32,
     ) -> Result<Option<f32>, VardiffError> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(VardiffError::TimeError)?
-            .as_secs();
-
-        let delta_time = now - self.timestamp_of_last_update;
-
-        if delta_time <= 15 {
-            return Ok(None);
-        }
-
-        let realized_share_per_min =
-            self.shares_since_last_update as f64 / (delta_time as f64 / 60.0);
-
-        debug!(
-            target: "vardiff",
-            "Hashrate update check triggered:
-            - Elapsed time: {}s
-            - Shares since last update: {}
-            - Realized shares per minute: {:.4}
-            - Current miner target: {:?}",
-            delta_time,
-            self.shares_since_last_update,
-            realized_share_per_min,
-            target
-        );
-
-        let mut new_hashrate = match hash_rate_from_target(
-            target.to_le_bytes().into(),
-            realized_share_per_min,
-        ) {
-            Ok(hashrate) => hashrate as f32,
-            Err(e) => {
-                debug!(
-                    target: "vardiff",
-                    "Target->Hashrate conversion failed: {:?}. Falling back using previous hashrate and realized_shares_per_minute", e
-                );
-                hashrate * realized_share_per_min as f32 / shares_per_minute
-            }
-        };
-
-        let hashrate_delta = new_hashrate - hashrate;
-        let hashrate_delta_percentage = (hashrate_delta.abs() / hashrate) * 100.0;
-
-        debug!(
-            target: "vardiff",
-            "Calculated new hashrate: {:.2} H/s (Δ {:.2}%, previous {:.2} H/s)",
-            new_hashrate,
-            hashrate_delta_percentage,
-            hashrate,
-        );
-
-        let should_update = match hashrate_delta_percentage {
-            pct if pct >= 100.0 => true,
-            pct if pct >= 60.0 && delta_time >= 60 => true,
-            pct if pct >= 50.0 && delta_time >= 120 => true,
-            pct if pct >= 45.0 && delta_time >= 180 => true,
-            pct if pct >= 30.0 && delta_time >= 240 => true,
-            pct if pct >= 15.0 && delta_time >= 300 => true,
-            _ => false,
-        };
-
-        if !should_update {
-            return Ok(None);
-        }
-
-        // realized_share_per_min is 0.0 when d.difficulty_mgmt.shares_since_last_update is 0
-        // so it's safe to compare realized_share_per_min with == 0.0
-        if realized_share_per_min == 0.0 {
-            new_hashrate = match delta_time {
-                dt if dt <= 30 => hashrate / 1.5,
-                dt if dt < 60 => hashrate / 2.0,
-                _ => hashrate / 3.0,
-            };
-        } else if hashrate_delta_percentage > 1000.0 {
-            new_hashrate = match delta_time {
-                dt if dt <= 30 => hashrate * 10.0,
-                dt if dt < 60 => hashrate * 5.0,
-                _ => hashrate * 3.0,
-            };
-        }
-        if new_hashrate < self.min_allowed_hashrate {
-            debug!(
-                target: "vardiff",
-                "New hashrate {:.2} H/s below minimum threshold {:.2} H/s — clamping",
-                new_hashrate,
-                self.min_allowed_hashrate
-            );
-            new_hashrate = self.min_allowed_hashrate;
-        }
-        self.reset_counter()?;
-
-        Ok(Some(new_hashrate))
+        self.inner.try_vardiff(hashrate, target, shares_per_minute)
     }
 }

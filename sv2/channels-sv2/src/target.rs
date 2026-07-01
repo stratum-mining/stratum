@@ -5,7 +5,7 @@ use alloc::string::String;
 use binary_sv2::U256;
 use bitcoin::{hash_types::BlockHash, hashes::Hash, Target};
 use core::{cmp::max, fmt::Write, ops::Div};
-use primitive_types::U256 as U256Primitive;
+use primitive_types::{U256 as U256Primitive, U512};
 
 /// Converts a `u256` to a [`BlockHash`] type.
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
@@ -181,22 +181,97 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let numerator = max_target - (target - U256Primitive::one());
     // now we calculate the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
-    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
+    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100_000.0;
     // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
     // only if s is zero.
     let shares_occurrency_frequence = shares_occurrency_frequence as u128;
     if shares_occurrency_frequence == 0_u128 {
         return Err(InputError::DivisionByZero);
     }
-    let shares_occurrency_frequence = from_u128_to_u256(shares_occurrency_frequence);
     let target_plus_one = U256Primitive::from_big_endian(target_arr.as_ref())
         .checked_add(U256Primitive::one())
         .ok_or(InputError::ArithmeticOverflow)?;
+    // Widen to U512 for the multiply: at large targets (close to 2^256, e.g.
+    // a broadcast SetTarget carrying `requested_max_target`), the product
+    // `(t+1) * shares_occurrency_frequence` exceeds U256 even though the
+    // final ratio `numerator / denominator` is small. Doing the math in
+    // U512 preserves the precision gained from the *100_000 scaling without
+    // re-introducing the spurious overflow on legitimate high-target inputs.
+    let target_plus_one = U512::from(target_plus_one);
+    let shares_occurrency_frequence = U512::from(shares_occurrency_frequence);
     let denominator = target_plus_one
         .checked_mul(shares_occurrency_frequence)
-        .and_then(|e| e.checked_div(U256Primitive::from(100)))
+        .and_then(|e| e.checked_div(U512::from(100_000u64)))
         .ok_or(InputError::ArithmeticOverflow)?;
-    let result = numerator.div(denominator).low_u128();
+    let result = U512::from(numerator)
+        .checked_div(denominator)
+        .ok_or(InputError::DivisionByZero)?
+        .low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use binary_sv2::U256;
+
+    /// Builds a `binary_sv2::U256` from a 32-byte big-endian array.
+    /// `hash_rate_from_target` reads its input as little-endian then reverses,
+    /// so we must hand it the LE form here.
+    fn target_from_be(be: [u8; 32]) -> U256<'static> {
+        let mut le = be;
+        le.reverse();
+        U256::from(le)
+    }
+
+    /// Regression for the U256 multiply-overflow in `hash_rate_from_target`
+    /// that surfaced after the *100 → *100_000 scaling fix.
+    ///
+    /// On the deployed slot-2 pool, `translator_sv2` (vardiff disabled) calls
+    /// `hash_rate_from_target` on every upstream `SetTarget`. Vardiff drives
+    /// the channel target up to its `requested_max_target` (≈ 2^253) when the
+    /// channel is idle, and the resulting `(t+1) * shares_occurrency_frequence`
+    /// product overflowed U256, returning `InputError::ArithmeticOverflow`.
+    ///
+    /// Each case below is a real `maximum_target` captured from the slot-2
+    /// translator log at `share_per_minute = 6.0`. The expected behavior is
+    /// that the function returns `Ok(_)` (a small but well-defined hashrate)
+    /// rather than erroring.
+    #[test]
+    fn hash_rate_from_target_does_not_overflow_on_high_targets() {
+        // Real targets from translator_sv2_slot2 logs, 2026-05-17.
+        let captures: &[[u8; 32]] = &[
+            // 0x0000223d_a20843f8_b916c86e_4debea00_774ec094_ccd6a4eb_62605782_03599fb5
+            [
+                0x00, 0x00, 0x22, 0x3d, 0xa2, 0x08, 0x43, 0xf8, 0xb9, 0x16, 0xc8, 0x6e, 0x4d, 0xeb,
+                0xea, 0x00, 0x77, 0x4e, 0xc0, 0x94, 0xcc, 0xd6, 0xa4, 0xeb, 0x62, 0x60, 0x57, 0x82,
+                0x03, 0x59, 0x9f, 0xb5,
+            ],
+            // 0x0a3d70a3_d70a3d70_a3d70a3d_70a3d70a_3d70a3d7_0a3d70a3_d70a3d70_a3d70a3c
+            [
+                0x0a, 0x3d, 0x70, 0xa3, 0xd7, 0x0a, 0x3d, 0x70, 0xa3, 0xd7, 0x0a, 0x3d, 0x70, 0xa3,
+                0xd7, 0x0a, 0x3d, 0x70, 0xa3, 0xd7, 0x0a, 0x3d, 0x70, 0xa3, 0xd7, 0x0a, 0x3d, 0x70,
+                0xa3, 0xd7, 0x0a, 0x3c,
+            ],
+            // 0x1745d174_5d1745d1_745d1745_d1745d17_45d1745d_1745d174_5d1745d1_745d1744
+            // (channel `requested_max_target` for the JDC extended channel)
+            [
+                0x17, 0x45, 0xd1, 0x74, 0x5d, 0x17, 0x45, 0xd1, 0x74, 0x5d, 0x17, 0x45, 0xd1, 0x74,
+                0x5d, 0x17, 0x45, 0xd1, 0x74, 0x5d, 0x17, 0x45, 0xd1, 0x74, 0x5d, 0x17, 0x45, 0xd1,
+                0x74, 0x5d, 0x17, 0x44,
+            ],
+        ];
+
+        for be in captures {
+            let t = target_from_be(*be);
+            let h =
+                hash_rate_from_target(t, 6.0).expect("high targets must not overflow at spm=6.0");
+            assert!(
+                h.is_finite() && h >= 0.0,
+                "expected finite non-negative hashrate, got {h} for target {:02x?}",
+                be
+            );
+        }
+    }
 }

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 540" font-family="system-ui, sans-serif" font-size="13">
+<rect width="100%" height="100%" fill="#fafafa"/>
+<text x="520" y="28" text-anchor="middle" font-size="16" font-weight="bold">The champion is the SAFE frontier: steady cost vs transient lag</text>
+<text x="520" y="46" text-anchor="middle" font-size="12" fill="#555">Each point a config at spm=12. x = steady tracking+effort, y = cold-start+detection lag. Lower-left better.</text>
+<text x="520" y="62" text-anchor="middle" font-size="12" fill="#555">Color = decline-safety (worst over the cross-rate grid). Dashed line = safe-config envelope.</text>
+<line x1="74.0" y1="78.0" x2="74.0" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="74.0" y="496.0" text-anchor="middle" font-size="10" fill="#aaa">0.0</text>
+<line x1="74.0" y1="480.0" x2="800.0" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="66.0" y="484.0" text-anchor="end" font-size="10" fill="#aaa">0</text>
+<line x1="219.2" y1="78.0" x2="219.2" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="219.2" y="496.0" text-anchor="middle" font-size="10" fill="#aaa">4.0</text>
+<line x1="74.0" y1="399.6" x2="800.0" y2="399.6" stroke="#ebebeb" stroke-width="1"/>
+<text x="66.0" y="403.6" text-anchor="end" font-size="10" fill="#aaa">29</text>
+<line x1="364.4" y1="78.0" x2="364.4" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="364.4" y="496.0" text-anchor="middle" font-size="10" fill="#aaa">8.0</text>
+<line x1="74.0" y1="319.2" x2="800.0" y2="319.2" stroke="#ebebeb" stroke-width="1"/>
+<text x="66.0" y="323.2" text-anchor="end" font-size="10" fill="#aaa">58</text>
+<line x1="509.6" y1="78.0" x2="509.6" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="509.6" y="496.0" text-anchor="middle" font-size="10" fill="#aaa">12.0</text>
+<line x1="74.0" y1="238.8" x2="800.0" y2="238.8" stroke="#ebebeb" stroke-width="1"/>
+<text x="66.0" y="242.8" text-anchor="end" font-size="10" fill="#aaa">86</text>
+<line x1="654.8" y1="78.0" x2="654.8" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="654.8" y="496.0" text-anchor="middle" font-size="10" fill="#aaa">16.0</text>
+<line x1="74.0" y1="158.4" x2="800.0" y2="158.4" stroke="#ebebeb" stroke-width="1"/>
+<text x="66.0" y="162.4" text-anchor="end" font-size="10" fill="#aaa">115</text>
+<line x1="800.0" y1="78.0" x2="800.0" y2="480.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="800.0" y="496.0" text-anchor="middle" font-size="10" fill="#aaa">20.0</text>
+<line x1="74.0" y1="78.0" x2="800.0" y2="78.0" stroke="#ebebeb" stroke-width="1"/>
+<text x="66.0" y="82.0" text-anchor="end" font-size="10" fill="#aaa">144</text>
+<text x="437.0" y="520.0" text-anchor="middle" font-size="12" fill="#666">steady cost  (RMS tracking + ρ·effort, lower better) →</text>
+<text x="22.0" y="279.0" text-anchor="middle" font-size="12" fill="#666" transform="rotate(-90 22.0 279.0)">transient lag  (cold-start + detection, min, lower better) →</text>
+<path d="M368.3,251.2 L369.8,281.9 L377.0,326.6 L387.9,368.4 L476.2,382.4" fill="none" stroke="#2e8b2e" stroke-width="1.6" stroke-opacity="0.5" stroke-dasharray="5 4"/>
+<circle cx="206.1" cy="114.5" r="7" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<text x="216.1" y="117.5" font-size="11" font-weight="bold" fill="#222">classic</text>
+<circle cx="308.3" cy="242.9" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="308.3" cy="318.2" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="308.8" cy="281.9" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="310.6" cy="184.3" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="335.7" cy="217.8" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="338.0" cy="273.6" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="338.4" cy="156.4" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="339.6" cy="315.4" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="344.1" cy="343.3" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="368.3" cy="251.2" r="7" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<text x="378.3" y="254.2" font-size="11" font-weight="bold" fill="#222">new champion</text>
+<circle cx="369.8" cy="281.9" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="372.0" cy="178.7" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="377.0" cy="326.6" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="387.9" cy="368.4" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="434.5" cy="276.3" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="436.1" cy="312.6" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="436.4" cy="217.8" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="446.6" cy="340.5" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="476.2" cy="382.4" r="4" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="545.5" cy="273.6" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="545.8" cy="315.4" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="555.3" cy="337.7" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="580.6" cy="368.4" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="614.4" cy="329.4" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="621.7" cy="332.1" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="628.3" cy="399.1" r="7" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<text x="638.3" y="402.1" font-size="11" font-weight="bold" fill="#222">old champion</text>
+<circle cx="633.5" cy="348.9" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="667.0" cy="374.0" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="734.0" cy="399.1" r="4" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="830.0" cy="88.0" r="6" fill="#2e8b2e" stroke="#1d5e1d"/>
+<text x="844.0" y="92.0" font-size="12">decline-safe</text>
+<circle cx="830.0" cy="112.0" r="6" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<text x="844.0" y="116.0" font-size="12">UNSAFE (fails decline gate)</text>
+<line x1="824.0" y1="142.0" x2="848.0" y2="142.0" stroke="#2e8b2e" stroke-width="1.6" stroke-opacity="0.6" stroke-dasharray="5 4"/>
+<text x="854.0" y="146.0" font-size="12" fill="#555">safe-config envelope</text>
+<text x="824.0" y="172.0" font-size="11" fill="#555" font-style="italic">The champion is the lower-left-most</text>
+<text x="824.0" y="188.0" font-size="11" fill="#555" font-style="italic">SAFE point: every config that beats</text>
+<text x="824.0" y="204.0" font-size="11" fill="#555" font-style="italic">it on both axes fails the decline gate.</text>
+</svg>

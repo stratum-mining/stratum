@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" font-family="system-ui, sans-serif" font-size="13">
+<rect width="100%" height="100%" fill="#fafafa"/>
+<text x="380" y="28" text-anchor="middle" font-size="16" font-weight="bold">Why the champion is the safe frontier: decline-safety is a valley in τ</text>
+<text x="380" y="46" text-anchor="middle" font-size="12" fill="#555">Worst settled over-difficulty after a sustained decline (over the rate×spm grid)</text>
+<text x="380" y="62" text-anchor="middle" font-size="12" fill="#555">vs estimator window τ. Below the line = safe.</text>
+<line x1="72.0" y1="389.6" x2="716.0" y2="389.6" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="393.6" text-anchor="end" font-size="11" fill="#aaa">+0%</text>
+<line x1="72.0" y1="332.0" x2="716.0" y2="332.0" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="336.0" text-anchor="end" font-size="11" fill="#aaa">+2%</text>
+<line x1="72.0" y1="274.5" x2="716.0" y2="274.5" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="278.5" text-anchor="end" font-size="11" fill="#aaa">+4%</text>
+<line x1="72.0" y1="216.9" x2="716.0" y2="216.9" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="220.9" text-anchor="end" font-size="11" fill="#aaa">+6%</text>
+<line x1="72.0" y1="159.3" x2="716.0" y2="159.3" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="163.3" text-anchor="end" font-size="11" fill="#aaa">+8%</text>
+<line x1="72.0" y1="101.7" x2="716.0" y2="101.7" stroke="#ececec" stroke-width="1"/>
+<text x="64.0" y="105.7" text-anchor="end" font-size="11" fill="#aaa">+10%</text>
+<line x1="72.0" y1="245.7" x2="716.0" y2="245.7" stroke="#e41a1c" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="716.0" y="240.7" text-anchor="end" font-size="11" fill="#e41a1c">runaway gate (+5%)</text>
+<rect x="72.0" y="245.7" width="644.0" height="158.3" fill="#2e8b2e" fill-opacity="0.06"/>
+<text x="72.0" y="422.0" text-anchor="middle" font-size="11" fill="#999" font-weight="normal">120</text>
+<text x="179.3" y="422.0" text-anchor="middle" font-size="11" fill="#999" font-weight="normal">150</text>
+<text x="286.7" y="422.0" text-anchor="middle" font-size="11" fill="#999" font-weight="normal">240</text>
+<text x="394.0" y="422.0" text-anchor="middle" font-size="11" fill="#2e8b2e" font-weight="bold">360</text>
+<text x="501.3" y="422.0" text-anchor="middle" font-size="11" fill="#999" font-weight="normal">480</text>
+<text x="608.7" y="422.0" text-anchor="middle" font-size="11" fill="#999" font-weight="normal">600</text>
+<text x="716.0" y="422.0" text-anchor="middle" font-size="11" fill="#999" font-weight="normal">720</text>
+<text x="394.0" y="444.0" text-anchor="middle" font-size="12" fill="#666">estimator window τ (seconds)</text>
+<text x="22.0" y="241.0" text-anchor="middle" font-size="12" fill="#666" transform="rotate(-90 22.0 241.0)">worst settled over-difficulty e%</text>
+<path d="M72.0,209.7 L179.3,239.2 L286.7,276.7 L394.0,313.1 L501.3,231.3 L608.7,172.7 L716.0,118.6" fill="none" stroke="#333" stroke-width="2.4"/>
+<circle cx="72.0" cy="209.7" r="5.5" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="179.3" cy="239.2" r="5.5" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="286.7" cy="276.7" r="5.5" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="394.0" cy="313.1" r="5.5" fill="#2e8b2e" stroke="#1d5e1d" stroke-width="1"/>
+<circle cx="394.0" cy="313.1" r="10" fill="none" stroke="#2e8b2e" stroke-width="1.8"/>
+<text x="394.0" y="339.1" text-anchor="middle" font-size="11" font-weight="bold" fill="#2e8b2e">champion</text>
+<circle cx="501.3" cy="231.3" r="5.5" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="608.7" cy="172.7" r="5.5" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<circle cx="716.0" cy="118.6" r="5.5" fill="#fff" stroke="#e41a1c" stroke-width="2"/>
+<text x="108.0" y="94.0" text-anchor="middle" font-size="10" fill="#999" font-style="italic">twitchy: overshoots</text>
+<text x="680.0" y="94.0" text-anchor="middle" font-size="10" fill="#999" font-style="italic">sleepy: lags decline</text>
+<text x="716.0" y="398.0" text-anchor="end" font-size="10" fill="#888" font-style="italic">τ-only: invariant across sens s0.3–s2</text>
+</svg>
