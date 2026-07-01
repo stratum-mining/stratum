@@ -202,8 +202,12 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                         a.into(),
                         b.into(),
                         Extranonce::try_from(hex_decode(c)?)?,
-                        HexU32Be(d.as_u64().unwrap() as u32),
-                        HexU32Be(e.as_u64().unwrap() as u32),
+                        HexU32Be(d.as_u64().ok_or_else(|| {
+                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(d.clone()))
+                        })? as u32),
+                        HexU32Be(e.as_u64().ok_or_else(|| {
+                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(e.clone()))
+                        })? as u32),
                         Some((f.as_str()).try_into()?),
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
@@ -218,8 +222,12 @@ impl TryFrom<StandardRequest> for Submit<'_> {
                         a.into(),
                         b.into(),
                         Extranonce::try_from(hex_decode(c)?)?,
-                        HexU32Be(d.as_u64().unwrap() as u32),
-                        HexU32Be(e.as_u64().unwrap() as u32),
+                        HexU32Be(d.as_u64().ok_or_else(|| {
+                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(d.clone()))
+                        })? as u32),
+                        HexU32Be(e.as_u64().ok_or_else(|| {
+                            ParsingMethodError::ImpossibleToParseAsU64(Box::new(e.clone()))
+                        })? as u32),
                         None,
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
@@ -551,8 +559,9 @@ impl ConfigureExtension {
             // Min bit can be a number s9, s19
             (Some(JString(mask)), Some(JNumber(min_bit))) => {
                 let mask: HexU32Be = mask.as_str().try_into()?;
-                // min_bit is a json number checked above so as_u64 can not fail
-                let min_bit: HexU32Be = HexU32Be(min_bit.as_u64().unwrap() as u32);
+                let min_bit: HexU32Be = HexU32Be(min_bit.as_u64().ok_or_else(|| {
+                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(min_bit.clone()))
+                })? as u32);
                 (Some(mask), Some(min_bit))
             }
             // We can not have min bit count without a mask
@@ -572,9 +581,9 @@ impl ConfigureExtension {
 
         if let Some(minimum_difficulty_value) = minimum_difficulty_value {
             let min_diff = match minimum_difficulty_value {
-                JNumber(a) => a
-                    .as_u64()
-                    .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(a.clone()))?,
+                JNumber(a) => a.as_u64().ok_or_else(|| {
+                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(a.clone()))
+                })?,
                 _ => {
                     return Err(ParsingMethodError::unexpected_value_from_value(
                         minimum_difficulty_value.clone(),
@@ -817,4 +826,60 @@ fn test_subscribe_with_even_length_extranonce() {
     assert!(subscribe.extranonce1.is_some());
     let extranonce = subscribe.extranonce1.unwrap();
     assert_eq!(extranonce.0.inner_as_ref(), &[0xab, 0xcd]); // "abcd" -> [171, 205]
+}
+
+#[test]
+fn test_submit_negative_time_does_not_panic() {
+    // A malformed `mining.submit` whose `nTime` is a negative JSON number
+    // (e.g. -1) reaches the `[JString, JString, JString, JNumber, JNumber]`
+    // arm in `Submit::try_from`, where `d.as_u64().unwrap()` is called on a
+    // negative `serde_json::Number`. `as_u64()` returns `None` for negative
+    // values, so `.unwrap()` panics, crashing the parser before any auth
+    // check has run. The parser should return `Err` instead.
+    let client_message = r#"{"id":1,
+            "method": "mining.submit",
+            "params":["user", "1", "ab", -1, 0]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
+    let result = Submit::try_from(client_message);
+    assert!(
+        result.is_err(),
+        "Submit::try_from should return Err for a negative nTime, not panic"
+    );
+}
+
+#[test]
+fn test_submit_float_nonce_does_not_panic() {
+    // Same shape as the negative-time case, but with a floating-point nOnce.
+    // `serde_json::Number::as_u64()` also returns `None` for floats.
+    let client_message = r#"{"id":1,
+            "method": "mining.submit",
+            "params":["user", "1", "ab", 0, 1.5]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
+    let result = Submit::try_from(client_message);
+    assert!(
+        result.is_err(),
+        "Submit::try_from should return Err for a fractional nOnce, not panic"
+    );
+}
+
+#[test]
+fn test_configure_negative_min_bit_count_does_not_panic() {
+    // The mining.configure handler also panics: when min-bit-count is a
+    // negative JSON number, `min_bit.as_u64().unwrap()` blows up the
+    // server. Should return Err.
+    let client_message = r#"{"id":0,
+            "method": "mining.configure",
+            "params":[
+                ["version-rolling"],
+                {"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":-1}
+            ]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();
+    let result = Configure::try_from(client_message);
+    assert!(
+        result.is_err(),
+        "Configure::try_from should return Err for a negative min-bit-count, not panic"
+    );
 }
