@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Information Floor — A Primer for the Technical Study</title>
+<link href="./fonts/fonts.css" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFAF6;
+    --ink:#23252C;
+    --ink-soft:#3D424E;
+    --muted:#6E7480;
+    --rule:#E4E2D8;
+    --panel:#FFFFFF;
+    --controller:#2C6FB0;   /* the estimator / the thing we compute */
+    --controller-soft:#E7F0F8;
+    --truth:#C07D1B;        /* the true quantity we're chasing */
+    --truth-soft:#F6ECD8;
+    --danger:#BE3A2B;       /* the floor / what cannot be beaten */
+    --danger-soft:#F6E2DD;
+    --serif:"Fraunces",Georgia,serif;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:18px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .paper{max-width:720px;margin:0 auto;padding:0 26px 96px;}
+
+  /* ---- masthead ---- */
+  .masthead{padding:72px 0 16px;}
+  .kicker{
+    font-family:var(--mono);font-size:0.74rem;letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--controller);margin:0 0 22px;
+  }
+  h1{
+    font-family:var(--serif);font-optical-sizing:auto;font-weight:600;
+    font-size:clamp(2.4rem,6.2vw,3.9rem);line-height:1.04;letter-spacing:-0.015em;
+    margin:0 0 20px;color:var(--ink);
+  }
+  .dek{
+    font-family:var(--serif);font-weight:400;font-style:normal;
+    font-size:clamp(1.2rem,2.6vw,1.5rem);line-height:1.4;color:var(--ink-soft);
+    margin:0 0 26px;max-width:42ch;
+  }
+  .author{font-family:var(--mono);font-size:0.86rem;color:var(--ink-soft);margin:0 0 22px;}
+  .author .role{color:var(--muted);}
+  .byline{font-family:var(--mono);font-size:0.82rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:18px;}
+
+  /* ---- orientation box ---- */
+  .tldr{
+    background:var(--panel);border:1px solid var(--rule);border-radius:12px;
+    padding:26px 28px;margin:40px 0 8px;
+  }
+  .tldr .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;}
+  .tldr p{font-size:1.04rem;margin:0;color:var(--ink-soft);}
+  .tldr p + p{margin-top:13px;}
+
+  /* ---- sections ---- */
+  section{padding:46px 0 8px;}
+  .eyebrow{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;display:flex;align-items:center;gap:12px;}
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--rule);}
+  h2{
+    font-family:var(--serif);font-optical-sizing:auto;font-weight:600;
+    font-size:clamp(1.55rem,3.6vw,2.15rem);line-height:1.12;letter-spacing:-0.01em;
+    margin:0 0 16px;color:var(--ink);
+  }
+  h3{
+    font-family:var(--sans);font-weight:600;font-size:1.12rem;
+    margin:26px 0 10px;color:var(--ink);
+  }
+  p{margin:0 0 18px;color:var(--ink-soft);}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:italic;}
+  .lead{font-size:1.08rem;color:var(--ink);}
+  a{color:var(--controller);}
+
+  .pull{
+    font-family:var(--serif);font-weight:500;font-size:clamp(1.25rem,3vw,1.7rem);
+    line-height:1.32;color:var(--ink);
+    border-left:3px solid var(--controller);padding:6px 0 6px 22px;margin:30px 0;
+  }
+
+  .c-est{color:var(--controller);font-weight:600;}
+  .c-truth{color:var(--truth);font-weight:600;}
+  .c-floor{color:var(--danger);font-weight:600;}
+
+  /* ---- math display ---- */
+  .math{
+    font-family:var(--mono);background:var(--panel);border:1px solid var(--rule);
+    border-radius:10px;padding:16px 20px;margin:22px 0;font-size:0.95rem;
+    color:var(--ink);line-height:1.9;overflow-x:auto;
+    overflow-wrap:break-word;word-break:normal;
+  }
+  .math .an{color:var(--muted);font-size:0.82rem;}
+  @media (max-width:460px){ .math{font-size:0.86rem;padding:14px 14px;} }
+  code{font-family:var(--mono);background:var(--controller-soft);color:var(--ink);
+    padding:1px 6px;border-radius:4px;font-size:0.9em;}
+
+  /* symbol definitions — mono term, prose definition that wraps cleanly */
+  .defs{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px 20px;margin:22px 0;}
+  .defs dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;}
+  .defs dt{font-family:var(--mono);font-size:0.95rem;font-weight:600;white-space:nowrap;}
+  .defs dd{margin:0;color:var(--ink-soft);font-size:0.98rem;line-height:1.5;}
+  @media (max-width:460px){
+    .defs dl{grid-template-columns:1fr;gap:2px 0;}
+    .defs dd{margin:0 0 8px;}
+  }
+
+  /* ---- figure ---- */
+  figure{margin:34px 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:20px 20px 12px;}
+  .figbox svg{display:block;width:100%;height:auto;}
+  figcaption{font-family:var(--mono);font-size:0.8rem;line-height:1.55;color:var(--muted);margin-top:14px;}
+  figcaption b{color:var(--ink-soft);font-weight:500;}
+
+  /* ---- interactive ---- */
+  .demo{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:22px 22px 18px;margin:36px 0;}
+  .demo-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+  .demo-title{font-family:var(--mono);font-size:0.78rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--controller);margin:0;}
+  .readout{font-family:var(--mono);font-size:0.82rem;font-weight:500;padding:5px 13px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap;color:var(--controller);background:var(--controller-soft);}
+  .demo svg{display:block;width:100%;height:auto;}
+  .controls{display:grid;grid-template-columns:1fr;gap:13px;margin-top:18px;}
+  .ctl{display:grid;grid-template-columns:minmax(150px,auto) 1fr auto;align-items:center;gap:14px;}
+  .ctl label{font-size:0.95rem;color:var(--ink-soft);font-weight:500;}
+  .ctl input[type=range]{width:100%;accent-color:var(--controller);height:4px;}
+  .ctl .val{font-family:var(--mono);font-size:0.82rem;color:var(--controller);min-width:6ch;text-align:right;}
+  .demo-note{font-family:var(--mono);font-size:0.78rem;line-height:1.6;color:var(--muted);margin:16px 0 0;min-height:3.4em;}
+  @media (max-width:520px){
+    .ctl{grid-template-columns:1fr auto;}
+    .ctl input[type=range]{grid-column:1 / -1;order:3;margin-top:2px;}
+    .ctl .val{order:2;}
+  }
+
+  /* ---- check-yourself ---- */
+  .check{
+    background:var(--truth-soft);border:1px solid #EAD9B6;border-radius:12px;
+    padding:20px 24px;margin:30px 0;
+  }
+  .check .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--truth);margin:0 0 10px;}
+  .check p{margin:0 0 12px;color:var(--ink-soft);}
+  .check p:last-child{margin-bottom:0;}
+  details{margin-top:8px;}
+  summary{font-family:var(--mono);font-size:0.82rem;color:var(--truth);cursor:pointer;font-weight:500;}
+  details[open] summary{margin-bottom:10px;}
+  .answer{font-size:0.98rem;color:var(--ink-soft);}
+
+  /* ---- callout: exact vs simplified ---- */
+  .note{
+    border-left:3px solid var(--muted);padding:4px 0 4px 20px;margin:24px 0;
+    font-size:0.98rem;color:var(--ink-soft);
+  }
+  .note .tag{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;}
+
+  /* ---- bridge to report ---- */
+  .bridge{
+    background:var(--controller-soft);border:1px solid #CFE0F0;border-radius:12px;
+    padding:24px 28px;margin:44px 0 8px;
+  }
+  .bridge .lbl{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--controller);margin:0 0 12px;}
+  .bridge p{margin:0 0 12px;color:var(--ink-soft);}
+  .bridge p:last-child{margin-bottom:0;}
+  .bridge a{font-weight:600;}
+
+  hr.div{border:0;border-top:1px solid var(--rule);margin:52px 0;}
+  .chapter{margin:64px 0 8px;padding-top:22px;border-top:2px solid var(--ink);}
+  .chapter .cnum{font-family:var(--mono);font-size:0.74rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--controller);margin:0 0 10px;}
+  .chapter h2{font-size:clamp(1.9rem,4.4vw,2.6rem);margin:0 0 12px;line-height:1.06;}
+  .chapter .cdek{font-family:var(--serif);font-weight:400;font-size:clamp(1.1rem,2.4vw,1.35rem);line-height:1.4;color:var(--ink-soft);margin:0 0 8px;max-width:42ch;}
+  .toc-chap{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--controller);margin:16px 0 2px;}
+  .toc{font-family:var(--mono);font-size:0.85rem;color:var(--muted);line-height:1.9;margin:4px 0 0;}
+  .toc a{color:var(--ink-soft);text-decoration:none;}
+  .toc a:hover{color:var(--controller);}
+  .step{color:var(--controller);}
+</style>
+</head>
+<body>
+<div class="paper">
+
+  <header class="masthead">
+    <p class="kicker">Companion primer · read before the technical report</p>
+    <h1>The Information Floor</h1>
+    <p class="dek">Why a hashrate estimate can only be so precise — and why setting difficulty too high starves the very signal you'd need to notice.</p>
+    <p class="author">By Eric Price <span class="role">· Senior Software Engineer, MARA</span></p>
+    <p class="byline">A ground-up primer on the estimation theory behind <em>information-floor.md</em>. No prior statistics assumed; the plain-English essays assume none of this.</p>
+  </header>
+
+  <div class="tldr">
+    <p class="lbl">What this is for</p>
+    <p>The two essays make an argument <em>without</em> the math: more shares means a sharper estimate, there's a limit, and the only real lever is the share rate. That's all a reader needs to follow the <em>why</em>.</p>
+    <p>The technical report proves it, and the proof rests on one result from estimation theory: the <strong>Cramér–Rao lower bound</strong>, which gives the estimate's precision a hard floor of <code>1/&radic;(r*&tau;)</code>. This primer builds that result from nothing, so the report's central claim reads as a conclusion you understand rather than a formula you take on faith.</p>
+    <p>You almost certainly already have the <em>intuition</em> for the first half. What you may not have are the <em>names</em> — Fisher information, the Cramér–Rao bound — and the one line of algebra that turns the intuition into the exact <code>1/&radic;(r*&tau;)</code>. That's the gap this closes.</p>
+    <p>Then a second, harder idea most people <em>don't</em> intuit: what happens when the difficulty is set wrong. <strong>Chapter 2</strong> builds the collapse <code>r_obs/r* = exp(&minus;e)</code> from the ground up — the relation that makes over-difficulty <em>self-reinforcing</em> — and shows why it forces the whole design to treat "too hard" and "too easy" as opposites rather than mirror images. If <code>exp(&minus;e)</code> looks opaque right now, that's exactly what Chapter 2 is for.</p>
+  </div>
+
+  <nav class="toc">
+    <p class="toc-chap">Chapter 1 · The floor</p>
+    <span class="step">1.</span> <a href="#counting">Estimating a rate by counting</a><br>
+    <span class="step">2.</span> <a href="#noise">Why the estimate is noisy — and how noisy</a><br>
+    <span class="step">3.</span> <a href="#fisher">Information, named: the Fisher information</a><br>
+    <span class="step">4.</span> <a href="#crlb">The floor: the Cramér–Rao bound</a><br>
+    <span class="step">5.</span> <a href="#rtau">Putting it together: <code>1/&radic;(r*&tau;)</code></a><br>
+    <span class="step">6.</span> <a href="#lever">Why there's exactly one lever</a><br>
+    <span class="step">7.</span> <a href="#boundary">What the floor does and doesn't say</a>
+    <p class="toc-chap">Chapter 2 · The collapse</p>
+    <span class="step">8.</span> <a href="#logcoord">Measuring error in the right units</a><br>
+    <span class="step">9.</span> <a href="#collapse">The collapse: why observed rate is <code>exp(&minus;e)</code></a><br>
+    <span class="step">10.</span> <a href="#closedform">Drop depth, exactly: <code>e = &minus;ln(1&minus;d)</code></a><br>
+    <span class="step">11.</span> <a href="#implications">Three things that follow</a><br>
+    <span class="step">12.</span> <a href="#dynamics">The dynamics — who actually escapes</a>
+  </nav>
+
+  <hr class="div">
+
+  <div class="chapter">
+    <p class="cnum">Chapter 1</p>
+    <h2>The floor</h2>
+    <p class="cdek">How precisely can you measure a miner's hashrate from its shares? There's a hard limit, it's set by how much data you have, and no cleverness beats it.</p>
+  </div>
+
+  <!-- ============ 1 ============ -->
+  <section id="counting">
+    <p class="eyebrow">Step 1</p>
+    <h2>Estimating a rate by counting</h2>
+    <p class="lead">A miner's hashrate isn't something the pool measures directly. It's something the pool <em>infers</em> — from the shares the miner submits.</p>
+    <p>A share is a proof-of-work hit: the miner is grinding through hashes, and every so often one clears the difficulty target and becomes a share. The higher the hashrate, the more often that happens. So the pool watches the share stream and works backward: <em>this many shares in this much time, at this difficulty, implies roughly this hashrate.</em></p>
+    <p>Strip away the mining specifics and the shape of the problem is old and well-understood: <strong>you are estimating a rate by counting random events over a window of time.</strong> The same shape shows up in counting clicks from a Geiger counter, calls arriving at a call center, or raindrops hitting a sensor. In all of them you have events that arrive at some true average rate, you count how many land in a fixed window, and you use that count to estimate the rate.</p>
+    <p>The key fact about these events — and the one everything below depends on — is that each hash is an <strong>independent trial</strong>. A hash either clears the target or it doesn't, the miner does astronomically many of them, and whether any one clears is independent of the others. Events like that arrive in a specific statistical pattern called a <span class="c-est">Poisson process</span>, and a Poisson process has one property we'll lean on hard: <em>over a window, the number of events you see has an average, and it has a spread around that average — and the spread is completely determined by the average.</em></p>
+    <div class="note">
+      <span class="tag">Why "Poisson" matters later</span>
+      When the essays' companion analysis says share arrivals stay honest and independent, this is the claim: hashing is a Poisson process. That's what lets us pin down the noise exactly, rather than hand-wave it. Hold onto the word; the report uses it.
+    </div>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section id="noise">
+    <p class="eyebrow">Step 2</p>
+    <h2>Why the estimate is noisy — and exactly how noisy</h2>
+    <p class="lead">Here's the fact that does the most work in the whole subject, and it's the one you already know from running miners: an estimate off a few shares bounces around; an estimate off many shares is steady.</p>
+    <p>You've watched this happen. Point a fresh miner at a pool and the estimated hashrate is all over the place for the first little while — then it settles as the shares pile up. Nothing about the miner changed; the <em>estimate</em> got better because it had more to go on. That settling is the entire phenomenon, and now we're going to say precisely <em>how much</em> it settles.</p>
+    <p>For a Poisson process, if you expect <code>N</code> events in your window on average, the spread — the typical amount your actual count differs from <code>N</code> — is <span class="c-est">&radic;N</span>. Not <code>N</code>, not <code>N&sup2;</code>: the <em>square root</em> of <code>N</code>. This is the one non-obvious fact you have to take from the mathematics, and it's worth stating on its own:</p>
+    <div class="math">
+      count in window &nbsp;&asymp;&nbsp; N &nbsp;&plusmn;&nbsp; &radic;N
+      <br><span class="an"># expected count N, typical wobble &radic;N</span>
+    </div>
+    <p>Now watch what that does to the <em>relative</em> error — the wobble as a fraction of the thing you're measuring, which is what actually matters. The absolute wobble is <code>&radic;N</code>, so as a fraction of <code>N</code> it's:</p>
+    <div class="math">
+      relative error &nbsp;=&nbsp; &radic;N / N &nbsp;=&nbsp; 1 / &radic;N
+      <br><span class="an"># the wobble shrinks, but only as 1 over the square root of the count</span>
+    </div>
+    <p>There's the square-root law, and there's why it's a law of <em>diminishing returns</em>. Collect <strong>4×</strong> as many shares and the relative error doesn't drop to a quarter — it drops by <code>&radic;4 = 2</code>, i.e. it <em>halves</em>. To <em>halve</em> the error again you need <strong>4× more still</strong>. Every further factor of two in precision costs four times the shares. Precision is buyable, but the price climbs steeply.</p>
+    <div class="pull">The estimate improves as the square root of the count. That's not a mining fact — it's what counting random events forces on you.</div>
+
+    <!-- interactive -->
+    <div class="demo">
+      <div class="demo-head">
+        <p class="demo-title">See it: count vs. spread</p>
+        <span class="readout" id="ro">relative error &asymp; 10%</span>
+      </div>
+      <svg id="plot" viewBox="0 0 680 240" role="img" aria-label="A band showing the estimate's spread narrowing as the number of shares grows."></svg>
+      <div class="controls">
+        <div class="ctl">
+          <label for="nsh">Shares counted (N)</label>
+          <input id="nsh" type="range" min="4" max="900" value="100" step="1">
+          <span class="val" id="nshv">100</span>
+        </div>
+      </div>
+      <p class="demo-note" id="note">The blue band is where the estimate lands. Drag right — the band narrows, but notice how much further you have to drag each time to halve its width. That reluctance <em>is</em> the square root.</p>
+    </div>
+
+    <div class="check">
+      <p class="lbl">Check yourself</p>
+      <p>Your estimate off 100 shares has a relative error of about 10%. You want to get it down to about 5%. Roughly how many shares do you need?</p>
+      <details>
+        <summary>Work it out, then open</summary>
+        <p class="answer">You want to halve the error, and error goes as <code>1/&radic;N</code>. Halving the error means <em>doubling</em> <code>&radic;N</code>, which means <strong>quadrupling N</strong> — so about <strong>400 shares</strong>. (Check: <code>1/&radic;400 = 1/20 = 5%</code>.) The jump from 100→400 to buy one halving is the diminishing return made concrete.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section id="fisher">
+    <p class="eyebrow">Step 3</p>
+    <h2>Information, named: the Fisher information</h2>
+    <p class="lead">We've been saying "more shares means a better estimate." Estimation theory gives the "more to go on" a precise name and a number: the <span class="c-est">Fisher information</span>.</p>
+    <p>The idea is exactly what it sounds like. Every observation you make carries some <em>information</em> about the quantity you're trying to pin down. The Fisher information is a measurement of <strong>how much a set of observations tells you about an unknown</strong> — a bigger number means the data pins the answer down more tightly, a smaller number means the data leaves it fuzzier.</p>
+    <p>You don't need the defining formula to use the concept, and this primer won't derive it — the report can, if you want it. What you need is the one structural property that makes it the right tool, and it's the property you'd hope for: <strong>for independent observations, Fisher information adds up.</strong> Two independent shares carry twice the information of one; a hundred carry a hundred times. Information accumulates as you collect data, one observation at a time.</p>
+    <p>For our counting problem, that means the Fisher information about the rate <em>grows with the number of events you observe</em>. More shares, more information — now stated in the vocabulary the technical report uses. And that sets up the punchline, because information and precision are about to turn out to be two views of the same thing.</p>
+    <div class="note">
+      <span class="tag">The name, so it's not a surprise later</span>
+      "Fisher information" (after the statistician R.&nbsp;A. Fisher) is just the formal name for <em>how much the data tells you</em>. When the report writes it, it means the thing you already understood as "how many shares you have to go on."
+    </div>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section id="crlb">
+    <p class="eyebrow">Step 4</p>
+    <h2>The floor: the Cramér–Rao bound</h2>
+    <p class="lead">Now the result the whole report stands on — and, again, one you half-know: no matter how clever your formula, you can't be more precise than your data allows.</p>
+    <p>You already believe this. You know you can't take a jittery ten-share estimate and, by processing it more cleverly, turn it into the steady estimate you'd get from a thousand shares. The information isn't there; no amount of arithmetic conjures it. The <span class="c-floor">Cramér–Rao lower bound</span> is that belief made exact. It says:</p>
+    <div class="math">
+      variance of any unbiased estimate &nbsp;&ge;&nbsp; 1 / (Fisher information)
+      <br><span class="an"># "variance" = the spread, squared. More information &rarr; smaller possible spread.</span>
+    </div>
+    <p>Read it in words: <strong>the spread of your estimate can't be smaller than one over the information you have.</strong> The information sets a <em>floor</em> on the achievable error, and the floor is not something a better algorithm gets under — it's the best <em>any</em> method can do with that data. Beating it isn't hard; it's <em>impossible</em>, the way a perpetual-motion machine is impossible, not the way a hard problem is hard.</p>
+    <p>This is why "use a smarter controller to track hashrate more precisely" is a dead end, and the report can say so with a theorem rather than an opinion. All the reasonable estimators cluster just above this floor because the floor is where the information runs out. The differences between them are rounding error next to the wall they're all pressed against.</p>
+    <div class="pull">The floor isn't the best we've found. It's the best there is — a limit on what the data can support, not on our ingenuity.</div>
+    <div class="note">
+      <span class="tag">One honest qualifier</span>
+      The bound is stated for <em>unbiased</em> estimators — ones that don't systematically run high or low. That's the right frame here (you want an honest hashrate estimate, not one skewed on purpose), but it's a real condition, not decoration. A biased estimator can trade some honesty for less spread; the report is careful about this, and so should you be. "No estimator beats it" is shorthand for "no <em>unbiased</em> estimator beats it."
+    </div>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section id="rtau">
+    <p class="eyebrow">Step 5</p>
+    <h2>Putting it together: where <code>1/&radic;(r*&tau;)</code> comes from</h2>
+    <p class="lead">Everything you need is now on the table. The report's formula is three steps you've already taken, stacked.</p>
+    <p>Start from the count. Your window is some length of time — call it <span class="c-est">&tau;</span> (the estimator window). Shares arrive at the true rate — call it <span class="c-truth">r*</span> (shares per unit time). So the number of shares you expect to see in the window is just rate × time:</p>
+    <div class="math">
+      N &nbsp;=&nbsp; <span style="color:var(--truth)">r*</span> &times; <span style="color:var(--controller)">&tau;</span>
+      <br><span class="an"># expected shares = share rate times window length</span>
+    </div>
+    <p>Now apply Step 2's square-root law. The relative error of a count-based rate estimate is <code>1/&radic;N</code>. Substitute <code>N = r*&tau;</code>:</p>
+    <div class="math">
+      relative error &nbsp;=&nbsp; 1 / &radic;N &nbsp;=&nbsp; <span class="c-floor">1 / &radic;(r* &tau;)</span>
+      <br><span class="an"># the floor, in the report's own notation</span>
+    </div>
+    <p>That's the whole formula. It isn't an arbitrary expression to memorize — it's "count random events, and your relative error is one over the square root of how many you counted," with the count written as <em>rate times window</em>. And read through the Fisher-information lens of Steps 3–4, the story closes: more shares (larger <code>r*&tau;</code>) means more information, which by Cramér–Rao means a lower floor on the error. Precision, information, and count are one thing seen three ways.</p>
+
+    <div class="check">
+      <p class="lbl">Check yourself</p>
+      <p>Two knobs sit inside <code>r*&tau;</code>: the share rate <code>r*</code> and the window <code>&tau;</code>. Suppose you double the window <code>&tau;</code> (average over twice as long) <em>instead</em> of raising the rate. What happens to the floor — and what does it cost you?</p>
+      <details>
+        <summary>Think it through, then open</summary>
+        <p class="answer">Doubling <code>&tau;</code> doubles <code>r*&tau;</code> exactly as doubling <code>r*</code> would, so the floor drops by the same <code>&radic;2</code> — <em>mathematically the two knobs look identical.</em> The difference is what they cost. A longer window buys precision by making the estimate <strong>slower</strong>: you're averaging over more history, so you react to a real hashrate change later. Raising the rate buys the same precision without that lag. That trade — precision vs. responsiveness — is exactly why the window isn't a free lever, and it's a thread the report picks up.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section id="lever">
+    <p class="eyebrow">Step 6</p>
+    <h2>Why there's exactly one lever</h2>
+    <p class="lead">This is the payoff the essays assert and the report proves — and now you can see the machinery under it.</p>
+    <p>The floor is <code>1/&radic;(r*&tau;)</code>, and the Cramér–Rao bound says no estimator gets under it. So ask: what can an engineer actually change to make tracking more precise?</p>
+    <p><strong>Not the estimator.</strong> Every unbiased estimator is already at or just above the floor — that's Step 4. Polishing the formula moves you from "just above the floor" to "at the floor," a rounding-error gain. There's no room there.</p>
+    <p><strong>The window <code>&tau;</code> — but at a price.</strong> A longer window lowers the floor, but by making the estimate slower to react (Step 5's check). You can trade responsiveness for precision, but you haven't lowered the fundamental cost of information; you've just spent time to buy it.</p>
+    <p><strong>The rate <code>r*</code> — the real lever.</strong> Raising the share rate raises <code>r*&tau;</code>, which raises the information, which lowers the floor — <em>without</em> the lag the window imposes. It genuinely lowers the wall everyone is pressed against. In mining terms, more shares per unit time is more information per unit time, and that's the one move that improves the whole thing rather than trading one virtue for another.</p>
+    <div class="pull">The estimator can't beat the floor and the window only trades time for precision. Raising the share rate is the one move that lowers the floor itself.</div>
+    <p>That is why the essays say the share rate is the only real lever, and why the report can defend it as a consequence of the Cramér–Rao bound rather than a design preference. There's one place the information comes from, and turning that knob is the only thing that adds information for free.</p>
+  </section>
+
+  <!-- ============ 7 ============ -->
+  <section id="boundary">
+    <p class="eyebrow">Step 7</p>
+    <h2>What the floor does — and does not — say</h2>
+    <p class="lead">A primer earns trust by marking its own edges. Two, before you go to the report.</p>
+    <h3>The floor is about <em>tracking precision</em>, not about every cost in the system</h3>
+    <p>The Cramér–Rao floor tells you how precisely you can <em>estimate</em> a hashrate from shares. That's one dimension of the vardiff problem — an important one — but not the whole of it. The report separates several distinct costs, and confusing "the estimate is imprecise" with "the controller is behaving badly" is exactly the kind of category error the report is careful to avoid. Read the floor as what it is: a limit on estimation, which is one input to the larger question of controller behavior, not the whole answer.</p>
+    <h3>The square-root law assumes independent, Poisson arrivals</h3>
+    <p>The clean <code>&radic;N</code> spread is exactly right <em>for independent events</em>. Real share streams can depart from that — arrivals can clump for reasons of hardware timing, network batching, or a control loop that correlates one window to the next — and when they do, the real spread is <em>wider</em> than the idealized <code>1/&radic;(r*&tau;)</code>. The floor is a floor: it's the best case, the limit you approach when the arrivals are as clean as the model assumes. The report is explicit that reality sits at or above it, never below. Treat <code>1/&radic;(r*&tau;)</code> as the <em>best achievable</em>, and expect the field to be a bit worse.</p>
+    <div class="note">
+      <span class="tag">Why this matters for what you read next</span>
+      A tempting but wrong story says the harm from a bad controller is "lost information" from clumped shares. That's a real phenomenon — but it is <em>not</em> where the report's headline cost comes from, and the report is careful to keep them apart. Carry the distinction in: the floor is about how much the data can tell you; a controller sitting at the wrong difficulty is a different problem with a different cost.
+    </div>
+  </section>
+
+  <div class="bridge">
+    <p class="lbl">End of Chapter 1 — and the setup for Chapter 2</p>
+    <p>You now have the three names Chapter 1 was built to give you: the <strong>Poisson</strong> arrival process, the <strong>Fisher information</strong> that grows with the shares you collect, and the <strong>Cramér–Rao bound</strong> that turns that information into a hard floor <code>1/&radic;(r*&tau;)</code>. Precision depends on the share rate. Hold that — Chapter 2 needs it.</p>
+    <p>Chapter 1 assumed the difficulty was set roughly right and asked how precisely you could <em>measure</em>. Chapter 2 asks the opposite question: what happens when the difficulty is set <em>wrong</em>? The answer is where the real danger lives — and it turns on a single relation, <code>r_obs/r* = exp(&minus;e)</code>, that we'll build one piece at a time.</p>
+  </div>
+
+  <!-- ================= CHAPTER 2 ================= -->
+  <div class="chapter">
+    <p class="cnum">Chapter 2</p>
+    <h2>The collapse</h2>
+    <p class="cdek">Set difficulty too high and you don't just get a wrong number — you choke off the shares you'd need to notice. That feedback is the whole ballgame, and it makes "too hard" and "too easy" fundamentally different.</p>
+  </div>
+  <div class="tldr">
+    <p class="lbl">Where this chapter is headed</p>
+    <p>Everything below builds toward one loop: <strong>an over-difficulty error starves the shares the controller needs to detect the error, so the error protects itself.</strong> That self-reinforcing loop is the death spiral, and it's the reason a declining miner can get stranded at too-high difficulty.</p>
+    <p>We build the loop from parts, bottom-up, so that when it assembles (Step 11) every link is something you've already proved rather than taken on faith. The parts, in order: a clean way to <em>measure</em> difficulty error (Step 8), the relation that turns error into a collapsing share rate (Step 9, the crux), and the formula tying a hashrate drop to an exact error (Step 10). Hold the loop as the destination; the steps are how we earn it.</p>
+  </div>
+
+  <!-- ============ 8 ============ -->
+  <section id="logcoord">
+    <p class="eyebrow">Step 8</p>
+    <h2>Measuring error in the right units</h2>
+    <p class="lead">Before we can talk about difficulty being "wrong," we need a clean way to measure <em>how</em> wrong. That measure is a logarithm, and the reason is worth getting exactly, because everything in this chapter is written in it.</p>
+    <p>The controller doesn't add or subtract difficulty — it <em>multiplies</em> it. It decides the miner should be at half the current difficulty, or twice, or 1.2×. Difficulty moves by <em>factors</em>. So the honest way to ask "how wrong is the current setting" is also multiplicative: <em>by what factor is our estimate of the hashrate off from the truth?</em></p>
+    <p>Call the controller's current estimate of the hashrate <span class="c-est">Ĥ</span> ("H-hat" — the belief it's acting on) and the true hashrate <span class="c-truth">H</span>. The natural measure of wrongness is the ratio <code>Ĥ/H</code> — how many times off we are. If <code>Ĥ/H = 2</code>, the controller thinks the miner is twice as fast as it really is (so it sets difficulty too high). If <code>Ĥ/H = 0.5</code>, it thinks the miner is half as fast (difficulty too low).</p>
+    <p>But a raw ratio is an awkward ruler, because it's not symmetric around "correct." Being off by 2× too high gives a ratio of <code>2</code>; being off by 2× too low gives <code>0.5</code>. Those are the *same size* of mistake in opposite directions — but <code>2</code> and <code>0.5</code> aren't the same distance from <code>1</code>. The ruler is stretched on one side and squashed on the other. <strong>Taking the logarithm fixes exactly this.</strong> Define the error as</p>
+    <div class="math">
+      e &nbsp;=&nbsp; ln( <span style="color:var(--controller)">Ĥ</span> / <span style="color:var(--truth)">H</span> )
+      <br><span class="an"># the log of the ratio — "how many factors off, as a signed distance"</span>
+    </div>
+    <p>Now the ruler is symmetric. A logarithm turns "2× too high" into <code>ln 2 &asymp; +0.69</code> and "2× too low" into <code>ln 0.5 &asymp; &minus;0.69</code> — the <em>same distance</em> from zero, just opposite signs. Reading it off:</p>
+    <div class="math">
+      <span class="c-truth">e = 0</span> &nbsp;&rarr;&nbsp; exact (Ĥ = H)
+      <br><span class="c-floor">e &gt; 0</span> &nbsp;&rarr;&nbsp; over-difficulty (estimate too high &rarr; difficulty too hard)
+      <br>e &lt; 0 &nbsp;&rarr;&nbsp; under-difficulty (estimate too low &rarr; difficulty too easy)
+    </div>
+    <p>That's the whole idea of Step 8: <code>e</code> is just "how wrong, measured multiplicatively, on a ruler where equal factors are equal distances." It's a signed number, zero when perfect, positive when too hard, negative when too easy. Everything below is written in <code>e</code> for one reason — it's the only ruler on which the two directions are comparable, which we're about to need, because they turn out <em>not</em> to be comparable in consequence at all.</p>
+    <div class="check">
+      <p class="lbl">Check yourself</p>
+      <p>The controller's estimate is 25% too high (<code>Ĥ/H = 1.25</code>). Is <code>e</code> positive or negative, and roughly what does the "too high" mean the miner is experiencing — difficulty too hard, or too easy?</p>
+      <details>
+        <summary>Answer</summary>
+        <p class="answer"><code>e = ln(1.25) &asymp; +0.22</code> — <strong>positive</strong>, because the estimate is above the truth. And "estimate too high" means the controller thinks the miner is faster than it is, so it sets the difficulty bar <strong>too hard</strong> for what the miner can actually do. Positive <code>e</code> = over-difficulty = the dangerous direction, as the next step will show.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ 9 ============ -->
+  <section id="collapse">
+    <p class="eyebrow">Step 9 · the center of the whole primer</p>
+    <h2>The collapse: why the observed rate is <code>exp(&minus;e)</code></h2>
+    <p class="lead">This is the step to slow down on. It's the relation you said looked opaque, and by the end of it the opacity should be gone — because it's really just one physical fact plus the log ruler from Step 8.</p>
+
+    <h3>The physical fact</h3>
+    <p>When difficulty is set too high, shares come in <em>less often</em>. That's not subtle — it's the definition of difficulty. A share is a hash that clears the target; raise the target (harder difficulty) and fewer hashes clear it, so shares arrive more slowly. The miner is working exactly as hard as before; the pool just <em>sees</em> fewer shares, because each one now takes more work to produce.</p>
+    <p>So there are two share rates to keep apart:</p>
+    <div class="defs">
+      <dl>
+        <dt style="color:var(--truth)">r*</dt>
+        <dd>the rate shares <em>would</em> arrive at if difficulty were set correctly</dd>
+        <dt style="color:var(--controller)">r_obs</dt>
+        <dd>the rate the pool <em>actually observes</em>, at the current (possibly wrong) difficulty</dd>
+      </dl>
+    </div>
+    <p>When difficulty is correct, <code>r_obs = r*</code>. When it's too hard, <code>r_obs &lt; r*</code> — you observe fewer than you should. The question is: <em>by exactly how much?</em></p>
+
+    <h3>Turning "how much less" into a formula</h3>
+    <p>Here's the one link to make. Difficulty is proportional to the estimate <code>Ĥ</code> (the controller sets the bar based on what it thinks the hashrate is). And share rate is <em>inversely</em> proportional to difficulty (double the difficulty, halve the share rate — each share takes twice the work). Put those together: the observed rate is the true rate scaled by <em>how many times too high the estimate is</em> — i.e. divided by the ratio <code>Ĥ/H</code>:</p>
+    <div class="math">
+      <span class="c-est">r_obs</span> / <span class="c-truth">r*</span> &nbsp;=&nbsp; 1 / (Ĥ/H) &nbsp;=&nbsp; H/Ĥ
+      <br><span class="an"># observed rate falls in proportion to how much too high the difficulty is set</span>
+    </div>
+    <p>That's already the whole physical content: if the difficulty is set 2× too high (<code>Ĥ/H = 2</code>), you observe half the shares (<code>r_obs/r* = 1/2</code>). Now the <em>only</em> remaining move is to rewrite <code>H/Ĥ</code> in the log ruler from Step 8. Recall <code>e = ln(Ĥ/H)</code>. Then <code>Ĥ/H = exp(e)</code> — here <code>exp(·)</code> is the <em>exponential function</em>, the exact inverse of the <code>ln</code> we used to define <code>e</code>, so <code>exp</code> and <code>ln</code> undo each other. That gives <code>H/Ĥ = exp(&minus;e)</code>. Substitute:</p>
+    <div class="math">
+      <span class="c-est">r_obs</span> / <span class="c-truth">r*</span> &nbsp;=&nbsp; H/Ĥ &nbsp;=&nbsp; <span class="c-floor">exp(&minus;e)</span>
+      <br><span class="an"># the collapse — observed rate as a function of the error e</span>
+    </div>
+    <p>That's it. <code>exp(&minus;e)</code> isn't a mysterious object — it's just "<code>H/Ĥ</code> (observed rate falls in proportion to over-setting) written in the log units where the error is called <code>e</code>." The exponential is there <em>only</em> because we chose to measure error as a logarithm in Step 8; <code>exp(&minus;e)</code> is the log ruler and the physical fact, snapped together.</p>
+
+    <h3>What the shape tells you — and why it matters</h3>
+    <p>Now read the curve. The whole point of writing it as <code>exp(&minus;e)</code> is that the <em>shape</em> of the exponential carries the danger:</p>
+
+    <div class="demo">
+      <div class="demo-head">
+        <p class="demo-title">See it: the collapse</p>
+        <span class="readout" id="ro2">at e = 0: you observe 100% of shares</span>
+      </div>
+      <svg id="plot2" viewBox="0 0 680 260" role="img" aria-label="The curve e-to-the-minus-e: observed share rate as a fraction of true, versus the error e. It falls off steeply for positive e (over-difficulty) and rises for negative e (under-difficulty)."></svg>
+      <div class="controls">
+        <div class="ctl">
+          <label for="err">Error <code>e</code> directly</label>
+          <input id="err" type="range" min="-0.7" max="1.6" value="0" step="0.01">
+          <span class="val" id="errv">0.00</span>
+        </div>
+        <div class="ctl">
+          <label for="drop">…or a drop of depth <code>d</code></label>
+          <input id="drop" type="range" min="0" max="0.79" value="0" step="0.01">
+          <span class="val" id="dropv">0%</span>
+        </div>
+      </div>
+      <p class="demo-note" id="note2">Drag the top slider into over-difficulty (<code>e &gt; 0</code>) and watch the observed rate collapse; drag left and it floods above 100%. Or drag the <em>bottom</em> slider — a hashrate drop — and watch it land you at a point on the same curve: that's the closed form <code>e = &minus;ln(1&minus;d)</code> of Step 10, which is just <em>where on this collapse a drop puts you</em>.</p>
+    </div>
+
+    <p><strong>To the right (over-difficulty, <code>e &gt; 0</code>): the rate collapses toward zero.</strong> And collapsing shares is precisely what Chapter 1 told you destroys precision — remember <code>1/&radic;(r*&tau;)</code>, the floor that gets <em>worse</em> as the rate drops. So over-difficulty does something vicious: it starves the share stream, and the starved share stream is exactly the signal the controller needs to <em>notice it's over-difficult</em>. The error suppresses the evidence of the error. That is the death spiral, and now you can see it isn't a metaphor — it's the <code>exp(&minus;e)</code> curve feeding back into Chapter 1's floor. Too hard &rarr; fewer shares &rarr; worse estimate &rarr; stays too hard.</p>
+    <p><strong>To the left (under-difficulty, <code>e &lt; 0</code>): the rate <em>rises</em> above 100%.</strong> Set difficulty too easy and shares <em>flood</em> in — more than the true rate. By the same Chapter 1 logic, more shares means a <em>sharper</em> estimate, faster. So under-difficulty is <em>self-correcting</em>: being too easy floods you with the very signal that reveals you're too easy, and you fix it quickly.</p>
+    <div class="pull">Over-difficulty starves the signal that would catch it. Under-difficulty floods you with it. The same curve makes one direction a trap and the other self-healing.</div>
+
+    <div class="check">
+      <p class="lbl">Check yourself</p>
+      <p>This is the crux, so take a second with it: <em>why</em> is over-difficulty more dangerous than under-difficulty by the same factor? Not "because the formula is asymmetric" — say it in terms of shares and detection.</p>
+      <details>
+        <summary>Say it in your own words first, then open</summary>
+        <p class="answer">Because of what each direction does to the shares you need to <em>see the error</em>. Over-difficulty (<code>e &gt; 0</code>) drives the observed rate down (<code>exp(&minus;e)</code> shrinks), so you get <em>fewer</em> shares — and fewer shares means a worse estimate (Chapter 1's floor), so you're slower to notice and correct. It's self-reinforcing. Under-difficulty (<code>e &lt; 0</code>) drives the rate <em>up</em>, so you get <em>more</em> shares, a sharper estimate, faster correction. It's self-limiting. Same size of mistake, opposite feedback: one hides itself, the other reveals itself. That's why the two directions can't be treated as mirror images — and it's the whole reason the report's controller eases eagerly but tightens reluctantly.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ 10 ============ -->
+  <section id="closedform">
+    <p class="eyebrow">Step 10</p>
+    <h2>Drop depth, exactly: <code>e = &minus;ln(1&minus;d)</code></h2>
+    <p class="lead">With <code>e</code> and <code>exp(&minus;e)</code> in hand, one more short step ties the abstract error to a concrete event you can name: a miner losing hashrate.</p>
+    <p>Suppose a miner is running fine — difficulty set correctly, <code>e = 0</code> — and then it <em>drops</em>: a hashboard fails, it throttles, it curtails, and its true hashrate falls to a fraction <code>(1&minus;d)</code> of what it was. Here <code>d</code> is the depth of the drop: <code>d = 0.10</code> is a 10% loss, <code>d = 0.5</code> is losing half, <code>d = 0.8</code> is losing 80%.</p>
+    <p>If the controller doesn't react — its estimate <code>Ĥ</code> stays where it was while the truth <code>H</code> fell — then the error is no longer zero. Plug the new truth into <code>e = ln(Ĥ/H)</code>:</p>
+    <div class="math">
+      e &nbsp;=&nbsp; ln( Ĥ / <span class="c-truth">(1&minus;d)H</span> ) &nbsp;=&nbsp; ln( 1/(1&minus;d) ) &nbsp;=&nbsp; <span class="c-floor">&minus;ln(1&minus;d)</span>
+      <br><span class="an"># the steady over-difficulty error a drop of depth d parks you at</span>
+    </div>
+    <p>(Using <code>Ĥ = H</code> from before the drop, so <code>Ĥ/H</code> becomes <code>1/(1&minus;d)</code>.) That's the closed form: <strong>an undetected drop of depth <code>d</code> puts the controller at a steady over-difficulty of exactly <code>&minus;ln(1&minus;d)</code></strong> — a clean formula, no simulation, tying a physical event to an exact error. A 10% drop parks you at <code>&minus;ln(0.9) &asymp; +0.105</code>; a 50% drop at <code>&minus;ln(0.5) &asymp; +0.69</code>; an 80% drop at <code>&minus;ln(0.2) &asymp; +1.61</code>.</p>
+    <p>And notice which direction it is: a drop the controller doesn't follow leaves you at <em>positive</em> <code>e</code> — <strong>over-difficulty, the dangerous side of Step 9's curve.</strong> A miner that loses hashrate and gets left at its old difficulty is, by this formula, pushed straight onto the self-reinforcing branch. That is why a decline is the scenario the whole report is organized around: it's the event that plants the controller on the spiral side.</p>
+    <div class="note">
+      <span class="tag">A small expansion worth seeing</span>
+      For a small drop, <code>&minus;ln(1&minus;d) &asymp; d</code> (e.g. a 10% drop gives <code>&asymp; 0.105</code>, barely more than <code>0.10</code>). So for small declines the error is <em>about equal to the drop depth</em> — which sounds harmless, and is exactly the trap the first implication below springs.
+    </div>
+  </section>
+
+  <!-- ============ 11 ============ -->
+  <section id="implications">
+    <p class="eyebrow">Step 11</p>
+    <h2>Three things that follow</h2>
+    <p class="lead">The machinery is built. Here is what it forces — three consequences, each one now something you can derive rather than accept.</p>
+
+    <h3>1 · The cost of a difficulty error is linear, not squared</h3>
+    <p>How should you penalize being wrong? The instinctive statistical choice is squared error — cost proportional to <code>e²</code>. It's wrong here, and the closed form shows why. A persistent drop of depth <code>d</code> sits at <code>e = &minus;ln(1&minus;d) &asymp; d</code>. Penalize it as <code>e²</code> and a small drop costs <code>&asymp; d²</code> — which <em>vanishes</em> as the drop shrinks: a 10% leak costs <code>0.01</code>, a 3% leak costs <code>0.001</code>, nearly nothing. So a cost function built on <code>e²</code> says <strong>small persistent leaks are almost free</strong> — and an algorithm that <em>ignores</em> a slowly-failing miner scores <em>better</em> under <code>e²</code> than one that catches it. That's backwards: the operational harm (lost or wasted work) scales with the <em>magnitude</em> <code>d</code>, linearly. So the honest cost norm is <code>|e|</code>, not <code>e²</code> — and this isn't taste, it's forced by the fact that <code>&minus;ln(1&minus;d) &asymp; d</code>. The squared norm has a blind spot exactly where operators care most (the small, chronic, undetected leak), and the closed form is what exposes it.</p>
+
+    <h3>2 · The death spiral, assembled</h3>
+    <p>This is where the two chapters lock together — and it's worth walking each link, because the spiral isn't one fact, it's a loop where every step feeds the next. You have two mechanisms in hand:</p>
+    <p><strong>From Chapter 1:</strong> the controller's estimate can only be as precise as the shares allow — <code>1/&radic;(r*&tau;)</code>. Fewer shares in the window means a fuzzier estimate. And the estimate is the <em>only thing the controller has</em>: it can't see the miner directly, it can only infer the hashrate from the share stream (that was Step 1). So a fuzzy estimate means the controller is genuinely uncertain what the hashrate is.</p>
+    <p><strong>From Chapter 2, Step 9:</strong> when difficulty is set too high (<code>e &gt; 0</code>), the observed share rate collapses as <code>exp(&minus;e)</code> — you get <em>fewer</em> shares than a correctly-set difficulty would produce.</p>
+    <p>Now watch them feed each other, one arrow at a time:</p>
+    <div class="math">
+      1. difficulty too high (e&gt;0)
+      <br>2. &rarr; observed share rate collapses (Step 9: exp(&minus;e) &darr;)
+      <br>3. &rarr; fewer shares in the window
+      <br>4. &rarr; the estimate gets <em>fuzzier</em> (Chapter 1: precision needs shares)
+      <br>5. &rarr; the controller is less able to tell how over-difficult it is
+      <br>6. &rarr; harder to correct &mdash; the error protects itself
+      <br>7. &rarr; back to step 1
+    </div>
+    <p>Read the arrows out loud and each one is a mechanism you already proved. Step 2 is the collapse; step 4 is the floor. The loop closes because correcting an over-difficulty error requires <em>noticing</em> it, noticing requires a decent estimate, and a decent estimate requires shares — which the error itself has choked off. The controller isn't stubborn; the error is erasing the evidence of the error. And Step 10 is what plants you here: a hashrate drop the controller doesn't follow puts it at <code>e = &minus;ln(1&minus;d) &gt; 0</code>, at the top of this loop. The drop is the push; <code>exp(&minus;e)</code> is what makes the push tend to sustain itself.</p>
+    <div class="pull">Correcting the error needs shares; the error destroys the shares. That circular dependency — not stubbornness — is the spiral, and it's just Chapter 1 and Chapter 2 chained.</div>
+
+    <h3>3 · The asymmetry — why "ease" and "tighten" aren't mirror images</h3>
+    <p>The same <code>exp(&minus;e)</code> that makes over-difficulty a spiral makes under-difficulty self-healing (Step 9's two branches). So the two directions have opposite risk: acting wrongly toward <em>too-hard</em> can spiral; acting wrongly toward <em>too-easy</em> self-corrects via the share flood. A controller that understands this should therefore be <strong>eager to ease</strong> (the safe direction — if wrong, it self-corrects) and <strong>reluctant to tighten</strong> (the dangerous direction — if wrong, it can spiral). That policy — eager-ease / reluctant-tighten — is the report's central design principle, and you can now see it isn't a heuristic someone picked. It's forced by the shape of <code>exp(&minus;e)</code>: the physics of how difficulty error feeds back on the share stream makes the two directions genuinely different, so the correct controller treats them differently.</p>
+    <div class="pull">Ease eagerly, tighten reluctantly — not as a rule of thumb, but because <code>exp(&minus;e)</code> makes one direction self-healing and the other self-reinforcing.</div>
+  </section>
+
+  <!-- ============ 12 ============ -->
+  <section id="dynamics">
+    <p class="eyebrow">Step 12</p>
+    <h2>The dynamics — who actually escapes</h2>
+    <p class="lead">The three consequences are static — they describe the landscape. But the spiral raised a question the closed forms can't answer on their own, and it's worth facing squarely before the report does it rigorously.</p>
+    <p>Step 11's loop says over-difficulty is a region where corrections get noisy and wrong moves self-punish — the terrain is <strong>tilted against escape</strong>. But "tilted against escape" is not the same as "no escape." A fuzzy estimate isn't <em>silent</em>; it's <em>noisy</em> — the controller keeps correcting, just on unreliable readings, so a bad reading can push it the wrong way (tighten when it should ease) and a good one can pull it out. Whether that noisy process <em>escapes</em> the tilt or gets <em>trapped</em> by it depends on how the noise size, the correction step, and the controller's speed interact over many iterations — a <em>dynamical</em> question the closed forms don't settle. The static machinery gives the terrain; the <em>dynamics</em> decide who gets out.</p>
+    <p>That question is exactly what the report's decline-safety simulations resolve — and the answer is that <strong>it depends on the controller</strong>. Here it is as a moving picture. Since corrections are noisy, a controller's state after a decline isn't a single point but a <em>spread</em> of possible states — so picture many identical controllers, each on its own noisy share stream, and watch the whole cloud move over vardiff iterations:</p>
+
+    <div class="demo">
+      <div class="demo-head">
+        <p class="demo-title">See it: the state cloud over iterations</p>
+        <span class="readout" id="ro3">iteration 0 · seeded across the error axis</span>
+      </div>
+      <svg id="plot3" viewBox="0 0 680 300" role="img" aria-label="A cloud of controller states over the share-error axis, evolving across vardiff iterations. The champion's cloud pulls to correct from both sides; the classic's cloud recovers from the left but strands at high over-difficulty on the right."></svg>
+      <div class="controls">
+        <div class="ctl">
+          <label for="iter">Vardiff iteration</label>
+          <input id="iter" type="range" min="0" max="30" value="0" step="1">
+          <span class="val" id="iterv">0</span>
+        </div>
+        <div class="ctl">
+          <label for="seed">Simulation run (new trial)</label>
+          <input id="seed" type="range" min="0" max="20" value="0" step="1">
+          <span class="val" id="seedv">run 1</span>
+        </div>
+      </div>
+      <p class="demo-note" id="note3">Both clouds are seeded across a range of starting errors that crosses correct — some dots start too-easy (left), some too-hard (right). Drag the iteration slider and watch: <span style="color:var(--controller)">champion</span> (blue) dots pull to correct from <em>both</em> sides; <span style="color:var(--danger)">classic</span> (red) dots recover from the left but <em>strand</em> on the right, stuck in over-difficulty. Drag <em>Simulation run</em> to re-roll the noise — the pattern holds across trials, so it isn't one lucky draw.</p>
+      <p class="demo-note" style="margin-top:6px;font-style:italic;">A Monte-Carlo of noisy controller trajectories, calibrated so its settled over-difficulty values (champion +2.7%, classic +22%) match the report's measured results (<code>slow-decline.rs</code>).</p>
+    </div>
+
+    <p>Read the clouds against everything the chapters built. Each cloud's <em>width</em> is Chapter 1 — a fuzzier estimate is a wider spread — and it grows toward the right, because over-difficulty means fewer shares means a noisier estimate. Follow the <span style="color:var(--controller)">champion</span> (blue): wherever a dot starts, it pulls toward correct — from the left a share flood sharpens its estimate; from the right its gentle easing escapes the spiral. Blue concentrates onto correct from both sides. Now the <span style="color:var(--danger)">classic</span> (red): its left-side dots recover fine — the flood sharpens every controller — but its right-side dots <em>strand</em>, because in the fuzzy over-difficult region its bigger steps fling mass rightward faster than its weak easing recovers it. <strong>Same terrain, opposite fate:</strong> the gentle controller escapes the tilt; the twitchy one is trapped by it. That is the escape-vs-trap result — and it's the dynamical confirmation of why consequence 3 holds, because easing is the direction that steers a controller's own state back toward the sharp-vision region.</p>
+    <p>Notice too what the <em>left</em> side shows: <strong>both</strong> controllers recover from under-difficulty. There is no mirror-image trap on the safe side — that absence is the asymmetry made visible. The dangerous direction has a trap only the gentle controller escapes; the safe direction has only fast self-correction, for everyone.</p>
+    <div class="note">
+      <span class="tag">Two honest caveats on the safe side</span>
+      The under-difficulty (left) side is <em>self-correcting</em>, not <em>free</em>: while it lasts, the connection runs permanently over its target share rate (extra bandwidth, CPU, share-accounting) — bounding exactly that standing load is <em>why</em> the target share rate is set where it is. And the clean "over-difficulty traps, under-difficulty self-corrects" story is the <em>dense-rate</em> regime: at very sparse share rates the report finds the protective mechanism becomes symmetric instead (there aren't enough shares for the flood to sharpen anything quickly). The report is precise about both; the cloud shows the dense-regime asymmetry, the common and load-bearing case.</p>
+    </div>
+
+    <h3>Where this is exact, and where it idealizes</h3>
+    <p>Same honesty as Chapter 1. The collapse <code>r_obs/r* = exp(&minus;e)</code> and the closed form <code>e = &minus;ln(1&minus;d)</code> are <em>exact within the report's model</em> — which assumes, among other things, that the true hashrate holds steady within a measurement window and that each connection is one worker. The report states these assumptions explicitly. They're the idealizations that make the formulas clean; reality is messier at the edges (a hashrate that's itself moving during the window, pooled workers), and the report is careful about where those matter. And the cloud above is a <em>calibrated illustration</em> of the dynamics, not the production model — its settled values match the report's, but the rigorous run is <code>slow-decline.rs</code>. Carry the results in as <em>the model's exact behavior</em> — which is what makes the spiral and the asymmetry real mechanisms rather than hand-waving — while knowing where the model's boundaries, and this primer's illustrations, give way to the report's measurements.</p>
+  </section>
+
+  <div class="bridge">
+    <p class="lbl">Now you're ready for the report</p>
+    <p>Between the two chapters you have the whole toolkit the technical study runs on. <strong>Chapter 1:</strong> Poisson arrivals, Fisher information, the Cramér–Rao floor <code>1/&radic;(r*&tau;)</code>, and the one lever (the share rate). <strong>Chapter 2:</strong> the log error coordinate <code>e</code>, the collapse <code>r_obs/r* = exp(&minus;e)</code> that makes over-difficulty self-starving, the closed form <code>e = &minus;ln(1&minus;d)</code> tying a drop to an exact error, and the three things they force — linear cost, the spiral, and the eager-ease/reluctant-tighten asymmetry.</p>
+    <p>Read <em>information-floor.md</em> now. Where it writes <code>e = ln(Ĥ/H)</code>, <code>r_obs/r* = exp(&minus;e)</code>, or <code>e = &minus;ln(1&minus;d)</code>, you'll read mechanisms you can reconstruct — the multiplicative ruler, the share-starvation feedback, the drop-to-error formula — not notation to trust. That was the point of both chapters: to make the report's two central results, the <em>floor</em> and the <em>collapse</em>, things you <em>see</em> rather than accept.</p>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var svg = document.getElementById('plot');
+  var nsh = document.getElementById('nsh');
+  var nshv = document.getElementById('nshv');
+  var ro = document.getElementById('ro');
+  var note = document.getElementById('note');
+  var NS='http://www.w3.org/2000/svg';
+
+  var W=680,H=240,padL=54,padR=20,padT=24,padB=40;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var midY=padT+plotH/2;
+
+  function el(tag,attrs){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+  function draw(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    var N=+nsh.value;
+    var rel=1/Math.sqrt(N);            // relative error
+    // map relative error to a half-band height; clamp for display
+    var maxRel=0.5;                    // N=4 -> 0.5
+    var frac=Math.min(rel/maxRel,1);
+    var half=frac*(plotH/2*0.92);
+
+    // truth line (the quantity being estimated) — gold, centered
+    svg.appendChild(el('line',{x1:padL,y1:midY,x2:W-padR,y2:midY,stroke:'#C07D1B','stroke-width':2}));
+    var tlab=el('text',{x:W-padR,y:midY-8,'text-anchor':'end','font-family':'IBM Plex Mono, monospace','font-size':13,fill:'#C07D1B'});
+    tlab.textContent='true hashrate';
+    svg.appendChild(tlab);
+
+    // the band (where the estimate lands) — blue
+    var band=el('rect',{x:padL,y:midY-half,width:plotW,height:half*2,fill:'#E7F0F8',stroke:'#2C6FB0','stroke-width':1.2,rx:3,opacity:0.9});
+    svg.appendChild(band);
+
+    // band edge labels
+    var eh=el('text',{x:padL+8,y:midY-half-6,'font-family':'IBM Plex Mono, monospace','font-size':12,fill:'#2C6FB0'});
+    eh.textContent='+'+(rel*100).toFixed(1)+'%';
+    svg.appendChild(eh);
+    var elw=el('text',{x:padL+8,y:midY+half+16,'font-family':'IBM Plex Mono, monospace','font-size':12,fill:'#2C6FB0'});
+    elw.textContent='\u2212'+(rel*100).toFixed(1)+'%';
+    svg.appendChild(elw);
+
+    // y axis note
+    var ya=el('text',{x:14,y:midY,'font-family':'IBM Plex Sans, sans-serif','font-size':12,fill:'#6E7480',transform:'rotate(-90 14 '+midY+')','text-anchor':'middle'});
+    ya.textContent='estimate spread';
+    svg.appendChild(ya);
+
+    nshv.textContent=N;
+    ro.textContent='relative error \u2248 '+(rel*100).toFixed(1)+'%';
+
+    var factorTo5 = Math.round(N*4/100)*100;
+    note.innerHTML='At N = '+N+', the estimate lands within about '+(rel*100).toFixed(1)+'% of the truth. '+
+      (N<400 ? 'To <em>halve</em> that error you\u2019d need roughly '+(N*4)+' shares \u2014 four times as many for one step tighter.' :
+               'Notice how wide the band still is even out here \u2014 precision past this point costs shares fast.');
+  }
+
+  nsh.addEventListener('input',draw);
+  draw();
+})();
+
+/* ---- Chapter 2: the exp(-e) collapse curve ---- */
+(function(){
+  var svg = document.getElementById('plot2');
+  if(!svg) return;
+  var err = document.getElementById('err');
+  var errv = document.getElementById('errv');
+  var drop = document.getElementById('drop');
+  var dropv = document.getElementById('dropv');
+  var ro2 = document.getElementById('ro2');
+  var note2 = document.getElementById('note2');
+  var NS='http://www.w3.org/2000/svg';
+
+  var W=680,H=260,padL=58,padR=24,padT=20,padB=44;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var eMin=-0.7, eMax=1.6;            // matches slider range
+  var yMax=2.0;                       // observed-rate axis top (exp(-eMin) ~ 2.01)
+
+  function el(tag,attrs){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);return e;}
+  function ex(e){return padL + (e-eMin)/(eMax-eMin)*plotW;}       // e -> x
+  function vy(v){return padT + (1 - Math.min(v,yMax)/yMax)*plotH;} // value -> y
+
+  function draw(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    var e=+err.value;
+    var v=Math.exp(-e);   // r_obs/r*
+
+    // shaded regions: over-difficulty (right, danger) / under (left, ok)
+    var x0=ex(0);
+    svg.appendChild(el('rect',{x:x0,y:padT,width:(padL+plotW)-x0,height:plotH,fill:'#F6E2DD',opacity:0.5}));
+    svg.appendChild(el('rect',{x:padL,y:padT,width:x0-padL,height:plotH,fill:'#E7F0F8',opacity:0.5}));
+
+    // 100% reference line
+    var y1=vy(1);
+    svg.appendChild(el('line',{x1:padL,y1:y1,x2:padL+plotW,y2:y1,stroke:'#C07D1B','stroke-width':1.5,'stroke-dasharray':'5 4'}));
+    var rl=el('text',{x:padL+6,y:y1-6,'font-family':'IBM Plex Mono, monospace','font-size':12,fill:'#C07D1B'});
+    rl.textContent='100% (correct)';
+    svg.appendChild(rl);
+
+    // the curve exp(-e)
+    var d='';
+    for(var i=0;i<=140;i++){
+      var ee=eMin+(eMax-eMin)*i/140;
+      var vv=Math.exp(-ee);
+      d += (i===0?'M':'L')+ex(ee).toFixed(1)+' '+vy(vv).toFixed(1)+' ';
+    }
+    svg.appendChild(el('path',{d:d,fill:'none',stroke:'#2C6FB0','stroke-width':2.5}));
+
+    // e=0 vertical
+    svg.appendChild(el('line',{x1:x0,y1:padT,x2:x0,y2:padT+plotH,stroke:'#6E7480','stroke-width':1,'stroke-dasharray':'3 3'}));
+
+    // moving marker
+    var mx=ex(e), my=vy(v);
+    svg.appendChild(el('line',{x1:mx,y1:padT,x2:mx,y2:padT+plotH,stroke:'#23252C','stroke-width':1,opacity:0.35}));
+    svg.appendChild(el('circle',{cx:mx,cy:my,r:6,fill:'#2C6FB0',stroke:'#fff','stroke-width':2}));
+
+    // axis labels
+    var xa=el('text',{x:padL+plotW/2,y:H-10,'text-anchor':'middle','font-family':'IBM Plex Sans, sans-serif','font-size':13,fill:'#6E7480'});
+    xa.textContent='error  e   (\u2190 too easy · correct · too hard \u2192)';
+    svg.appendChild(xa);
+    var ya=el('text',{x:16,y:padT+plotH/2,'font-family':'IBM Plex Sans, sans-serif','font-size':12,fill:'#6E7480',transform:'rotate(-90 16 '+(padT+plotH/2)+')','text-anchor':'middle'});
+    ya.textContent='observed shares (fraction of true)';
+    svg.appendChild(ya);
+
+    // region tags
+    var t1=el('text',{x:ex(-0.45),y:padT+16,'text-anchor':'middle','font-family':'IBM Plex Mono, monospace','font-size':11,fill:'#2C6FB0'});
+    t1.textContent='self-healing';
+    svg.appendChild(t1);
+    var t2=el('text',{x:ex(1.0),y:padT+16,'text-anchor':'middle','font-family':'IBM Plex Mono, monospace','font-size':11,fill:'#BE3A2B'});
+    t2.textContent='spiral';
+    svg.appendChild(t2);
+
+    errv.textContent=(e>=0?'+':'')+e.toFixed(2);
+    var pct=(v*100).toFixed(0);
+    if(Math.abs(e)<0.02){ ro2.textContent='at e = 0: you observe 100% of shares'; }
+    else if(e>0){ ro2.textContent='at e = +'+e.toFixed(2)+': you observe only '+pct+'% of shares'; }
+    else { ro2.textContent='at e = '+e.toFixed(2)+': you observe '+pct+'% of shares (a flood)'; }
+
+    // keep the drop slider consistent with e (a drop only maps to e >= 0).
+    // update both the thumb position AND the readout so it tracks either way.
+    if(e>0.0001){
+      var dImplied = 1-Math.exp(-e);
+      drop.value = dImplied.toFixed(2);
+      dropv.textContent = (dImplied*100).toFixed(0)+'%';
+    } else {
+      drop.value = 0;
+      dropv.textContent = '0%';
+    }
+  }
+
+  function noteFor(e){
+    var v=Math.exp(-e), pct=(v*100).toFixed(0);
+    if(Math.abs(e)<0.02){
+      return 'Difficulty is set right: observed rate equals the true rate. Drag either slider to break it.';
+    } else if(e>0){
+      var dd=((1-Math.exp(-e))*100).toFixed(0);
+      return 'Over-difficulty \u2014 the same place a <b>'+dd+'% drop</b> would leave you (e = \u2212ln(1\u2212'+(dd/100).toFixed(2)+') \u2248 '+e.toFixed(2)+'). You see only <b>'+pct+'%</b> of the shares you should, and Chapter 1 says fewer shares means a worse estimate \u2014 so you\u2019re slower to notice you\u2019re here. The error hides itself.';
+    } else {
+      return 'Under-difficulty. Shares <b>flood</b> in at '+pct+'% of true \u2014 more shares means a sharper estimate, so you spot and fix it fast. The error reveals itself.';
+    }
+  }
+
+  err.addEventListener('input',function(){ note2.innerHTML=noteFor(+err.value); draw(); });
+  drop.addEventListener('input',function(){
+    var d=+drop.value;
+    var e = -Math.log(1-d);            // the closed form
+    e = Math.max(eMin, Math.min(eMax, e));
+    err.value = e.toFixed(2);
+    dropv.textContent=(d*100).toFixed(0)+'%';
+    note2.innerHTML = (d<0.001)
+      ? 'A drop of 0% leaves difficulty correct. Drag right to drop hashrate and watch where it lands on the collapse.'
+      : 'A <b>'+(d*100).toFixed(0)+'% drop</b>, if the controller doesn\u2019t follow it, parks you at <b>e = \u2212ln(1\u2212'+d.toFixed(2)+') \u2248 +'+e.toFixed(2)+'</b> \u2014 a point on the collapse curve, in the over-difficulty (spiral) zone. That\u2019s Step 10\u2019s closed form: a drop is just <em>where on this curve you end up</em>.';
+    draw();
+  });
+  draw();
+})();
+
+/* ---- Chapter 2: the state cloud over iterations (schematic, endpoints = report's measured values) ---- */
+(function(){
+  var svg=document.getElementById('plot3');
+  if(!svg) return;
+  var iter=document.getElementById('iter');
+  var iterv=document.getElementById('iterv');
+  var ctrl=document.getElementById('ctrl');
+  var seed=document.getElementById('seed');
+  var seedv=document.getElementById('seedv');
+  var ro3=document.getElementById('ro3');
+  var note3=document.getElementById('note3');
+  var NS='http://www.w3.org/2000/svg';
+
+  var W=680,H=300,padL=58,padR=24,padT=22,padB=46;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var eMin=-0.4, eMax=1.3;            // share-error axis
+  var N=120;                          // dots per controller
+  var MAXIT=30;
+  var S0=-0.30, S1=0.50;              // starting-error spread, crosses zero (some too-easy, some too-hard)
+
+  function elm(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  function ex(e){return padL+(Math.max(eMin,Math.min(eMax,e))-eMin)/(eMax-eMin)*plotW;}
+
+  // deterministic per-dot pseudo-noise, offset by seed so "reseed" gives a fresh but stable draw
+  function rnd(i,k,sd){ var x=Math.sin((i+sd*131.7)*12.9898+k*78.233)*43758.5453; return x-Math.floor(x); }
+  function gauss(i,k,sd){ return (rnd(i,k,sd)+rnd(i,k+1,sd)+rnd(i,k+2,sd)+rnd(i,k+3,sd)-2)*0.9; }
+
+  // Each dot starts at a distinct error spanning [S0,S1] (crosses zero). Dynamics are POSITION-dependent:
+  //  - champion: gentle easing toward correct from anywhere; escapes the over-difficult region.
+  //  - classic: recovers cleanly when under-difficult (flood sharpens estimate), but STRANDS when
+  //    over-difficult (fuzzy region + weak easing) — bigger steps fling it deeper than it recovers.
+  // Over-difficulty noise grows with e (Chapter 1 floor under exp(-e) starvation); under-difficulty
+  // noise is small and shrinks toward correct (the flood sharpens the estimate).
+  function trajectory(kind,i,sd){
+    var e = S0 + (S1-S0)*(i/(N-1)) + 0.02*gauss(i,1,sd);   // spread across the range, tiny scatter
+    var pts=[e];
+    for(var t=1;t<=MAXIT;t++){
+      if(e>=0){
+        // over-difficult side
+        if(kind==='champion'){
+          var fuzz = 0.5 + 1.9*e;
+          e = e + (-0.135*(e-0.018) + 0.04*fuzz*gauss(i,t*2+3,sd));
+        } else {
+          // classic: two regimes. SHALLOW over-difficulty (e < 0.13) self-corrects — a small transient
+          // wobble eases back out (low noise). DEEP over-difficulty (e >= 0.13, where a real decline drives
+          // it) STRANDS toward ~+0.28, giving the measured ~+22% settled trap. This is why a dot that
+          // merely wobbles slightly positive recovers, while a decline-driven deep state gets stuck.
+          var fuzzK = 0.28 + 1.9*e;
+          if(e < 0.13){
+            e = e + (-0.14*e + 0.06*fuzzK*gauss(i,t*2+5,sd));
+          } else {
+            var kick = (t<=4 ? 0.10*Math.max(0,gauss(i,t*3+11,sd)) : 0);   // early transient excursions
+            e = e + (-0.15*(e-0.28) + 0.10*fuzzK*gauss(i,t*2+5,sd) + kick);
+          }
+        }
+      } else {
+        // under-difficult: flood sharpens the estimate -> small, shrinking noise; both recover fast
+        var fuzzU = 0.20 + 0.5*Math.abs(e);
+        var pull = (kind==='champion'? 0.36 : 0.34);
+        var noiseU = (kind==='champion'? 0.03 : 0.04);
+        e = e + (-pull*e + noiseU*fuzzU*gauss(i,t*2+3,sd));
+      }
+      if(e<eMin) e=eMin+0.01;
+      if(e>eMax) e=eMax-0.01;
+      pts.push(e);
+    }
+    return pts;
+  }
+
+  var champ=[], clsc=[], curSeed=-1;
+  function build(sd){
+    if(sd===curSeed) return;
+    champ=[]; clsc=[];
+    for(var i=0;i<N;i++){ champ.push(trajectory('champion',i,sd)); clsc.push(trajectory('classic',i,sd)); }
+    curSeed=sd;
+  }
+
+  // means restricted to dots that STARTED over-difficult (the escape-vs-trap population)
+  function meanOverStart(arr,t){
+    var s=0,n=0;
+    for(var i=0;i<arr.length;i++){ if(arr[i][0]>0.05){ s+=arr[i][t]; n++; } }
+    return n? s/n : 0;
+  }
+
+  function draw(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    var t=+iter.value, sd=+seed.value;
+    build(sd);
+
+    // regions
+    var x0=ex(0);
+    svg.appendChild(elm('rect',{x:x0,y:padT,width:(padL+plotW)-x0,height:plotH,fill:'#F6E2DD',opacity:0.4}));
+    svg.appendChild(elm('rect',{x:padL,y:padT,width:x0-padL,height:plotH,fill:'#E7F0F8',opacity:0.4}));
+    // correct line
+    svg.appendChild(elm('line',{x1:x0,y1:padT,x2:x0,y2:padT+plotH,stroke:'#C07D1B','stroke-width':2}));
+    var cl=elm('text',{x:x0,y:padT-7,'text-anchor':'middle','font-family':'IBM Plex Mono, monospace','font-size':12,fill:'#C07D1B'});
+    cl.textContent='correct (e=0)'; svg.appendChild(cl);
+
+    // region tags
+    var t1=elm('text',{x:ex(-0.22),y:padT+plotH-8,'text-anchor':'middle','font-family':'IBM Plex Mono, monospace','font-size':11,fill:'#2C6FB0'});
+    t1.textContent='too easy (flood)'; svg.appendChild(t1);
+    var t2=elm('text',{x:ex(0.9),y:padT+plotH-8,'text-anchor':'middle','font-family':'IBM Plex Mono, monospace','font-size':11,fill:'#BE3A2B'});
+    t2.textContent='over-difficulty (spiral zone)'; svg.appendChild(t2);
+
+    function band(y){return padT + y*(plotH-30) + 15;}   // vertical jitter lane for dots
+
+    function drawCloud(arr,color,lane){
+      for(var i=0;i<arr.length;i++){
+        var e=arr[i][t];
+        var x=ex(e);
+        var y=band(lane + 0.18*rnd(i,99,7));   // stable vertical scatter within the lane
+        svg.appendChild(elm('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:2.4,fill:color,opacity:0.48}));
+      }
+    }
+
+    // champion in the upper band, classic in the lower — always both
+    drawCloud(champ,'#2C6FB0',0.08);
+    drawCloud(clsc,'#BE3A2B',0.52);
+    // band labels
+    var lc=elm('text',{x:padL+4,y:band(0.08)-6,'font-family':'IBM Plex Mono, monospace','font-size':11,fill:'#2C6FB0'});
+    lc.textContent='champion'; svg.appendChild(lc);
+    var lk=elm('text',{x:padL+4,y:band(0.52)-6,'font-family':'IBM Plex Mono, monospace','font-size':11,fill:'#BE3A2B'});
+    lk.textContent='classic'; svg.appendChild(lk);
+
+    // x axis
+    var xa=elm('text',{x:padL+plotW/2,y:H-10,'text-anchor':'middle','font-family':'IBM Plex Sans, sans-serif','font-size':13,fill:'#6E7480'});
+    xa.textContent='share-error  e   (\u2190 too easy · correct · too hard \u2192)';
+    svg.appendChild(xa);
+
+    iterv.textContent=t;
+    seedv.textContent='run '+(sd+1);
+
+    // readout tracks the dots that STARTED over-difficult — the escape-vs-trap population
+    function fmt(m){ return (m>=0?'+':'')+(m*100).toFixed(0)+'%'; }
+    var mC=meanOverStart(champ,t), mK=meanOverStart(clsc,t);
+    if(t===0){ ro3.textContent='iteration 0 · dots seeded across too-easy \u2192 too-hard'; }
+    else { ro3.textContent='iteration '+t+' · of the over-difficult starters: champion \u2248 '+fmt(mC)+' · classic \u2248 '+fmt(mK); }
+
+    if(t===0){
+      note3.innerHTML='Both clouds seeded across a range that crosses correct \u2014 some dots too-easy (left), some too-hard (right). Drag right to run the iterations and watch the two colors diverge.';
+    } else if(t>=MAXIT){
+      note3.innerHTML='Settled. <span style="color:var(--controller)">Champion</span> (blue) has pulled to correct from <em>both</em> sides. <span style="color:var(--danger)">Classic</span> (red) recovered from the left but its right-side dots are <em>stranded</em> near <b>+22%</b> \u2014 the report\u2019s measured decline-safety value (champion settles near <b>+2.7%</b>). The trap exists only on the dangerous side, only for the twitchy controller.';
+    } else {
+      note3.innerHTML='In flight. Watch the right side: <span style="color:var(--danger)">classic</span> dots that started over-difficult hang there, spread wide (fuzzy region, big steps); <span style="color:var(--controller)">champion</span> dots slide down toward correct. On the left, both colors recover \u2014 the flood sharpens every estimate.';
+    }
+  }
+  iter.addEventListener('input',draw);
+  seed.addEventListener('input',draw);
+  draw();
+})();
+</script>
+</body>
+</html>
