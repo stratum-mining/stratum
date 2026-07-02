@@ -1,5 +1,5 @@
 use alloc::{string::ToString, vec::Vec};
-use binary_sv2::{Deserialize, Serialize, Str0255, U32AsRef, B032, U256};
+use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
 use core::{convert::TryInto, fmt};
 /// Message used by a downstream to request opening a Standard Channel.
 ///
@@ -13,7 +13,7 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Used for matching responses from upstream.
     ///
     /// The value must be connection-wide unique and is not interpreted by the upstream.
-    pub request_id: U32AsRef<'decoder>,
+    pub request_id: u32,
     /// Unconstrained sequence of bytes.
     ///
     /// Whatever is needed by upstream role to identify/authenticate the downstream, e.g.
@@ -51,16 +51,11 @@ impl fmt::Display for OpenStandardMiningChannel<'_> {
 
 impl OpenStandardMiningChannel<'_> {
     pub fn get_request_id_as_u32(&self) -> u32 {
-        (&self.request_id).into()
+        self.request_id
     }
 
     pub fn update_id(&mut self, new_id: u32) {
-        let bytes_new = new_id.to_le_bytes();
-        let bytes_old = self.request_id.inner_as_mut();
-        bytes_old[0] = bytes_new[0];
-        bytes_old[1] = bytes_new[1];
-        bytes_old[2] = bytes_new[2];
-        bytes_old[3] = bytes_new[3];
+        self.request_id = new_id;
     }
 }
 
@@ -72,7 +67,7 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
     ///
     /// Specified by downstream role and should be extracted from the corresponding
     /// [`OpenStandardMiningChannel`] message.
-    pub request_id: U32AsRef<'decoder>,
+    pub request_id: u32,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection.
     ///
     /// This will also be used for broadcasting new jobs by [`crate::NewMiningJob`].
@@ -102,16 +97,11 @@ impl fmt::Display for OpenStandardMiningChannelSuccess<'_> {
 
 impl OpenStandardMiningChannelSuccess<'_> {
     pub fn get_request_id_as_u32(&self) -> u32 {
-        (&self.request_id).into()
+        self.request_id
     }
 
     pub fn update_id(&mut self, new_id: u32) {
-        let bytes_new = new_id.to_le_bytes();
-        let bytes_old = self.request_id.inner_as_mut();
-        bytes_old[0] = bytes_new[0];
-        bytes_old[1] = bytes_new[1];
-        bytes_old[2] = bytes_new[2];
-        bytes_old[3] = bytes_new[3];
+        self.request_id = new_id;
     }
 }
 
@@ -303,7 +293,7 @@ mod tests {
     ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let mut osmc = OpenStandardMiningChannel {
-            request_id: U32AsRef::from(request_id),
+            request_id,
             user_identity: Str0255::try_from(user_identity.clone())
                 .expect("could not convert string to Str0255"),
             nominal_hash_rate,
@@ -329,12 +319,10 @@ mod tests {
         let target = from_arbitrary_vec_to_array(target);
         let extranonce_prefix = from_arbitrary_vec_to_array(extranonce_prefix);
         let mut osmcs = OpenStandardMiningChannelSuccess {
-            request_id: U32AsRef::from(request_id),
+            request_id,
             channel_id,
             target: U256::from(target),
-            extranonce_prefix: B032::try_from(extranonce_prefix.to_vec()).expect(
-                "OpenStandardMiningChannelSuccess: failed to convert extranonce_prefix to B032",
-            ),
+            extranonce_prefix: B032::try_from(extranonce_prefix).unwrap(),
             group_channel_id,
         };
         let test_request_id_1 = osmcs.get_request_id_as_u32();

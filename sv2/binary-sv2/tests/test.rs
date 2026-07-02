@@ -633,3 +633,133 @@ mod test_sv2_option_none {
         assert_eq!(bytes, bytes_2);
     }
 }
+
+#[cfg(not(feature = "no_std"))]
+mod test_b032_from_reader_oversize {
+    use super::*;
+    use std::io::Cursor;
+
+    // B032 has MAXSIZE=32 and HEADERSIZE=1. A header byte of 33 declares a
+    // 33-byte payload. The `from_bytes` path checks
+    // `(payload + HEADERSIZE) <= (MAXSIZE + HEADERSIZE)`, correctly rejecting
+    // 33-byte payloads. But `expected_length_for_reader` checks
+    // `payload <= (MAXSIZE + HEADERSIZE)` (i.e. `payload <= 33`), so 33-byte
+    // payloads are accepted via the reader path. This lets oversized B032
+    // values through one decoder path and not the other.
+    #[test]
+    fn b032_from_reader_should_reject_oversize_payload() {
+        let mut buf = vec![33u8];
+        buf.extend(vec![0u8; 33]);
+        let mut cursor = Cursor::new(buf);
+        let result = B032::from_reader_(&mut cursor);
+        assert!(
+            result.is_err(),
+            "B032::from_reader_ must reject a 33-byte payload (MAXSIZE = 32)"
+        );
+    }
+}
+
+mod test_fixed_primitive_from_bytes_truncated {
+    use super::*;
+
+    // Regression test for the blanket `impl<T: Fixed> SizeHint for T` in
+    // `src/codec/mod.rs`. `Sv2DataType::from_bytes_` is the documented *checked*
+    // constructor: it calls `Self::size_hint(data, 0)?` to validate the buffer
+    // before delegating to the panicking `from_bytes_unchecked`. For fixed-size
+    // copy primitives (u8/u16/u32/u64/f32/U24/bool) `size_hint` ignores `data`
+    // and unconditionally returns `Ok(Self::SIZE)`, so a truncated buffer is
+    // never rejected. `from_bytes_unchecked` then slices `data[0..SIZE]` and
+    // panics ("range end index out of range") instead of returning `Err`.
+    #[test]
+    fn u16_from_bytes_truncated_must_be_err_not_panic() {
+        // u16 has SIZE == 2; provide only 1 byte.
+        let mut data = [0u8; 1];
+        let res = <u16 as Sv2DataType>::from_bytes_(&mut data[..]);
+        assert!(
+            res.is_err(),
+            "u16::from_bytes_ must reject a 1-byte buffer (SIZE = 2) with Err, not panic"
+        );
+    }
+}
+
+#[cfg(not(feature = "no_std"))]
+mod test_to_writer_length_prefix {
+    use super::*;
+    use core::convert::TryInto;
+
+    #[test]
+    fn b064k_to_writer_matches_to_bytes() {
+        let mut payload = [1u8, 2, 3];
+        let b: B064K = (&mut payload[..]).try_into().unwrap();
+
+        let via_bytes = to_bytes(b.clone()).unwrap();
+
+        let mut via_writer: Vec<u8> = Vec::new();
+        b.to_writer(&mut via_writer).unwrap();
+
+        assert_eq!(
+            via_writer, via_bytes,
+            "Encodable::to_writer must include the length prefix, matching to_bytes"
+        );
+    }
+}
+
+// Regression test for unconditional recursion in `<T as Encodable>::to_writer`
+// (src/codec/encodable.rs:56-61).
+//
+// The `Write`-based `to_writer` is only compiled when the (default) `no_std`
+// feature is OFF, so this module is gated to match and must be run with:
+//
+//     cargo test --no-default-features --test test
+//
+// On HEAD the call stack-overflows: the blanket `impl Encodable for T`'s
+// `to_writer` dispatches `.to_writer` back to the same trait method instead of
+// the inherent `EncodableField::to_writer`, so the process aborts and the test
+// FAILS. Once the dispatch reaches the inherent method, the four little-endian
+// bytes are written and the test PASSES.
+#[cfg(not(feature = "no_std"))]
+mod test_to_writer_no_recursion {
+    use super::*;
+
+    #[derive(Serialize)]
+    struct Test {
+        a: u32,
+    }
+
+    #[test]
+    fn to_writer_must_not_recurse() {
+        let v = Test { a: 0x0102_0304 };
+        let mut buf: Vec<u8> = Vec::new();
+        <Test as Encodable>::to_writer(v, &mut buf).unwrap();
+        assert_eq!(buf, vec![0x04, 0x03, 0x02, 0x01]);
+    }
+}
+#[cfg(not(feature = "no_std"))]
+mod test_from_reader_dos {
+    use super::*;
+    use std::io::Cursor;
+
+    #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: u8,
+    }
+
+    #[test]
+    fn from_reader_does_not_consume_unbounded_input() {
+        // A `Test { a: u8 }` only encodes to a single byte. `Decodable::from_reader`
+        // should read at most a small bounded amount from the reader. The current
+        // implementation calls `read_to_end` which drains everything — feeding an
+        // attacker-controlled reader can therefore exhaust memory.
+        let mut data = vec![42u8];
+        data.extend(std::iter::repeat(0xff).take(1_000_000));
+
+        let mut cursor = Cursor::new(data);
+        let _decoded: Test = <Test as Decodable>::from_reader(&mut cursor).unwrap();
+
+        assert!(
+            cursor.position() < 1000,
+            "from_reader consumed too much: position = {} (struct needs 1 byte)",
+            cursor.position(),
+        );
+    }
+}

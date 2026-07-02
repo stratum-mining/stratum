@@ -9,7 +9,7 @@ use primitive_types::U256 as U256Primitive;
 
 /// Converts a `u256` to a [`BlockHash`] type.
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
-    let hash: [u8; 32] = v.to_vec().try_into().unwrap();
+    let hash = v.into_array();
     let hash = Hash::from_slice(&hash).unwrap();
     BlockHash::from_raw_hash(hash)
 }
@@ -171,7 +171,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     }
     let mut target_arr: [u8; 32] = [0; 32];
     let slice: &mut [u8] = &mut target_arr;
-    slice.copy_from_slice(target.inner_as_ref());
+    slice.copy_from_slice(target.as_bytes());
     target_arr.reverse();
     let target = U256Primitive::from_big_endian(target_arr.as_ref());
     // we calculate the numerator 2^256-t

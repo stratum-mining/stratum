@@ -63,7 +63,7 @@ use mining_sv2::{
     ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
     ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE,
 };
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
@@ -615,11 +615,7 @@ impl<'a> StandardChannel<'a> {
             ));
         };
 
-        let merkle_root: [u8; 32] = job
-            .get_merkle_root()
-            .inner_as_ref()
-            .try_into()
-            .expect("merkle root must be 32 bytes");
+        let merkle_root = job.get_merkle_root().to_array();
 
         let chain_tip = self
             .chain_tip
@@ -682,7 +678,7 @@ impl<'a> StandardChannel<'a> {
                 .op_pushbytes_pool_miner_tag()
                 .map_err(|_| ShareValidationError::InvalidCoinbase)?;
 
-            let mut script_sig = job.get_template().coinbase_prefix.to_vec();
+            let mut script_sig = job.get_template().coinbase_prefix.to_owned_bytes();
             script_sig.extend(op_pushbytes_pool_miner_tag);
             script_sig.push(self.extranonce_prefix.len() as u8); // OP_PUSHBYTES_X (for the extranonce)
             script_sig.extend(job.get_extranonce_prefix());

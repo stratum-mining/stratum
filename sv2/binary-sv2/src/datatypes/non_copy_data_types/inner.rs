@@ -21,8 +21,9 @@
 //
 // # Usage
 // `Inner` offers several methods for data manipulation, including:
-// - `to_vec()`: Returns a `Vec<u8>`, cloning the slice or owned data.
-// - `inner_as_ref()` and `inner_as_mut()`: Provide immutable or mutable access to the data.
+// - `as_bytes()` and `as_mut_bytes()`: Provide immutable or mutable access to the data.
+// - `to_owned_bytes()` and `into_bytes()`: Return owned payload bytes.
+// - `len()` and `is_empty()`: Inspect payload size directly.
 // - `expected_length(data: &[u8])`: Computes the expected length, validating it against
 //   constraints.
 // - `get_header()`: Returns the data's header based on `HEADERSIZE`.
@@ -73,55 +74,6 @@ pub enum Inner<
     Owned(Vec<u8>),
 }
 
-impl<const SIZE: usize> Inner<'_, true, SIZE, 0, 0> {
-    // Converts the inner data to a vector, either by cloning the referenced slice or
-    // returning a clone of the owned vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        match self {
-            Inner::Ref(ref_) => ref_.to_vec(),
-            Inner::Owned(v) => v.clone(),
-        }
-    }
-    // Returns an immutable reference to the inner data, whether it's a reference or
-    // an owned vector.
-    pub fn inner_as_ref(&self) -> &[u8] {
-        match self {
-            Inner::Ref(ref_) => ref_,
-            Inner::Owned(v) => v,
-        }
-    }
-    // Provides a mutable reference to the inner data, allowing modification if the
-    // data is being referenced.
-    pub fn inner_as_mut(&mut self) -> &mut [u8] {
-        match self {
-            Inner::Ref(ref_) => ref_,
-            Inner::Owned(v) => v,
-        }
-    }
-}
-
-impl<const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Inner<'_, false, SIZE, HEADERSIZE, MAXSIZE>
-{
-    // Similar to the fixed-size variant, this method converts the inner data into a vector.
-    // The data is either cloned from the referenced slice or returned as a clone of the
-    // owned vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        match self {
-            Inner::Ref(ref_) => ref_[..].to_vec(),
-            Inner::Owned(v) => v[..].to_vec(),
-        }
-    }
-    // Returns an immutable reference to the inner data for variable-size types, either
-    // referencing a slice or an owned vector.
-    pub fn inner_as_ref(&self) -> &[u8] {
-        match self {
-            Inner::Ref(ref_) => &ref_[..],
-            Inner::Owned(v) => &v[..],
-        }
-    }
-}
-
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     PartialEq for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
@@ -150,14 +102,9 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     // `SIZE`, `MAXSIZE`, and `HEADERSIZE`, returning the length or an error if the data
     // exceeds the limits.
     fn expected_length(data: &[u8]) -> Result<usize, Error> {
-        let expected_length = match ISFIXED {
-            true => Self::expected_length_fixed(),
-            false => Self::expected_length_variable(data)?,
-        };
-        if ISFIXED || expected_length <= (MAXSIZE + HEADERSIZE) {
-            Ok(expected_length)
-        } else {
-            Err(Error::ReadError(data.len(), MAXSIZE))
+        match ISFIXED {
+            true => Ok(Self::expected_length_fixed()),
+            false => Self::expected_length_variable(data),
         }
     }
 
@@ -171,7 +118,7 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     // is correctly sized relative to the header information.
     fn expected_length_variable(data: &[u8]) -> Result<usize, Error> {
         if data.len() >= HEADERSIZE {
-            let size = match HEADERSIZE {
+            let payload_len = match HEADERSIZE {
                 1 => Ok(data[0] as usize),
                 2 => Ok(u16::from_le_bytes([data[0], data[1]]) as usize),
                 3 => Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]) as usize),
@@ -180,7 +127,20 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
                 // not used
                 _ => unreachable!(),
             };
-            size.map(|x| x + HEADERSIZE)
+            payload_len.and_then(|payload_len| {
+                if payload_len <= MAXSIZE {
+                    Ok(payload_len + HEADERSIZE)
+                } else {
+                    Err(Error::ValueExceedsMaxSize(
+                        ISFIXED,
+                        SIZE,
+                        HEADERSIZE,
+                        MAXSIZE,
+                        data.to_vec(),
+                        payload_len,
+                    ))
+                }
+            })
         } else {
             Err(Error::ReadError(data.len(), HEADERSIZE))
         }
@@ -195,7 +155,7 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
         } else {
             let mut header = [0_u8; HEADERSIZE];
             reader.read_exact(&mut header)?;
-            let expected_length = match HEADERSIZE {
+            let payload_len = match HEADERSIZE {
                 1 => header[0] as usize,
                 2 => u16::from_le_bytes([header[0], header[1]]) as usize,
                 3 => u32::from_le_bytes([header[0], header[1], header[2], 0]) as usize,
@@ -204,10 +164,17 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
                 // not used
                 _ => unreachable!(),
             };
-            if expected_length <= (MAXSIZE + HEADERSIZE) {
-                Ok(expected_length)
+            if payload_len <= MAXSIZE {
+                Ok(payload_len)
             } else {
-                Err(Error::ReadError(expected_length, MAXSIZE))
+                Err(Error::ValueExceedsMaxSize(
+                    ISFIXED,
+                    SIZE,
+                    HEADERSIZE,
+                    MAXSIZE,
+                    header.to_vec(),
+                    payload_len,
+                ))
             }
         }
     }
@@ -218,8 +185,13 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
         match (self, ISFIXED) {
             (Inner::Ref(data), false) => data.len(),
             (Inner::Owned(data), false) => data.len(),
-            (_, true) => 1,
+            (_, true) => SIZE,
         }
+    }
+
+    /// Returns true when the payload has no bytes.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     // Retrieves the header as a byte vector. If `HEADERSIZE` is zero, an empty vector is
@@ -333,21 +305,17 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 where
     Self: TryInto<FieldMarker>,
 {
-    fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
-        if ISFIXED {
-            Self::Ref(data)
-        } else {
-            Self::Ref(&mut data[HEADERSIZE..])
+    fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
+        let size = Self::size_hint(data, 0)?;
+        if size > data.len() {
+            return Err(Error::ReadError(data.len(), size));
         }
-    }
-
-    fn from_vec_(data: Vec<u8>) -> Result<Self, Error> {
-        Self::size_hint(&data, 0)?;
-        Ok(Self::Owned(data))
-    }
-
-    fn from_vec_unchecked(data: Vec<u8>) -> Self {
-        Self::Owned(data)
+        let (head, _) = data.split_at_mut(size);
+        if ISFIXED {
+            Ok(Self::Ref(head))
+        } else {
+            Ok(Self::Ref(&mut head[HEADERSIZE..]))
+        }
     }
 
     #[cfg(not(feature = "no_std"))]
@@ -357,11 +325,14 @@ where
         let mut dst = vec![0; size];
 
         reader.read_exact(&mut dst)?;
-        Ok(Self::from_vec_unchecked(dst))
+        Ok(Self::Owned(dst))
     }
 
-    fn to_slice_unchecked(&'a self, dst: &mut [u8]) {
+    fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
         let size = self.get_size();
+        if dst.len() < size {
+            return Err(Error::WriteError(size, dst.len()));
+        }
         let header = self.get_header();
         dst[0..HEADERSIZE].copy_from_slice(&header[..HEADERSIZE]);
         match self {
@@ -374,10 +345,13 @@ where
                 dst[HEADERSIZE..].copy_from_slice(data);
             }
         }
+        Ok(size)
     }
 
     #[cfg(not(feature = "no_std"))]
     fn to_writer_(&self, writer: &mut impl Write) -> Result<(), E> {
+        let header = self.get_header();
+        writer.write_all(&header[..HEADERSIZE])?;
         match self {
             Inner::Ref(data) => {
                 writer.write_all(data)?;
@@ -393,6 +367,42 @@ where
 impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
+    /// Returns the payload bytes without any SV2 length header.
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Inner::Ref(data) => data,
+            Inner::Owned(data) => data,
+        }
+    }
+
+    /// Returns the payload bytes mutably without any SV2 length header.
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+        match self {
+            Inner::Ref(data) => data,
+            Inner::Owned(data) => data,
+        }
+    }
+
+    /// Clones the payload bytes into an owned vector.
+    pub fn to_owned_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    /// Consumes the value and returns owned payload bytes.
+    pub fn into_bytes(self) -> Vec<u8> {
+        match self {
+            Inner::Ref(data) => data.to_vec(),
+            Inner::Owned(data) => data,
+        }
+    }
+
+    /// Copies the payload bytes into an array of the requested size.
+    pub fn try_as_array<const N: usize>(&self) -> Result<[u8; N], Error> {
+        self.as_bytes()
+            .try_into()
+            .map_err(|_| Error::ReadError(self.as_bytes().len(), N))
+    }
+
     pub fn into_static(self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
         match self {
             Inner::Ref(data) => {
@@ -401,6 +411,32 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
                 Inner::Owned(v)
             }
             Inner::Owned(data) => Inner::Owned(data),
+        }
+    }
+}
+
+impl<const SIZE: usize> Inner<'_, true, SIZE, 0, 0> {
+    /// Returns the payload bytes as an array reference.
+    pub fn as_array(&self) -> &[u8; SIZE] {
+        self.as_bytes()
+            .try_into()
+            .expect("fixed-size SV2 byte wrapper must always match SIZE")
+    }
+
+    /// Copies the payload bytes into an array.
+    pub fn to_array(&self) -> [u8; SIZE] {
+        *self.as_array()
+    }
+
+    /// Consumes the value and returns the payload bytes as an array.
+    pub fn into_array(self) -> [u8; SIZE] {
+        match self {
+            Inner::Ref(data) => data
+                .try_into()
+                .expect("fixed-size SV2 byte wrapper must always match SIZE"),
+            Inner::Owned(data) => data
+                .try_into()
+                .expect("fixed-size SV2 byte wrapper must always match SIZE"),
         }
     }
 }
@@ -424,9 +460,49 @@ impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXS
     AsRef<[u8]> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
     fn as_ref(&self) -> &[u8] {
-        match self {
-            Inner::Ref(r) => &r[..],
-            Inner::Owned(r) => &r[..],
-        }
+        self.as_bytes()
+    }
+}
+
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    TryFrom<&[u8]> for Inner<'_, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+{
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        value.to_vec().try_into()
+    }
+}
+
+impl<const SIZE: usize> From<[u8; SIZE]> for Inner<'_, true, SIZE, 0, 0> {
+    fn from(value: [u8; SIZE]) -> Self {
+        Inner::Owned(value.into())
+    }
+}
+
+impl<const N: usize, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    TryFrom<[u8; N]> for Inner<'_, false, SIZE, HEADERSIZE, MAXSIZE>
+{
+    type Error = Error;
+
+    fn try_from(value: [u8; N]) -> Result<Self, Self::Error> {
+        value.to_vec().try_into()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{GetSize, Signature, U256};
+
+    #[test]
+    fn fixed_inner_len_reports_real_size() {
+        let mut u = [0u8; 32];
+        let u256: U256 = (&mut u[..]).try_into().unwrap();
+        assert_eq!(u256.len(), 32, "U256::len() must be 32, not 1");
+        assert_eq!(u256.len(), u256.get_size());
+
+        let mut s = [0u8; 64];
+        let sig: Signature = (&mut s[..]).try_into().unwrap();
+        assert_eq!(sig.len(), 64, "Signature::len() must be 64, not 1");
     }
 }

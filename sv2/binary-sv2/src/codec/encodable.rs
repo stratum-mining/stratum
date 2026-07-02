@@ -1,6 +1,6 @@
 use crate::{
     codec::GetSize,
-    datatypes::{Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{Mac, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
@@ -54,10 +54,10 @@ impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
     }
 
     #[cfg(not(feature = "no_std"))]
-    #[allow(clippy::wrong_self_convention, unconditional_recursion)]
+    #[allow(clippy::wrong_self_convention)]
     fn to_writer(self, dst: &mut impl Write) -> Result<(), E> {
         let encoded_field = self.into();
-        encoded_field.to_writer(dst)
+        EncodableField::to_writer(&encoded_field, dst)
     }
 }
 
@@ -70,8 +70,6 @@ impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
 pub enum EncodablePrimitive<'a> {
     /// U8 Primitive, representing a byte
     U8(u8),
-    /// Owned U8 Primitive, representing an owned byte
-    OwnedU8(u8),
     /// U16 Primitive, representing a u16 type
     U16(u16),
     /// Bool Primitive, representing a bool type
@@ -80,12 +78,12 @@ pub enum EncodablePrimitive<'a> {
     U24(U24),
     /// U256 Primitive, representing a U256 type
     U256(U256<'a>),
+    /// Mac Primitive, representing a MAC type
+    Mac(Mac<'a>),
     /// Signature Primitive, representing a Signature type
     Signature(Signature<'a>),
     /// U32 Primitive, representing a u32 type
     U32(u32),
-    /// U32AsRef Primitive, representing a U32AsRef type
-    U32AsRef(U32AsRef<'a>),
     /// F32 Primitive, representing a f32 type
     F32(f32),
     /// U64 Primitive, representing a u64 type
@@ -109,14 +107,13 @@ impl EncodablePrimitive<'_> {
     fn encode(&self, dst: &mut [u8]) -> Result<usize, Error> {
         match self {
             Self::U8(v) => v.to_slice(dst),
-            Self::OwnedU8(v) => v.to_slice(dst),
             Self::U16(v) => v.to_slice(dst),
             Self::Bool(v) => v.to_slice(dst),
             Self::U24(v) => v.to_slice(dst),
             Self::U256(v) => v.to_slice(dst),
+            Self::Mac(v) => v.to_slice(dst),
             Self::Signature(v) => v.to_slice(dst),
             Self::U32(v) => v.to_slice(dst),
-            Self::U32AsRef(v) => v.to_slice(dst),
             Self::F32(v) => v.to_slice(dst),
             Self::U64(v) => v.to_slice(dst),
             Self::B032(v) => v.to_slice(dst),
@@ -135,14 +132,13 @@ impl EncodablePrimitive<'_> {
     pub fn write(&self, writer: &mut impl Write) -> Result<(), E> {
         match self {
             Self::U8(v) => v.to_writer_(writer),
-            Self::OwnedU8(v) => v.to_writer_(writer),
             Self::U16(v) => v.to_writer_(writer),
             Self::Bool(v) => v.to_writer_(writer),
             Self::U24(v) => v.to_writer_(writer),
             Self::U256(v) => v.to_writer_(writer),
+            Self::Mac(v) => v.to_writer_(writer),
             Self::Signature(v) => v.to_writer_(writer),
             Self::U32(v) => v.to_writer_(writer),
-            Self::U32AsRef(v) => v.to_writer_(writer),
             Self::F32(v) => v.to_writer_(writer),
             Self::U64(v) => v.to_writer_(writer),
             Self::B032(v) => v.to_writer_(writer),
@@ -158,14 +154,13 @@ impl GetSize for EncodablePrimitive<'_> {
     fn get_size(&self) -> usize {
         match self {
             Self::U8(v) => v.get_size(),
-            Self::OwnedU8(v) => v.get_size(),
             Self::U16(v) => v.get_size(),
             Self::Bool(v) => v.get_size(),
             Self::U24(v) => v.get_size(),
             Self::U256(v) => v.get_size(),
+            Self::Mac(v) => v.get_size(),
             Self::Signature(v) => v.get_size(),
             Self::U32(v) => v.get_size(),
-            Self::U32AsRef(v) => v.get_size(),
             Self::F32(v) => v.get_size(),
             Self::U64(v) => v.get_size(),
             Self::B032(v) => v.get_size(),

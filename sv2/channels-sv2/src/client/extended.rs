@@ -292,8 +292,8 @@ impl<'a> ExtendedChannel<'a> {
         // try to strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix, if they are
         // present
         let new_extended_mining_job = match try_strip_bip141(
-            new_extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
-            new_extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
+            new_extended_mining_job.coinbase_tx_prefix.as_bytes(),
+            new_extended_mining_job.coinbase_tx_suffix.as_bytes(),
         )
         .map_err(ExtendedChannelError::FailedToTryToStripBip141)?
         {
@@ -368,14 +368,13 @@ impl<'a> ExtendedChannel<'a> {
         let deserialized_outputs = Vec::<TxOut>::consensus_decode(
             &mut set_custom_mining_job
                 .coinbase_tx_outputs
-                .inner_as_ref()
-                .to_vec()
+                .to_owned_bytes()
                 .as_slice(),
         )
         .map_err(|_| ExtendedChannelError::FailedToDeserializeCoinbaseOutputs)?;
 
         let mut script_sig = vec![];
-        script_sig.extend_from_slice(set_custom_mining_job.coinbase_prefix.inner_as_ref());
+        script_sig.extend_from_slice(set_custom_mining_job.coinbase_prefix.as_bytes());
         let full_extranonce_size = self.get_full_extranonce_size();
         let full_extranonce = vec![0; full_extranonce_size];
         script_sig.extend_from_slice(&full_extranonce);
@@ -404,7 +403,7 @@ impl<'a> ExtendedChannel<'a> {
             + 32 // prev OutPoint
             + 4 // index
             + 1 // bytes in script
-            + set_custom_mining_job.coinbase_prefix.inner_as_ref().len();
+            + set_custom_mining_job.coinbase_prefix.len();
 
         let coinbase_tx_prefix = serialized_coinbase[0..prefix_index].to_vec();
 
@@ -551,7 +550,7 @@ impl<'a> ExtendedChannel<'a> {
             ));
         };
 
-        let extranonce_size = share.extranonce.inner_as_ref().len();
+        let extranonce_size = share.extranonce.len();
         if extranonce_size != self.rollable_extranonce_size as usize {
             return Err(ShareValidationError::BadExtranonceSize(
                 ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE,
@@ -560,7 +559,7 @@ impl<'a> ExtendedChannel<'a> {
 
         let mut full_extranonce = vec![];
         full_extranonce.extend_from_slice(job.1.as_slice());
-        full_extranonce.extend_from_slice(share.extranonce.inner_as_ref());
+        full_extranonce.extend_from_slice(share.extranonce.as_bytes());
 
         // calculate the merkle root from:
         // - job coinbase_tx_prefix
@@ -568,10 +567,10 @@ impl<'a> ExtendedChannel<'a> {
         // - job coinbase_tx_suffix
         // - job merkle_path
         let merkle_root: [u8; 32] = merkle_root_from_path(
-            job.0.coinbase_tx_prefix.inner_as_ref(),
-            job.0.coinbase_tx_suffix.inner_as_ref(),
+            job.0.coinbase_tx_prefix.as_bytes(),
+            job.0.coinbase_tx_suffix.as_bytes(),
             full_extranonce.as_ref(),
-            &job.0.merkle_path.inner_as_ref(),
+            job.0.merkle_path.as_slice(),
         )
         .ok_or(ShareValidationError::Invalid(
             ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,

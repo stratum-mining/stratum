@@ -10,8 +10,7 @@
 // ### `Seq0255`
 // - Represents a sequence of up to 255 elements.
 // - Includes utility methods such as:
-//   - `to_vec()`: Converts each element into its byte vector representation.
-//   - `inner_as_ref()`: Provides references to the inner data for each element.
+//   - `iter_bytes()`: Provides byte references for each element without allocating.
 //   - `new()`: Creates a `Seq0255` instance, enforcing the maximum length constraint.
 // - Implements the `Decodable` trait for seamless deserialization, and `GetSize` to calculate the
 //   encoded size, ensuring compatibility with various serialization formats.
@@ -19,7 +18,7 @@
 // ### `Seq064K`
 // - Represents a sequence of up to 65535 elements.
 // - Similar to `Seq0255`, it provides:
-//   - `to_vec()` and `inner_as_ref()` methods to convert or reference each element.
+//   - `iter_bytes()` to reference each element's bytes without allocating.
 //   - `new()` enforces the maximum size limit, preventing excess memory usage.
 // - Like `Seq0255`, `Seq064K` is `Decodable` and implements `GetSize`, making it versatile for
 //   serialization scenarios.
@@ -50,59 +49,23 @@ use crate::{
     datatypes::{Sv2DataType, *},
     Error,
 };
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ops::Index, slice};
 
-// TODO add test for that
-impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Seq0255<'a, super::inner::Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>>
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq0255<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
-    /// Converts the inner types to owned vector, and collects.
-    pub fn to_vec(&self) -> Vec<Vec<u8>> {
-        self.0.iter().map(|x| x.to_vec()).collect()
-    }
-    /// Converts the inner types to shared reference, and collects.
-    pub fn inner_as_ref(&self) -> Vec<&[u8]> {
-        self.0.iter().map(|x| x.inner_as_ref()).collect()
+    /// Iterates over element payload bytes without allocating.
+    pub fn iter_bytes(&self) -> impl Iterator<Item = &[u8]> {
+        self.0.iter().map(|x| x.as_bytes())
     }
 }
 
-// TODO add test for that
-impl<'a, const SIZE: usize> Seq0255<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
-    /// Converts the inner types to owned vector, and collects.
-    pub fn to_vec(&self) -> Vec<Vec<u8>> {
-        self.0.iter().map(|x| x.to_vec()).collect()
-    }
-
-    /// Converts the inner types to shared reference, and collects.
-    pub fn inner_as_ref(&self) -> Vec<&[u8]> {
-        self.0.iter().map(|x| x.inner_as_ref()).collect()
-    }
-}
-// TODO add test for that
-impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Seq064K<'a, super::inner::Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>>
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq064K<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
-    /// Converts the inner types to owned vector, and collects.
-    pub fn to_vec(&self) -> Vec<Vec<u8>> {
-        self.0.iter().map(|x| x.to_vec()).collect()
-    }
-
-    /// Converts the inner types to shared reference, and collects.
-    pub fn inner_as_ref(&self) -> Vec<&[u8]> {
-        self.0.iter().map(|x| x.inner_as_ref()).collect()
-    }
-}
-
-// TODO add test for that
-impl<'a, const SIZE: usize> Seq064K<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
-    /// Converts the inner types to owned vector, and collects.
-    pub fn to_vec(&self) -> Vec<Vec<u8>> {
-        self.0.iter().map(|x| x.to_vec()).collect()
-    }
-
-    /// Converts the inner types to shared reference, and collects.
-    pub fn inner_as_ref(&self) -> Vec<&[u8]> {
-        self.0.iter().map(|x| x.inner_as_ref()).collect()
+    /// Iterates over element payload bytes without allocating.
+    pub fn iter_bytes(&self) -> impl Iterator<Item = &[u8]> {
+        self.0.iter().map(|x| x.as_bytes())
     }
 }
 
@@ -113,7 +76,14 @@ use std::io::Read;
 /// This structure uses a generic type `T` and a lifetime parameter `'a`.
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Seq0255<'a, T>(pub Vec<T>, PhantomData<&'a T>);
+pub struct Seq0255<'a, T>(Vec<T>, PhantomData<&'a T>);
+
+impl<'a, T> Index<usize> for Seq0255<'a, T> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
 
 impl<'a, T: 'a> Seq0255<'a, T> {
     const HEADERSIZE: usize = 1;
@@ -140,6 +110,26 @@ impl<'a, T: 'a> Seq0255<'a, T> {
     pub fn into_inner(self) -> Vec<T> {
         self.0
     }
+
+    /// Returns the sequence as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    /// Iterates over the sequence by reference.
+    pub fn iter(&self) -> slice::Iter<'_, T> {
+        self.0.iter()
+    }
+
+    /// Length of Seq0255 which is a list of bytes up-to 255 len
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns true when the sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl<T: GetSize> GetSize for Seq0255<'_, T> {
@@ -156,7 +146,14 @@ impl<T: GetSize> GetSize for Seq0255<'_, T> {
 /// [`Seq064K`] represents a sequence with a maximum length of 65535 elements.
 /// This structure uses a generic type `T` and a lifetime parameter `'a`.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Seq064K<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
+pub struct Seq064K<'a, T>(Vec<T>, PhantomData<&'a T>);
+
+impl<'a, T> Index<usize> for Seq064K<'a, T> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
 
 impl<'a, T: 'a> Seq064K<'a, T> {
     const HEADERSIZE: usize = 2;
@@ -183,6 +180,26 @@ impl<'a, T: 'a> Seq064K<'a, T> {
     pub fn into_inner(self) -> Vec<T> {
         self.0
     }
+
+    /// Returns the sequence as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    /// Iterates over the sequence by reference.
+    pub fn iter(&self) -> slice::Iter<'_, T> {
+        self.0.iter()
+    }
+
+    /// Length of Seq0255 which is a list of bytes up-to 64k len
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns true when the sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl<T: GetSize> GetSize for Seq064K<'_, T> {
@@ -206,6 +223,10 @@ macro_rules! impl_codec_for_sequence {
                 data: &[u8],
             ) -> Result<Vec<crate::codec::decodable::FieldMarker>, Error> {
                 let len = Self::expected_len(data)?;
+                let available = data.len().saturating_sub(Self::HEADERSIZE);
+                if len > available {
+                    return Err(Error::ReadError(data.len(), len + Self::HEADERSIZE));
+                }
                 let mut inner = Vec::with_capacity(len + Self::HEADERSIZE);
                 for _ in 0..Self::HEADERSIZE {
                     inner.push(FieldMarker::Primitive(PrimitiveMarker::U8));
@@ -228,8 +249,10 @@ macro_rules! impl_codec_for_sequence {
                                     T::from_decoded_fields(vec![DecodableField::Primitive(p)]);
                                 inner.push(element?)
                             }
-                            // A struct always recursivly call decode until it reach a primitive
-                            DecodableField::Struct(_) => unreachable!(),
+                            DecodableField::Struct(fields) => {
+                                let element = T::from_decoded_fields(fields);
+                                inner.push(element?)
+                            }
                         }
                     }
                     i += 1;
@@ -250,7 +273,7 @@ macro_rules! impl_codec_for_sequence {
                     }
                     let (head, t) = tail.split_at_mut(element_size);
                     tail = t;
-                    inner.push(T::from_bytes_unchecked(head));
+                    inner.push(T::from_bytes_(head)?);
                 }
                 Ok(Self(inner, PhantomData))
             }
@@ -288,10 +311,10 @@ macro_rules! impl_into_encodable_field_for_seq {
                 let inner_len = v.0.len() as u16;
                 let mut as_encodable: Vec<EncodableField> =
                     Vec::with_capacity(inner_len as usize + 2);
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(
                     inner_len.to_le_bytes()[0],
                 )));
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(
                     inner_len.to_le_bytes()[1],
                 )));
                 for element in v.0 {
@@ -306,9 +329,7 @@ macro_rules! impl_into_encodable_field_for_seq {
                 let inner_len = v.0.len() as u8;
                 let mut as_encodable: Vec<EncodableField> =
                     Vec::with_capacity((inner_len as usize) + 1);
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
-                    inner_len,
-                )));
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(inner_len)));
                 for element in v.0 {
                     as_encodable.push(element.into());
                 }
@@ -321,9 +342,7 @@ macro_rules! impl_into_encodable_field_for_seq {
                 let inner_len = v.0.len() as u8;
                 let mut as_encodable: Vec<EncodableField> =
                     Vec::with_capacity((inner_len as usize) + 1);
-                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
-                    inner_len,
-                )));
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(inner_len)));
                 for element in v.0 {
                     as_encodable.push(element.into());
                 }
@@ -340,20 +359,23 @@ impl_into_encodable_field_for_seq!(U24);
 impl_into_encodable_field_for_seq!(u32);
 impl_into_encodable_field_for_seq!(u64);
 impl_into_encodable_field_for_seq!(U256<'a>);
+impl_into_encodable_field_for_seq!(Mac<'a>);
 impl_into_encodable_field_for_seq!(Signature<'a>);
 impl_into_encodable_field_for_seq!(B0255<'a>);
 impl_into_encodable_field_for_seq!(B064K<'a>);
 impl_into_encodable_field_for_seq!(B016M<'a>);
 
-impl<T> From<Vec<T>> for Seq0255<'_, T> {
-    fn from(v: Vec<T>) -> Self {
-        Seq0255(v, PhantomData)
+impl<T> TryFrom<Vec<T>> for Seq0255<'_, T> {
+    type Error = Error;
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        Seq0255::new(value)
     }
 }
 
-impl<T> From<Vec<T>> for Seq064K<'_, T> {
-    fn from(v: Vec<T>) -> Self {
-        Seq064K(v, PhantomData)
+impl<T> TryFrom<Vec<T>> for Seq064K<'_, T> {
+    type Error = Error;
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        Seq064K::new(value)
     }
 }
 
@@ -423,26 +445,29 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 /// The lifetime 'a is defined.
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
+pub struct Sv2Option<'a, T>(Vec<T>, PhantomData<&'a T>);
 
 // TODO add test for that
 impl<'a, const SIZE: usize> Sv2Option<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
     /// Gets the owned first element of the sequence, if present
     pub fn to_option(&self) -> Option<Vec<u8>> {
-        let v: Vec<Vec<u8>> = self.0.iter().map(|x| x.to_vec()).collect();
-        match v.len() {
+        match self.0.len() {
             0 => None,
-            1 => Some(v[0].clone()),
+            1 => Some(self.0[0].to_owned_bytes()),
             // is impossible to deserialize Sv2Options with len bigger than 1
             _ => unreachable!(),
         }
     }
-    /// Gets the reference to first element of the sequence, if present
-    pub fn inner_as_ref(&self) -> Option<&[u8]> {
-        let v: Vec<&[u8]> = self.0.iter().map(|x| x.inner_as_ref()).collect();
-        match v.len() {
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Sv2Option<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    /// Gets the reference to the first element's payload bytes, if present.
+    pub fn as_option_bytes(&self) -> Option<&[u8]> {
+        match self.0.len() {
             0 => None,
-            1 => Some(v[0]),
+            1 => Some(self.0[0].as_bytes()),
             // is impossible to deserialize Sv2Options with len bigger than 1
             _ => unreachable!(),
         }
@@ -493,5 +518,24 @@ impl<T: GetSize> GetSize for Sv2Option<'_, T> {
             size += with_size.get_size()
         }
         size
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Decodable, Seq064K};
+
+    #[test]
+    fn get_structure_does_not_overallocate_from_tiny_header() {
+        let data: [u8; 2] = [0xff, 0xff];
+        match <Seq064K<'static, u8> as Decodable<'static>>::get_structure(&data) {
+            Err(_) => {}
+            Ok(markers) => assert!(
+                markers.len() <= data.len(),
+                "get_structure built {} markers from a {}-byte buffer",
+                markers.len(),
+                data.len()
+            ),
+        }
     }
 }

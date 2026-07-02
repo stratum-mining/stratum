@@ -9,789 +9,209 @@ use crate::{
     Error,
 };
 use alloc::vec::Vec;
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryInto;
+
+macro_rules! impl_get_marker {
+    ($(($ty:ty, $marker:ident)),+ $(,)?) => {
+        $(
+            impl GetMarker for $ty {
+                fn get_marker() -> FieldMarker {
+                    FieldMarker::Primitive(PrimitiveMarker::$marker)
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_decodable {
+    ($(($ty:ty, $marker:ident)),+ $(,)?) => {
+        $(
+            impl<'a> Decodable<'a> for $ty {
+                fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+                    Ok(vec![PrimitiveMarker::$marker.into()])
+                }
+
+                fn from_decoded_fields(
+                    mut data: Vec<DecodableField<'a>>,
+                ) -> Result<Self, Error> {
+                    data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_try_from_decodable_primitive {
+    ($(($ty:ty, $variant:ident)),+ $(,)?) => {
+        $(
+            impl<'a> TryFrom<DecodablePrimitive<'a>> for $ty {
+                type Error = Error;
+
+                fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
+                    match value {
+                        DecodablePrimitive::$variant(val) => Ok(val),
+                        _ => Err(Error::PrimitiveConversionError),
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_try_from_decodable_field {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl<'a> TryFrom<DecodableField<'a>> for $ty {
+                type Error = Error;
+
+                fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
+                    match value {
+                        DecodableField::Primitive(p) => p.try_into(),
+                        _ => Err(Error::DecodableConversionError),
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_encodable_field_conversion {
+    ($(($ty:ty, $variant:ident)),+ $(,)?) => {
+        $(
+            impl<'a> From<$ty> for EncodableField<'a> {
+                fn from(v: $ty) -> Self {
+                    EncodableField::Primitive(EncodablePrimitive::$variant(v))
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_field_marker_from_owned {
+    ($(($ty:ty, $marker:ident)),+ $(,)?) => {
+        $(
+            impl From<$ty> for FieldMarker {
+                fn from(_: $ty) -> Self {
+                    FieldMarker::Primitive(PrimitiveMarker::$marker)
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_field_marker_from_borrowed {
+    ($(($ty:ty, $marker:ident)),+ $(,)?) => {
+        $(
+            impl<'a> From<$ty> for FieldMarker {
+                fn from(_: $ty) -> Self {
+                    FieldMarker::Primitive(PrimitiveMarker::$marker)
+                }
+            }
+        )+
+    };
+}
 
-// IMPL GET MARKER FOR PRIMITIVES
-impl GetMarker for bool {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::Bool)
-    }
-}
-impl GetMarker for u8 {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U8)
-    }
-}
-impl GetMarker for u16 {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U16)
-    }
-}
-impl GetMarker for U24 {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U24)
-    }
-}
-impl GetMarker for u32 {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U32)
-    }
-}
-impl GetMarker for f32 {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::F32)
-    }
-}
-impl GetMarker for u64 {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U64)
-    }
-}
-impl GetMarker for U256<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U256)
-    }
-}
-impl GetMarker for Signature<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::Signature)
-    }
-}
-impl GetMarker for B032<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::B032)
-    }
-}
-impl GetMarker for B0255<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::B0255)
-    }
-}
-impl GetMarker for B064K<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::B064K)
-    }
-}
-impl GetMarker for B016M<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::B016M)
-    }
-}
-impl GetMarker for U32AsRef<'_> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::U32AsRef)
-    }
-}
-
-// IMPL DECODABLE FOR PRIMITIVES
-
-impl<'a> Decodable<'a> for u8 {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U8.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for u16 {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U16.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for u32 {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U32.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for f32 {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::F32.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for u64 {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U64.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for bool {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::Bool.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for U24 {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U24.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for U256<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U256.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for Signature<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::Signature.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for B032<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::B032.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for B0255<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::B0255.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for B064K<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::B064K.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-impl<'a> Decodable<'a> for B016M<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::B016M.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-
-impl<'a> Decodable<'a> for U32AsRef<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::U32AsRef.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-
-// IMPL TRY_FROM PRIMITIVE FOR PRIMITIVEs
-
-impl<'a> TryFrom<DecodablePrimitive<'a>> for u8 {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U8(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for u16 {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U16(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for u32 {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U32(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for f32 {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::F32(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for u64 {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U64(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for bool {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::Bool(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-
-impl<'a> TryFrom<DecodablePrimitive<'a>> for U24 {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U24(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for U256<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U256(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for Signature<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::Signature(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for B032<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::B032(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for B0255<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::B0255(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for B064K<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::B064K(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for B016M<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::B016M(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodablePrimitive<'a>> for U32AsRef<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::U32AsRef(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
-
-// IMPL TRY_FROM DECODEC FIELD FOR PRIMITIVES
-
-impl<'a> TryFrom<DecodableField<'a>> for u8 {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for u16 {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for u32 {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for f32 {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for u64 {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for bool {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for U24 {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for U256<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for Signature<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for B032<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for B0255<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for B064K<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for B016M<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for U32AsRef<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-
-// IMPL FROM PRIMITIVES FOR ENCODED FIELD
-
-impl From<bool> for EncodableField<'_> {
-    fn from(v: bool) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::Bool(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for bool {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::Bool(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl From<u8> for EncodableField<'_> {
-    fn from(v: u8) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U8(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for u8 {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U8(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl From<u16> for EncodableField<'_> {
-    fn from(v: u16) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U16(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for u16 {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U16(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl From<U24> for EncodableField<'_> {
-    fn from(v: U24) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U24(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for U24 {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U24(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl From<u32> for EncodableField<'_> {
-    fn from(v: u32) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U32(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for u32 {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U32(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl From<f32> for EncodableField<'_> {
-    fn from(v: f32) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::F32(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for f32 {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::F32(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl From<u64> for EncodableField<'_> {
-    fn from(v: u64) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U64(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for u64 {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U64(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> From<U256<'a>> for EncodableField<'a> {
-    fn from(v: U256<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U256(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for U256<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U256(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> From<Signature<'a>> for EncodableField<'a> {
-    fn from(v: Signature<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::Signature(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for Signature<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::Signature(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> From<B032<'a>> for EncodableField<'a> {
-    fn from(v: B032<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::B032(v))
-    }
-}
-impl<'a> From<B0255<'a>> for EncodableField<'a> {
-    fn from(v: B0255<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::B0255(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for B032<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::B032(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for B0255<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::B0255(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> From<B064K<'a>> for EncodableField<'a> {
-    fn from(v: B064K<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::B064K(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for B064K<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::B064K(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> From<B016M<'a>> for EncodableField<'a> {
-    fn from(v: B016M<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::B016M(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for B016M<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::B016M(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-impl<'a> From<U32AsRef<'a>> for EncodableField<'a> {
-    fn from(v: U32AsRef<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::U32AsRef(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for U32AsRef<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::U32AsRef(v)) => Ok(v),
-            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
-        }
-    }
-}
-
-// IMPL INTO FIELD MARKER FOR PRIMITIVES
-impl From<bool> for FieldMarker {
-    fn from(_: bool) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::Bool)
-    }
-}
-impl From<u8> for FieldMarker {
-    fn from(_: u8) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U8)
-    }
-}
-
-impl From<u16> for FieldMarker {
-    fn from(_: u16) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U16)
-    }
-}
-
-impl From<u32> for FieldMarker {
-    fn from(_: u32) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U32)
-    }
-}
-
-impl From<f32> for FieldMarker {
-    fn from(_: f32) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::F32)
-    }
-}
-
-impl From<u64> for FieldMarker {
-    fn from(_: u64) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U64)
-    }
-}
-
-impl From<U24> for FieldMarker {
-    fn from(_: U24) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U24)
-    }
-}
-
-impl<'a> From<Inner<'a, true, 32, 0, 0>> for FieldMarker {
-    fn from(_: Inner<'a, true, 32, 0, 0>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U256)
-    }
-}
-
-impl<'a> From<Inner<'a, true, 64, 0, 0>> for FieldMarker {
-    fn from(_: Inner<'a, true, 64, 0, 0>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::Signature)
-    }
-}
-
-impl<'a> From<B032<'a>> for FieldMarker {
-    fn from(_: B032<'a>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::B032)
-    }
-}
-
-impl<'a> From<Inner<'a, false, 1, 1, 255>> for FieldMarker {
-    fn from(_: Inner<'a, false, 1, 1, 255>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::B0255)
-    }
-}
-
-impl<'a> From<Inner<'a, false, 1, 2, { 2_usize.pow(16) - 1 }>> for FieldMarker {
-    fn from(_: Inner<'a, false, 1, 2, { 2_usize.pow(16) - 1 }>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::B064K)
-    }
-}
-
-impl<'a> From<Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>> for FieldMarker {
-    fn from(_: Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::B016M)
-    }
-}
-impl<'a> From<U32AsRef<'a>> for FieldMarker {
-    fn from(_: U32AsRef<'a>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::U32AsRef)
-    }
-}
+impl_get_marker!(
+    (bool, Bool),
+    (u8, U8),
+    (u16, U16),
+    (U24, U24),
+    (u32, U32),
+    (f32, F32),
+    (u64, U64),
+    (U256<'_>, U256),
+    (Mac<'_>, Mac),
+    (Signature<'_>, Signature),
+    (B032<'_>, B032),
+    (B0255<'_>, B0255),
+    (B064K<'_>, B064K),
+    (B016M<'_>, B016M),
+);
+
+impl_decodable!(
+    (u8, U8),
+    (u16, U16),
+    (u32, U32),
+    (f32, F32),
+    (u64, U64),
+    (bool, Bool),
+    (U24, U24),
+    (U256<'a>, U256),
+    (Mac<'a>, Mac),
+    (Signature<'a>, Signature),
+    (B032<'a>, B032),
+    (B0255<'a>, B0255),
+    (B064K<'a>, B064K),
+    (B016M<'a>, B016M),
+);
+
+impl_try_from_decodable_primitive!(
+    (u8, U8),
+    (u16, U16),
+    (u32, U32),
+    (f32, F32),
+    (u64, U64),
+    (bool, Bool),
+    (U24, U24),
+    (U256<'a>, U256),
+    (Mac<'a>, Mac),
+    (Signature<'a>, Signature),
+    (B032<'a>, B032),
+    (B0255<'a>, B0255),
+    (B064K<'a>, B064K),
+    (B016M<'a>, B016M),
+);
+
+impl_try_from_decodable_field!(
+    u8,
+    u16,
+    u32,
+    f32,
+    u64,
+    bool,
+    U24,
+    U256<'a>,
+    Mac<'a>,
+    Signature<'a>,
+    B032<'a>,
+    B0255<'a>,
+    B064K<'a>,
+    B016M<'a>,
+);
+
+impl_encodable_field_conversion!(
+    (bool, Bool),
+    (u8, U8),
+    (u16, U16),
+    (U24, U24),
+    (u32, U32),
+    (f32, F32),
+    (u64, U64),
+    (U256<'a>, U256),
+    (Mac<'a>, Mac),
+    (Signature<'a>, Signature),
+    (B032<'a>, B032),
+    (B0255<'a>, B0255),
+    (B064K<'a>, B064K),
+    (B016M<'a>, B016M),
+);
+
+impl_field_marker_from_owned!(
+    (bool, Bool),
+    (u8, U8),
+    (u16, U16),
+    (u32, U32),
+    (f32, F32),
+    (u64, U64),
+    (U24, U24),
+);
+
+impl_field_marker_from_borrowed!(
+    (Inner<'a, true, 16, 0, 0>, Mac),
+    (Inner<'a, true, 32, 0, 0>, U256),
+    (Inner<'a, true, 64, 0, 0>, Signature),
+    (B032<'a>, B032),
+    (Inner<'a, false, 1, 1, 255>, B0255),
+    (Inner<'a, false, 1, 2, { 2_usize.pow(16) - 1 }>, B064K),
+    (Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>, B016M),
+);

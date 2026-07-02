@@ -20,6 +20,7 @@
 //! u64      <-> U64     
 //! U256     <-> U256
 //! Str0255  <-> STRO_255
+//! Mac      <-> MAC
 //! Signature<-> SIGNATURE
 //! B032     <-> B0_32   
 //! B0255    <-> B0_255
@@ -71,8 +72,8 @@ pub use encodable::Encodable as Serialize;
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2DataType, Sv2Option, U32AsRef, B016M, B0255,
-    B032, B064K, U24, U256,
+    Mac, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2DataType, Sv2Option, B016M, B0255, B032,
+    B064K, U24, U256,
 };
 
 pub use crate::codec::{
@@ -238,39 +239,12 @@ pub enum Error {
     /// Indicates an attempt to read beyond a valid range.
     OutOfBound,
 
-    /// Raised when a non-binary value is interpreted as a boolean.
-    NotABool(u8),
-
     /// Occurs when an unexpected size mismatch arises during a write operation, specifying
     /// expected and actual sizes.
     WriteError(usize, usize),
 
-    /// Signifies an overflow condition where a `u32` exceeds the maximum allowable `u24` value.
-    U24TooBig(u32),
-
-    /// Reports a size mismatch for a signature, such as when it does not match the expected size.
-    InvalidSignatureSize(usize),
-
-    /// Raised when a `u256` value is invalid, typically due to size discrepancies.
-    InvalidU256(usize),
-
     /// Indicates an invalid `u24` representation.
     InvalidU24(u32),
-
-    /// Error indicating that a byte array exceeds the maximum allowed size for `B0255`.
-    InvalidB0255Size(usize),
-
-    /// Error indicating that a byte array exceeds the maximum allowed size for `B064K`.
-    InvalidB064KSize(usize),
-
-    /// Error indicating that a byte array exceeds the maximum allowed size for `B016M`.
-    InvalidB016MSize(usize),
-
-    /// Raised when a sequence size exceeds `0255`.
-    InvalidSeq0255Size(usize),
-
-    /// Error when trying to encode a non-primitive data type.
-    NonPrimitiveTypeCannotBeEncoded,
 
     /// Generic conversion error related to primitive types.
     PrimitiveConversionError,
@@ -310,9 +284,6 @@ pub enum Error {
     /// Error for protocol-specific invalid values.
     ValueIsNotAValidProtocol(u8),
 
-    /// Raised when an unsupported or unknown message type is encountered.
-    UnknownMessageType(u8),
-
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
@@ -346,18 +317,4 @@ impl From<buffer_sv2::Slice> for EncodableField<'_> {
     fn from(_v: buffer_sv2::Slice) -> Self {
         unreachable!()
     }
-}
-
-/// Converts a value implementing the `Into<u64>` trait into a custom `U256` type.
-pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
-    // initialize u256 as a bytes vec of len 24
-    let mut u256 = vec![0_u8; 24];
-    let val: u64 = value.into();
-    for v in &(val.to_le_bytes()) {
-        // add 8 bytes to u256
-        u256.push(*v)
-    }
-    // Always safe cause u256 is 24 + 8 (32) bytes
-    let u256: U256 = u256.try_into().unwrap();
-    u256
 }

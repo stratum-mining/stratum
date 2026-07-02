@@ -45,8 +45,8 @@ pub fn build_sv1_notify_from_sv2(
     clean_jobs: bool,
 ) -> Result<server_to_client::Notify<'static>> {
     let new_job = match try_strip_bip141(
-        new_job.coinbase_tx_prefix.inner_as_ref(),
-        new_job.coinbase_tx_suffix.inner_as_ref(),
+        new_job.coinbase_tx_prefix.as_bytes(),
+        new_job.coinbase_tx_suffix.as_bytes(),
     )
     .map_err(StratumTranslationError::FailedToTryToStripBip141)?
     {
@@ -66,9 +66,9 @@ pub fn build_sv1_notify_from_sv2(
 
     let job_id = new_job.job_id.to_string();
     let prev_hash = PrevHash(new_prev_hash.prev_hash.clone());
-    let coin_base1 = new_job.coinbase_tx_prefix.to_vec().into();
-    let coin_base2 = new_job.coinbase_tx_suffix.to_vec().into();
-    let merkle_path = new_job.merkle_path.clone().into_static().0;
+    let coin_base1 = new_job.coinbase_tx_prefix.to_owned_bytes().into();
+    let coin_base2 = new_job.coinbase_tx_suffix.to_owned_bytes().into();
+    let merkle_path = new_job.merkle_path.clone().into_static().into_inner();
     let merkle_branch: Vec<MerkleNode> = merkle_path.into_iter().map(MerkleNode).collect();
     let version = HexU32Be(new_job.version);
     let bits = HexU32Be(new_prev_hash.nbits);

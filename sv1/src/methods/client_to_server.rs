@@ -169,7 +169,7 @@ impl Submit<'_> {
 
 impl From<Submit<'_>> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.0.inner_as_ref().to_lower_hex_string();
+        let ex: String = submit.extra_nonce2.0.as_bytes().to_lower_hex_string();
         let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -343,7 +343,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.0.inner_as_ref().to_lower_hex_string()],
+            (a, Some(b)) => vec![a, b.0.as_bytes().to_lower_hex_string()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
@@ -809,7 +809,7 @@ fn test_subscribe_with_odd_length_extranonce() {
     assert_eq!(subscribe.agent_signature, "test-agent");
     assert!(subscribe.extranonce1.is_some());
     let extranonce = subscribe.extranonce1.unwrap();
-    assert_eq!(extranonce.0.inner_as_ref(), &[0x0a, 0xbc]); // "0abc" -> [10, 188]
+    assert_eq!(extranonce.0.as_bytes(), &[0x0a, 0xbc]); // "0abc" -> [10, 188]
 }
 
 #[test]
@@ -825,7 +825,7 @@ fn test_subscribe_with_even_length_extranonce() {
     assert_eq!(subscribe.agent_signature, "test-agent");
     assert!(subscribe.extranonce1.is_some());
     let extranonce = subscribe.extranonce1.unwrap();
-    assert_eq!(extranonce.0.inner_as_ref(), &[0xab, 0xcd]); // "abcd" -> [171, 205]
+    assert_eq!(extranonce.0.as_bytes(), &[0xab, 0xcd]); // "abcd" -> [171, 205]
 }
 
 #[test]

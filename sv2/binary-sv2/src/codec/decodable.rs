@@ -1,6 +1,6 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{Mac, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
@@ -54,9 +54,34 @@ pub trait Decodable<'a>: Sized {
     #[cfg(not(feature = "no_std"))]
     fn from_reader(reader: &mut impl Read) -> Result<Self, Error> {
         let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
 
-        let structure = Self::get_structure(&data[..])?;
+        let structure = loop {
+            match Self::get_structure(&data[..]) {
+                Ok(structure) => match structure.size_hint_(&data[..], 0) {
+                    Ok(expected_len) => {
+                        if data.len() < expected_len {
+                            let missing = expected_len - data.len();
+                            let original_len = data.len();
+                            data.resize(expected_len, 0);
+                            reader.read_exact(&mut data[original_len..original_len + missing])?;
+                        }
+                        break structure;
+                    }
+                    Err(Error::OutOfBound | Error::ReadError(_, _)) => {
+                        let mut next = [0_u8; 1];
+                        reader.read_exact(&mut next)?;
+                        data.push(next[0]);
+                    }
+                    Err(error) => return Err(error),
+                },
+                Err(Error::OutOfBound | Error::ReadError(_, _)) => {
+                    let mut next = [0_u8; 1];
+                    reader.read_exact(&mut next)?;
+                    data.push(next[0]);
+                }
+                Err(error) => return Err(error),
+            }
+        };
 
         let mut fields = Vec::new();
         let mut reader = Cursor::new(data);
@@ -79,9 +104,9 @@ pub enum PrimitiveMarker {
     Bool,
     U24,
     U256,
+    Mac,
     Signature,
     U32,
-    U32AsRef,
     F32,
     U64,
     B032,
@@ -122,9 +147,9 @@ pub enum DecodablePrimitive<'a> {
     Bool(bool),
     U24(U24),
     U256(U256<'a>),
+    Mac(Mac<'a>),
     Signature(Signature<'a>),
     U32(u32),
-    U32AsRef(U32AsRef<'a>),
     F32(f32),
     U64(u64),
     B032(B032<'a>),
@@ -150,9 +175,9 @@ pub enum DecodableField<'a> {
 }
 
 impl SizeHint for PrimitiveMarker {
-    // PrimitiveMarker needs introspection to return a size hint. This method is not implementable.
+    // PrimitiveMarker requires a concrete marker instance to determine the size.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        unimplemented!()
+        Err(Error::UnInitializedDecoder)
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
@@ -162,9 +187,9 @@ impl SizeHint for PrimitiveMarker {
             Self::Bool => bool::size_hint(data, offset),
             Self::U24 => U24::size_hint(data, offset),
             Self::U256 => U256::size_hint(data, offset),
+            Self::Mac => Mac::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
-            Self::U32AsRef => U32AsRef::size_hint(data, offset),
             Self::F32 => f32::size_hint(data, offset),
             Self::U64 => u64::size_hint(data, offset),
             Self::B032 => B032::size_hint(data, offset),
@@ -176,9 +201,9 @@ impl SizeHint for PrimitiveMarker {
 }
 
 impl SizeHint for FieldMarker {
-    // FieldMarker need introspection to return a size hint. This method is not implementeable
+    // FieldMarker requires a concrete marker instance to determine the size.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        unimplemented!()
+        Err(Error::UnInitializedDecoder)
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
@@ -196,9 +221,9 @@ impl SizeHint for FieldMarker {
 }
 
 impl SizeHint for Vec<FieldMarker> {
-    // FieldMarker need introspection to return a size hint. This method is not implementeable
+    // The structure must be initialized before its aggregate size can be calculated.
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
-        unimplemented!()
+        Err(Error::UnInitializedDecoder)
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
@@ -246,32 +271,54 @@ impl PrimitiveMarker {
     // Decodes a primitive value from a byte slice at the given offset, returning the corresponding
     // `DecodablePrimitive`. The specific decoding logic depends on the type of the primitive (e.g.,
     // `u8`, `u16`, etc.).
-    fn decode<'a>(&self, data: &'a mut [u8], offset: usize) -> DecodablePrimitive<'a> {
+    fn decode<'a>(
+        &self,
+        data: &'a mut [u8],
+        offset: usize,
+    ) -> Result<DecodablePrimitive<'a>, Error> {
         match self {
-            Self::U8 => DecodablePrimitive::U8(u8::from_bytes_unchecked(&mut data[offset..])),
-            Self::U16 => DecodablePrimitive::U16(u16::from_bytes_unchecked(&mut data[offset..])),
-            Self::Bool => DecodablePrimitive::Bool(bool::from_bytes_unchecked(&mut data[offset..])),
-            Self::U24 => DecodablePrimitive::U24(U24::from_bytes_unchecked(&mut data[offset..])),
-            Self::U256 => DecodablePrimitive::U256(U256::from_bytes_unchecked(&mut data[offset..])),
-            Self::Signature => {
-                DecodablePrimitive::Signature(Signature::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::U32 => DecodablePrimitive::U32(u32::from_bytes_unchecked(&mut data[offset..])),
-            Self::U32AsRef => {
-                DecodablePrimitive::U32AsRef(U32AsRef::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::F32 => DecodablePrimitive::F32(f32::from_bytes_unchecked(&mut data[offset..])),
-            Self::U64 => DecodablePrimitive::U64(u64::from_bytes_unchecked(&mut data[offset..])),
-            Self::B032 => DecodablePrimitive::B032(B032::from_bytes_unchecked(&mut data[offset..])),
-            Self::B0255 => {
-                DecodablePrimitive::B0255(B0255::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::B064K => {
-                DecodablePrimitive::B064K(B064K::from_bytes_unchecked(&mut data[offset..]))
-            }
-            Self::B016M => {
-                DecodablePrimitive::B016M(B016M::from_bytes_unchecked(&mut data[offset..]))
-            }
+            Self::U8 => Ok(DecodablePrimitive::U8(u8::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U16 => Ok(DecodablePrimitive::U16(u16::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::Bool => Ok(DecodablePrimitive::Bool(bool::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U24 => Ok(DecodablePrimitive::U24(U24::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U256 => Ok(DecodablePrimitive::U256(U256::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::Mac => Ok(DecodablePrimitive::Mac(Mac::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U32 => Ok(DecodablePrimitive::U32(u32::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::F32 => Ok(DecodablePrimitive::F32(f32::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::U64 => Ok(DecodablePrimitive::U64(u64::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B032 => Ok(DecodablePrimitive::B032(B032::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B0255 => Ok(DecodablePrimitive::B0255(B0255::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B064K => Ok(DecodablePrimitive::B064K(B064K::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B016M => Ok(DecodablePrimitive::B016M(B016M::from_bytes_(
+                &mut data[offset..],
+            )?)),
         }
     }
 
@@ -287,13 +334,11 @@ impl PrimitiveMarker {
             Self::Bool => Ok(DecodablePrimitive::Bool(bool::from_reader_(reader)?)),
             Self::U24 => Ok(DecodablePrimitive::U24(U24::from_reader_(reader)?)),
             Self::U256 => Ok(DecodablePrimitive::U256(U256::from_reader_(reader)?)),
+            Self::Mac => Ok(DecodablePrimitive::Mac(Mac::from_reader_(reader)?)),
             Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_reader_(
                 reader,
             )?)),
             Self::U32 => Ok(DecodablePrimitive::U32(u32::from_reader_(reader)?)),
-            Self::U32AsRef => Ok(DecodablePrimitive::U32AsRef(U32AsRef::from_reader_(
-                reader,
-            )?)),
             Self::F32 => Ok(DecodablePrimitive::F32(f32::from_reader_(reader)?)),
             Self::U64 => Ok(DecodablePrimitive::U64(u64::from_reader_(reader)?)),
             Self::B032 => Ok(DecodablePrimitive::B032(B032::from_reader_(reader)?)),
@@ -312,9 +357,9 @@ impl GetSize for DecodablePrimitive<'_> {
             DecodablePrimitive::Bool(v) => v.get_size(),
             DecodablePrimitive::U24(v) => v.get_size(),
             DecodablePrimitive::U256(v) => v.get_size(),
+            DecodablePrimitive::Mac(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
-            DecodablePrimitive::U32AsRef(v) => v.get_size(),
             DecodablePrimitive::F32(v) => v.get_size(),
             DecodablePrimitive::U64(v) => v.get_size(),
             DecodablePrimitive::B032(v) => v.get_size(),
@@ -332,7 +377,7 @@ impl FieldMarker {
     // and returns the resulting `DecodableField`.
     pub(crate) fn decode<'a>(&self, data: &'a mut [u8]) -> Result<DecodableField<'a>, Error> {
         match self {
-            Self::Primitive(p) => Ok(DecodableField::Primitive(p.decode(data, 0))),
+            Self::Primitive(p) => Ok(DecodableField::Primitive(p.decode(data, 0)?)),
             Self::Struct(ps) => {
                 let mut decodeds = Vec::new();
                 let mut tail = data;

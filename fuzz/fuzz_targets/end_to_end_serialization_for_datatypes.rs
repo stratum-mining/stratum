@@ -5,7 +5,7 @@ mod common;
 
 use binary_sv2::{
     Decodable, Encodable, GetSize, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2Option,
-    U32AsRef, B016M, B0255, B032, B064K, U24, U256,
+    B016M, B0255, B032, B064K, U24, U256,
 };
 use libfuzzer_sys::fuzz_target;
 
@@ -14,7 +14,6 @@ enum FuzzInput {
     PubKey(Vec<u8>),
     Signature(Vec<u8>),
     Str0255(Vec<u8>),
-    U32AsRef(Vec<u8>),
     B016M(Vec<u8>),
     B0255(Vec<u8>),
     B032(Vec<u8>),
@@ -77,7 +76,6 @@ fuzz_target!(|input: FuzzInput| {
         FuzzInput::PubKey(data) => test_datatype_roundtrip!(PubKey, data),
         FuzzInput::Signature(data) => test_datatype_roundtrip!(Signature, data),
         FuzzInput::Str0255(data) => test_datatype_roundtrip!(Str0255, data),
-        FuzzInput::U32AsRef(data) => test_datatype_roundtrip!(U32AsRef, data),
         FuzzInput::B016M(data) => test_datatype_roundtrip!(B016M, data),
         FuzzInput::B0255(data) => test_datatype_roundtrip!(B0255, data),
         FuzzInput::B032(data) => test_datatype_roundtrip!(B032, data),
