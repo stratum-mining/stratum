@@ -121,7 +121,7 @@
 
   /* ---- interactive ---- */
   .demo{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:22px 22px 18px;margin:36px 0;}
-  .demo-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+  .demo-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px;min-height:3.6em;align-content:flex-start;}
   .demo-title{font-family:var(--mono);font-size:0.78rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--controller);margin:0;}
   .readout{font-family:var(--mono);font-size:0.82rem;font-weight:500;padding:5px 13px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap;color:var(--controller);background:var(--controller-soft);}
   .demo svg{display:block;width:100%;height:auto;}
@@ -130,6 +130,9 @@
   .ctl label{font-size:0.95rem;color:var(--ink-soft);font-weight:500;}
   .ctl input[type=range]{width:100%;accent-color:var(--controller);height:4px;}
   .ctl .val{font-family:var(--mono);font-size:0.82rem;color:var(--controller);min-width:6ch;text-align:right;}
+  /* hashrate-trend value cycles steady -> "declining · moderate"; pin its column so the changing text
+     can't resize the slider track mid-drag (which would jump the thumb off the snap points). */
+  #momv{width:21ch;text-align:left;white-space:nowrap;}
   .demo-note{font-family:var(--mono);font-size:0.78rem;line-height:1.6;color:var(--muted);margin:16px 0 0;min-height:3.4em;}
   @media (max-width:520px){
     .ctl{grid-template-columns:1fr auto;}
@@ -505,6 +508,12 @@
       <span class="tag">A small expansion worth seeing</span>
       For a small drop, <code>&minus;ln(1&minus;d) &asymp; d</code> (e.g. a 10% drop gives <code>&asymp; 0.105</code>, barely more than <code>0.10</code>). So for small declines the error is <em>about equal to the drop depth</em> — which sounds harmless, and is exactly the trap the first implication below springs.
     </div>
+
+    <h3>Two ways difficulty goes wrong: the submitting decline, and silence</h3>
+    <p>The closed form above quietly assumed one thing — that the miner <em>keeps submitting</em>. A drop of depth <code>d</code> parks it at <code>e = &minus;ln(1&minus;d)</code>, a real point on Step 9&rsquo;s curve, with a real (if reduced) share rate <code>exp(&minus;e)</code> still arriving. Call that the <strong>submitting decline</strong>: the miner slows but is still on the wire, still visible, and difficulty simply has to <em>follow it down</em> — ease in proportion, then settle. Everything the last two chapters built describes this mode: it lives on the error axis, and <code>exp(&minus;e)</code> is exactly how visible the miner stays as it fades.</p>
+    <p>But a drop can deepen without limit, and the curve tells you where that goes. As <code>e</code> grows, <code>exp(&minus;e)</code> falls toward zero — the shares thin until, in the limit, <em>none arrive at all</em>. That limit is a genuinely different failure: <strong>silence</strong>. A stalled, hung, curtailed, or departed miner submits nothing — and a miner submitting nothing is not a point on the curve at all. It is off the axis entirely, because <em>the axis is built from shares</em>, and here there are none.</p>
+    <p>Here is why the difference bites, and why it is not just a deeper version of the first. A controller infers hashrate <em>only</em> from shares — that was Step 1, and Chapter 1 made it a law: no shares, no information, nothing for the estimate to move on. So under true silence the estimate cannot update from data; it stalls at whatever it last read. A controller whose only way down is &ldquo;the shares told me to ease&rdquo; therefore <strong>freezes</strong> — difficulty stuck high on a miner that has gone quiet, the death spiral&rsquo;s terminal state, and one no estimator cleverness escapes, because there is no data to be clever with. Easing out of silence cannot be driven by shares; it needs an <em>idle path</em> — a rule that lowers difficulty on the passage of time alone, share or no share. So &ldquo;ease on a submitting decline&rdquo; and &ldquo;still ease on silence&rdquo; are two <em>separate</em> requirements: the first is reading a faint signal correctly, the second is acting with no signal at all.</p>
+    <p>These two — the submitting decline on the axis, and silence at its limit — are the two axes the report&rsquo;s decline-safety tests actually check; how a given controller fares on each is the report&rsquo;s subject, not this primer&rsquo;s. What the primer supplies is <em>why there are two</em>: the same <code>exp(&minus;e)</code> that keeps a submitting decline visible-but-shrinking is what turns a deep enough decline into no signal at all, and the axis-built-from-shares is why the no-signal case is a different problem needing a different fix. The demo two steps below lets you set a moving true hashrate and drive both modes. A gentle decline is the submitting case: the good controller eases down to <em>follow</em> the miner to its new rate, the weak one strands at over-difficulty behind it. Push the decline toward <em>severe</em> and you reach the second mode &mdash; the classic loses its shares, its estimate can no longer move, and it <em>freezes</em> at the wall, while the champion, easing on time through its idle path, still recovers. Silence is that same axis taken to its limit, and the far end of the control is where a decline crosses into it.</p>
   </section>
 
   <!-- ============ 11 ============ -->
@@ -555,13 +564,18 @@
       <div class="controls">
         <div class="ctl">
           <label for="iter">Vardiff iteration</label>
-          <input id="iter" type="range" min="0" max="30" value="0" step="1">
+          <input id="iter" type="range" min="0" max="48" value="0" step="1">
           <span class="val" id="iterv">0</span>
         </div>
         <div class="ctl">
           <label for="seed">Simulation run (new trial)</label>
           <input id="seed" type="range" min="0" max="20" value="0" step="1">
           <span class="val" id="seedv">run 1</span>
+        </div>
+        <div class="ctl">
+          <label for="mom">Hashrate trend&nbsp;&nbsp;(&larr; rising &middot; steady &middot; declining &rarr;)</label>
+          <input id="mom" type="range" min="-22" max="22" value="0" step="1">
+          <span class="val" id="momv">steady</span>
         </div>
       </div>
       <p class="demo-note" id="note3">Both clouds are seeded across a range of starting errors that crosses correct — some dots start too-easy (left), some too-hard (right). Drag the iteration slider and watch: <span style="color:var(--controller)">champion</span> (blue) dots pull to correct from <em>both</em> sides; <span style="color:var(--danger)">classic</span> (red) dots recover from the left but <em>strand</em> on the right, stuck in over-difficulty. Drag <em>Simulation run</em> to re-roll the noise — the pattern holds across trials, so it isn't one lucky draw.</p>
@@ -572,11 +586,11 @@
     <p>Notice too what the <em>left</em> side shows: <strong>both</strong> controllers recover from under-difficulty. There is no mirror-image trap on the safe side — that absence is the asymmetry made visible. The dangerous direction has a trap only the gentle controller escapes; the safe direction has only fast self-correction, for everyone.</p>
     <div class="note">
       <span class="tag">Two honest caveats on the safe side</span>
-      The under-difficulty (left) side is <em>self-correcting</em>, not <em>free</em>: while it lasts, the connection runs permanently over its target share rate (extra bandwidth, CPU, share-accounting) — bounding exactly that standing load is <em>why</em> the target share rate is set where it is. And the clean "over-difficulty traps, under-difficulty self-corrects" story is the <em>dense-rate</em> regime: at very sparse share rates the report finds the protective mechanism becomes symmetric instead (there aren't enough shares for the flood to sharpen anything quickly). The report is precise about both; the cloud shows the dense-regime asymmetry, the common and load-bearing case.</p>
+      The under-difficulty (left) side is <em>self-correcting</em>, not <em>free</em>: while it lasts, the connection runs permanently over its target share rate (extra bandwidth, CPU, share-accounting) — bounding exactly that standing load is <em>why</em> the target share rate is set where it is. And the clean "over-difficulty traps, under-difficulty self-corrects" story is the <em>dense-rate</em> regime: at very sparse share rates the report finds the protective mechanism becomes symmetric instead (there aren't enough shares for the flood to sharpen anything quickly). The report is precise about both; the cloud shows the dense-regime asymmetry, the common and load-bearing case.
     </div>
 
     <h3>Where this is exact, and where it idealizes</h3>
-    <p>Same honesty as Chapter 1. The collapse <code>r_obs/r* = exp(&minus;e)</code> and the closed form <code>e = &minus;ln(1&minus;d)</code> are <em>exact within the report's model</em> — which assumes, among other things, that the true hashrate holds steady within a measurement window and that each connection is one worker. The report states these assumptions explicitly. They're the idealizations that make the formulas clean; reality is messier at the edges (a hashrate that's itself moving during the window, pooled workers), and the report is careful about where those matter. And the cloud above is a <em>calibrated illustration</em> of the dynamics, not the production model — its settled values match the report's, but the rigorous run is <code>slow-decline.rs</code>. Carry the results in as <em>the model's exact behavior</em> — which is what makes the spiral and the asymmetry real mechanisms rather than hand-waving — while knowing where the model's boundaries, and this primer's illustrations, give way to the report's measurements.</p>
+    <p>Same honesty as Chapter 1. The collapse <code>r_obs/r* = exp(&minus;e)</code> and the closed form <code>e = &minus;ln(1&minus;d)</code> are <em>exact within the report's model</em> — which assumes, among other things, that each connection is one worker. The report states its assumptions explicitly; they are the idealizations that make the formulas clean, and reality is messier at the edges (pooled workers, arrivals that clump). One idealization the cloud <em>does</em> now let you relax is the steady true rate: the <em>hashrate trend</em> control lets the true rate move during the run — which is what a real decline actually is — and it is exactly that motion that pushes a submitting miner along the axis for a controller to track (or fail to). Even so, the cloud stays a <em>calibrated illustration</em> of the dynamics, not the production model — its settled values at steady hashrate match the report's, and the rigorous runs (moving-rate declines included) live in <code>slow-decline.rs</code>. Carry the results in as <em>the model's exact behavior</em> — which is what makes the spiral and the asymmetry real mechanisms rather than hand-waving — while knowing where the model's boundaries, and this primer's illustrations, give way to the report's measurements.</p>
   </section>
 
   <div class="bridge">
@@ -772,6 +786,8 @@
   var ctrl=document.getElementById('ctrl');
   var seed=document.getElementById('seed');
   var seedv=document.getElementById('seedv');
+  var mom=document.getElementById('mom');
+  var momv=document.getElementById('momv');
   var ro3=document.getElementById('ro3');
   var note3=document.getElementById('note3');
   var NS='http://www.w3.org/2000/svg';
@@ -780,7 +796,10 @@
   var plotW=W-padL-padR, plotH=H-padT-padB;
   var eMin=-0.4, eMax=1.3;            // share-error axis
   var N=120;                          // dots per controller
-  var MAXIT=30;
+  var MAXIT=48;                       // iterations: long enough for the champion to recover even from a SEVERE decline
+  var SMAX=22;                        // slider extent; severity = |slider|/SMAX (0 at center = steady)
+  var DMAX=0.24;                      // steepest per-iteration drift, at the severe end
+  var KMIN=8, KMAX=18;                // decline-EVENT length: brief for a gentle decline, long for a severe one
   var S0=-0.30, S1=0.50;              // starting-error spread, crosses zero (some too-easy, some too-hard)
 
   function elm(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
@@ -796,48 +815,84 @@
   //    over-difficult (fuzzy region + weak easing) — bigger steps fling it deeper than it recovers.
   // Over-difficulty noise grows with e (Chapter 1 floor under exp(-e) starvation); under-difficulty
   // noise is small and shrinks toward correct (the flood sharpens the estimate).
-  function trajectory(kind,i,sd){
+  //
+  // MOMENTUM (drift): a TRUE HASHRATE that is itself moving. e = ln(D/D*); if the true rate moves, the
+  // ideal difficulty D* moves, so e drifts even with D held fixed. DECLINING -> D* falls -> e drifts UP
+  // (+drift, toward the trap); RISING -> e drifts DOWN (-drift, toward the safe side). The decline is a
+  // TRANSIENT EVENT: drift is applied for the first K iterations (the miner drops/climbs to a NEW level)
+  // then HOLDS. Severity = |slider|/SMAX scales BOTH the drift (0..DMAX) and the event length K (KMIN..KMAX):
+  // gentle = brief shallow event, severe = long steep event. drift is ZERO at center, so steady reproduces
+  // the shipped cloud (and slow-decline.rs calibration) exactly.
+  //
+  // THE POINT OF NO RETURN (why the classic freezes at the severe end, the champion never does): a share-only
+  // controller has no information when no shares arrive, so the CLASSIC's whole update fades to zero as
+  // r_obs=exp(-e) vanishes — fade ramps 1->0 across r_obs in [RLO,RHI]. Once a severe decline pushes it past
+  // that ramp its correction dies, drift wins, and it runs to the wall and FREEZES. The CHAMPION has an idle
+  // path (eases on time, not just shares): fade=1 always, so it tracks a decline down and RECOVERS even from
+  // the severe end. The fade ramp sits far above the +0.25 trap (RHI at e~1.4), so steady/calibration is
+  // untouched: at center every dot has fade=1. Model + schedule validated in Python before shipping.
+  var HARD=3.4, RLO=0.06, RHI=0.24;        // dynamics clip (e); classic-fade ramp bounds in r_obs (e ~ 3.4 .. 1.4)
+  function trajectory(kind,i,sd,drift,K){
     var e = S0 + (S1-S0)*(i/(N-1)) + 0.02*gauss(i,1,sd);   // spread across the range, tiny scatter
     var pts=[e];
+    var deep = (e >= 0.13);   // classic regime latch (hysteresis): a stranded dot stays stranded through noise dips
     for(var t=1;t<=MAXIT;t++){
+      var dr = (t<=K) ? drift : 0;                          // decline is an EVENT: drift only during it, then hold
+      var ro = Math.exp(-e);                                // observed share fraction at current e
+      // classic loses its grip as shares vanish (fade 1->0 across [RLO,RHI]); champion has an idle path (fade=1).
+      var fade = (kind==='champion') ? 1 : Math.max(0, Math.min(1, (ro-RLO)/(RHI-RLO)));
       if(e>=0){
         // over-difficult side
         if(kind==='champion'){
           var fuzz = 0.5 + 1.9*e;
-          e = e + (-0.135*(e-0.018) + 0.04*fuzz*gauss(i,t*2+3,sd));
+          e = e + fade*(-0.135*(e-0.018)) + 0.04*fuzz*gauss(i,t*2+3,sd) + dr;
         } else {
-          // classic: two regimes. SHALLOW over-difficulty (e < 0.13) self-corrects — a small transient
-          // wobble eases back out (low noise). DEEP over-difficulty (e >= 0.13, where a real decline drives
-          // it) STRANDS toward ~+0.28, giving the measured ~+22% settled trap. This is why a dot that
-          // merely wobbles slightly positive recovers, while a decline-driven deep state gets stuck.
+          // classic: two regimes with HYSTERESIS. DEEP over-difficulty (where a real decline drives it)
+          // STRANDS toward ~+0.25 (the measured ~+22% settled trap); SHALLOW over-difficulty self-corrects
+          // (a small transient wobble eases back out, low noise). The latch is sticky: a stranded dot enters
+          // deep at e>=0.13 but only LEAVES below e<0.05, so its large noise jitter stays trapped instead of
+          // leaking out one dot at a time as the run lengthens (the bug that made the settled value drift with
+          // MAXIT) — while a sustained rising drift, which pushes e down persistently, still carries it below
+          // 0.05 and lets it recover. Keeps the classic twitchy (wide fuzzy strand) AND makes the strand a
+          // stable fixed point, so the calibration holds at any MAXIT.
+          if(deep){ if(e < 0.05) deep = false; } else { if(e >= 0.13) deep = true; }
           var fuzzK = 0.28 + 1.9*e;
-          if(e < 0.13){
-            e = e + (-0.14*e + 0.06*fuzzK*gauss(i,t*2+5,sd));
+          if(!deep){
+            e = e + fade*(-0.14*e) + 0.06*fuzzK*gauss(i,t*2+5,sd) + dr;
           } else {
             var kick = (t<=4 ? 0.10*Math.max(0,gauss(i,t*3+11,sd)) : 0);   // early transient excursions
-            e = e + (-0.15*(e-0.28) + 0.10*fuzzK*gauss(i,t*2+5,sd) + kick);
+            e = e + fade*(-0.15*(e-0.25)) + fade*0.10*fuzzK*gauss(i,t*2+5,sd) + kick + dr;
           }
         }
       } else {
         // under-difficult: flood sharpens the estimate -> small, shrinking noise; both recover fast
+        deep = false;   // recovered below correct: no longer stranded
         var fuzzU = 0.20 + 0.5*Math.abs(e);
         var pull = (kind==='champion'? 0.36 : 0.34);
         var noiseU = (kind==='champion'? 0.03 : 0.04);
-        e = e + (-pull*e + noiseU*fuzzU*gauss(i,t*2+3,sd));
+        e = e + fade*(-pull*e) + noiseU*fuzzU*gauss(i,t*2+3,sd) + dr;
       }
       if(e<eMin) e=eMin+0.01;
-      if(e>eMax) e=eMax-0.01;
+      if(e>HARD) e=HARD;              // allow deep excursions (silence) but keep finite
       pts.push(e);
     }
     return pts;
   }
 
-  var champ=[], clsc=[], curSeed=-1;
-  function build(sd){
-    if(sd===curSeed) return;
+  var champ=[], clsc=[], curKey='';
+  function build(sd,drift,K){
+    var key=sd+'|'+drift+'|'+K;
+    if(key===curKey) return;
     champ=[]; clsc=[];
-    for(var i=0;i<N;i++){ champ.push(trajectory('champion',i,sd)); clsc.push(trajectory('classic',i,sd)); }
-    curSeed=sd;
+    for(var i=0;i<N;i++){ champ.push(trajectory('champion',i,sd,drift,K)); clsc.push(trajectory('classic',i,sd,drift,K)); }
+    curKey=key;
+  }
+  // decline SCHEDULE with a CENTER DEAD ZONE so steady is easy to land on:
+  // |mv|<=DZ -> steady (drift 0); beyond DZ, severity ramps 0->1 and scales drift and event length K.
+  var DZ=2;
+  function schedule(mv){
+    var fr=Math.max(0, Math.abs(mv)-DZ)/(SMAX-DZ), mag=DMAX*fr, K=Math.round(KMIN+(KMAX-KMIN)*fr);
+    return { drift: (fr===0 ? 0 : (mv>0? mag : -mag)), K: K, sev: fr };
   }
 
   // means restricted to dots that STARTED over-difficult (the escape-vs-trap population)
@@ -849,8 +904,9 @@
 
   function draw(){
     while(svg.firstChild) svg.removeChild(svg.firstChild);
-    var t=+iter.value, sd=+seed.value;
-    build(sd);
+    var t=+iter.value, sd=+seed.value, mv=+mom.value;
+    var sc=schedule(mv), drift=sc.drift, K=sc.K, sev=sc.sev, steady=(drift===0);
+    build(sd,drift,K);
 
     // regions
     var x0=ex(0);
@@ -869,12 +925,18 @@
 
     function band(y){return padT + y*(plotH-30) + 15;}   // vertical jitter lane for dots
 
+    var eSil=-Math.log(0.13);   // e beyond which r_obs < 13%: effectively silent -> render hollow ("frozen at the wall")
     function drawCloud(arr,color,lane){
       for(var i=0;i<arr.length;i++){
         var e=arr[i][t];
         var x=ex(e);
         var y=band(lane + 0.18*rnd(i,99,7));   // stable vertical scatter within the lane
-        svg.appendChild(elm('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:2.4,fill:color,opacity:0.48}));
+        if(e>=eSil){
+          // gone silent: almost no shares arrive, so the estimator is blind here — draw hollow, at the wall
+          svg.appendChild(elm('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:2.8,fill:'none',stroke:color,'stroke-width':1.1,opacity:0.75}));
+        } else {
+          svg.appendChild(elm('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:2.4,fill:color,opacity:0.48}));
+        }
       }
     }
 
@@ -894,23 +956,37 @@
 
     iterv.textContent=t;
     seedv.textContent='run '+(sd+1);
+    momv.textContent = steady ? 'steady' : ((drift<0?'rising':'declining')+' \u00b7 '+(sev<0.34?'gentle':sev<0.7?'moderate':'severe'));
 
     // readout tracks the dots that STARTED over-difficult — the escape-vs-trap population
     function fmt(m){ return (m>=0?'+':'')+(m*100).toFixed(0)+'%'; }
     var mC=meanOverStart(champ,t), mK=meanOverStart(clsc,t);
-    if(t===0){ ro3.textContent='iteration 0 · dots seeded across too-easy \u2192 too-hard'; }
-    else { ro3.textContent='iteration '+t+' · of the over-difficult starters: champion \u2248 '+fmt(mC)+' · classic \u2248 '+fmt(mK); }
-
     if(t===0){
-      note3.innerHTML='Both clouds seeded across a range that crosses correct \u2014 some dots too-easy (left), some too-hard (right). Drag right to run the iterations and watch the two colors diverge.';
+      ro3.textContent = steady
+        ? 'iteration 0 \u00b7 dots seeded across too-easy \u2192 too-hard'
+        : 'iteration 0 \u00b7 '+(drift<0?'rising':'declining')+' hashrate \u2014 drag iteration to run';
+    } else {
+      ro3.textContent='iteration '+t+' \u00b7 champion \u2248 '+fmt(mC)+' \u00b7 classic \u2248 '+fmt(mK);
+    }
+
+    if(!steady){
+      if(drift>0){
+        note3.innerHTML='<b>Declining hashrate.</b> The true rate falls, then holds at a new level \u2014 a real decline the controller has to track. Watch both clouds slide <em>right</em> as it falls, then the decline ends. On a <em>gentle</em> decline, <span style="color:var(--controller)">champion</span> (blue) eases the whole way down and <em>returns to correct</em> \u2014 its trough recovers, having caught the miner at its new rate \u2014 while <span style="color:var(--danger)">classic</span> (red) eases too weakly and <em>strands</em> over-difficulty. Push toward <em>severe</em> and the classic crosses a point of no return: starved of shares, its estimate can no longer move, so it <em>freezes</em> \u2014 dots go hollow at the wall and never come back. The champion still recovers, because its idle path eases on <em>time</em>, not just shares. Same decline, opposite fate \u2014 silence traps the share-only controller; the one with an idle path escapes it.';
+      } else {
+        note3.innerHTML='<b>Rising hashrate.</b> The true rate is climbing, so the ideal difficulty climbs and every miner drifts <em>left</em>, toward under-difficulty \u2014 the <em>safe</em> direction. The share flood sharpens every estimate, so <span style="color:var(--controller)">champion</span> and <span style="color:var(--danger)">classic</span> both follow it and stay near correct. No trap on this side, no silence \u2014 that asymmetry is Step 11\u2019s consequence 3 made kinetic: the dangerous direction is the one that starves its own evidence, and a rising miner is never that direction.';
+      }
+    } else if(t===0){
+      note3.innerHTML='Both clouds seeded across a range that crosses correct \u2014 some dots too-easy (left), some too-hard (right). Drag <em>iteration</em> to run, or set a <em>hashrate trend</em> to let the true rate move and push the miners along the axis.';
     } else if(t>=MAXIT){
-      note3.innerHTML='Settled. <span style="color:var(--controller)">Champion</span> (blue) has pulled to correct from <em>both</em> sides. <span style="color:var(--danger)">Classic</span> (red) recovered from the left but its right-side dots are <em>stranded</em> near <b>+22%</b> \u2014 the report\u2019s measured decline-safety value (champion settles near <b>+2.7%</b>). The trap exists only on the dangerous side, only for the twitchy controller.';
+      note3.innerHTML='Settled. <span style="color:var(--controller)">Champion</span> (blue) has pulled to correct from <em>both</em> sides. <span style="color:var(--danger)">Classic</span> (red) recovered from the left but its right-side dots are <em>stranded</em> near <b>+22%</b> \u2014 the report\u2019s measured decline-safety value (champion settles near <b>+2.7%</b>). The trap exists only on the dangerous side, only for the twitchy controller. Now try a <em>hashrate trend</em>: a moving true rate is a live decline, not just a starting scatter.';
     } else {
       note3.innerHTML='In flight. Watch the right side: <span style="color:var(--danger)">classic</span> dots that started over-difficult hang there, spread wide (fuzzy region, big steps); <span style="color:var(--controller)">champion</span> dots slide down toward correct. On the left, both colors recover \u2014 the flood sharpens every estimate.';
     }
   }
   iter.addEventListener('input',draw);
   seed.addEventListener('input',draw);
+  mom.addEventListener('input',draw);
+  mom.addEventListener('change',function(){ if(Math.abs(+mom.value)<=DZ){ mom.value=0; draw(); } });
   draw();
 })();
 </script>
