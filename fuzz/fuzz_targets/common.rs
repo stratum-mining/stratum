@@ -1,3 +1,6 @@
+use arbitrary::Unstructured;
+use serde_json::Value;
+
 /// Performs a round-trip serialization test for a message type.
 ///
 /// This macro:
@@ -165,4 +168,51 @@ macro_rules! test_datatype_roundtrip {
             );
         }
     }};
+}
+
+/// WARNING: Generated with OpenAI's GPT-5.5 free model
+///
+/// Generate an arbitrary [`Value`] with bounded recursion depth.
+///
+/// Used by the SV1 fuzz targets (`fuzz_sv1_wire`, `fuzz_sv1_method_parsers`)
+/// to construct random JSON inputs that exercise `serde_json::from_value`
+/// and the `TryFrom` parsers.
+#[allow(dead_code)]
+pub fn gen_json_value(u: &mut Unstructured<'_>, depth: u8) -> arbitrary::Result<Value> {
+    if depth == 0 {
+        return Ok(Value::Null);
+    }
+    Ok(match u.int_in_range(0..=7)? {
+        0 => Value::Null,
+        1 => Value::Bool(u.arbitrary()?),
+        2 => {
+            let n: i64 = u.arbitrary()?;
+            Value::Number(serde_json::Number::from(n))
+        }
+        3 => {
+            let n: f64 = u.arbitrary()?;
+            serde_json::Number::from_f64(n)
+                .map(Value::Number)
+                .unwrap_or(Value::Null)
+        }
+        4 => Value::String(u.arbitrary()?),
+        5 => {
+            let len = u.int_in_range(0..=3)?;
+            let mut arr = Vec::with_capacity(len);
+            for _ in 0..len {
+                arr.push(gen_json_value(u, depth.saturating_sub(1))?);
+            }
+            Value::Array(arr)
+        }
+        6 | 7 | _ => {
+            let len = u.int_in_range(0..=3)?;
+            let mut map = serde_json::Map::new();
+            for _ in 0..len {
+                let key: String = u.arbitrary()?;
+                let val = gen_json_value(u, depth.saturating_sub(1))?;
+                map.insert(key, val);
+            }
+            Value::Object(map)
+        }
+    })
 }

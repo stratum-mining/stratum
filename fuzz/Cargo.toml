@@ -27,6 +27,8 @@ mining_sv2 = {path = "../sv2/subprotocols/mining" }
 template_distribution_sv2 = { path = "../sv2/subprotocols/template-distribution" }
 secp256k1 = { version = "0.28.2", default-features = false, features = ["alloc", "rand"] }
 rand = { version = "0.8.5", default-features = false }
+sv1_api = { path = "../sv1" }
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 
 [[bin]]
 name = "deserialize_sv2frame"
@@ -73,5 +75,17 @@ doc = false
 [[bin]]
 name = "fuzz_noise_handshake_and_roundtrip_encryption"
 path = "fuzz_targets/fuzz_noise_handshake_and_roundtrip_encryption.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_sv1_wire"
+path = "fuzz_targets/fuzz_sv1_wire.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_sv1_method_parsers"
+path = "fuzz_targets/fuzz_sv1_method_parsers.rs"
 test = false
 doc = false
