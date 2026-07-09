@@ -284,7 +284,7 @@ impl TryFrom<Notification> for SetExtranonce<'_> {
 #[derive(Debug, Clone)]
 /// Server may arbitrarily adjust version mask
 pub struct SetVersionMask {
-    version_mask: HexU32Be,
+    pub version_mask: HexU32Be,
 }
 
 impl fmt::Display for SetVersionMask {
@@ -329,7 +329,7 @@ impl TryFrom<Notification> for SetVersionMask {
 #[derive(Debug, Clone)]
 pub struct GeneralResponse {
     pub id: u64,
-    result: bool,
+    pub result: bool,
 }
 
 impl fmt::Display for GeneralResponse {
@@ -373,7 +373,7 @@ impl TryFrom<&Response> for GeneralResponse {
 #[derive(Debug, Clone)]
 pub struct Authorize {
     pub id: u64,
-    authorized: bool,
+    pub authorized: bool,
     pub prev_request_name: String,
 }
 
@@ -400,7 +400,7 @@ impl Authorize {
 #[derive(Debug, Clone)]
 pub struct Submit {
     pub id: u64,
-    is_ok: bool,
+    pub is_ok: bool,
 }
 
 impl fmt::Display for Submit {
