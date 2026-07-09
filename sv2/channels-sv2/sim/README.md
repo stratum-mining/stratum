@@ -46,6 +46,14 @@ everything else is supporting record under `docs/records/`.
 - [`docs/figures/`](./docs/figures/) — the generated SVG figures the paper embeds.
 - [`docs/claims/`](./docs/claims/) — the claim-warrant validator and its fixture.
 
+Beyond the paper, the records also carry a **survey of deployed open-source SV2/SV1
+vardiff controllers**, characterizing how each behaves on a declining miner and
+sorting them by a decline-safety decision tree (does it ease without a fresh share?
+is the ease trigger reachable on a real decline? is that safety readable off the
+construction, or resting on where a learned policy converged?). This is where the
+theory's decline-safety criterion meets what is actually shipped in the wild. See the
+records index for entry points.
+
 ## What the framework measures
 
 Given any `Vardiff` implementation, the framework produces a
