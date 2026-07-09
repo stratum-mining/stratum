@@ -385,8 +385,8 @@ impl TryFrom<StandardRequest> for Subscribe<'_> {
 
 #[derive(Debug, Clone)]
 pub struct Configure {
-    extensions: Vec<ConfigureExtension>,
-    id: u64,
+    pub extensions: Vec<ConfigureExtension>,
+    pub id: u64,
 }
 
 impl fmt::Display for Configure {
@@ -679,8 +679,8 @@ impl From<ConfigureExtension> for serde_json::Map<String, Value> {
 
 #[derive(Debug, Clone)]
 pub struct VersionRollingParams {
-    mask: Option<HexU32Be>,
-    min_bit_count: Option<HexU32Be>,
+    pub mask: Option<HexU32Be>,
+    pub min_bit_count: Option<HexU32Be>,
 }
 
 impl From<VersionRollingParams> for serde_json::Map<String, Value> {
@@ -709,13 +709,13 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
 
 #[derive(Debug, Clone)]
 pub struct InfoParams {
-    connection_url: Option<String>,
+    pub connection_url: Option<String>,
     #[allow(dead_code)]
-    hw_id: Option<String>,
+    pub hw_id: Option<String>,
     #[allow(dead_code)]
-    hw_version: Option<String>,
+    pub hw_version: Option<String>,
     #[allow(dead_code)]
-    sw_version: Option<String>,
+    pub sw_version: Option<String>,
 }
 
 impl From<InfoParams> for serde_json::Map<String, Value> {
