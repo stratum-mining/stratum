@@ -1,16 +1,21 @@
 //! Decline-safety gate: the single source of truth for the gate threshold, the
 //! sustained-decline scenario, and the worst-settled-over-difficulty readout the
-//! gate bounds.
+//! gate bounds. Also home to the abrupt-silence taxonomy guard.
 //!
-//! Two consumers share this module so neither restates the gate as a literal or
+//! Consumers share this module so none restates the gate as a literal or
 //! re-defines the scenario:
 //!   - `bin/slow-decline.rs` — the full diagnostic sweep (per-cell table across
 //!     the rate × spm grid, all configs).
 //!   - the champion margin guard ([`champion_clears_decline_gate`] below) — the
-//!     CI assertion that the SHIPPED champion clears the gate. This is the
-//!     claim-level guard for the champion's selection criterion; its failure is
-//!     legible ("champion's decline margin regressed past the gate") in a way a
-//!     full-grid baseline diff is not.
+//!     CI assertion that the SHIPPED champion clears the gate on a *survivable*
+//!     (50%-loss) decline. Its failure is legible ("champion's decline margin
+//!     regressed past the gate") in a way a full-grid baseline diff is not.
+//!   - the abrupt-silence taxonomy guard ([`abrupt_silence_sorts_ease_from_strand`]),
+//!     via [`settled_belief_ratio_after_silence`] — the CI assertion that after a
+//!     curtailment to *silence*, the shipped SRI controllers ease toward the miner
+//!     (idle-tick path) while the adverse-gain quantized PID stays pinned. Bounds
+//!     the silent case; the margin guard
+//!     bounds the survivable one.
 //!
 //! Why this is a *separate* guard from the grid baseline (`baseline_champion`):
 //! the decline scenario is NOT in `default_cells()` (that grid is
@@ -162,6 +167,52 @@ pub fn worst_settled_e_pct(
     worst
 }
 
+/// Median settled difficulty belief (as a fraction of the full-rate anchor
+/// `TRUE_HASHRATE`) after an **abrupt curtailment to silence**: mature on-target
+/// for `mature_min`, then the miner drops to zero (a `Stall`) and stays there
+/// for the observe window. This is the sharpest form of the stranding — shares
+/// stop *entirely*, so the only controller that can ease is one whose recompute
+/// fires without a share.
+///
+/// Returns median over trials of `final_hashrate / TRUE_HASHRATE`:
+///   - a decline-safe (idle-path) controller eases its belief toward zero as the
+///     silent ticks accumulate → ratio → ~0 (it follows the miner down);
+///   - a stranded controller (no idle path, or an actuator that can't step) holds
+///     its belief near the pre-curtailment value → ratio ~1 (stranded high).
+///
+/// Deterministic given `base_seed`. Companion to [`worst_settled_e_pct`] (which
+/// bounds the *survivable* decline); this bounds the *silent* one.
+pub fn settled_belief_ratio_after_silence(
+    make_spec: impl Fn() -> AlgorithmSpec,
+    spm: f32,
+    mature_min: u64,
+    trials: usize,
+    base_seed: u64,
+) -> f64 {
+    use crate::baseline::Phase;
+
+    let phases = vec![
+        Phase::Hold { secs: mature_min * 60, h: TRUE_HASHRATE },
+        Phase::Stall { secs: DECLINE_OBSERVE_MIN * 60 },
+    ];
+    let scen = Scenario::Custom {
+        name: "abrupt_silence".to_string(),
+        phases,
+        initial_estimate: None,
+    };
+    let (config_proto, schedule) = scen.build(spm);
+    let config = TrialConfig { tick_interval_secs: DECLINE_TICK_SECS, ..config_proto };
+
+    let mut ratios = Vec::with_capacity(trials);
+    for i in 0..trials {
+        let clock = Arc::new(MockClock::new(0));
+        let v = make_spec().factory.clone()(clock.clone());
+        let t = run_trial_observed(v, clock, config.clone(), &schedule, base_seed.wrapping_add(i as u64));
+        ratios.push(t.final_hashrate as f64 / TRUE_HASHRATE as f64);
+    }
+    median(ratios)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +270,81 @@ mod tests {
             DECLINE_SAFETY_GATE_PCT,
             GATE_RATES.len(),
             GATE_SPMS.len(),
+        );
+    }
+
+    /// **Abrupt-silence taxonomy guard.** After an
+    /// abrupt curtailment to silence, the shipped SRI controllers (classic on
+    /// main, champion on this branch) must EASE toward the curtailed miner
+    /// (settled belief ratio → ~0, decline-safe via the timer idle path), while
+    /// the adverse-gain quantized PID must stay PINNED near the top (ratio ~1,
+    /// stranded — its actuator can't step). This is the exact split the post's
+    /// figure and taxonomy assert, locked so a change to any shipped controller
+    /// that broke the idle path (or a driver change that stopped the idle tick)
+    /// would fail here.
+    ///
+    /// NOT guarded: the NOMP/ckpool "share-triggered freeze" arm. It is
+    /// genuinely event-driven (recompute only on a share) and exists only as a
+    /// local archetype (not a shipped/library controller) — nothing in THIS
+    /// crate can regress it, so a guard over it would protect nothing. `pow2` is the
+    /// in-repo pinning control that proves this test discriminates ease from
+    /// strand; if the NOMP archetype is ever promoted to a shipped/library
+    /// controller, add it here with the same `> EASED_MAX` assertion.
+    ///
+    /// Thresholds are wide bands, not tight fits: EASE must reach below 0.10
+    /// (the sim settles both SRI arms to ~0 by the end of the observe window),
+    /// PIN must stay above 0.90 (pow2 holds exactly 1.0). The gap between them is
+    /// the discrimination margin — a controller landing between 0.10 and 0.90
+    /// fails BOTH assertions, which is the intended "neither clearly safe nor
+    /// clearly pinned" alarm.
+    #[test]
+    #[ignore = "slow abrupt-silence taxonomy guard; run with `cargo test --release -- --ignored`"]
+    fn abrupt_silence_sorts_ease_from_strand() {
+        // Production share rate (4–6 spm); mature 60 min so the estimator is
+        // warm before the cut (a fresh channel is a separate, slower case).
+        const SPM: f32 = 6.0;
+        const MATURE_MIN: u64 = 60;
+        const TRIALS: usize = 300;
+        // Ease must fall below this; pin must stay above the other.
+        const EASED_MAX: f64 = 0.10;
+        const PINNED_MIN: f64 = 0.90;
+        let seed = crate::baseline::DEFAULT_BASELINE_SEED;
+
+        let eased = |name: &str, spec: fn() -> AlgorithmSpec| {
+            let r = settled_belief_ratio_after_silence(spec, SPM, MATURE_MIN, TRIALS, seed);
+            assert!(
+                r < EASED_MAX,
+                "{name} did NOT ease after abrupt silence: settled belief ratio {r:.3} \
+                 (should be < {EASED_MAX} — it must follow the curtailed miner down via the \
+                 idle-tick path). A recompute that no longer fires without a share, or a \
+                 driver that stopped ticking on silence, would strand here.",
+            );
+            r
+        };
+        let pinned = |name: &str, spec: fn() -> AlgorithmSpec| {
+            let r = settled_belief_ratio_after_silence(spec, SPM, MATURE_MIN, TRIALS, seed);
+            assert!(
+                r > PINNED_MIN,
+                "{name} did NOT stay pinned after abrupt silence: settled belief ratio {r:.3} \
+                 (expected > {PINNED_MIN} — the adverse-gain quantized PID cannot clear a step \
+                 to come down). If this eased, the pinning control changed and the test no \
+                 longer discriminates.",
+            );
+            r
+        };
+
+        // The two shipped SRI variants must ease (timer idle path); pow2 must pin.
+        let classic = eased("classic (SRI main)", AlgorithmSpec::classic_composed);
+        let champion = eased("champion (SRI branch)", AlgorithmSpec::champion);
+        let pow2 = pinned("pow2 (adverse gain)", AlgorithmSpec::pow2_pid_default);
+
+        // Discrimination margin: the pinned control must sit well above both eased
+        // arms, or the test isn't actually separating the two behaviors.
+        assert!(
+            pow2 - classic.max(champion) > 0.5,
+            "abrupt-silence test lost its discrimination margin: pow2 {pow2:.3} vs \
+             eased max {:.3} — the ease/strand separation collapsed.",
+            classic.max(champion),
         );
     }
 }
