@@ -111,8 +111,8 @@ impl StandardChannel {
     /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
     /// requirements are not met.
     ///
-    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig in between `/`
-    /// and `//` delimiters: `/pool_tag_string//`
+    /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig as
+    /// `Sv2/pool_tag_string//`.
     #[allow(clippy::too_many_arguments)]
     pub fn new_for_pool(
         channel_id: u32,
@@ -145,8 +145,8 @@ impl StandardChannel {
     /// Returns an error if target/difficulty parameters are invalid or extranonce prefix
     /// requirements are not met.
     ///
-    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig in between
-    /// `/` delimiters: `/pool_tag_string/miner_tag_string/`
+    /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig as
+    /// `Sv2/pool_tag_string/miner_tag_string/`.
     #[allow(clippy::too_many_arguments)]
     pub fn new_for_job_declaration_client(
         channel_id: u32,
@@ -206,6 +206,7 @@ impl StandardChannel {
 
         let script_sig_size = 5 + // BIP34
             1 + // OP_PUSHBYTES
+            3 + // "Sv2"
             3 + // `/` delimiters
             pool_tag_string.as_ref().map_or(0, |s| s.len()) +
             miner_tag_string.as_ref().map_or(0, |s| s.len()) +
@@ -864,8 +865,8 @@ mod tests {
             channel_id: standard_channel_id,
             job_id: 1,
             merkle_root: [
-                213, 241, 108, 144, 69, 96, 29, 8, 222, 2, 135, 14, 213, 87, 81, 21, 140, 98, 42,
-                221, 221, 174, 219, 248, 106, 52, 168, 88, 18, 146, 186, 71,
+                244, 175, 251, 103, 170, 111, 89, 111, 245, 253, 167, 99, 126, 231, 170, 153, 174,
+                69, 251, 243, 5, 119, 145, 76, 19, 107, 215, 155, 166, 36, 228, 210,
             ]
             .into(),
             version: 536870912,
@@ -995,8 +996,8 @@ mod tests {
             channel_id: standard_channel_id,
             job_id: 1,
             merkle_root: [
-                213, 241, 108, 144, 69, 96, 29, 8, 222, 2, 135, 14, 213, 87, 81, 21, 140, 98, 42,
-                221, 221, 174, 219, 248, 106, 52, 168, 88, 18, 146, 186, 71,
+                244, 175, 251, 103, 170, 111, 89, 111, 245, 253, 167, 99, 126, 231, 170, 153, 174,
+                69, 251, 243, 5, 119, 145, 76, 19, 107, 215, 155, 166, 36, 228, 210,
             ]
             .into(),
             version: 536870912,
@@ -1424,7 +1425,7 @@ mod tests {
             .on_new_template(template.clone(), coinbase_reward_outputs)
             .unwrap();
 
-        // this share has hash 0000d603073772ba60af5922486242a6adb74cdf5baec768c7bd684977852cd8
+        // this share has hash 0000545efd44aa70bc49d037df93ba3e51ec5937f72a28f9d3c15d8f17c1194e
         // which does meet the channel target
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // but does not meet network target
@@ -1433,7 +1434,7 @@ mod tests {
             channel_id: standard_channel_id,
             sequence_number: 1,
             job_id: 1,
-            nonce: 134870,
+            nonce: 92092,
             ntime: 1745611105,
             version: 536870912,
         };
