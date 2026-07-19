@@ -133,8 +133,14 @@ pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_r
 /// Difficulties below `minimum_difficulty_for_integer_power_of_two_rounding` are emitted unchanged
 /// as JSON numbers built from `f64`, preserving fractional values.
 ///
-/// Difficulties at or above the threshold are rounded up to the next integer power of two and
-/// emitted as JSON numbers built from `u64`.
+/// Difficulties at or above the threshold are rounded down to the largest integer power of two
+/// not exceeding the difficulty and emitted as JSON numbers built from `u64` (difficulties between
+/// the threshold and 1 round up to 1).
+///
+/// Rounding must never round up: the upstream credits shares against its own (unrounded) target,
+/// so a miner told a higher difficulty than upstream silently discards every share between the
+/// upstream target and the next power of two - up to half its hashrate. Rounding down merely
+/// makes the miner submit some shares below the upstream target, which the proxy filters.
 pub fn build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding(
     target: Target,
     minimum_difficulty_for_integer_power_of_two_rounding: f64,
@@ -170,14 +176,17 @@ fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
         return Ok(Value::Number(value));
     }
 
-    let integer_difficulty = difficulty.ceil();
-    if integer_difficulty > u64::MAX as f64 {
+    let integer_difficulty = difficulty.floor();
+    if integer_difficulty >= u64::MAX as f64 {
         return Err(StratumTranslationError::Sv1DifficultyOverflow(difficulty));
     }
 
-    let power_of_two = (integer_difficulty as u64)
-        .checked_next_power_of_two()
-        .ok_or(StratumTranslationError::Sv1DifficultyOverflow(difficulty))?;
+    let integer_difficulty = integer_difficulty as u64;
+    let power_of_two = if integer_difficulty == 0 {
+        1
+    } else {
+        1u64 << (63 - integer_difficulty.leading_zeros())
+    };
 
     Ok(Value::from(power_of_two))
 }
@@ -267,16 +276,18 @@ mod tests {
     }
 
     #[test]
-    fn test_integer_power_of_two_difficulty_rounds_up() {
+    fn test_integer_power_of_two_difficulty_rounds_down() {
         let cases = [
             (1.0, 1),
             (2.0, 2),
-            (2.1, 4),
-            (10_000.0, 16_384),
-            (12_500.0, 16_384),
-            (20_000.0, 32_768),
-            (50_000.0, 65_536),
-            (100_000.0, 131_072),
+            (2.1, 2),
+            (3.9, 2),
+            (10_000.0, 8_192),
+            (12_500.0, 8_192),
+            (20_000.0, 16_384),
+            (50_000.0, 32_768),
+            (65_536.0, 65_536),
+            (100_000.0, 65_536),
         ];
 
         for (difficulty, expected) in cases {
