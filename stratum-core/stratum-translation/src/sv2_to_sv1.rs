@@ -134,8 +134,7 @@ pub fn build_sv1_set_difficulty_from_sv2_target(target: Target) -> Result<json_r
 /// as JSON numbers built from `f64`, preserving fractional values.
 ///
 /// Difficulties at or above the threshold are rounded down to the largest integer power of two
-/// not exceeding the difficulty and emitted as JSON numbers built from `u64` (difficulties between
-/// the threshold and 1 round up to 1).
+/// not exceeding the difficulty and emitted as JSON numbers built from `u64`.
 ///
 /// Rounding must never round up: the upstream credits shares against its own (unrounded) target,
 /// so a miner told a higher difficulty than upstream silently discards every share between the
@@ -154,10 +153,7 @@ pub fn build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_roundi
 
 /// Returns the SV1 difficulty that will be advertised for `difficulty` under the integer
 /// power-of-two rounding policy: unchanged below the threshold, otherwise the largest integer
-/// power of two not exceeding it (values between the threshold and 1 round up to 1).
-///
-/// Proxies use this to validate downstream shares against exactly the difficulty the miner was
-/// given, and separately filter which of those shares also meet the upstream target.
+/// power of two not exceeding it.
 fn advertised_sv1_difficulty_from_difficulty(
     difficulty: f64,
     minimum_difficulty_for_integer_power_of_two_rounding: f64,
@@ -167,7 +163,7 @@ fn advertised_sv1_difficulty_from_difficulty(
     }
 
     if !minimum_difficulty_for_integer_power_of_two_rounding.is_finite()
-        || minimum_difficulty_for_integer_power_of_two_rounding <= 0.0
+        || minimum_difficulty_for_integer_power_of_two_rounding < 1.0
     {
         return Err(
             StratumTranslationError::InvalidSv1IntegerPowerOfTwoRoundingThreshold(
@@ -195,17 +191,46 @@ fn advertised_sv1_difficulty_from_difficulty(
     Ok(power_of_two as f64)
 }
 
-/// Returns the SV1 difficulty value that
-/// [`build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding`] advertises
-/// for `target`, so callers can reconstruct the exact downstream difficulty in force.
-pub fn sv1_advertised_difficulty_from_sv2_target(
+/// Returns the target corresponding to the SV1 difficulty that
+/// [`build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding`] advertises for
+/// `target`.
+///
+/// Callers validating SV1 shares should use this target for downstream validation, then use the
+/// original upstream target to decide whether an accepted downstream share is strong enough to
+/// forward upstream.
+pub fn sv1_advertised_target_from_sv2_target(
     target: Target,
     minimum_difficulty_for_integer_power_of_two_rounding: f64,
-) -> Result<f64> {
-    advertised_sv1_difficulty_from_difficulty(
+) -> Result<Target> {
+    let advertised = advertised_sv1_difficulty_from_difficulty(
         target.difficulty_float(),
         minimum_difficulty_for_integer_power_of_two_rounding,
-    )
+    )?;
+
+    if advertised < minimum_difficulty_for_integer_power_of_two_rounding {
+        return Ok(target);
+    }
+
+    Ok(target_from_power_of_two_difficulty(advertised as u64))
+}
+
+fn target_from_power_of_two_difficulty(difficulty: u64) -> Target {
+    let shift = difficulty.trailing_zeros() as usize;
+    let bytes = Target::MAX.to_be_bytes();
+    let byte_shift = shift / 8;
+    let bit_shift = shift % 8;
+    let mut out = [0u8; 32];
+
+    for i in (byte_shift..32).rev() {
+        let src = i - byte_shift;
+        let mut byte = bytes[src] >> bit_shift;
+        if bit_shift > 0 && src > 0 {
+            byte |= bytes[src - 1] << (8 - bit_shift);
+        }
+        out[i] = byte;
+    }
+
+    Target::from_be_bytes(out)
 }
 
 fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
@@ -303,11 +328,11 @@ mod tests {
     }
 
     #[test]
-    fn test_integer_power_of_two_difficulty_can_round_sub_one_when_threshold_is_lower() {
-        let value = integer_power_of_two_sv1_difficulty_value_from_difficulty(0.25, 0.1)
-            .expect("valid value");
-
-        assert_eq!(value.as_u64(), Some(1));
+    fn test_integer_power_of_two_difficulty_rejects_threshold_below_one() {
+        assert!(matches!(
+            integer_power_of_two_sv1_difficulty_value_from_difficulty(0.25, 0.1),
+            Err(StratumTranslationError::InvalidSv1IntegerPowerOfTwoRoundingThreshold(_))
+        ));
     }
 
     #[test]
@@ -357,6 +382,42 @@ mod tests {
     }
 
     #[test]
+    fn test_sv1_advertised_target_keeps_target_below_threshold() {
+        let target = dummy_target();
+
+        assert_eq!(
+            sv1_advertised_target_from_sv2_target(target, 1.0).expect("valid target"),
+            target
+        );
+    }
+
+    #[test]
+    fn test_sv1_advertised_target_matches_power_of_two_difficulty() {
+        let target = Target::from_compact(CompactTarget::from_consensus(0x1b00ffff));
+
+        assert_eq!(
+            sv1_advertised_target_from_sv2_target(target, 1.0).expect("valid target"),
+            target_from_power_of_two_difficulty(65_536)
+        );
+    }
+
+    #[test]
+    fn test_sv1_advertised_target_rounds_down_to_power_of_two_target() {
+        let expected = target_from_power_of_two_difficulty(65_536);
+        let mut bytes = expected.to_be_bytes();
+        bytes[6] = 0xaa;
+        bytes[7] = 0xaa;
+        let target = Target::from_be_bytes(bytes);
+
+        assert!(target.difficulty_float() > 65_536.0);
+        assert!(target.difficulty_float() < 131_072.0);
+        assert_eq!(
+            sv1_advertised_target_from_sv2_target(target, 1.0).expect("valid target"),
+            expected
+        );
+    }
+
+    #[test]
     fn test_integer_power_of_two_difficulty_rejects_invalid_values() {
         for difficulty in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             assert!(matches!(
@@ -368,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_integer_power_of_two_difficulty_rejects_invalid_rounding_threshold() {
-        for rounding_threshold in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        for rounding_threshold in [0.0, 0.5, -1.0, f64::NAN, f64::INFINITY] {
             assert!(matches!(
                 integer_power_of_two_sv1_difficulty_value_from_difficulty(1.0, rounding_threshold),
                 Err(StratumTranslationError::InvalidSv1IntegerPowerOfTwoRoundingThreshold(_))
