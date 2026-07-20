@@ -152,10 +152,16 @@ pub fn build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_roundi
     Ok(build_sv1_set_difficulty_notification(value))
 }
 
-fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
+/// Returns the SV1 difficulty that will be advertised for `difficulty` under the integer
+/// power-of-two rounding policy: unchanged below the threshold, otherwise the largest integer
+/// power of two not exceeding it (values between the threshold and 1 round up to 1).
+///
+/// Proxies use this to validate downstream shares against exactly the difficulty the miner was
+/// given, and separately filter which of those shares also meet the upstream target.
+fn advertised_sv1_difficulty_from_difficulty(
     difficulty: f64,
     minimum_difficulty_for_integer_power_of_two_rounding: f64,
-) -> Result<Value> {
+) -> Result<f64> {
     if !difficulty.is_finite() || difficulty <= 0.0 {
         return Err(StratumTranslationError::InvalidSv1Difficulty(difficulty));
     }
@@ -171,9 +177,7 @@ fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
     }
 
     if difficulty < minimum_difficulty_for_integer_power_of_two_rounding {
-        let value = serde_json::Number::from_f64(difficulty)
-            .ok_or(StratumTranslationError::InvalidSv1Difficulty(difficulty))?;
-        return Ok(Value::Number(value));
+        return Ok(difficulty);
     }
 
     let integer_difficulty = difficulty.floor();
@@ -188,7 +192,38 @@ fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
         1u64 << (63 - integer_difficulty.leading_zeros())
     };
 
-    Ok(Value::from(power_of_two))
+    Ok(power_of_two as f64)
+}
+
+/// Returns the SV1 difficulty value that
+/// [`build_sv1_set_difficulty_from_sv2_target_with_integer_power_of_two_rounding`] advertises
+/// for `target`, so callers can reconstruct the exact downstream difficulty in force.
+pub fn sv1_advertised_difficulty_from_sv2_target(
+    target: Target,
+    minimum_difficulty_for_integer_power_of_two_rounding: f64,
+) -> Result<f64> {
+    advertised_sv1_difficulty_from_difficulty(
+        target.difficulty_float(),
+        minimum_difficulty_for_integer_power_of_two_rounding,
+    )
+}
+
+fn integer_power_of_two_sv1_difficulty_value_from_difficulty(
+    difficulty: f64,
+    minimum_difficulty_for_integer_power_of_two_rounding: f64,
+) -> Result<Value> {
+    let advertised = advertised_sv1_difficulty_from_difficulty(
+        difficulty,
+        minimum_difficulty_for_integer_power_of_two_rounding,
+    )?;
+
+    if advertised < minimum_difficulty_for_integer_power_of_two_rounding {
+        let value = serde_json::Number::from_f64(advertised)
+            .ok_or(StratumTranslationError::InvalidSv1Difficulty(advertised))?;
+        return Ok(Value::Number(value));
+    }
+
+    Ok(Value::from(advertised as u64))
 }
 
 fn build_sv1_set_difficulty_notification(value: Value) -> json_rpc::Message {
