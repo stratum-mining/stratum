@@ -31,11 +31,7 @@ pub use tlv_extensions::{ExtensionError, UserIdentityError};
 
 extern crate alloc;
 use alloc::vec::Vec;
-use binary_sv2::{
-    self,
-    encodable::EncodableField,
-    from_bytes, GetSize,
-};
+use binary_sv2::{self, encodable::EncodableField, from_bytes, GetSize};
 use common_messages_sv2::*;
 use core::{
     convert::{TryFrom, TryInto},
