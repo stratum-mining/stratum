@@ -33,9 +33,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use binary_sv2::{
     self,
-    decodable::{DecodableField, FieldMarker},
     encodable::EncodableField,
-    from_bytes, Deserialize, GetSize,
+    from_bytes, GetSize,
 };
 use common_messages_sv2::*;
 use core::{
@@ -891,80 +890,6 @@ impl GetSize for Extensions<'_> {
                 ExtensionsNegotiation::RequestExtensionsError(a) => a.get_size(),
             },
         }
-    }
-}
-
-impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-
-impl<'decoder> Deserialize<'decoder> for Extensions<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-
-impl<'decoder> Deserialize<'decoder> for AnyMessage<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
-    }
-}
-
-impl<'decoder> Deserialize<'decoder> for MiningDeviceMessages<'decoder> {
-    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
-        unimplemented!()
-    }
-    fn from_decoded_fields(
-        _v: Vec<DecodableField<'decoder>>,
-    ) -> core::result::Result<Self, binary_sv2::Error> {
-        unimplemented!()
     }
 }
 
