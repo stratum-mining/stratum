@@ -595,7 +595,7 @@ checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
 name = "handlers_sv2"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "binary_sv2",
  "common_messages_sv2",
@@ -855,7 +855,7 @@ dependencies = [
 
 [[package]]
 name = "parsers_sv2"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "binary_sv2",
  "codec_sv2",
@@ -1224,7 +1224,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stratum-core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "binary_sv2",
  "bitcoin",
