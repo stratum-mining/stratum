@@ -11,6 +11,9 @@ const WITNESS_COUNT_LEN: usize = 1;
 const WITNESS_LEN_LEN: usize = 1;
 const WITNESS_DATA_LEN: usize = 32;
 const LOCKTIME_LEN: usize = 4;
+const BIP141_WITNESS_LEN: usize = WITNESS_COUNT_LEN + WITNESS_LEN_LEN + WITNESS_DATA_LEN;
+#[cfg(test)]
+const MIN_COINBASE_TX_SUFFIX_LEN: usize = BIP141_WITNESS_LEN + LOCKTIME_LEN;
 
 #[derive(Debug)]
 pub enum StripBip141Error {
@@ -18,6 +21,7 @@ pub enum StripBip141Error {
     FailedToDeserializeCoinbaseInputs,
     FailedToDeserializeCoinbaseOutputs,
     FailedToDeserializeCoinbaseLockTime,
+    FailedToDeserializeCoinbaseWitness,
 }
 
 /// Tries to strip the bip141 marker, flag and witness data from `coinbase_tx_prefix` and
@@ -29,14 +33,29 @@ pub enum StripBip141Error {
 /// If the coinbase transaction is already stripped of bip141, returns `Ok(None)`.
 /// If the coinbase transaction is not stripped, returns `Ok(Some((Vec<u8>, Vec<u8>)))` with the
 /// stripped `coinbase_tx_prefix` and `coinbase_tx_suffix`.
+///
+/// # Errors
+///
+/// Returns [`StripBip141Error::FailedToDeserializeCoinbaseInputs`] when
+/// `coinbase_tx_prefix` is too short to contain the marker and flag.
+///
+/// Returns [`StripBip141Error::FailedToDeserializeCoinbaseLockTime`] when a transaction with a
+/// bip141 marker and flag has a suffix too short to contain the lock time (suffix &lt; 4 bytes), or
+/// [`StripBip141Error::FailedToDeserializeCoinbaseWitness`] when the suffix is too short to
+/// contain the witness data and lock time (4 ≤ suffix &lt; 38 bytes).
 #[allow(clippy::type_complexity)]
 pub fn try_strip_bip141(
     coinbase_tx_prefix: &[u8],
     coinbase_tx_suffix: &[u8],
 ) -> Result<Option<(Vec<u8>, Vec<u8>)>, StripBip141Error> {
     // https://github.com/bitcoinbook/bitcoinbook/blob/third_edition_github/ch06_transactions.adoc#extended-marker-and-flag
-    let has_bip141_marker_and_flag =
-        (coinbase_tx_prefix[MARKER_OFFSET] == 0x00) && (coinbase_tx_prefix[FLAG_OFFSET] != 0x00);
+    let (Some(&marker), Some(&flag)) = (
+        coinbase_tx_prefix.get(MARKER_OFFSET),
+        coinbase_tx_prefix.get(FLAG_OFFSET),
+    ) else {
+        return Err(StripBip141Error::FailedToDeserializeCoinbaseInputs);
+    };
+    let has_bip141_marker_and_flag = marker == 0x00 && flag != 0x00;
 
     if !has_bip141_marker_and_flag {
         return Ok(None);
@@ -48,12 +67,16 @@ pub fn try_strip_bip141(
         .extend_from_slice(&coinbase_tx_prefix[MARKER_OFFSET + MARKER_FLAG_LEN..]);
 
     // strip bip141 witness bytes from coinbase_tx_suffix
-    let locktime_position = coinbase_tx_suffix.len() - LOCKTIME_LEN;
+    let locktime_position = coinbase_tx_suffix
+        .len()
+        .checked_sub(LOCKTIME_LEN)
+        .ok_or(StripBip141Error::FailedToDeserializeCoinbaseLockTime)?;
+    let witness_position = locktime_position
+        .checked_sub(BIP141_WITNESS_LEN)
+        .ok_or(StripBip141Error::FailedToDeserializeCoinbaseWitness)?;
 
     // strip witness count, witness length and witness data
-    let mut coinbase_tx_suffix_stripped_bip141 = coinbase_tx_suffix
-        [..locktime_position - WITNESS_COUNT_LEN - WITNESS_LEN_LEN - WITNESS_DATA_LEN]
-        .to_vec();
+    let mut coinbase_tx_suffix_stripped_bip141 = coinbase_tx_suffix[..witness_position].to_vec();
     coinbase_tx_suffix_stripped_bip141.extend_from_slice(&coinbase_tx_suffix[locktime_position..]);
 
     Ok(Some((
@@ -64,6 +87,8 @@ pub fn try_strip_bip141(
 
 #[cfg(test)]
 mod tests {
+
+    use alloc::vec;
 
     use super::*;
 
@@ -164,5 +189,61 @@ mod tests {
             ]
             .to_vec()
         );
+    }
+
+    #[test]
+    fn test_try_strip_bip141_rejects_short_prefix() {
+        let coinbase_tx_suffix = [0; MIN_COINBASE_TX_SUFFIX_LEN];
+
+        for prefix_len in 0..=FLAG_OFFSET {
+            let coinbase_tx_prefix = vec![0; prefix_len];
+
+            assert!(matches!(
+                try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix),
+                Err(StripBip141Error::FailedToDeserializeCoinbaseInputs)
+            ));
+        }
+    }
+
+    #[test]
+    fn test_try_strip_bip141_rejects_short_locktime_suffix() {
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+
+        for suffix_len in 0..LOCKTIME_LEN {
+            let coinbase_tx_suffix = vec![0; suffix_len];
+
+            assert!(matches!(
+                try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix),
+                Err(StripBip141Error::FailedToDeserializeCoinbaseLockTime)
+            ));
+        }
+    }
+
+    #[test]
+    fn test_try_strip_bip141_rejects_short_witness_suffix() {
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+
+        for suffix_len in LOCKTIME_LEN..MIN_COINBASE_TX_SUFFIX_LEN {
+            let coinbase_tx_suffix = vec![0; suffix_len];
+
+            assert!(matches!(
+                try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix),
+                Err(StripBip141Error::FailedToDeserializeCoinbaseWitness)
+            ));
+        }
+    }
+
+    #[test]
+    fn test_try_strip_bip141_accepts_minimum_lengths() {
+        let coinbase_tx_prefix = [0, 0, 0, 0, 0, 1];
+        let mut coinbase_tx_suffix = [0; MIN_COINBASE_TX_SUFFIX_LEN];
+        coinbase_tx_suffix[0] = 1;
+        coinbase_tx_suffix[1] = WITNESS_DATA_LEN as u8;
+
+        let result = try_strip_bip141(&coinbase_tx_prefix, &coinbase_tx_suffix)
+            .expect("minimum valid bip141 parts should be accepted")
+            .expect("bip141 marker and flag should be stripped");
+
+        assert_eq!(result, (vec![0; 4], vec![0; 4]));
     }
 }
