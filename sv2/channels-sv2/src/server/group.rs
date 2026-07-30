@@ -154,12 +154,11 @@ impl<'a> GroupChannel<'a> {
         channel_id: u32,
         full_extranonce_size: usize,
     ) -> Result<(), GroupChannelError> {
-        self.channel_ids.insert(channel_id);
-
         if self.full_extranonce_size != full_extranonce_size {
             return Err(GroupChannelError::FullExtranonceSizeMismatch);
         }
 
+        self.channel_ids.insert(channel_id);
         Ok(())
     }
 
@@ -627,6 +626,8 @@ mod tests {
         assert!(group_channel
             .add_channel_id(3, new_full_extranonce_size)
             .is_err());
+        assert_eq!(group_channel.get_channel_ids_count(), 2);
+        assert!(!group_channel.has_channel_id(3));
 
         // set the full extranonce size to a new value
         group_channel.set_full_extranonce_size(new_full_extranonce_size);
@@ -647,5 +648,7 @@ mod tests {
         // add a fifth channel with the old full extranonce size
         // this should return an error because the full extranonce size is now set to 24
         assert!(group_channel.add_channel_id(5, 32).is_err());
+        assert_eq!(group_channel.get_channel_ids_count(), 1);
+        assert!(!group_channel.has_channel_id(5));
     }
 }
