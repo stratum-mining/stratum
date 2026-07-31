@@ -19,11 +19,11 @@ pub struct NewTemplate<'decoder> {
     /// Valid header version field that reflects the current network consensus.
     ///
     /// The general purpose bits, as specified in
-    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki), can be freely
+    /// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki), can be freely
     /// manipulated by the downstream node.
     ///
     /// The downstream **must not** rely on the upstream to set the
-    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki) bits to any
+    /// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki) bits to any
     /// particular value.
     pub version: u32,
     /// The coinbase transaction `nVersion` field.
