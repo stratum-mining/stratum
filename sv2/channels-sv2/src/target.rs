@@ -78,6 +78,12 @@ pub fn hash_rate_to_target(
     hashrate: f64,
     share_per_min: f64,
 ) -> Result<Target, HashRateToTargetError> {
+    // Must precede the zero/negative checks: a NaN compares false to everything
+    // and is sign-positive, so it would slip past them into the `as u128` cast,
+    // which saturates silently (`NaN` -> 0, `+inf` -> `u128::MAX`).
+    if !hashrate.is_finite() || !share_per_min.is_finite() {
+        return Err(HashRateToTargetError::NonFiniteInput);
+    }
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(HashRateToTargetError::DivisionByZero);
@@ -94,6 +100,14 @@ pub fn hash_rate_to_target(
     let shares_occurrency_frequence = 60_f64 / share_per_min;
 
     let h_times_s = hashrate * shares_occurrency_frequence;
+
+    // Finite operands can still yield a product that is non-finite or too large
+    // for `u128`: `f64::from(f32::MAX)` at 1 share/min gives ~2.04e40, 60x above
+    // `u128::MAX`. Bound it below `u128::MAX` so the `+ 1` below cannot overflow.
+    if !h_times_s.is_finite() || h_times_s >= u128::MAX as f64 {
+        return Err(HashRateToTargetError::WorkOutOfRange);
+    }
+
     let h_times_s = h_times_s as u128;
 
     // We calculate the denominator: h*s+1
@@ -133,6 +147,11 @@ pub fn from_u128_to_u256(input: u128) -> U256Primitive {
 pub enum HashRateToTargetError {
     DivisionByZero,
     NegativeInput,
+    /// A `hashrate` or `share_per_min` argument was `NaN` or `±infinity`.
+    NonFiniteInput,
+    /// The derived work `hashrate * (60 / share_per_min)` was non-finite or too
+    /// large for `u128`, even though both arguments were finite.
+    WorkOutOfRange,
 }
 
 #[derive(Debug)]
@@ -199,4 +218,112 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Resul
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finite_input_still_converts() {
+        assert!(hash_rate_to_target(1_000.0, 1.0).is_ok());
+        assert!(hash_rate_to_target(0.0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn non_finite_hashrate_is_rejected() {
+        for hashrate in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                matches!(
+                    hash_rate_to_target(hashrate, 1.0),
+                    Err(HashRateToTargetError::NonFiniteInput)
+                ),
+                "hashrate {hashrate} should be NonFiniteInput",
+            );
+        }
+    }
+
+    #[test]
+    fn non_finite_share_per_min_is_rejected() {
+        for spm in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                matches!(
+                    hash_rate_to_target(1_000.0, spm),
+                    Err(HashRateToTargetError::NonFiniteInput)
+                ),
+                "share_per_min {spm} should be NonFiniteInput",
+            );
+        }
+    }
+
+    // Pins the check order: `-inf` is both non-finite and sign-negative, so a
+    // `NegativeInput` here would mean the negative check ran first.
+    #[test]
+    fn neg_infinity_is_non_finite_not_negative() {
+        assert!(matches!(
+            hash_rate_to_target(f64::NEG_INFINITY, 1.0),
+            Err(HashRateToTargetError::NonFiniteInput)
+        ));
+        assert!(matches!(
+            hash_rate_to_target(1_000.0, f64::NAN),
+            Err(HashRateToTargetError::NonFiniteInput)
+        ));
+    }
+
+    // `+inf` cast to `u128::MAX` work, collapsing the target toward zero (the
+    // hardest difficulty). Must be rejected, not silently converted.
+    #[test]
+    fn positive_infinity_hashrate_does_not_yield_a_target() {
+        assert!(matches!(
+            hash_rate_to_target(f64::INFINITY, 1.0),
+            Err(HashRateToTargetError::NonFiniteInput)
+        ));
+    }
+
+    // `f32::MAX` is in the domain of the `f32` channel callers; at 1 share/min the
+    // product is 60x above `u128::MAX`, which used to saturate and then overflow
+    // `h_times_s + 1`.
+    #[test]
+    fn work_exceeding_u128_is_rejected_not_saturated() {
+        assert!(matches!(
+            hash_rate_to_target(f64::from(f32::MAX), 1.0),
+            Err(HashRateToTargetError::WorkOutOfRange)
+        ));
+    }
+
+    // Same gap via a non-finite product rather than a too-large one.
+    #[test]
+    fn non_finite_derived_work_is_rejected() {
+        let h_times_s = f64::MAX * (60.0 / 1e-300_f64);
+        assert!(
+            !h_times_s.is_finite(),
+            "precondition: product must overflow"
+        );
+        assert!(matches!(
+            hash_rate_to_target(f64::MAX, 1e-300),
+            Err(HashRateToTargetError::WorkOutOfRange)
+        ));
+    }
+
+    // Guards against over-rejection and pins the boundary.
+    #[test]
+    fn work_just_below_the_limit_still_converts() {
+        let just_under = (u128::MAX as f64) * 0.99;
+        assert!(hash_rate_to_target(just_under, 60.0).is_ok());
+    }
+
+    // The pre-existing finite guards are unchanged: a genuinely negative finite
+    // hashrate is still NegativeInput, and zero share_per_min still
+    // DivisionByZero — the new screen narrows nothing that worked before.
+    #[test]
+    fn preexisting_finite_guards_unchanged() {
+        assert!(matches!(
+            hash_rate_to_target(-1.0, 1.0),
+            Err(HashRateToTargetError::NegativeInput)
+        ));
+        assert!(matches!(
+            hash_rate_to_target(1_000.0, 0.0),
+            Err(HashRateToTargetError::DivisionByZero)
+        ));
+    }
 }
