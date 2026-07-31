@@ -11,7 +11,7 @@ use crate::{
     error::Error,
     json_rpc::{Message, Response, StandardRequest},
     methods::ParsingMethodError,
-    utils::{Extranonce, HexU32Be},
+    utils::{Extranonce, HexU32Be, VERSION_ROLLING_MASK},
 };
 
 #[cfg(test)]
@@ -443,7 +443,7 @@ impl Configure {
         let mut res = None;
         for ext in &self.extensions {
             if let ConfigureExtension::VersionRolling(p) = ext {
-                res = Some(p.mask.clone().unwrap_or(HexU32Be(0x1FFFE000)));
+                res = Some(p.mask.clone().unwrap_or(HexU32Be(VERSION_ROLLING_MASK)));
             };
         }
         res

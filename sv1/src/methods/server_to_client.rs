@@ -6,10 +6,11 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
-    error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{hex_decode, Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash},
+    utils::{
+        hex_decode, Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash, VERSION_ROLLING_MASK,
+    },
 };
 
 // client.get_version()
@@ -764,23 +765,13 @@ fn subscribe_response_crash_on_too_long_extranonce() {
 }
 
 impl VersionRollingParams {
-    pub fn new(
-        version_rolling_mask: HexU32Be,
-        version_rolling_min_bit_count: HexU32Be,
-    ) -> Result<Self, Error> {
-        // 0x1FFFE000 should be configured
-        let negotiated_mask = HexU32Be(version_rolling_mask.clone() & 0x1FFFE000);
-
-        let version_head_ok = negotiated_mask.0 >> 29 == 0;
-        let version_tail_ok = negotiated_mask.0 << 19 == 0;
-        if version_head_ok && version_tail_ok {
-            Ok(VersionRollingParams {
-                version_rolling: true,
-                version_rolling_mask: negotiated_mask,
-                version_rolling_min_bit_count,
-            })
-        } else {
-            Err(Error::InvalidVersionMask(version_rolling_mask))
+    /// Clamps `version_rolling_mask` to the general purpose version bits defined by
+    /// [`VERSION_ROLLING_MASK`], so the negotiated mask can never set reserved bits.
+    pub fn new(version_rolling_mask: HexU32Be, version_rolling_min_bit_count: HexU32Be) -> Self {
+        VersionRollingParams {
+            version_rolling: true,
+            version_rolling_mask: HexU32Be(version_rolling_mask & VERSION_ROLLING_MASK),
+            version_rolling_min_bit_count,
         }
     }
 }
