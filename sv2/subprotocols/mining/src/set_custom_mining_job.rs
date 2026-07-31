@@ -27,8 +27,8 @@ pub struct SetCustomMiningJob<'decoder> {
     pub token: B0255<'decoder>,
     /// Version field that reflects the current network consensus.
     ///
-    /// The general purpose bits (as specified in BIP320) can be freely manipulated by the
-    /// downstream role. The downstream role must not rely on the upstream role to set the BIP320
+    /// The general purpose bits (as specified in BIP323) can be freely manipulated by the
+    /// downstream role. The downstream role must not rely on the upstream role to set the BIP323
     /// bits to any particular value.
     pub version: u32,
     /// Previous block’s hash.
