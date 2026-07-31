@@ -23,7 +23,8 @@
 //! - **Chain Tip Management**: Tracks the latest known chain tip (previous hash, timestamp, and
 //!   target) for constructing headers and validating shares.
 //! - **Version Rolling**: Honors server configuration on whether version rolling is permitted,
-//!   validating submitted BIP320 header versions accordingly.
+//!   ensuring submitted share versions only differ from the job's advertised version in the
+//!   BIP323 general-purpose bits (and match it exactly when version rolling is not permitted).
 //!
 //! ## Usage
 //!
@@ -49,7 +50,7 @@ use crate::{
         share_accounting::{ShareAccounting, ShareValidationError, ShareValidationResult},
     },
     target::{bytes_to_hex, hash_rate_to_target, u256_to_block_hash},
-    MAX_EXTRANONCE_LEN,
+    MAX_EXTRANONCE_LEN, VERSION_ROLLING_MASK,
 };
 use bitcoin::{
     blockdata::block::{Header, Version},
@@ -62,6 +63,7 @@ use mining_sv2::{
     ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
     ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
     ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE, ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
 };
@@ -761,18 +763,33 @@ impl ExtendedChannel {
             ));
         }
 
-        // validate when version rolling is not allowed
-        if !job.version_rolling_allowed() {
-            // If version rolling is not allowed, ensure bits 13-28 are 0
-            // This is done by checking if the version & 0x1fffe000 == 0
-            // ref: https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki
-            if (share.version & 0x1fffe000) != 0 {
-                self.share_accounting
-                    .increment_rejected_shares(ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED);
-                return Err(ShareValidationError::VersionRollingNotAllowed(
-                    ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
+        // Only BIP323 general-purpose bits may differ from the job's advertised version.
+        // When version rolling is not allowed, the share version must match the job version exactly.
+        let version_rolling_mask = if job.version_rolling_allowed() {
+            VERSION_ROLLING_MASK
+        } else {
+            0
+        };
+
+        // Only the non-rollable version bits are compared: `!version_rolling_mask` zeroes
+        // the BIP323 general-purpose bits the miner may change, so any remaining difference
+        // from the job's advertised version means an unauthorized change. When version
+        // rolling is not allowed, the mask is 0 and this degenerates to strict equality
+        // with the job version.
+        if (share.version & !version_rolling_mask) != (job.get_version() & !version_rolling_mask) {
+            if job.version_rolling_allowed() {
+                self.share_accounting.increment_rejected_shares(
+                    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
+                );
+                return Err(ShareValidationError::Invalid(
+                    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
                 ));
             }
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED);
+            return Err(ShareValidationError::VersionRollingNotAllowed(
+                ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
+            ));
         }
 
         // create the header for validation
@@ -900,6 +917,7 @@ mod tests {
         SetCustomMiningJobOwned as SetCustomMiningJob,
         SubmitSharesExtendedOwned as SubmitSharesExtended,
         ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+        ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     };
     use std::convert::TryInto;
     use template_distribution_sv2::{
@@ -2393,6 +2411,337 @@ mod tests {
         assert_ne!(first_job_id, second_job_id);
         assert!(channel.job_store.get_past_job(first_job_id).is_some());
         assert!(channel.job_store.get_stale_job(first_job_id).is_none());
+    }
+
+    #[test]
+    fn test_share_validation_version_rolling_not_allowed() {
+        // when version rolling is not allowed on the channel,
+        // the share version must match the job version exactly
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = false;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template_id = 1;
+        let template = NewTemplate {
+            template_id,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        let n_bits = 545259519;
+        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
+
+        // prepare channel with non-future job
+        channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
+
+        // the job version is 536870912 (0x20000000)
+        // any share version that differs from the job version must be rejected
+
+        // this share flips bit 0, which is outside the BIP323 general-purpose bits mask
+        let share_non_rollable_bit = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 536870913,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share_non_rollable_bit);
+        assert!(matches!(
+            res.unwrap_err(),
+            ShareValidationError::VersionRollingNotAllowed(_)
+        ));
+
+        // this share sets bit 5, which is inside the BIP323 general-purpose bits mask:
+        // rolling it is still forbidden when version rolling is not allowed
+        let share_rolled_bit = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 1,
+            job_id: 1,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 0x20000020,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share_rolled_bit);
+        assert!(matches!(
+            res.unwrap_err(),
+            ShareValidationError::VersionRollingNotAllowed(_)
+        ));
+    }
+
+    #[test]
+    fn test_share_validation_invalid_non_rollable_version_bit() {
+        // when version rolling is allowed on the channel,
+        // only the BIP323 general-purpose bits may differ from the job version
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template_id = 1;
+        let template = NewTemplate {
+            template_id,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        let n_bits = 545259519;
+        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
+
+        // prepare channel with non-future job
+        channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
+
+        // the job version is 536870912 (0x20000000)
+        // this share flips bit 0, which is outside the BIP323 general-purpose bits
+        let share = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 536870913,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share);
+        let err = res.expect_err("share with non-rollable version bits must be rejected");
+        match err {
+            ShareValidationError::Invalid(code) => {
+                assert_eq!(
+                    code,
+                    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT
+                );
+            }
+            other => panic!("expected ShareValidationError::Invalid, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_share_validation_rollable_version_bits() {
+        // when version rolling is allowed on the channel,
+        // shares that only differ in the BIP323 general-purpose bits are accepted
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let expected_share_per_minute = 1.0;
+        let nominal_hashrate = 1.0;
+        let version_rolling_allowed = true;
+        let rollable_extranonce_size = 8u16;
+        let share_batch_size = 100;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            max_target,
+            nominal_hashrate,
+            version_rolling_allowed,
+            rollable_extranonce_size,
+            share_batch_size,
+            expected_share_per_minute,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // force an easy target so that finding a valid share is trivial
+        channel.set_target(max_target);
+
+        let template_id = 1;
+        let template = NewTemplate {
+            template_id,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        let n_bits = 545259519;
+        let chain_tip = ChainTip::new(prev_hash, n_bits, ntime);
+        channel.set_chain_tip(chain_tip);
+
+        // prepare channel with non-future job
+        channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
+
+        // the job version is 536870912 (0x20000000)
+        // this share version only sets bits 5-20, which are inside the BIP323
+        // general-purpose bits mask (0x1FFFFFE0)
+        let rolled_version = 0x20000000 | 0x1fffe0;
+
+        // this share has hash
+        // 1a489bab0bb696a5833a47cf8b2487c1c3863d01f53d9911fe063250c9f4e282
+        // which does meet the channel target
+        let share = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 0,
+            ntime: 1745596971,
+            version: rolled_version,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        assert!(channel.validate_share(share).is_ok());
     }
 
     fn custom_mining_job(
