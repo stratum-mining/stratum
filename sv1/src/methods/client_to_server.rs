@@ -385,8 +385,8 @@ impl TryFrom<StandardRequest> for Subscribe<'_> {
 
 #[derive(Debug, Clone)]
 pub struct Configure {
-    extensions: Vec<ConfigureExtension>,
-    id: u64,
+    pub extensions: Vec<ConfigureExtension>,
+    pub id: u64,
 }
 
 impl fmt::Display for Configure {
@@ -683,6 +683,16 @@ pub struct VersionRollingParams {
     min_bit_count: Option<HexU32Be>,
 }
 
+impl VersionRollingParams {
+    pub fn get_mask(&self) -> &Option<HexU32Be> {
+        &self.mask
+    }
+
+    pub fn get_min_bit_count(&self) -> &Option<HexU32Be> {
+        &self.min_bit_count
+    }
+}
+
 impl From<VersionRollingParams> for serde_json::Map<String, Value> {
     fn from(conf: VersionRollingParams) -> Self {
         let mut params = serde_json::Map::new();
@@ -709,13 +719,13 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
 
 #[derive(Debug, Clone)]
 pub struct InfoParams {
-    connection_url: Option<String>,
+    pub connection_url: Option<String>,
     #[allow(dead_code)]
-    hw_id: Option<String>,
+    pub hw_id: Option<String>,
     #[allow(dead_code)]
-    hw_version: Option<String>,
+    pub hw_version: Option<String>,
     #[allow(dead_code)]
-    sw_version: Option<String>,
+    pub sw_version: Option<String>,
 }
 
 impl From<InfoParams> for serde_json::Map<String, Value> {
@@ -751,7 +761,7 @@ fn test_version_extension_with_broken_bit_count() {
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
-            assert!(params.min_bit_count.as_ref().unwrap().0 == 0x16)
+            assert!(params.get_min_bit_count().as_ref().unwrap().0 == 0x16)
         }
         _ => panic!(),
     };
@@ -770,7 +780,7 @@ fn test_version_extension_with_non_string_bit_count() {
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
-            assert!(params.min_bit_count.as_ref().unwrap().0 == 16)
+            assert!(params.get_min_bit_count().as_ref().unwrap().0 == 16)
         }
         _ => panic!(),
     };
@@ -789,7 +799,7 @@ fn test_version_extension_with_no_bit_count() {
     let server_configure = Configure::try_from(client_message).unwrap();
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
-            assert!(params.min_bit_count.as_ref().is_none());
+            assert!(params.get_min_bit_count().as_ref().is_none());
         }
         _ => panic!(),
     };
