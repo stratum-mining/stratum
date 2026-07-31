@@ -15,7 +15,7 @@ use crate::{
     extranonce_manager::ExtranoncePrefix,
     merkle_root::merkle_root_from_path,
     target::{bytes_to_hex, u256_to_block_hash},
-    MAX_EXTRANONCE_LEN,
+    MAX_EXTRANONCE_LEN, VERSION_ROLLING_MASK,
 };
 use alloc::{format, string::String};
 use binary_sv2::Sv2OptionOwned;
@@ -28,6 +28,7 @@ use mining_sv2::{
     NewExtendedMiningJobOwned, NewMiningJobOwned, SetNewPrevHashOwned as SetNewPrevHashMp,
     SubmitSharesStandardOwned, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
 };
 use tracing::debug;
@@ -379,6 +380,16 @@ impl StandardChannel {
             ));
         }
 
+        // Only the non-rollable version bits are compared: `!VERSION_ROLLING_MASK` zeroes
+        // the BIP323 general-purpose bits the miner may change, so any remaining difference
+        // from the job's advertised version means an unauthorized change. Standard channels
+        // always allow version rolling within the mask.
+        if (share.version & !VERSION_ROLLING_MASK) != (job.0.version & !VERSION_ROLLING_MASK) {
+            return Err(ShareValidationError::Invalid(
+                ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
+            ));
+        }
+
         // create the header for validation
         let header = Header {
             version: Version::from_consensus(share.version as i32),
@@ -470,7 +481,7 @@ mod tests {
     use bitcoin::Target;
     use mining_sv2::{
         NewMiningJobOwned as NewMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
-        SubmitSharesStandardOwned,
+        SubmitSharesStandardOwned, ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
     };
 
     #[test]
@@ -882,5 +893,160 @@ mod tests {
         let res = channel.validate_share(valid_share);
 
         assert!(matches!(res, Ok(ShareValidationResult::Valid(_))));
+    }
+
+    #[test]
+    fn test_share_validation_invalid_non_rollable_version_bit() {
+        // on standard channels, version rolling is always allowed within the BIP323
+        // general-purpose bits mask (0x1FFFFFE0)
+        // only the bits inside the mask may differ from the job version
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let target = Target::from_le_bytes([0xff; 32]);
+        let nominal_hashrate = 1.0;
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            target,
+            nominal_hashrate,
+        );
+
+        let future_job = NewMiningJob {
+            channel_id,
+            job_id: 1,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            min_ntime: Sv2Option::new(None),
+        };
+
+        channel.on_new_mining_job(future_job.clone());
+
+        // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+        let nbits = 545259519;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let ntime: u32 = 1745596930;
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            min_ntime: ntime,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        // the job version is 536870912 (0x20000000)
+        // this share has version 0, which clears bit 29, outside the BIP323
+        // general-purpose bits mask (0x1FFFFFE0)
+        // no nonce should be accepted
+        for nonce in 0..1024u32 {
+            let share = SubmitSharesStandardOwned {
+                channel_id,
+                sequence_number: nonce,
+                job_id: future_job.job_id,
+                nonce,
+                ntime: 1745596932,
+                version: 0,
+            };
+            let res = channel.validate_share(share);
+            let err = res.expect_err("share with non-rollable version bits must be rejected");
+            match err {
+                ShareValidationError::Invalid(code) => {
+                    assert_eq!(
+                        code,
+                        ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT
+                    );
+                }
+                other => panic!("expected ShareValidationError::Invalid, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_share_validation_rollable_version_bits() {
+        // on standard channels, version rolling is always allowed within the BIP323
+        // general-purpose bits mask (0x1FFFFFE0)
+        // shares that only differ in the bits inside the mask are accepted
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let target = Target::from_le_bytes([0xff; 32]);
+        let nominal_hashrate = 1.0;
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            target,
+            nominal_hashrate,
+        );
+
+        let future_job = NewMiningJob {
+            channel_id,
+            job_id: 1,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            min_ntime: Sv2Option::new(None),
+        };
+
+        channel.on_new_mining_job(future_job.clone());
+
+        // network target: 7fffff0000000000000000000000000000000000000000000000000000000000
+        let nbits = 545259519;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let ntime: u32 = 1745596930;
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            min_ntime: ntime,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        // the job version is 536870912 (0x20000000)
+        // this share version only sets bits 5-20, which are inside the BIP323
+        // general-purpose bits mask (0x1FFFFFE0)
+        let rolled_version = 0x20000000 | 0x1fffe0;
+
+        // this share has hash
+        // 3a6fcdff7b8c6f8fb41a5851273548ad3561be6418eee05dd71aee5b669f2bf8
+        // which does meet the channel target
+        let share = SubmitSharesStandardOwned {
+            channel_id,
+            sequence_number: 0,
+            job_id: future_job.job_id,
+            nonce: 0,
+            ntime: 1745596932,
+            version: rolled_version,
+        };
+
+        assert!(channel.validate_share(share).is_ok());
     }
 }
