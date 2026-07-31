@@ -753,7 +753,7 @@ fn test_version_extension_with_broken_bit_count() {
             "method": "mining.configure",
             "params":[
                 ["version-rolling"],
-                {"version-rolling.mask":"1fffe000",
+                {"version-rolling.mask":"1fffffe0",
                 "version-rolling.min-bit-count":"16"}
             ]
         }"#;
@@ -772,7 +772,7 @@ fn test_version_extension_with_non_string_bit_count() {
             "method": "mining.configure",
             "params":[
                 ["version-rolling"],
-                {"version-rolling.mask":"1fffe000",
+                {"version-rolling.mask":"1fffffe0",
                 "version-rolling.min-bit-count":16}
             ]
         }"#;
@@ -883,7 +883,7 @@ fn test_configure_negative_min_bit_count_does_not_panic() {
             "method": "mining.configure",
             "params":[
                 ["version-rolling"],
-                {"version-rolling.mask":"1fffe000","version-rolling.min-bit-count":-1}
+                {"version-rolling.mask":"1fffffe0","version-rolling.min-bit-count":-1}
             ]
         }"#;
     let client_message: StandardRequest = serde_json::from_str(client_message).unwrap();

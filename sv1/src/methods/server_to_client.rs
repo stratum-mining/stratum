@@ -675,7 +675,7 @@ fn configure_response_parsing_all_fields() {
     let client_response_str = r#"{"id":0,
             "result":{
                 "version-rolling":true,
-                "version-rolling.mask":"1fffe000",
+                "version-rolling.mask":"1fffffe0",
                 "version-rolling.min-bit-count":"00000005",
                 "minimum-difficulty":false
             }
@@ -686,7 +686,10 @@ fn configure_response_parsing_all_fields() {
 
     let version_rolling = server_configure.version_rolling.unwrap();
     assert!(version_rolling.version_rolling);
-    assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
+    assert_eq!(
+        version_rolling.version_rolling_mask,
+        HexU32Be(VERSION_ROLLING_MASK)
+    );
     assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(5));
 
     assert_eq!(server_configure.minimum_difficulty, Some(false));
@@ -697,7 +700,7 @@ fn configure_response_parsing_no_vr_min_bit_count() {
     let client_response_str = r#"{"id":0,
             "result":{
                 "version-rolling":true,
-                "version-rolling.mask":"1fffe000",
+                "version-rolling.mask":"1fffffe0",
                 "minimum-difficulty":false
             }
         }"#;
@@ -707,7 +710,10 @@ fn configure_response_parsing_no_vr_min_bit_count() {
 
     let version_rolling = server_configure.version_rolling.unwrap();
     assert!(version_rolling.version_rolling);
-    assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
+    assert_eq!(
+        version_rolling.version_rolling_mask,
+        HexU32Be(VERSION_ROLLING_MASK)
+    );
     assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(0));
 
     assert_eq!(server_configure.minimum_difficulty, Some(false));
