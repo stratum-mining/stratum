@@ -27,12 +27,12 @@ pub struct PushSolution<'decoder> {
     pub nbits: u32,
     /// The version field in a Bitcoin header initially indicated protocol rule changes. [`BIP9`]
     /// altered its use by turning it into a bit vector for coordinated soft fork signaling.
-    /// [`BIP320`] further refined its purpose by dedicating 16 bits(starting from 13 to 28) of the
+    /// [`BIP323`] further refined its purpose by dedicating 24 bits (starting from 5 to 28) of the
     /// version field for general-purpose miner use, ensuring that such usage doesn't interfere
     /// with the soft fork signaling mechanism defined by [`BIP9`].
     ///
     /// [`BIP9`]: https://en.bitcoin.it/wiki/BIP_0009
-    /// [`BIP320`]: https://en.bitcoin.it/wiki/BIP_0320
+    /// [`BIP323`]: https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki
     pub version: u32,
 }
 
