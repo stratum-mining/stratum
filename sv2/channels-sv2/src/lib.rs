@@ -18,6 +18,11 @@
 pub mod extranonce_manager;
 pub use extranonce_manager::MAX_EXTRANONCE_LEN;
 
+/// Version rolling mask as per [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki):
+/// only these general-purpose bits may differ between a job's advertised version and a share's
+/// version. All other bits of a share's version must match the job's version exactly.
+pub const VERSION_ROLLING_MASK: u32 = 0x1fffffe0;
+
 #[cfg(not(feature = "no_std"))]
 pub mod server;
 
