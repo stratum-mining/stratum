@@ -109,6 +109,9 @@ impl ShareAccounting {
     /// Updates acceptance accounting based on a [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess) message from the
     /// upstream server.
     ///
+    /// Both `acknowledged_shares` and `acknowledged_work_sum` saturate at their respective
+    /// maximum values.
+    ///
     /// This should be called by the application layer when it receives upstream confirmation
     /// that shares were accepted. It is intentionally **not** called from `validate_share` —
     /// local validation only tracks the share for duplicate detection (via
@@ -118,7 +121,9 @@ impl ShareAccounting {
         new_submits_accepted_count: u32,
         new_shares_sum: u64,
     ) {
-        self.acknowledged_shares += new_submits_accepted_count;
+        self.acknowledged_shares = self
+            .acknowledged_shares
+            .saturating_add(new_submits_accepted_count);
         self.acknowledged_work_sum = self.acknowledged_work_sum.saturating_add(new_shares_sum);
     }
 
@@ -126,10 +131,12 @@ impl ShareAccounting {
     /// server.
     ///
     /// One call corresponds to one rejected share.
+    ///
+    /// Saturates at `u32::MAX`.
     pub fn on_share_rejection(&mut self, error_code: String) {
         self.rejected_shares
             .entry(error_code)
-            .and_modify(|v| *v += 1)
+            .and_modify(|v| *v = v.saturating_add(1))
             .or_insert(1);
     }
 
@@ -139,6 +146,8 @@ impl ShareAccounting {
     /// number. Called from `validate_share` — does **not** count the share as accepted.
     /// Acceptance accounting is deferred to [`on_share_acknowledgement`](Self::on_share_acknowledgement), which should be
     /// called when the upstream server confirms via [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess).
+    ///
+    /// `validated_shares` saturates at `u32::MAX`.
     pub fn track_validated_share(
         &mut self,
         share_sequence_number: u32,
@@ -146,7 +155,7 @@ impl ShareAccounting {
         share_work: f64,
     ) {
         self.last_share_sequence_number = share_sequence_number;
-        self.validated_shares += 1;
+        self.validated_shares = self.validated_shares.saturating_add(1);
         self.validated_work_sum += share_work;
         self.seen_shares.insert(share_hash);
     }
@@ -180,8 +189,13 @@ impl ShareAccounting {
     }
 
     /// Returns the total number of rejected shares across all error codes.
+    ///
+    /// Saturates at `u32::MAX`.
     pub fn get_rejected_shares_count(&self) -> u32 {
-        self.rejected_shares.values().copied().sum()
+        self.rejected_shares
+            .values()
+            .copied()
+            .fold(0, u32::saturating_add)
     }
 
     /// Returns an iterator over rejected shares by error code.
@@ -222,12 +236,66 @@ impl ShareAccounting {
     }
 
     /// Increments the blocks found counter.
+    ///
+    /// Saturates at `u32::MAX`.
     pub fn increment_blocks_found(&mut self) {
-        self.blocks_found += 1;
+        self.blocks_found = self.blocks_found.saturating_add(1);
     }
 
     /// Returns the total number of blocks found on this channel.
     pub fn get_blocks_found(&self) -> u32 {
         self.blocks_found
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ShareAccounting;
+    use bitcoin::hashes::Hash as _;
+
+    #[test]
+    fn counters_saturate_at_u32_max() {
+        let mut accounting = ShareAccounting::new();
+
+        accounting.validated_shares = u32::MAX;
+        accounting.acknowledged_shares = u32::MAX - 1;
+        accounting.blocks_found = u32::MAX;
+
+        accounting.track_validated_share(0, bitcoin::hashes::sha256d::Hash::all_zeros(), 1.0);
+        assert_eq!(accounting.validated_shares, u32::MAX);
+        accounting.track_validated_share(1, bitcoin::hashes::sha256d::Hash::all_zeros(), 1.0);
+        assert_eq!(accounting.validated_shares, u32::MAX);
+
+        accounting.on_share_acknowledgement(1, 0);
+        assert_eq!(accounting.acknowledged_shares, u32::MAX);
+        accounting.on_share_acknowledgement(1, 0);
+        assert_eq!(accounting.acknowledged_shares, u32::MAX);
+
+        accounting.increment_blocks_found();
+        assert_eq!(accounting.blocks_found, u32::MAX);
+        accounting.increment_blocks_found();
+        assert_eq!(accounting.blocks_found, u32::MAX);
+    }
+
+    #[test]
+    fn rejected_shares_count_saturates() {
+        let mut accounting = ShareAccounting::new();
+
+        accounting.rejected_shares.insert("a".to_string(), u32::MAX);
+        accounting.rejected_shares.insert("b".to_string(), 1);
+
+        assert_eq!(accounting.get_rejected_shares_count(), u32::MAX);
+    }
+
+    #[test]
+    fn on_share_rejection_saturates() {
+        let mut accounting = ShareAccounting::new();
+
+        accounting
+            .rejected_shares
+            .insert("err".to_string(), u32::MAX);
+        accounting.on_share_rejection("err".to_string());
+
+        assert_eq!(accounting.rejected_shares.get("err"), Some(&u32::MAX));
     }
 }
