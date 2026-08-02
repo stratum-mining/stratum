@@ -60,8 +60,8 @@ use bitcoin::{
 use mining_sv2::{
     SubmitSharesStandardOwned, ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
     ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW, ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
-    ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
-    ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID, ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
+    ERROR_CODE_SUBMIT_SHARES_STALE_SHARE, ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE,
 };
 use std::collections::HashMap;
 use template_distribution_sv2::{NewTemplateOwned, SetNewPrevHashOwned as SetNewPrevHash};
@@ -555,7 +555,8 @@ impl StandardChannel {
     /// Validates a submitted share and updates accounting state.
     ///
     /// Returns the result of share validation, including block found, valid share, duplicate, or
-    /// error if the share is stale or does not meet target.
+    /// error if the share is stale, does not meet target, or has ntime below the chain tip's
+    /// `min_ntime`.
     pub fn validate_share(
         &mut self,
         share: SubmitSharesStandardOwned,
@@ -622,6 +623,14 @@ impl StandardChannel {
 
         let prev_hash = chain_tip.prev_hash();
         let nbits = CompactTarget::from_consensus(chain_tip.nbits());
+
+        if share.ntime < chain_tip.min_ntime() {
+            self.share_accounting
+                .increment_rejected_shares(ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE);
+            return Err(ShareValidationError::Invalid(
+                ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
+            ));
+        }
 
         // create the header for validation
         let header = Header {
@@ -1103,6 +1112,103 @@ mod tests {
         assert_eq!(
             standard_channel.get_share_accounting().get_blocks_found(),
             1
+        );
+    }
+
+    #[test]
+    fn test_share_validation_ntime_below_min_ntime() {
+        // Regression test: a share with ntime < min_ntime must be rejected.
+        // Reuses the block-found test vectors but sets min_ntime one second
+        // above the share's ntime.
+        let standard_channel_id = 1;
+        let user_identity = "user_identity".to_string();
+
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let max_target = Target::from_le_bytes([0xff; 32]);
+        let nominal_hashrate = 1.0;
+        let share_batch_size = 100;
+        let expected_share_per_minute = 1.0;
+        let mut standard_channel = StandardChannel::new(
+            standard_channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
+            max_target,
+            nominal_hashrate,
+            share_batch_size,
+            expected_share_per_minute,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![2, 159, 0, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967294,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 158,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let prev_hash = [
+            251, 175, 106, 40, 35, 87, 122, 90, 58, 51, 78, 32, 202, 236, 228, 36, 154, 174, 206,
+            144, 147, 195, 21, 224, 195, 103, 214, 189, 51, 190, 24, 98,
+        ]
+        .into();
+        let n_bits = 545259519;
+        // set min_ntime one second above the share's ntime (1745596932 + 1)
+        let chain_tip = ChainTip::new(prev_hash, n_bits, 1745596933);
+
+        standard_channel.set_chain_tip(chain_tip);
+        standard_channel
+            .on_new_template(template.clone(), coinbase_reward_outputs)
+            .unwrap();
+
+        let active_standard_job = standard_channel.get_active_job().unwrap();
+
+        let share_below_min_ntime = SubmitSharesStandardOwned {
+            channel_id: standard_channel_id,
+            sequence_number: 0,
+            job_id: active_standard_job.get_job_id(),
+            nonce: 0,
+            ntime: 1745596932,
+            version: 536870912,
+        };
+
+        let res = standard_channel.validate_share(share_below_min_ntime);
+
+        assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
+        assert_eq!(
+            standard_channel.get_share_accounting().get_blocks_found(),
+            0
         );
     }
 
