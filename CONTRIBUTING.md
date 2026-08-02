@@ -61,7 +61,7 @@ Most project communications happen in our [Discord](https://discord.gg/fsEW23wFY
 
 Discussion about specific codebase work happens in GitHub [issues](https://github.com/stratum-mining/stratum/issues/) and on [pull requests](https://github.com/stratum-mining/stratum/pulls/).
 
-Our dev calls are scheduled every Tuesday at 18.00 CET. You can see them in the sidebar under Events on Discord and subscribe to them to be notified.
+Our dev calls are scheduled every Tuesday at 16:00 UTC. You can see them in the sidebar under Events on Discord and subscribe to them to be notified.
 
 ## I Want To Contribute
 > When contributing to this project, you must agree that you have authored 100% of the content, that you have the necessary rights to the content and that the content you contribute may be provided under the project license.
