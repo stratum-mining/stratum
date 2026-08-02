@@ -29,4 +29,7 @@ pub enum JobFactoryError {
     CoinbaseOutputsSumOverflow,
     InvalidCoinbaseOutputsSum,
     ChainTipRequired,
+    /// The assembled coinbase `scriptSig` would exceed the size mandated by Bitcoin consensus
+    /// rules (see `MAX_SCRIPT_SIG_SIZE`).
+    ScriptSigSizeTooLarge,
 }

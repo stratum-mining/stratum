@@ -76,6 +76,10 @@ impl GroupChannel {
     ///
     /// For non-JD jobs, `pool_tag_string` is added to the coinbase scriptSig as
     /// `Sv2/pool_tag_string//`.
+    ///
+    /// Returns [`GroupChannelError::ScriptSigSizeTooLarge`] if the tags, the delimiters, the
+    /// extranonce and a worst-case coinbase prefix do not fit within the coinbase `scriptSig`
+    /// budget, see [`JobFactory::fits_script_sig_budget`].
     pub fn new_for_pool(
         group_channel_id: u32,
         full_extranonce_size: usize,
@@ -100,6 +104,10 @@ impl GroupChannel {
     ///
     /// The `pool_tag_string` and `miner_tag_string` are added to the coinbase scriptSig as
     /// `Sv2/pool_tag_string/miner_tag_string/`.
+    ///
+    /// Returns [`GroupChannelError::ScriptSigSizeTooLarge`] if the tags, the delimiters, the
+    /// extranonce and a worst-case coinbase prefix do not fit within the coinbase `scriptSig`
+    /// budget, see [`JobFactory::fits_script_sig_budget`].
     pub fn new_for_job_declaration_client(
         group_channel_id: u32,
         full_extranonce_size: usize,
@@ -122,23 +130,18 @@ impl GroupChannel {
         pool_tag: Option<String>,
         miner_tag: Option<String>,
     ) -> Result<Self, GroupChannelError> {
-        let script_sig_size = 5 + // BIP34
-            1 + // OP_PUSHBYTES
-            3 + // "Sv2"
-            3 + // `/` delimiters
-            pool_tag.as_ref().map_or(0, |s| s.len()) +
-            miner_tag.as_ref().map_or(0, |s| s.len()) +
-            1 + // OP_PUSHBYTES
-            full_extranonce_size;
+        let job_factory = JobFactory::new(true, pool_tag, miner_tag);
 
-        if script_sig_size > 100 {
+        // conservative check against the spec's worst-case `NewTemplate::coinbase_prefix`.
+        // the exact size is re-checked against each actual template in `JobFactory::coinbase`
+        if !job_factory.fits_script_sig_budget(full_extranonce_size) {
             return Err(GroupChannelError::ScriptSigSizeTooLarge);
         }
 
         Ok(Self {
             group_channel_id,
             channel_ids: HashSet::new(),
-            job_factory: JobFactory::new(true, pool_tag, miner_tag),
+            job_factory,
             job_store: JobStore::new(),
             chain_tip: None,
             full_extranonce_size,
@@ -237,6 +240,13 @@ impl GroupChannel {
     /// If the template is a future template, the chain tip is not used.
     /// If the template is not a future template, the chain tip must be set.
     /// Returns an error if a non-future job cannot be created due to missing chain tip.
+    ///
+    /// Returns [`GroupChannelError::JobFactoryError`] wrapping
+    /// [`JobFactoryError::ScriptSigSizeTooLarge`](crate::server::jobs::error::JobFactoryError::ScriptSigSizeTooLarge)
+    /// if the template's `coinbase_prefix` pushes the assembled coinbase `scriptSig` past its
+    /// budget. The constructor can only check against the spec's worst-case prefix (see
+    /// [`JobFactory::fits_script_sig_budget`]), so this is where an out-of-spec Template Provider
+    /// is caught.
     pub fn on_new_template(
         &mut self,
         template: NewTemplateOwned,
@@ -322,7 +332,14 @@ impl GroupChannel {
 mod tests {
     use crate::{
         chain_tip::ChainTip,
-        server::{error::GroupChannelError, group::GroupChannel},
+        server::{
+            error::GroupChannelError,
+            group::GroupChannel,
+            jobs::{
+                error::JobFactoryError,
+                factory::{MAX_COINBASE_PREFIX_SIZE, MAX_SCRIPT_SIG_SIZE},
+            },
+        },
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
@@ -735,5 +752,108 @@ mod tests {
         // the failed activation must not have corrupted channel state
         assert!(group_channel.get_chain_tip().is_none());
         assert!(group_channel.get_active_job().is_none());
+    }
+
+    // a 52 char pool tag places the worst-case scriptSig exactly on the budget:
+    // 8 (MAX_COINBASE_PREFIX_SIZE) + 1 + 3 ("Sv2") + 3 + 52 (tag) + 1 + 32 (extranonce) = 100
+    const POOL_TAG_AT_SCRIPT_SIG_BUDGET: usize = 52;
+
+    #[test]
+    fn test_new_rejects_oversized_script_sig() {
+        let full_extranonce_size = 32;
+
+        // exactly on the budget
+        let group_channel = GroupChannel::new(
+            1,
+            full_extranonce_size,
+            Some("x".repeat(POOL_TAG_AT_SCRIPT_SIG_BUDGET)),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            group_channel
+                .job_factory
+                .script_sig_size(MAX_COINBASE_PREFIX_SIZE, full_extranonce_size),
+            MAX_SCRIPT_SIG_SIZE
+        );
+
+        // one byte over the budget
+        let group_channel = GroupChannel::new(
+            1,
+            full_extranonce_size,
+            Some("x".repeat(POOL_TAG_AT_SCRIPT_SIG_BUDGET + 1)),
+            None,
+        );
+        assert!(matches!(
+            group_channel.unwrap_err(),
+            GroupChannelError::ScriptSigSizeTooLarge
+        ));
+    }
+
+    #[test]
+    fn test_on_new_template_rejects_oversized_script_sig() {
+        let group_channel_id = 1;
+        let full_extranonce_size = 32;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            full_extranonce_size,
+            Some("x".repeat(POOL_TAG_AT_SCRIPT_SIG_BUDGET)),
+            None,
+        )
+        .unwrap();
+
+        // match the original script format used to generate the coinbase_reward_outputs for the
+        // expected job
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        let template = |coinbase_prefix: Vec<u8>| NewTemplate {
+            template_id: 1,
+            future_template: true,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: coinbase_prefix.try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        // a spec-compliant 8 byte coinbase_prefix fits exactly
+        group_channel
+            .on_new_template(
+                template(vec![0xab; MAX_COINBASE_PREFIX_SIZE]),
+                coinbase_reward_outputs.clone(),
+            )
+            .unwrap();
+
+        // an out-of-spec Template Provider sending 9 bytes overflows the budget. without this
+        // check the group channel would distribute unmineable work to every channel in the group
+        let res = group_channel.on_new_template(
+            template(vec![0xab; MAX_COINBASE_PREFIX_SIZE + 1]),
+            coinbase_reward_outputs,
+        );
+        assert!(matches!(
+            res.unwrap_err(),
+            GroupChannelError::JobFactoryError(JobFactoryError::ScriptSigSizeTooLarge)
+        ));
     }
 }

@@ -13,6 +13,9 @@
 //!   messages, assembling all required coinbase transaction data and metadata.
 //! - **Coinbase Output Validation**: Verifies that coinbase outputs match SV2 template constraints
 //!   and protocol rules.
+//! - **`scriptSig` Budget Enforcement**: Verifies that the assembled coinbase `scriptSig` fits
+//!   within [`MAX_SCRIPT_SIG_SIZE`]. This is the authoritative check, since the template's
+//!   `coinbase_prefix` is only known at job creation time.
 //! - **Version Rolling**: Tracks version rolling allowance for created jobs.
 //!
 //! ## Usage
@@ -38,6 +41,17 @@ use bitcoin::{
 use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
 use std::convert::TryInto;
 use template_distribution_sv2::NewTemplateOwned;
+
+/// Maximum size, in bytes, of a coinbase transaction `scriptSig`, as mandated by Bitcoin
+/// consensus rules.
+pub const MAX_SCRIPT_SIG_SIZE: usize = 100;
+
+/// Maximum number of bytes that [`NewTemplateOwned::coinbase_prefix`] is allowed to contribute to
+/// the coinbase `scriptSig`, as mandated by the Sv2 Template Distribution Protocol spec.
+///
+/// The spec phrase "up to 8 bytes (not including the length byte)" refers to the `B0255` wire
+/// length prefix. The BIP34 script push opcode is already part of these 8 bytes.
+pub const MAX_COINBASE_PREFIX_SIZE: usize = 8;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct JobIdFactory {
@@ -113,11 +127,9 @@ impl JobFactory {
 
         // Create the proper OP_PUSHBYTES opcode based on data length
         let op_pushbytes = match pool_miner_tag.len() {
-            // 100 bytes are available for scriptSig
-            // subtract 5 for BIP34
-            // subtract 1 for OP_PUSHBYTES before pool/miner tag
-            // subtract 1+32 for extranonce (OP_PUSHBYTES + 32 bytes max)
-            len @ 1..=61 => len as u8,
+            // OP_PUSHBYTES_N is a valid single-byte push opcode only for N in 1..=75.
+            // The scriptSig budget is enforced separately, see `MAX_SCRIPT_SIG_SIZE`.
+            len @ 1..=75 => len as u8,
             _ => return Err(JobFactoryError::CoinbaseTxPrefixError),
         };
 
@@ -126,6 +138,51 @@ impl JobFactory {
         op_pushbytes_pool_miner_tag.extend_from_slice(&pool_miner_tag);
 
         Ok(op_pushbytes_pool_miner_tag)
+    }
+
+    /// Returns the number of bytes that the `Sv2/<pool>/<miner>/` tag assembled by
+    /// [`JobFactory::op_pushbytes_pool_miner_tag`] contributes to the coinbase `scriptSig`,
+    /// including the `OP_PUSHBYTES` opcode.
+    pub fn pool_miner_tag_size(&self) -> usize {
+        1 // OP_PUSHBYTES opcode
+            + 3 // "Sv2"
+            + 3 // three `/` delimiters
+            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
+            + self.miner_tag_string.as_ref().map_or(0, |s| s.len())
+    }
+
+    /// Returns the number of bytes of the coinbase `scriptSig` assembled by this factory, for a
+    /// [`NewTemplateOwned::coinbase_prefix`] of `coinbase_prefix_size` bytes and a full extranonce
+    /// of `full_extranonce_size` bytes.
+    ///
+    /// The assembled layout is:
+    /// `coinbase_prefix || OP_PUSHBYTES_N || Sv2/pool_tag/miner_tag/ || OP_PUSHBYTES_M ||
+    /// extranonce`
+    ///
+    /// Callers that do not have a template at hand (such as channel constructors) should pass
+    /// [`MAX_COINBASE_PREFIX_SIZE`] to get the worst-case size allowed by the spec.
+    pub fn script_sig_size(
+        &self,
+        coinbase_prefix_size: usize,
+        full_extranonce_size: usize,
+    ) -> usize {
+        coinbase_prefix_size
+            + self.pool_miner_tag_size()
+            + 1 // OP_PUSHBYTES opcode for the extranonce
+            + full_extranonce_size
+    }
+
+    /// Returns whether the coinbase `scriptSig` assembled by this factory fits within
+    /// [`MAX_SCRIPT_SIG_SIZE`], for a full extranonce of `full_extranonce_size` bytes and the
+    /// worst-case [`NewTemplateOwned::coinbase_prefix`] allowed by the spec
+    /// ([`MAX_COINBASE_PREFIX_SIZE`]).
+    ///
+    /// Meant for callers that do not have a template at hand, such as channel constructors and
+    /// extranonce setters. Since it assumes the largest in-spec prefix, a `true` here guarantees
+    /// that no in-spec template can overflow the budget; the exact size is still re-checked
+    /// against each actual template in `JobFactory::coinbase`.
+    pub fn fits_script_sig_budget(&self, full_extranonce_size: usize) -> bool {
+        self.script_sig_size(MAX_COINBASE_PREFIX_SIZE, full_extranonce_size) <= MAX_SCRIPT_SIG_SIZE
     }
 
     /// Creates a new job from a template.
@@ -568,6 +625,15 @@ impl JobFactory {
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
+        // the template's coinbase_prefix is only known here, so this is the authoritative
+        // scriptSig budget check; channel constructors can only check against the spec's
+        // worst-case MAX_COINBASE_PREFIX_SIZE
+        if self.script_sig_size(template.coinbase_prefix.len(), full_extranonce_size)
+            > MAX_SCRIPT_SIG_SIZE
+        {
+            return Err(JobFactoryError::ScriptSigSizeTooLarge);
+        }
+
         // check that the sum of the additional coinbase outputs is equal to the value remaining in
         // the active template
         let mut coinbase_reward_outputs_sum = Amount::from_sat(0);
@@ -633,12 +699,8 @@ impl JobFactory {
         )?;
         let serialized_coinbase = serialize(&coinbase);
 
-        // Calculate the full `Sv2/<pool>/<miner>/` tag length including OP_PUSHBYTES opcode.
-        let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
-            + 3 // "Sv2"
-            + 3 // three "/" delimiters
-            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
-            + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
+        // the full pool/miner tag length, including delimiters and OP_PUSHBYTES opcode
+        let pool_miner_tag_len = self.pool_miner_tag_size();
 
         // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
         // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
@@ -671,12 +733,8 @@ impl JobFactory {
         )?;
         let serialized_coinbase = serialize(&coinbase);
 
-        // Calculate the full `Sv2/<pool>/<miner>/` tag length including OP_PUSHBYTES opcode.
-        let pool_miner_tag_len = 1 // OP_PUSHBYTES opcode
-            + 3 // "Sv2"
-            + 3 // three "/" delimiters
-            + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
-            + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
+        // the full pool/miner tag length, including delimiters and OP_PUSHBYTES opcode
+        let pool_miner_tag_len = self.pool_miner_tag_size();
 
         // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
         // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
@@ -794,6 +852,83 @@ mod tests {
         };
 
         assert_eq!(job.get_job_message(), &expected_job);
+    }
+
+    // builds a template with the provided `coinbase_prefix`, reusing the same vectors as
+    // `test_new_pool_job` for everything else
+    fn template_with_coinbase_prefix(coinbase_prefix: Vec<u8>) -> NewTemplate {
+        NewTemplate {
+            template_id: 1,
+            future_template: true,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: coinbase_prefix.try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: 5000000000,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        }
+    }
+
+    fn coinbase_reward_outputs() -> Vec<TxOut> {
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        vec![TxOut {
+            value: Amount::from_sat(5000000000),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }]
+    }
+
+    #[test]
+    fn test_coinbase_rejects_oversized_script_sig() {
+        // a 52 char pool tag places the worst-case scriptSig exactly on the budget:
+        // 8 (MAX_COINBASE_PREFIX_SIZE) + 1 + 3 ("Sv2") + 3 + 52 (tag) + 1 + 32 (extranonce) = 100
+        let pool_tag_string = "x".repeat(52);
+        let mut job_factory = JobFactory::new(true, Some(pool_tag_string), None);
+
+        assert_eq!(
+            job_factory.script_sig_size(MAX_COINBASE_PREFIX_SIZE, 32),
+            MAX_SCRIPT_SIG_SIZE
+        );
+
+        // a spec-compliant 8 byte coinbase_prefix fits exactly
+        let job = job_factory.new_extended_job(
+            1,
+            None,
+            vec![0; 32],
+            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE]),
+            coinbase_reward_outputs(),
+            32,
+        );
+        assert!(job.is_ok());
+
+        // an out-of-spec Template Provider sending 9 bytes overflows the budget, and must be
+        // rejected instead of yielding a consensus-invalid coinbase
+        let job = job_factory.new_extended_job(
+            1,
+            None,
+            vec![0; 32],
+            template_with_coinbase_prefix(vec![0xab; MAX_COINBASE_PREFIX_SIZE + 1]),
+            coinbase_reward_outputs(),
+            32,
+        );
+        assert!(matches!(
+            job.unwrap_err(),
+            JobFactoryError::ScriptSigSizeTooLarge
+        ));
     }
 
     #[test]
