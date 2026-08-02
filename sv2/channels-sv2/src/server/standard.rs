@@ -264,13 +264,24 @@ impl StandardChannel {
     /// every job created under it has become stale. This prevents the allocator from handing the
     /// same extranonce space to another live channel while those jobs still validate shares.
     ///
-    /// Returns an error if the new prefix is too large.
+    /// Returns an error if the new prefix is too large, or if it would push the assembled coinbase
+    /// `scriptSig` past its budget (see [`JobFactory::fits_script_sig_budget`]). The channel is
+    /// left unchanged in both error cases.
     pub fn set_extranonce_prefix(
         &mut self,
         extranonce_prefix: AllocatedExtranoncePrefix,
     ) -> Result<(), StandardChannelError> {
         if extranonce_prefix.len() > MAX_EXTRANONCE_LEN as usize {
             return Err(StandardChannelError::ExtranoncePrefixTooLarge);
+        }
+
+        // re-run the constructor's invariant: a prefix that is individually valid can still push
+        // the assembled scriptSig past the consensus cap
+        if !self
+            .job_factory
+            .fits_script_sig_budget(extranonce_prefix.len())
+        {
+            return Err(StandardChannelError::ScriptSigSizeTooLarge);
         }
 
         let retired_extranonce_prefix =
@@ -804,6 +815,7 @@ mod tests {
             share_accounting::{ShareValidationError, ShareValidationResult},
             standard::StandardChannel,
         },
+        MAX_EXTRANONCE_LEN,
     };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{
@@ -1905,6 +1917,59 @@ mod tests {
             channel.unwrap_err(),
             StandardChannelError::ScriptSigSizeTooLarge
         ));
+    }
+
+    // a 60 char pool tag makes the budget bind below MAX_EXTRANONCE_LEN, so the setter's scriptSig
+    // check is exercised on a prefix that is still individually valid:
+    // 8 (MAX_COINBASE_PREFIX_SIZE) + 1 + 3 ("Sv2") + 3 + 60 (tag) + 1 + 24 (extranonce prefix)
+    // = 100
+    const POOL_TAG_BINDING_BELOW_MAX_EXTRANONCE_LEN: usize = 60;
+    const EXTRANONCE_PREFIX_LEN_AT_BINDING_BUDGET: usize = 24;
+
+    #[test]
+    fn test_set_extranonce_prefix_rejects_oversized_script_sig() {
+        // start well within the budget
+        let original_prefix_len = 4;
+        let mut channel = new_standard_channel_with_pool_tag(
+            POOL_TAG_BINDING_BELOW_MAX_EXTRANONCE_LEN,
+            original_prefix_len,
+        )
+        .unwrap();
+        let original_prefix = channel.get_extranonce_prefix().to_vec();
+
+        // growing up to the budget is allowed
+        channel
+            .set_extranonce_prefix(
+                AllocatedExtranoncePrefix::for_test(vec![
+                    0xcd;
+                    EXTRANONCE_PREFIX_LEN_AT_BINDING_BUDGET
+                ])
+                .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            channel.get_extranonce_prefix().len(),
+            EXTRANONCE_PREFIX_LEN_AT_BINDING_BUDGET
+        );
+
+        // go back to the original prefix, so we can assert the channel is untouched on error
+        channel
+            .set_extranonce_prefix(
+                AllocatedExtranoncePrefix::for_test(original_prefix.clone()).unwrap(),
+            )
+            .unwrap();
+
+        // a prefix that is individually valid (<= MAX_EXTRANONCE_LEN) but pushes the assembled
+        // scriptSig one byte past the budget must be rejected
+        let oversized_prefix = vec![0xcd; EXTRANONCE_PREFIX_LEN_AT_BINDING_BUDGET + 1];
+        assert!(oversized_prefix.len() <= MAX_EXTRANONCE_LEN as usize);
+        let res = channel
+            .set_extranonce_prefix(AllocatedExtranoncePrefix::for_test(oversized_prefix).unwrap());
+        assert!(matches!(
+            res.unwrap_err(),
+            StandardChannelError::ScriptSigSizeTooLarge
+        ));
+        assert_eq!(channel.get_extranonce_prefix(), &original_prefix[..]);
     }
 
     #[test]

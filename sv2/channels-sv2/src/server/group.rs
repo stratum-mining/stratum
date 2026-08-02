@@ -176,12 +176,29 @@ impl GroupChannel {
 
     /// Set the full extranonce size for this group channel.
     /// Also clears all channel IDs, as no channels can belong to the same group while having different `full_extranonce_size`s.
-    pub fn set_full_extranonce_size(&mut self, full_extranonce_size: usize) {
+    ///
+    /// Returns [`GroupChannelError::ScriptSigSizeTooLarge`] if the new size would push the
+    /// assembled coinbase `scriptSig` past its budget (see
+    /// [`JobFactory::fits_script_sig_budget`]), leaving the group channel unchanged.
+    pub fn set_full_extranonce_size(
+        &mut self,
+        full_extranonce_size: usize,
+    ) -> Result<(), GroupChannelError> {
+        // re-run the constructor's invariant, before touching any state
+        if !self
+            .job_factory
+            .fits_script_sig_budget(full_extranonce_size)
+        {
+            return Err(GroupChannelError::ScriptSigSizeTooLarge);
+        }
+
         if self.full_extranonce_size != full_extranonce_size {
             self.channel_ids.clear();
         }
 
         self.full_extranonce_size = full_extranonce_size;
+
+        Ok(())
     }
 
     pub fn get_full_extranonce_size(&self) -> usize {
@@ -657,7 +674,9 @@ mod tests {
         assert!(!group_channel.has_channel_id(3));
 
         // set the full extranonce size to a new value
-        group_channel.set_full_extranonce_size(new_full_extranonce_size);
+        group_channel
+            .set_full_extranonce_size(new_full_extranonce_size)
+            .unwrap();
         assert_eq!(
             group_channel.get_full_extranonce_size(),
             new_full_extranonce_size
@@ -788,6 +807,39 @@ mod tests {
             group_channel.unwrap_err(),
             GroupChannelError::ScriptSigSizeTooLarge
         ));
+    }
+
+    #[test]
+    fn test_set_full_extranonce_size_rejects_oversized_script_sig() {
+        let group_channel_id = 1;
+        let full_extranonce_size = 16;
+        let mut group_channel = GroupChannel::new(
+            group_channel_id,
+            full_extranonce_size,
+            Some("x".repeat(POOL_TAG_AT_SCRIPT_SIG_BUDGET)),
+            None,
+        )
+        .unwrap();
+        group_channel
+            .add_channel_id(1, full_extranonce_size)
+            .unwrap();
+
+        // growing up to the budget is allowed
+        group_channel.set_full_extranonce_size(32).unwrap();
+        assert_eq!(group_channel.get_full_extranonce_size(), 32);
+        // channel ids are cleared, since the full extranonce size changed
+        assert_eq!(group_channel.get_channel_ids_count(), 0);
+
+        group_channel.add_channel_id(1, 32).unwrap();
+
+        // one byte past the budget must be rejected, leaving the channel untouched
+        let res = group_channel.set_full_extranonce_size(33);
+        assert!(matches!(
+            res.unwrap_err(),
+            GroupChannelError::ScriptSigSizeTooLarge
+        ));
+        assert_eq!(group_channel.get_full_extranonce_size(), 32);
+        assert_eq!(group_channel.get_channel_ids_count(), 1);
     }
 
     #[test]
