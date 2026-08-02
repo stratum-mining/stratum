@@ -521,6 +521,9 @@ impl JobFactory {
         let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
         let serialized_coinbase = serialize(&coinbase);
 
+        // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
+        // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
+        // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let index = 4 // tx version
             + 2 // segwit
             + 1 // number of inputs
@@ -542,6 +545,9 @@ impl JobFactory {
         let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
         let serialized_coinbase = serialize(&coinbase);
 
+        // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
+        // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
+        // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let index = 4 // tx version
             + 2 // segwit
             + 1 // number of inputs
@@ -635,6 +641,9 @@ impl JobFactory {
             + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
             + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
 
+        // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
+        // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
+        // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let index = 4 // tx version
             + 2 // segwit bytes
             + 1 // number of inputs
@@ -670,6 +679,9 @@ impl JobFactory {
             + self.pool_tag_string.as_ref().map_or(0, |s| s.len())
             + self.miner_tag_string.as_ref().map_or(0, |s| s.len());
 
+        // the coinbase scriptSig is limited to 100 bytes by Bitcoin consensus rules, which is
+        // always below the 253 byte threshold where CompactSize switches from a 1-byte to a
+        // 3-byte encoding, so the script length prefix is unconditionally 1 byte
         let coinbase_tx_suffix = serialized_coinbase[4 // tx version
             + 2 // segwit bytes
             + 1 // number of inputs
