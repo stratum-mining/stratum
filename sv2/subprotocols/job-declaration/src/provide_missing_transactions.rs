@@ -38,6 +38,16 @@ impl fmt::Display for ProvideMissingTransactions<'_> {
     }
 }
 
+impl fmt::Display for ProvideMissingTransactionsOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ProvideMissingTransactions(request_id: {}, unknown_tx_position_list: {})",
+            self.request_id, self.unknown_tx_position_list
+        )
+    }
+}
+
 /// Message used by JDC to accept [`ProvideMissingTransactions`] message and provide the full
 /// list of transactions in the order they were requested by [`ProvideMissingTransactions`].
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -51,6 +61,16 @@ pub struct ProvideMissingTransactionsSuccess<'decoder> {
     pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
 }
 impl fmt::Display for ProvideMissingTransactionsSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ProvideMissingTransactionsSuccess(request_id: {}, transaction_list: {})",
+            self.request_id, self.transaction_list
+        )
+    }
+}
+
+impl fmt::Display for ProvideMissingTransactionsSuccessOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

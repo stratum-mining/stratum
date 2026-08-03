@@ -50,6 +50,22 @@ impl fmt::Display for DeclareMiningJob<'_> {
     }
 }
 
+impl fmt::Display for DeclareMiningJobOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DeclareMiningJob(request_id: {}, mining_job_token: {}, version: 0x{:08x}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}, tx_ids_list: {}, excess_data: {})",
+            self.request_id,
+            self.mining_job_token.as_hex(),
+            self.version,
+            self.coinbase_tx_prefix,
+            self.coinbase_tx_suffix,
+            self.wtxid_list,
+            self.excess_data
+        )
+    }
+}
+
 /// Messaged used by JDS to accept [`DeclareMiningJob`] message.
 ///
 /// If [`Full Template`] mode is used, JDS MAY request txdata via `ProvideMissingTransactions`
@@ -71,6 +87,17 @@ pub struct DeclareMiningJobSuccess<'decoder> {
 }
 
 impl fmt::Display for DeclareMiningJobSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DeclareMiningJobSuccess(request_id: {}, new_mining_job_token: {})",
+            self.request_id,
+            self.new_mining_job_token.as_hex()
+        )
+    }
+}
+
+impl fmt::Display for DeclareMiningJobSuccessOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -107,6 +134,18 @@ pub struct DeclareMiningJobError<'decoder> {
 }
 
 impl fmt::Display for DeclareMiningJobError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "DeclareMiningJobError(request_id: {}, error_code: {}, error_details: {})",
+            self.request_id,
+            self.error_code.as_utf8_or_hex(),
+            self.error_details
+        )
+    }
+}
+
+impl fmt::Display for DeclareMiningJobErrorOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

@@ -19,12 +19,19 @@ mod declare_mining_job;
 mod provide_missing_transactions;
 mod push_solution;
 
-pub use allocate_mining_job_token::{AllocateMiningJobToken, AllocateMiningJobTokenSuccess};
-pub use declare_mining_job::{DeclareMiningJob, DeclareMiningJobError, DeclareMiningJobSuccess};
-pub use provide_missing_transactions::{
-    ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+pub use allocate_mining_job_token::{
+    AllocateMiningJobToken, AllocateMiningJobTokenOwned, AllocateMiningJobTokenSuccess,
+    AllocateMiningJobTokenSuccessOwned,
 };
-pub use push_solution::PushSolution;
+pub use declare_mining_job::{
+    DeclareMiningJob, DeclareMiningJobError, DeclareMiningJobErrorOwned, DeclareMiningJobOwned,
+    DeclareMiningJobSuccess, DeclareMiningJobSuccessOwned,
+};
+pub use provide_missing_transactions::{
+    ProvideMissingTransactions, ProvideMissingTransactionsOwned, ProvideMissingTransactionsSuccess,
+    ProvideMissingTransactionsSuccessOwned,
+};
+pub use push_solution::{PushSolution, PushSolutionOwned};
 
 // Job Declaration Protocol message types.
 pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN: u8 = 0x50;
