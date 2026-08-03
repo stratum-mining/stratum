@@ -72,6 +72,25 @@ impl fmt::Display for SetupConnection<'_> {
     }
 }
 
+impl fmt::Display for SetupConnectionOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetupConnection(protocol: {}, min_version: {}, max_version: {}, flags: 0x{:08x}, endpoint_host: {}, endpoint_port: {}, vendor: {}, hardware_version: {}, firmware: {}, device_id: {})",
+            self.protocol as u8,
+            self.min_version,
+            self.max_version,
+            self.flags,
+            self.endpoint_host.as_utf8_or_hex(),
+            self.endpoint_port,
+            self.vendor.as_utf8_or_hex(),
+            self.hardware_version.as_utf8_or_hex(),
+            self.firmware.as_utf8_or_hex(),
+            self.device_id.as_utf8_or_hex()
+        )
+    }
+}
+
 impl SetupConnection<'_> {
     /// Set the flag to indicate that the downstream requires a standard job
     pub fn set_requires_standard_job(&mut self) {
@@ -174,6 +193,42 @@ impl SetupConnection<'_> {
     }
 }
 
+impl SetupConnectionOwned {
+    /// Set the flag to indicate that the downstream requires a standard job.
+    pub fn set_requires_standard_job(&mut self) {
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+    }
+
+    /// Set a flag to indicate that the JDC allows [`Full Template`] mode.
+    ///
+    /// [`Full Template`]: https://github.com/stratum-mining/sv2-spec/blob/main/06-Job-Declaration-Protocol.md#632-full-template-mode
+    pub fn allow_full_template_mode(&mut self) {
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+    }
+
+    /// Check if passed flags support self flag.
+    pub fn check_flags(protocol: Protocol, available_flags: u32, required_flags: u32) -> bool {
+        SetupConnection::check_flags(protocol, available_flags, required_flags)
+    }
+
+    /// Check whether received versions are supported.
+    ///
+    /// If the versions are not supported, return `None` otherwise return the biggest version
+    /// available
+    pub fn get_version(&self, min_version: u16, max_version: u16) -> Option<u16> {
+        if self.min_version > max_version || min_version > self.max_version {
+            None
+        } else {
+            Some(self.max_version.min(max_version))
+        }
+    }
+
+    /// Checks whether passed flags indicate that the downstream requires standard job.
+    pub fn requires_standard_job(&self) -> bool {
+        has_requires_std_job(self.flags)
+    }
+}
+
 /// Helper function to check if `REQUIRES_STANDARD_JOBS` bit flag present.
 pub fn has_requires_std_job(flags: u32) -> bool {
     let flags = flags.reverse_bits();
@@ -221,6 +276,22 @@ pub struct SetupConnectionSuccess {
     pub flags: u32,
 }
 
+impl SetupConnectionSuccess {
+    pub fn into_owned(self) -> SetupConnectionSuccessOwned {
+        SetupConnectionSuccessOwned {
+            used_version: self.used_version,
+            flags: self.flags,
+        }
+    }
+
+    pub fn as_owned(&self) -> SetupConnectionSuccessOwned {
+        (*self).into_owned()
+    }
+}
+
+/// Owned alias for [`SetupConnectionSuccess`] because the message has no borrowed fields.
+pub type SetupConnectionSuccessOwned = SetupConnectionSuccess;
+
 impl fmt::Display for SetupConnectionSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -261,6 +332,17 @@ pub struct SetupConnectionError<'decoder> {
 }
 
 impl fmt::Display for SetupConnectionError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetupConnectionError(flags: 0x{:08x}, error_code: {})",
+            self.flags,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
+}
+
+impl fmt::Display for SetupConnectionErrorOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -332,7 +414,6 @@ impl GetSize for Protocol {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::alloc::string::ToString;
     use alloc::vec;
     use core::convert::TryInto;
 
@@ -417,12 +498,12 @@ mod test {
             min_version: 1,
             max_version: 4,
             flags: 0,
-            endpoint_host: "0.0.0.0".to_string().into_bytes().try_into().unwrap(),
+            endpoint_host: "0.0.0.0".try_into().unwrap(),
             endpoint_port: 0,
-            vendor: "vendor".to_string().into_bytes().try_into().unwrap(),
-            hardware_version: "hw_version".to_string().into_bytes().try_into().unwrap(),
-            firmware: "firmware".to_string().into_bytes().try_into().unwrap(),
-            device_id: "device_id".to_string().into_bytes().try_into().unwrap(),
+            vendor: "vendor".try_into().unwrap(),
+            hardware_version: "hw_version".try_into().unwrap(),
+            firmware: "firmware".try_into().unwrap(),
+            device_id: "device_id".try_into().unwrap(),
         }
     }
 
