@@ -518,23 +518,34 @@ impl ExtendedChannel {
     ///
     /// The message could be either directed at this channel, or at a group channel it belongs to.
     ///
-    /// - If the referenced `job_id` is not a future job, returns an error.
+    /// - If the referenced `job_id` is not a future job, returns an error and leaves channel state
+    ///   untouched.
     /// - If it is a future job, activates it as the current job.
-    /// - Marks all past jobs as stale and clears them.
+    /// - Marks the previously active job and all past jobs as stale, and clears past jobs.
     /// - Clears all seen shares as shares for the previous chain tip will be rejected as stale.
     /// - Updates the chain tip for the channel.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), ExtendedChannelError> {
-        match self.future_jobs.remove(&set_new_prev_hash.job_id) {
+        // the previously active job is only displaced once activation is known to succeed, so
+        // that the JobIdNotFound path below does not corrupt channel state
+        let previously_active_job = match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {
                 activated_job.0.min_ntime = Sv2OptionOwned::new(Some(set_new_prev_hash.min_ntime));
-                self.active_job = Some(activated_job);
+                self.active_job.replace(activated_job)
             }
             None => {
                 return Err(ExtendedChannelError::JobIdNotFound);
             }
+        };
+
+        // the job that was active under the previous chain tip must be retired to stale rather
+        // than silently dropped, otherwise a late share for it would be rejected as
+        // InvalidJobId instead of Stale
+        if let Some(previously_active_job) = previously_active_job {
+            self.past_jobs
+                .insert(previously_active_job.0.job_id, previously_active_job);
         }
 
         // all other future jobs are now useless
@@ -743,6 +754,7 @@ mod tests {
     use crate::{
         chain_tip::ChainTip,
         client::{
+            error::ExtendedChannelError,
             extended::ExtendedChannel,
             share_accounting::{ShareValidationError, ShareValidationResult},
             MAX_FUTURE_JOBS,
@@ -2009,6 +2021,99 @@ mod tests {
 
         // the job that was active under the previous chain tip is now stale
         assert!(channel.get_active_job().is_none());
+        assert_eq!(channel.get_stale_jobs_count(), 1);
+        assert!(channel.get_stale_job(1).is_some());
+        assert_eq!(channel.get_past_jobs_count(), 0);
+    }
+
+    #[test]
+    fn test_set_new_prev_hash_retires_active_job() {
+        // Regression test: the previously active job used to be silently overwritten by the
+        // activated future job, landing in neither past_jobs nor stale_jobs, so a late share
+        // for it was rejected as InvalidJobId instead of Stale.
+        let channel_id = 1;
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            "user_identity".to_string(),
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            Target::from_le_bytes([0xff; 32]),
+            1.0,
+            true,
+            8u16,
+        );
+
+        let job_template = NewExtendedMiningJob {
+            channel_id,
+            job_id: 1,
+            min_ntime: Sv2Option::new(Some(1745596970)),
+            version: 536870912,
+            version_rolling_allowed: true,
+            coinbase_tx_prefix: vec![
+                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_suffix: vec![
+                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
+                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
+                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
+                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        // job 1 is a non-future job, so it becomes active immediately
+        channel
+            .on_new_extended_mining_job(job_template.clone())
+            .unwrap();
+
+        // job 2 is a future job, waiting for a SetNewPrevHash
+        let mut future_job = job_template;
+        future_job.job_id = 2;
+        future_job.min_ntime = Sv2Option::new(None);
+        channel.on_new_extended_mining_job(future_job).unwrap();
+
+        let prev_hash: [u8; 32] = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+
+        // a SetNewPrevHash for an unknown job id must leave channel state untouched
+        let unknown_job_set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: 42,
+            prev_hash: prev_hash.into(),
+            nbits: 545259519,
+            min_ntime: 1745596980,
+        };
+        assert!(matches!(
+            channel.on_set_new_prev_hash(unknown_job_set_new_prev_hash),
+            Err(ExtendedChannelError::JobIdNotFound)
+        ));
+        assert_eq!(channel.get_active_job().unwrap().0.job_id, 1);
+        assert_eq!(channel.get_stale_jobs_count(), 0);
+
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: 2,
+            prev_hash: prev_hash.into(),
+            nbits: 545259519,
+            min_ntime: 1745596980,
+        };
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        // job 1 was active under the previous chain tip, so it is now stale
+        assert_eq!(channel.get_active_job().unwrap().0.job_id, 2);
         assert_eq!(channel.get_stale_jobs_count(), 1);
         assert!(channel.get_stale_job(1).is_some());
         assert_eq!(channel.get_past_jobs_count(), 0);
