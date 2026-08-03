@@ -58,6 +58,24 @@ macro_rules! impl_try_from_decodable_primitive {
     };
 }
 
+macro_rules! impl_try_from_decodable_primitive_owned {
+    ($(($ty:ty, $borrowed:ident, $owned:ident)),+ $(,)?) => {
+        $(
+            impl<'a> TryFrom<DecodablePrimitive<'a>> for $ty {
+                type Error = Error;
+
+                fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
+                    match value {
+                        DecodablePrimitive::$owned(val) => Ok(val),
+                        DecodablePrimitive::$borrowed(val) => Ok(val.into_owned()),
+                        _ => Err(Error::PrimitiveConversionError),
+                    }
+                }
+            }
+        )+
+    };
+}
+
 macro_rules! impl_try_from_decodable_field {
     ($($ty:ty),+ $(,)?) => {
         $(
@@ -126,6 +144,13 @@ impl_get_marker!(
     (B0255<'_>, B0255),
     (B064K<'_>, B064K),
     (B016M<'_>, B016M),
+    (U256Owned, U256Owned),
+    (MacOwned, MacOwned),
+    (SignatureOwned, SignatureOwned),
+    (B032Owned, B032Owned),
+    (B0255Owned, B0255Owned),
+    (B064KOwned, B064KOwned),
+    (B016MOwned, B016MOwned),
 );
 
 impl_decodable!(
@@ -143,6 +168,13 @@ impl_decodable!(
     (B0255<'a>, B0255),
     (B064K<'a>, B064K),
     (B016M<'a>, B016M),
+    (U256Owned, U256Owned),
+    (MacOwned, MacOwned),
+    (SignatureOwned, SignatureOwned),
+    (B032Owned, B032Owned),
+    (B0255Owned, B0255Owned),
+    (B064KOwned, B064KOwned),
+    (B016MOwned, B016MOwned),
 );
 
 impl_try_from_decodable_primitive!(
@@ -177,6 +209,23 @@ impl_try_from_decodable_field!(
     B0255<'a>,
     B064K<'a>,
     B016M<'a>,
+    U256Owned,
+    MacOwned,
+    SignatureOwned,
+    B032Owned,
+    B0255Owned,
+    B064KOwned,
+    B016MOwned,
+);
+
+impl_try_from_decodable_primitive_owned!(
+    (U256Owned, U256, U256Owned),
+    (MacOwned, Mac, MacOwned),
+    (SignatureOwned, Signature, SignatureOwned),
+    (B032Owned, B032, B032Owned),
+    (B0255Owned, B0255, B0255Owned),
+    (B064KOwned, B064K, B064KOwned),
+    (B016MOwned, B016M, B016MOwned),
 );
 
 impl_encodable_field_conversion!(
@@ -194,6 +243,13 @@ impl_encodable_field_conversion!(
     (B0255<'a>, B0255),
     (B064K<'a>, B064K),
     (B016M<'a>, B016M),
+    (U256Owned, U256Owned),
+    (MacOwned, MacOwned),
+    (SignatureOwned, SignatureOwned),
+    (B032Owned, B032Owned),
+    (B0255Owned, B0255Owned),
+    (B064KOwned, B064KOwned),
+    (B016MOwned, B016MOwned),
 );
 
 impl_field_marker_from_owned!(
@@ -204,13 +260,20 @@ impl_field_marker_from_owned!(
     (f32, F32),
     (u64, U64),
     (U24, U24),
+    (U256Owned, U256Owned),
+    (MacOwned, MacOwned),
+    (SignatureOwned, SignatureOwned),
+    (B032Owned, B032Owned),
+    (B0255Owned, B0255Owned),
+    (B064KOwned, B064KOwned),
+    (B016MOwned, B016MOwned),
 );
 
 impl_field_marker_from_borrowed!(
     (Inner<'a, true, 16, 0, 0>, Mac),
     (Inner<'a, true, 32, 0, 0>, U256),
     (Inner<'a, true, 64, 0, 0>, Signature),
-    (B032<'a>, B032),
+    (Inner<'a, false, 1, 1, 32>, B032),
     (Inner<'a, false, 1, 1, 255>, B0255),
     (Inner<'a, false, 1, 2, { 2_usize.pow(16) - 1 }>, B064K),
     (Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>, B016M),

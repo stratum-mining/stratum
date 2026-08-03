@@ -1,27 +1,22 @@
 use crate::{
     codec::GetSize,
-    datatypes::{Mac, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{
+        B016MOwned, B0255Owned, B032Owned, B064KOwned, Mac, MacOwned, Signature, SignatureOwned,
+        Sv2DataType, U256Owned, B016M, B0255, B032, B064K, U24, U256,
+    },
     Error,
 };
 use alloc::vec::Vec;
-#[cfg(not(feature = "no_std"))]
-use std::io::{Error as E, Write};
 
 /// The `Encodable` trait defines the interface for encoding a type into bytes.
 ///
-/// The trait provides methods for serializing an instance of a type into a byte
-/// array or writing it directly into an output writer. The trait is flexible,
-/// allowing various types, including primitives, structures, and collections,
-/// to implement custom serialization logic.
+/// The trait provides a method for serializing an instance of a type into a byte
+/// array. The trait is flexible, allowing various types, including primitives,
+/// structures, and collections, to implement custom serialization logic.
 ///
-/// The trait offers two key methods for encoding:
-///
-/// - The first, `to_bytes`, takes a mutable byte slice as a destination buffer. This method encodes
-///   the object directly into the provided buffer, returning the number of bytes written or an
-///   error if the encoding process fails.
-/// - The second, `to_writer`, (only available when not compiling for `no-std`) accepts a writer as
-///   a destination for the encoded bytes, allowing the serialized data to be written to any
-///   implementor of the `Write` trait.
+/// `to_bytes` takes a mutable byte slice as a destination buffer. This method encodes
+/// the object directly into the provided buffer, returning the number of bytes written or an
+/// error if the encoding process fails.
 ///
 /// Implementing types can define custom encoding logic, and this trait is
 /// especially useful when dealing with different data structures that need
@@ -34,16 +29,6 @@ pub trait Encodable {
     /// if encoding fails.
     #[allow(clippy::wrong_self_convention)]
     fn to_bytes(self, dst: &mut [u8]) -> Result<usize, Error>;
-
-    /// Write the encoded object into the provided writer.
-    ///
-    /// Serializes the object and writes it directly
-    /// to the `dst` writer. It is only available in environments
-    /// where `std` is available. If the encoding fails, error is
-    /// returned.
-    #[cfg(not(feature = "no_std"))]
-    #[allow(clippy::wrong_self_convention)]
-    fn to_writer(self, dst: &mut impl Write) -> Result<(), E>;
 }
 
 impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
@@ -51,13 +36,6 @@ impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
     fn to_bytes(self, dst: &mut [u8]) -> Result<usize, Error> {
         let encoded_field = self.into();
         encoded_field.encode(dst, 0)
-    }
-
-    #[cfg(not(feature = "no_std"))]
-    #[allow(clippy::wrong_self_convention)]
-    fn to_writer(self, dst: &mut impl Write) -> Result<(), E> {
-        let encoded_field = self.into();
-        EncodableField::to_writer(&encoded_field, dst)
     }
 }
 
@@ -78,10 +56,13 @@ pub enum EncodablePrimitive<'a> {
     U24(U24),
     /// U256 Primitive, representing a U256 type
     U256(U256<'a>),
+    U256Owned(U256Owned),
     /// Mac Primitive, representing a MAC type
     Mac(Mac<'a>),
+    MacOwned(MacOwned),
     /// Signature Primitive, representing a Signature type
     Signature(Signature<'a>),
+    SignatureOwned(SignatureOwned),
     /// U32 Primitive, representing a u32 type
     U32(u32),
     /// F32 Primitive, representing a f32 type
@@ -90,12 +71,16 @@ pub enum EncodablePrimitive<'a> {
     U64(u64),
     /// B032 Primitive, representing a B032 type
     B032(B032<'a>),
+    B032Owned(B032Owned),
     /// B0255 Primitive, representing a B0255 type
     B0255(B0255<'a>),
+    B0255Owned(B0255Owned),
     /// B064K Primitive, representing a B064K type
     B064K(B064K<'a>),
+    B064KOwned(B064KOwned),
     /// B016M Primitive, representing a B016M type
     B016M(B016M<'a>),
+    B016MOwned(B016MOwned),
 }
 
 impl EncodablePrimitive<'_> {
@@ -111,40 +96,22 @@ impl EncodablePrimitive<'_> {
             Self::Bool(v) => v.to_slice(dst),
             Self::U24(v) => v.to_slice(dst),
             Self::U256(v) => v.to_slice(dst),
+            Self::U256Owned(v) => v.to_slice(dst),
             Self::Mac(v) => v.to_slice(dst),
+            Self::MacOwned(v) => v.to_slice(dst),
             Self::Signature(v) => v.to_slice(dst),
+            Self::SignatureOwned(v) => v.to_slice(dst),
             Self::U32(v) => v.to_slice(dst),
             Self::F32(v) => v.to_slice(dst),
             Self::U64(v) => v.to_slice(dst),
             Self::B032(v) => v.to_slice(dst),
+            Self::B032Owned(v) => v.to_slice(dst),
             Self::B0255(v) => v.to_slice(dst),
+            Self::B0255Owned(v) => v.to_slice(dst),
             Self::B064K(v) => v.to_slice(dst),
+            Self::B064KOwned(v) => v.to_slice(dst),
             Self::B016M(v) => v.to_slice(dst),
-        }
-    }
-
-    // Write the encoded object into the provided writer.
-    //
-    // Serializes the object and writes it directly to the
-    // provided writer. It is only available in environments where `std`
-    // is available.
-    #[cfg(not(feature = "no_std"))]
-    pub fn write(&self, writer: &mut impl Write) -> Result<(), E> {
-        match self {
-            Self::U8(v) => v.to_writer_(writer),
-            Self::U16(v) => v.to_writer_(writer),
-            Self::Bool(v) => v.to_writer_(writer),
-            Self::U24(v) => v.to_writer_(writer),
-            Self::U256(v) => v.to_writer_(writer),
-            Self::Mac(v) => v.to_writer_(writer),
-            Self::Signature(v) => v.to_writer_(writer),
-            Self::U32(v) => v.to_writer_(writer),
-            Self::F32(v) => v.to_writer_(writer),
-            Self::U64(v) => v.to_writer_(writer),
-            Self::B032(v) => v.to_writer_(writer),
-            Self::B0255(v) => v.to_writer_(writer),
-            Self::B064K(v) => v.to_writer_(writer),
-            Self::B016M(v) => v.to_writer_(writer),
+            Self::B016MOwned(v) => v.to_slice(dst),
         }
     }
 }
@@ -158,15 +125,22 @@ impl GetSize for EncodablePrimitive<'_> {
             Self::Bool(v) => v.get_size(),
             Self::U24(v) => v.get_size(),
             Self::U256(v) => v.get_size(),
+            Self::U256Owned(v) => v.get_size(),
             Self::Mac(v) => v.get_size(),
+            Self::MacOwned(v) => v.get_size(),
             Self::Signature(v) => v.get_size(),
+            Self::SignatureOwned(v) => v.get_size(),
             Self::U32(v) => v.get_size(),
             Self::F32(v) => v.get_size(),
             Self::U64(v) => v.get_size(),
             Self::B032(v) => v.get_size(),
+            Self::B032Owned(v) => v.get_size(),
             Self::B0255(v) => v.get_size(),
+            Self::B0255Owned(v) => v.get_size(),
             Self::B064K(v) => v.get_size(),
+            Self::B064KOwned(v) => v.get_size(),
             Self::B016M(v) => v.get_size(),
+            Self::B016MOwned(v) => v.get_size(),
         }
     }
 }
@@ -206,19 +180,6 @@ impl EncodableField<'_> {
                 Ok(result)
             }
             (_, false) => Err(Error::WriteError(offset, dst.len())),
-        }
-    }
-
-    #[cfg(not(feature = "no_std"))]
-    pub fn to_writer(&self, writer: &mut impl Write) -> Result<(), E> {
-        match self {
-            Self::Primitive(p) => p.write(writer),
-            Self::Struct(ps) => {
-                for p in ps {
-                    p.to_writer(writer)?;
-                }
-                Ok(())
-            }
         }
     }
 }

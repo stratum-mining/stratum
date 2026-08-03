@@ -72,6 +72,26 @@ impl fmt::Display for SetCustomMiningJob<'_> {
     }
 }
 
+impl fmt::Display for SetCustomMiningJobOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SetCustomMiningJob(channel_id={}, request_id={}, token={}, version=0x{:08x}, prev_hash={}, min_ntime={}, nbits=0x{:08x}, coinbase_tx_version=0x{:08x}, coinbase_prefix={}, coinbase_tx_input_n_sequence=0x{:08x}, coinbase_tx_outputs={}, coinbase_tx_locktime={}, merkle_path={})",
+            self.channel_id,
+            self.request_id,
+            self.token.as_hex(),
+            self.version,
+            self.prev_hash,
+            self.min_ntime,
+            self.nbits,
+            self.coinbase_tx_version,
+            self.coinbase_prefix.as_hex(),
+            self.coinbase_tx_input_n_sequence,
+            self.coinbase_tx_outputs,
+            self.coinbase_tx_locktime,
+            self.merkle_path
+        )
+    }
+}
+
 /// Message used by upstream to accept [`SetCustomMiningJob`] request.
 ///
 /// Upon receiving this message, downstream can start submitting shares for this job immediately (by
@@ -85,6 +105,27 @@ pub struct SetCustomMiningJobSuccess {
     /// Upstream’s identification of the mining job.
     pub job_id: u32,
 }
+
+impl SetCustomMiningJobSuccess {
+    pub fn into_owned(self) -> SetCustomMiningJobSuccessOwned {
+        SetCustomMiningJobSuccessOwned {
+            channel_id: self.channel_id,
+            request_id: self.request_id,
+            job_id: self.job_id,
+        }
+    }
+
+    pub fn as_owned(&self) -> SetCustomMiningJobSuccessOwned {
+        SetCustomMiningJobSuccessOwned {
+            channel_id: self.channel_id,
+            request_id: self.request_id,
+            job_id: self.job_id,
+        }
+    }
+}
+
+/// Owned alias for [`SetCustomMiningJobSuccess`] because the message has no borrowed fields.
+pub type SetCustomMiningJobSuccessOwned = SetCustomMiningJobSuccess;
 
 impl fmt::Display for SetCustomMiningJobSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -124,6 +165,18 @@ pub struct SetCustomMiningJobError<'decoder> {
 }
 
 impl fmt::Display for SetCustomMiningJobError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetCustomMiningJobError(channel_id={}, request_id={}, error_code={})",
+            self.channel_id,
+            self.request_id,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
+}
+
+impl fmt::Display for SetCustomMiningJobErrorOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

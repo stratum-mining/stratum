@@ -1,4 +1,4 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::vec::Vec;
 use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
 use core::{convert::TryInto, fmt};
 /// Message used by a downstream to request opening a Standard Channel.
@@ -49,7 +49,30 @@ impl fmt::Display for OpenStandardMiningChannel<'_> {
     }
 }
 
+impl fmt::Display for OpenStandardMiningChannelOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenStandardMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {})",
+            self.request_id,
+            self.user_identity.as_utf8_or_hex(),
+            self.nominal_hash_rate,
+            self.max_target
+        )
+    }
+}
+
 impl OpenStandardMiningChannel<'_> {
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        self.request_id
+    }
+
+    pub fn update_id(&mut self, new_id: u32) {
+        self.request_id = new_id;
+    }
+}
+
+impl OpenStandardMiningChannelOwned {
     pub fn get_request_id_as_u32(&self) -> u32 {
         self.request_id
     }
@@ -95,7 +118,31 @@ impl fmt::Display for OpenStandardMiningChannelSuccess<'_> {
     }
 }
 
+impl fmt::Display for OpenStandardMiningChannelSuccessOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenStandardMiningChannelSuccess(request_id: {}, channel_id: {}, target: {}, extranonce_prefix: {}, group_channel_id: {})",
+            self.request_id,
+            self.channel_id,
+            self.target,
+            self.extranonce_prefix,
+            self.group_channel_id
+        )
+    }
+}
+
 impl OpenStandardMiningChannelSuccess<'_> {
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        self.request_id
+    }
+
+    pub fn update_id(&mut self, new_id: u32) {
+        self.request_id = new_id;
+    }
+}
+
+impl OpenStandardMiningChannelSuccessOwned {
     pub fn get_request_id_as_u32(&self) -> u32 {
         self.request_id
     }
@@ -159,7 +206,27 @@ impl fmt::Display for OpenExtendedMiningChannel<'_> {
     }
 }
 
+impl fmt::Display for OpenExtendedMiningChannelOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenExtendedMiningChannel(request_id: {}, user_identity: {}, nominal_hash_rate: {}, max_target: {}, min_extranonce_size: {})",
+            self.request_id,
+            self.user_identity.as_utf8_or_hex(),
+            self.nominal_hash_rate,
+            self.max_target,
+            self.min_extranonce_size
+        )
+    }
+}
+
 impl OpenExtendedMiningChannel<'_> {
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        self.request_id
+    }
+}
+
+impl OpenExtendedMiningChannelOwned {
     pub fn get_request_id_as_u32(&self) -> u32 {
         self.request_id
     }
@@ -188,6 +255,21 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
 }
 
 impl fmt::Display for OpenExtendedMiningChannelSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenExtendedMiningChannelSuccess(request_id: {}, channel_id: {}, target: {}, extranonce_size: {}, extranonce_prefix: {}, group_channel_id: {})",
+            self.request_id,
+            self.channel_id,
+            self.target,
+            self.extranonce_size,
+            self.extranonce_prefix,
+            self.group_channel_id,
+        )
+    }
+}
+
+impl fmt::Display for OpenExtendedMiningChannelSuccessOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -237,12 +319,22 @@ impl fmt::Display for OpenMiningChannelError<'_> {
     }
 }
 
+impl fmt::Display for OpenMiningChannelErrorOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OpenMiningChannelError(request_id: {}, error_code: {})",
+            self.request_id,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
+}
+
 impl OpenMiningChannelError<'_> {
     pub fn new_max_target_out_of_range(request_id: u32) -> Self {
         Self {
             request_id,
             error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_MAX_TARGET_OUT_OF_RANGE
-                .to_string()
                 .try_into()
                 .unwrap(),
         }
@@ -251,7 +343,6 @@ impl OpenMiningChannelError<'_> {
         Self {
             request_id,
             error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_UNSUPPORTED_MIN_EXTRANONCE_SIZE
-                .to_string()
                 .try_into()
                 .unwrap(),
         }
@@ -260,7 +351,33 @@ impl OpenMiningChannelError<'_> {
         Self {
             request_id,
             error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_UNKNOWN_USER
-                .to_string()
+                .try_into()
+                .unwrap(),
+        }
+    }
+}
+
+impl OpenMiningChannelErrorOwned {
+    pub fn new_max_target_out_of_range(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_MAX_TARGET_OUT_OF_RANGE
+                .try_into()
+                .unwrap(),
+        }
+    }
+    pub fn unsupported_extranonce_size(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_UNSUPPORTED_MIN_EXTRANONCE_SIZE
+                .try_into()
+                .unwrap(),
+        }
+    }
+    pub fn new_unknown_user(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: crate::ERROR_CODE_OPEN_MINING_CHANNEL_UNKNOWN_USER
                 .try_into()
                 .unwrap(),
         }
@@ -294,17 +411,17 @@ mod tests {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let mut osmc = OpenStandardMiningChannel {
             request_id,
-            user_identity: Str0255::try_from(user_identity.clone())
+            user_identity: Str0255::try_from(user_identity.as_str())
                 .expect("could not convert string to Str0255"),
             nominal_hash_rate,
-            max_target: U256::from(max_target),
+            max_target: U256::try_from(&max_target[..]).expect("U256 is exactly 32 bytes"),
         };
         let test_request_id_1 = osmc.get_request_id_as_u32();
         osmc.update_id(new_request_id);
         let test_request_id_2 = osmc.get_request_id_as_u32();
         request_id == test_request_id_1
             && new_request_id == test_request_id_2
-            && helpers::compare_static_osmc(osmc)
+            && helpers::compare_owned_osmc(osmc)
     }
 
     #[quickcheck_macros::quickcheck]
@@ -321,8 +438,8 @@ mod tests {
         let mut osmcs = OpenStandardMiningChannelSuccess {
             request_id,
             channel_id,
-            target: U256::from(target),
-            extranonce_prefix: B032::try_from(extranonce_prefix).unwrap(),
+            target: U256::try_from(&target[..]).expect("U256 is exactly 32 bytes"),
+            extranonce_prefix: B032::try_from(&extranonce_prefix[..]).unwrap(),
             group_channel_id,
         };
         let test_request_id_1 = osmcs.get_request_id_as_u32();
@@ -342,10 +459,10 @@ mod tests {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let oemc = OpenExtendedMiningChannel {
             request_id,
-            user_identity: Str0255::try_from(user_identity.clone())
+            user_identity: Str0255::try_from(user_identity.as_str())
                 .expect("could not convert string to Str0255"),
             nominal_hash_rate,
-            max_target: U256::from(max_target),
+            max_target: U256::try_from(&max_target[..]).expect("U256 is exactly 32 bytes"),
             min_extranonce_size,
         };
         let test_request_id_1 = oemc.get_request_id_as_u32();
@@ -355,13 +472,13 @@ mod tests {
     // *** HELPERS ***
     mod helpers {
         use super::*;
-        pub fn compare_static_osmc(osmc: OpenStandardMiningChannel) -> bool {
-            let static_osmc = OpenStandardMiningChannel::into_static(osmc.clone());
-            static_osmc.request_id == osmc.request_id
-                && static_osmc.user_identity == osmc.user_identity
-                && static_osmc.nominal_hash_rate.to_ne_bytes()
+        pub fn compare_owned_osmc(osmc: OpenStandardMiningChannel) -> bool {
+            let owned_osmc = OpenStandardMiningChannel::into_owned(osmc.clone());
+            owned_osmc.request_id == osmc.request_id
+                && owned_osmc.user_identity == osmc.user_identity.into_owned()
+                && owned_osmc.nominal_hash_rate.to_ne_bytes()
                     == osmc.nominal_hash_rate.to_ne_bytes()
-                && static_osmc.max_target == osmc.max_target
+                && owned_osmc.max_target == osmc.max_target.into_owned()
         }
     }
 

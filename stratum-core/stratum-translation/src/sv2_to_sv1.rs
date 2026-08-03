@@ -11,7 +11,7 @@
 use crate::error::{Result, StratumTranslationError};
 use bitcoin::Target;
 use channels_sv2::bip141::try_strip_bip141;
-use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget};
+use mining_sv2::{NewExtendedMiningJobOwned, SetNewPrevHashOwned, SetTargetOwned};
 use serde_json::Value;
 use tracing::debug;
 use v1::{
@@ -33,50 +33,46 @@ use v1::{
 ///   block is found).
 ///
 /// # Returns
-/// * `Ok(server_to_client::Notify<'static>)` - The constructed SV1 mining.notify message.
+/// * `Ok(server_to_client::Notify)` - The constructed SV1 mining.notify message.
 /// * `Err(StratumTranslationError)` - If BIP141 stripping or serialization fails.
 ///
 /// # Errors
 /// * `FailedToTryToStripBip141` - When BIP141 data stripping fails
 /// * `FailedToSerializeToB064K` - When serializing stripped data to B064K format fails
 pub fn build_sv1_notify_from_sv2(
-    new_prev_hash: SetNewPrevHash<'static>,
-    new_job: NewExtendedMiningJob<'static>,
+    new_prev_hash: SetNewPrevHashOwned,
+    mut new_job: NewExtendedMiningJobOwned,
     clean_jobs: bool,
-) -> Result<server_to_client::Notify<'static>> {
-    let new_job = match try_strip_bip141(
+) -> Result<server_to_client::Notify> {
+    if let Some((coinbase_tx_prefix_stripped, coinbase_tx_suffix_stripped)) = try_strip_bip141(
         new_job.coinbase_tx_prefix.as_bytes(),
         new_job.coinbase_tx_suffix.as_bytes(),
     )
     .map_err(StratumTranslationError::FailedToTryToStripBip141)?
     {
-        Some((coinbase_tx_prefix_stripped, coinbase_tx_suffix_stripped)) => {
-            // Create a new job with stripped BIP141 data
-            let mut new_job_stripped = new_job.clone();
-            new_job_stripped.coinbase_tx_prefix = coinbase_tx_prefix_stripped
-                .try_into()
-                .map_err(|_| StratumTranslationError::FailedToSerializeToB064K)?;
-            new_job_stripped.coinbase_tx_suffix = coinbase_tx_suffix_stripped
-                .try_into()
-                .map_err(|_| StratumTranslationError::FailedToSerializeToB064K)?;
-            new_job_stripped
-        }
-        None => new_job,
-    };
+        new_job.coinbase_tx_prefix = coinbase_tx_prefix_stripped
+            .try_into()
+            .map_err(|_| StratumTranslationError::FailedToSerializeToB064K)?;
+        new_job.coinbase_tx_suffix = coinbase_tx_suffix_stripped
+            .try_into()
+            .map_err(|_| StratumTranslationError::FailedToSerializeToB064K)?;
+    }
 
     let job_id = new_job.job_id.to_string();
-    let prev_hash = PrevHash(new_prev_hash.prev_hash.clone());
+    let prev_hash = PrevHash(new_prev_hash.prev_hash);
     let coin_base1 = new_job.coinbase_tx_prefix.to_owned_bytes().into();
     let coin_base2 = new_job.coinbase_tx_suffix.to_owned_bytes().into();
-    let merkle_path = new_job.merkle_path.clone().into_static().into_inner();
+    let merkle_path = new_job.merkle_path.clone().into_inner();
     let merkle_branch: Vec<MerkleNode> = merkle_path.into_iter().map(MerkleNode).collect();
     let version = HexU32Be(new_job.version);
     let bits = HexU32Be(new_prev_hash.nbits);
-    let time = HexU32Be(if new_job.is_future() {
-        new_prev_hash.min_ntime
-    } else {
-        new_job.min_ntime.clone().into_inner().unwrap()
-    });
+    let time = HexU32Be(
+        new_job
+            .min_ntime
+            .clone()
+            .into_inner()
+            .unwrap_or(new_prev_hash.min_ntime),
+    );
 
     let notify_response = server_to_client::Notify {
         job_id,
@@ -101,7 +97,7 @@ pub fn build_sv1_notify_from_sv2(
 /// # Returns
 /// * `Ok(json_rpc::Message)` - The constructed SV1 mining.set_difficulty message.
 pub fn build_sv1_set_difficulty_from_sv2_set_target(
-    set_target: SetTarget<'_>,
+    set_target: SetTargetOwned,
 ) -> Result<json_rpc::Message> {
     build_sv1_set_difficulty_from_sv2_target(Target::from_le_bytes(
         set_target
@@ -261,9 +257,12 @@ fn build_sv1_set_difficulty_notification(value: Value) -> json_rpc::Message {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use binary_sv2::{Seq0255, Sv2Option, U256};
+    use binary_sv2::{Seq0255Owned as Seq0255, Sv2OptionOwned as Sv2Option, U256Owned as U256};
     use bitcoin::{CompactTarget, Target};
-    use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SetTarget as Sv2SetTarget};
+    use mining_sv2::{
+        NewExtendedMiningJobOwned as NewExtendedMiningJob, SetNewPrevHashOwned as SetNewPrevHash,
+        SetTargetOwned as Sv2SetTarget,
+    };
 
     fn dummy_target() -> Target {
         Target::from_le_bytes([0xffu8; 32])
@@ -486,7 +485,7 @@ mod tests {
             .unwrap(),
         };
 
-        let res = build_sv1_notify_from_sv2(new_prev.into_static(), job.into_static(), true);
+        let res = build_sv1_notify_from_sv2(new_prev, job, true);
         assert!(res.is_ok());
 
         // Verify it uses prev_hash.min_ntime since job is future
@@ -535,7 +534,7 @@ mod tests {
             .unwrap(),
         };
 
-        let res = build_sv1_notify_from_sv2(new_prev.into_static(), job.into_static(), false);
+        let res = build_sv1_notify_from_sv2(new_prev, job, false);
         assert!(res.is_ok());
 
         // Verify the notify message structure for non-future job

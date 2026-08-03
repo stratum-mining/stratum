@@ -34,3 +34,13 @@ impl fmt::Display for SetGroupChannel<'_> {
         )
     }
 }
+
+impl fmt::Display for SetGroupChannelOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetGroupChannel(group_channel_id={}, channel_ids={})",
+            self.group_channel_id, self.channel_ids
+        )
+    }
+}

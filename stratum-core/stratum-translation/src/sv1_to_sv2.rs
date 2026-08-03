@@ -1,6 +1,6 @@
 use crate::error::{Result, StratumTranslationError};
 use bitcoin::Target;
-use mining_sv2::{OpenExtendedMiningChannel, SubmitSharesExtended};
+use mining_sv2::{OpenExtendedMiningChannelOwned, SubmitSharesExtendedOwned};
 use v1::{client_to_server, utils::HexU32Be};
 
 /// Builds an SV2 `OpenExtendedMiningChannel` message from the provided inputs.
@@ -21,8 +21,8 @@ pub fn build_sv2_open_extended_mining_channel(
     nominal_hash_rate: f32,
     max_target: Target,
     min_extranonce_size: u16,
-) -> Result<OpenExtendedMiningChannel<'static>> {
-    Ok(OpenExtendedMiningChannel {
+) -> Result<OpenExtendedMiningChannelOwned> {
+    Ok(OpenExtendedMiningChannelOwned {
         request_id,
         user_identity: user_identity
             .clone()
@@ -48,12 +48,12 @@ pub fn build_sv2_open_extended_mining_channel(
 /// * `Ok(SubmitSharesExtended)` if the conversion is successful.
 /// * `Err(())` if any required field is missing or conversion fails.
 pub fn build_sv2_submit_shares_extended_from_sv1_submit(
-    submit: &client_to_server::Submit<'_>,
+    submit: &client_to_server::Submit,
     channel_id: u32,
     sequence_number: u32,
     job_version: u32,
     version_rolling_mask: Option<HexU32Be>,
-) -> Result<SubmitSharesExtended<'static>> {
+) -> Result<SubmitSharesExtendedOwned> {
     let version = match (submit.version_bits.clone(), version_rolling_mask) {
         (Some(version_bits), Some(rolling_mask)) => {
             (job_version & !rolling_mask.0) | (version_bits.0 & rolling_mask.0)
@@ -63,7 +63,7 @@ pub fn build_sv2_submit_shares_extended_from_sv1_submit(
     };
 
     let extranonce: Vec<u8> = submit.extra_nonce2.clone().into();
-    let submit_share_extended = SubmitSharesExtended {
+    let submit_share_extended = SubmitSharesExtendedOwned {
         channel_id,
         sequence_number,
         job_id: submit
@@ -85,7 +85,7 @@ mod tests {
     use super::*;
     use v1::{client_to_server::Submit, utils::HexU32Be};
 
-    fn submit_template() -> Submit<'static> {
+    fn submit_template() -> Submit {
         Submit {
             user_name: "w".to_string(),
             job_id: "1".to_string(),

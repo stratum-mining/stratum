@@ -24,13 +24,13 @@ pub mod factory;
 pub(crate) mod job_store;
 pub mod standard;
 
-use mining_sv2::SetCustomMiningJob;
-use template_distribution_sv2::NewTemplate;
+use mining_sv2::SetCustomMiningJobOwned;
+use template_distribution_sv2::NewTemplateOwned;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum JobOrigin<'a> {
-    NewTemplate(NewTemplate<'a>),
-    SetCustomMiningJob(SetCustomMiningJob<'a>),
+pub enum JobOrigin {
+    NewTemplate(NewTemplateOwned),
+    SetCustomMiningJob(SetCustomMiningJobOwned),
 }
 
 /// Trait for mining job types in SV2 mining servers.

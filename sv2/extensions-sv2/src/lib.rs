@@ -33,9 +33,9 @@ pub mod worker_specific_hashrate_tracking;
 
 // Re-export commonly used items from extensions_negotiation
 pub use extensions_negotiation::{
-    RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess,
-    CHANNEL_BIT_REQUEST_EXTENSIONS, CHANNEL_BIT_REQUEST_EXTENSIONS_ERROR,
-    CHANNEL_BIT_REQUEST_EXTENSIONS_SUCCESS,
+    RequestExtensions, RequestExtensionsError, RequestExtensionsErrorOwned, RequestExtensionsOwned,
+    RequestExtensionsSuccess, RequestExtensionsSuccessOwned, CHANNEL_BIT_REQUEST_EXTENSIONS,
+    CHANNEL_BIT_REQUEST_EXTENSIONS_ERROR, CHANNEL_BIT_REQUEST_EXTENSIONS_SUCCESS,
     EXTENSION_TYPE as EXTENSION_TYPE_EXTENSIONS_NEGOTIATION, MESSAGE_TYPE_REQUEST_EXTENSIONS,
     MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR, MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS,
 };

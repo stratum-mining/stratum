@@ -25,6 +25,17 @@ impl fmt::Display for AllocateMiningJobToken<'_> {
     }
 }
 
+impl fmt::Display for AllocateMiningJobTokenOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "AllocateMiningJobToken(user_identifier: {}, request_id: {})",
+            self.user_identifier.as_utf8_or_hex(),
+            self.request_id
+        )
+    }
+}
+
 /// Message used by JDS to accept [`AllocateMiningJobToken`] message.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -41,6 +52,18 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
 }
 
 impl fmt::Display for AllocateMiningJobTokenSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "AllocateMiningJobTokenSuccess(request_id: {}, mining_job_token: {}, coinbase_outputs: {})",
+            self.request_id,
+            self.mining_job_token.as_hex(),
+            self.coinbase_outputs
+        )
+    }
+}
+
+impl fmt::Display for AllocateMiningJobTokenSuccessOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

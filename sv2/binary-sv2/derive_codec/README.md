@@ -12,7 +12,7 @@
 
 - **Automatic Encoding and Decoding**: Derives methods for converting structs to and from binary format, reducing boilerplate code for data    structures used in Sv2.
 - **Attribute-Based Configuration**: Supports `#[already_sized]` attribute for marking fixed-size structs, enabling optimizations in binary handling.
-- **Flexible Field Parsing**: Allows parsing of fields with lifetimes, generics, and static references, enhancing compatibility with various protocol requirements.
+- **Flexible Field Parsing**: Allows parsing of fields with lifetimes and generics, with owned variants for decoded data that needs to outlive the input buffer.
 - **Custom Size Calculation**: Provides field-specific size calculation through the derived `GetSize` trait, helpful for dynamic protocol message framing.
 
 ## Usage

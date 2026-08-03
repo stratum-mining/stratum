@@ -44,7 +44,7 @@ use core::convert::TryInto;
 //         }
 //     }
 //     impl<'decoder> Test {
-//         pub fn into_static(self) -> Test {
+//         pub fn into_owned(self) -> Test {
 //             Test {
 //                 a: self.a.clone(),
 //                 b: self.b.clone(),
@@ -53,7 +53,7 @@ use core::convert::TryInto;
 //         }
 //     }
 //     impl<'decoder> Test {
-//         pub fn as_static(&self) -> Test {
+//         pub fn as_owned(&self) -> Test {
 //             Test {
 //                 a: self.a.clone(),
 //                 b: self.b.clone(),

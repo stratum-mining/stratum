@@ -35,23 +35,22 @@ mod non_copy_data_types;
 mod copy_data_types;
 use crate::codec::decodable::FieldMarker;
 pub use copy_data_types::U24;
+pub(crate) use non_copy_data_types::Inner;
 pub use non_copy_data_types::{
-    Inner, Mac, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2Option, B016M, B0255, B032, B064K,
-    U256,
+    B016MOwned, B0255Owned, B032Owned, B064KOwned, Mac, MacOwned, PubKey, PubKeyOwned, Seq0255,
+    Seq0255Owned, Seq064K, Seq064KOwned, Signature, SignatureOwned, Str0255, Str0255Owned,
+    Sv2Option, Sv2OptionOwned, U256Owned, B016M, B0255, B032, B064K, U256,
 };
 
 use alloc::vec::Vec;
 use core::convert::TryInto;
-#[cfg(not(feature = "no_std"))]
-use std::io::{Error as E, Read, Write};
 
 /// `Sv2DataType` is a trait that defines methods for encoding and decoding Stratum V2 data.
 /// It is used for serializing and deserializing both fixed-size and dynamically-sized types.
 ///
 /// Key Responsibilities:
-/// - Serialization: Converting data from in-memory representations to byte slices or streams.
-/// - Deserialization: Converting byte slices or streams back into the in-memory representation of
-///   the data.
+/// - Serialization: Converting data from in-memory representations to byte slices.
+/// - Deserialization: Converting byte slices back into the in-memory representation of the data.
 ///
 pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     /// Creates an instance of the type from a mutable byte slice, checking for size constraints.
@@ -60,14 +59,6 @@ pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     /// type's size hint.
     fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error>;
 
-    // Constructs an instance from a reader source, checking for size constraints.
-    #[cfg(not(feature = "no_std"))]
-    fn from_reader_(reader: &mut impl Read) -> Result<Self, Error>;
-
     /// Serializes the instance to a mutable slice, checking the destination size.
     fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error>;
-
-    // Serializes the instance to a writer destination, checking for I/O errors.
-    #[cfg(not(feature = "no_std"))]
-    fn to_writer_(&self, writer: &mut impl Write) -> Result<(), E>;
 }

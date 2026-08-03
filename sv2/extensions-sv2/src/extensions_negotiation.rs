@@ -55,6 +55,16 @@ impl fmt::Display for RequestExtensions<'_> {
     }
 }
 
+impl fmt::Display for RequestExtensionsOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestExtensions(request_id: {}, requested_extensions: {})",
+            self.request_id, self.requested_extensions
+        )
+    }
+}
+
 /// Message used by server to accept an extensions request.
 ///
 /// This message is sent in response to a RequestExtensions message to indicate
@@ -76,6 +86,16 @@ pub struct RequestExtensionsSuccess<'decoder> {
 }
 
 impl fmt::Display for RequestExtensionsSuccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestExtensions.Success(request_id: {}, supported_extensions: {})",
+            self.request_id, self.supported_extensions
+        )
+    }
+}
+
+impl fmt::Display for RequestExtensionsSuccessOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -112,6 +132,16 @@ pub struct RequestExtensionsError<'decoder> {
 }
 
 impl fmt::Display for RequestExtensionsError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestExtensions.Error(request_id: {}, unsupported: {}, required: {})",
+            self.request_id, self.unsupported_extensions, self.required_extensions
+        )
+    }
+}
+
+impl fmt::Display for RequestExtensionsErrorOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

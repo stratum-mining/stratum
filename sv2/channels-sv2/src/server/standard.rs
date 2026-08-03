@@ -58,13 +58,13 @@ use bitcoin::{
     CompactTarget, Sequence, Target,
 };
 use mining_sv2::{
-    SubmitSharesStandard, ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
+    SubmitSharesStandardOwned, ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
     ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW, ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
     ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
     ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE,
 };
-use std::{collections::HashMap, marker::PhantomData};
-use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
+use std::collections::HashMap;
+use template_distribution_sv2::{NewTemplateOwned, SetNewPrevHashOwned as SetNewPrevHash};
 use tracing::debug;
 
 /// Abstraction of a Sv2 Standard Channel.
@@ -84,7 +84,7 @@ use tracing::debug;
 /// - the channel's job factory
 /// - the channel's chain tip
 #[derive(Debug)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel {
     pub channel_id: u32,
     user_identity: String,
     extranonce_prefix: ExtranoncePrefix,
@@ -95,13 +95,12 @@ pub struct StandardChannel<'a> {
     stable_hashrate: bool,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
-    job_store: JobStore<StandardJob<'a>>,
+    job_store: JobStore<StandardJob>,
     job_factory: JobFactory,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl StandardChannel {
     /// Constructor of `StandardChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -229,7 +228,6 @@ impl<'a> StandardChannel<'a> {
             job_store: JobStore::new(),
             job_factory: JobFactory::new(true, pool_tag_string, miner_tag_string),
             chain_tip: None,
-            phantom: PhantomData,
         })
     }
 
@@ -372,7 +370,7 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&StandardJob> {
         self.job_store.get_active_job()
     }
     /// Returns the job ID for a future job from a template ID, if any.
@@ -382,17 +380,17 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns a reference to a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob> {
         self.job_store.get_future_job(job_id)
     }
 
     /// Returns a reference to a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob> {
         self.job_store.get_past_job(job_id)
     }
 
     /// Returns a reference to a stale job from its job ID, if any.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob> {
         self.job_store.get_stale_job(job_id)
     }
 
@@ -430,7 +428,7 @@ impl<'a> StandardChannel<'a> {
     /// instead.
     pub fn on_new_template(
         &mut self,
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         coinbase_reward_outputs: Vec<TxOut>,
     ) -> Result<(), StandardChannelError> {
         match template.future_template {
@@ -484,7 +482,7 @@ impl<'a> StandardChannel<'a> {
     /// was broadcasted to the group channel.
     pub fn on_group_channel_job(
         &mut self,
-        extended_job: ExtendedJob<'a>,
+        extended_job: ExtendedJob,
     ) -> Result<(), StandardChannelError> {
         let standard_job = extended_job
             .into_standard_job(self.channel_id, self.extranonce_prefix.as_bytes().to_vec())
@@ -516,7 +514,7 @@ impl<'a> StandardChannel<'a> {
     /// All past jobs are cleared.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHash<'a>,
+        set_new_prev_hash: SetNewPrevHash,
     ) -> Result<(), StandardChannelError> {
         match self.job_store.has_future_jobs() {
             false => {
@@ -560,7 +558,7 @@ impl<'a> StandardChannel<'a> {
     /// error if the share is stale or does not meet target.
     pub fn validate_share(
         &mut self,
-        share: SubmitSharesStandard,
+        share: SubmitSharesStandardOwned,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -752,13 +750,16 @@ mod tests {
             standard::StandardChannel,
         },
     };
-    use binary_sv2::Sv2Option;
+    use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
     use mining_sv2::{
-        NewMiningJob, SubmitSharesStandard, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+        NewMiningJobOwned as NewMiningJob, SubmitSharesStandardOwned,
+        ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
     };
     use std::convert::TryInto;
-    use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
+    use template_distribution_sv2::{
+        NewTemplateOwned as NewTemplate, SetNewPrevHashOwned as SetNewPrevHashTdp,
+    };
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
 
@@ -1073,7 +1074,7 @@ mod tests {
         // this share has hash 3c34f63de61283c907b68e3127146d7d11f1fb14e50020a8317a292d11e2dab6
         // which satisfied the network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
-        let share_valid_block = SubmitSharesStandard {
+        let share_valid_block = SubmitSharesStandardOwned {
             channel_id: standard_channel_id,
             sequence_number: 0,
             job_id: active_standard_job.get_job_id(),
@@ -1193,7 +1194,7 @@ mod tests {
         // this share has hash a5b65006d89dab9de2b23ececd3b0435f163607f7da1ba2f0bcde62b29e8cd44
         // which does not meet the channel target
         // 000aebbc990fff5144366f000aebbc990fff5144366f000aebbc990fff514435
-        let share_low_diff = SubmitSharesStandard {
+        let share_low_diff = SubmitSharesStandardOwned {
             channel_id: standard_channel_id,
             sequence_number: 0,
             job_id: active_standard_job.get_job_id(),
@@ -1306,7 +1307,7 @@ mod tests {
         // 0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205
         // but does not meet network target
         // 000000000000d7c0000000000000000000000000000000000000000000000000
-        let valid_share = SubmitSharesStandard {
+        let valid_share = SubmitSharesStandardOwned {
             channel_id: standard_channel_id,
             sequence_number: 1,
             job_id: 1,
@@ -1595,7 +1596,7 @@ mod tests {
         // missing job_id_to_target entry. The share itself does not meet target, so we
         // expect DoesNotMeetTarget — the load-bearing assertion is that it returns
         // without panicking.
-        let share_low_diff = SubmitSharesStandard {
+        let share_low_diff = SubmitSharesStandardOwned {
             channel_id: standard_channel_id,
             sequence_number: 0,
             job_id: active_job_id,

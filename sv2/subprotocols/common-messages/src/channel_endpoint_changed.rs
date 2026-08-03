@@ -17,6 +17,21 @@ pub struct ChannelEndpointChanged {
     pub channel_id: u32,
 }
 
+impl ChannelEndpointChanged {
+    pub fn into_owned(self) -> ChannelEndpointChangedOwned {
+        ChannelEndpointChangedOwned {
+            channel_id: self.channel_id,
+        }
+    }
+
+    pub fn as_owned(&self) -> ChannelEndpointChangedOwned {
+        (*self).into_owned()
+    }
+}
+
+/// Owned alias for [`ChannelEndpointChanged`] because the message has no borrowed fields.
+pub type ChannelEndpointChangedOwned = ChannelEndpointChanged;
+
 impl fmt::Display for ChannelEndpointChanged {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ChannelEndpointChanged(channel_id: {})", self.channel_id)

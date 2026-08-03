@@ -31,6 +31,22 @@ pub struct CoinbaseOutputConstraints {
     pub coinbase_output_max_additional_sigops: u16,
 }
 
+impl CoinbaseOutputConstraints {
+    pub fn into_owned(self) -> CoinbaseOutputConstraintsOwned {
+        CoinbaseOutputConstraintsOwned {
+            coinbase_output_max_additional_size: self.coinbase_output_max_additional_size,
+            coinbase_output_max_additional_sigops: self.coinbase_output_max_additional_sigops,
+        }
+    }
+
+    pub fn as_owned(&self) -> CoinbaseOutputConstraintsOwned {
+        (*self).into_owned()
+    }
+}
+
+/// Owned alias for [`CoinbaseOutputConstraints`] because the message has no borrowed fields.
+pub type CoinbaseOutputConstraintsOwned = CoinbaseOutputConstraints;
+
 impl fmt::Display for CoinbaseOutputConstraints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

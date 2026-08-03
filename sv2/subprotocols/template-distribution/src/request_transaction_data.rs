@@ -16,6 +16,21 @@ pub struct RequestTransactionData {
     pub template_id: u64,
 }
 
+impl RequestTransactionData {
+    pub fn into_owned(self) -> RequestTransactionDataOwned {
+        RequestTransactionDataOwned {
+            template_id: self.template_id,
+        }
+    }
+
+    pub fn as_owned(&self) -> RequestTransactionDataOwned {
+        (*self).into_owned()
+    }
+}
+
+/// Owned alias for [`RequestTransactionData`] because the message has no borrowed fields.
+pub type RequestTransactionDataOwned = RequestTransactionData;
+
 impl fmt::Display for RequestTransactionData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -79,6 +94,16 @@ impl fmt::Display for RequestTransactionDataSuccess<'_> {
     }
 }
 
+impl fmt::Display for RequestTransactionDataSuccessOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestTransactionDataSuccess(template_id: {}, excess_data: {}, transaction_list: {})",
+            self.template_id, self.excess_data, self.transaction_list
+        )
+    }
+}
+
 /// Message used by an upstream(Template Provider) to respond with an error to a
 /// [`RequestTransactionData`] message.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -94,6 +119,17 @@ pub struct RequestTransactionDataError<'decoder> {
 }
 
 impl fmt::Display for RequestTransactionDataError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RequestTransactionDataError(template_id: {}, error_code: {})",
+            self.template_id,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
+}
+
+impl fmt::Display for RequestTransactionDataErrorOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

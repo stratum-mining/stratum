@@ -31,6 +31,17 @@ impl fmt::Display for Reconnect<'_> {
     }
 }
 
+impl fmt::Display for ReconnectOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Reconnect(new_host: {}, new_port: {})",
+            self.new_host.as_utf8_or_hex(),
+            self.new_port
+        )
+    }
+}
+
 impl PartialEq for Reconnect<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.new_host.as_ref() == other.new_host.as_ref() && self.new_port == other.new_port

@@ -49,3 +49,17 @@ impl fmt::Display for SubmitSolution<'_> {
         )
     }
 }
+
+impl fmt::Display for SubmitSolutionOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSolution {{ template_id: {}, version: 0x{:08x}, header_timestamp: {}, header_nonce: 0x{:08x}, coinbase_tx: {} }}",
+            self.template_id,
+            self.version,
+            self.header_timestamp,
+            self.header_nonce,
+            self.coinbase_tx
+        )
+    }
+}

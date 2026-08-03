@@ -34,12 +34,8 @@
 //   a custom deserialization process that interprets field markers.
 // - `impl_into_encodable_field_for_seq!`: Implements conversions to `EncodableField` for a
 //   sequence, adapting the sequence for inclusion in serialized structures.
-//
-// ## Build Options
-//
-// - `no_std`: Allows the module to be used in `no_std` environments by disabling `std::io::Read`
-//   dependencies.
 
+use super::inner::{Inner, InnerOwned};
 use crate::{
     codec::{
         decodable::{Decodable, DecodableField, FieldMarker, GetMarker, PrimitiveMarker},
@@ -60,6 +56,15 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq0255Owned<InnerOwned<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    /// Iterates over element payload bytes without allocating.
+    pub fn iter_bytes(&self) -> impl Iterator<Item = &[u8]> {
+        self.0.iter().map(|x| x.as_bytes())
+    }
+}
+
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq064K<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
@@ -69,8 +74,14 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-#[cfg(not(feature = "no_std"))]
-use std::io::Read;
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq064KOwned<InnerOwned<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    /// Iterates over element payload bytes without allocating.
+    pub fn iter_bytes(&self) -> impl Iterator<Item = &[u8]> {
+        self.0.iter().map(|x| x.as_bytes())
+    }
+}
 
 /// [`Seq0255`] represents a sequence with a maximum length of 255 elements.
 /// This structure uses a generic type `T` and a lifetime parameter `'a`.
@@ -78,7 +89,17 @@ use std::io::Read;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Seq0255<'a, T>(Vec<T>, PhantomData<&'a T>);
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Seq0255Owned<T>(Vec<T>);
+
 impl<'a, T> Index<usize> for Seq0255<'a, T> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl<T> Index<usize> for Seq0255Owned<T> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
@@ -132,8 +153,58 @@ impl<'a, T: 'a> Seq0255<'a, T> {
     }
 }
 
+impl<T> Seq0255Owned<T> {
+    const HEADERSIZE: usize = 1;
+
+    fn expected_len(data: &[u8]) -> Result<usize, Error> {
+        if data.len() >= Self::HEADERSIZE {
+            Ok(data[0] as usize)
+        } else {
+            Err(Error::ReadError(data.len(), Self::HEADERSIZE))
+        }
+    }
+
+    pub fn new(inner: Vec<T>) -> Result<Self, Error> {
+        if inner.len() <= 255 {
+            Ok(Self(inner))
+        } else {
+            Err(Error::SeqExceedsMaxSize)
+        }
+    }
+
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    pub fn iter(&self) -> slice::Iter<'_, T> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 impl<T: GetSize> GetSize for Seq0255<'_, T> {
     // Calculates the total size of the sequence in bytes.
+    fn get_size(&self) -> usize {
+        let mut size = Self::HEADERSIZE;
+        for with_size in &self.0 {
+            size += with_size.get_size()
+        }
+        size
+    }
+}
+
+impl<T: GetSize> GetSize for Seq0255Owned<T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
@@ -148,7 +219,17 @@ impl<T: GetSize> GetSize for Seq0255<'_, T> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Seq064K<'a, T>(Vec<T>, PhantomData<&'a T>);
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Seq064KOwned<T>(Vec<T>);
+
 impl<'a, T> Index<usize> for Seq064K<'a, T> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl<T> Index<usize> for Seq064KOwned<T> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
@@ -202,7 +283,57 @@ impl<'a, T: 'a> Seq064K<'a, T> {
     }
 }
 
+impl<T> Seq064KOwned<T> {
+    const HEADERSIZE: usize = 2;
+
+    fn expected_len(data: &[u8]) -> Result<usize, Error> {
+        if data.len() >= Self::HEADERSIZE {
+            Ok(u16::from_le_bytes([data[0], data[1]]) as usize)
+        } else {
+            Err(Error::ReadError(data.len(), Self::HEADERSIZE))
+        }
+    }
+
+    pub fn new(inner: Vec<T>) -> Result<Self, Error> {
+        if inner.len() <= 65535 {
+            Ok(Self(inner))
+        } else {
+            Err(Error::SeqExceedsMaxSize)
+        }
+    }
+
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    pub fn iter(&self) -> slice::Iter<'_, T> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 impl<T: GetSize> GetSize for Seq064K<'_, T> {
+    fn get_size(&self) -> usize {
+        let mut size = Self::HEADERSIZE;
+        for with_size in &self.0 {
+            size += with_size.get_size()
+        }
+        size
+    }
+}
+
+impl<T: GetSize> GetSize for Seq064KOwned<T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {
@@ -277,20 +408,64 @@ macro_rules! impl_codec_for_sequence {
                 }
                 Ok(Self(inner, PhantomData))
             }
+        }
+    };
+}
 
-            #[cfg(not(feature = "no_std"))]
-            fn from_reader(reader: &mut impl Read) -> Result<Self, Error> {
-                let mut header = vec![0; Self::HEADERSIZE];
-                reader.read_exact(&mut header)?;
+macro_rules! impl_decodable_for_owned_sequence {
+    ($a:ty) => {
+        impl<'a, T: 'a + Sv2DataType<'a> + GetMarker + GetSize + Decodable<'a>> Decodable<'a>
+            for $a
+        {
+            fn get_structure(data: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+                let len = Self::expected_len(data)?;
+                let available = data.len().saturating_sub(Self::HEADERSIZE);
+                if len > available {
+                    return Err(Error::ReadError(data.len(), len + Self::HEADERSIZE));
+                }
+                let mut inner = Vec::with_capacity(len + Self::HEADERSIZE);
+                for _ in 0..Self::HEADERSIZE {
+                    inner.push(FieldMarker::Primitive(PrimitiveMarker::U8));
+                }
+                let inner_type = T::get_marker();
+                inner.resize(len + Self::HEADERSIZE, inner_type);
+                Ok(inner)
+            }
 
-                let len = Self::expected_len(&header)?;
+            fn from_decoded_fields(data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
+                let mut inner: Vec<T> = Vec::with_capacity(data.len());
+                let mut i = 0;
+                for element in data {
+                    if i >= Self::HEADERSIZE {
+                        match element {
+                            DecodableField::Primitive(p) => inner
+                                .push(T::from_decoded_fields(vec![DecodableField::Primitive(p)])?),
+                            DecodableField::Struct(fields) => {
+                                inner.push(T::from_decoded_fields(fields)?)
+                            }
+                        }
+                    }
+                    i += 1;
+                }
+                Ok(Self(inner))
+            }
+
+            fn from_bytes(data: &'a mut [u8]) -> Result<Self, Error> {
+                let len = Self::expected_len(data)?;
 
                 let mut inner = Vec::new();
+                let mut tail = &mut data[Self::HEADERSIZE..];
 
                 for _ in 0..len {
-                    inner.push(T::from_reader_(reader)?);
+                    let element_size = T::size_hint(tail, 0)?;
+                    if element_size > tail.len() {
+                        return Err(Error::OutOfBound);
+                    }
+                    let (head, t) = tail.split_at_mut(element_size);
+                    tail = t;
+                    inner.push(T::from_bytes_(head)?);
                 }
-                Ok(Self(inner, PhantomData))
+                Ok(Self(inner))
             }
         }
     };
@@ -300,11 +475,14 @@ macro_rules! impl_codec_for_sequence {
 impl_codec_for_sequence!(Seq0255<'a, T>);
 impl_codec_for_sequence!(Seq064K<'a, T>);
 impl_codec_for_sequence!(Sv2Option<'a, T>);
+impl_decodable_for_owned_sequence!(Seq0255Owned<T>);
+impl_decodable_for_owned_sequence!(Seq064KOwned<T>);
+impl_decodable_for_owned_sequence!(Sv2OptionOwned<T>);
 
 /// The `impl_into_encodable_field_for_seq` macro provides implementations of the `From` trait
 /// to convert `Seq0255`, `Seq064K`, and `Sv2Option` types into `EncodableField`, making these
 /// sequence types compatible with encoding.
-macro_rules! impl_into_encodable_field_for_seq {
+macro_rules! impl_into_encodable_field_for_borrowed_seq {
     ($a:ty) => {
         impl<'a> From<Seq064K<'a, $a>> for EncodableField<'a> {
             fn from(v: Seq064K<'a, $a>) -> Self {
@@ -352,23 +530,91 @@ macro_rules! impl_into_encodable_field_for_seq {
     };
 }
 
-impl_into_encodable_field_for_seq!(bool);
-impl_into_encodable_field_for_seq!(u8);
-impl_into_encodable_field_for_seq!(u16);
-impl_into_encodable_field_for_seq!(U24);
-impl_into_encodable_field_for_seq!(u32);
-impl_into_encodable_field_for_seq!(u64);
-impl_into_encodable_field_for_seq!(U256<'a>);
-impl_into_encodable_field_for_seq!(Mac<'a>);
-impl_into_encodable_field_for_seq!(Signature<'a>);
-impl_into_encodable_field_for_seq!(B0255<'a>);
-impl_into_encodable_field_for_seq!(B064K<'a>);
-impl_into_encodable_field_for_seq!(B016M<'a>);
+macro_rules! impl_into_encodable_field_for_owned_seq {
+    ($a:ty) => {
+        impl<'a> From<Seq064KOwned<$a>> for EncodableField<'a> {
+            fn from(v: Seq064KOwned<$a>) -> Self {
+                let inner_len = v.0.len() as u16;
+                let mut as_encodable: Vec<EncodableField> =
+                    Vec::with_capacity(inner_len as usize + 2);
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(
+                    inner_len.to_le_bytes()[0],
+                )));
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(
+                    inner_len.to_le_bytes()[1],
+                )));
+                for element in v.0 {
+                    as_encodable.push(element.into());
+                }
+                EncodableField::Struct(as_encodable)
+            }
+        }
+
+        impl<'a> From<Seq0255Owned<$a>> for EncodableField<'a> {
+            fn from(v: Seq0255Owned<$a>) -> Self {
+                let inner_len = v.0.len() as u8;
+                let mut as_encodable: Vec<EncodableField> =
+                    Vec::with_capacity((inner_len as usize) + 1);
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(inner_len)));
+                for element in v.0 {
+                    as_encodable.push(element.into());
+                }
+                EncodableField::Struct(as_encodable)
+            }
+        }
+
+        impl<'a> From<Sv2OptionOwned<$a>> for EncodableField<'a> {
+            fn from(v: Sv2OptionOwned<$a>) -> Self {
+                let inner_len = v.0.len() as u8;
+                let mut as_encodable: Vec<EncodableField> =
+                    Vec::with_capacity((inner_len as usize) + 1);
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::U8(inner_len)));
+                for element in v.0 {
+                    as_encodable.push(element.into());
+                }
+                EncodableField::Struct(as_encodable)
+            }
+        }
+    };
+}
+
+impl_into_encodable_field_for_borrowed_seq!(bool);
+impl_into_encodable_field_for_borrowed_seq!(u8);
+impl_into_encodable_field_for_borrowed_seq!(u16);
+impl_into_encodable_field_for_borrowed_seq!(U24);
+impl_into_encodable_field_for_borrowed_seq!(u32);
+impl_into_encodable_field_for_borrowed_seq!(u64);
+impl_into_encodable_field_for_borrowed_seq!(U256<'a>);
+impl_into_encodable_field_for_borrowed_seq!(Mac<'a>);
+impl_into_encodable_field_for_borrowed_seq!(Signature<'a>);
+impl_into_encodable_field_for_borrowed_seq!(B0255<'a>);
+impl_into_encodable_field_for_borrowed_seq!(B064K<'a>);
+impl_into_encodable_field_for_borrowed_seq!(B016M<'a>);
+
+impl_into_encodable_field_for_owned_seq!(bool);
+impl_into_encodable_field_for_owned_seq!(u8);
+impl_into_encodable_field_for_owned_seq!(u16);
+impl_into_encodable_field_for_owned_seq!(U24);
+impl_into_encodable_field_for_owned_seq!(u32);
+impl_into_encodable_field_for_owned_seq!(u64);
+impl_into_encodable_field_for_owned_seq!(U256Owned);
+impl_into_encodable_field_for_owned_seq!(MacOwned);
+impl_into_encodable_field_for_owned_seq!(SignatureOwned);
+impl_into_encodable_field_for_owned_seq!(B0255Owned);
+impl_into_encodable_field_for_owned_seq!(B064KOwned);
+impl_into_encodable_field_for_owned_seq!(B016MOwned);
 
 impl<T> TryFrom<Vec<T>> for Seq0255<'_, T> {
     type Error = Error;
     fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
         Seq0255::new(value)
+    }
+}
+
+impl<T> TryFrom<Vec<T>> for Seq0255Owned<T> {
+    type Error = Error;
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        Seq0255Owned::new(value)
     }
 }
 
@@ -379,66 +625,67 @@ impl<T> TryFrom<Vec<T>> for Seq064K<'_, T> {
     }
 }
 
+impl<T> TryFrom<Vec<T>> for Seq064KOwned<T> {
+    type Error = Error;
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        Seq064KOwned::new(value)
+    }
+}
+
 impl<T: Fixed> Seq0255<'_, T> {
-    /// converts the lifetime to static
-    pub fn into_static(self) -> Seq0255<'static, T> {
+    /// converts into an owned sequence.
+    pub fn into_owned(self) -> Seq0255Owned<T> {
         // Safe unwrap cause the initial value is a valid Seq0255
-        Seq0255::new(self.0).unwrap()
+        Seq0255Owned::new(self.0).unwrap()
     }
 }
 impl<T: Fixed> Sv2Option<'_, T> {
-    /// converts the lifetime to static
-    pub fn into_static(self) -> Sv2Option<'static, T> {
-        Sv2Option::new(self.into_inner())
+    /// converts into an owned option.
+    pub fn into_owned(self) -> Sv2OptionOwned<T> {
+        Sv2OptionOwned::new(self.into_inner())
     }
 }
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq0255<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
-    /// converts the lifetime to static
-    pub fn into_static(
-        self,
-    ) -> Seq0255<'static, Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
+    /// converts into an owned sequence.
+    pub fn into_owned(self) -> Seq0255Owned<InnerOwned<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
         let seq = self.0;
-        let static_seq = seq.into_iter().map(|x| x.into_static()).collect();
+        let owned_seq = seq.into_iter().map(|x| x.into_owned()).collect();
         // Safe unwrap cause the initial value is a valid Seq0255
-        Seq0255::new(static_seq).unwrap()
+        Seq0255Owned::new(owned_seq).unwrap()
     }
 }
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Sv2Option<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
-    /// converts the lifetime to static
-    pub fn into_static(
-        self,
-    ) -> Sv2Option<'static, Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
+    /// converts into an owned option.
+    pub fn into_owned(self) -> Sv2OptionOwned<InnerOwned<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
         let inner = self.into_inner();
-        let static_inner = inner.map(|x| x.into_static());
-        Sv2Option::new(static_inner)
+        let owned_inner = inner.map(|x| x.into_owned());
+        Sv2OptionOwned::new(owned_inner)
     }
 }
 
 impl<T: Fixed> Seq064K<'_, T> {
-    /// converts the lifetime to static
-    pub fn into_static(self) -> Seq064K<'static, T> {
+    /// converts into an owned sequence.
+    pub fn into_owned(self) -> Seq064KOwned<T> {
         // Safe unwrap cause the initial value is a valid Seq064K
-        Seq064K::new(self.0).unwrap()
+        Seq064KOwned::new(self.0).unwrap()
     }
 }
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq064K<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
-    /// converts the lifetime to static
-    pub fn into_static(
-        self,
-    ) -> Seq064K<'static, Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
+    /// converts into an owned sequence.
+    pub fn into_owned(self) -> Seq064KOwned<InnerOwned<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
         let seq = self.0;
-        let static_seq = seq.into_iter().map(|x| x.into_static()).collect();
+        let owned_seq = seq.into_iter().map(|x| x.into_owned()).collect();
         // Safe unwrap cause the initial value is a valid Seq064K
-        Seq064K::new(static_seq).unwrap()
+        Seq064KOwned::new(owned_seq).unwrap()
     }
 }
 
@@ -446,6 +693,9 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Sv2Option<'a, T>(Vec<T>, PhantomData<&'a T>);
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Sv2OptionOwned<T>(Vec<T>);
 
 // TODO add test for that
 impl<'a, const SIZE: usize> Sv2Option<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
@@ -462,6 +712,20 @@ impl<'a, const SIZE: usize> Sv2Option<'a, super::inner::Inner<'a, true, SIZE, 0,
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Sv2Option<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    /// Gets the reference to the first element's payload bytes, if present.
+    pub fn as_option_bytes(&self) -> Option<&[u8]> {
+        match self.0.len() {
+            0 => None,
+            1 => Some(self.0[0].as_bytes()),
+            // is impossible to deserialize Sv2Options with len bigger than 1
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Sv2OptionOwned<InnerOwned<ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
 {
     /// Gets the reference to the first element's payload bytes, if present.
     pub fn as_option_bytes(&self) -> Option<&[u8]> {
@@ -511,7 +775,49 @@ impl<'a, T: 'a> Sv2Option<'a, T> {
     }
 }
 
+impl<T> Sv2OptionOwned<T> {
+    const HEADERSIZE: usize = 1;
+
+    fn expected_len(data: &[u8]) -> Result<usize, Error> {
+        if data.len() >= Self::HEADERSIZE {
+            match data[0] {
+                0 => Ok(0),
+                1 => Ok(1),
+                _ => Err(Error::Sv2OptionHaveMoreThenOneElement(data[0])),
+            }
+        } else {
+            Err(Error::ReadError(data.len(), Self::HEADERSIZE))
+        }
+    }
+
+    pub fn new(inner: Option<T>) -> Self {
+        match inner {
+            Some(x) => Self(vec![x]),
+            None => Self(vec![]),
+        }
+    }
+
+    pub fn into_inner(mut self) -> Option<T> {
+        let len = self.0.len();
+        match len {
+            0 => None,
+            1 => Some(self.0.pop().unwrap()),
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl<T: GetSize> GetSize for Sv2Option<'_, T> {
+    fn get_size(&self) -> usize {
+        let mut size = Self::HEADERSIZE;
+        for with_size in &self.0 {
+            size += with_size.get_size()
+        }
+        size
+    }
+}
+
+impl<T: GetSize> GetSize for Sv2OptionOwned<T> {
     fn get_size(&self) -> usize {
         let mut size = Self::HEADERSIZE;
         for with_size in &self.0 {

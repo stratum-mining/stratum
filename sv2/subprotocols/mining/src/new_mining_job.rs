@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, Sv2OptionOwned, B064K, U256};
 use core::{convert::TryInto, fmt};
 
 /// Message used by an upstream to provide an updated mining job to downstream.
@@ -51,6 +51,20 @@ impl fmt::Display for NewMiningJob<'_> {
         write!(
             f,
             "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, merkle_root: {})",
+            self.channel_id,
+            self.job_id,
+            self.min_ntime,
+            self.version,
+            self.merkle_root
+        )
+    }
+}
+
+impl fmt::Display for NewMiningJobOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NewMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, merkle_root: {})",
             self.channel_id, self.job_id, self.min_ntime, self.version, self.merkle_root
         )
     }
@@ -65,6 +79,20 @@ impl NewMiningJob<'_> {
     }
     pub fn set_no_future(&mut self, min_ntime: u32) {
         self.min_ntime = Sv2Option::new(Some(min_ntime));
+    }
+}
+
+impl NewMiningJobOwned {
+    pub fn is_future(&self) -> bool {
+        self.min_ntime.clone().into_inner().is_none()
+    }
+
+    pub fn set_future(&mut self) {
+        self.min_ntime = Sv2OptionOwned::new(None);
+    }
+
+    pub fn set_no_future(&mut self, min_ntime: u32) {
+        self.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
     }
 }
 
@@ -125,6 +153,23 @@ impl fmt::Display for NewExtendedMiningJob<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
+            "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {}",
+            self.channel_id,
+            self.job_id,
+            self.min_ntime,
+            self.version,
+            self.version_rolling_allowed,
+            self.merkle_path,
+            self.coinbase_tx_prefix,
+            self.coinbase_tx_suffix
+        )
+    }
+}
+
+impl fmt::Display for NewExtendedMiningJobOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
             "NewExtendedMiningJob(channel_id: {}, job_id: {}, min_ntime: {}, version: 0x{:08x}, version_rolling_allowed: {}, merkle_path: {}, coinbase_tx_prefix: {}, coinbase_tx_suffix: {})",
             self.channel_id,
             self.job_id,
@@ -147,6 +192,20 @@ impl NewExtendedMiningJob<'_> {
     }
     pub fn set_no_future(&mut self, min_ntime: u32) {
         self.min_ntime = Sv2Option::new(Some(min_ntime));
+    }
+}
+
+impl NewExtendedMiningJobOwned {
+    pub fn is_future(&self) -> bool {
+        self.min_ntime.clone().into_inner().is_none()
+    }
+
+    pub fn set_future(&mut self) {
+        self.min_ntime = Sv2OptionOwned::new(None);
+    }
+
+    pub fn set_no_future(&mut self, min_ntime: u32) {
+        self.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
     }
 }
 
@@ -176,7 +235,8 @@ mod tests {
         coinbase_tx_prefix: Vec<u8>,
         coinbase_tx_suffix: Vec<u8>,
     ) -> bool {
-        let merkle_path = helpers::scan_to_u256_sequence(&merkle_path);
+        let merkle_path_arrays = helpers::scan_to_u256_arrays(&merkle_path);
+        let merkle_path = helpers::u256_sequence(&merkle_path_arrays);
         let coinbase_tx_prefix = helpers::bytes_to_b064k(&coinbase_tx_prefix);
         let coinbase_tx_suffix = helpers::bytes_to_b064k(&coinbase_tx_suffix);
         let nemj = NewExtendedMiningJob {
@@ -189,15 +249,15 @@ mod tests {
             coinbase_tx_prefix: coinbase_tx_prefix.clone(),
             coinbase_tx_suffix: coinbase_tx_suffix.clone(),
         };
-        let static_nmj = nemj.as_static();
-        static_nmj.channel_id == nemj.channel_id
-            && static_nmj.job_id == nemj.job_id
-            && static_nmj.min_ntime == nemj.min_ntime
-            && static_nmj.version == nemj.version
-            && static_nmj.version_rolling_allowed == nemj.version_rolling_allowed
-            && static_nmj.merkle_path == merkle_path
-            && static_nmj.coinbase_tx_prefix == coinbase_tx_prefix
-            && static_nmj.coinbase_tx_suffix == coinbase_tx_suffix
+        let owned_nmj = nemj.as_owned();
+        owned_nmj.channel_id == nemj.channel_id
+            && owned_nmj.job_id == nemj.job_id
+            && owned_nmj.min_ntime == nemj.min_ntime.clone().into_owned()
+            && owned_nmj.version == nemj.version
+            && owned_nmj.version_rolling_allowed == nemj.version_rolling_allowed
+            && owned_nmj.merkle_path == merkle_path.into_owned()
+            && owned_nmj.coinbase_tx_prefix == coinbase_tx_prefix.into_owned()
+            && owned_nmj.coinbase_tx_suffix == coinbase_tx_suffix.into_owned()
     }
 
     #[quickcheck_macros::quickcheck]
@@ -214,33 +274,35 @@ mod tests {
             job_id,
             min_ntime: Sv2Option::new(min_ntime),
             version,
-            merkle_root: U256::from(merkle_root),
+            merkle_root: U256::try_from(&merkle_root[..]).expect("U256 is exactly 32 bytes"),
         };
-        let static_nmj = nmj.clone().as_static();
-        static_nmj.channel_id == nmj.channel_id
-            && static_nmj.job_id == nmj.job_id
-            && static_nmj.min_ntime == nmj.min_ntime
-            && static_nmj.version == nmj.version
-            && static_nmj.merkle_root == nmj.merkle_root
+        let owned_nmj = nmj.clone().as_owned();
+        owned_nmj.channel_id == nmj.channel_id
+            && owned_nmj.job_id == nmj.job_id
+            && owned_nmj.min_ntime == nmj.min_ntime.clone().into_owned()
+            && owned_nmj.version == nmj.version
+            && owned_nmj.merkle_root == nmj.merkle_root.into_owned()
     }
 
     pub mod helpers {
         use super::*;
-        use alloc::borrow::ToOwned;
 
-        pub fn scan_to_u256_sequence(bytes: &[u8]) -> Seq0255<U256> {
-            let inner: Vec<U256> = bytes
+        /// Pads `bytes` into 32-byte chunks owned by the caller, so borrowed
+        /// `U256` fixtures can point into them without leaking.
+        pub fn scan_to_u256_arrays(bytes: &[u8]) -> Vec<[u8; 32]> {
+            bytes
                 .chunks(32)
-                .map(|chunk| {
-                    let data = from_arbitrary_vec_to_array(chunk.to_vec());
-                    U256::from(data)
-                })
-                .collect();
-            Seq0255::new(inner).expect("Could not convert bytes to SEQ0255<U256")
+                .map(|chunk| from_arbitrary_vec_to_array(chunk.to_vec()))
+                .collect()
+        }
+
+        pub fn u256_sequence(arrays: &[[u8; 32]]) -> Seq0255<U256> {
+            let inner: Vec<U256> = arrays.iter().map(U256::from).collect();
+            Seq0255::new(inner).expect("Could not convert bytes to SEQ0255<U256>")
         }
 
         pub fn bytes_to_b064k(bytes: &[u8]) -> B064K {
-            B064K::try_from(bytes.to_owned()).expect("Failed to convert to B064K")
+            B064K::try_from(bytes).expect("Failed to convert to B064K")
         }
     }
 }

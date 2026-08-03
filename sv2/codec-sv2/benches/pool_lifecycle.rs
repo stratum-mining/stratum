@@ -50,7 +50,7 @@ fn read_alloc_counters() -> (u64, u64) {
 }
 
 mod common;
-use common::{OwnedMsg, ZeroCopyMsg};
+use common::{OwnedMsg, ZeroCopyMsg, ZeroCopyMsgOwned};
 
 #[cfg(feature = "with_buffer_pool")]
 type Slice = buffer_sv2::Slice;
@@ -67,8 +67,8 @@ const DEFAULT_COINBASE: usize = 64;
 const POOL_CAPACITY: usize = 8;
 
 fn make_encoded_frame(coinbase_size: usize) -> Vec<u8> {
-    let msg = ZeroCopyMsg::new_owned(1, coinbase_size);
-    let frame = Sv2Frame::<ZeroCopyMsg<'_>, Vec<u8>>::from_message(msg, 0, 0, true).unwrap();
+    let msg = ZeroCopyMsgOwned::new_owned(1, coinbase_size);
+    let frame = Sv2Frame::<ZeroCopyMsgOwned, Vec<u8>>::from_message(msg, 0, 0, true).unwrap();
     let mut buf = vec![0u8; frame.encoded_length()];
     frame.serialize(&mut buf).unwrap();
     buf

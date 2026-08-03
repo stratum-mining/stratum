@@ -16,11 +16,12 @@ mod channel_endpoint_changed;
 mod reconnect;
 mod setup_connection;
 
-pub use channel_endpoint_changed::ChannelEndpointChanged;
-pub use reconnect::Reconnect;
+pub use channel_endpoint_changed::{ChannelEndpointChanged, ChannelEndpointChangedOwned};
+pub use reconnect::{Reconnect, ReconnectOwned};
 pub use setup_connection::{
     has_declare_tx_data, has_requires_std_job, has_version_rolling, has_work_selection, Protocol,
-    SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+    SetupConnection, SetupConnectionError, SetupConnectionErrorOwned, SetupConnectionOwned,
+    SetupConnectionSuccess, SetupConnectionSuccessOwned,
 };
 
 // Discriminants for Stratum V2 (sub)protocols

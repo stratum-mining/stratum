@@ -43,3 +43,17 @@ impl fmt::Display for SetNewPrevHash<'_> {
         )
     }
 }
+
+impl fmt::Display for SetNewPrevHashOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetNewPrevHash {{ template_id: {}, prev_hash: {}, header_timestamp: {}, n_bits: 0x{:08x}, target: {} }}",
+            self.template_id,
+            self.prev_hash,
+            self.header_timestamp,
+            self.n_bits,
+            self.target
+        )
+    }
+}
