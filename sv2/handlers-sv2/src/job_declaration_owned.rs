@@ -1,0 +1,572 @@
+use framing_sv2::header::Header;
+use job_declaration_sv2::{
+    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PUSH_SOLUTION, *,
+};
+use parsers_sv2::{
+    parse_message_frame_with_tlvs, AnyMessage, JobDeclaration, JobDeclarationOwned, Tlv,
+};
+
+use crate::error::HandlerErrorType;
+
+/// Synchronous handler trait for processing job declaration messages received from servers.
+///
+/// The server ID identifies which server a message originated from.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
+///
+/// ## TLV Extension Support
+///
+/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// extension data appended. TLV fields are only passed if they match negotiated extensions
+/// returned by `get_negotiated_extensions_with_server()`.
+pub trait HandleJobDeclarationMessagesFromServerOwnedSync {
+    type Error: HandlerErrorType;
+
+    /// Returns the list of negotiated extension_types with a server.
+    ///
+    /// Return an empty Vec if no extensions have been negotiated.
+    fn get_negotiated_extensions_with_server(
+        &self,
+        server_id: Option<usize>,
+    ) -> Result<Vec<u16>, Self::Error>;
+
+    /// Handles a raw Job Declaration protocol message frame from a server.
+    ///
+    /// This method parses the raw frame, extracts any TLV extension data, and delegates
+    /// to `handle_job_declaration_message_from_server` with the parsed message and TLV fields.
+    fn handle_job_declaration_message_frame_from_server(
+        &mut self,
+        server_id: Option<usize>,
+        header: Header,
+        payload: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
+        if negotiated_extensions.is_empty() {
+            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                .try_into()
+                .map_err(Self::Error::parse_error)?;
+            return self.handle_job_declaration_message_from_server(
+                server_id,
+                parsed.into_owned(),
+                None,
+            );
+        }
+        let (parsed, tlv_fields) =
+            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
+        match parsed {
+            AnyMessage::JobDeclaration(parsed) => self.handle_job_declaration_message_from_server(
+                server_id,
+                parsed.into_owned(),
+                tlv_fields.as_deref(),
+            ),
+            _ => Err(Self::Error::unexpected_message(
+                header.ext_type_without_channel_msg(),
+                header.msg_type(),
+            )),
+        }
+    }
+
+    /// Handles a parsed job declaration message from a server.
+    ///
+    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
+    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
+    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
+    /// `extension_type`, `field_type`, `length`, and `value`.
+    fn handle_job_declaration_message_from_server(
+        &mut self,
+        server_id: Option<usize>,
+        message: JobDeclarationOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error> {
+        match message {
+            JobDeclarationOwned::AllocateMiningJobTokenSuccess(msg) => {
+                self.handle_allocate_mining_job_token_success(server_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::DeclareMiningJobSuccess(msg) => {
+                self.handle_declare_mining_job_success(server_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::DeclareMiningJobError(msg) => {
+                self.handle_declare_mining_job_error(server_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::ProvideMissingTransactions(msg) => {
+                self.handle_provide_missing_transactions(server_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::AllocateMiningJobToken(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+            )),
+            JobDeclarationOwned::DeclareMiningJob(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_DECLARE_MINING_JOB,
+            )),
+            JobDeclarationOwned::ProvideMissingTransactionsSuccess(_) => {
+                Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
+                ))
+            }
+            JobDeclarationOwned::PushSolution(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_PUSH_SOLUTION,
+            )),
+        }
+    }
+
+    fn handle_allocate_mining_job_token_success(
+        &mut self,
+        server_id: Option<usize>,
+        msg: AllocateMiningJobTokenSuccessOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    fn handle_declare_mining_job_success(
+        &mut self,
+        server_id: Option<usize>,
+        msg: DeclareMiningJobSuccessOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    fn handle_declare_mining_job_error(
+        &mut self,
+        server_id: Option<usize>,
+        msg: DeclareMiningJobErrorOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    fn handle_provide_missing_transactions(
+        &mut self,
+        server_id: Option<usize>,
+        msg: ProvideMissingTransactionsOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+}
+
+/// Asynchronous handler trait for processing job declaration messages received from servers.
+///
+/// The server ID identifies which server a message originated from.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `server_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
+///
+/// ## TLV Extension Support
+///
+/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// extension data appended. TLV fields are only passed if they match negotiated extensions
+/// returned by `get_negotiated_extensions_with_server()`.
+#[trait_variant::make(Send)]
+pub trait HandleJobDeclarationMessagesFromServerOwnedAsync {
+    type Error: HandlerErrorType;
+
+    /// Returns the list of negotiated extension_types with a server.
+    ///
+    /// Return an empty Vec if no extensions have been negotiated.
+    fn get_negotiated_extensions_with_server(
+        &self,
+        server_id: Option<usize>,
+    ) -> Result<Vec<u16>, Self::Error>;
+
+    /// Handles a raw Job Declaration protocol message frame from a server.
+    ///
+    /// This method parses the raw frame, extracts any TLV extension data, and delegates
+    /// to `handle_job_declaration_message_from_server` with the parsed message and TLV fields.
+    async fn handle_job_declaration_message_frame_from_server(
+        &mut self,
+        server_id: Option<usize>,
+        header: Header,
+        payload: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        async move {
+            let negotiated_extensions = self.get_negotiated_extensions_with_server(server_id)?;
+            if negotiated_extensions.is_empty() {
+                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                    .try_into()
+                    .map_err(Self::Error::parse_error)?;
+                return self
+                    .handle_job_declaration_message_from_server(
+                        server_id,
+                        parsed.into_owned(),
+                        None,
+                    )
+                    .await;
+            }
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::JobDeclaration(parsed) => {
+                    self.handle_job_declaration_message_from_server(
+                        server_id,
+                        parsed.into_owned(),
+                        tlv_fields.as_deref(),
+                    )
+                    .await
+                }
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
+    }
+
+    /// Handles a parsed job declaration message from a server.
+    ///
+    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
+    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
+    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
+    /// `extension_type`, `field_type`, `length`, and `value`.
+    async fn handle_job_declaration_message_from_server(
+        &mut self,
+        server_id: Option<usize>,
+        message: JobDeclarationOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error> {
+        async move {
+            match message {
+                JobDeclarationOwned::AllocateMiningJobTokenSuccess(msg) => {
+                    self.handle_allocate_mining_job_token_success(server_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::DeclareMiningJobSuccess(msg) => {
+                    self.handle_declare_mining_job_success(server_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::DeclareMiningJobError(msg) => {
+                    self.handle_declare_mining_job_error(server_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::ProvideMissingTransactions(msg) => {
+                    self.handle_provide_missing_transactions(server_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::AllocateMiningJobToken(_) => Err(
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN),
+                ),
+                JobDeclarationOwned::DeclareMiningJob(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_DECLARE_MINING_JOB,
+                )),
+                JobDeclarationOwned::ProvideMissingTransactionsSuccess(_) => {
+                    Err(Self::Error::unexpected_message(
+                        0,
+                        MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
+                    ))
+                }
+                JobDeclarationOwned::PushSolution(_) => Err(Self::Error::unexpected_message(
+                    0,
+                    MESSAGE_TYPE_PUSH_SOLUTION,
+                )),
+            }
+        }
+    }
+
+    async fn handle_allocate_mining_job_token_success(
+        &mut self,
+        server_id: Option<usize>,
+        msg: AllocateMiningJobTokenSuccessOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    async fn handle_declare_mining_job_success(
+        &mut self,
+        server_id: Option<usize>,
+        msg: DeclareMiningJobSuccessOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    async fn handle_declare_mining_job_error(
+        &mut self,
+        server_id: Option<usize>,
+        msg: DeclareMiningJobErrorOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    async fn handle_provide_missing_transactions(
+        &mut self,
+        server_id: Option<usize>,
+        msg: ProvideMissingTransactionsOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+}
+
+/// Synchronous handler trait for processing job declaration messages received from clients.
+///
+/// The client ID identifies which client a message originated from.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
+///
+/// ## TLV Extension Support
+///
+/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// extension data appended. TLV fields are only passed if they match negotiated extensions
+/// returned by `get_negotiated_extensions_with_client()`.
+pub trait HandleJobDeclarationMessagesFromClientOwnedSync {
+    type Error: HandlerErrorType;
+
+    /// Returns the list of negotiated extension_types with a client.
+    ///
+    /// Return an empty Vec if no extensions have been negotiated.
+    fn get_negotiated_extensions_with_client(
+        &self,
+        client_id: Option<usize>,
+    ) -> Result<Vec<u16>, Self::Error>;
+
+    /// Handles a raw Job Declaration protocol message frame from a client.
+    ///
+    /// This method parses the raw frame, extracts any TLV extension data, and delegates
+    /// to `handle_job_declaration_message_from_client` with the parsed message and TLV fields.
+    fn handle_job_declaration_message_frame_from_client(
+        &mut self,
+        client_id: Option<usize>,
+        header: Header,
+        payload: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
+        if negotiated_extensions.is_empty() {
+            let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                .try_into()
+                .map_err(Self::Error::parse_error)?;
+            return self.handle_job_declaration_message_from_client(
+                client_id,
+                parsed.into_owned(),
+                None,
+            );
+        }
+        let (parsed, tlv_fields) =
+            parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                .map_err(Self::Error::parse_error)?;
+        match parsed {
+            AnyMessage::JobDeclaration(parsed) => self.handle_job_declaration_message_from_client(
+                client_id,
+                parsed.into_owned(),
+                tlv_fields.as_deref(),
+            ),
+            _ => Err(Self::Error::unexpected_message(
+                header.ext_type_without_channel_msg(),
+                header.msg_type(),
+            )),
+        }
+    }
+
+    /// Handles a parsed job declaration message from a client.
+    ///
+    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
+    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
+    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
+    /// `extension_type`, `field_type`, `length`, and `value`.
+    fn handle_job_declaration_message_from_client(
+        &mut self,
+        client_id: Option<usize>,
+        message: JobDeclarationOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error> {
+        match message {
+            JobDeclarationOwned::AllocateMiningJobToken(msg) => {
+                self.handle_allocate_mining_job_token(client_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::DeclareMiningJob(msg) => {
+                self.handle_declare_mining_job(client_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::ProvideMissingTransactionsSuccess(msg) => {
+                self.handle_provide_missing_transactions_success(client_id, msg, tlv_fields)
+            }
+            JobDeclarationOwned::PushSolution(msg) => {
+                self.handle_push_solution(client_id, msg, tlv_fields)
+            }
+
+            JobDeclarationOwned::AllocateMiningJobTokenSuccess(_) => Err(
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS),
+            ),
+            JobDeclarationOwned::DeclareMiningJobSuccess(_) => Err(
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS),
+            ),
+            JobDeclarationOwned::DeclareMiningJobError(_) => Err(Self::Error::unexpected_message(
+                0,
+                MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+            )),
+            JobDeclarationOwned::ProvideMissingTransactions(_) => Err(
+                Self::Error::unexpected_message(0, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS),
+            ),
+        }
+    }
+
+    fn handle_allocate_mining_job_token(
+        &mut self,
+        client_id: Option<usize>,
+        msg: AllocateMiningJobTokenOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    fn handle_declare_mining_job(
+        &mut self,
+        client_id: Option<usize>,
+        msg: DeclareMiningJobOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    fn handle_provide_missing_transactions_success(
+        &mut self,
+        client_id: Option<usize>,
+        msg: ProvideMissingTransactionsSuccessOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    fn handle_push_solution(
+        &mut self,
+        client_id: Option<usize>,
+        msg: PushSolutionOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+}
+
+/// Asynchronous handler trait for processing job declaration messages received from clients.
+///
+/// The client ID identifies which client a message originated from.
+/// Whether this is relevant or not depends on which object is implementing the trait, and whether
+/// this contextual information is readily available or not. In cases where `client_id` is either
+/// irrelevant or can be inferred without the context, this should always be `None`.
+///
+/// ## TLV Extension Support
+///
+/// The `tlv_data` parameter in message handlers contains validated TLV fields if the message has
+/// extension data appended. TLV fields are only passed if they match negotiated extensions
+/// returned by `get_negotiated_extensions_with_client()`.
+#[trait_variant::make(Send)]
+pub trait HandleJobDeclarationMessagesFromClientOwnedAsync {
+    type Error: HandlerErrorType;
+
+    /// Returns the list of negotiated extension_types with a client.
+    ///
+    /// Return an empty Vec if no extensions have been negotiated.
+    fn get_negotiated_extensions_with_client(
+        &self,
+        client_id: Option<usize>,
+    ) -> Result<Vec<u16>, Self::Error>;
+
+    /// Handles a raw Job Declaration protocol message frame from a client.
+    ///
+    /// This method parses the raw frame, extracts any TLV extension data, and delegates
+    /// to `handle_job_declaration_message_from_client` with the parsed message and TLV fields.
+    async fn handle_job_declaration_message_frame_from_client(
+        &mut self,
+        client_id: Option<usize>,
+        header: Header,
+        payload: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        async move {
+            let negotiated_extensions = self.get_negotiated_extensions_with_client(client_id)?;
+            if negotiated_extensions.is_empty() {
+                let parsed: JobDeclaration<'_> = (header.msg_type(), payload)
+                    .try_into()
+                    .map_err(Self::Error::parse_error)?;
+                return self
+                    .handle_job_declaration_message_from_client(
+                        client_id,
+                        parsed.into_owned(),
+                        None,
+                    )
+                    .await;
+            }
+            let (parsed, tlv_fields) =
+                parse_message_frame_with_tlvs(header, payload, &negotiated_extensions)
+                    .map_err(Self::Error::parse_error)?;
+            match parsed {
+                AnyMessage::JobDeclaration(parsed) => {
+                    self.handle_job_declaration_message_from_client(
+                        client_id,
+                        parsed.into_owned(),
+                        tlv_fields.as_deref(),
+                    )
+                    .await
+                }
+                _ => Err(Self::Error::unexpected_message(
+                    header.ext_type_without_channel_msg(),
+                    header.msg_type(),
+                )),
+            }
+        }
+    }
+
+    /// Handles a parsed job declaration message from a client.
+    ///
+    /// The `tlv_fields` parameter contains parsed TLV fields if the message has extension
+    /// data appended. It will be `Some(&[Tlv])` when valid TLV data is present, or `None`
+    /// if no TLV data exists or validation fails. Each `Tlv` struct provides direct access to
+    /// `extension_type`, `field_type`, `length`, and `value`.
+    async fn handle_job_declaration_message_from_client(
+        &mut self,
+        client_id: Option<usize>,
+        message: JobDeclarationOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error> {
+        async move {
+            match message {
+                JobDeclarationOwned::AllocateMiningJobToken(msg) => {
+                    self.handle_allocate_mining_job_token(client_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::DeclareMiningJob(msg) => {
+                    self.handle_declare_mining_job(client_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::ProvideMissingTransactionsSuccess(msg) => {
+                    self.handle_provide_missing_transactions_success(client_id, msg, tlv_fields)
+                        .await
+                }
+                JobDeclarationOwned::PushSolution(msg) => {
+                    self.handle_push_solution(client_id, msg, tlv_fields).await
+                }
+
+                JobDeclarationOwned::AllocateMiningJobTokenSuccess(_) => {
+                    Err(Self::Error::unexpected_message(
+                        0,
+                        MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+                    ))
+                }
+                JobDeclarationOwned::DeclareMiningJobSuccess(_) => Err(
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS),
+                ),
+                JobDeclarationOwned::DeclareMiningJobError(_) => Err(
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR),
+                ),
+                JobDeclarationOwned::ProvideMissingTransactions(_) => Err(
+                    Self::Error::unexpected_message(0, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS),
+                ),
+            }
+        }
+    }
+
+    async fn handle_allocate_mining_job_token(
+        &mut self,
+        client_id: Option<usize>,
+        msg: AllocateMiningJobTokenOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    async fn handle_declare_mining_job(
+        &mut self,
+        client_id: Option<usize>,
+        msg: DeclareMiningJobOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    async fn handle_provide_missing_transactions_success(
+        &mut self,
+        client_id: Option<usize>,
+        msg: ProvideMissingTransactionsSuccessOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+
+    async fn handle_push_solution(
+        &mut self,
+        client_id: Option<usize>,
+        msg: PushSolutionOwned,
+        tlv_fields: Option<&[Tlv]>,
+    ) -> Result<(), Self::Error>;
+}
