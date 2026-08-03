@@ -288,6 +288,12 @@ impl ExtendedChannel {
     /// Jobs created before the update will continue to use the previous prefix,
     /// and share validation will be performed accordingly.
     ///
+    /// Because of that, the previous prefix (and therefore its slot in the
+    /// [`ExtranonceAllocator`](crate::extranonce_manager::ExtranonceAllocator) that minted it) is
+    /// not released here: it is handed over to the channel's job store, which only drops it once
+    /// every job created under it has become stale. This prevents the allocator from handing the
+    /// same extranonce space to another live channel while those jobs still validate shares.
+    ///
     /// Returns an error if the new extranonce prefix is too large.
     pub fn set_extranonce_prefix(
         &mut self,
@@ -297,7 +303,10 @@ impl ExtendedChannel {
             return Err(ExtendedChannelError::ExtranoncePrefixTooLarge);
         }
 
-        self.extranonce_prefix = extranonce_prefix.into();
+        let retired_extranonce_prefix =
+            std::mem::replace(&mut self.extranonce_prefix, extranonce_prefix.into());
+        self.job_store
+            .retire_extranonce_prefix(retired_extranonce_prefix);
 
         Ok(())
     }
@@ -901,7 +910,10 @@ impl ExtendedChannel {
 mod tests {
     use crate::{
         chain_tip::ChainTip,
-        extranonce_manager::{AllocatedExtranoncePrefix, ExtranoncePrefix, ExtranoncePrefixError},
+        extranonce_manager::{
+            AllocatedExtranoncePrefix, ExtranonceAllocator, ExtranonceAllocatorError,
+            ExtranoncePrefix, ExtranoncePrefixError,
+        },
         server::{
             error::ExtendedChannelError,
             extended::ExtendedChannel,
@@ -1903,6 +1915,159 @@ mod tests {
             ExtranoncePrefix::from_wire(new_extranonce_prefix_too_large.clone()),
             Err(ExtranoncePrefixError::ExceedsMaxLength)
         ));
+    }
+
+    // Builds an extended channel from a real allocator that only has room for two channels,
+    // creates an active job under the first allocated prefix, then rotates the channel onto the
+    // second one.
+    //
+    // Returns the allocator (now with both slots handed out), the channel, the bytes of the
+    // rotated-out prefix, and the id of the job created under it.
+    fn extended_channel_with_rotated_extranonce_prefix(
+    ) -> (ExtranonceAllocator, ExtendedChannel, Vec<u8>, u32) {
+        let total_extranonce_len = 32;
+        let max_channels = 2;
+        let min_rollable_size = 8;
+
+        let mut allocator =
+            ExtranonceAllocator::new(vec![], total_extranonce_len, max_channels).unwrap();
+
+        let prefix_1 = allocator.allocate_extended(min_rollable_size).unwrap();
+        let prefix_2 = allocator.allocate_extended(min_rollable_size).unwrap();
+        assert_ne!(prefix_1.as_bytes(), prefix_2.as_bytes());
+        assert_eq!(allocator.allocated_count(), 2);
+
+        let prefix_1_bytes = prefix_1.as_bytes().to_vec();
+        let rollable_extranonce_size =
+            (total_extranonce_len as usize - prefix_1_bytes.len()) as u16;
+
+        let mut channel = ExtendedChannel::new_for_pool(
+            1,
+            "user_identity".to_string(),
+            prefix_1,
+            Target::from_le_bytes([0xff; 32]),
+            100.0,
+            true,
+            rollable_extranonce_size,
+            100,
+            1.0,
+            String::new(),
+        )
+        .unwrap();
+
+        let ntime = 1745596910;
+        let prev_hash = [
+            154, 124, 239, 231, 221, 122, 160, 173, 164, 175, 87, 33, 74, 214, 191, 107, 73, 34, 0,
+            162, 227, 16, 44, 40, 33, 73, 0, 0, 0, 0, 0, 0,
+        ]
+        .into();
+        let n_bits = 453040064;
+        channel.set_chain_tip(ChainTip::new(prev_hash, n_bits, ntime));
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: false,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0];
+        script_bytes.push(20);
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: ScriptBuf::from(script_bytes),
+        }];
+
+        channel
+            .on_new_template(template, coinbase_reward_outputs)
+            .unwrap();
+        let job_id = channel.get_active_job().unwrap().get_job_id();
+
+        // rotate the channel onto the second prefix, while the job above is still live
+        channel.set_extranonce_prefix(prefix_2).unwrap();
+
+        (allocator, channel, prefix_1_bytes, job_id)
+    }
+
+    #[test]
+    fn test_rotated_extranonce_prefix_slot_not_reused_while_job_live() {
+        // Regression test: rotating the channel's extranonce prefix must not return the old
+        // prefix's allocator slot to the free pool while jobs created under it can still accept
+        // shares. Otherwise the allocator could hand the very same extranonce space to a second
+        // live channel, making the same work replayable across both.
+        let (mut allocator, channel, prefix_1_bytes, _job_id) =
+            extended_channel_with_rotated_extranonce_prefix();
+
+        // the rotated-out slot is still reserved, so the allocator is still full
+        assert_eq!(allocator.allocated_count(), 2);
+        assert!(matches!(
+            allocator.allocate_extended(8),
+            Err(ExtranonceAllocatorError::CapacityExhausted)
+        ));
+
+        // and the pre-rotation job is still live under the old prefix bytes
+        assert_eq!(
+            channel.get_active_job().unwrap().get_extranonce_prefix(),
+            prefix_1_bytes.as_slice()
+        );
+    }
+
+    #[test]
+    fn test_retired_extranonce_prefix_released_after_jobs_go_stale() {
+        // Counterpart of the test above: the deferred release must actually happen once the jobs
+        // created under the old prefix become stale, otherwise slots would leak.
+        let (mut allocator, mut channel, _prefix_1_bytes, job_id) =
+            extended_channel_with_rotated_extranonce_prefix();
+
+        let new_prev_hash = SetNewPrevHash {
+            template_id: 999,
+            prev_hash: [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            header_timestamp: 1745596910 + 600,
+            n_bits: 453040064,
+            target: [0xff; 32].into(),
+        };
+        channel.on_set_new_prev_hash(new_prev_hash).unwrap();
+
+        // the pre-rotation job can no longer accept shares
+        let late_share = SubmitSharesExtended {
+            channel_id: 1,
+            sequence_number: 0,
+            job_id,
+            nonce: 0,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: vec![0; 31].try_into().unwrap(),
+        };
+        assert!(matches!(
+            channel.validate_share(late_share),
+            Err(ShareValidationError::Stale(_))
+        ));
+
+        // so its prefix was released back to the allocator
+        assert_eq!(allocator.allocated_count(), 1);
+        assert!(allocator.allocate_extended(8).is_ok());
     }
 
     #[test]

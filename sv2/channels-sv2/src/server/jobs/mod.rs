@@ -41,6 +41,12 @@ pub trait Job: Send + Sync {
     /// Returns the unique job ID for this job.
     fn get_job_id(&self) -> u32;
 
+    /// Returns the extranonce prefix bytes this job was created under.
+    ///
+    /// Used by the job store to keep a rotated-out extranonce prefix (and therefore its
+    /// allocator slot) reserved for as long as any job created under it can still accept shares.
+    fn get_extranonce_prefix(&self) -> &[u8];
+
     /// Activates the job for a new chain tip or prev_hash header timestamp.
     fn activate(&mut self, prev_hash_header_timestamp: u32);
 }

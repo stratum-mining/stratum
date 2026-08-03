@@ -47,6 +47,11 @@ impl Job for StandardJob {
         self.job_message.job_id
     }
 
+    /// Returns the extranonce prefix this job was created under.
+    fn get_extranonce_prefix(&self) -> &[u8] {
+        &self.extranonce_prefix
+    }
+
     /// Activates the job by setting the minimum ntime field.
     fn activate(&mut self, min_ntime: u32) {
         self.activate(min_ntime);

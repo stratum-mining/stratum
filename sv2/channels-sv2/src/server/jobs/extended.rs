@@ -38,6 +38,10 @@ impl Job for ExtendedJob {
         self.job_message.job_id
     }
 
+    fn get_extranonce_prefix(&self) -> &[u8] {
+        &self.extranonce_prefix
+    }
+
     fn activate(&mut self, min_ntime: u32) {
         self.activate(min_ntime);
     }
