@@ -290,7 +290,7 @@ impl GroupChannel {
     /// this future job is "activated" and set as the active job.
     ///
     /// Updates the chain tip for the group channel.
-    /// Returns an error if no matching future job is found.
+    /// Returns an error if no matching future job is found, leaving the chain tip untouched.
     pub fn on_set_new_prev_hash(
         &mut self,
         set_new_prev_hash: SetNewPrevHashTdp,
@@ -300,10 +300,14 @@ impl GroupChannel {
                 return Err(GroupChannelError::TemplateIdNotFound);
             }
             true => {
-                self.job_store.activate_future_job(
+                // activation is a no-op when no future job matches the template id, so the
+                // chain tip must only advance once we know a job was actually activated.
+                if !self.job_store.activate_future_job(
                     set_new_prev_hash.template_id,
                     set_new_prev_hash.header_timestamp,
-                );
+                ) {
+                    return Err(GroupChannelError::TemplateIdNotFound);
+                }
             }
         }
 
@@ -316,7 +320,10 @@ impl GroupChannel {
 
 #[cfg(test)]
 mod tests {
-    use crate::{chain_tip::ChainTip, server::group::GroupChannel};
+    use crate::{
+        chain_tip::ChainTip,
+        server::{error::GroupChannelError, group::GroupChannel},
+    };
     use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
     use mining_sv2::NewExtendedMiningJobOwned as NewExtendedMiningJob;
@@ -653,5 +660,80 @@ mod tests {
         assert!(group_channel.add_channel_id(5, 32).is_err());
         assert_eq!(group_channel.get_channel_ids_count(), 1);
         assert!(!group_channel.has_channel_id(5));
+    }
+
+    #[test]
+    fn test_set_new_prev_hash_with_unknown_template_id() {
+        // Regression test: when on_set_new_prev_hash carries a template_id that matches no
+        // queued future job, activation is a no-op and the group channel must report the
+        // failure instead of silently advancing the chain tip.
+        let group_channel_id = 1;
+        let full_extranonce_size = 32;
+        let mut group_channel =
+            GroupChannel::new(group_channel_id, full_extranonce_size, None, None).unwrap();
+
+        let template = NewTemplate {
+            template_id: 1,
+            future_template: true,
+            version: 536870912,
+            coinbase_tx_version: 2,
+            coinbase_prefix: vec![82, 0].try_into().unwrap(),
+            coinbase_tx_input_sequence: 4294967295,
+            coinbase_tx_value_remaining: SATS_AVAILABLE_IN_TEMPLATE,
+            coinbase_tx_outputs_count: 1,
+            coinbase_tx_outputs: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
+                222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
+                139, 235, 216, 54, 151, 78, 140, 249,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_locktime: 0,
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        let pubkey_hash = [
+            235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194,
+            8, 252,
+        ];
+        let mut script_bytes = vec![0]; // SegWit version 0
+        script_bytes.push(20); // Push 20 bytes (length of pubkey hash)
+        script_bytes.extend_from_slice(&pubkey_hash);
+        let script = ScriptBuf::from(script_bytes);
+        let coinbase_reward_outputs = vec![TxOut {
+            value: Amount::from_sat(SATS_AVAILABLE_IN_TEMPLATE),
+            script_pubkey: script,
+        }];
+
+        group_channel
+            .on_new_template(template, coinbase_reward_outputs)
+            .unwrap();
+        assert!(group_channel.job_store.has_future_jobs());
+
+        // the only queued future job came from template_id 1, so template_id 2 cannot activate
+        let set_new_prev_hash = SetNewPrevHash {
+            template_id: 2,
+            prev_hash: [
+                200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144,
+                205, 88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+            ]
+            .into(),
+            header_timestamp: 1746839905,
+            n_bits: 503543726,
+            target: [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                174, 119, 3, 0, 0,
+            ]
+            .into(),
+        };
+
+        assert!(matches!(
+            group_channel.on_set_new_prev_hash(set_new_prev_hash),
+            Err(GroupChannelError::TemplateIdNotFound)
+        ));
+
+        // the failed activation must not have corrupted channel state
+        assert!(group_channel.get_chain_tip().is_none());
+        assert!(group_channel.get_active_job().is_none());
     }
 }
