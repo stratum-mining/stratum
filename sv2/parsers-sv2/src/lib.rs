@@ -50,8 +50,8 @@ use mining_sv2::*;
 use template_distribution_sv2::*;
 
 use common_messages_sv2::{
-    ChannelEndpointChanged, Reconnect, SetupConnection, SetupConnectionError,
-    SetupConnectionSuccess,
+    ChannelEndpointChanged, ChannelEndpointChangedOwned, Reconnect, SetupConnection,
+    SetupConnectionError, SetupConnectionSuccess, SetupConnectionSuccessOwned,
 };
 use extensions_sv2::{RequestExtensions, RequestExtensionsError, RequestExtensionsSuccess};
 use job_declaration_sv2::{
@@ -63,13 +63,16 @@ use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
     OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
     OpenStandardMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
-    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
-    SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+    SetCustomMiningJobSuccess, SetCustomMiningJobSuccessOwned, SetExtranoncePrefix,
+    SetGroupChannel, SetNewPrevHash as MiningSetNewPrevHash,
+    SetNewPrevHashOwned as MiningSetNewPrevHashOwned, SetTarget, SubmitSharesError,
+    SubmitSharesExtended, SubmitSharesStandard, SubmitSharesStandardOwned, SubmitSharesSuccess,
+    SubmitSharesSuccessOwned, UpdateChannel, UpdateChannelError,
 };
 use template_distribution_sv2::{
-    CoinbaseOutputConstraints, NewTemplate, RequestTransactionData, RequestTransactionDataError,
-    RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
+    CoinbaseOutputConstraints, CoinbaseOutputConstraintsOwned, NewTemplate, RequestTransactionData,
+    RequestTransactionDataError, RequestTransactionDataOwned, RequestTransactionDataSuccess,
+    SetNewPrevHash, SetNewPrevHashOwned as TemplateSetNewPrevHashOwned, SubmitSolution,
 };
 
 /// Converts a message type number to a human-readable name
@@ -149,6 +152,15 @@ pub enum CommonMessages<'a> {
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum CommonMessagesOwned {
+    ChannelEndpointChanged(ChannelEndpointChangedOwned),
+    Reconnect(ReconnectOwned),
+    SetupConnection(SetupConnectionOwned),
+    SetupConnectionError(SetupConnectionErrorOwned),
+    SetupConnectionSuccess(SetupConnectionSuccessOwned),
+}
+
 impl fmt::Display for CommonMessages<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -157,6 +169,18 @@ impl fmt::Display for CommonMessages<'_> {
             CommonMessages::SetupConnection(m) => write!(f, "{m}"),
             CommonMessages::SetupConnectionError(m) => write!(f, "{m}"),
             CommonMessages::SetupConnectionSuccess(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+impl fmt::Display for CommonMessagesOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommonMessagesOwned::ChannelEndpointChanged(m) => write!(f, "{m}"),
+            CommonMessagesOwned::Reconnect(m) => write!(f, "{m}"),
+            CommonMessagesOwned::SetupConnection(m) => write!(f, "{m}"),
+            CommonMessagesOwned::SetupConnectionError(m) => write!(f, "{m}"),
+            CommonMessagesOwned::SetupConnectionSuccess(m) => write!(f, "{m}"),
         }
     }
 }
@@ -171,6 +195,17 @@ pub enum TemplateDistribution<'a> {
     RequestTransactionDataSuccess(RequestTransactionDataSuccess<'a>),
     SetNewPrevHash(SetNewPrevHash<'a>),
     SubmitSolution(SubmitSolution<'a>),
+}
+
+#[derive(Clone, Debug)]
+pub enum TemplateDistributionOwned {
+    CoinbaseOutputConstraints(CoinbaseOutputConstraintsOwned),
+    NewTemplate(NewTemplateOwned),
+    RequestTransactionData(RequestTransactionDataOwned),
+    RequestTransactionDataError(RequestTransactionDataErrorOwned),
+    RequestTransactionDataSuccess(RequestTransactionDataSuccessOwned),
+    SetNewPrevHash(TemplateSetNewPrevHashOwned),
+    SubmitSolution(SubmitSolutionOwned),
 }
 
 impl fmt::Display for TemplateDistribution<'_> {
@@ -195,6 +230,22 @@ impl fmt::Display for TemplateDistribution<'_> {
     }
 }
 
+impl fmt::Display for TemplateDistributionOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TemplateDistributionOwned::CoinbaseOutputConstraints(m) => {
+                write!(f, "CoinbaseOutputConstraints: {m}")
+            }
+            TemplateDistributionOwned::NewTemplate(m) => write!(f, "{m}"),
+            TemplateDistributionOwned::RequestTransactionData(m) => write!(f, "{m}"),
+            TemplateDistributionOwned::RequestTransactionDataError(m) => write!(f, "{m}"),
+            TemplateDistributionOwned::RequestTransactionDataSuccess(m) => write!(f, "{m}"),
+            TemplateDistributionOwned::SetNewPrevHash(m) => write!(f, "{m}"),
+            TemplateDistributionOwned::SubmitSolution(m) => write!(f, "{m}"),
+        }
+    }
+}
+
 /// A parser of messages of Job Declaration subprotocol, to be used for parsing raw messages
 #[derive(Clone, Debug)]
 pub enum JobDeclaration<'a> {
@@ -206,6 +257,18 @@ pub enum JobDeclaration<'a> {
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
     PushSolution(PushSolution<'a>),
+}
+
+#[derive(Clone, Debug)]
+pub enum JobDeclarationOwned {
+    AllocateMiningJobToken(AllocateMiningJobTokenOwned),
+    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccessOwned),
+    DeclareMiningJob(DeclareMiningJobOwned),
+    DeclareMiningJobError(DeclareMiningJobErrorOwned),
+    DeclareMiningJobSuccess(DeclareMiningJobSuccessOwned),
+    ProvideMissingTransactions(ProvideMissingTransactionsOwned),
+    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccessOwned),
+    PushSolution(PushSolutionOwned),
 }
 
 impl fmt::Display for JobDeclaration<'_> {
@@ -227,6 +290,33 @@ impl fmt::Display for JobDeclaration<'_> {
                 write!(f, "ProvideMissingTransactionsSuccess: {m}")
             }
             JobDeclaration::PushSolution(m) => write!(f, "PushSolution: {m}"),
+        }
+    }
+}
+
+impl fmt::Display for JobDeclarationOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JobDeclarationOwned::AllocateMiningJobToken(m) => {
+                write!(f, "AllocateMiningJobToken: {m}")
+            }
+            JobDeclarationOwned::AllocateMiningJobTokenSuccess(m) => {
+                write!(f, "AllocateMiningJobTokenSuccess: {m}")
+            }
+            JobDeclarationOwned::DeclareMiningJob(m) => write!(f, "DeclareMiningJob: {m}"),
+            JobDeclarationOwned::DeclareMiningJobError(m) => {
+                write!(f, "DeclareMiningJobError: {m}")
+            }
+            JobDeclarationOwned::DeclareMiningJobSuccess(m) => {
+                write!(f, "DeclareMiningJobSuccess: {m}")
+            }
+            JobDeclarationOwned::ProvideMissingTransactions(m) => {
+                write!(f, "ProvideMissingTransactions: {m}")
+            }
+            JobDeclarationOwned::ProvideMissingTransactionsSuccess(m) => {
+                write!(f, "ProvideMissingTransactionsSuccess: {m}")
+            }
+            JobDeclarationOwned::PushSolution(m) => write!(f, "PushSolution: {m}"),
         }
     }
 }
@@ -279,6 +369,31 @@ pub enum Mining<'a> {
     UpdateChannelError(UpdateChannelError<'a>),
 }
 
+#[derive(Clone, Debug)]
+pub enum MiningOwned {
+    CloseChannel(CloseChannelOwned),
+    NewExtendedMiningJob(NewExtendedMiningJobOwned),
+    NewMiningJob(NewMiningJobOwned),
+    OpenExtendedMiningChannel(OpenExtendedMiningChannelOwned),
+    OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccessOwned),
+    OpenMiningChannelError(OpenMiningChannelErrorOwned),
+    OpenStandardMiningChannel(OpenStandardMiningChannelOwned),
+    OpenStandardMiningChannelSuccess(OpenStandardMiningChannelSuccessOwned),
+    SetCustomMiningJob(SetCustomMiningJobOwned),
+    SetCustomMiningJobError(SetCustomMiningJobErrorOwned),
+    SetCustomMiningJobSuccess(SetCustomMiningJobSuccessOwned),
+    SetExtranoncePrefix(SetExtranoncePrefixOwned),
+    SetGroupChannel(SetGroupChannelOwned),
+    SetNewPrevHash(MiningSetNewPrevHashOwned),
+    SetTarget(SetTargetOwned),
+    SubmitSharesError(SubmitSharesErrorOwned),
+    SubmitSharesExtended(SubmitSharesExtendedOwned),
+    SubmitSharesStandard(SubmitSharesStandardOwned),
+    SubmitSharesSuccess(SubmitSharesSuccessOwned),
+    UpdateChannel(UpdateChannelOwned),
+    UpdateChannelError(UpdateChannelErrorOwned),
+}
+
 impl fmt::Display for Mining<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -307,115 +422,153 @@ impl fmt::Display for Mining<'_> {
     }
 }
 
-impl Mining<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> Mining<'static> {
+impl fmt::Display for MiningOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mining::CloseChannel(m) => Mining::CloseChannel(m.into_static()),
-            Mining::NewExtendedMiningJob(m) => Mining::NewExtendedMiningJob(m.into_static()),
-            Mining::NewMiningJob(m) => Mining::NewMiningJob(m.into_static()),
+            MiningOwned::CloseChannel(m) => write!(f, "{m}"),
+            MiningOwned::NewExtendedMiningJob(m) => write!(f, "{m}"),
+            MiningOwned::NewMiningJob(m) => write!(f, "{m}"),
+            MiningOwned::OpenExtendedMiningChannel(m) => write!(f, "{m}"),
+            MiningOwned::OpenExtendedMiningChannelSuccess(m) => write!(f, "{m}"),
+            MiningOwned::OpenMiningChannelError(m) => write!(f, "{m}"),
+            MiningOwned::OpenStandardMiningChannel(m) => write!(f, "{m}"),
+            MiningOwned::OpenStandardMiningChannelSuccess(m) => write!(f, "{m}"),
+            MiningOwned::SetCustomMiningJob(m) => write!(f, "{m}"),
+            MiningOwned::SetCustomMiningJobError(m) => write!(f, "{m}"),
+            MiningOwned::SetCustomMiningJobSuccess(m) => write!(f, "{m}"),
+            MiningOwned::SetExtranoncePrefix(m) => write!(f, "{m}"),
+            MiningOwned::SetGroupChannel(m) => write!(f, "{m}"),
+            MiningOwned::SetNewPrevHash(m) => write!(f, "{m}"),
+            MiningOwned::SetTarget(m) => write!(f, "{m}"),
+            MiningOwned::SubmitSharesError(m) => write!(f, "{m}"),
+            MiningOwned::SubmitSharesExtended(m) => write!(f, "{m}"),
+            MiningOwned::SubmitSharesStandard(m) => write!(f, "{m}"),
+            MiningOwned::SubmitSharesSuccess(m) => write!(f, "{m}"),
+            MiningOwned::UpdateChannel(m) => write!(f, "{m}"),
+            MiningOwned::UpdateChannelError(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+impl Mining<'_> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> MiningOwned {
+        match self {
+            Mining::CloseChannel(m) => MiningOwned::CloseChannel(m.into_owned()),
+            Mining::NewExtendedMiningJob(m) => MiningOwned::NewExtendedMiningJob(m.into_owned()),
+            Mining::NewMiningJob(m) => MiningOwned::NewMiningJob(m.into_owned()),
             Mining::OpenExtendedMiningChannel(m) => {
-                Mining::OpenExtendedMiningChannel(m.into_static())
+                MiningOwned::OpenExtendedMiningChannel(m.into_owned())
             }
             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                Mining::OpenExtendedMiningChannelSuccess(m.into_static())
+                MiningOwned::OpenExtendedMiningChannelSuccess(m.into_owned())
             }
-            Mining::OpenMiningChannelError(m) => Mining::OpenMiningChannelError(m.into_static()),
+            Mining::OpenMiningChannelError(m) => {
+                MiningOwned::OpenMiningChannelError(m.into_owned())
+            }
             Mining::OpenStandardMiningChannel(m) => {
-                Mining::OpenStandardMiningChannel(m.into_static())
+                MiningOwned::OpenStandardMiningChannel(m.into_owned())
             }
             Mining::OpenStandardMiningChannelSuccess(m) => {
-                Mining::OpenStandardMiningChannelSuccess(m.into_static())
+                MiningOwned::OpenStandardMiningChannelSuccess(m.into_owned())
             }
-            Mining::SetCustomMiningJob(m) => Mining::SetCustomMiningJob(m.into_static()),
-            Mining::SetCustomMiningJobError(m) => Mining::SetCustomMiningJobError(m.into_static()),
+            Mining::SetCustomMiningJob(m) => MiningOwned::SetCustomMiningJob(m.into_owned()),
+            Mining::SetCustomMiningJobError(m) => {
+                MiningOwned::SetCustomMiningJobError(m.into_owned())
+            }
             Mining::SetCustomMiningJobSuccess(m) => {
-                Mining::SetCustomMiningJobSuccess(m.into_static())
+                MiningOwned::SetCustomMiningJobSuccess(m.into_owned())
             }
-            Mining::SetExtranoncePrefix(m) => Mining::SetExtranoncePrefix(m.into_static()),
-            Mining::SetGroupChannel(m) => Mining::SetGroupChannel(m.into_static()),
-            Mining::SetNewPrevHash(m) => Mining::SetNewPrevHash(m.into_static()),
-            Mining::SetTarget(m) => Mining::SetTarget(m.into_static()),
-            Mining::SubmitSharesError(m) => Mining::SubmitSharesError(m.into_static()),
-            Mining::SubmitSharesExtended(m) => Mining::SubmitSharesExtended(m.into_static()),
-            Mining::SubmitSharesStandard(m) => Mining::SubmitSharesStandard(m),
-            Mining::SubmitSharesSuccess(m) => Mining::SubmitSharesSuccess(m),
-            Mining::UpdateChannel(m) => Mining::UpdateChannel(m.into_static()),
-            Mining::UpdateChannelError(m) => Mining::UpdateChannelError(m.into_static()),
+            Mining::SetExtranoncePrefix(m) => MiningOwned::SetExtranoncePrefix(m.into_owned()),
+            Mining::SetGroupChannel(m) => MiningOwned::SetGroupChannel(m.into_owned()),
+            Mining::SetNewPrevHash(m) => MiningOwned::SetNewPrevHash(m.into_owned()),
+            Mining::SetTarget(m) => MiningOwned::SetTarget(m.into_owned()),
+            Mining::SubmitSharesError(m) => MiningOwned::SubmitSharesError(m.into_owned()),
+            Mining::SubmitSharesExtended(m) => MiningOwned::SubmitSharesExtended(m.into_owned()),
+            Mining::SubmitSharesStandard(m) => MiningOwned::SubmitSharesStandard(m.into_owned()),
+            Mining::SubmitSharesSuccess(m) => MiningOwned::SubmitSharesSuccess(m.into_owned()),
+            Mining::UpdateChannel(m) => MiningOwned::UpdateChannel(m.into_owned()),
+            Mining::UpdateChannelError(m) => MiningOwned::UpdateChannelError(m.into_owned()),
         }
     }
 }
 
 impl CommonMessages<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> CommonMessages<'static> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> CommonMessagesOwned {
         match self {
-            CommonMessages::ChannelEndpointChanged(m) => CommonMessages::ChannelEndpointChanged(m),
-            CommonMessages::Reconnect(m) => CommonMessages::Reconnect(m.into_static()),
-            CommonMessages::SetupConnection(m) => CommonMessages::SetupConnection(m.into_static()),
-            CommonMessages::SetupConnectionError(m) => {
-                CommonMessages::SetupConnectionError(m.into_static())
+            CommonMessages::ChannelEndpointChanged(m) => {
+                CommonMessagesOwned::ChannelEndpointChanged(m.into_owned())
             }
-            CommonMessages::SetupConnectionSuccess(m) => CommonMessages::SetupConnectionSuccess(m),
+            CommonMessages::Reconnect(m) => CommonMessagesOwned::Reconnect(m.into_owned()),
+            CommonMessages::SetupConnection(m) => {
+                CommonMessagesOwned::SetupConnection(m.into_owned())
+            }
+            CommonMessages::SetupConnectionError(m) => {
+                CommonMessagesOwned::SetupConnectionError(m.into_owned())
+            }
+            CommonMessages::SetupConnectionSuccess(m) => {
+                CommonMessagesOwned::SetupConnectionSuccess(m.into_owned())
+            }
         }
     }
 }
 
 impl TemplateDistribution<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> TemplateDistribution<'static> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> TemplateDistributionOwned {
         match self {
             TemplateDistribution::CoinbaseOutputConstraints(m) => {
-                TemplateDistribution::CoinbaseOutputConstraints(m)
+                TemplateDistributionOwned::CoinbaseOutputConstraints(m.into_owned())
             }
             TemplateDistribution::NewTemplate(m) => {
-                TemplateDistribution::NewTemplate(m.into_static())
+                TemplateDistributionOwned::NewTemplate(m.into_owned())
             }
             TemplateDistribution::RequestTransactionData(m) => {
-                TemplateDistribution::RequestTransactionData(m)
+                TemplateDistributionOwned::RequestTransactionData(m.into_owned())
             }
             TemplateDistribution::RequestTransactionDataError(m) => {
-                TemplateDistribution::RequestTransactionDataError(m.into_static())
+                TemplateDistributionOwned::RequestTransactionDataError(m.into_owned())
             }
             TemplateDistribution::RequestTransactionDataSuccess(m) => {
-                TemplateDistribution::RequestTransactionDataSuccess(m.into_static())
+                TemplateDistributionOwned::RequestTransactionDataSuccess(m.into_owned())
             }
             TemplateDistribution::SetNewPrevHash(m) => {
-                TemplateDistribution::SetNewPrevHash(m.into_static())
+                TemplateDistributionOwned::SetNewPrevHash(m.into_owned())
             }
             TemplateDistribution::SubmitSolution(m) => {
-                TemplateDistribution::SubmitSolution(m.into_static())
+                TemplateDistributionOwned::SubmitSolution(m.into_owned())
             }
         }
     }
 }
 
 impl JobDeclaration<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> JobDeclaration<'static> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> JobDeclarationOwned {
         match self {
             JobDeclaration::AllocateMiningJobToken(m) => {
-                JobDeclaration::AllocateMiningJobToken(m.into_static())
+                JobDeclarationOwned::AllocateMiningJobToken(m.into_owned())
             }
             JobDeclaration::AllocateMiningJobTokenSuccess(m) => {
-                JobDeclaration::AllocateMiningJobTokenSuccess(m.into_static())
+                JobDeclarationOwned::AllocateMiningJobTokenSuccess(m.into_owned())
             }
             JobDeclaration::DeclareMiningJob(m) => {
-                JobDeclaration::DeclareMiningJob(m.into_static())
+                JobDeclarationOwned::DeclareMiningJob(m.into_owned())
             }
             JobDeclaration::DeclareMiningJobError(m) => {
-                JobDeclaration::DeclareMiningJobError(m.into_static())
+                JobDeclarationOwned::DeclareMiningJobError(m.into_owned())
             }
             JobDeclaration::DeclareMiningJobSuccess(m) => {
-                JobDeclaration::DeclareMiningJobSuccess(m.into_static())
+                JobDeclarationOwned::DeclareMiningJobSuccess(m.into_owned())
             }
             JobDeclaration::ProvideMissingTransactions(m) => {
-                JobDeclaration::ProvideMissingTransactions(m.into_static())
+                JobDeclarationOwned::ProvideMissingTransactions(m.into_owned())
             }
             JobDeclaration::ProvideMissingTransactionsSuccess(m) => {
-                JobDeclaration::ProvideMissingTransactionsSuccess(m.into_static())
+                JobDeclarationOwned::ProvideMissingTransactionsSuccess(m.into_owned())
             }
-            JobDeclaration::PushSolution(m) => JobDeclaration::PushSolution(m.into_static()),
+            JobDeclaration::PushSolution(m) => JobDeclarationOwned::PushSolution(m.into_owned()),
         }
     }
 }
@@ -431,6 +584,13 @@ pub enum ExtensionsNegotiation<'a> {
     RequestExtensionsError(RequestExtensionsError<'a>),
 }
 
+#[derive(Clone, Debug)]
+pub enum ExtensionsNegotiationOwned {
+    RequestExtensions(RequestExtensionsOwned),
+    RequestExtensionsSuccess(RequestExtensionsSuccessOwned),
+    RequestExtensionsError(RequestExtensionsErrorOwned),
+}
+
 impl fmt::Display for ExtensionsNegotiation<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -441,18 +601,28 @@ impl fmt::Display for ExtensionsNegotiation<'_> {
     }
 }
 
+impl fmt::Display for ExtensionsNegotiationOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExtensionsNegotiationOwned::RequestExtensions(m) => write!(f, "{m}"),
+            ExtensionsNegotiationOwned::RequestExtensionsSuccess(m) => write!(f, "{m}"),
+            ExtensionsNegotiationOwned::RequestExtensionsError(m) => write!(f, "{m}"),
+        }
+    }
+}
+
 impl ExtensionsNegotiation<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> ExtensionsNegotiation<'static> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> ExtensionsNegotiationOwned {
         match self {
             ExtensionsNegotiation::RequestExtensions(m) => {
-                ExtensionsNegotiation::RequestExtensions(m.into_static())
+                ExtensionsNegotiationOwned::RequestExtensions(m.into_owned())
             }
             ExtensionsNegotiation::RequestExtensionsSuccess(m) => {
-                ExtensionsNegotiation::RequestExtensionsSuccess(m.into_static())
+                ExtensionsNegotiationOwned::RequestExtensionsSuccess(m.into_owned())
             }
             ExtensionsNegotiation::RequestExtensionsError(m) => {
-                ExtensionsNegotiation::RequestExtensionsError(m.into_static())
+                ExtensionsNegotiationOwned::RequestExtensionsError(m.into_owned())
             }
         }
     }
@@ -476,6 +646,11 @@ pub enum Extensions<'a> {
     ExtensionsNegotiation(ExtensionsNegotiation<'a>),
 }
 
+#[derive(Clone, Debug)]
+pub enum ExtensionsOwned {
+    ExtensionsNegotiation(ExtensionsNegotiationOwned),
+}
+
 impl fmt::Display for Extensions<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -484,43 +659,51 @@ impl fmt::Display for Extensions<'_> {
     }
 }
 
+impl fmt::Display for ExtensionsOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExtensionsOwned::ExtensionsNegotiation(m) => write!(f, "{m}"),
+        }
+    }
+}
+
 impl Extensions<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> Extensions<'static> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> ExtensionsOwned {
         match self {
             Extensions::ExtensionsNegotiation(m) => {
-                Extensions::ExtensionsNegotiation(m.into_static())
+                ExtensionsOwned::ExtensionsNegotiation(m.into_owned())
             }
         }
     }
 }
 
 impl AnyMessage<'_> {
-    /// converter into static lifetime
-    pub fn into_static(self) -> AnyMessage<'static> {
+    /// Converts this borrowed parser message into its owned counterpart.
+    pub fn into_owned(self) -> AnyMessageOwned {
         match self {
-            AnyMessage::Common(m) => AnyMessage::Common(m.into_static()),
-            AnyMessage::Mining(m) => AnyMessage::Mining(m.into_static()),
-            AnyMessage::JobDeclaration(m) => AnyMessage::JobDeclaration(m.into_static()),
+            AnyMessage::Common(m) => AnyMessageOwned::Common(m.into_owned()),
+            AnyMessage::Mining(m) => AnyMessageOwned::Mining(m.into_owned()),
+            AnyMessage::JobDeclaration(m) => AnyMessageOwned::JobDeclaration(m.into_owned()),
             AnyMessage::TemplateDistribution(m) => {
-                AnyMessage::TemplateDistribution(m.into_static())
+                AnyMessageOwned::TemplateDistribution(m.into_owned())
             }
-            AnyMessage::Extensions(m) => AnyMessage::Extensions(m.into_static()),
+            AnyMessage::Extensions(m) => AnyMessageOwned::Extensions(m.into_owned()),
         }
     }
 }
 
 /// Single entry point for parsing any SV2 protocol message frame with TLV support.
-pub fn parse_message_frame_with_tlvs(
+pub fn parse_message_frame_with_tlvs<'a>(
     header: Header,
-    payload: &mut [u8],
+    payload: &'a mut [u8],
     negotiated_extensions: &[u16],
-) -> Result<(AnyMessage<'static>, Option<Vec<Tlv>>), ParserError> {
+) -> Result<(AnyMessage<'a>, Option<Vec<Tlv>>), ParserError> {
     let raw_payload = payload.to_vec();
-    let message: AnyMessage<'_> = (header, payload).try_into()?;
+    let message: AnyMessage<'a> = (header, payload).try_into()?;
     let message_size = message.get_size();
     let tlvs = extract_tlv_fields(&raw_payload, message_size, negotiated_extensions);
-    Ok((message.into_static(), tlvs))
+    Ok((message, tlvs))
 }
 
 /// Internal helper to extract TLV fields from the remaining payload bytes.
@@ -571,6 +754,32 @@ impl IsSv2Message for CommonMessages<'_> {
     }
 }
 
+impl IsSv2Message for CommonMessagesOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            Self::Reconnect(_) => MESSAGE_TYPE_RECONNECT,
+            Self::SetupConnection(_) => MESSAGE_TYPE_SETUP_CONNECTION,
+            Self::SetupConnectionError(_) => MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+            Self::SetupConnectionSuccess(_) => MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED,
+            Self::Reconnect(_) => CHANNEL_BIT_RECONNECT,
+            Self::SetupConnection(_) => CHANNEL_BIT_SETUP_CONNECTION,
+            Self::SetupConnectionError(_) => CHANNEL_BIT_SETUP_CONNECTION_ERROR,
+            Self::SetupConnectionSuccess(_) => CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0
+    }
+}
+
 impl IsSv2Message for TemplateDistribution<'_> {
     fn message_type(&self) -> u8 {
         match self {
@@ -599,6 +808,37 @@ impl IsSv2Message for TemplateDistribution<'_> {
         0 // Template Distribution messages are not extensions
     }
 }
+
+impl IsSv2Message for TemplateDistributionOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::CoinbaseOutputConstraints(_) => MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS,
+            Self::NewTemplate(_) => MESSAGE_TYPE_NEW_TEMPLATE,
+            Self::RequestTransactionData(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
+            Self::RequestTransactionDataError(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
+            Self::RequestTransactionDataSuccess(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
+            Self::SetNewPrevHash(_) => MESSAGE_TYPE_SET_NEW_PREV_HASH,
+            Self::SubmitSolution(_) => MESSAGE_TYPE_SUBMIT_SOLUTION,
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::CoinbaseOutputConstraints(_) => CHANNEL_BIT_COINBASE_OUTPUT_CONSTRAINTS,
+            Self::NewTemplate(_) => CHANNEL_BIT_NEW_TEMPLATE,
+            Self::RequestTransactionData(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
+            Self::RequestTransactionDataError(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR,
+            Self::RequestTransactionDataSuccess(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
+            Self::SetNewPrevHash(_) => CHANNEL_BIT_SET_NEW_PREV_HASH,
+            Self::SubmitSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION,
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0
+    }
+}
+
 impl IsSv2Message for JobDeclaration<'_> {
     fn message_type(&self) -> u8 {
         match self {
@@ -635,6 +875,45 @@ impl IsSv2Message for JobDeclaration<'_> {
         0 // Job Declaration messages are not extensions
     }
 }
+
+impl IsSv2Message for JobDeclarationOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+            Self::AllocateMiningJobTokenSuccess(_) => {
+                MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS
+            }
+            Self::DeclareMiningJob(_) => MESSAGE_TYPE_DECLARE_MINING_JOB,
+            Self::DeclareMiningJobSuccess(_) => MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
+            Self::DeclareMiningJobError(_) => MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+            Self::ProvideMissingTransactions(_) => MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+            Self::ProvideMissingTransactionsSuccess(_) => {
+                MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
+            }
+            Self::PushSolution(_) => MESSAGE_TYPE_PUSH_SOLUTION,
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::AllocateMiningJobToken(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN,
+            Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
+            Self::DeclareMiningJob(_) => CHANNEL_BIT_DECLARE_MINING_JOB,
+            Self::DeclareMiningJobSuccess(_) => CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS,
+            Self::DeclareMiningJobError(_) => CHANNEL_BIT_DECLARE_MINING_JOB_ERROR,
+            Self::ProvideMissingTransactions(_) => CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS,
+            Self::ProvideMissingTransactionsSuccess(_) => {
+                CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
+            }
+            Self::PushSolution(_) => CHANNEL_BIT_PUSH_SOLUTION,
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0
+    }
+}
+
 impl IsSv2Message for Mining<'_> {
     fn message_type(&self) -> u8 {
         match self {
@@ -701,6 +980,72 @@ impl IsSv2Message for Mining<'_> {
     }
 }
 
+impl IsSv2Message for MiningOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::CloseChannel(_) => MESSAGE_TYPE_CLOSE_CHANNEL,
+            Self::NewExtendedMiningJob(_) => MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
+            Self::NewMiningJob(_) => MESSAGE_TYPE_NEW_MINING_JOB,
+            Self::OpenExtendedMiningChannel(_) => MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL,
+            Self::OpenExtendedMiningChannelSuccess(_) => {
+                MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS
+            }
+            Self::OpenMiningChannelError(_) => MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR,
+            Self::OpenStandardMiningChannel(_) => MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
+            Self::OpenStandardMiningChannelSuccess(_) => {
+                MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS
+            }
+            Self::SetCustomMiningJob(_) => MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+            Self::SetCustomMiningJobError(_) => MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
+            Self::SetCustomMiningJobSuccess(_) => MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+            Self::SetExtranoncePrefix(_) => MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
+            Self::SetGroupChannel(_) => MESSAGE_TYPE_SET_GROUP_CHANNEL,
+            Self::SetNewPrevHash(_) => MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+            Self::SetTarget(_) => MESSAGE_TYPE_SET_TARGET,
+            Self::SubmitSharesError(_) => MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+            Self::SubmitSharesExtended(_) => MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+            Self::SubmitSharesStandard(_) => MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+            Self::SubmitSharesSuccess(_) => MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+            Self::UpdateChannel(_) => MESSAGE_TYPE_UPDATE_CHANNEL,
+            Self::UpdateChannelError(_) => MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::CloseChannel(_) => CHANNEL_BIT_CLOSE_CHANNEL,
+            Self::NewExtendedMiningJob(_) => CHANNEL_BIT_NEW_EXTENDED_MINING_JOB,
+            Self::NewMiningJob(_) => CHANNEL_BIT_NEW_MINING_JOB,
+            Self::OpenExtendedMiningChannel(_) => CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL,
+            Self::OpenExtendedMiningChannelSuccess(_) => {
+                CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCESS
+            }
+            Self::OpenMiningChannelError(_) => CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR,
+            Self::OpenStandardMiningChannel(_) => CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL,
+            Self::OpenStandardMiningChannelSuccess(_) => {
+                CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS
+            }
+            Self::SetCustomMiningJob(_) => CHANNEL_BIT_SET_CUSTOM_MINING_JOB,
+            Self::SetCustomMiningJobError(_) => CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR,
+            Self::SetCustomMiningJobSuccess(_) => CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS,
+            Self::SetExtranoncePrefix(_) => CHANNEL_BIT_SET_EXTRANONCE_PREFIX,
+            Self::SetGroupChannel(_) => CHANNEL_BIT_SET_GROUP_CHANNEL,
+            Self::SetNewPrevHash(_) => CHANNEL_BIT_MINING_SET_NEW_PREV_HASH,
+            Self::SetTarget(_) => CHANNEL_BIT_SET_TARGET,
+            Self::SubmitSharesError(_) => CHANNEL_BIT_SUBMIT_SHARES_ERROR,
+            Self::SubmitSharesExtended(_) => CHANNEL_BIT_SUBMIT_SHARES_EXTENDED,
+            Self::SubmitSharesStandard(_) => CHANNEL_BIT_SUBMIT_SHARES_STANDARD,
+            Self::SubmitSharesSuccess(_) => CHANNEL_BIT_SUBMIT_SHARES_SUCCESS,
+            Self::UpdateChannel(_) => CHANNEL_BIT_UPDATE_CHANNEL,
+            Self::UpdateChannelError(_) => CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        0
+    }
+}
+
 impl IsSv2Message for Extensions<'_> {
     fn message_type(&self) -> u8 {
         match self {
@@ -737,6 +1082,42 @@ impl IsSv2Message for Extensions<'_> {
     }
 }
 
+impl IsSv2Message for ExtensionsOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            Self::ExtensionsNegotiation(m) => match m {
+                ExtensionsNegotiationOwned::RequestExtensions(_) => MESSAGE_TYPE_REQUEST_EXTENSIONS,
+                ExtensionsNegotiationOwned::RequestExtensionsSuccess(_) => {
+                    MESSAGE_TYPE_REQUEST_EXTENSIONS_SUCCESS
+                }
+                ExtensionsNegotiationOwned::RequestExtensionsError(_) => {
+                    MESSAGE_TYPE_REQUEST_EXTENSIONS_ERROR
+                }
+            },
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            Self::ExtensionsNegotiation(m) => match m {
+                ExtensionsNegotiationOwned::RequestExtensions(_) => CHANNEL_BIT_REQUEST_EXTENSIONS,
+                ExtensionsNegotiationOwned::RequestExtensionsSuccess(_) => {
+                    CHANNEL_BIT_REQUEST_EXTENSIONS_SUCCESS
+                }
+                ExtensionsNegotiationOwned::RequestExtensionsError(_) => {
+                    CHANNEL_BIT_REQUEST_EXTENSIONS_ERROR
+                }
+            },
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        match self {
+            Self::ExtensionsNegotiation(_) => EXTENSION_TYPE_EXTENSIONS_NEGOTIATION,
+        }
+    }
+}
+
 impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: CommonMessages<'decoder>) -> Self {
         match m {
@@ -748,6 +1129,19 @@ impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
+
+impl<'decoder> From<CommonMessagesOwned> for EncodableField<'decoder> {
+    fn from(m: CommonMessagesOwned) -> Self {
+        match m {
+            CommonMessagesOwned::ChannelEndpointChanged(a) => a.into(),
+            CommonMessagesOwned::Reconnect(a) => a.into(),
+            CommonMessagesOwned::SetupConnection(a) => a.into(),
+            CommonMessagesOwned::SetupConnectionError(a) => a.into(),
+            CommonMessagesOwned::SetupConnectionSuccess(a) => a.into(),
+        }
+    }
+}
+
 impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder> {
     fn from(m: TemplateDistribution<'decoder>) -> Self {
         match m {
@@ -761,6 +1155,21 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
         }
     }
 }
+
+impl<'decoder> From<TemplateDistributionOwned> for EncodableField<'decoder> {
+    fn from(m: TemplateDistributionOwned) -> Self {
+        match m {
+            TemplateDistributionOwned::CoinbaseOutputConstraints(a) => a.into(),
+            TemplateDistributionOwned::NewTemplate(a) => a.into(),
+            TemplateDistributionOwned::RequestTransactionData(a) => a.into(),
+            TemplateDistributionOwned::RequestTransactionDataError(a) => a.into(),
+            TemplateDistributionOwned::RequestTransactionDataSuccess(a) => a.into(),
+            TemplateDistributionOwned::SetNewPrevHash(a) => a.into(),
+            TemplateDistributionOwned::SubmitSolution(a) => a.into(),
+        }
+    }
+}
+
 impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
     fn from(m: JobDeclaration<'decoder>) -> Self {
         match m {
@@ -772,6 +1181,21 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
             JobDeclaration::ProvideMissingTransactions(a) => a.into(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.into(),
             JobDeclaration::PushSolution(a) => a.into(),
+        }
+    }
+}
+
+impl<'decoder> From<JobDeclarationOwned> for EncodableField<'decoder> {
+    fn from(m: JobDeclarationOwned) -> Self {
+        match m {
+            JobDeclarationOwned::AllocateMiningJobToken(a) => a.into(),
+            JobDeclarationOwned::AllocateMiningJobTokenSuccess(a) => a.into(),
+            JobDeclarationOwned::DeclareMiningJob(a) => a.into(),
+            JobDeclarationOwned::DeclareMiningJobSuccess(a) => a.into(),
+            JobDeclarationOwned::DeclareMiningJobError(a) => a.into(),
+            JobDeclarationOwned::ProvideMissingTransactions(a) => a.into(),
+            JobDeclarationOwned::ProvideMissingTransactionsSuccess(a) => a.into(),
+            JobDeclarationOwned::PushSolution(a) => a.into(),
         }
     }
 }
@@ -804,6 +1228,34 @@ impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
     }
 }
 
+impl<'decoder> From<MiningOwned> for EncodableField<'decoder> {
+    fn from(m: MiningOwned) -> Self {
+        match m {
+            MiningOwned::CloseChannel(a) => a.into(),
+            MiningOwned::NewExtendedMiningJob(a) => a.into(),
+            MiningOwned::NewMiningJob(a) => a.into(),
+            MiningOwned::OpenExtendedMiningChannel(a) => a.into(),
+            MiningOwned::OpenExtendedMiningChannelSuccess(a) => a.into(),
+            MiningOwned::OpenMiningChannelError(a) => a.into(),
+            MiningOwned::OpenStandardMiningChannel(a) => a.into(),
+            MiningOwned::OpenStandardMiningChannelSuccess(a) => a.into(),
+            MiningOwned::SetCustomMiningJob(a) => a.into(),
+            MiningOwned::SetCustomMiningJobError(a) => a.into(),
+            MiningOwned::SetCustomMiningJobSuccess(a) => a.into(),
+            MiningOwned::SetExtranoncePrefix(a) => a.into(),
+            MiningOwned::SetGroupChannel(a) => a.into(),
+            MiningOwned::SetNewPrevHash(a) => a.into(),
+            MiningOwned::SetTarget(a) => a.into(),
+            MiningOwned::SubmitSharesError(a) => a.into(),
+            MiningOwned::SubmitSharesExtended(a) => a.into(),
+            MiningOwned::SubmitSharesStandard(a) => a.into(),
+            MiningOwned::SubmitSharesSuccess(a) => a.into(),
+            MiningOwned::UpdateChannel(a) => a.into(),
+            MiningOwned::UpdateChannelError(a) => a.into(),
+        }
+    }
+}
+
 impl GetSize for CommonMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -815,6 +1267,19 @@ impl GetSize for CommonMessages<'_> {
         }
     }
 }
+
+impl GetSize for CommonMessagesOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            CommonMessagesOwned::ChannelEndpointChanged(a) => a.get_size(),
+            CommonMessagesOwned::Reconnect(a) => a.get_size(),
+            CommonMessagesOwned::SetupConnection(a) => a.get_size(),
+            CommonMessagesOwned::SetupConnectionError(a) => a.get_size(),
+            CommonMessagesOwned::SetupConnectionSuccess(a) => a.get_size(),
+        }
+    }
+}
+
 impl GetSize for TemplateDistribution<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -828,6 +1293,21 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
+
+impl GetSize for TemplateDistributionOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            TemplateDistributionOwned::CoinbaseOutputConstraints(a) => a.get_size(),
+            TemplateDistributionOwned::NewTemplate(a) => a.get_size(),
+            TemplateDistributionOwned::RequestTransactionData(a) => a.get_size(),
+            TemplateDistributionOwned::RequestTransactionDataError(a) => a.get_size(),
+            TemplateDistributionOwned::RequestTransactionDataSuccess(a) => a.get_size(),
+            TemplateDistributionOwned::SetNewPrevHash(a) => a.get_size(),
+            TemplateDistributionOwned::SubmitSolution(a) => a.get_size(),
+        }
+    }
+}
+
 impl GetSize for JobDeclaration<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -842,6 +1322,22 @@ impl GetSize for JobDeclaration<'_> {
         }
     }
 }
+
+impl GetSize for JobDeclarationOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            JobDeclarationOwned::AllocateMiningJobToken(a) => a.get_size(),
+            JobDeclarationOwned::AllocateMiningJobTokenSuccess(a) => a.get_size(),
+            JobDeclarationOwned::DeclareMiningJob(a) => a.get_size(),
+            JobDeclarationOwned::DeclareMiningJobSuccess(a) => a.get_size(),
+            JobDeclarationOwned::DeclareMiningJobError(a) => a.get_size(),
+            JobDeclarationOwned::ProvideMissingTransactions(a) => a.get_size(),
+            JobDeclarationOwned::ProvideMissingTransactionsSuccess(a) => a.get_size(),
+            JobDeclarationOwned::PushSolution(a) => a.get_size(),
+        }
+    }
+}
+
 impl GetSize for Mining<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -870,6 +1366,34 @@ impl GetSize for Mining<'_> {
     }
 }
 
+impl GetSize for MiningOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            MiningOwned::CloseChannel(a) => a.get_size(),
+            MiningOwned::NewExtendedMiningJob(a) => a.get_size(),
+            MiningOwned::NewMiningJob(a) => a.get_size(),
+            MiningOwned::OpenExtendedMiningChannel(a) => a.get_size(),
+            MiningOwned::OpenExtendedMiningChannelSuccess(a) => a.get_size(),
+            MiningOwned::OpenMiningChannelError(a) => a.get_size(),
+            MiningOwned::OpenStandardMiningChannel(a) => a.get_size(),
+            MiningOwned::OpenStandardMiningChannelSuccess(a) => a.get_size(),
+            MiningOwned::SetCustomMiningJob(a) => a.get_size(),
+            MiningOwned::SetCustomMiningJobError(a) => a.get_size(),
+            MiningOwned::SetCustomMiningJobSuccess(a) => a.get_size(),
+            MiningOwned::SetExtranoncePrefix(a) => a.get_size(),
+            MiningOwned::SetGroupChannel(a) => a.get_size(),
+            MiningOwned::SetNewPrevHash(a) => a.get_size(),
+            MiningOwned::SetTarget(a) => a.get_size(),
+            MiningOwned::SubmitSharesError(a) => a.get_size(),
+            MiningOwned::SubmitSharesExtended(a) => a.get_size(),
+            MiningOwned::SubmitSharesStandard(a) => a.get_size(),
+            MiningOwned::SubmitSharesSuccess(a) => a.get_size(),
+            MiningOwned::UpdateChannel(a) => a.get_size(),
+            MiningOwned::UpdateChannelError(a) => a.get_size(),
+        }
+    }
+}
+
 impl<'decoder> From<Extensions<'decoder>> for EncodableField<'decoder> {
     fn from(m: Extensions<'decoder>) -> Self {
         match m {
@@ -882,6 +1406,18 @@ impl<'decoder> From<Extensions<'decoder>> for EncodableField<'decoder> {
     }
 }
 
+impl<'decoder> From<ExtensionsOwned> for EncodableField<'decoder> {
+    fn from(m: ExtensionsOwned) -> Self {
+        match m {
+            ExtensionsOwned::ExtensionsNegotiation(ext) => match ext {
+                ExtensionsNegotiationOwned::RequestExtensions(a) => a.into(),
+                ExtensionsNegotiationOwned::RequestExtensionsSuccess(a) => a.into(),
+                ExtensionsNegotiationOwned::RequestExtensionsError(a) => a.into(),
+            },
+        }
+    }
+}
+
 impl GetSize for Extensions<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -889,6 +1425,18 @@ impl GetSize for Extensions<'_> {
                 ExtensionsNegotiation::RequestExtensions(a) => a.get_size(),
                 ExtensionsNegotiation::RequestExtensionsSuccess(a) => a.get_size(),
                 ExtensionsNegotiation::RequestExtensionsError(a) => a.get_size(),
+            },
+        }
+    }
+}
+
+impl GetSize for ExtensionsOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            ExtensionsOwned::ExtensionsNegotiation(m) => match m {
+                ExtensionsNegotiationOwned::RequestExtensions(a) => a.get_size(),
+                ExtensionsNegotiationOwned::RequestExtensionsSuccess(a) => a.get_size(),
+                ExtensionsNegotiationOwned::RequestExtensionsError(a) => a.get_size(),
             },
         }
     }
@@ -1424,6 +1972,14 @@ pub enum MiningDeviceMessages<'a> {
     Mining(Mining<'a>),
     Extensions(Extensions<'a>),
 }
+
+#[derive(Clone, Debug)]
+pub enum MiningDeviceMessagesOwned {
+    Common(CommonMessagesOwned),
+    Mining(MiningOwned),
+    Extensions(ExtensionsOwned),
+}
+
 impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: MiningDeviceMessages<'decoder>) -> Self {
         match m {
@@ -1433,12 +1989,33 @@ impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder>
         }
     }
 }
+
+impl<'decoder> From<MiningDeviceMessagesOwned> for EncodableField<'decoder> {
+    fn from(m: MiningDeviceMessagesOwned) -> Self {
+        match m {
+            MiningDeviceMessagesOwned::Common(a) => a.into(),
+            MiningDeviceMessagesOwned::Mining(a) => a.into(),
+            MiningDeviceMessagesOwned::Extensions(a) => a.into(),
+        }
+    }
+}
+
 impl GetSize for MiningDeviceMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
             MiningDeviceMessages::Common(a) => a.get_size(),
             MiningDeviceMessages::Mining(a) => a.get_size(),
             MiningDeviceMessages::Extensions(a) => a.get_size(),
+        }
+    }
+}
+
+impl GetSize for MiningDeviceMessagesOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            MiningDeviceMessagesOwned::Common(a) => a.get_size(),
+            MiningDeviceMessagesOwned::Mining(a) => a.get_size(),
+            MiningDeviceMessagesOwned::Extensions(a) => a.get_size(),
         }
     }
 }
@@ -1468,6 +2045,15 @@ pub enum AnyMessage<'a> {
     Extensions(Extensions<'a>),
 }
 
+#[derive(Clone, Debug)]
+pub enum AnyMessageOwned {
+    Common(CommonMessagesOwned),
+    Mining(MiningOwned),
+    JobDeclaration(JobDeclarationOwned),
+    TemplateDistribution(TemplateDistributionOwned),
+    Extensions(ExtensionsOwned),
+}
+
 impl fmt::Display for AnyMessage<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -1476,6 +2062,20 @@ impl fmt::Display for AnyMessage<'_> {
             AnyMessage::JobDeclaration(m) => write!(f, "JobDeclarationMessage: {m}"),
             AnyMessage::TemplateDistribution(m) => write!(f, "TemplateDistributionMessage: {m}"),
             AnyMessage::Extensions(m) => write!(f, "ExtensionsMessage: {m}"),
+        }
+    }
+}
+
+impl fmt::Display for AnyMessageOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AnyMessageOwned::Common(m) => write!(f, "CommonMessage: {m}"),
+            AnyMessageOwned::Mining(m) => write!(f, "MiningMessage: {m}"),
+            AnyMessageOwned::JobDeclaration(m) => write!(f, "JobDeclarationMessage: {m}"),
+            AnyMessageOwned::TemplateDistribution(m) => {
+                write!(f, "TemplateDistributionMessage: {m}")
+            }
+            AnyMessageOwned::Extensions(m) => write!(f, "ExtensionsMessage: {m}"),
         }
     }
 }
@@ -1492,6 +2092,16 @@ impl<'a> TryFrom<MiningDeviceMessages<'a>> for AnyMessage<'a> {
     }
 }
 
+impl From<MiningDeviceMessagesOwned> for AnyMessageOwned {
+    fn from(value: MiningDeviceMessagesOwned) -> Self {
+        match value {
+            MiningDeviceMessagesOwned::Common(m) => AnyMessageOwned::Common(m),
+            MiningDeviceMessagesOwned::Mining(m) => AnyMessageOwned::Mining(m),
+            MiningDeviceMessagesOwned::Extensions(m) => AnyMessageOwned::Extensions(m),
+        }
+    }
+}
+
 impl<'decoder> From<AnyMessage<'decoder>> for EncodableField<'decoder> {
     fn from(m: AnyMessage<'decoder>) -> Self {
         match m {
@@ -1503,6 +2113,19 @@ impl<'decoder> From<AnyMessage<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
+
+impl<'decoder> From<AnyMessageOwned> for EncodableField<'decoder> {
+    fn from(m: AnyMessageOwned) -> Self {
+        match m {
+            AnyMessageOwned::Common(a) => a.into(),
+            AnyMessageOwned::Mining(a) => a.into(),
+            AnyMessageOwned::JobDeclaration(a) => a.into(),
+            AnyMessageOwned::TemplateDistribution(a) => a.into(),
+            AnyMessageOwned::Extensions(a) => a.into(),
+        }
+    }
+}
+
 impl GetSize for AnyMessage<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -1511,6 +2134,18 @@ impl GetSize for AnyMessage<'_> {
             AnyMessage::JobDeclaration(a) => a.get_size(),
             AnyMessage::TemplateDistribution(a) => a.get_size(),
             AnyMessage::Extensions(a) => a.get_size(),
+        }
+    }
+}
+
+impl GetSize for AnyMessageOwned {
+    fn get_size(&self) -> usize {
+        match self {
+            AnyMessageOwned::Common(a) => a.get_size(),
+            AnyMessageOwned::Mining(a) => a.get_size(),
+            AnyMessageOwned::JobDeclaration(a) => a.get_size(),
+            AnyMessageOwned::TemplateDistribution(a) => a.get_size(),
+            AnyMessageOwned::Extensions(a) => a.get_size(),
         }
     }
 }
@@ -1547,6 +2182,38 @@ impl IsSv2Message for AnyMessage<'_> {
     }
 }
 
+impl IsSv2Message for AnyMessageOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            AnyMessageOwned::Common(a) => a.message_type(),
+            AnyMessageOwned::Mining(a) => a.message_type(),
+            AnyMessageOwned::JobDeclaration(a) => a.message_type(),
+            AnyMessageOwned::TemplateDistribution(a) => a.message_type(),
+            AnyMessageOwned::Extensions(a) => a.message_type(),
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            AnyMessageOwned::Common(a) => a.channel_bit(),
+            AnyMessageOwned::Mining(a) => a.channel_bit(),
+            AnyMessageOwned::JobDeclaration(a) => a.channel_bit(),
+            AnyMessageOwned::TemplateDistribution(a) => a.channel_bit(),
+            AnyMessageOwned::Extensions(a) => a.channel_bit(),
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        match self {
+            AnyMessageOwned::Common(a) => a.extension_type(),
+            AnyMessageOwned::Mining(a) => a.extension_type(),
+            AnyMessageOwned::JobDeclaration(a) => a.extension_type(),
+            AnyMessageOwned::TemplateDistribution(a) => a.extension_type(),
+            AnyMessageOwned::Extensions(a) => a.extension_type(),
+        }
+    }
+}
+
 impl IsSv2Message for MiningDeviceMessages<'_> {
     fn message_type(&self) -> u8 {
         match self {
@@ -1569,6 +2236,32 @@ impl IsSv2Message for MiningDeviceMessages<'_> {
             MiningDeviceMessages::Common(a) => a.extension_type(),
             MiningDeviceMessages::Mining(a) => a.extension_type(),
             MiningDeviceMessages::Extensions(a) => a.extension_type(),
+        }
+    }
+}
+
+impl IsSv2Message for MiningDeviceMessagesOwned {
+    fn message_type(&self) -> u8 {
+        match self {
+            MiningDeviceMessagesOwned::Common(a) => a.message_type(),
+            MiningDeviceMessagesOwned::Mining(a) => a.message_type(),
+            MiningDeviceMessagesOwned::Extensions(a) => a.message_type(),
+        }
+    }
+
+    fn channel_bit(&self) -> bool {
+        match self {
+            MiningDeviceMessagesOwned::Common(a) => a.channel_bit(),
+            MiningDeviceMessagesOwned::Mining(a) => a.channel_bit(),
+            MiningDeviceMessagesOwned::Extensions(a) => a.channel_bit(),
+        }
+    }
+
+    fn extension_type(&self) -> u16 {
+        match self {
+            MiningDeviceMessagesOwned::Common(a) => a.extension_type(),
+            MiningDeviceMessagesOwned::Mining(a) => a.extension_type(),
+            MiningDeviceMessagesOwned::Extensions(a) => a.extension_type(),
         }
     }
 }
@@ -1632,9 +2325,21 @@ impl<'a> From<SetupConnection<'a>> for CommonMessages<'a> {
     }
 }
 
+impl From<SetupConnectionOwned> for CommonMessagesOwned {
+    fn from(v: SetupConnectionOwned) -> Self {
+        CommonMessagesOwned::SetupConnection(v)
+    }
+}
+
 impl From<SetupConnectionSuccess> for CommonMessages<'_> {
     fn from(v: SetupConnectionSuccess) -> Self {
         CommonMessages::SetupConnectionSuccess(v)
+    }
+}
+
+impl From<SetupConnectionSuccess> for CommonMessagesOwned {
+    fn from(v: SetupConnectionSuccess) -> Self {
+        CommonMessagesOwned::SetupConnectionSuccess(v.into_owned())
     }
 }
 
@@ -1644,9 +2349,21 @@ impl<'a> From<SetupConnectionError<'a>> for CommonMessages<'a> {
     }
 }
 
+impl From<SetupConnectionErrorOwned> for CommonMessagesOwned {
+    fn from(v: SetupConnectionErrorOwned) -> Self {
+        CommonMessagesOwned::SetupConnectionError(v)
+    }
+}
+
 impl<'a> From<RequestExtensions<'a>> for Extensions<'a> {
     fn from(v: RequestExtensions<'a>) -> Self {
         Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensions(v))
+    }
+}
+
+impl From<RequestExtensionsOwned> for ExtensionsOwned {
+    fn from(v: RequestExtensionsOwned) -> Self {
+        ExtensionsOwned::ExtensionsNegotiation(ExtensionsNegotiationOwned::RequestExtensions(v))
     }
 }
 
@@ -1656,9 +2373,25 @@ impl<'a> From<RequestExtensionsSuccess<'a>> for Extensions<'a> {
     }
 }
 
+impl From<RequestExtensionsSuccessOwned> for ExtensionsOwned {
+    fn from(v: RequestExtensionsSuccessOwned) -> Self {
+        ExtensionsOwned::ExtensionsNegotiation(
+            ExtensionsNegotiationOwned::RequestExtensionsSuccess(v),
+        )
+    }
+}
+
 impl<'a> From<RequestExtensionsError<'a>> for Extensions<'a> {
     fn from(v: RequestExtensionsError<'a>) -> Self {
         Extensions::ExtensionsNegotiation(ExtensionsNegotiation::RequestExtensionsError(v))
+    }
+}
+
+impl From<RequestExtensionsErrorOwned> for ExtensionsOwned {
+    fn from(v: RequestExtensionsErrorOwned) -> Self {
+        ExtensionsOwned::ExtensionsNegotiation(ExtensionsNegotiationOwned::RequestExtensionsError(
+            v,
+        ))
     }
 }
 
@@ -1667,14 +2400,34 @@ impl<'a> From<OpenStandardMiningChannel<'a>> for Mining<'a> {
         Mining::OpenStandardMiningChannel(v)
     }
 }
+
+impl From<OpenStandardMiningChannelOwned> for MiningOwned {
+    fn from(v: OpenStandardMiningChannelOwned) -> Self {
+        MiningOwned::OpenStandardMiningChannel(v)
+    }
+}
+
 impl<'a> From<UpdateChannel<'a>> for Mining<'a> {
     fn from(v: UpdateChannel<'a>) -> Self {
         Mining::UpdateChannel(v)
     }
 }
+
+impl From<UpdateChannelOwned> for MiningOwned {
+    fn from(v: UpdateChannelOwned) -> Self {
+        MiningOwned::UpdateChannel(v)
+    }
+}
+
 impl<'a> From<OpenStandardMiningChannelSuccess<'a>> for Mining<'a> {
     fn from(v: OpenStandardMiningChannelSuccess<'a>) -> Self {
         Mining::OpenStandardMiningChannelSuccess(v)
+    }
+}
+
+impl From<OpenStandardMiningChannelSuccessOwned> for MiningOwned {
+    fn from(v: OpenStandardMiningChannelSuccessOwned) -> Self {
+        MiningOwned::OpenStandardMiningChannelSuccess(v)
     }
 }
 
@@ -1684,9 +2437,21 @@ impl<'a, T: Into<CommonMessages<'a>>> From<T> for AnyMessage<'a> {
     }
 }
 
+impl<T: Into<CommonMessagesOwned>> From<T> for AnyMessageOwned {
+    fn from(v: T) -> Self {
+        AnyMessageOwned::Common(v.into())
+    }
+}
+
 impl<'a, T: Into<CommonMessages<'a>>> From<T> for MiningDeviceMessages<'a> {
     fn from(v: T) -> Self {
         MiningDeviceMessages::Common(v.into())
+    }
+}
+
+impl<T: Into<CommonMessagesOwned>> From<T> for MiningDeviceMessagesOwned {
+    fn from(v: T) -> Self {
+        MiningDeviceMessagesOwned::Common(v.into())
     }
 }
 
@@ -1704,12 +2469,60 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessage<'decoder>>
     }
 }
 
+impl<B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<AnyMessageOwned> for Sv2Frame<AnyMessageOwned, B> {
+    type Error = ParserError;
+
+    fn try_from(v: AnyMessageOwned) -> Result<Self, ParserError> {
+        let extension_type = v.extension_type();
+        let channel_bit = v.channel_bit();
+        let message_type = v.message_type();
+        Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
+            .ok_or(ParserError::BadPayloadSize)
+    }
+}
+
+macro_rules! impl_owned_frame_try_from {
+    ($message:ty) => {
+        impl<B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<$message> for Sv2Frame<$message, B> {
+            type Error = ParserError;
+
+            fn try_from(v: $message) -> Result<Self, ParserError> {
+                let extension_type = v.extension_type();
+                let channel_bit = v.channel_bit();
+                let message_type = v.message_type();
+                Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
+                    .ok_or(ParserError::BadPayloadSize)
+            }
+        }
+    };
+}
+
+impl_owned_frame_try_from!(CommonMessagesOwned);
+impl_owned_frame_try_from!(MiningOwned);
+impl_owned_frame_try_from!(JobDeclarationOwned);
+impl_owned_frame_try_from!(TemplateDistributionOwned);
+impl_owned_frame_try_from!(ExtensionsOwned);
+
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decoder>>
     for Sv2Frame<MiningDeviceMessages<'decoder>, B>
 {
     type Error = ParserError;
 
     fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, ParserError> {
+        let extension_type = v.extension_type();
+        let channel_bit = v.channel_bit();
+        let message_type = v.message_type();
+        Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
+            .ok_or(ParserError::BadPayloadSize)
+    }
+}
+
+impl<B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessagesOwned>
+    for Sv2Frame<MiningDeviceMessagesOwned, B>
+{
+    type Error = ParserError;
+
+    fn try_from(v: MiningDeviceMessagesOwned) -> Result<Self, ParserError> {
         let extension_type = v.extension_type();
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
@@ -1732,6 +2545,104 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decod
     }
 }
 
+impl<'decoder> Deserialize<'decoder> for AnyMessageOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for MiningDeviceMessagesOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for CommonMessagesOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for MiningOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for JobDeclarationOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for TemplateDistributionOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'decoder> Deserialize<'decoder> for ExtensionsOwned {
+    fn get_structure(_v: &[u8]) -> core::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> core::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl TryFrom<AnyMessageOwned> for MiningDeviceMessagesOwned {
+    type Error = ParserError;
+
+    fn try_from(value: AnyMessageOwned) -> Result<Self, ParserError> {
+        match value {
+            AnyMessageOwned::Common(message) => Ok(Self::Common(message)),
+            AnyMessageOwned::Mining(message) => Ok(Self::Mining(message)),
+            AnyMessageOwned::JobDeclaration(_) => Err(ParserError::UnexpectedPoolMessage),
+            AnyMessageOwned::TemplateDistribution(_) => Err(ParserError::UnexpectedPoolMessage),
+            AnyMessageOwned::Extensions(message) => Ok(Self::Extensions(message)),
+        }
+    }
+}
+
 impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
     type Error = ParserError;
 
@@ -1749,7 +2660,6 @@ impl<'a> TryFrom<AnyMessage<'a>> for MiningDeviceMessages<'a> {
 #[cfg(test)]
 mod test {
     use crate::{AnyMessage, Extensions, ExtensionsNegotiation, JobDeclaration, Mining};
-    use alloc::string::String;
     use alloc::vec;
     use alloc::vec::Vec;
     use binary_sv2::{Seq0255, Seq064K, Str0255, Sv2Option, B0255, B032, B064K, U256};
@@ -1761,8 +2671,8 @@ mod test {
         NewMiningJob, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
     };
 
-    pub type Message = AnyMessage<'static>;
-    pub type StdFrame = StandardSv2Frame<Message>;
+    pub type Message<'a> = AnyMessage<'a>;
+    pub type StdFrame<'a> = StandardSv2Frame<Message<'a>>;
 
     #[test]
     fn request_extensions_serialization() {
@@ -1801,31 +2711,36 @@ mod test {
             19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
             41, 42, 43, 44, 45, 46, 47, 48,
         ];
+        let merkle_root = <Vec<u8>>::from_iter(17_u8..(17 + 32));
         let mining_message = AnyMessage::Mining(Mining::NewMiningJob(NewMiningJob {
             channel_id: u32::from_le_bytes([1, 2, 3, 4]),
             job_id: u32::from_le_bytes([5, 6, 7, 8]),
             min_ntime: Sv2Option::new(Some(u32::from_le_bytes([9, 10, 11, 12]))),
             version: u32::from_le_bytes([13, 14, 15, 16]),
-            merkle_root: U256::try_from((17_u8..(17 + 32)).collect::<Vec<u8>>()).unwrap(),
+            merkle_root: U256::try_from(merkle_root.as_slice()).unwrap(),
         }));
         message_serialization_check(mining_message, CORRECTLY_SERIALIZED_MSG);
     }
 
     #[test]
     fn set_custom_mining_job_messages_use_channel_msg_bit() {
+        let token = [3_u8];
+        let prev_hash = <Vec<u8>>::from_iter(5_u8..37);
+        let coinbase_prefix = [41_u8];
+        let coinbase_tx_outputs = [43_u8];
         let messages = [
             Mining::SetCustomMiningJob(SetCustomMiningJob {
                 channel_id: 1,
                 request_id: 2,
-                token: B0255::try_from(vec![3]).unwrap(),
+                token: B0255::try_from(token.as_slice()).unwrap(),
                 version: 4,
-                prev_hash: U256::try_from((5_u8..37).collect::<Vec<u8>>()).unwrap(),
+                prev_hash: U256::try_from(prev_hash.as_slice()).unwrap(),
                 min_ntime: 38,
                 nbits: 39,
                 coinbase_tx_version: 40,
-                coinbase_prefix: B0255::try_from(vec![41]).unwrap(),
+                coinbase_prefix: B0255::try_from(coinbase_prefix.as_slice()).unwrap(),
                 coinbase_tx_input_n_sequence: 42,
-                coinbase_tx_outputs: B064K::try_from(vec![43]).unwrap(),
+                coinbase_tx_outputs: B064K::try_from(coinbase_tx_outputs.as_slice()).unwrap(),
                 coinbase_tx_locktime: 44,
                 merkle_path: Seq0255::new(Vec::new()).unwrap(),
             }),
@@ -1837,7 +2752,7 @@ mod test {
             Mining::SetCustomMiningJobError(SetCustomMiningJobError {
                 channel_id: 1,
                 request_id: 2,
-                error_code: Str0255::try_from(String::from("invalid-channel-id")).unwrap(),
+                error_code: Str0255::try_from("invalid-channel-id").unwrap(),
             }),
         ];
 
@@ -1863,10 +2778,12 @@ mod test {
         correctly_serialized_msg.extend(0x99aabbcc_u32.to_le_bytes());
         correctly_serialized_msg.extend(0xddeeff00_u32.to_le_bytes());
 
+        let extranonce = [1_u8, 2, 3, 4];
+        let prev_hash = <Vec<u8>>::from_iter(5_u8..37);
         let job_declaration_message =
             AnyMessage::JobDeclaration(JobDeclaration::PushSolution(PushSolution {
-                extranonce: B032::try_from(vec![1, 2, 3, 4]).unwrap(),
-                prev_hash: U256::try_from((5_u8..37).collect::<Vec<u8>>()).unwrap(),
+                extranonce: B032::try_from(extranonce.as_slice()).unwrap(),
+                prev_hash: U256::try_from(prev_hash.as_slice()).unwrap(),
                 nonce: 0x11223344,
                 ntime: 0x55667788,
                 nbits: 0x99aabbcc,
@@ -1876,7 +2793,7 @@ mod test {
         message_serialization_check(job_declaration_message, &correctly_serialized_msg);
     }
 
-    fn message_serialization_check(message: AnyMessage<'static>, expected_result: &[u8]) {
+    fn message_serialization_check(message: AnyMessage<'_>, expected_result: &[u8]) {
         let frame = StdFrame::try_from(message).unwrap();
         let encoded_frame_length = frame.encoded_length();
 
