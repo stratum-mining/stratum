@@ -37,23 +37,31 @@ mod set_target;
 mod submit_shares;
 mod update_channel;
 
-pub use close_channel::CloseChannel;
-pub use new_mining_job::{NewExtendedMiningJob, NewMiningJob};
+pub use close_channel::{CloseChannel, CloseChannelOwned};
+pub use new_mining_job::{
+    NewExtendedMiningJob, NewExtendedMiningJobOwned, NewMiningJob, NewMiningJobOwned,
+};
 pub use open_channel::{
-    OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
-    OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
+    OpenExtendedMiningChannel, OpenExtendedMiningChannelOwned, OpenExtendedMiningChannelSuccess,
+    OpenExtendedMiningChannelSuccessOwned, OpenMiningChannelError, OpenMiningChannelErrorOwned,
+    OpenStandardMiningChannel, OpenStandardMiningChannelOwned, OpenStandardMiningChannelSuccess,
+    OpenStandardMiningChannelSuccessOwned,
 };
 pub use set_custom_mining_job::{
-    SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
+    SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobErrorOwned,
+    SetCustomMiningJobOwned, SetCustomMiningJobSuccess, SetCustomMiningJobSuccessOwned,
 };
-pub use set_extranonce_prefix::SetExtranoncePrefix;
-pub use set_group_channel::SetGroupChannel;
-pub use set_new_prev_hash::SetNewPrevHash;
-pub use set_target::SetTarget;
+pub use set_extranonce_prefix::{SetExtranoncePrefix, SetExtranoncePrefixOwned};
+pub use set_group_channel::{SetGroupChannel, SetGroupChannelOwned};
+pub use set_new_prev_hash::{SetNewPrevHash, SetNewPrevHashOwned};
+pub use set_target::{SetTarget, SetTargetOwned};
 pub use submit_shares::{
-    SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
+    SubmitSharesError, SubmitSharesErrorOwned, SubmitSharesExtended, SubmitSharesExtendedOwned,
+    SubmitSharesStandard, SubmitSharesStandardOwned, SubmitSharesSuccess, SubmitSharesSuccessOwned,
 };
-pub use update_channel::{UpdateChannel, UpdateChannelError};
+pub use update_channel::{
+    UpdateChannel, UpdateChannelError, UpdateChannelErrorOwned, UpdateChannelOwned,
+};
 
 // Mining Protocol message types.
 pub const MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL: u8 = 0x10;

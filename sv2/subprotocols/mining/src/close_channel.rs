@@ -26,3 +26,14 @@ impl fmt::Display for CloseChannel<'_> {
         )
     }
 }
+
+impl fmt::Display for CloseChannelOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CloseChannel(channel_id: {}, reason_code: {})",
+            self.channel_id,
+            self.reason_code.as_utf8_or_hex()
+        )
+    }
+}

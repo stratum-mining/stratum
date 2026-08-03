@@ -24,6 +24,17 @@ impl fmt::Display for SetExtranoncePrefix<'_> {
         write!(
             f,
             "SetExtranoncePrefix(channel_id={}, extranonce_prefix={})",
+            self.channel_id,
+            self.extranonce_prefix.hex_string()
+        )
+    }
+}
+
+impl fmt::Display for SetExtranoncePrefixOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetExtranoncePrefix(channel_id={}, extranonce_prefix={})",
             self.channel_id, self.extranonce_prefix
         )
     }

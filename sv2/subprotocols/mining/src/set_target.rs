@@ -31,3 +31,13 @@ impl fmt::Display for SetTarget<'_> {
         )
     }
 }
+
+impl fmt::Display for SetTargetOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SetTarget(channel_id={}, maximum_target={})",
+            self.channel_id, self.maximum_target
+        )
+    }
+}

@@ -26,6 +26,33 @@ pub struct SubmitSharesStandard {
     pub version: u32,
 }
 
+impl SubmitSharesStandard {
+    pub fn into_owned(self) -> SubmitSharesStandardOwned {
+        SubmitSharesStandardOwned {
+            channel_id: self.channel_id,
+            sequence_number: self.sequence_number,
+            job_id: self.job_id,
+            nonce: self.nonce,
+            ntime: self.ntime,
+            version: self.version,
+        }
+    }
+
+    pub fn as_owned(&self) -> SubmitSharesStandardOwned {
+        SubmitSharesStandardOwned {
+            channel_id: self.channel_id,
+            sequence_number: self.sequence_number,
+            job_id: self.job_id,
+            nonce: self.nonce,
+            ntime: self.ntime,
+            version: self.version,
+        }
+    }
+}
+
+/// Owned alias for [`SubmitSharesStandard`] because the message has no borrowed fields.
+pub type SubmitSharesStandardOwned = SubmitSharesStandard;
+
 impl fmt::Display for SubmitSharesStandard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -77,6 +104,22 @@ impl fmt::Display for SubmitSharesExtended<'_> {
         write!(
             f,
             "SubmitSharesExtended(channel_id={}, sequence_number={}, job_id={}, nonce=0x{:08x}, ntime={}, version=0x{:08x}, extranonce={})",
+            self.channel_id,
+            self.sequence_number,
+            self.job_id,
+            self.nonce,
+            self.ntime,
+            self.version,
+            self.extranonce
+        )
+    }
+}
+
+impl fmt::Display for SubmitSharesExtendedOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSharesExtended(channel_id={}, sequence_number={}, job_id={}, nonce=0x{:08x}, ntime={}, version=0x{:08x}, extranonce={})",
             self.channel_id, self.sequence_number, self.job_id, self.nonce, self.ntime, self.version, self.extranonce
         )
     }
@@ -101,6 +144,29 @@ pub struct SubmitSharesSuccess {
     /// Sum of shares acknowledged within this batch.
     pub new_shares_sum: u64,
 }
+
+impl SubmitSharesSuccess {
+    pub fn into_owned(self) -> SubmitSharesSuccessOwned {
+        SubmitSharesSuccessOwned {
+            channel_id: self.channel_id,
+            last_sequence_number: self.last_sequence_number,
+            new_submits_accepted_count: self.new_submits_accepted_count,
+            new_shares_sum: self.new_shares_sum,
+        }
+    }
+
+    pub fn as_owned(&self) -> SubmitSharesSuccessOwned {
+        SubmitSharesSuccessOwned {
+            channel_id: self.channel_id,
+            last_sequence_number: self.last_sequence_number,
+            new_submits_accepted_count: self.new_submits_accepted_count,
+            new_shares_sum: self.new_shares_sum,
+        }
+    }
+}
+
+/// Owned alias for [`SubmitSharesSuccess`] because the message has no borrowed fields.
+pub type SubmitSharesSuccessOwned = SubmitSharesSuccess;
 
 impl fmt::Display for SubmitSharesSuccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -139,6 +205,18 @@ pub struct SubmitSharesError<'decoder> {
 }
 
 impl fmt::Display for SubmitSharesError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SubmitSharesError(channel_id={}, sequence_number={}, error_code={})",
+            self.channel_id,
+            self.sequence_number,
+            self.error_code.as_utf8_or_hex()
+        )
+    }
+}
+
+impl fmt::Display for SubmitSharesErrorOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
