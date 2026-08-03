@@ -32,11 +32,20 @@ impl VardiffState {
     /// Creates a new `VardiffState` with a specific minimum hashrate.
     ///
     /// # Arguments
-    /// * `min_allowed_hashrate` - The minimum hashrate to enforce.
+    /// * `min_allowed_hashrate` - The minimum hashrate to enforce. A non-positive or non-finite
+    ///   value is meaningless as a floor (and would reintroduce the division-by-zero that
+    ///   [`Vardiff::try_vardiff`] guards against), so it falls back to the default.
     pub fn new_with_min(min_allowed_hashrate: f32) -> Result<Self, VardiffError> {
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
+
+        let min_allowed_hashrate = if min_allowed_hashrate.is_finite() && min_allowed_hashrate > 0.0
+        {
+            min_allowed_hashrate
+        } else {
+            DEFAULT_MIN_HASHRATE
+        };
 
         Ok(VardiffState {
             shares_since_last_update: 0,
@@ -128,6 +137,35 @@ impl Vardiff for VardiffState {
             return Ok(None);
         }
 
+        // `min_allowed_hashrate` is validated in `new_with_min`, but the field is `pub`,
+        // so direct assignment can still plant a non-finite or non-positive floor;
+        // sanitize it here as well before relying on it.
+        let min_hashrate =
+            if self.min_allowed_hashrate.is_finite() && self.min_allowed_hashrate > 0.0 {
+                self.min_allowed_hashrate
+            } else {
+                DEFAULT_MIN_HASHRATE
+            };
+
+        // `hashrate` is the channel's nominal hashrate, which originates from the
+        // miner-supplied `nominal_hash_rate` and is only checked for negativity upstream.
+        // It is the divisor for the delta percentage below and the base every special-case
+        // cap scales (`hashrate * 10.0`, `hashrate / 1.5`), so a value at or below the floor
+        // just pins the result back to that floor instead of converging, and `0.0`/`NaN`
+        // produce `inf`/`NaN` percentages that disable every `should_update` arm outright.
+        // The output is already clamped to the floor below, so clamp the baseline to the
+        // same floor. `is_finite` is still needed: `inf` survives a plain `max()` and makes
+        // the percentage `inf / inf == NaN`.
+        let hashrate = if hashrate.is_finite() {
+            hashrate.max(min_hashrate)
+        } else {
+            debug!(
+                target: "vardiff",
+                "Prior hashrate {hashrate} unusable; using minimum {min_hashrate}",
+            );
+            min_hashrate
+        };
+
         let realized_share_per_min =
             self.shares_since_last_update as f64 / (delta_time as f64 / 60.0);
 
@@ -198,14 +236,14 @@ impl Vardiff for VardiffState {
                 _ => hashrate * 3.0,
             };
         }
-        if new_hashrate < self.min_allowed_hashrate {
+        if new_hashrate < min_hashrate {
             debug!(
                 target: "vardiff",
                 "New hashrate {:.2} H/s below minimum threshold {:.2} H/s — clamping",
                 new_hashrate,
-                self.min_allowed_hashrate
+                min_hashrate
             );
-            new_hashrate = self.min_allowed_hashrate;
+            new_hashrate = min_hashrate;
         }
         self.reset_counter()?;
 
