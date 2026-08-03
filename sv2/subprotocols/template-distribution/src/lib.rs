@@ -22,13 +22,14 @@ mod request_transaction_data;
 mod set_new_prev_hash;
 mod submit_solution;
 
-pub use coinbase_output_constraints::CoinbaseOutputConstraints;
-pub use new_template::NewTemplate;
+pub use coinbase_output_constraints::{CoinbaseOutputConstraints, CoinbaseOutputConstraintsOwned};
+pub use new_template::{NewTemplate, NewTemplateOwned};
 pub use request_transaction_data::{
-    RequestTransactionData, RequestTransactionDataError, RequestTransactionDataSuccess,
+    RequestTransactionData, RequestTransactionDataError, RequestTransactionDataErrorOwned,
+    RequestTransactionDataOwned, RequestTransactionDataSuccess, RequestTransactionDataSuccessOwned,
 };
-pub use set_new_prev_hash::SetNewPrevHash;
-pub use submit_solution::SubmitSolution;
+pub use set_new_prev_hash::{SetNewPrevHash, SetNewPrevHashOwned};
+pub use submit_solution::{SubmitSolution, SubmitSolutionOwned};
 
 // Template Distribution Protocol message types.
 pub const MESSAGE_TYPE_COINBASE_OUTPUT_CONSTRAINTS: u8 = 0x70;

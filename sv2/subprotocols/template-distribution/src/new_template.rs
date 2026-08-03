@@ -71,3 +71,26 @@ impl fmt::Display for NewTemplate<'_> {
         )
     }
 }
+
+impl fmt::Display for NewTemplateOwned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "NewTemplate(template_id: {}, future_template: {}, version: 0x{:08x}, coinbase_tx_version: 0x{:08x}, \
+             coinbase_prefix: {}, coinbase_tx_input_sequence: 0x{:08x}, coinbase_tx_value_remaining: {}, \
+             coinbase_tx_outputs_count: {}, coinbase_tx_outputs: {}, coinbase_tx_locktime: {}, \
+             merkle_path: {})",
+            self.template_id,
+            self.future_template,
+            self.version,
+            self.coinbase_tx_version,
+            self.coinbase_prefix.as_hex(),
+            self.coinbase_tx_input_sequence,
+            self.coinbase_tx_value_remaining,
+            self.coinbase_tx_outputs_count,
+            self.coinbase_tx_outputs,
+            self.coinbase_tx_locktime,
+            self.merkle_path
+        )
+    }
+}
