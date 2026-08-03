@@ -11,6 +11,15 @@ pub mod group;
 pub mod share_accounting;
 pub mod standard;
 
+/// Maximum number of future jobs a client channel retains while waiting for a
+/// [`SetNewPrevHash`](mining_sv2::SetNewPrevHash) (or chain tip update).
+///
+/// Upstream servers control `job_id`, so future jobs are stored under an upstream-controlled key.
+/// Bounding this map prevents a malicious or buggy server from exhausting client memory by
+/// streaming future jobs while withholding [`SetNewPrevHash`](mining_sv2::SetNewPrevHash). On
+/// overflow, the oldest future job is evicted.
+pub const MAX_FUTURE_JOBS: usize = 16;
+
 // Type aliases that switch between `std::collections` and `hashbrown`
 // depending on whether the `no_std` feature is enabled.
 #[cfg(not(feature = "no_std"))]
