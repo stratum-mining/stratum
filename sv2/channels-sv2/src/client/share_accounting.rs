@@ -8,6 +8,37 @@ extern crate alloc;
 use super::{HashMap, HashSet};
 use alloc::string::String;
 use bitcoin::hashes::sha256d::Hash;
+use mining_sv2::{
+    ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_CHANNEL_ID,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+    ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
+};
+
+/// Bucket used by [`ShareAccounting::on_share_rejection`] for `error_code` values that are not
+/// part of the known `SubmitShares.Error` enumeration.
+///
+/// The `error_code` field of [`SubmitSharesError`](mining_sv2::SubmitSharesError) is a `Str0255`
+/// fully controlled by the upstream server. Folding unrecognized values into a single bucket keeps
+/// the rejected-share map bounded, instead of letting a malicious server grow it without limit.
+pub const UNKNOWN_ERROR_CODE: &str = "unknown";
+
+/// The `error_code` values that [`ShareAccounting`] tracks individually.
+///
+/// Anything else is counted under [`UNKNOWN_ERROR_CODE`].
+const KNOWN_ERROR_CODES: [&str; 9] = [
+    ERROR_CODE_SUBMIT_SHARES_INVALID_CHANNEL_ID,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
+    ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+    ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
+    ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE,
+    ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
+    ERROR_CODE_SUBMIT_SHARES_INVALID_NON_ROLLABLE_VERSION_BIT,
+];
 
 /// The outcome of share validation, as seen by a Mining Client.
 ///
@@ -61,7 +92,7 @@ pub enum ShareValidationError {
 ///
 /// **Acceptance phase** (updated by the application layer via [`on_share_acknowledgement`](Self::on_share_acknowledgement)):
 /// - total acknowledged shares (confirmed by upstream [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess))
-/// - total rejected shares (reported by upstream [`SubmitSharesError`](mining_sv2::SubmitSharesError))
+/// - total rejected shares (reported by upstream [`SubmitSharesError`](mining_sv2::SubmitSharesError)), bucketed by `error_code`
 /// - cumulative acknowledged work (as reported by upstream [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess))
 /// - number of blocks found
 ///
@@ -132,12 +163,23 @@ impl ShareAccounting {
     ///
     /// One call corresponds to one rejected share.
     ///
-    /// Saturates at `u32::MAX`.
-    pub fn on_share_rejection(&mut self, error_code: String) {
-        self.rejected_shares
-            .entry(error_code)
-            .and_modify(|v| *v = v.saturating_add(1))
-            .or_insert(1);
+    /// `error_code` is only tracked under its own key if it is one of the known
+    /// `SubmitShares.Error` codes; any other value is counted under [`UNKNOWN_ERROR_CODE`].
+    /// This keeps the internal map bounded, since `error_code` is fully controlled by the
+    /// upstream server.
+    ///
+    /// Each counter saturates at `u32::MAX`.
+    pub fn on_share_rejection(&mut self, error_code: &str) {
+        let key = if KNOWN_ERROR_CODES.contains(&error_code) {
+            error_code
+        } else {
+            UNKNOWN_ERROR_CODE
+        };
+        if let Some(count) = self.rejected_shares.get_mut(key) {
+            *count = count.saturating_add(1);
+        } else {
+            self.rejected_shares.insert(String::from(key), 1);
+        }
     }
 
     /// Records a share that passed local validation.
@@ -184,6 +226,9 @@ impl ShareAccounting {
     }
 
     /// Returns the number of rejected shares tracked for a specific `error_code`.
+    ///
+    /// Only the known `SubmitShares.Error` codes are tracked individually; unrecognized upstream
+    /// codes are counted under [`UNKNOWN_ERROR_CODE`], so querying an arbitrary string returns 0.
     pub fn get_rejected_shares_error_count(&self, error_code: &str) -> u32 {
         self.rejected_shares.get(error_code).copied().unwrap_or(0)
     }
@@ -199,6 +244,8 @@ impl ShareAccounting {
     }
 
     /// Returns an iterator over rejected shares by error code.
+    ///
+    /// Yields at most the known `SubmitShares.Error` codes plus [`UNKNOWN_ERROR_CODE`].
     pub fn get_rejected_shares(&self) -> impl Iterator<Item = (&str, u32)> + '_ {
         self.rejected_shares
             .iter()
@@ -250,7 +297,7 @@ impl ShareAccounting {
 
 #[cfg(test)]
 mod tests {
-    use super::ShareAccounting;
+    use super::{alloc::format, ShareAccounting, UNKNOWN_ERROR_CODE};
     use bitcoin::hashes::Hash as _;
 
     #[test]
@@ -293,9 +340,35 @@ mod tests {
 
         accounting
             .rejected_shares
-            .insert("err".to_string(), u32::MAX);
-        accounting.on_share_rejection("err".to_string());
+            .insert("difficulty-too-low".to_string(), u32::MAX);
+        accounting.on_share_rejection("difficulty-too-low");
 
-        assert_eq!(accounting.rejected_shares.get("err"), Some(&u32::MAX));
+        assert_eq!(
+            accounting.rejected_shares.get("difficulty-too-low"),
+            Some(&u32::MAX)
+        );
+    }
+
+    #[test]
+    fn unknown_error_codes_are_bounded() {
+        let mut accounting = ShareAccounting::new();
+
+        for i in 0..10_000 {
+            accounting.on_share_rejection(&format!("attacker-controlled-garbage-{i}"));
+        }
+        accounting.on_share_rejection("difficulty-too-low");
+        accounting.on_share_rejection("difficulty-too-low");
+
+        // one bucket for the garbage, one for the known code
+        assert_eq!(accounting.get_rejected_shares().count(), 2);
+        assert_eq!(
+            accounting.get_rejected_shares_error_count(UNKNOWN_ERROR_CODE),
+            10_000
+        );
+        assert_eq!(
+            accounting.get_rejected_shares_error_count("difficulty-too-low"),
+            2
+        );
+        assert_eq!(accounting.get_rejected_shares_count(), 10_002);
     }
 }

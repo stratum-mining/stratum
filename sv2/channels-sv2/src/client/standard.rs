@@ -243,7 +243,7 @@ impl StandardChannel {
 
     /// Updates share accounting based on a [`SubmitSharesError`](mining_sv2::SubmitSharesError) message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
-    pub fn on_share_rejection(&mut self, error_code: String) {
+    pub fn on_share_rejection(&mut self, error_code: &str) {
         self.share_accounting.on_share_rejection(error_code);
     }
 
