@@ -514,7 +514,8 @@ impl ExtendedChannel {
     /// Validates a share prior to submission upstream.
     ///
     /// Updates channel state with the share validation result:
-    /// - Prevents propagation of stale, duplicate, or low-difficulty shares.
+    /// - Prevents propagation of stale, duplicate, low-difficulty, or low-ntime shares
+    ///   (shares whose `ntime` is below the chain tip's `min_ntime`).
     /// - Indicates whether a block was found from the share.
     /// - Maintains local share accounting for later reconciliation with upstream acknowledgements.
     pub fn validate_share(
@@ -586,6 +587,12 @@ impl ExtendedChannel {
 
         let prev_hash = chain_tip.prev_hash();
         let nbits: CompactTarget = CompactTarget::from_consensus(chain_tip.nbits());
+
+        if share.ntime < chain_tip.min_ntime() {
+            return Err(ShareValidationError::Invalid(
+                ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE,
+            ));
+        }
 
         // validate when version rolling is not allowed
         if !job.0.version_rolling_allowed {
@@ -920,7 +927,7 @@ mod tests {
             200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
             88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
         ];
-        let ntime: u32 = 1746839905;
+        let ntime: u32 = 1745596970;
         let set_new_prev_hash = SetNewPrevHashMp {
             channel_id,
             job_id: future_job.job_id,
@@ -956,6 +963,93 @@ mod tests {
             ShareValidationError::DuplicateShare(_)
         ));
         assert_eq!(channel.get_share_accounting().get_blocks_found(), 1);
+    }
+
+    #[test]
+    fn test_share_validation_ntime_below_min_ntime() {
+        // Regression test: a share with ntime < min_ntime must be rejected.
+        // Reuses the block-found test vectors but sets min_ntime one second
+        // above the share's ntime.
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        let target = Target::from_le_bytes([0xff; 32]);
+        let nominal_hashrate = 1.0;
+        let version_rolling = true;
+        let rollable_extranonce_size = 8u16;
+
+        let mut channel = ExtendedChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix.clone()).unwrap(),
+            target,
+            nominal_hashrate,
+            version_rolling,
+            rollable_extranonce_size,
+        );
+
+        let future_job = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 1,
+            min_ntime: Sv2Option::new(None),
+            version: 536870912,
+            version_rolling_allowed: true,
+            coinbase_tx_prefix: vec![
+                2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 34, 82, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            coinbase_tx_suffix: vec![
+                255, 255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220,
+                194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0,
+                0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222,
+                253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139,
+                235, 216, 54, 151, 78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]
+            .try_into()
+            .unwrap(),
+            merkle_path: vec![].try_into().unwrap(),
+        };
+
+        channel
+            .on_new_extended_mining_job(future_job.clone())
+            .unwrap();
+
+        let nbits = 545259519;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        // set min_ntime one second above the share's ntime (1745596971 + 1)
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            min_ntime: 1745596972,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        let share_below_min_ntime = SubmitSharesExtended {
+            channel_id,
+            sequence_number: 0,
+            job_id: 1,
+            nonce: 741057,
+            ntime: 1745596971,
+            version: 536870912,
+            extranonce: vec![1, 0, 0, 0, 0, 0, 0, 0].try_into().unwrap(),
+        };
+
+        let res = channel.validate_share(share_below_min_ntime);
+
+        assert!(matches!(res.unwrap_err(), ShareValidationError::Invalid(_)));
+        assert_eq!(channel.get_share_accounting().get_blocks_found(), 0);
     }
 
     #[test]
@@ -1021,7 +1115,7 @@ mod tests {
             200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
             88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
         ];
-        let ntime: u32 = 1746839905;
+        let ntime: u32 = 1745596970;
         let set_new_prev_hash = SetNewPrevHashMp {
             channel_id,
             job_id: future_job.job_id,
@@ -1112,7 +1206,7 @@ mod tests {
 
         // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
         let nbits: u32 = 453040064;
-        let ntime: u32 = 1746839905;
+        let ntime: u32 = 1745596970;
         let prev_hash = [
             200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
             88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
