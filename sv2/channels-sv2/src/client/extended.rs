@@ -18,7 +18,7 @@ use crate::{
     MAX_EXTRANONCE_LEN,
 };
 use alloc::{format, string::String, vec, vec::Vec};
-use binary_sv2::Sv2Option;
+use binary_sv2::Sv2OptionOwned;
 use bitcoin::{
     absolute::LockTime,
     blockdata::block::{Header, Version as BlockVersion},
@@ -28,8 +28,8 @@ use bitcoin::{
     CompactTarget, OutPoint, Sequence, Target, Transaction, TxIn, TxOut, Witness,
 };
 use mining_sv2::{
-    NewExtendedMiningJob, SetCustomMiningJob, SetCustomMiningJobSuccess,
-    SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
+    NewExtendedMiningJobOwned, SetCustomMiningJobOwned, SetCustomMiningJobSuccess,
+    SetNewPrevHashOwned as SetNewPrevHashMp, SubmitSharesExtendedOwned,
     ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
     ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
@@ -41,10 +41,10 @@ use tracing::debug;
 ///
 /// Extended jobs allow Merkle root rolling, providing broader control over the search space.
 /// Each job includes:
-/// - A [`NewExtendedMiningJob`] message
+/// - A [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message
 /// - The `extranonce_prefix` in use when the job was created
 /// - The target of the job
-pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
+pub type ExtendedJob = (NewExtendedMiningJobOwned, Vec<u8>, Target);
 
 /// Mining Client abstraction for the state management of an Sv2 Extended Channel.
 ///
@@ -65,7 +65,7 @@ pub type ExtendedJob<'a> = (NewExtendedMiningJob<'a>, Vec<u8>, Target);
 /// - Share accounting for the channel (as tracked by the client).
 /// - The channel's current chain tip.
 #[derive(Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: ExtranoncePrefix,
@@ -74,17 +74,17 @@ pub struct ExtendedChannel<'a> {
     nominal_hashrate: f32,
     version_rolling: bool,
     // future jobs are indexed with job_id (u32)
-    future_jobs: HashMap<u32, ExtendedJob<'a>>,
-    active_job: Option<ExtendedJob<'a>>,
+    future_jobs: HashMap<u32, ExtendedJob>,
+    active_job: Option<ExtendedJob>,
     // past jobs are indexed with job_id (u32)
-    past_jobs: HashMap<u32, ExtendedJob<'a>>,
+    past_jobs: HashMap<u32, ExtendedJob>,
     // stale jobs are indexed with job_id (u32)
-    stale_jobs: HashMap<u32, ExtendedJob<'a>>,
+    stale_jobs: HashMap<u32, ExtendedJob>,
     share_accounting: ShareAccounting,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl ExtendedChannel {
     /// Constructs a new [`ExtendedChannel`].
     pub fn new(
         channel_id: u32,
@@ -207,17 +207,17 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns a reference to the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&ExtendedJob> {
         self.active_job.as_ref()
     }
 
     /// Returns an iterator over all future jobs for this channel.
-    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob<'a>)> + '_ {
+    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob)> + '_ {
         self.future_jobs.iter()
     }
 
     /// Returns a reference to a future job by `job_id`, if present.
-    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob> {
         self.future_jobs.get(&job_id)
     }
 
@@ -227,12 +227,12 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns an iterator over all past jobs for this channel.
-    pub fn get_past_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob<'a>)> + '_ {
+    pub fn get_past_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob)> + '_ {
         self.past_jobs.iter()
     }
 
     /// Returns a reference to a past job by `job_id`, if present.
-    pub fn get_past_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<&ExtendedJob> {
         self.past_jobs.get(&job_id)
     }
 
@@ -242,12 +242,12 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns an iterator over all stale jobs for this channel.
-    pub fn get_stale_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob<'a>)> + '_ {
+    pub fn get_stale_jobs(&self) -> impl Iterator<Item = (&u32, &ExtendedJob)> + '_ {
         self.stale_jobs.iter()
     }
 
     /// Returns a reference to a stale job by `job_id`, if present.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&ExtendedJob> {
         self.stale_jobs.get(&job_id)
     }
 
@@ -261,7 +261,7 @@ impl<'a> ExtendedChannel<'a> {
         &self.share_accounting
     }
 
-    /// Updates share accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates share accounting based on a [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess) message from the
     /// upstream server. Delegates to [`ShareAccounting::on_share_acknowledgement`].
     pub fn on_share_acknowledgement(
         &mut self,
@@ -272,23 +272,24 @@ impl<'a> ExtendedChannel<'a> {
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
-    /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates share accounting based on a [`SubmitSharesError`](mining_sv2::SubmitSharesError) message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
     pub fn on_share_rejection(&mut self, error_code: String) {
         self.share_accounting.on_share_rejection(error_code);
     }
 
-    /// Handles a [`NewExtendedMiningJob`] message received from upstream.
+    /// Handles a [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message received from upstream.
     ///
     /// The message could be either directed at this channel, or at a group channel it belongs to.
     ///
-    /// - If [`NewExtendedMiningJob::min_ntime`] is empty, the job is considered a future job and
+    /// - If [`NewExtendedMiningJob::min_ntime`](mining_sv2::NewExtendedMiningJob::min_ntime) is empty, the job is considered a future job and
     ///   added to the future jobs list (see [`get_future_jobs`](ExtendedChannel::get_future_jobs)).
     /// - Otherwise, the job is activated and previous active job moves to the past jobs list.
     pub fn on_new_extended_mining_job(
         &mut self,
-        mut new_extended_mining_job: NewExtendedMiningJob<'a>,
+        new_extended_mining_job: NewExtendedMiningJobOwned,
     ) -> Result<(), ExtendedChannelError> {
+        let mut new_extended_mining_job = new_extended_mining_job;
         // try to strip bip141 bytes from coinbase_tx_prefix and coinbase_tx_suffix, if they are
         // present
         let new_extended_mining_job = match try_strip_bip141(
@@ -341,7 +342,7 @@ impl<'a> ExtendedChannel<'a> {
     /// To be used by a Sv2 Job Declarator Client
     pub fn on_set_custom_mining_job_success(
         &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job: SetCustomMiningJobOwned,
         set_custom_mining_job_success: SetCustomMiningJobSuccess,
     ) -> Result<(), ExtendedChannelError> {
         if set_custom_mining_job.channel_id != set_custom_mining_job_success.channel_id
@@ -417,10 +418,10 @@ impl<'a> ExtendedChannel<'a> {
                 .map_err(ExtendedChannelError::FailedToTryToStripBip141)?
                 .ok_or(ExtendedChannelError::FailedToStripBip141)?;
 
-        let new_extended_mining_job = NewExtendedMiningJob {
+        let new_extended_mining_job = NewExtendedMiningJobOwned {
             channel_id: set_custom_mining_job.channel_id,
             job_id: set_custom_mining_job_success.job_id,
-            min_ntime: Sv2Option::new(Some(set_custom_mining_job.min_ntime)),
+            min_ntime: Sv2OptionOwned::new(Some(set_custom_mining_job.min_ntime)),
             version: set_custom_mining_job.version,
             version_rolling_allowed: self.version_rolling,
             coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
@@ -481,11 +482,11 @@ impl<'a> ExtendedChannel<'a> {
     /// - Updates the chain tip for the channel.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashMp<'a>,
+        set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), ExtendedChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {
-                activated_job.0.min_ntime = Sv2Option::new(Some(set_new_prev_hash.min_ntime));
+                activated_job.0.min_ntime = Sv2OptionOwned::new(Some(set_new_prev_hash.min_ntime));
                 self.active_job = Some(activated_job);
             }
             None => {
@@ -518,7 +519,7 @@ impl<'a> ExtendedChannel<'a> {
     /// - Maintains local share accounting for later reconciliation with upstream acknowledgements.
     pub fn validate_share(
         &mut self,
-        share: SubmitSharesExtended,
+        share: SubmitSharesExtendedOwned,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -685,10 +686,11 @@ mod tests {
         },
         extranonce_manager::ExtranoncePrefix,
     };
-    use binary_sv2::Sv2Option;
+    use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::Target;
     use mining_sv2::{
-        NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesExtended,
+        NewExtendedMiningJobOwned as NewExtendedMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
+        SubmitSharesExtendedOwned as SubmitSharesExtended,
     };
     use std::convert::TryInto;
 

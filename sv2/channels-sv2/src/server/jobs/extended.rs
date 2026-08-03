@@ -4,11 +4,11 @@ use crate::{
     outputs::deserialize_template_outputs,
     server::jobs::{error::ExtendedJobError, standard::StandardJob, JobOrigin},
 };
-use binary_sv2::{Seq0255, Sv2Option, U256};
+use binary_sv2::{Seq0255Owned, Sv2OptionOwned, U256Owned};
 use bitcoin::transaction::TxOut;
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
+use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
 use std::convert::TryInto;
-use template_distribution_sv2::NewTemplate;
+use template_distribution_sv2::NewTemplateOwned;
 
 /// Abstraction of an extended mining job with:
 /// - the `NewTemplate` OR `SetCustomMiningJob` message that originated it
@@ -25,16 +25,16 @@ use template_distribution_sv2::NewTemplate;
 /// That makes it easy to calculate the coinbase `txid` (instead of `wtxid`) for merkle root
 /// calculation.
 #[derive(Debug, Clone)]
-pub struct ExtendedJob<'a> {
-    origin: JobOrigin<'a>,
+pub struct ExtendedJob {
+    origin: JobOrigin,
     extranonce_prefix: Vec<u8>,
     coinbase_outputs: Vec<TxOut>,
     coinbase_tx_prefix_with_bip141: Vec<u8>,
     coinbase_tx_suffix_with_bip141: Vec<u8>,
-    job_message: NewExtendedMiningJob<'a>,
+    job_message: NewExtendedMiningJobOwned,
 }
 
-impl Job for ExtendedJob<'_> {
+impl Job for ExtendedJob {
     fn get_job_id(&self) -> u32 {
         self.job_message.job_id
     }
@@ -44,17 +44,17 @@ impl Job for ExtendedJob<'_> {
     }
 }
 
-impl<'a> ExtendedJob<'a> {
+impl ExtendedJob {
     /// Creates a new job from a template.
     ///
     /// `additional_coinbase_outputs` are added to the coinbase outputs coming from the template.
     pub fn from_template(
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         extranonce_prefix: Vec<u8>,
         additional_coinbase_outputs: Vec<TxOut>,
         coinbase_tx_prefix: Vec<u8>,
         coinbase_tx_suffix: Vec<u8>,
-        job_message: NewExtendedMiningJob<'a>,
+        job_message: NewExtendedMiningJobOwned,
     ) -> Result<Self, ExtendedJobError> {
         let template_coinbase_outputs = deserialize_template_outputs(
             template.coinbase_tx_outputs.to_owned_bytes(),
@@ -77,14 +77,14 @@ impl<'a> ExtendedJob<'a> {
     }
     /// Creates a new extended job from a custom mining job message.
     ///
-    /// Used for jobs originating from [`SetCustomMiningJob`] messages.
+    /// Used for jobs originating from [`SetCustomMiningJob`](mining_sv2::SetCustomMiningJob) messages.
     pub fn from_custom_job(
-        custom_job: SetCustomMiningJob<'a>,
+        custom_job: SetCustomMiningJobOwned,
         extranonce_prefix: Vec<u8>,
         coinbase_outputs: Vec<TxOut>,
         coinbase_tx_prefix: Vec<u8>,
         coinbase_tx_suffix: Vec<u8>,
-        job_message: NewExtendedMiningJob<'a>,
+        job_message: NewExtendedMiningJobOwned,
     ) -> Self {
         Self {
             origin: JobOrigin::SetCustomMiningJob(custom_job),
@@ -104,7 +104,7 @@ impl<'a> ExtendedJob<'a> {
         self,
         channel_id: u32,
         extranonce_prefix: Vec<u8>,
-    ) -> Result<StandardJob<'a>, ExtendedJobError> {
+    ) -> Result<StandardJob, ExtendedJobError> {
         // here we can only convert extended jobs that were created from a template
         let template = match self.get_origin() {
             JobOrigin::NewTemplate(template) => template,
@@ -123,7 +123,7 @@ impl<'a> ExtendedJob<'a> {
         .try_into()
         .map_err(|_| ExtendedJobError::FailedToCalculateMerkleRoot)?;
 
-        let standard_job_message = NewMiningJob {
+        let standard_job_message = NewMiningJobOwned {
             channel_id,
             job_id: self.get_job_id(),
             merkle_root,
@@ -148,7 +148,7 @@ impl<'a> ExtendedJob<'a> {
     }
 
     /// Returns the origin message for this job (template or custom job).
-    pub fn get_origin(&self) -> &JobOrigin<'a> {
+    pub fn get_origin(&self) -> &JobOrigin {
         &self.origin
     }
 
@@ -177,16 +177,16 @@ impl<'a> ExtendedJob<'a> {
     pub fn get_coinbase_outputs(&self) -> &[TxOut] {
         &self.coinbase_outputs
     }
-    /// Returns the [`NewExtendedMiningJob`] message for this job.
-    pub fn get_job_message(&self) -> &NewExtendedMiningJob<'a> {
+    /// Returns the [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message for this job.
+    pub fn get_job_message(&self) -> &NewExtendedMiningJobOwned {
         &self.job_message
     }
     /// Returns the merkle path for this job.
-    pub fn get_merkle_path(&self) -> &Seq0255<'a, U256<'a>> {
+    pub fn get_merkle_path(&self) -> &Seq0255Owned<U256Owned> {
         &self.job_message.merkle_path
     }
     /// Returns the minimum ntime for this job (if set).
-    pub fn get_min_ntime(&self) -> Sv2Option<'a, u32> {
+    pub fn get_min_ntime(&self) -> Sv2OptionOwned<u32> {
         self.job_message.min_ntime.clone()
     }
     /// Returns the block version for this job.
@@ -214,6 +214,6 @@ impl<'a> ExtendedJob<'a> {
     ///
     /// To be used while activating future jobs upon updating channel `ChainTip` state.
     pub fn activate(&mut self, min_ntime: u32) {
-        self.job_message.min_ntime = Sv2Option::new(Some(min_ntime));
+        self.job_message.min_ntime = Sv2OptionOwned::new(Some(min_ntime));
     }
 }

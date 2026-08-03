@@ -2,13 +2,13 @@
 
 extern crate alloc;
 use alloc::string::String;
-use binary_sv2::U256;
+use binary_sv2::U256Owned;
 use bitcoin::{hash_types::BlockHash, hashes::Hash, Target};
 use core::{cmp::max, fmt::Write, ops::Div};
 use primitive_types::U256 as U256Primitive;
 
 /// Converts a `u256` to a [`BlockHash`] type.
-pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
+pub fn u256_to_block_hash(v: U256Owned) -> BlockHash {
     let hash = v.into_array();
     let hash = Hash::from_slice(&hash).unwrap();
     BlockHash::from_raw_hash(hash)
@@ -119,7 +119,7 @@ pub fn hash_rate_to_target(
     Ok(Target::from_le_bytes(target_bytes))
 }
 
-/// Converts a `u128` to a [`U256`].
+/// Converts a `u128` to a [`U256`](binary_sv2::U256).
 pub fn from_u128_to_u256(input: u128) -> U256Primitive {
     let input: [u8; 16] = input.to_be_bytes();
     let mut be_bytes = [0_u8; 32];
@@ -161,7 +161,7 @@ pub enum InputError {
 /// - `h`: Mining device hashrate (H/s).
 /// - `t`: Target threshold.
 /// - `s`: Shares per minute.
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Result<f64, InputError> {
+pub fn hash_rate_from_target(target: U256Owned, share_per_min: f64) -> Result<f64, InputError> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(InputError::DivisionByZero);

@@ -58,15 +58,15 @@ use bitcoin::{
     CompactTarget, Target,
 };
 use mining_sv2::{
-    SetCustomMiningJob, SubmitSharesExtended,
+    SetCustomMiningJobOwned, SubmitSharesExtendedOwned,
     ERROR_CODE_OPEN_MINING_CHANNEL_INVALID_NOMINAL_HASHRATE,
     ERROR_CODE_SUBMIT_SHARES_BAD_EXTRANONCE_SIZE, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
     ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
     ERROR_CODE_SUBMIT_SHARES_INVALID_SHARE, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
     ERROR_CODE_UPDATE_CHANNEL_INVALID_NOMINAL_HASHRATE, ERROR_CODE_VERSION_ROLLING_NOT_ALLOWED,
 };
-use std::{collections::HashMap, convert::TryInto, marker::PhantomData};
-use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
+use std::{collections::HashMap, convert::TryInto};
+use template_distribution_sv2::{NewTemplateOwned, SetNewPrevHashOwned as SetNewPrevHashTdp};
 use tracing::debug;
 
 /// Mining Server abstraction of a Sv2 Extended Channel.
@@ -88,7 +88,7 @@ use tracing::debug;
 /// - the channel's [`JobFactory`]
 /// - the channel's [`ChainTip`]
 #[derive(Debug)]
-pub struct ExtendedChannel<'a> {
+pub struct ExtendedChannel {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: ExtranoncePrefix,
@@ -98,15 +98,14 @@ pub struct ExtendedChannel<'a> {
     job_id_to_target: HashMap<u32, Target>,
     nominal_hashrate: f32,
     stable_hashrate: bool,
-    job_store: JobStore<ExtendedJob<'a>>,
+    job_store: JobStore<ExtendedJob>,
     job_factory: JobFactory,
     share_accounting: ShareAccounting,
     expected_share_per_minute: f32,
     chain_tip: Option<ChainTip>,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> ExtendedChannel<'a> {
+impl ExtendedChannel {
     /// Constructor of `ExtendedChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -246,7 +245,6 @@ impl<'a> ExtendedChannel<'a> {
             share_accounting: ShareAccounting::new(share_batch_size),
             expected_share_per_minute,
             chain_tip: None,
-            phantom: PhantomData,
         })
     }
 
@@ -427,17 +425,17 @@ impl<'a> ExtendedChannel<'a> {
     }
 
     /// Returns a reference to the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&ExtendedJob> {
         self.job_store.get_active_job()
     }
 
     /// Returns a reference to a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob> {
         self.job_store.get_future_job(job_id)
     }
 
     /// Returns a reference to a past job from its job ID, if any.
-    pub fn get_past_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<&ExtendedJob> {
         self.job_store.get_past_job(job_id)
     }
     /// Returns a reference to the share accounting state for this channel.
@@ -457,7 +455,7 @@ impl<'a> ExtendedChannel<'a> {
     /// If this flag is set, on_set_custom_mining_job should be used instead.
     pub fn on_new_template(
         &mut self,
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         coinbase_reward_outputs: Vec<TxOut>,
     ) -> Result<(), ExtendedChannelError> {
         match template.future_template {
@@ -515,7 +513,7 @@ impl<'a> ExtendedChannel<'a> {
     /// If this flag is set, on_set_custom_mining_job should be used instead.
     pub fn on_group_channel_job(
         &mut self,
-        mut extended_job: ExtendedJob<'a>,
+        mut extended_job: ExtendedJob,
     ) -> Result<(), ExtendedChannelError> {
         // make sure the extranonce prefix is associated to the channel's extranonce prefix
         extended_job.set_extranonce_prefix(self.extranonce_prefix.as_bytes().to_vec());
@@ -553,7 +551,7 @@ impl<'a> ExtendedChannel<'a> {
     /// All past jobs are cleared.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashTdp<'a>,
+        set_new_prev_hash: SetNewPrevHashTdp,
     ) -> Result<(), ExtendedChannelError> {
         // extended channels dedicated to custom work don't need to keep track of future jobs
         match self.job_store.has_future_jobs() {
@@ -614,7 +612,7 @@ impl<'a> ExtendedChannel<'a> {
     /// To be used by a Sv2 Pool Server upon receiving a `SetCustomMiningJob` message.
     pub fn on_set_custom_mining_job(
         &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job: SetCustomMiningJobOwned,
     ) -> Result<u32, ExtendedChannelError> {
         let new_job = self
             .job_factory
@@ -625,7 +623,7 @@ impl<'a> ExtendedChannel<'a> {
             )
             .map_err(ExtendedChannelError::JobFactoryError)?;
 
-        let set_custom_mining_job_static = set_custom_mining_job.into_static();
+        let set_custom_mining_job_static = set_custom_mining_job;
         let prev_hash = set_custom_mining_job_static.prev_hash;
         let nbits = set_custom_mining_job_static.nbits;
         let min_ntime = set_custom_mining_job_static.min_ntime;
@@ -661,7 +659,7 @@ impl<'a> ExtendedChannel<'a> {
     /// Updates the channel state with the result of the share validation.
     pub fn validate_share(
         &mut self,
-        share: SubmitSharesExtended,
+        share: SubmitSharesExtendedOwned,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -886,14 +884,18 @@ mod tests {
             share_accounting::{ShareValidationError, ShareValidationResult},
         },
     };
-    use binary_sv2::{Sv2Option, U256};
+    use binary_sv2::{Sv2OptionOwned as Sv2Option, U256Owned as U256};
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf, Target};
     use mining_sv2::{
-        NewExtendedMiningJob, SetCustomMiningJob, SubmitSharesExtended,
+        NewExtendedMiningJobOwned as NewExtendedMiningJob,
+        SetCustomMiningJobOwned as SetCustomMiningJob,
+        SubmitSharesExtendedOwned as SubmitSharesExtended,
         ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
     };
     use std::convert::TryInto;
-    use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
+    use template_distribution_sv2::{
+        NewTemplateOwned as NewTemplate, SetNewPrevHashOwned as SetNewPrevHash,
+    };
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
 
@@ -2292,7 +2294,7 @@ mod tests {
         request_id: u32,
         prev_hash: [u8; 32],
         min_ntime: u32,
-    ) -> SetCustomMiningJob<'static> {
+    ) -> SetCustomMiningJob {
         SetCustomMiningJob {
             channel_id,
             request_id,

@@ -27,7 +27,7 @@ use crate::{
     outputs::deserialize_template_outputs,
     server::jobs::{error::*, extended::ExtendedJob, standard::StandardJob},
 };
-use binary_sv2::{Sv2Option, B0255};
+use binary_sv2::{B0255Owned, Sv2OptionOwned};
 use bitcoin::{
     absolute::LockTime,
     blockdata::witness::Witness,
@@ -35,9 +35,9 @@ use bitcoin::{
     transaction::{OutPoint, Transaction, TxIn, TxOut, Version},
     Amount, Sequence,
 };
-use mining_sv2::{NewExtendedMiningJob, NewMiningJob, SetCustomMiningJob};
+use mining_sv2::{NewExtendedMiningJobOwned, NewMiningJobOwned, SetCustomMiningJobOwned};
 use std::convert::TryInto;
-use template_distribution_sv2::NewTemplate;
+use template_distribution_sv2::NewTemplateOwned;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct JobIdFactory {
@@ -141,14 +141,14 @@ impl JobFactory {
     ///
     /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs` is equal to
     /// available template revenue. Returns an error otherwise.
-    pub fn new_standard_job<'a>(
+    pub fn new_standard_job(
         &mut self,
         channel_id: u32,
         chain_tip: Option<ChainTip>,
         extranonce_prefix: Vec<u8>,
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         additional_coinbase_outputs: Vec<TxOut>,
-    ) -> Result<StandardJob<'a>, JobFactoryError> {
+    ) -> Result<StandardJob, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -183,10 +183,10 @@ impl JobFactory {
         .expect("merkle root must be 32 bytes");
 
         let job_message = match template.future_template {
-            true => NewMiningJob {
+            true => NewMiningJobOwned {
                 channel_id,
                 job_id,
-                min_ntime: Sv2Option::new(None),
+                min_ntime: Sv2OptionOwned::new(None),
                 version,
                 merkle_root,
             },
@@ -196,10 +196,10 @@ impl JobFactory {
                     None => return Err(JobFactoryError::ChainTipRequired),
                 };
 
-                NewMiningJob {
+                NewMiningJobOwned {
                     channel_id,
                     job_id,
-                    min_ntime: Sv2Option::new(min_ntime),
+                    min_ntime: Sv2OptionOwned::new(min_ntime),
                     version,
                     merkle_root,
                 }
@@ -228,15 +228,15 @@ impl JobFactory {
     ///
     /// It's up to the caller to ensure that the sum of `additional_coinbase_outputs` is equal to
     /// available template revenue. Returns an error otherwise.
-    pub fn new_extended_job<'a>(
+    pub fn new_extended_job(
         &mut self,
         channel_id: u32,
         chain_tip: Option<ChainTip>,
         extranonce_prefix: Vec<u8>,
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
-    ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+    ) -> Result<ExtendedJob, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -269,10 +269,10 @@ impl JobFactory {
         let merkle_path = template.merkle_path.clone();
 
         let job_message = match template.future_template {
-            true => NewExtendedMiningJob {
+            true => NewExtendedMiningJobOwned {
                 channel_id,
                 job_id,
-                min_ntime: Sv2Option::new(None),
+                min_ntime: Sv2OptionOwned::new(None),
                 version,
                 version_rolling_allowed: self.version_rolling_allowed,
                 merkle_path,
@@ -288,10 +288,10 @@ impl JobFactory {
                     Some(chain_tip) => Some(chain_tip.min_ntime()),
                     None => return Err(JobFactoryError::ChainTipRequired),
                 };
-                NewExtendedMiningJob {
+                NewExtendedMiningJobOwned {
                     channel_id,
                     job_id,
-                    min_ntime: Sv2Option::new(min_ntime),
+                    min_ntime: Sv2OptionOwned::new(min_ntime),
                     version,
                     version_rolling_allowed: self.version_rolling_allowed,
                     merkle_path,
@@ -326,7 +326,7 @@ impl JobFactory {
     /// is equal to available template revenue. Returns an error otherwise.
     pub fn new_coinbase_tx_prefix_and_suffix(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplateOwned,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<(Vec<u8>, Vec<u8>), JobFactoryError> {
@@ -355,16 +355,16 @@ impl JobFactory {
     /// It's up to the caller to ensure that the sum of the additional coinbase outputs is equal to
     /// available template revenue.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_custom_job<'a>(
+    pub fn new_custom_job(
         &self,
         channel_id: u32,
         request_id: u32,
-        token: B0255<'a>,
+        token: B0255Owned,
         chain_tip: ChainTip,
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         additional_coinbase_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
-    ) -> Result<SetCustomMiningJob<'a>, JobFactoryError> {
+    ) -> Result<SetCustomMiningJobOwned, JobFactoryError> {
         let coinbase_outputs_sum = additional_coinbase_outputs
             .iter()
             .map(|o| o.value.to_sat())
@@ -390,7 +390,7 @@ impl JobFactory {
         coinbase_prefix.extend_from_slice(&self.op_pushbytes_pool_miner_tag()?);
         coinbase_prefix.push(full_extranonce_size as u8); // OP_PUSHBYTES_X (for the full extranonce)
 
-        let set_custom_mining_job = SetCustomMiningJob {
+        let set_custom_mining_job = SetCustomMiningJobOwned {
             channel_id,
             request_id,
             token,
@@ -418,12 +418,12 @@ impl JobFactory {
     /// Assumes that the SetCustomMiningJob message has already been validated.
     ///
     /// To be used by Extended Channels on a Sv2 Pool Server.
-    pub fn new_extended_job_from_custom_job<'a>(
+    pub fn new_extended_job_from_custom_job(
         &mut self,
-        set_custom_mining_job: SetCustomMiningJob<'a>,
+        set_custom_mining_job: SetCustomMiningJobOwned,
         extranonce_prefix: Vec<u8>,
         full_extranonce_size: usize,
-    ) -> Result<ExtendedJob<'a>, JobFactoryError> {
+    ) -> Result<ExtendedJob, JobFactoryError> {
         let serialized_outputs = set_custom_mining_job.coinbase_tx_outputs.to_owned_bytes();
 
         let coinbase_outputs = Vec::<TxOut>::consensus_decode(&mut serialized_outputs.as_slice())
@@ -444,12 +444,12 @@ impl JobFactory {
                 .map_err(|_| JobFactoryError::FailedToStripBip141)?
                 .ok_or(JobFactoryError::FailedToStripBip141)?;
 
-        let merkle_path = set_custom_mining_job.merkle_path.clone().into_static();
+        let merkle_path = set_custom_mining_job.merkle_path.clone();
 
-        let job_message = NewExtendedMiningJob {
+        let job_message = NewExtendedMiningJobOwned {
             channel_id: set_custom_mining_job.channel_id,
             job_id,
-            min_ntime: Sv2Option::new(Some(set_custom_mining_job.min_ntime)),
+            min_ntime: Sv2OptionOwned::new(Some(set_custom_mining_job.min_ntime)),
             version,
             version_rolling_allowed: self.version_rolling_allowed,
             coinbase_tx_prefix: coinbase_tx_prefix_stripped_bip141
@@ -483,7 +483,7 @@ impl JobFactory {
     // coinbase
     fn custom_coinbase(
         &self,
-        m: SetCustomMiningJob<'_>,
+        m: SetCustomMiningJobOwned,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
         let deserialized_outputs =
@@ -514,7 +514,7 @@ impl JobFactory {
 
     fn custom_coinbase_tx_prefix(
         &self,
-        m: SetCustomMiningJob<'_>,
+        m: SetCustomMiningJobOwned,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
@@ -535,7 +535,7 @@ impl JobFactory {
 
     fn custom_coinbase_tx_suffix(
         &self,
-        m: SetCustomMiningJob<'_>,
+        m: SetCustomMiningJobOwned,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
         let coinbase = self.custom_coinbase(m.clone(), full_extranonce_size)?;
@@ -558,7 +558,7 @@ impl JobFactory {
     // build a coinbase transaction from some template in the JobFactory
     fn coinbase(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplateOwned,
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Transaction, JobFactoryError> {
@@ -616,7 +616,7 @@ impl JobFactory {
 
     fn coinbase_tx_prefix(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplateOwned,
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
@@ -650,7 +650,7 @@ impl JobFactory {
 
     fn coinbase_tx_suffix(
         &self,
-        template: NewTemplate<'_>,
+        template: NewTemplateOwned,
         coinbase_reward_outputs: Vec<TxOut>,
         full_extranonce_size: usize,
     ) -> Result<Vec<u8>, JobFactoryError> {
@@ -687,7 +687,8 @@ impl JobFactory {
 mod tests {
     use super::*;
     use bitcoin::ScriptBuf;
-    use template_distribution_sv2::NewTemplate;
+    use mining_sv2::NewExtendedMiningJobOwned as NewExtendedMiningJob;
+    use template_distribution_sv2::NewTemplateOwned as NewTemplate;
 
     #[test]
     fn test_new_pool_job() {
@@ -754,7 +755,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2Option::new(None),
+            min_ntime: Sv2OptionOwned::new(None),
             version: 536870912,
             version_rolling_allowed: true,
             // contains scriptSig with /Stratum V2 SRI Pool//
@@ -861,7 +862,7 @@ mod tests {
         let expected_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 1,
-            min_ntime: Sv2Option::new(Some(1746839905)),
+            min_ntime: Sv2OptionOwned::new(Some(1746839905)),
             version: 536870912,
             version_rolling_allowed: true,
             // contains scriptSig with /Stratum V2 SRI Pool/Stratum V2 SRI Miner/

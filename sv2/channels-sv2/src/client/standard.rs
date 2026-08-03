@@ -18,21 +18,22 @@ use crate::{
     MAX_EXTRANONCE_LEN,
 };
 use alloc::{format, string::String};
-use binary_sv2::Sv2Option;
+use binary_sv2::Sv2OptionOwned;
 use bitcoin::{
     blockdata::block::{Header, Version},
     hashes::sha256d::Hash,
     CompactTarget, Target,
 };
 use mining_sv2::{
-    NewExtendedMiningJob, NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard,
-    ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW, ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE,
-    ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID, ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
+    NewExtendedMiningJobOwned, NewMiningJobOwned, SetNewPrevHashOwned as SetNewPrevHashMp,
+    SubmitSharesStandardOwned, ERROR_CODE_SUBMIT_SHARES_DIFFICULTY_TOO_LOW,
+    ERROR_CODE_SUBMIT_SHARES_DUPLICATE_SHARE, ERROR_CODE_SUBMIT_SHARES_INVALID_JOB_ID,
+    ERROR_CODE_SUBMIT_SHARES_STALE_SHARE,
 };
 use tracing::debug;
 
 /// A type alias representing a standard mining job tied to a specific `target`.
-pub type StandardJob<'a> = (NewMiningJob<'a>, Target);
+pub type StandardJob = (NewMiningJobOwned, Target);
 
 /// Mining Client abstraction over the state of a Sv2 Standard Channel.
 ///
@@ -42,28 +43,28 @@ pub type StandardJob<'a> = (NewMiningJob<'a>, Target);
 /// - unique extranonce prefix
 /// - channel target
 /// - nominal hashrate in h/s
-/// - future mining jobs (indexed by job_id, activated upon [`NewMiningJob`] receipt)
+/// - future mining jobs (indexed by job_id, activated upon [`NewMiningJob`](mining_sv2::NewMiningJob) receipt)
 /// - active mining job
 /// - past jobs (active jobs under current chain tip, indexed by job_id)
 /// - stale jobs (jobs from previous chain tip, indexed by job_id)
 /// - share accounting state
 /// - chain tip state
 #[derive(Debug)]
-pub struct StandardChannel<'a> {
+pub struct StandardChannel {
     channel_id: u32,
     user_identity: String,
     extranonce_prefix: ExtranoncePrefix,
     target: Target,
     nominal_hashrate: f32,
-    future_jobs: HashMap<u32, StandardJob<'a>>,
-    active_job: Option<StandardJob<'a>>,
-    past_jobs: HashMap<u32, StandardJob<'a>>,
-    stale_jobs: HashMap<u32, StandardJob<'a>>,
+    future_jobs: HashMap<u32, StandardJob>,
+    active_job: Option<StandardJob>,
+    past_jobs: HashMap<u32, StandardJob>,
+    stale_jobs: HashMap<u32, StandardJob>,
     share_accounting: ShareAccounting,
     chain_tip: Option<ChainTip>,
 }
 
-impl<'a> StandardChannel<'a> {
+impl StandardChannel {
     /// Creates a new [`StandardChannel`] instance with provided channel parameters.
     pub fn new(
         channel_id: u32,
@@ -161,12 +162,12 @@ impl<'a> StandardChannel<'a> {
     /// Returns an iterator over all future jobs for this channel.
     ///
     /// The list is cleared once a [`StandardChannel::on_set_new_prev_hash`] is processed.
-    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob<'a>)> + '_ {
+    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob)> + '_ {
         self.future_jobs.iter()
     }
 
     /// Returns a reference to a future job by `job_id`, if present.
-    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<&StandardJob> {
         self.future_jobs.get(&job_id)
     }
 
@@ -176,17 +177,17 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&StandardJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&StandardJob> {
         self.active_job.as_ref()
     }
 
     /// Returns an iterator over all past jobs for the channel (active jobs under current chain tip).
-    pub fn get_past_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob<'a>)> + '_ {
+    pub fn get_past_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob)> + '_ {
         self.past_jobs.iter()
     }
 
     /// Returns a reference to a past job by `job_id`, if present.
-    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+    pub fn get_past_job(&self, job_id: u32) -> Option<&StandardJob> {
         self.past_jobs.get(&job_id)
     }
 
@@ -196,12 +197,12 @@ impl<'a> StandardChannel<'a> {
     }
 
     /// Returns an iterator over all stale jobs for the channel (jobs from previous chain tip).
-    pub fn get_stale_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob<'a>)> + '_ {
+    pub fn get_stale_jobs(&self) -> impl Iterator<Item = (&u32, &StandardJob)> + '_ {
         self.stale_jobs.iter()
     }
 
     /// Returns a reference to a stale job by `job_id`, if present.
-    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob<'a>> {
+    pub fn get_stale_job(&self, job_id: u32) -> Option<&StandardJob> {
         self.stale_jobs.get(&job_id)
     }
 
@@ -215,7 +216,7 @@ impl<'a> StandardChannel<'a> {
         &self.share_accounting
     }
 
-    /// Updates share accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates share accounting based on a [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess) message from the
     /// upstream server. Delegates to [`ShareAccounting::on_share_acknowledgement`].
     pub fn on_share_acknowledgement(
         &mut self,
@@ -226,7 +227,7 @@ impl<'a> StandardChannel<'a> {
             .on_share_acknowledgement(new_submits_accepted_count, new_shares_sum);
     }
 
-    /// Updates share accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates share accounting based on a [`SubmitSharesError`](mining_sv2::SubmitSharesError) message from the upstream
     /// server. Delegates to [`ShareAccounting::on_share_rejection`].
     pub fn on_share_rejection(&mut self, error_code: String) {
         self.share_accounting.on_share_rejection(error_code);
@@ -236,7 +237,7 @@ impl<'a> StandardChannel<'a> {
     /// and activating it in this channel's context.
     ///
     /// The new job is constructed using the current extranonce prefix.
-    pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJob<'a>) {
+    pub fn on_new_group_channel_job(&mut self, new_extended_mining_job: NewExtendedMiningJobOwned) {
         let merkle_root = merkle_root_from_path(
             new_extended_mining_job.coinbase_tx_prefix.as_bytes(),
             new_extended_mining_job.coinbase_tx_suffix.as_bytes(),
@@ -247,7 +248,7 @@ impl<'a> StandardChannel<'a> {
         .try_into()
         .expect("merkle root must be 32 bytes");
 
-        let new_mining_job = NewMiningJob {
+        let new_mining_job = NewMiningJobOwned {
             channel_id: self.channel_id,
             job_id: new_extended_mining_job.job_id,
             merkle_root,
@@ -255,15 +256,19 @@ impl<'a> StandardChannel<'a> {
             min_ntime: new_extended_mining_job.min_ntime,
         };
 
-        self.on_new_mining_job(new_mining_job);
+        self.store_new_mining_job(new_mining_job);
     }
 
-    /// Handles a newly received [`NewMiningJob`] message from upstream.
+    /// Handles a newly received [`NewMiningJob`](mining_sv2::NewMiningJob) message from upstream.
     ///
     /// - If `min_ntime` is present, the job is activated and replaces the current active job.
     /// - If `min_ntime` is empty, the job is added to future jobs.
     /// - If an active job exists, it is moved to past jobs on activation.
-    pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJob<'a>) {
+    pub fn on_new_mining_job(&mut self, new_mining_job: NewMiningJobOwned) {
+        self.store_new_mining_job(new_mining_job);
+    }
+
+    fn store_new_mining_job(&mut self, new_mining_job: NewMiningJobOwned) {
         match new_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
                 if let Some(active_job) = self.active_job.as_ref() {
@@ -289,11 +294,11 @@ impl<'a> StandardChannel<'a> {
     /// - Updates chain tip information. Returns error if no matching future job found.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashMp<'a>,
+        set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), StandardChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(mut activated_job) => {
-                activated_job.0.min_ntime = Sv2Option::new(Some(set_new_prev_hash.min_ntime));
+                activated_job.0.min_ntime = Sv2OptionOwned::new(Some(set_new_prev_hash.min_ntime));
                 self.active_job = Some(activated_job);
             }
             None => return Err(StandardChannelError::JobIdNotFound),
@@ -325,7 +330,7 @@ impl<'a> StandardChannel<'a> {
     /// - Returns error describing why share is not valid.
     pub fn validate_share(
         &mut self,
-        share: SubmitSharesStandard,
+        share: SubmitSharesStandardOwned,
     ) -> Result<ShareValidationResult, ShareValidationError> {
         let job_id = share.job_id;
 
@@ -454,9 +459,12 @@ mod tests {
         },
         extranonce_manager::ExtranoncePrefix,
     };
-    use binary_sv2::Sv2Option;
+    use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::Target;
-    use mining_sv2::{NewMiningJob, SetNewPrevHash as SetNewPrevHashMp, SubmitSharesStandard};
+    use mining_sv2::{
+        NewMiningJobOwned as NewMiningJob, SetNewPrevHashOwned as SetNewPrevHashMp,
+        SubmitSharesStandardOwned,
+    };
 
     #[test]
     fn test_future_job_activation_flow() {
@@ -629,7 +637,7 @@ mod tests {
         // this share has hash 61e8fe82487d10282fdededed636403eb2c8cb05ce792951dd410a9011a94ebb
         // which satisfied the network target
         // 7fffff0000000000000000000000000000000000000000000000000000000000
-        let share_valid_block = SubmitSharesStandard {
+        let share_valid_block = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 0,
             job_id: future_job.job_id,
@@ -711,7 +719,7 @@ mod tests {
         // this share has hash 45ec7dbd7b599599e6724ab32e6936dad033f46ccff97e743579d8c047cf3243
         // which does not meet the channel target
         // 0000ffff00000000000000000000000000000000000000000000000000000000
-        let share_low_diff = SubmitSharesStandard {
+        let share_low_diff = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 0,
             job_id: future_job.job_id,
@@ -787,7 +795,7 @@ mod tests {
         // this share has hash 0000762e88282a2ed8e7097aef06f413a962a47e32206a80ecbfc1f0b4bd1493
         // which meets the channel target
         // 0000ffff00000000000000000000000000000000000000000000000000000000
-        let valid_share = SubmitSharesStandard {
+        let valid_share = SubmitSharesStandardOwned {
             channel_id,
             sequence_number: 0,
             job_id: future_job.job_id,

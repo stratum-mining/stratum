@@ -7,7 +7,7 @@
 
 use super::{HashMap, HashSet};
 use crate::client::error::GroupChannelError;
-use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
+use mining_sv2::{NewExtendedMiningJobOwned, SetNewPrevHashOwned as SetNewPrevHashMp};
 
 /// Mining Client abstraction over the state of an Sv2 Group Channel.
 ///
@@ -22,22 +22,22 @@ use mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as SetNewPrevHashMp};
 /// - past or stale jobs
 /// - share validation state (handled per-channel)
 #[derive(Debug, Clone)]
-pub struct GroupChannel<'a> {
+pub struct GroupChannel {
     /// Unique identifier for the group channel
     group_channel_id: u32,
     /// Set of channel IDs associated with this group channel
     channel_ids: HashSet<u32>,
     /// Future jobs, indexed by job_id, waiting to be activated
-    future_jobs: HashMap<u32, NewExtendedMiningJob<'a>>,
+    future_jobs: HashMap<u32, NewExtendedMiningJobOwned>,
     /// Currently active mining job for the group channel
-    active_job: Option<NewExtendedMiningJob<'a>>,
+    active_job: Option<NewExtendedMiningJobOwned>,
     /// Full extranonce size for jobs associated with this group channel.
     /// The constructor initializes this as None, but as new channels are added, we keep this updated.
     /// At no point in time, two channels can belong to the same group while having different full extranonce sizes.
     full_extranonce_size: Option<usize>,
 }
 
-impl<'a> GroupChannel<'a> {
+impl GroupChannel {
     /// Creates a new [`GroupChannel`] with the given group_channel_id.
     pub fn new(group_channel_id: u32) -> Self {
         Self {
@@ -111,17 +111,17 @@ impl<'a> GroupChannel<'a> {
     }
 
     /// Returns a reference to the current active job, if any.
-    pub fn get_active_job(&self) -> Option<&NewExtendedMiningJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&NewExtendedMiningJobOwned> {
         self.active_job.as_ref()
     }
 
     /// Returns an iterator over all future jobs, keyed by `job_id`.
-    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &NewExtendedMiningJob<'a>)> + '_ {
+    pub fn get_future_jobs(&self) -> impl Iterator<Item = (&u32, &NewExtendedMiningJobOwned)> + '_ {
         self.future_jobs.iter()
     }
 
     /// Returns a reference to a future job by `job_id`, if present.
-    pub fn get_future_job(&self, job_id: u32) -> Option<&NewExtendedMiningJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<&NewExtendedMiningJobOwned> {
         self.future_jobs.get(&job_id)
     }
 
@@ -135,13 +135,13 @@ impl<'a> GroupChannel<'a> {
         self.full_extranonce_size
     }
 
-    /// Handles a newly received [`NewExtendedMiningJob`] message from upstream.
+    /// Handles a newly received [`NewExtendedMiningJob`](mining_sv2::NewExtendedMiningJob) message from upstream.
     ///
     /// - If `min_ntime` is present, sets this job as active.
     /// - If `min_ntime` is empty, stores it as a future job.
     pub fn on_new_extended_mining_job(
         &mut self,
-        new_extended_mining_job: NewExtendedMiningJob<'a>,
+        new_extended_mining_job: NewExtendedMiningJobOwned,
     ) {
         match new_extended_mining_job.min_ntime.clone().into_inner() {
             Some(_min_ntime) => {
@@ -162,7 +162,7 @@ impl<'a> GroupChannel<'a> {
     /// Returns `Err(GroupChannelError::JobIdNotFound)` if no matching job found.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashMp<'a>,
+        set_new_prev_hash: SetNewPrevHashMp,
     ) -> Result<(), GroupChannelError> {
         match self.future_jobs.remove(&set_new_prev_hash.job_id) {
             Some(job) => {

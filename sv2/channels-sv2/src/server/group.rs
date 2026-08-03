@@ -38,8 +38,8 @@ use crate::{
     },
 };
 use bitcoin::transaction::TxOut;
-use std::{collections::HashSet, marker::PhantomData};
-use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp};
+use std::collections::HashSet;
+use template_distribution_sv2::{NewTemplateOwned, SetNewPrevHashOwned as SetNewPrevHashTdp};
 
 /// Abstraction of a Group Channel.
 ///
@@ -58,17 +58,16 @@ use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTdp
 /// - the group channel's stale jobs
 /// - the group channel's share validation state
 #[derive(Debug)]
-pub struct GroupChannel<'a> {
+pub struct GroupChannel {
     group_channel_id: u32,
     channel_ids: HashSet<u32>,
     job_factory: JobFactory,
-    job_store: JobStore<ExtendedJob<'a>>,
+    job_store: JobStore<ExtendedJob>,
     chain_tip: Option<ChainTip>,
     full_extranonce_size: usize,
-    phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> GroupChannel<'a> {
+impl GroupChannel {
     /// Constructor of `GroupChannel` for a Sv2 Pool Server.
     /// Not meant for usage on a Sv2 Job Declaration Client.
     ///
@@ -142,7 +141,6 @@ impl<'a> GroupChannel<'a> {
             job_store: JobStore::new(),
             chain_tip: None,
             full_extranonce_size,
-            phantom: PhantomData,
         })
     }
 
@@ -218,7 +216,7 @@ impl<'a> GroupChannel<'a> {
     }
 
     /// Returns a reference to the currently active job, if any.
-    pub fn get_active_job(&self) -> Option<&ExtendedJob<'a>> {
+    pub fn get_active_job(&self) -> Option<&ExtendedJob> {
         self.job_store.get_active_job()
     }
 
@@ -229,7 +227,7 @@ impl<'a> GroupChannel<'a> {
     }
 
     /// Returns a reference to a future job from its job ID, if any.
-    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob<'a>> {
+    pub fn get_future_job(&self, job_id: u32) -> Option<&ExtendedJob> {
         self.job_store.get_future_job(job_id)
     }
 
@@ -240,7 +238,7 @@ impl<'a> GroupChannel<'a> {
     /// Returns an error if a non-future job cannot be created due to missing chain tip.
     pub fn on_new_template(
         &mut self,
-        template: NewTemplate<'a>,
+        template: NewTemplateOwned,
         coinbase_reward_outputs: Vec<TxOut>,
     ) -> Result<(), GroupChannelError> {
         match template.future_template {
@@ -294,7 +292,7 @@ impl<'a> GroupChannel<'a> {
     /// Returns an error if no matching future job is found.
     pub fn on_set_new_prev_hash(
         &mut self,
-        set_new_prev_hash: SetNewPrevHashTdp<'a>,
+        set_new_prev_hash: SetNewPrevHashTdp,
     ) -> Result<(), GroupChannelError> {
         match self.job_store.has_future_jobs() {
             false => {
@@ -318,11 +316,13 @@ impl<'a> GroupChannel<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{chain_tip::ChainTip, server::group::GroupChannel};
-    use binary_sv2::Sv2Option;
+    use binary_sv2::Sv2OptionOwned as Sv2Option;
     use bitcoin::{transaction::TxOut, Amount, ScriptBuf};
-    use mining_sv2::NewExtendedMiningJob;
+    use mining_sv2::NewExtendedMiningJobOwned as NewExtendedMiningJob;
     use std::convert::TryInto;
-    use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
+    use template_distribution_sv2::{
+        NewTemplateOwned as NewTemplate, SetNewPrevHashOwned as SetNewPrevHash,
+    };
 
     const SATS_AVAILABLE_IN_TEMPLATE: u64 = 5000000000;
 

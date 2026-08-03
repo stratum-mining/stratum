@@ -52,17 +52,17 @@ pub enum ShareValidationError {
 ///
 /// Used only on Mining Clients. Share accounting is split into two phases:
 ///
-/// **Validation phase** (updated by [`validate_share`] via [`track_validated_share`]):
+/// **Validation phase** (updated by `validate_share` via [`track_validated_share`](Self::track_validated_share)):
 /// - total validated shares (shares that passed local validation)
 /// - cumulative validated work (based on each job's target difficulty)
 /// - hashes of seen shares (for duplicate detection)
 /// - last received share's sequence number
 /// - highest difficulty seen in validated shares
 ///
-/// **Acceptance phase** (updated by the application layer via [`on_share_acknowledgement`]):
-/// - total acknowledged shares (confirmed by upstream [`SubmitSharesSuccess`])
-/// - total rejected shares (reported by upstream [`SubmitSharesError`])
-/// - cumulative acknowledged work (as reported by upstream [`SubmitSharesSuccess`])
+/// **Acceptance phase** (updated by the application layer via [`on_share_acknowledgement`](Self::on_share_acknowledgement)):
+/// - total acknowledged shares (confirmed by upstream [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess))
+/// - total rejected shares (reported by upstream [`SubmitSharesError`](mining_sv2::SubmitSharesError))
+/// - cumulative acknowledged work (as reported by upstream [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess))
 /// - number of blocks found
 ///
 /// [`validate_share`]: super::extended::ExtendedChannel::validate_share
@@ -106,13 +106,13 @@ impl ShareAccounting {
         }
     }
 
-    /// Updates acceptance accounting based on a [`SubmitSharesSuccess`] message from the
+    /// Updates acceptance accounting based on a [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess) message from the
     /// upstream server.
     ///
     /// This should be called by the application layer when it receives upstream confirmation
-    /// that shares were accepted. It is intentionally **not** called from [`validate_share`] —
+    /// that shares were accepted. It is intentionally **not** called from `validate_share` —
     /// local validation only tracks the share for duplicate detection (via
-    /// [`track_validated_share`]).
+    /// [`track_validated_share`](Self::track_validated_share)).
     pub fn on_share_acknowledgement(
         &mut self,
         new_submits_accepted_count: u32,
@@ -122,7 +122,7 @@ impl ShareAccounting {
         self.acknowledged_work_sum = self.acknowledged_work_sum.saturating_add(new_shares_sum);
     }
 
-    /// Updates rejection accounting based on a [`SubmitSharesError`] message from the upstream
+    /// Updates rejection accounting based on a [`SubmitSharesError`](mining_sv2::SubmitSharesError) message from the upstream
     /// server.
     ///
     /// One call corresponds to one rejected share.
@@ -136,9 +136,9 @@ impl ShareAccounting {
     /// Records a share that passed local validation.
     ///
     /// Adds the hash to the seen set for duplicate detection and updates the last sequence
-    /// number. Called from [`validate_share`] — does **not** count the share as accepted.
-    /// Acceptance accounting is deferred to [`on_share_acknowledgement`], which should be
-    /// called when the upstream server confirms via [`SubmitSharesSuccess`].
+    /// number. Called from `validate_share` — does **not** count the share as accepted.
+    /// Acceptance accounting is deferred to [`on_share_acknowledgement`](Self::on_share_acknowledgement), which should be
+    /// called when the upstream server confirms via [`SubmitSharesSuccess`](mining_sv2::SubmitSharesSuccess).
     pub fn track_validated_share(
         &mut self,
         share_sequence_number: u32,
