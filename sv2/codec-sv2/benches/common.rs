@@ -1,4 +1,4 @@
-use binary_sv2::{Deserialize, Serialize, B064K, U256};
+use binary_sv2::{B064KOwned, Deserialize, Serialize, U256Owned, B064K, U256};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestMsg {
@@ -12,11 +12,11 @@ pub struct ZeroCopyMsg<'decoder> {
     pub coinbase_suffix: B064K<'decoder>,
 }
 
-impl<'a> ZeroCopyMsg<'a> {
+impl ZeroCopyMsgOwned {
     pub fn new_owned(channel_id: u32, coinbase_size: usize) -> Self {
-        let merkle_root = U256::try_from(vec![0x42u8; 32]).expect("U256 is exactly 32 bytes");
+        let merkle_root = U256Owned::try_from(vec![0x42u8; 32]).expect("U256 is exactly 32 bytes");
         let coinbase_suffix =
-            B064K::try_from(vec![0xABu8; coinbase_size]).expect("coinbase_size <= 65535");
+            B064KOwned::try_from(vec![0xABu8; coinbase_size]).expect("coinbase_size <= 65535");
         Self {
             channel_id,
             merkle_root,
