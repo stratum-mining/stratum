@@ -55,6 +55,36 @@ pub fn test_increment_and_reset_shares<V: Vardiff>(vardiff: &mut V) {
     );
 }
 
+// A backwards clock step (e.g. an NTP correction) leaves the recorded timestamp in the
+// future. `try_vardiff` must decline to adjust rather than panic on the elapsed-time
+// subtraction, and it must re-anchor the window: the `delta_time <= 15` early return runs
+// before `reset_counter()`, so leaving the future timestamp in place would stall vardiff
+// for the entire length of the clock step, not just one round.
+pub fn test_backwards_clock_step_reanchors_window<V: Vardiff>(vardiff: &mut V) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    // Pretend the last update happened an hour in the future.
+    vardiff.set_timestamp_of_last_update(now + 3600);
+
+    let target =
+        hash_rate_to_target(TEST_INITIAL_HASHRATE.into(), TEST_SHARES_PER_MINUTE.into()).unwrap();
+
+    assert!(matches!(
+        vardiff.try_vardiff(TEST_INITIAL_HASHRATE, &target, TEST_SHARES_PER_MINUTE),
+        Ok(None)
+    ));
+
+    assert!(
+        vardiff.last_update_timestamp() <= now + 1,
+        "window not re-anchored (timestamp still {}, now {}): vardiff would stall for the \
+         full length of the clock step",
+        vardiff.last_update_timestamp(),
+        now
+    );
+}
+
 // Ensures that `try_vardiff` results in a minimal or no change when the hashrate is stable.
 pub fn test_try_vardiff_stable_hashrate_minimal_change_or_no_change<V: Vardiff>(vardiff: &mut V) {
     let initial_hashrate = TEST_INITIAL_HASHRATE;

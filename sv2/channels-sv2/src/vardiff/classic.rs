@@ -104,7 +104,25 @@ impl Vardiff for VardiffState {
             .map_err(VardiffError::TimeError)?
             .as_secs();
 
-        let delta_time = now - self.timestamp_of_last_update;
+        let delta_time = match now.checked_sub(self.timestamp_of_last_update) {
+            Some(delta_time) => delta_time,
+            None => {
+                // The clock stepped backwards (e.g. NTP correction), leaving the recorded
+                // timestamp in the future, so elapsed time is unmeasurable. Re-anchor the
+                // window to `now` and skip just this round: the `delta_time <= 15` guard
+                // below returns before `reset_counter()` runs, so without re-anchoring here
+                // every later round would measure against the same stale future timestamp
+                // and vardiff would stall for the whole length of the backwards step.
+                debug!(
+                    target: "vardiff",
+                    "Clock stepped backwards (recorded {}, now {}); re-anchoring vardiff window",
+                    self.timestamp_of_last_update,
+                    now
+                );
+                self.reset_counter()?;
+                return Ok(None);
+            }
+        };
 
         if delta_time <= 15 {
             return Ok(None);

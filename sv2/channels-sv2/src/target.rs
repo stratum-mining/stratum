@@ -4,7 +4,7 @@ extern crate alloc;
 use alloc::string::String;
 use binary_sv2::U256Owned;
 use bitcoin::{hash_types::BlockHash, hashes::Hash, Target};
-use core::{cmp::max, fmt::Write, ops::Div};
+use core::{fmt::Write, ops::Div};
 use primitive_types::U256 as U256Primitive;
 
 /// Converts a `u256` to a [`BlockHash`] type.
@@ -101,7 +101,7 @@ pub fn hash_rate_to_target(
     // this means that the denominator can never be zero
     // we add 100 in place of 1 because h*s is actually h*s*100, we in order to simplify later we
     // must calculate (h*s+1)*100
-    let h_times_s_plus_one = max(h_times_s, h_times_s + 1);
+    let h_times_s_plus_one = h_times_s.saturating_add(1);
 
     let h_times_s_plus_one = from_u128_to_u256(h_times_s_plus_one);
     let denominator = h_times_s_plus_one;
@@ -161,6 +161,12 @@ pub enum InputError {
 /// - `h`: Mining device hashrate (H/s).
 /// - `t`: Target threshold.
 /// - `s`: Shares per minute.
+///
+/// ## Errors
+/// - [`InputError::DivisionByZero`] if `share_per_min` is zero.
+/// - [`InputError::NegativeInput`] if `share_per_min` is negative.
+/// - [`InputError::ArithmeticOverflow`] if `target` is zero (the numerator `2^256` is not
+///   representable), or if the denominator overflows.
 pub fn hash_rate_from_target(target: U256Owned, share_per_min: f64) -> Result<f64, InputError> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
@@ -178,7 +184,12 @@ pub fn hash_rate_from_target(target: U256Owned, share_per_min: f64) -> Result<f6
     // note that [255_u8,;32] actually is 2^256 -1, but 2^256 -t = (2^256-1) - (t-1)
     let max_target = [255_u8; 32];
     let max_target = U256Primitive::from_big_endian(max_target.as_ref());
-    let numerator = max_target - (target - U256Primitive::one());
+    // `target == 0` would underflow here; it is also not representable
+    // (the true numerator would be 2^256), so reject it rather than panic.
+    let target_minus_one = target
+        .checked_sub(U256Primitive::one())
+        .ok_or(InputError::ArithmeticOverflow)?;
+    let numerator = max_target - target_minus_one;
     // now we calculate the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
     let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
@@ -199,4 +210,24 @@ pub fn hash_rate_from_target(target: U256Owned, share_per_min: f64) -> Result<f6
     let result = numerator.div(denominator).low_u128();
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok(result as f64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{hash_rate_from_target, hash_rate_to_target, InputError, U256Owned};
+
+    #[test]
+    fn zero_target_is_rejected_not_panic() {
+        let zero: U256Owned = [0u8; 32].into();
+        assert!(matches!(
+            hash_rate_from_target(zero, 10.0),
+            Err(InputError::ArithmeticOverflow)
+        ));
+    }
+
+    #[test]
+    fn huge_hashrate_does_not_overflow() {
+        // f64 -> u128 `as` casts saturate, so this drives h_times_s to u128::MAX.
+        assert!(hash_rate_to_target(f64::MAX, 1.0).is_ok());
+    }
 }

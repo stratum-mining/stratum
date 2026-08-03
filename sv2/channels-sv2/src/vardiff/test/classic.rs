@@ -5,8 +5,8 @@ use crate::vardiff::test::{
 use crate::{target::hash_rate_to_target, vardiff::VardiffError, VardiffState};
 
 use super::{
-    test_increment_and_reset_shares, test_try_vardiff_low_hashrate_decrease_target,
-    test_try_vardiff_no_shares_30_to_60s_decrease,
+    test_backwards_clock_step_reanchors_window, test_increment_and_reset_shares,
+    test_try_vardiff_low_hashrate_decrease_target, test_try_vardiff_no_shares_30_to_60s_decrease,
     test_try_vardiff_no_shares_less_than_30s_decrease,
     test_try_vardiff_no_shares_more_than_60s_decrease,
     test_try_vardiff_stable_hashrate_minimal_change_or_no_change,
@@ -30,6 +30,12 @@ fn test_initialization_and_getters() {
 fn test_increment_and_reset_shares_classic() {
     let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
     test_increment_and_reset_shares(&mut vardiff)
+}
+
+#[test]
+fn test_backwards_clock_step_reanchors_window_classic() {
+    let mut vardiff = new_test_vardiff_state().expect("Failed to create VardiffState");
+    test_backwards_clock_step_reanchors_window(&mut vardiff);
 }
 
 #[test]
