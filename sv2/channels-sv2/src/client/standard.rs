@@ -151,8 +151,16 @@ impl StandardChannel {
     }
 
     /// Sets a new target for the channel.
+    ///
+    /// Per the Sv2 spec, the new target also applies to jobs that were already received with an
+    /// empty `min_ntime` (i.e. queued future jobs), so their associated target is refreshed here.
+    /// Jobs that were already received with a set `min_ntime` (active, past and stale jobs) keep
+    /// their target.
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
+        for future_job in self.future_jobs.values_mut() {
+            future_job.1 = target;
+        }
     }
 
     /// Returns the nominal hashrate of the channel in h/s.
@@ -1048,5 +1056,93 @@ mod tests {
         };
 
         assert!(channel.validate_share(share).is_ok());
+    }
+
+    #[test]
+    fn test_set_target_refreshes_future_jobs() {
+        // Regression test: a target set while a future job is queued must also apply to that
+        // job once it is activated.
+        // Reuses the valid-share test vectors, but tightens the target after the future job
+        // was already stored, so the share no longer meets it.
+        let channel_id = 1;
+        let user_identity = "user_identity".to_string();
+        let extranonce_prefix = [
+            83, 116, 114, 97, 116, 117, 109, 32, 86, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108, 0,
+            0, 0, 0, 0, 0, 0, 1,
+        ]
+        .to_vec();
+        // channel target: 0000ffff00000000000000000000000000000000000000000000000000000000
+        let target = Target::from_le_bytes([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xff, 0xff, 0x00, 0x00,
+        ]);
+        let nominal_hashrate = 1.0;
+
+        let mut channel = StandardChannel::new(
+            channel_id,
+            user_identity,
+            ExtranoncePrefix::from_wire(extranonce_prefix).unwrap(),
+            target,
+            nominal_hashrate,
+        );
+
+        let future_job = NewMiningJob {
+            channel_id,
+            job_id: 1,
+            merkle_root: [
+                189, 200, 25, 246, 119, 73, 34, 42, 209, 112, 237, 50, 169, 71, 163, 192, 24, 84,
+                56, 86, 147, 71, 243, 44, 18, 107, 167, 169, 169, 66, 186, 98,
+            ]
+            .into(),
+            version: 536870912,
+            min_ntime: Sv2Option::new(None),
+        };
+
+        channel.on_new_mining_job(future_job.clone());
+
+        // the future job was stored under the old target, now we tighten it to
+        // 0000500000000000000000000000000000000000000000000000000000000000
+        let new_target = Target::from_le_bytes([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x50, 0x00, 0x00,
+        ]);
+        channel.set_target(new_target);
+
+        // network target: 000000000000d7c0000000000000000000000000000000000000000000000000
+        let nbits = 453040064;
+        let prev_hash = [
+            200, 53, 253, 129, 214, 31, 43, 84, 179, 58, 58, 76, 128, 213, 24, 53, 38, 144, 205,
+            88, 172, 20, 251, 22, 217, 141, 21, 221, 21, 0, 0, 0,
+        ];
+        let ntime: u32 = 1745596930;
+        let set_new_prev_hash = SetNewPrevHashMp {
+            channel_id,
+            job_id: future_job.job_id,
+            prev_hash: prev_hash.into(),
+            nbits,
+            min_ntime: ntime,
+        };
+
+        channel.on_set_new_prev_hash(set_new_prev_hash).unwrap();
+
+        // this share has hash 0000762e88282a2ed8e7097aef06f413a962a47e32206a80ecbfc1f0b4bd1493
+        // which meets the old target, but not the new one
+        let share = SubmitSharesStandardOwned {
+            channel_id,
+            sequence_number: 0,
+            job_id: future_job.job_id,
+            nonce: 244405,
+            ntime: 1745596932,
+            version: 536870912,
+        };
+
+        let res = channel.validate_share(share);
+
+        assert!(matches!(
+            res,
+            Err(ShareValidationError::DoesNotMeetTarget(_))
+        ));
     }
 }
