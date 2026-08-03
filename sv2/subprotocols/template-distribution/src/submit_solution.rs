@@ -19,7 +19,7 @@ pub struct SubmitSolution<'decoder> {
     /// Version field in the block header.
     ///
     /// Bits not defined by
-    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki) as additional
+    /// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki) as additional
     /// nonce **must** be the same as they appear in the `NewMiningJob` or `NewExtendedMiningJob`
     /// message, other bits may be set to any value.
     pub version: u32,

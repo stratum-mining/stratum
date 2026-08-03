@@ -33,11 +33,11 @@ pub struct NewMiningJob<'decoder> {
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Version field that reflects the current network consensus.
     ///
-    /// As specified in [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki),
+    /// As specified in [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki),
     /// the general purpose bits can be freely manipulated by the downstream node.
     ///
     /// The downstream node must not rely on the upstream node to set the
-    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki) bits to any
+    /// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki) bits to any
     /// particular value.
     pub version: u32,
     /// Merkle root field as used in the bitcoin block header.
@@ -128,15 +128,15 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Version field that reflects the current network consensus.
     ///
-    /// As specified in [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki),
+    /// As specified in [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki),
     /// the general purpose bits can be freely manipulated by the downstream node.
     ///
     /// The downstream node must not rely on the upstream node to set the
-    /// [BIP320](https://github.com/bitcoin/bips/blob/master/bip-0320.mediawiki) bits to any
+    /// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki) bits to any
     /// particular value.
     pub version: u32,
     /// If set to `true`, the general purpose bits of [`NewExtendedMiningJob::version`] (as
-    /// specified in BIP320) can be freely manipulated by the downstream node.
+    /// specified in BIP323) can be freely manipulated by the downstream node.
     ///
     /// If set to `false`, the downstream node must use [`NewExtendedMiningJob::version`] as it is
     /// defined by this message.
