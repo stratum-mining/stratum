@@ -1,12 +1,13 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{Mac, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{
+        B016MOwned, B0255Owned, B032Owned, B064KOwned, Mac, MacOwned, Signature, SignatureOwned,
+        Sv2DataType, U256Owned, B016M, B0255, B032, B064K, U24, U256,
+    },
     Error,
 };
 use alloc::vec::Vec;
 use core::convert::TryFrom;
-#[cfg(not(feature = "no_std"))]
-use std::io::{Cursor, Read};
 
 /// Custom deserialization of types from binary data.
 ///
@@ -46,51 +47,6 @@ pub trait Decodable<'a>: Sized {
         }
         Self::from_decoded_fields(fields)
     }
-
-    /// Converts a readable input to self representation.
-    ///
-    /// Reads data from an input which implements [`std::ioRead`] and constructs the original struct
-    /// out of it.
-    #[cfg(not(feature = "no_std"))]
-    fn from_reader(reader: &mut impl Read) -> Result<Self, Error> {
-        let mut data = Vec::new();
-
-        let structure = loop {
-            match Self::get_structure(&data[..]) {
-                Ok(structure) => match structure.size_hint_(&data[..], 0) {
-                    Ok(expected_len) => {
-                        if data.len() < expected_len {
-                            let missing = expected_len - data.len();
-                            let original_len = data.len();
-                            data.resize(expected_len, 0);
-                            reader.read_exact(&mut data[original_len..original_len + missing])?;
-                        }
-                        break structure;
-                    }
-                    Err(Error::OutOfBound | Error::ReadError(_, _)) => {
-                        let mut next = [0_u8; 1];
-                        reader.read_exact(&mut next)?;
-                        data.push(next[0]);
-                    }
-                    Err(error) => return Err(error),
-                },
-                Err(Error::OutOfBound | Error::ReadError(_, _)) => {
-                    let mut next = [0_u8; 1];
-                    reader.read_exact(&mut next)?;
-                    data.push(next[0]);
-                }
-                Err(error) => return Err(error),
-            }
-        };
-
-        let mut fields = Vec::new();
-        let mut reader = Cursor::new(data);
-
-        for field in structure {
-            fields.push(field.from_reader(&mut reader)?);
-        }
-        Self::from_decoded_fields(fields)
-    }
 }
 
 // Primitive data marker.
@@ -104,15 +60,22 @@ pub enum PrimitiveMarker {
     Bool,
     U24,
     U256,
+    U256Owned,
     Mac,
+    MacOwned,
     Signature,
+    SignatureOwned,
     U32,
     F32,
     U64,
     B032,
+    B032Owned,
     B0255,
+    B0255Owned,
     B064K,
+    B064KOwned,
     B016M,
+    B016MOwned,
 }
 
 /// Recursive enum representing data structure fields.
@@ -147,15 +110,22 @@ pub enum DecodablePrimitive<'a> {
     Bool(bool),
     U24(U24),
     U256(U256<'a>),
+    U256Owned(U256Owned),
     Mac(Mac<'a>),
+    MacOwned(MacOwned),
     Signature(Signature<'a>),
+    SignatureOwned(SignatureOwned),
     U32(u32),
     F32(f32),
     U64(u64),
     B032(B032<'a>),
+    B032Owned(B032Owned),
     B0255(B0255<'a>),
+    B0255Owned(B0255Owned),
     B064K(B064K<'a>),
+    B064KOwned(B064KOwned),
     B016M(B016M<'a>),
+    B016MOwned(B016MOwned),
 }
 
 /// Recursive enum representing a Decode-able field.
@@ -187,15 +157,22 @@ impl SizeHint for PrimitiveMarker {
             Self::Bool => bool::size_hint(data, offset),
             Self::U24 => U24::size_hint(data, offset),
             Self::U256 => U256::size_hint(data, offset),
+            Self::U256Owned => U256Owned::size_hint(data, offset),
             Self::Mac => Mac::size_hint(data, offset),
+            Self::MacOwned => MacOwned::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
+            Self::SignatureOwned => SignatureOwned::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
             Self::F32 => f32::size_hint(data, offset),
             Self::U64 => u64::size_hint(data, offset),
             Self::B032 => B032::size_hint(data, offset),
+            Self::B032Owned => B032Owned::size_hint(data, offset),
             Self::B0255 => B0255::size_hint(data, offset),
+            Self::B0255Owned => B0255Owned::size_hint(data, offset),
             Self::B064K => B064K::size_hint(data, offset),
+            Self::B064KOwned => B064KOwned::size_hint(data, offset),
             Self::B016M => B016M::size_hint(data, offset),
+            Self::B016MOwned => B016MOwned::size_hint(data, offset),
         }
     }
 }
@@ -292,12 +269,21 @@ impl PrimitiveMarker {
             Self::U256 => Ok(DecodablePrimitive::U256(U256::from_bytes_(
                 &mut data[offset..],
             )?)),
+            Self::U256Owned => Ok(DecodablePrimitive::U256Owned(U256Owned::from_bytes_(
+                &mut data[offset..],
+            )?)),
             Self::Mac => Ok(DecodablePrimitive::Mac(Mac::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::MacOwned => Ok(DecodablePrimitive::MacOwned(MacOwned::from_bytes_(
                 &mut data[offset..],
             )?)),
             Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_bytes_(
                 &mut data[offset..],
             )?)),
+            Self::SignatureOwned => Ok(DecodablePrimitive::SignatureOwned(
+                SignatureOwned::from_bytes_(&mut data[offset..])?,
+            )),
             Self::U32 => Ok(DecodablePrimitive::U32(u32::from_bytes_(
                 &mut data[offset..],
             )?)),
@@ -310,41 +296,27 @@ impl PrimitiveMarker {
             Self::B032 => Ok(DecodablePrimitive::B032(B032::from_bytes_(
                 &mut data[offset..],
             )?)),
+            Self::B032Owned => Ok(DecodablePrimitive::B032Owned(B032Owned::from_bytes_(
+                &mut data[offset..],
+            )?)),
             Self::B0255 => Ok(DecodablePrimitive::B0255(B0255::from_bytes_(
+                &mut data[offset..],
+            )?)),
+            Self::B0255Owned => Ok(DecodablePrimitive::B0255Owned(B0255Owned::from_bytes_(
                 &mut data[offset..],
             )?)),
             Self::B064K => Ok(DecodablePrimitive::B064K(B064K::from_bytes_(
                 &mut data[offset..],
             )?)),
+            Self::B064KOwned => Ok(DecodablePrimitive::B064KOwned(B064KOwned::from_bytes_(
+                &mut data[offset..],
+            )?)),
             Self::B016M => Ok(DecodablePrimitive::B016M(B016M::from_bytes_(
                 &mut data[offset..],
             )?)),
-        }
-    }
-
-    // Decodes a primitive value from a reader stream, returning the corresponding
-    // `DecodablePrimitive`. This is useful when reading data from a file or network socket,
-    // where the data is not immediately available as a slice but must be read incrementally.
-    #[allow(clippy::wrong_self_convention)]
-    #[cfg(not(feature = "no_std"))]
-    fn from_reader<'a>(&self, reader: &mut impl Read) -> Result<DecodablePrimitive<'a>, Error> {
-        match self {
-            Self::U8 => Ok(DecodablePrimitive::U8(u8::from_reader_(reader)?)),
-            Self::U16 => Ok(DecodablePrimitive::U16(u16::from_reader_(reader)?)),
-            Self::Bool => Ok(DecodablePrimitive::Bool(bool::from_reader_(reader)?)),
-            Self::U24 => Ok(DecodablePrimitive::U24(U24::from_reader_(reader)?)),
-            Self::U256 => Ok(DecodablePrimitive::U256(U256::from_reader_(reader)?)),
-            Self::Mac => Ok(DecodablePrimitive::Mac(Mac::from_reader_(reader)?)),
-            Self::Signature => Ok(DecodablePrimitive::Signature(Signature::from_reader_(
-                reader,
+            Self::B016MOwned => Ok(DecodablePrimitive::B016MOwned(B016MOwned::from_bytes_(
+                &mut data[offset..],
             )?)),
-            Self::U32 => Ok(DecodablePrimitive::U32(u32::from_reader_(reader)?)),
-            Self::F32 => Ok(DecodablePrimitive::F32(f32::from_reader_(reader)?)),
-            Self::U64 => Ok(DecodablePrimitive::U64(u64::from_reader_(reader)?)),
-            Self::B032 => Ok(DecodablePrimitive::B032(B032::from_reader_(reader)?)),
-            Self::B0255 => Ok(DecodablePrimitive::B0255(B0255::from_reader_(reader)?)),
-            Self::B064K => Ok(DecodablePrimitive::B064K(B064K::from_reader_(reader)?)),
-            Self::B016M => Ok(DecodablePrimitive::B016M(B016M::from_reader_(reader)?)),
         }
     }
 }
@@ -357,15 +329,22 @@ impl GetSize for DecodablePrimitive<'_> {
             DecodablePrimitive::Bool(v) => v.get_size(),
             DecodablePrimitive::U24(v) => v.get_size(),
             DecodablePrimitive::U256(v) => v.get_size(),
+            DecodablePrimitive::U256Owned(v) => v.get_size(),
             DecodablePrimitive::Mac(v) => v.get_size(),
+            DecodablePrimitive::MacOwned(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
+            DecodablePrimitive::SignatureOwned(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
             DecodablePrimitive::F32(v) => v.get_size(),
             DecodablePrimitive::U64(v) => v.get_size(),
             DecodablePrimitive::B032(v) => v.get_size(),
+            DecodablePrimitive::B032Owned(v) => v.get_size(),
             DecodablePrimitive::B0255(v) => v.get_size(),
+            DecodablePrimitive::B0255Owned(v) => v.get_size(),
             DecodablePrimitive::B064K(v) => v.get_size(),
+            DecodablePrimitive::B064KOwned(v) => v.get_size(),
             DecodablePrimitive::B016M(v) => v.get_size(),
+            DecodablePrimitive::B016MOwned(v) => v.get_size(),
         }
     }
 }
@@ -386,25 +365,6 @@ impl FieldMarker {
                     let (head, t) = tail.split_at_mut(field_size);
                     tail = t;
                     decodeds.push(p.decode(head)?);
-                }
-                Ok(DecodableField::Struct(decodeds))
-            }
-        }
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    #[cfg(not(feature = "no_std"))]
-    #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn from_reader<'a>(
-        &self,
-        reader: &mut impl Read,
-    ) -> Result<DecodableField<'a>, Error> {
-        match self {
-            Self::Primitive(p) => Ok(DecodableField::Primitive(p.from_reader(reader)?)),
-            Self::Struct(ps) => {
-                let mut decodeds = Vec::new();
-                for p in ps {
-                    decodeds.push(p.from_reader(reader)?);
                 }
                 Ok(DecodableField::Struct(decodeds))
             }

@@ -53,17 +53,8 @@
 //! # Build Options
 //!
 //! Supports optional features like `no_std` for environments without standard library support.
-//! Error types are conditionally compiled to work with or without `std`.
-//!
-//! ## Conditional Compilation
-//! - With the `no_std` feature enabled, I/O-related errors use a simplified `IoError`
-//!   representation.
-//! - Standard I/O errors (`std::io::Error`) are used when `no_std` is disabled.
 
 #![cfg_attr(feature = "no_std", no_std)]
-
-#[cfg(not(feature = "no_std"))]
-use std::io::{Error as E, ErrorKind};
 
 pub use decodable::Decodable as Deserialize;
 pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
@@ -72,8 +63,9 @@ pub use encodable::Encodable as Serialize;
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    Mac, PubKey, Seq0255, Seq064K, Signature, Str0255, Sv2DataType, Sv2Option, B016M, B0255, B032,
-    B064K, U24, U256,
+    B016MOwned, B0255Owned, B032Owned, B064KOwned, Mac, MacOwned, PubKey, PubKeyOwned, Seq0255,
+    Seq0255Owned, Seq064K, Seq064KOwned, Signature, SignatureOwned, Str0255, Str0255Owned,
+    Sv2DataType, Sv2Option, Sv2OptionOwned, U256Owned, B016M, B0255, B032, B064K, U24, U256,
 };
 
 pub use crate::codec::{
@@ -83,40 +75,6 @@ pub use crate::codec::{
 };
 
 use alloc::vec::Vec;
-
-#[cfg(not(feature = "no_std"))]
-#[derive(Debug)]
-pub struct StdIoError(E);
-
-#[cfg(not(feature = "no_std"))]
-impl StdIoError {
-    pub fn inner(&self) -> &E {
-        &self.0
-    }
-
-    pub fn into_inner(self) -> E {
-        self.0
-    }
-}
-
-#[cfg(not(feature = "no_std"))]
-impl PartialEq for StdIoError {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.kind() == other.0.kind()
-            && self.0.raw_os_error() == other.0.raw_os_error()
-            && self.0.to_string() == other.0.to_string()
-    }
-}
-
-#[cfg(not(feature = "no_std"))]
-impl Eq for StdIoError {}
-
-#[cfg(not(feature = "no_std"))]
-impl From<E> for StdIoError {
-    fn from(v: E) -> Self {
-        Self(v)
-    }
-}
 
 /// Converts the provided SV2 data type to a byte vector based on the SV2 encoding format.
 #[allow(clippy::wrong_self_convention)]
@@ -139,13 +97,12 @@ pub fn from_bytes<'a, T: Decodable<'a>>(data: &'a mut [u8]) -> Result<T, Error> 
 }
 
 /// Provides an interface and implementation details for decoding complex data structures
-/// from raw bytes or I/O streams. Handles deserialization of nested and primitive data
-/// structures through traits, enums, and helper functions for managing the decoding process.
+/// from raw bytes. Handles deserialization of nested and primitive data structures through
+/// traits, enums, and helper functions for managing the decoding process.
 ///
 /// # Overview
 /// The [`Decodable`] trait serves as the core component, offering methods to define a type's
-/// structure, decode raw byte data, and construct instances from decoded fields. It supports both
-/// in-memory byte slices and I/O streams for flexibility across deserialization use cases.
+/// structure, decode raw byte data, and construct instances from decoded fields.
 ///
 /// # Key Concepts and Types
 /// - **[`Decodable`] Trait**: Defines methods to decode types from byte data, process individual
@@ -159,10 +116,6 @@ pub fn from_bytes<'a, T: Decodable<'a>>(data: &'a mut [u8]) -> Result<T, Error> 
 /// Custom error types manage issues during decoding, such as insufficient data or unsupported
 /// types. Errors are surfaced through `Result` types to ensure reliability in data parsing tasks.
 ///
-/// # `no_std` Support
-/// Compatible with `no_std` environments through conditional compilation. Omits I/O-dependent
-/// methods like `from_reader` when `no_std` is enabled, ensuring lightweight builds for constrained
-/// environments.
 pub mod decodable {
     pub use crate::codec::decodable::{Decodable, DecodableField, FieldMarker};
     //pub use crate::codec::decodable::PrimitiveMarker;
@@ -183,18 +136,12 @@ pub mod decodable {
 ///
 /// ### Key Types
 ///
-/// - **[`Encodable`]**: Defines methods for converting an object into a byte array or writing it
-///   directly to an output stream. It supports both primitive types and complex structures.
+/// - **[`Encodable`]**: Defines methods for converting an object into a byte array. It supports
+///   both primitive types and complex structures.
 /// - **[`EncodablePrimitive`]**: Represents basic types that can be serialized directly. Includes
 ///   data types like integers, booleans, and byte arrays.
 /// - **[`EncodableField`]**: Extends [`EncodablePrimitive`] to support structured and nested data,
 ///   enabling recursive encoding of complex structures.
-///
-/// ### `no_std` Compatibility
-///
-/// When compiled with the `no_std` feature enabled, this module omits the `to_writer` method
-/// to support environments without the standard library. Only buffer-based encoding
-/// (`to_bytes`) is available in this mode.
 ///
 /// ## Error Handling
 ///
@@ -207,8 +154,6 @@ pub mod decodable {
 /// ### [`Encodable`]
 /// - **`to_bytes`**: Encodes the instance into a byte slice, returning the number of bytes written
 ///   or an error if encoding fails.
-/// - **`to_writer`** (requires `std`): Encodes the instance into any [`Write`] implementor, such as
-///   a file or network stream.
 ///
 /// ### Additional Enums and Methods
 ///
@@ -255,15 +200,6 @@ pub enum Error {
     /// Error triggered when a decoder is used without initialization.
     UnInitializedDecoder,
 
-    #[cfg(not(feature = "no_std"))]
-    /// Represents I/O-related errors, compatible with `no_std` mode where specific error types may
-    /// vary.
-    IoError(StdIoError),
-
-    #[cfg(feature = "no_std")]
-    /// Represents I/O-related errors, compatible with `no_std` mode.
-    IoError,
-
     /// Raised when an unexpected mismatch occurs during read operations, specifying expected and
     /// actual read sizes.
     ReadError(usize, usize),
@@ -287,16 +223,6 @@ pub enum Error {
     /// Indicates a protocol constraint violation where `Sv2Option` unexpectedly contains multiple
     /// elements.
     Sv2OptionHaveMoreThenOneElement(u8),
-}
-
-#[cfg(not(feature = "no_std"))]
-impl From<E> for Error {
-    fn from(v: E) -> Self {
-        match v.kind() {
-            ErrorKind::UnexpectedEof => Error::OutOfBound,
-            _ => Error::IoError(v.into()),
-        }
-    }
 }
 
 /// Vec<u8> is used as the Sv2 type Bytes

@@ -275,16 +275,125 @@ impl ParsedField {
             format!("::{}", self.generics.clone())
         }
     }
-    pub fn as_static(&self) -> String {
-        if self.generics.is_empty() {
-            "".to_string()
+    pub fn as_owned(&self) -> String {
+        if self.needs_into_owned() {
+            ".into_owned()".to_string()
         } else {
-            ".into_static()".to_string()
+            "".to_string()
+        }
+    }
+
+    pub fn owned_type(&self) -> Result<String, String> {
+        if self.generics.is_empty() {
+            return Ok(self.type_.clone());
+        }
+
+        if let Some(owned_type) = owned_primitive_type(&self.type_) {
+            return Ok(owned_type);
+        }
+
+        match self.type_.as_str() {
+            "Seq0255" | "Seq064K" | "Sv2Option" => {
+                let inner = strip_angle_brackets(&self.generics);
+                let parts = split_top_level_commas(inner);
+                if parts.len() == 2 {
+                    Ok(format!(
+                        "::binary_sv2::{}Owned<{}>",
+                        self.type_,
+                        owned_generic_type(parts[1].trim())
+                    ))
+                } else {
+                    Ok(format!(
+                        "::binary_sv2::{}Owned{}",
+                        self.type_,
+                        self.generics.replace("'decoder", "'static")
+                    ))
+                }
+            }
+
+            _ if !self.needs_into_owned() => Ok(format!(
+                "{}{}",
+                self.type_,
+                self.generics.replace("'decoder", "'static")
+            )),
+            _ if self.generics == "<'decoder>" => Ok(format!("{}Owned", self.type_)),
+            _ => Err(format!(
+                "field `{}` has type `{}{}`, which the Decodable derive cannot map to an \
+                 owned counterpart, so `{}Owned` cannot be generated. Use a type that is \
+                 already owned, or one generic over `'decoder` alone.",
+                self.name, self.type_, self.generics, self.type_
+            )),
         }
     }
 
     pub fn is_empty(&self) -> bool {
         self.name.is_empty() && self.type_.is_empty() && self.generics.is_empty()
+    }
+
+    fn needs_into_owned(&self) -> bool {
+        !self.generics.is_empty() && !self.type_.ends_with("Owned")
+    }
+}
+
+fn strip_angle_brackets(generics: &str) -> &str {
+    generics
+        .strip_prefix('<')
+        .and_then(|inner| inner.strip_suffix('>'))
+        .unwrap_or(generics)
+}
+
+fn split_top_level_commas(input: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0;
+    let mut depth = 0;
+    for (idx, ch) in input.char_indices() {
+        match ch {
+            '<' => depth += 1,
+            '>' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(&input[start..idx]);
+                start = idx + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(&input[start..]);
+    parts
+}
+
+fn owned_primitive_type(type_: &str) -> Option<String> {
+    match type_ {
+        "U256" | "Mac" | "PubKey" | "Signature" | "B032" | "B0255" | "Str0255" | "B064K"
+        | "B016M" => Some(format!("::binary_sv2::{type_}Owned")),
+        _ => None,
+    }
+}
+
+fn owned_generic_type(generic: &str) -> String {
+    let generic = generic.trim();
+    let generic_type = generic.split('<').next().unwrap_or(generic);
+    if let Some(owned_type) = owned_primitive_type(generic_type) {
+        owned_type
+    } else {
+        match generic_type {
+            "Seq0255" | "Seq064K" | "Sv2Option" => {
+                let nested = generic
+                    .strip_prefix(generic_type)
+                    .map(strip_angle_brackets)
+                    .unwrap_or("");
+                let parts = split_top_level_commas(nested);
+                if parts.len() == 2 {
+                    format!(
+                        "::binary_sv2::{generic_type}Owned<{}>",
+                        owned_generic_type(parts[1].trim())
+                    )
+                } else {
+                    generic.replace("'decoder", "'static")
+                }
+            }
+            _ if generic == format!("{generic_type}<'decoder>") => format!("{generic_type}Owned"),
+            _ => generic.replace("'decoder", "'static"),
+        }
     }
 }
 
@@ -550,13 +659,13 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Result<Vec<ParsedField>, MacroE
 }
 
 /// Derives the `Decodable` trait, generating implementations for deserializing a struct from a
-/// byte stream, including its structure, field decoding, and a method for creating a static
+/// byte stream, including its structure, field decoding, and methods for creating owned
 /// version.
 ///
 /// This procedural macro generates the `Decodable` trait for a struct, which allows it to be
 /// decoded from a binary stream, with support for handling fields of different types and
 /// nested generics. The macro also includes implementations for `from_decoded_fields`,
-/// `get_structure`, and methods to return a static version of the struct.
+/// `get_structure`, and methods to return an owned version of the struct.
 ///
 /// # Example
 ///
@@ -625,8 +734,8 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Result<Vec<ParsedField>, MacroE
 ///     }
 ///
 ///     impl Test {
-///         pub fn into_static(self) -> Test {
-///             Test {
+///         pub fn into_owned(self) -> TestOwned {
+///             TestOwned {
 ///                 a: self.a.clone(),
 ///                 b: self.b.clone(),
 ///                 c: self.c.clone(),
@@ -635,8 +744,8 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Result<Vec<ParsedField>, MacroE
 ///     }
 ///
 ///     impl Test {
-///         pub fn as_static(&self) -> Test {
-///             Test {
+///         pub fn as_owned(&self) -> TestOwned {
+///             TestOwned {
 ///                 a: self.a.clone(),
 ///                 b: self.b.clone(),
 ///                 c: self.c.clone(),
@@ -647,7 +756,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Result<Vec<ParsedField>, MacroE
 /// ```
 ///
 /// This generated code enables `Test` to be decoded from a binary stream, defines how each
-/// field should be parsed, and provides `into_static` and `as_static` methods to facilitate
+/// field should be parsed, and provides `into_owned` and `as_owned` methods to facilitate
 /// ownership and lifetime management of decoded fields in the struct.
 #[proc_macro_derive(Decodable)]
 pub fn decodable(item: TokenStream) -> TokenStream {
@@ -694,17 +803,59 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         derive_fields.push_str(&field)
     }
 
-    let mut derive_static_fields = String::new();
+    let mut owned_struct_fields = String::new();
+    let mut derive_owned_fields = String::new();
+    let mut derive_owned_ref_fields = String::new();
+    let mut owned_size_fields = String::new();
+    let mut owned_encodable_fields = String::new();
     for f in parsed_struct.fields.clone() {
+        let owned_ty = match f.owned_type() {
+            Ok(owned_ty) => owned_ty,
+            Err(message) => return emit_compile_error_at(f.span, &message),
+        };
+        let owned_struct_field = format!(
+            "
+            pub {}: {},
+            ",
+            f.name, owned_ty
+        );
+        owned_struct_fields.push_str(&owned_struct_field);
+
         let field = format!(
+            "
+            {}: self.{}{},
+            ",
+            f.name,
+            f.name,
+            f.as_owned(),
+        );
+        derive_owned_fields.push_str(&field);
+
+        let field_ref = format!(
             "
             {}: self.{}.clone(){},
             ",
             f.name,
             f.name,
-            f.as_static(),
+            f.as_owned(),
         );
-        derive_static_fields.push_str(&field)
+        derive_owned_ref_fields.push_str(&field_ref);
+
+        let size_field = format!(
+            "
+            size += self.{}.get_size();
+            ",
+            f.name
+        );
+        owned_size_fields.push_str(&size_field);
+
+        let encodable_field = format!(
+            "
+            fields.push(v.{}.into());
+            ",
+            f.name
+        );
+        owned_encodable_fields.push_str(&encodable_field);
     }
 
     let mut derive_decoded_fields = String::new();
@@ -734,12 +885,8 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         "<'decoder>".to_string()
     };
 
-    let result = format!(
-        "mod impl_parse_decodable_{} {{
-
-    use ::binary_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
-    use super::*;
-
+    let decodable_impl = format!(
+        "
     impl{} Decodable<'decoder> for {}{} {{
         fn get_structure({}: &[u8]) -> Result<Vec<FieldMarker>, Error> {{
             let mut fields = Vec::new();
@@ -753,26 +900,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
                 {}
             }})
         }}
-    }}
-
-    impl{} {}{} {{
-        pub fn into_static(self) -> {}{} {{
-            {} {{
-                {}
-            }}
-        }}
-    }}
-    impl{} {}{} {{
-        pub fn as_static(&self) -> {}{} {{
-            {} {{
-                {}
-            }}
-        }}
-    }}
     }}",
-        // imports
-        parsed_struct.name.to_lowercase(),
-        // derive decodable
         impl_generics,
         parsed_struct.name,
         parsed_struct.generics,
@@ -781,34 +909,100 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         derive_fields,
         data_ident,
         derive_decoded_fields,
-        // impl into_static
-        impl_generics,
-        parsed_struct.name,
-        parsed_struct.generics,
-        parsed_struct.name,
-        get_static_generics(&parsed_struct.generics),
-        parsed_struct.name,
-        derive_static_fields,
-        // impl into_static
-        impl_generics,
-        parsed_struct.name,
-        parsed_struct.generics,
-        parsed_struct.name,
-        get_static_generics(&parsed_struct.generics),
-        parsed_struct.name,
-        derive_static_fields,
+    );
+
+    let owned_impl = if parsed_struct.generics.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct {}Owned {{
+        {}
+    }}
+
+    impl{} {}{} {{
+        pub fn into_owned(self) -> {}Owned {{
+            {}Owned {{
+                {}
+            }}
+        }}
+    }}
+    impl{} {}{} {{
+        pub fn as_owned(&self) -> {}Owned {{
+            {}Owned {{
+                {}
+            }}
+        }}
+    }}
+
+    impl ::binary_sv2::GetSize for {}Owned {{
+        fn get_size(&self) -> usize {{
+            let mut size = 0;
+            {}
+            size
+        }}
+    }}
+
+    impl<'decoder> From<{}Owned> for EncodableField<'decoder> {{
+        fn from(v: {}Owned) -> Self {{
+            let mut fields: Vec<EncodableField> = Vec::new();
+            {}
+            Self::Struct(fields)
+        }}
+    }}",
+            parsed_struct.name,
+            owned_struct_fields,
+            impl_generics,
+            parsed_struct.name,
+            parsed_struct.generics,
+            parsed_struct.name,
+            parsed_struct.name,
+            derive_owned_fields,
+            impl_generics,
+            parsed_struct.name,
+            parsed_struct.generics,
+            parsed_struct.name,
+            parsed_struct.name,
+            derive_owned_ref_fields,
+            parsed_struct.name,
+            owned_size_fields,
+            parsed_struct.name,
+            parsed_struct.name,
+            owned_encodable_fields,
+        )
+    };
+
+    let owned_export = if parsed_struct.generics.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "
+    pub use impl_parse_decodable_{}::{}Owned;",
+            parsed_struct.name.to_lowercase(),
+            parsed_struct.name,
+        )
+    };
+
+    let result = format!(
+        "mod impl_parse_decodable_{} {{
+
+    use ::binary_sv2::{{decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField, Decodable, Error, GetSize, SizeHint}};
+    use super::*;
+
+    {}
+    {}
+    }}
+    {}",
+        // imports
+        parsed_struct.name.to_lowercase(),
+        decodable_impl,
+        owned_impl,
+        owned_export,
 
     );
 
     parse_generated_tokens(&result)
-}
-
-fn get_static_generics(gen: &str) -> &str {
-    if gen.is_empty() {
-        gen
-    } else {
-        "<'static>"
-    }
 }
 
 /// Derives the `Encodable` trait, generating implementations for serializing a struct into an

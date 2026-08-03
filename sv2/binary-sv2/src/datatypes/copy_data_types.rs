@@ -12,9 +12,8 @@
 //
 // ### `Sv2DataType`
 // The `Sv2DataType` trait is implemented for these data types, providing methods for encoding and
-// decoding operations such as `from_bytes_`, `from_reader_` (if `std` is available), and
-// `to_slice`. The methods use little-endian byte order for consistency
-// across platforms.
+// decoding operations such as `from_bytes_` and `to_slice`. The methods use little-endian byte
+// order for consistency across platforms.
 //
 // ## Special Types
 //
@@ -25,17 +24,14 @@
 //
 // ## Macros
 // The `impl_sv2_for_unsigned` macro streamlines the implementation of the `Sv2DataType` trait for
-// unsigned integer types, ensuring little-endian byte ordering for serialization and handling both
-// in-memory buffers and `std::io::Read`/`Write` interfaces when `std` is available.
+// unsigned integer types, ensuring little-endian byte ordering for serialization over in-memory
+// buffers.
 use crate::{
     codec::{Fixed, SizeHint},
     datatypes::Sv2DataType,
     Error,
 };
 use core::convert::{TryFrom, TryInto};
-
-#[cfg(not(feature = "no_std"))]
-use std::io::{Error as E, Read, Write};
 
 // Impl bool as a primitive
 
@@ -59,13 +55,6 @@ impl<'a> Sv2DataType<'a> for bool {
         Ok(value)
     }
 
-    #[cfg(not(feature = "no_std"))]
-    fn from_reader_(reader: &mut impl Read) -> Result<Self, Error> {
-        let mut dst = [0_u8; Self::SIZE];
-        reader.read_exact(&mut dst)?;
-        Self::from_bytes_(&mut dst)
-    }
-
     fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
         if dst.len() < Self::SIZE {
             return Err(Error::WriteError(Self::SIZE, dst.len()));
@@ -75,14 +64,6 @@ impl<'a> Sv2DataType<'a> for bool {
             false => dst[0] = 0,
         };
         Ok(Self::SIZE)
-    }
-
-    #[cfg(not(feature = "no_std"))]
-    fn to_writer_(&self, writer: &mut impl Write) -> Result<(), E> {
-        match self {
-            true => writer.write_all(&[1]),
-            false => writer.write_all(&[0]),
-        }
     }
 }
 
@@ -120,13 +101,6 @@ macro_rules! impl_sv2_for_unsigned {
                 Ok(Self::from_le_bytes(*a))
             }
 
-            #[cfg(not(feature = "no_std"))]
-            fn from_reader_(reader: &mut impl Read) -> Result<Self, Error> {
-                let mut dst = [0_u8; Self::SIZE];
-                reader.read_exact(&mut dst)?;
-                Ok(Self::from_le_bytes(dst))
-            }
-
             fn to_slice(&'a self, dst: &mut [u8]) -> Result<usize, Error> {
                 if dst.len() < Self::SIZE {
                     return Err(Error::WriteError(Self::SIZE, dst.len()));
@@ -135,12 +109,6 @@ macro_rules! impl_sv2_for_unsigned {
                 let src = self.to_le_bytes();
                 dst.copy_from_slice(&src);
                 Ok(Self::SIZE)
-            }
-
-            #[cfg(not(feature = "no_std"))]
-            fn to_writer_(&self, writer: &mut impl Write) -> Result<(), E> {
-                let bytes = self.to_le_bytes();
-                writer.write_all(&bytes)
             }
         }
     };

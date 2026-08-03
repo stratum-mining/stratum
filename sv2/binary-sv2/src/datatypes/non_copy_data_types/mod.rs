@@ -25,37 +25,46 @@
 use alloc::{borrow::ToOwned, fmt, string::String};
 use core::fmt::Write as _;
 
-mod inner;
+pub(crate) mod inner;
 mod seq_inner;
 
-pub use inner::Inner;
-pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
+pub(crate) use inner::{Inner, InnerOwned};
+pub use seq_inner::{Seq0255, Seq0255Owned, Seq064K, Seq064KOwned, Sv2Option, Sv2OptionOwned};
 
 /// Type alias for a 32-byte slice or owned data (commonly used for cryptographic
 /// hashes or IDs) represented using the `Inner` type with fixed-size configuration.
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
+pub type U256Owned = InnerOwned<true, 32, 0, 0>;
 /// Type alias for a 16-byte message authentication code.
 pub type Mac<'a> = Inner<'a, true, 16, 0, 0>;
+pub type MacOwned = InnerOwned<true, 16, 0, 0>;
 /// Type alias for a 32-byte Secp256k1 public key x-coordinate.
 pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;
+pub type PubKeyOwned = InnerOwned<true, 32, 0, 0>;
 /// Type alias for a 64-byte cryptographic signature represented using the
 /// `Inner` type with fixed-size configuration.
 pub type Signature<'a> = Inner<'a, true, 64, 0, 0>;
+pub type SignatureOwned = InnerOwned<true, 64, 0, 0>;
 /// Type alias for a variable-sized byte array with a maximum size of 32 bytes,
 /// represented using the `Inner` type with a 1-byte header.
 pub type B032<'a> = Inner<'a, false, 1, 1, 32>;
+pub type B032Owned = InnerOwned<false, 1, 1, 32>;
 /// Type alias for a variable-sized byte array with a maximum size of 255 bytes,
 /// represented using the `Inner` type with a 1-byte header.
 pub type B0255<'a> = Inner<'a, false, 1, 1, 255>;
+pub type B0255Owned = InnerOwned<false, 1, 1, 255>;
 /// Type alias for a variable-sized string with a maximum size of 255 bytes,
 /// represented using the `Inner` type with a 1-byte header.
 pub type Str0255<'a> = Inner<'a, false, 1, 1, 255>;
+pub type Str0255Owned = InnerOwned<false, 1, 1, 255>;
 /// Type alias for a variable-sized byte array with a maximum size of 64 KB,
 /// represented using the `Inner` type with a 2-byte header.
 pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
+pub type B064KOwned = InnerOwned<false, 1, 2, { u16::MAX as usize }>;
 /// Type alias for a variable-sized byte array with a maximum size of ~16 MB,
 /// represented using the `Inner` type with a 3-byte header.
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
+pub type B016MOwned = InnerOwned<false, 1, 3, { 2_usize.pow(24) - 1 }>;
 
 fn bytes_to_hex<'a>(bytes: impl IntoIterator<Item = &'a u8>) -> String {
     let mut hex = String::new();
@@ -66,7 +75,6 @@ fn bytes_to_hex<'a>(bytes: impl IntoIterator<Item = &'a u8>) -> String {
 }
 
 impl fmt::Display for Sv2Option<'_, u32> {
-    // internally Sv2Option is pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.to_owned().into_inner();
         match inner {
@@ -76,7 +84,24 @@ impl fmt::Display for Sv2Option<'_, u32> {
     }
 }
 
+impl fmt::Display for Sv2OptionOwned<u32> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self.clone().into_inner();
+        match inner {
+            Some(value) => write!(f, "Sv2Option({value})"),
+            None => write!(f, "Sv2Option(None)"),
+        }
+    }
+}
+
 impl B0255<'_> {
+    pub fn as_hex(&self) -> String {
+        let inner = bytes_to_hex(self.as_bytes());
+        format!("B0255({inner})")
+    }
+}
+
+impl B0255Owned {
     pub fn as_hex(&self) -> String {
         let inner = bytes_to_hex(self.as_bytes());
         format!("B0255({inner})")
@@ -93,7 +118,24 @@ impl Str0255<'_> {
     }
 }
 
+impl Str0255Owned {
+    /// Returns the value as a UTF-8 string if possible, otherwise as a hex string prefixed with 0x.
+    pub fn as_utf8_or_hex(&self) -> String {
+        match core::str::from_utf8(self.as_bytes()) {
+            Ok(s) => alloc::string::String::from(s),
+            Err(_) => format!("0x{}", bytes_to_hex(self.as_bytes())),
+        }
+    }
+}
+
 impl fmt::Display for B064K<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = bytes_to_hex(self.as_bytes());
+        write!(f, "B064K({inner})")
+    }
+}
+
+impl fmt::Display for B064KOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = bytes_to_hex(self.as_bytes());
         write!(f, "B064K({inner})")
@@ -107,10 +149,45 @@ impl fmt::Display for U256<'_> {
     }
 }
 
+impl fmt::Display for U256Owned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = bytes_to_hex(self.as_bytes().iter().rev());
+        write!(f, "U256({inner})")
+    }
+}
+
 impl fmt::Display for Seq0255<'_, U256<'_>> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.len();
         let as_hex = |item: &U256<'_>| bytes_to_hex(item.as_bytes().iter().rev());
+        write!(f, "Seq0255<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", as_hex(&self[0])),
+            2 => write!(f, "[{}, {}]", as_hex(&self[0]), as_hex(&self[1])),
+            3 => write!(
+                f,
+                "[{}, {}, {}]",
+                as_hex(&self[0]),
+                as_hex(&self[1]),
+                as_hex(&self[2])
+            ),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                as_hex(&self[0]),
+                as_hex(&self[1]),
+                as_hex(&self[len - 2]),
+                as_hex(&self[len - 1])
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Seq0255Owned<U256Owned> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.len();
+        let as_hex = |item: &U256Owned| bytes_to_hex(item.as_bytes().iter().rev());
         write!(f, "Seq0255<len={len}: ")?;
         match len {
             0 => write!(f, "[]"),
@@ -173,10 +250,76 @@ impl fmt::Display for Seq064K<'_, B016M<'_>> {
     }
 }
 
+impl fmt::Display for Seq064KOwned<B016MOwned> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.len();
+
+        let as_hex = |item: &B016MOwned| {
+            let hex = bytes_to_hex(item.as_bytes());
+
+            if hex.len() > 500 {
+                format!("{}…<truncated {} chars>", &hex[..500], hex.len() - 500)
+            } else {
+                hex
+            }
+        };
+
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", as_hex(&self[0])),
+            2 => write!(f, "[{}, {}]", as_hex(&self[0]), as_hex(&self[1])),
+            3 => write!(
+                f,
+                "[{}, {}, {}]",
+                as_hex(&self[0]),
+                as_hex(&self[1]),
+                as_hex(&self[2])
+            ),
+            _ => write!(
+                f,
+                "[{}, {}, … , {}, {}]",
+                as_hex(&self[0]),
+                as_hex(&self[1]),
+                as_hex(&self[len - 2]),
+                as_hex(&self[len - 1])
+            ),
+        }
+    }
+}
+
 impl fmt::Display for Seq064K<'_, U256<'_>> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.len();
         let as_hex = |item: &U256<'_>| bytes_to_hex(item.as_bytes().iter().rev());
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", as_hex(&self[0])),
+            2 => write!(f, "[{}, {}]", as_hex(&self[0]), as_hex(&self[1])),
+            3 => write!(
+                f,
+                "[{}, {}, {}]",
+                as_hex(&self[0]),
+                as_hex(&self[1]),
+                as_hex(&self[2])
+            ),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                as_hex(&self[0]),
+                as_hex(&self[1]),
+                as_hex(&self[len - 2]),
+                as_hex(&self[len - 1])
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Seq064KOwned<U256Owned> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.len();
+        let as_hex = |item: &U256Owned| bytes_to_hex(item.as_bytes().iter().rev());
         write!(f, "Seq064K<len={len}: ")?;
         match len {
             0 => write!(f, "[]"),
@@ -221,7 +364,50 @@ impl fmt::Display for Seq064K<'_, u16> {
         }
     }
 }
+
+impl fmt::Display for Seq064KOwned<u16> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.len();
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", self[0]),
+            2 => write!(f, "[{}, {}]", self[0], self[1]),
+            3 => write!(f, "[{}, {}, {}]", self[0], self[1], self[2]),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                self[0],
+                self[1],
+                self[len - 2],
+                self[len - 1]
+            ),
+        }
+    }
+}
+
 impl fmt::Display for Seq064K<'_, u32> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.len();
+        write!(f, "Seq064K<len={len}: ")?;
+        match len {
+            0 => write!(f, "[]"),
+            1 => write!(f, "[{}]", self[0]),
+            2 => write!(f, "[{}, {}]", self[0], self[1]),
+            3 => write!(f, "[{}, {}, {}]", self[0], self[1], self[2]),
+            _ => write!(
+                f,
+                "[{}, {}, ... , {}, {}]",
+                self[0],
+                self[1],
+                self[len - 2],
+                self[len - 1]
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Seq064KOwned<u32> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.len();
         write!(f, "Seq064K<len={len}: ")?;
@@ -249,10 +435,17 @@ impl fmt::Display for B032<'_> {
     }
 }
 
+impl fmt::Display for B032Owned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let item = bytes_to_hex(self.as_bytes());
+        write!(f, "B032({item})")
+    }
+}
+
 use core::convert::{TryFrom, TryInto};
 
-// Attempts to convert a `String` into a `Str0255<'a>`.
-impl TryFrom<String> for Str0255<'_> {
+// Attempts to convert a `String` into an owned `Str0255`.
+impl TryFrom<String> for Str0255Owned {
     type Error = crate::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -261,10 +454,34 @@ impl TryFrom<String> for Str0255<'_> {
 }
 
 // Attempts to convert a string slice into an owned `Str0255`.
-impl TryFrom<&str> for Str0255<'_> {
+impl TryFrom<&str> for Str0255Owned {
     type Error = crate::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         value.as_bytes().try_into()
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Str0255<'a> {
+    type Error = crate::Error;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        value.as_bytes().try_into()
+    }
+}
+
+impl<'a> TryFrom<&'a String> for Str0255<'a> {
+    type Error = crate::Error;
+
+    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
+        value.as_str().try_into()
+    }
+}
+
+impl<'a> TryFrom<&'a mut String> for Str0255<'a> {
+    type Error = crate::Error;
+
+    fn try_from(value: &'a mut String) -> Result<Self, Self::Error> {
+        value.as_str().try_into()
     }
 }
