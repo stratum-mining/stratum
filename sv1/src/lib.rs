@@ -575,8 +575,7 @@ pub trait IsClient {
                 agent_signature: self.signature(server_id)?,
                 extranonce1,
             }
-            .try_into()
-            .map_err(Error::from)?),
+            .try_into()?),
         }
     }
 
