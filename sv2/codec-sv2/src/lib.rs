@@ -42,7 +42,7 @@ use alloc::boxed::Box;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing::{handshake_message_to_frame as h2f, HandShakeFrame};
 #[cfg(feature = "noise_sv2")]
-use noise_sv2::NoiseCodec;
+use noise_sv2::NoiseEngine;
 
 mod decoder;
 mod encoder;
@@ -114,9 +114,9 @@ pub enum State {
     /// The codec is in transport mode, where AEAD encryption and decryption are fully operational.
     ///
     /// In this state, the codec is performing full encryption and decryption using the Noise
-    /// protocol in transport mode. The [`NoiseCodec`] object is responsible for handling the
+    /// protocol in transport mode. The [`NoiseEngine`] object is responsible for handling the
     /// encryption and decryption of data.
-    Transport(NoiseCodec),
+    Transport(NoiseEngine),
 }
 
 #[cfg(feature = "noise_sv2")]
@@ -142,7 +142,7 @@ impl State {
     /// Processes the second step of the handshake process for the responder.
     ///
     /// The responder receives the public key from the initiator, generates a response message
-    /// containing the handshake frame, and prepares the [`NoiseCodec`] for transitioning the
+    /// containing the handshake frame, and prepares the [`NoiseEngine`] for transitioning the
     /// initiator state to transport mode in `step_2`.
     ///
     /// nb: Returns a new state [`State::Transport`] but does not update the current state
@@ -179,8 +179,8 @@ impl State {
         match self {
             Self::HandShake(h) => match h {
                 HandshakeRole::Responder(r) => {
-                    let (message, codec) = r.step_1_with_now_rng(re_pub, now, rng)?;
-                    Ok((h2f(message), Self::Transport(codec)))
+                    let (message, engine) = r.step_1_with_now_rng(re_pub, now, rng)?;
+                    Ok((h2f(message), Self::Transport(engine)))
                 }
                 HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
             },
@@ -266,15 +266,15 @@ impl State {
         Self::HandShake(inner)
     }
 
-    /// Transitions the codec state to [`State::Transport`] mode with the given [`NoiseCodec`].
+    /// Transitions the codec state to [`State::Transport`] mode with the given [`NoiseEngine`].
     ///
     /// Finalizes the handshake process and transitions the codec into [`State::Transport`] mode,
-    /// where full encryption and decryption are active. The codec uses the provided [`NoiseCodec`]
+    /// where full encryption and decryption are active. The codec uses the provided [`NoiseEngine`]
     /// to perform encryption and decryption for all communication in this mode, ensuring secure
     /// data transmission.
     ///
     /// Once in [`State::Transport`] mode, the codec is fully operational for secure communication.
-    pub fn with_transport_mode(tm: NoiseCodec) -> Self {
+    pub fn with_transport_mode(tm: NoiseEngine) -> Self {
         Self::Transport(tm)
     }
 }
