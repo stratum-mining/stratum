@@ -71,7 +71,7 @@ pub trait IsServer {
         &mut self,
         client_id: Option<usize>,
         msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    ) -> Result<Option<json_rpc::Response>, Self::Error>
     where
         Self: std::marker::Sized,
     {
@@ -86,7 +86,7 @@ pub trait IsServer {
             }
             _ => {
                 // Server shouldn't receive json_rpc responses
-                Err(Error::InvalidJsonRpcMessageKind)
+                Err(Error::InvalidJsonRpcMessageKind.into())
             }
         }
     }
@@ -96,11 +96,11 @@ pub trait IsServer {
         &mut self,
         client_id: Option<usize>,
         msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    ) -> Result<Option<json_rpc::Response>, Self::Error>
     where
         Self: std::marker::Sized,
     {
-        let request = msg.try_into()?;
+        let request = msg.try_into().map_err(Error::from)?;
 
         match request {
             // TODO: Handle suggested difficulty
@@ -146,7 +146,7 @@ pub trait IsServer {
                     let accepted = self.handle_submit(client_id, &submit)?;
                     Ok(Some(submit.respond(accepted)))
                 } else {
-                    Err(Error::InvalidSubmission)
+                    Err(Error::InvalidSubmission.into())
                 }
             }
             methods::Client2Server::Subscribe(subscribe) => {
@@ -168,7 +168,7 @@ pub trait IsServer {
         &mut self,
         client_id: Option<usize>,
         request: &client_to_server::Configure,
-    ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Error>;
+    ) -> Result<(Option<server_to_client::VersionRollingParams>, Option<bool>), Self::Error>;
 
     /// On the beginning of the session, client subscribes current connection for receiving mining
     /// jobs.
@@ -192,7 +192,7 @@ pub trait IsServer {
         &self,
         client_id: Option<usize>,
         request: &client_to_server::Subscribe,
-    ) -> Result<Vec<(String, String)>, Error>;
+    ) -> Result<Vec<(String, String)>, Self::Error>;
 
     /// You can authorize as many workers as you wish and at any
     /// time during the session. In this way, you can handle big basement of independent mining rigs
@@ -203,7 +203,7 @@ pub trait IsServer {
         &self,
         client_id: Option<usize>,
         request: &client_to_server::Authorize,
-    ) -> Result<bool, Error>;
+    ) -> Result<bool, Self::Error>;
 
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
@@ -211,53 +211,56 @@ pub trait IsServer {
         &self,
         client_id: Option<usize>,
         request: &client_to_server::Submit,
-    ) -> Result<bool, Error>;
+    ) -> Result<bool, Self::Error>;
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
-    fn handle_extranonce_subscribe(&self) -> Result<(), Error>;
+    fn handle_extranonce_subscribe(&self) -> Result<(), Self::Error>;
 
-    fn is_authorized(&self, client_id: Option<usize>, name: &str) -> Result<bool, Error>;
+    fn is_authorized(&self, client_id: Option<usize>, name: &str) -> Result<bool, Self::Error>;
 
-    fn authorize(&mut self, client_id: Option<usize>, name: &str) -> Result<(), Error>;
+    fn authorize(&mut self, client_id: Option<usize>, name: &str) -> Result<(), Self::Error>;
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
     fn set_extranonce1(
         &mut self,
         client_id: Option<usize>,
         extranonce1: Option<Extranonce>,
-    ) -> Result<Extranonce, Error>;
+    ) -> Result<Extranonce, Self::Error>;
 
-    fn extranonce1(&self, client_id: Option<usize>) -> Result<Extranonce, Error>;
+    fn extranonce1(&self, client_id: Option<usize>) -> Result<Extranonce, Self::Error>;
 
     /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
     fn set_extranonce2_size(
         &mut self,
         client_id: Option<usize>,
         extra_nonce2_size: Option<usize>,
-    ) -> Result<usize, Error>;
+    ) -> Result<usize, Self::Error>;
 
-    fn extranonce2_size(&self, client_id: Option<usize>) -> Result<usize, Error>;
+    fn extranonce2_size(&self, client_id: Option<usize>) -> Result<usize, Self::Error>;
 
-    fn version_rolling_mask(&self, client_id: Option<usize>) -> Result<Option<HexU32Be>, Error>;
+    fn version_rolling_mask(
+        &self,
+        client_id: Option<usize>,
+    ) -> Result<Option<HexU32Be>, Self::Error>;
 
     fn set_version_rolling_mask(
         &mut self,
         client_id: Option<usize>,
         mask: Option<HexU32Be>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn set_version_rolling_min_bit(
         &mut self,
         client_id: Option<usize>,
         mask: Option<HexU32Be>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Self::Error>;
 
     fn update_extranonce(
         &mut self,
         client_id: Option<usize>,
         extra_nonce1: Extranonce,
         extra_nonce2_size: usize,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Self::Error> {
         self.set_extranonce1(client_id, Some(extra_nonce1.clone()))?;
         self.set_extranonce2_size(client_id, Some(extra_nonce2_size))?;
 
@@ -270,13 +273,13 @@ pub trait IsServer {
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
 
-    fn notify(&mut self, client_id: Option<usize>) -> Result<json_rpc::Message, Error>;
+    fn notify(&mut self, client_id: Option<usize>) -> Result<json_rpc::Message, Self::Error>;
 
     fn handle_set_difficulty(
         &mut self,
         _client_id: Option<usize>,
         value: f64,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message, Self::Error> {
         let set_difficulty = server_to_client::SetDifficulty { value };
         Ok(set_difficulty.into())
     }
