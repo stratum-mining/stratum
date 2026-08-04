@@ -667,6 +667,8 @@ mod tests {
     }
 
     impl IsServer for TestServer {
+        type Error = Error;
+
         fn handle_configure(
             &mut self,
             _client_id: Option<usize>,
