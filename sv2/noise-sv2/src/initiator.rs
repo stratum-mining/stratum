@@ -23,8 +23,8 @@
 //
 // The [`Initiator`] struct implements the [`HandshakeOp`] trait, which defines the core
 // cryptographic operations during the handshake. It ensures secure communication by supporting
-// both the [`ChaCha20Poly1305`] or `AES-GCM` cipher, providing both confidentiality and message
-// authentication for all subsequent communication.
+// the [`ChaCha20Poly1305`] cipher, providing both confidentiality and message authentication for
+// all subsequent communication.
 //
 // ### Secure Data Erasure
 //
@@ -41,16 +41,15 @@ use alloc::{
 use core::{convert::TryInto, ptr};
 
 use crate::{
-    cipher_state::{Cipher, CipherState, GenericCipher},
+    cipher_state::{Cipher, CipherState},
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
+    AeadError, NoiseEngine, ELLSWIFT_ENCODING_SIZE, ENCRYPTED_ELLSWIFT_ENCODING_SIZE,
     ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE, INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
     SIGNATURE_NOISE_MESSAGE_SIZE,
 };
-use aes_gcm::KeyInit;
-use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::{ChaCha20Poly1305, KeyInit};
 use secp256k1::{
     ellswift::{ElligatorSwift, ElligatorSwiftParty},
     Keypair, PublicKey, XOnlyPublicKey,
@@ -59,8 +58,8 @@ use secp256k1::{
 /// Manages the initiator's role in the Noise NX handshake, handling key exchange, encryption, and
 /// handshake state. It securely generates and manages cryptographic keys, performs Diffie-Hellman
 /// exchanges, and maintains the handshake hash, chaining key, and nonce for message encryption.
-/// After the handshake, it facilitates secure communication using either [`ChaCha20Poly1305`] or
-/// `AES-GCM` ciphers. Sensitive data is securely erased when no longer needed.
+/// After the handshake, it facilitates secure communication using [`ChaCha20Poly1305`]. Sensitive
+/// data is securely erased when no longer needed.
 #[derive(Clone)]
 pub struct Initiator {
     // Cipher used for encrypting and decrypting messages during the handshake.
@@ -87,12 +86,6 @@ pub struct Initiator {
     // handshake.
     #[allow(unused)]
     responder_authority_pk: Option<XOnlyPublicKey>,
-    // First [`CipherState`] used for encrypting messages from the initiator to the responder
-    // after the handshake is complete.
-    c1: Option<GenericCipher>,
-    // Second [`CipherState`] used for encrypting messages from the responder to the initiator
-    // after the handshake is complete.
-    c2: Option<GenericCipher>,
 }
 
 impl core::fmt::Debug for Initiator {
@@ -192,8 +185,6 @@ impl Initiator {
             h: [0; 32],
             e: Self::generate_key_with_rng(rng),
             responder_authority_pk: pk,
-            c1: None,
-            c2: None,
         };
         self_.initialize_self();
         Box::new(self_)
@@ -262,8 +253,8 @@ impl Initiator {
     /// the responder.
     ///
     /// On success, the function returns a 64-byte array containing the encoded public key.
-    /// If an error occurs during encryption, it returns an [`aes_gcm::Error`].
-    pub fn step_0(&mut self) -> Result<[u8; ELLSWIFT_ENCODING_SIZE], aes_gcm::Error> {
+    /// If an error occurs during encryption, it returns an [`AeadError`].
+    pub fn step_0(&mut self) -> Result<[u8; ELLSWIFT_ENCODING_SIZE], AeadError> {
         let elliswift_enc_pubkey = ElligatorSwift::from_pubkey(self.e.public_key()).to_array();
         self.mix_hash(&elliswift_enc_pubkey);
         self.encrypt_and_hash(&mut vec![])?;
@@ -287,7 +278,7 @@ impl Initiator {
     /// decrypts and verifies the signature included in the message to ensure the responder's
     /// authenticity.
     ///
-    /// On success, this method returns a [`NoiseCodec`] instance initialized with session ciphers
+    /// On success, this method returns a [`NoiseEngine`] instance initialized with session ciphers
     /// for secure communication. If the provided `message` has an incorrect length, it returns an
     /// [`Error::InvalidMessageLength`]. If decryption or signature verification fails, it returns
     /// an [`Error::InvalidCertificate`].
@@ -295,7 +286,7 @@ impl Initiator {
     pub fn step_2(
         &mut self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
-    ) -> Result<NoiseCodec, Error> {
+    ) -> Result<NoiseEngine, Error> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -314,7 +305,7 @@ impl Initiator {
         &mut self,
         message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
         now: u32,
-    ) -> Result<NoiseCodec, Error> {
+    ) -> Result<NoiseEngine, Error> {
         // 2. interprets first 64 bytes as ElligatorSwift encoding of x-coordinate of public key
         // from this is derived the 32-bytes remote ephemeral public key `re.public_key`
         let mut elliswift_theirs_ephemeral_serialized: [u8; ELLSWIFT_ENCODING_SIZE] =
@@ -384,17 +375,15 @@ impl Initiator {
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());
             let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
             let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-            self.c1 = None;
-            self.c2 = None;
-            let mut encryptor = GenericCipher::ChaCha20Poly1305(c1);
-            let mut decryptor = GenericCipher::ChaCha20Poly1305(c2);
+            let mut encryptor = c1;
+            let mut decryptor = c2;
             encryptor.erase_k();
             decryptor.erase_k();
-            let codec = crate::NoiseCodec {
+            let engine = crate::NoiseEngine {
                 encryptor,
                 decryptor,
             };
-            Ok(codec)
+            Ok(engine)
         } else {
             Err(Error::InvalidCertificate(plaintext.into()))
         }
@@ -417,12 +406,6 @@ impl Initiator {
         }
         for mut b in self.h {
             unsafe { ptr::write_volatile(&mut b, 0) };
-        }
-        if let Some(c1) = self.c1.as_mut() {
-            c1.erase_k()
-        }
-        if let Some(c2) = self.c2.as_mut() {
-            c2.erase_k()
         }
         self.e.non_secure_erase();
     }
