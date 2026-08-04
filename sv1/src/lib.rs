@@ -58,6 +58,13 @@ use utils::{Extranonce, HexU32Be};
 ///
 /// A stratum v1 server represent a single connection with a client
 pub trait IsServer {
+    /// Error returned by the server implementation.
+    ///
+    /// Implementations can use their application error type as long as native SV1 errors can be
+    /// converted into it. This allows default trait methods to report protocol errors while
+    /// implementors can also propagate errors from their own state and synchronization layers.
+    type Error: From<Error>;
+
     /// handle the received message and return a response if the message is a request or
     /// notification.
     fn handle_message(
