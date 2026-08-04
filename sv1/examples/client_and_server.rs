@@ -195,6 +195,8 @@ impl Server {
 }
 
 impl IsServer for Server {
+    type Error = Error;
+
     fn handle_configure(
         &mut self,
         _client_id: Option<usize>,
@@ -465,6 +467,8 @@ impl Client {
 }
 
 impl IsClient for Client {
+    type Error = Error;
+
     fn handle_set_difficulty(
         &mut self,
         _server_id: Option<usize>,
