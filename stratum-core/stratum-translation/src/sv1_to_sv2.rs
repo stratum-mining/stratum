@@ -83,7 +83,10 @@ pub fn build_sv2_submit_shares_extended_from_sv1_submit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use v1::{client_to_server::Submit, utils::HexU32Be};
+    use v1::{
+        client_to_server::Submit,
+        utils::{HexU32Be, VERSION_ROLLING_MASK},
+    };
 
     fn submit_template() -> Submit {
         Submit {
@@ -105,7 +108,7 @@ mod tests {
             1,
             100,
             0x20000000,
-            Some(HexU32Be(0x1fffe000)),
+            Some(HexU32Be(VERSION_ROLLING_MASK)),
         );
         assert!(res.is_ok());
 
@@ -116,7 +119,7 @@ mod tests {
         assert_eq!(submit.nonce, 0);
         assert_eq!(submit.ntime, 0);
         // Version should be computed from job_version and version rolling
-        assert_eq!(submit.version, 0x20000000); // (0x20000000 & !0x1fffe000) | (0 & 0x1fffe000)
+        assert_eq!(submit.version, 0x20000000); // (0x20000000 & !0x1fffffe0) | (0 & 0x1fffffe0)
         assert_eq!(submit.extranonce.len(), 4); // from vec![0, 1, 2, 3]
     }
 

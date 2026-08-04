@@ -211,7 +211,7 @@ impl IsServer for Server {
         let min_bit = self.version_rolling_min_bit.as_ref().unwrap().clone();
 
         Ok((
-            Some(server_to_client::VersionRollingParams::new(mask, min_bit).unwrap()),
+            Some(server_to_client::VersionRollingParams::new(mask, min_bit)),
             Some(false),
         ))
     }

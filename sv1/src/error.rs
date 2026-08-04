@@ -1,7 +1,4 @@
-use crate::{
-    methods::{Method, MethodError},
-    utils::HexU32Be,
-};
+use crate::methods::{Method, MethodError};
 use bitcoin::hashes::hex::HexToBytesError;
 #[derive(Debug)]
 #[non_exhaustive]
@@ -31,7 +28,6 @@ pub enum Error {
     UnauthorizedClient(String),
     /// Errors if server does not recognize the client's `id`.
     UnknownID(u64),
-    InvalidVersionMask(HexU32Be),
     /// Errors when an unexpected or unsupported message/method is called.
     UnexpectedMessage(String),
 }
@@ -72,7 +68,6 @@ impl std::fmt::Display for Error {
                 "Client with id `{id}` expected to be authorized but is unauthorized."
             ),
             Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{e}`."),
-            Error::InvalidVersionMask(e) => write!(f, "First 3 bits of version rolling mask must be 0 and last 13 bits of version rolling mask must be 0. Version rolling mask is: `{:b}`.", e.0),
             Error::UnexpectedMessage(method) => write!(f, "Unexpected or unsupported message/method called: `{method}`."),
         }
     }

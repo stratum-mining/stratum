@@ -6,6 +6,13 @@ use serde_json::Value;
 use std::fmt;
 use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 
+/// Version rolling mask as defined by
+/// [BIP323](https://github.com/bitcoin/bips/blob/master/bip-0323.mediawiki).
+///
+/// Bits 5-28 of the block header version field are general-purpose bits that can be freely
+/// manipulated by the miner. Bits 0-4 and 29-31 are reserved and must not be rolled.
+pub const VERSION_ROLLING_MASK: u32 = 0x1FFFFFE0;
+
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON.
 /// Extranonce must be less than or equal to 32 bytes.
