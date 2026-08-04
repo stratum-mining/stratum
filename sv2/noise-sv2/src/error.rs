@@ -4,7 +4,7 @@
 
 use alloc::vec::Vec;
 
-use aes_gcm::Error as AesGcm;
+use chacha20poly1305::aead::Error as AeadError;
 
 use crate::signature_message::SignatureNoiseMessage;
 
@@ -26,8 +26,8 @@ pub enum Error {
     /// Chosen cipher is invalid or unsupported.
     InvalidCipherChosed(Vec<u8>),
 
-    /// Wraps AES-GCM errors during encryption/decryption.
-    AesGcm(AesGcm),
+    /// Wraps AEAD errors during encryption/decryption.
+    Aead(AeadError),
 
     /// Cipher is in an invalid state during encryption/decryption operations.
     InvalidCipherState,
@@ -48,8 +48,8 @@ pub enum Error {
     InvalidMessageLength,
 }
 
-impl From<AesGcm> for Error {
-    fn from(value: AesGcm) -> Self {
-        Self::AesGcm(value)
+impl From<AeadError> for Error {
+    fn from(value: AeadError) -> Self {
+        Self::Aead(value)
     }
 }
